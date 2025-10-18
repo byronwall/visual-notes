@@ -190,6 +190,19 @@ async function main(): Promise<void> {
     if (val) serverUrl = val;
   }
 
+  // optional: batch size for posting (defaults to 20)
+  let postBatchSize = 20;
+  const batchSizeIndex = process.argv.findIndex(
+    (a) => a === "--post-batch-size" || a === "--batch-size"
+  );
+  if (batchSizeIndex !== -1) {
+    const val = process.argv[batchSizeIndex + 1];
+    const parsed = val ? Number(val) : NaN;
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      postBatchSize = Math.floor(parsed);
+    }
+  }
+
   // optional: path to skip-index file containing id -> updatedAt (ISO)
   let skipIndexPath = join(outDir, "skip-index.json");
   const skipIdxFlag = process.argv.findIndex((a) => a === "--skip-index");
@@ -278,6 +291,7 @@ async function main(): Promise<void> {
     if (jxaRawDir)
       console.log(`[visual-notes-ingest] JXA raw dir: ${jxaRawDir}`);
     console.log(`[visual-notes-ingest] Limit: ${limit}`);
+    console.log(`[visual-notes-ingest] Post batch size: ${postBatchSize}`);
     console.log(`[visual-notes-ingest] Skip index: ${skipIndexPath}`);
   }
 
@@ -602,55 +616,71 @@ async function main(): Promise<void> {
           }
         }
 
-        // 4) Cap to 20 unique notes
-        const toSend = candidates.slice(0, 20);
+        // 4) Determine upload set and batching
+        const toSendAll = candidates; // send all unique/changed
         if (verbose)
           console.log(
-            `[visual-notes-ingest] ${toSend.length} unique notes to upload (capped at 20; total exported=${exported.length}, unique=${candidates.length})`
+            `[visual-notes-ingest] ${toSendAll.length} unique notes to upload (total exported=${exported.length}, unique=${candidates.length}, batchSize=${postBatchSize})`
           );
-        if (verbose && toSend.length > 0) {
-          const preview = toSend
+        if (verbose && toSendAll.length > 0) {
+          const preview = toSendAll
             .slice(0, 10)
             .map((n) => `${n.originalContentId}#${n.contentHash.slice(0, 8)}`)
             .join(", ");
           console.log(`[visual-notes-ingest] Upload preview: ${preview}`);
         }
 
-        // 5) Upload
+        // 5) Upload in batches
         let successes = 0;
         let failures = 0;
-        for (let i = 0; i < toSend.length; i++) {
-          const note = toSend[i];
-          const title = note.title || "(untitled)";
-          try {
-            if (verbose)
-              console.log(
-                `[visual-notes-ingest] [${i + 1}/${
-                  toSend.length
-                }] POST ${title}`
-              );
-            const res = await fetchFn(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title,
-                markdown: note.markdown,
-                originalContentId: note.originalContentId,
-                contentHash: note.contentHash,
-              }),
-            });
-            const json: any = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-            successes++;
-            if (verbose)
-              console.log(
-                `[visual-notes-ingest]    -> success id=${json?.id ?? "?"}`
-              );
-          } catch (e) {
-            failures++;
-            console.error(
-              `[visual-notes-ingest]    -> failed: ${(e as Error).message}`
+        const total = toSendAll.length;
+        const effectiveBatchSize = postBatchSize > 0 ? postBatchSize : 20;
+        const totalBatches = Math.ceil(total / effectiveBatchSize) || 1;
+        for (
+          let start = 0, batchIndex = 0;
+          start < total;
+          start += effectiveBatchSize, batchIndex++
+        ) {
+          const batch = toSendAll.slice(start, start + effectiveBatchSize);
+          if (verbose) {
+            console.log(
+              `[visual-notes-ingest] Uploading batch ${
+                batchIndex + 1
+              }/${totalBatches} (${batch.length} items)`
             );
+          }
+          for (let j = 0; j < batch.length; j++) {
+            const note = batch[j];
+            const title = note.title || "(untitled)";
+            const globalIndex = start + j + 1;
+            try {
+              if (verbose)
+                console.log(
+                  `[visual-notes-ingest] [${globalIndex}/${total}] POST ${title}`
+                );
+              const res = await fetchFn(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  title,
+                  markdown: note.markdown,
+                  originalContentId: note.originalContentId,
+                  contentHash: note.contentHash,
+                }),
+              });
+              const json: any = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+              successes++;
+              if (verbose)
+                console.log(
+                  `[visual-notes-ingest]    -> success id=${json?.id ?? "?"}`
+                );
+            } catch (e) {
+              failures++;
+              console.error(
+                `[visual-notes-ingest]    -> failed: ${(e as Error).message}`
+              );
+            }
           }
         }
         console.log(
