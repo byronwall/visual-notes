@@ -1,6 +1,6 @@
 ## Visual Notes CLI – Apple Notes Export
 
-This CLI exports Apple Notes quickly and reliably with per-file HTML as the default. It also supports inline HTML in JSON on demand, filtering by modification time, and Markdown conversion.
+This CLI exports Apple Notes quickly and reliably with per-file HTML as the default. It also supports inline HTML in JSON on demand, filtering by modification time, Markdown conversion, and posting Markdown to the Visual Notes server.
 
 ### Requirements
 
@@ -49,7 +49,7 @@ osascript -l JavaScript scripts/export-apple-notes.jxa
 
 ### CLI wrapper (Node)
 
-The Node CLI orchestrates the JXA exporter, writes an index, and optionally converts to Markdown.
+The Node CLI orchestrates the JXA exporter, writes an index, optionally converts to Markdown, and can POST Markdown to the app server.
 
 Run from this package directory:
 
@@ -74,6 +74,8 @@ Supported flags:
 - `--markdown` – convert HTML to Markdown and write `out/notes.json`
 - `--split` – when `--markdown` is on, also write individual `*.md` files
 - `--split-dir /abs/or/relative` – directory for Markdown split output
+- `--post` – POST each Markdown note to the server (`/api/docs`)
+- `--server-url URL` – base server URL (default `http://localhost:3000`); can also set `SERVER_URL`
 - `--verbose` or `-v` – verbose logging
 - `--allow-dummy` – if JXA fails (permissions), use a deterministic sample to verify pipeline
 
@@ -120,6 +122,18 @@ pnpm tsx src/index.ts --inline-json --since 1697000000 -n 200
 ```bash
 pnpm tsx src/index.ts --markdown --split --split-dir "$PWD/out/notes-md"
 ```
+
+- End-to-end: convert to Markdown and upload to the running app server:
+
+```bash
+pnpm ingest -- --markdown --split --post --server-url http://localhost:3000 -v
+```
+
+Notes:
+
+- The CLI prefers reading HTML from on-disk files via `filePath` when converting to Markdown; otherwise it falls back to inline `html` returned by JXA.
+- The upload step posts `{ title, markdown }` to `POST /api/docs` on the base `--server-url`.
+- A final summary prints success/failed counts; verbose mode logs each note’s action.
 
 ### JSON shape
 

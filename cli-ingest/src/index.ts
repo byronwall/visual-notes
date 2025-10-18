@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -230,6 +230,14 @@ async function main(): Promise<void> {
 
   // Markdown conversion is opt-in
   const markdown = process.argv.includes("--markdown");
+  // Posting to server is opt-in
+  const postToServer = process.argv.includes("--post");
+  let serverUrl = process.env.SERVER_URL || "http://localhost:3000";
+  const serverUrlIndex = process.argv.findIndex((a) => a === "--server-url");
+  if (serverUrlIndex !== -1) {
+    const val = process.argv[serverUrlIndex + 1];
+    if (val) serverUrl = val;
+  }
   if (markdown) {
     const TurndownService = (await import("turndown")).default;
     const turndown = new TurndownService();
@@ -247,13 +255,35 @@ async function main(): Promise<void> {
           }] Converting: ${title}`
         );
       }
+      let htmlSource = n.html || "";
+      if (!htmlSource && n.filePath) {
+        try {
+          if (existsSync(n.filePath)) {
+            if (verbose)
+              console.log(
+                `[visual-notes-ingest] Reading HTML from file: ${n.filePath}`
+              );
+            htmlSource = readFileSync(n.filePath, "utf8");
+          } else if (verbose) {
+            console.warn(
+              `[visual-notes-ingest] HTML file not found: ${n.filePath}`
+            );
+          }
+        } catch (e) {
+          console.warn(
+            `[visual-notes-ingest] Failed to read HTML file ${n.filePath}: ${
+              (e as Error).message
+            }`
+          );
+        }
+      }
       return {
         id: n.id,
         title: n.title,
         createdAt: n.createdAt,
         updatedAt: n.updatedAt,
         folder: n.folder,
-        markdown: turndown.turndown(n.html || ""),
+        markdown: turndown.turndown(htmlSource),
       };
     });
 
@@ -287,6 +317,63 @@ async function main(): Promise<void> {
     }
 
     console.log(`Wrote ${exported.length} notes to ${notesJsonPath}`);
+
+    // Optionally POST each markdown note to the server
+    if (postToServer) {
+      const endpoint = serverUrl.replace(/\/?$/, "") + "/api/docs";
+      if (verbose) {
+        console.log(
+          `[visual-notes-ingest] Posting ${exported.length} notes to ${endpoint}...`
+        );
+      }
+      const fetchFn = (globalThis as any).fetch as
+        | ((input: string, init?: any) => Promise<any>)
+        | undefined;
+      if (!fetchFn) {
+        console.error(
+          "[visual-notes-ingest] No global fetch available. Use Node 18+ or set a fetch polyfill."
+        );
+      } else {
+        let successes = 0;
+        let failures = 0;
+        for (let i = 0; i < exported.length; i++) {
+          const note = exported[i];
+          const title = note.title || "(untitled)";
+          try {
+            if (verbose)
+              console.log(
+                `[visual-notes-ingest] [${i + 1}/${
+                  exported.length
+                }] POST ${title}`
+              );
+            const res = await fetchFn(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title, markdown: note.markdown }),
+            });
+            const json: any = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+            successes++;
+            if (verbose)
+              console.log(
+                `[visual-notes-ingest]    -> success id=${json?.id ?? "?"}`
+              );
+          } catch (e) {
+            failures++;
+            console.error(
+              `[visual-notes-ingest]    -> failed: ${(e as Error).message}`
+            );
+          }
+        }
+        console.log(
+          `[visual-notes-ingest] Upload complete: success=${successes} failed=${failures}`
+        );
+      }
+    } else if (verbose) {
+      console.log(
+        `[visual-notes-ingest] Skipping POST (enable with --post, server via --server-url or SERVER_URL)`
+      );
+    }
   } else {
     // Raw mode: write index with metadata + file paths only
     const rawIndexPath = join(outDir, "raw-index.json");

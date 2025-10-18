@@ -10,7 +10,7 @@
         "build": "tsc -p tsconfig.json",
         "dev": "tsx src/index.ts",
         "start": "node dist/index.js",
-        "ingest": "tsx src/index.ts",
+        "ingest": "tsx src/index.ts --markdown --split --post -v",
         "export:compile": "osacompile -l JavaScript -o scripts/export-apple-notes.scpt scripts/export-apple-notes.jxa",
         "export:10": "LIMIT=10 osascript scripts/export-apple-notes.jxa"
     },
