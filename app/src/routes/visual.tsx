@@ -753,6 +753,7 @@ const VisualCanvas: VoidComponent = () => {
                       >
                         <span
                           style={{
+                            "flex-shrink": 0,
                             width: "10px",
                             height: "10px",
                             background: colorFor(d.title),
@@ -762,7 +763,7 @@ const VisualCanvas: VoidComponent = () => {
                           }}
                         />
                         <span class="truncate text-sm">{d.title}</span>
-                        <span class="ml-auto text-[10px] text-gray-500">
+                        <span class="ml-auto text-[10px] text-gray-500 flex-shrink-0">
                           {(() => {
                             const m = mouseWorld();
                             const pp = p();
@@ -770,7 +771,24 @@ const VisualCanvas: VoidComponent = () => {
                             const dx = pp.x - m.x;
                             const dy = pp.y - m.y;
                             const dist = Math.sqrt(dx * dx + dy * dy);
-                            return `${Math.round(dist)}u`;
+                            // Determine 8-way direction from mouse to item for subtle guidance
+                            const angle = Math.atan2(-dy, dx);
+                            const arrows = [
+                              "→",
+                              "↗",
+                              "↑",
+                              "↖",
+                              "←",
+                              "↙",
+                              "↓",
+                              "↘",
+                            ];
+                            const idx =
+                              ((Math.round((angle * 8) / (2 * Math.PI)) % 8) +
+                                8) %
+                              8;
+                            const arrow = arrows[idx];
+                            return `${Math.round(dist)}u ${arrow}`;
                           })()}
                         </span>
                       </button>
