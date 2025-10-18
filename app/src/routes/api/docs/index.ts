@@ -3,22 +3,57 @@ import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
 import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import { createHash } from "crypto";
 
 const ingestInput = z.object({
   title: z.string().min(1).max(200),
   markdown: z.string().min(1),
+  originalContentId: z.string().min(1).max(512).optional(),
+  contentHash: z.string().min(16).max(128).optional(),
 });
+
+function computeSha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
 
 export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
     const input = ingestInput.parse(body);
     const html = normalizeAiOutputToHtml(input.markdown);
-    const created = await (prisma as any).doc.create({
-      data: { title: input.title, markdown: input.markdown, html },
-      select: { id: true },
-    });
-    return json({ id: created.id }, { status: 201 });
+    const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
+
+    if (input.originalContentId) {
+      const upserted = await (prisma as any).doc.upsert({
+        where: { originalContentId: input.originalContentId },
+        create: {
+          title: input.title,
+          markdown: input.markdown,
+          html,
+          originalContentId: input.originalContentId,
+          contentHash,
+        },
+        update: {
+          title: input.title,
+          markdown: input.markdown,
+          html,
+          contentHash,
+        },
+        select: { id: true },
+      });
+      return json({ id: upserted.id }, { status: 201 });
+    } else {
+      const created = await (prisma as any).doc.create({
+        data: {
+          title: input.title,
+          markdown: input.markdown,
+          html,
+          contentHash,
+        },
+        select: { id: true },
+      });
+      return json({ id: created.id }, { status: 201 });
+    }
   } catch (e) {
     const msg = (e as Error).message || "Invalid request";
     return json({ error: msg }, { status: 400 });

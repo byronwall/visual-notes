@@ -156,12 +156,14 @@ model LlmRequest {
 
 /// Minimal document for Markdown ingest
 model Doc {
-  id        String   @id @default(cuid())
-  title     String
-  markdown  String // @db.Text
-  html      String // @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  title             String
+  markdown          String // @db.Text
+  html              String // @db.Text
+  originalContentId String?  @unique
+  contentHash       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 /// Vector embedding run metadata
