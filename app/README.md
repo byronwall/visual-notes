@@ -10,6 +10,15 @@ Small Solid app that ingests a Markdown document via API and displays a rendered
 - **Attribution**: ESV short copyright attribution shown in the reader.
 - **AI Summary**: One-click AI chapter summary rendered above the passage, cached per passage, with an expandable details view.
 
+### Embeddings + UMAP (new UI)
+
+- Navigate via the top navbar: `Embeddings`, `UMAP`, and `Canvas`.
+- `Embeddings` page lets you start a new embeddings run and browse runs.
+- `Embeddings > [run]` lets you delete the run and start a UMAP run (2D/3D).
+- `UMAP` page lets you choose an embeddings run and create a UMAP projection.
+- `UMAP > [run]` shows run info and a small points preview (first 48).
+- `Canvas` uses the latest UMAP run to place notes; otherwise it falls back to a seeded layout.
+
 ## Getting started
 
 1. Install deps

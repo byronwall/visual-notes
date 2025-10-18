@@ -2,7 +2,7 @@ import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
-import UMAP from "umap-js";
+import * as UmapModule from "umap-js";
 
 const createSchema = z.object({
   embeddingRunId: z.string(),
@@ -30,7 +30,11 @@ export async function POST(event: APIEvent) {
       return json({ error: "No embeddings for run" }, { status: 400 });
 
     const matrix = rows.map((r: any) => r.vector as number[]);
-    const umap = new UMAP({
+    const UMAPCtor = (UmapModule as any).UMAP || (UmapModule as any).default;
+    if (typeof UMAPCtor !== "function") {
+      throw new Error("UMAP constructor not found in umap-js module");
+    }
+    const umap = new UMAPCtor({
       nComponents: input.dims,
       nNeighbors: input.params?.nNeighbors ?? 15,
       minDist: input.params?.minDist ?? 0.1,

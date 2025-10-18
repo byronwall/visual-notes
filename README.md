@@ -165,6 +165,14 @@ curl -s -X POST http://localhost:3000/api/docs \
 
 This app now supports computing OpenAI embeddings for each stored document and generating UMAP projections for visualization. The client canvas at `/visual` will automatically use the latest UMAP run to position notes (falls back to a seeded layout if no run exists).
 
+### UI pages
+
+- `/embeddings` — Create a new embedding run and view recent runs
+- `/embeddings/[id]` — View a run, delete it, and trigger a UMAP run (2D/3D)
+- `/umap` — Create a UMAP run for a selected embedding run and view recent runs
+- `/umap/[id]` — View a UMAP run, delete it, and preview the first 48 points
+- `/visual` — Canvas visualization; uses the latest UMAP run if present
+
 ### Environment
 
 Set these in your shell or via Compose (see below):
@@ -189,11 +197,17 @@ Embeddings are stored as `Float[]` for simplicity (no `pgvector` required). UMAP
   - Body (optional): `{ "model": "text-embedding-3-small" }`
   - Response: `{ runId, count }`
 - `GET /api/embeddings/runs` → Lists recent embedding runs
+- `GET /api/embeddings/runs/[id]` → Returns a single run with `{ id, model, dims, params, createdAt, count }`
+- `PATCH /api/embeddings/runs/[id]` → Update `model`, `dims`, or `params` metadata
+- `DELETE /api/embeddings/runs/[id]` → Deletes the run and its `DocEmbedding` rows
 
 - `POST /api/umap/runs` → Creates a UMAP projection for a given embedding run
   - Body: `{ "embeddingRunId": string, "dims": 2 | 3, "params"?: { "nNeighbors"?: number, "minDist"?: number, "metric"?: "cosine" | "euclidean" } }`
   - Response: `{ jobId: null, runId }`
 - `GET /api/umap/runs` → Lists recent UMAP runs
+- `GET /api/umap/runs/[id]` → Returns a single run with `{ id, dims, params, embeddingRunId, createdAt, count }`
+- `PATCH /api/umap/runs/[id]` → Update `dims` or `params` metadata
+- `DELETE /api/umap/runs/[id]` → Deletes the run and its `UmapPoint` rows
 - `GET /api/umap/points?runId=...` → Returns `{ runId, dims, points: [{ docId, x, y, z? }], meta: { count } }`
 
 ### Quickstart: embeddings → UMAP → visualize
@@ -222,6 +236,40 @@ curl -s -X POST http://localhost:3000/api/umap/runs \
 ```
 
 4. Open the canvas at `http://localhost:3000/visual`. The latest UMAP run is fetched automatically to position notes.
+
+### Per-run examples (detail, update, delete)
+
+Embedding run detail:
+
+```bash
+curl -s http://localhost:3000/api/embeddings/runs/<runId> | jq .
+```
+
+Update embedding run metadata:
+
+```bash
+curl -s -X PATCH http://localhost:3000/api/embeddings/runs/<runId> \
+  -H 'Content-Type: application/json' \
+  -d '{"params":{"note":"my tag"}}' | jq .
+```
+
+Delete embedding run (also removes vectors):
+
+```bash
+curl -s -X DELETE http://localhost:3000/api/embeddings/runs/<runId> | jq .
+```
+
+UMAP run detail:
+
+```bash
+curl -s http://localhost:3000/api/umap/runs/<runId> | jq .
+```
+
+Delete UMAP run (also removes points):
+
+```bash
+curl -s -X DELETE http://localhost:3000/api/umap/runs/<runId> | jq .
+```
 
 ### Docker (embeddings + UMAP)
 

@@ -10,6 +10,16 @@ const bodySchema = z.object({
   params: z.record(z.any()).optional(),
 });
 
+// Keep each input well under the model's context limit. Roughly ~4 chars/token,
+// so 8000 chars ≈ 2000 tokens. We'll implement smarter chunking later.
+const MAX_EMBED_INPUT_CHARS = 8000;
+
+function truncateForEmbedding(text: string): string {
+  return text.length > MAX_EMBED_INPUT_CHARS
+    ? text.slice(0, MAX_EMBED_INPUT_CHARS)
+    : text;
+}
+
 async function embedWithOpenAI(
   texts: string[],
   model: string
@@ -49,7 +59,9 @@ export async function POST(event: APIEvent) {
       select: { id: true, title: true, markdown: true },
       orderBy: { createdAt: "asc" },
     });
-    const inputs = docs.map((d: any) => `${d.title}\n\n${d.markdown}`);
+    const inputs = docs.map((d: any) =>
+      truncateForEmbedding(`${d.title}\n\n${d.markdown}`)
+    );
     const vectors = inputs.length
       ? await embedWithOpenAI(inputs, useModel)
       : [];
@@ -84,7 +96,12 @@ export async function POST(event: APIEvent) {
   }
 }
 
-export async function GET(_event: APIEvent) {
+export async function GET(event: APIEvent) {
+  const url = new URL(event.request.url);
+  const limit = Math.min(
+    200,
+    Math.max(1, Number(url.searchParams.get("limit") || "20"))
+  );
   // List recent embedding runs
   const runs = await (prisma as any).embeddingRun.findMany({
     orderBy: { createdAt: "desc" },
@@ -95,7 +112,27 @@ export async function GET(_event: APIEvent) {
       params: true,
       createdAt: true,
     },
-    take: 20,
+    take: limit,
   });
-  return json({ runs });
+  // Attach counts of embedded docs per run
+  const runIds = runs.map((r: any) => r.id);
+  let idToCount: Record<string, number> = {};
+  if (runIds.length) {
+    // Prefer a single groupBy query for efficiency; fall back to 0 if unsupported
+    const grouped = await (prisma as any).docEmbedding
+      .groupBy({
+        by: ["runId"],
+        _count: { _all: true },
+        where: { runId: { in: runIds } },
+      })
+      .catch(() => [] as any[]);
+    idToCount = Object.fromEntries(
+      (grouped as any[]).map((g: any) => [g.runId, g._count?._all ?? 0])
+    );
+  }
+  const runsWithCounts = runs.map((r: any) => ({
+    ...r,
+    count: idToCount[r.id] ?? 0,
+  }));
+  return json({ runs: runsWithCounts });
 }

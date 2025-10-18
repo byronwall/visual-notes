@@ -36,6 +36,12 @@ const Navbar: VoidComponent = () => {
             <a href="/visual" class="hover:underline">
               Canvas
             </a>
+            <a href="/embeddings" class="hover:underline">
+              Embeddings
+            </a>
+            <a href="/umap" class="hover:underline">
+              UMAP
+            </a>
           </div>
         </div>
         <div class="flex items-center gap-2">

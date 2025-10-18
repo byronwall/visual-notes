@@ -7,6 +7,7 @@ import {
   onCleanup,
   onMount,
   createEffect,
+  createMemo,
 } from "solid-js";
 import SidePanel from "../components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
@@ -17,6 +18,7 @@ type UmapRun = { id: string; dims: number };
 type FullDoc = { id: string; title: string; html: string };
 
 const SPREAD = 1000;
+const isBrowser = typeof window !== "undefined";
 
 async function fetchDocs(): Promise<DocItem[]> {
   const res = await apiFetch("/api/docs?take=500");
@@ -121,6 +123,60 @@ const VisualCanvas: VoidComponent = () => {
   let frame = 0 as number | undefined;
   let containerEl: HTMLDivElement | undefined;
 
+  // Build a normalized index of UMAP positions mapped into a consistent world space
+  const umapIndex = createMemo(() => {
+    const pts = umapPoints();
+    if (!pts || pts.length === 0)
+      return new Map<string, { x: number; y: number }>();
+
+    // Compute bounding box
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    // Scale to fit within [-SPREAD, SPREAD] while preserving aspect ratio
+    const safeWidth = width === 0 ? 1 : width;
+    const safeHeight = height === 0 ? 1 : height;
+    const scale = Math.min((2 * SPREAD) / safeWidth, (2 * SPREAD) / safeHeight);
+
+    const map = new Map<string, { x: number; y: number }>();
+    for (const p of pts) {
+      const nx = (p.x - cx) * scale;
+      const ny = (p.y - cy) * scale;
+      map.set(p.docId, { x: nx, y: ny });
+    }
+    try {
+      console.log(
+        `[visual] UMAP normalization: bbox min=(${minX.toFixed(
+          2
+        )}, ${minY.toFixed(2)}) max=(${maxX.toFixed(2)}, ${maxY.toFixed(
+          2
+        )}), span=(${(maxX - minX).toFixed(2)}, ${(maxY - minY).toFixed(
+          2
+        )}), scale=${scale.toFixed(3)}; points=${pts.length}`
+      );
+      const preview = pts.slice(0, Math.min(5, pts.length)).map((p) => ({
+        docId: p.docId,
+        src: { x: p.x, y: p.y },
+        norm: map.get(p.docId),
+      }));
+      console.log(`[visual] UMAP sample (first ${preview.length})`, preview);
+    } catch {}
+    return map;
+  });
+
   function applyTransform() {
     if (!containerEl) return;
     const t = offset();
@@ -129,6 +185,7 @@ const VisualCanvas: VoidComponent = () => {
   }
 
   function scheduleTransform() {
+    if (!isBrowser) return;
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = undefined as unknown as number;
@@ -195,6 +252,7 @@ const VisualCanvas: VoidComponent = () => {
   }
 
   function fitToSpread() {
+    if (!isBrowser) return;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const availH = Math.max(100, vh - navHeight());
@@ -232,13 +290,56 @@ const VisualCanvas: VoidComponent = () => {
           pos: seededPositionFor(d.title, i),
         }))
       );
-      if (list.length > 0) fitToSpread();
+      if (isBrowser && list.length > 0) fitToSpread();
     }
   });
 
+  // Log UMAP run and points loaded
+  createEffect(() => {
+    const run = umapRun();
+    if (run) {
+      console.log(`[visual] UMAP run loaded id=${run.id} dims=${run.dims}`);
+    }
+  });
+
+  createEffect(() => {
+    const pts = umapPoints();
+    if (pts) {
+      console.log(`[visual] UMAP points loaded: ${pts.length}`);
+    }
+  });
+
+  // Log coordinate source summary
+  createEffect(() => {
+    const list = docs();
+    if (!list) return;
+    const index = umapIndex();
+    let usedUmap = 0;
+    let usedSeed = 0;
+    for (const d of list) {
+      if (index.has(d.id)) usedUmap++;
+      else usedSeed++;
+    }
+    const sample = list.slice(0, Math.min(10, list.length)).map((d, i) => {
+      const fromUmap = index.get(d.id);
+      return {
+        id: d.id,
+        title: d.title,
+        source: fromUmap ? "umap" : "seed",
+        pos: fromUmap ?? seededPositionFor(d.title, i),
+      };
+    });
+    console.log(
+      `[visual] coordinate sources → umap=${usedUmap}, seeded=${usedSeed} (sample below)`
+    );
+    console.log(sample);
+  });
+
   onCleanup(() => {
-    if (frame) cancelAnimationFrame(frame);
-    window.removeEventListener("resize", scheduleTransform);
+    if (isBrowser) {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", scheduleTransform);
+    }
   });
 
   return (
@@ -275,10 +376,8 @@ const VisualCanvas: VoidComponent = () => {
             {(list) => (
               <For each={list()}>
                 {(d, i) => {
-                  const found = umapPoints()?.find((p) => p.docId === d.id);
-                  const p = found
-                    ? { x: found.x, y: found.y }
-                    : seededPositionFor(d.title, i());
+                  const fromUmap = umapIndex().get(d.id);
+                  const p = fromUmap ?? seededPositionFor(d.title, i());
                   const bg = colorFor(d.title);
                   return (
                     <button
