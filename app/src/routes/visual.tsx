@@ -12,6 +12,8 @@ import SidePanel from "../components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
 
 type DocItem = { id: string; title: string; createdAt: string };
+type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
+type UmapRun = { id: string; dims: number };
 type FullDoc = { id: string; title: string; html: string };
 
 const SPREAD = 1000;
@@ -21,6 +23,22 @@ async function fetchDocs(): Promise<DocItem[]> {
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
+}
+
+async function fetchLatestUmapRun(): Promise<UmapRun | undefined> {
+  const res = await apiFetch("/api/umap/runs");
+  if (!res.ok) return undefined;
+  const json = (await res.json()) as { runs: UmapRun[] };
+  return json.runs?.[0];
+}
+
+async function fetchUmapPoints(runId: string): Promise<UmapPoint[]> {
+  const res = await apiFetch(
+    `/api/umap/points?runId=${encodeURIComponent(runId)}`
+  );
+  if (!res.ok) throw new Error("Failed to load UMAP points");
+  const json = (await res.json()) as { points: UmapPoint[] };
+  return json.points || [];
 }
 
 async function fetchDoc(id: string): Promise<FullDoc> {
@@ -81,6 +99,12 @@ function colorFor(title: string): string {
 
 const VisualCanvas: VoidComponent = () => {
   const [docs] = createResource(fetchDocs);
+  const [umapRun] = createResource(fetchLatestUmapRun);
+  const [umapPoints] = createResource(async () => {
+    const run = await fetchLatestUmapRun();
+    if (!run) return [] as UmapPoint[];
+    return fetchUmapPoints(run.id);
+  });
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
@@ -251,7 +275,10 @@ const VisualCanvas: VoidComponent = () => {
             {(list) => (
               <For each={list()}>
                 {(d, i) => {
-                  const p = seededPositionFor(d.title, i());
+                  const found = umapPoints()?.find((p) => p.docId === d.id);
+                  const p = found
+                    ? { x: found.x, y: found.y }
+                    : seededPositionFor(d.title, i());
                   const bg = colorFor(d.title);
                   return (
                     <button

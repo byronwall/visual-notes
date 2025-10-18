@@ -163,3 +163,58 @@ model Doc {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Vector embedding run metadata
+model EmbeddingRun {
+  id        String   @id @default(cuid())
+  model     String
+  dims      Int
+  params    Json?
+  createdAt DateTime @default(now())
+
+  docEmbeddings DocEmbedding[]
+  UmapRun       UmapRun[]
+}
+
+/// Embedding vector for a full Doc under a specific EmbeddingRun
+model DocEmbedding {
+  id        String   @id @default(cuid())
+  runId     String
+  docId     String
+  vector    Float[]
+  createdAt DateTime @default(now())
+
+  run EmbeddingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, docId])
+  @@index([docId])
+}
+
+/// UMAP projection run over a given EmbeddingRun
+model UmapRun {
+  id             String   @id @default(cuid())
+  embeddingRunId String
+  dims           Int
+  params         Json?
+  createdAt      DateTime @default(now())
+
+  embeddingRun EmbeddingRun @relation(fields: [embeddingRunId], references: [id], onDelete: Cascade)
+  points       UmapPoint[]
+
+  @@index([embeddingRunId, createdAt])
+}
+
+/// Coordinates for each Doc in a UMAP projection run
+model UmapPoint {
+  id    String @id @default(cuid())
+  runId String
+  docId String
+  x     Float
+  y     Float
+  z     Float?
+
+  run UmapRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, docId])
+  @@index([docId])
+}

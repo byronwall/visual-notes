@@ -9,6 +9,7 @@ export const serverScheme = z.object({
   AUTH_URL: z.string().optional(),
   DATABASE_URL: z.string(),
   OPENAI_API_KEY: z.string().optional(),
+  EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Explicit public base URL for server-side absolute fetch construction
   PUBLIC_BASE_URL: z.string().url().optional(),
   // Back-compat alias

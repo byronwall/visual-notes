@@ -160,3 +160,77 @@ curl -s -X POST http://localhost:3000/api/docs \
   -H 'Content-Type: application/json' \
   -d '{"title":"Hello","markdown":"# Hello\nSome text."}' | jq .
 ```
+
+## Embeddings + UMAP (New)
+
+This app now supports computing OpenAI embeddings for each stored document and generating UMAP projections for visualization. The client canvas at `/visual` will automatically use the latest UMAP run to position notes (falls back to a seeded layout if no run exists).
+
+### Environment
+
+Set these in your shell or via Compose (see below):
+
+- `OPENAI_API_KEY`: Required to call OpenAI embeddings API
+- `EMBEDDING_MODEL`: Model id (default `text-embedding-3-small`)
+
+The Compose file already passes through `OPENAI_API_KEY` and sets a default for `EMBEDDING_MODEL`.
+
+### Database models
+
+- `EmbeddingRun(id, model, dims, params, createdAt)`
+- `DocEmbedding(id, runId, docId, vector Float[], createdAt)`
+- `UmapRun(id, embeddingRunId, dims, params, createdAt)`
+- `UmapPoint(id, runId, docId, x, y, z?)`
+
+Embeddings are stored as `Float[]` for simplicity (no `pgvector` required). UMAP points are stored per-run so multiple runs can coexist.
+
+### API endpoints
+
+- `POST /api/embeddings/runs` → Computes embeddings for all docs and creates a new `EmbeddingRun`.
+  - Body (optional): `{ "model": "text-embedding-3-small" }`
+  - Response: `{ runId, count }`
+- `GET /api/embeddings/runs` → Lists recent embedding runs
+
+- `POST /api/umap/runs` → Creates a UMAP projection for a given embedding run
+  - Body: `{ "embeddingRunId": string, "dims": 2 | 3, "params"?: { "nNeighbors"?: number, "minDist"?: number, "metric"?: "cosine" | "euclidean" } }`
+  - Response: `{ jobId: null, runId }`
+- `GET /api/umap/runs` → Lists recent UMAP runs
+- `GET /api/umap/points?runId=...` → Returns `{ runId, dims, points: [{ docId, x, y, z? }], meta: { count } }`
+
+### Quickstart: embeddings → UMAP → visualize
+
+1. Ingest a few docs (see earlier examples), then compute embeddings:
+
+```bash
+curl -s -X POST http://localhost:3000/api/embeddings/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"text-embedding-3-small"}' | jq .
+```
+
+2. List embedding runs and pick one:
+
+```bash
+curl -s http://localhost:3000/api/embeddings/runs | jq .
+```
+
+3. Create a UMAP run from that embedding run:
+
+```bash
+EMB_RUN_ID="<paste-from-step-2>"
+curl -s -X POST http://localhost:3000/api/umap/runs \
+  -H 'Content-Type: application/json' \
+  -d "{\"embeddingRunId\":\"$EMB_RUN_ID\",\"dims\":2,\"params\":{\"nNeighbors\":15,\"minDist\":0.1,\"metric\":\"cosine\"}}" | jq .
+```
+
+4. Open the canvas at `http://localhost:3000/visual`. The latest UMAP run is fetched automatically to position notes.
+
+### Docker (embeddings + UMAP)
+
+Pass your OpenAI key when starting Compose:
+
+```bash
+cd app
+OPENAI_API_KEY=sk-... EMBEDDING_MODEL=text-embedding-3-small \
+  docker compose up --build
+```
+
+The `app/docker-compose.yml` forwards `OPENAI_API_KEY` and sets a default `EMBEDDING_MODEL`. On container start, Prisma migrations are applied before serving.

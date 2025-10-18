@@ -36,6 +36,8 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me}
       # External APIs
       ESV_API_KEY: ${ESV_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       # Database pieces (compose defaults)
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}
