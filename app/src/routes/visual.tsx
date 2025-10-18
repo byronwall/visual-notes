@@ -8,8 +8,10 @@ import {
   onMount,
   createEffect,
 } from "solid-js";
+import SidePanel from "../components/SidePanel";
 
 type DocItem = { id: string; title: string; createdAt: string };
+type FullDoc = { id: string; title: string; html: string };
 
 const SPREAD = 1000;
 
@@ -18,6 +20,12 @@ async function fetchDocs(): Promise<DocItem[]> {
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
+}
+
+async function fetchDoc(id: string): Promise<FullDoc> {
+  const res = await fetch(`/api/docs/${id}`);
+  if (!res.ok) throw new Error("Failed to load doc");
+  return (await res.json()) as FullDoc;
 }
 
 function hashString(input: string): number {
@@ -72,6 +80,12 @@ function colorFor(title: string): string {
 
 const VisualCanvas: VoidComponent = () => {
   const [docs] = createResource(fetchDocs);
+  const [selectedId, setSelectedId] = createSignal<string | undefined>(
+    undefined
+  );
+  const [selectedDoc] = createResource(selectedId, (id) =>
+    id ? fetchDoc(id) : Promise.resolve(undefined as unknown as FullDoc)
+  );
 
   // Pan/zoom state
   const [scale, setScale] = createSignal(1);
@@ -239,9 +253,14 @@ const VisualCanvas: VoidComponent = () => {
                   const p = seededPositionFor(d.title, i());
                   const bg = colorFor(d.title);
                   return (
-                    <a
-                      href={`/docs/${d.id}`}
+                    <button
+                      type="button"
                       title={d.title}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedId(d.id);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
                       style={{
                         position: "absolute",
                         left: `${p.x}px`,
@@ -258,10 +277,11 @@ const VisualCanvas: VoidComponent = () => {
                         "max-width": "320px",
                         "text-overflow": "ellipsis",
                         overflow: "hidden",
+                        cursor: "pointer",
                       }}
                     >
                       {d.title}
-                    </a>
+                    </button>
                   );
                 }}
               </For>
@@ -269,6 +289,24 @@ const VisualCanvas: VoidComponent = () => {
           </Show>
         </div>
       </div>
+      <SidePanel open={!!selectedId()} onClose={() => setSelectedId(undefined)}>
+        <Show
+          when={selectedId()}
+          fallback={<div class="text-sm text-gray-600">No note selected.</div>}
+        >
+          <Show
+            when={selectedDoc()}
+            fallback={<div class="p-2 text-sm text-gray-600">Loading…</div>}
+          >
+            {(doc) => (
+              <article class="prose max-w-none">
+                <h2 class="mt-0">{doc().title}</h2>
+                <div innerHTML={doc().html} />
+              </article>
+            )}
+          </Show>
+        </Show>
+      </SidePanel>
       <div
         class="fixed left-4 z-10 flex flex-col gap-2 bg-white/85 backdrop-blur border border-gray-200 rounded p-2 shadow"
         style={{ top: `${navHeight() + 12}px` }}
