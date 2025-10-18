@@ -15,7 +15,7 @@ export default function App() {
     <Router
       root={(props) => (
         <MetaProvider>
-          <Title>Bible Reading</Title>
+          <Title>Visual Notes</Title>
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <Navbar />

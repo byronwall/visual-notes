@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as db from "~/server/db";
 import { POST as postDocs } from "./index";
+import { GET as listDocs } from "./index";
 import { GET as getDoc } from "./[id]";
 
 describe("Docs API", () => {
@@ -35,5 +36,25 @@ describe("Docs API", () => {
     expect(getJson.id).toBe(fakeId);
     expect(getJson.title).toBe("T");
     expect(getJson.html).toContain("<p>");
+  });
+
+  it("lists recent docs", async () => {
+    const items = [
+      { id: "a", title: "A", createdAt: new Date("2025-01-02T00:00:00Z") },
+      { id: "b", title: "B", createdAt: new Date("2025-01-01T00:00:00Z") },
+    ];
+    const findMany = vi.fn().mockResolvedValue(items);
+    vi.spyOn(db, "prisma", "get").mockReturnValue({
+      doc: { findMany },
+    } as any);
+
+    const req = new Request("http://x/api/docs", { method: "GET" });
+    const res = await listDocs({ request: req } as any);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(Array.isArray(json.items)).toBe(true);
+    expect(json.items.length).toBe(2);
+    expect(json.items[0].id).toBe("a");
+    expect(findMany).toHaveBeenCalledOnce();
   });
 });

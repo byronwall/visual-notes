@@ -30,15 +30,9 @@ const Navbar: VoidComponent = () => {
             <span>Visual Notes</span>
           </a>
           <div class="flex items-center gap-4 text-sm">
-            <a href="/history" class="hover:underline">
-              History
+            <a href="/docs" class="hover:underline">
+              Notes
             </a>
-
-            {auth.status() === "authenticated" && (
-              <a href="/admin" class="hover:underline">
-                Admin
-              </a>
-            )}
           </div>
         </div>
         <div class="flex items-center gap-2">

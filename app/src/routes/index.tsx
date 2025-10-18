@@ -1,11 +1,16 @@
 import { type VoidComponent, createSignal } from "solid-js";
-import { useNavigate } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 
 const Home: VoidComponent = () => {
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4">
         <h1 class="text-2xl font-bold mb-4">Visual Notes</h1>
+        <p class="mb-4">
+          <A href="/docs" class="text-blue-600 underline">
+            Browse Notes
+          </A>
+        </p>
         <MinimalIngestForm />
       </div>
     </main>

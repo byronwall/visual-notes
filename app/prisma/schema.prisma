@@ -35,18 +35,15 @@ model Session {
 }
 
 model User {
-  id            String            @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?           @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   sessions      Session[]
   // Password hash for Credentials provider auth (nullable to allow future OAuth)
   passwordHash  String?
-  // Relations
-  plans         Plan[]            @relation("UserPlans")
-  progress      ReadingProgress[]
 }
 
 model VerificationToken {
@@ -55,111 +52,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-/// Reading plan a user can own or a global base plan
-model Plan {
-  id        String            @id @default(cuid())
-  title     String
-  isGlobal  Boolean           @default(false)
-  ownerId   String?
-  owner     User?             @relation("UserPlans", fields: [ownerId], references: [id])
-  createdAt DateTime          @default(now())
-  days      PlanDay[]
-  progress  ReadingProgress[]
-}
-
-model PlanDay {
-  id       String            @id @default(cuid())
-  planId   String
-  plan     Plan              @relation(fields: [planId], references: [id], onDelete: Cascade)
-  // Optional local date string like YYYY-MM-DD
-  date     String?
-  // Display label such as "Sun 10/19" or "Day 1"
-  label    String
-  // Position index within the plan for ordering
-  position Int
-  passages DayPassage[]
-  progress ReadingProgress[]
-
-  @@index([planId, position])
-}
-
-/// Canonical passage reference
-model Passage {
-  id        String            @id @default(cuid())
-  // Human display, e.g., "Ps 90–91"
-  ref       String
-  // Normalized query to use with ESV API
-  norm      String            @unique
-  days      DayPassage[]
-  progress  ReadingProgress[]
-  aiSummary AiSummary?
-}
-
-/// Join model between a day and a passage, preserves ordering
-model DayPassage {
-  id        String  @id @default(cuid())
-  dayId     String
-  day       PlanDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
-  passageId String
-  passage   Passage @relation(fields: [passageId], references: [id], onDelete: Cascade)
-  // Order within the day's list of passages
-  position  Int
-
-  @@index([dayId, position])
-}
-
-/// Per-user reading progress at the passage granularity
-model ReadingProgress {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId    String?
-  plan      Plan?    @relation(fields: [planId], references: [id], onDelete: Cascade)
-  dayId     String?
-  day       PlanDay? @relation(fields: [dayId], references: [id], onDelete: Cascade)
-  passageId String
-  passage   Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
-  done      Boolean  @default(false)
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, dayId, passageId])
-}
-
-/// Cache for ESV HTML by normalized passage query
-model PassageCache {
-  id        String   @id @default(cuid())
-  norm      String   @unique
-  html      String // @db.Text (implicit in sqlite)
-  updatedAt DateTime @updatedAt
-  expiresAt DateTime
-}
-
-/// Cached AI-generated chapter summaries, linked to a Passage
-model AiSummary {
-  id        String   @id @default(cuid())
-  passageId String   @unique
-  passage   Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
-  /// Structured HTML content rendered in the Reader
-  html      String // @db.Text
-  /// Model used for generation
-  model     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-/// Cached AI-generated book summaries, keyed by normalized book name
-model AiBookSummary {
-  id        String   @id @default(cuid())
-  /// Canonical display name (e.g., "Genesis")
-  book      String   @unique
-  /// Structured HTML content rendered in the Book modal
-  html      String // @db.Text
-  /// Model used for generation
-  model     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 /// --- AI Prompting & Evals ---
@@ -221,7 +113,6 @@ model PromptRun {
   error           String?
   qaTranscript    Json?
   createdAt       DateTime        @default(now())
-  passageId       String?
   userId          String?
   HumanFeedback   HumanFeedback[]
 
