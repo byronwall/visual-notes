@@ -63,7 +63,7 @@ export async function POST(event: APIEvent) {
 export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
   const takeParam = url.searchParams.get("take");
-  const take = Math.min(Math.max(Number(takeParam ?? "50"), 1), 100);
+  const take = Number(takeParam ?? "50");
   const items = await (prisma as any).doc.findMany({
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, createdAt: true },
