@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,25 +34,50 @@ type ExportedNote = {
   markdown: string;
 };
 
-function runJxaScript(scriptPath: string, env?: NodeJS.ProcessEnv): string {
-  try {
-    const output = execFileSync(
+async function runJxaScript(
+  scriptPath: string,
+  env?: NodeJS.ProcessEnv,
+  options?: { verbose?: boolean; passthroughStdout?: boolean }
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
       "/usr/bin/osascript",
       ["-l", "JavaScript", scriptPath],
       {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env, ...env },
+        stdio: ["ignore", "pipe", "pipe"],
       }
     );
-    return output;
-  } catch (error) {
-    const err = error as Error & { stdout?: string; stderr?: string };
-    const msg = `Failed to execute JXA script: ${err.message}\n${
-      err.stderr ?? ""
-    }`;
-    throw new Error(msg);
-  }
+
+    let output = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk: string) => {
+      output += chunk;
+      if (options?.passthroughStdout || options?.verbose) {
+        process.stdout.write(chunk);
+      }
+    });
+    child.stderr.on("data", (chunk: string) => {
+      process.stderr.write(chunk);
+    });
+
+    child.on("error", (err) => {
+      reject(new Error(`Failed to start osascript: ${err.message}`));
+    });
+
+    child.on("close", (code, signal) => {
+      if (code === 0) return resolve(output);
+      reject(
+        new Error(
+          `Failed to execute JXA script: exitCode=${code} signal=${
+            signal ?? ""
+          }`
+        )
+      );
+    });
+  });
 }
 
 async function main(): Promise<void> {
@@ -136,7 +161,10 @@ async function main(): Promise<void> {
       ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
       ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
     };
-    rawJson = runJxaScript(scriptPath, jxaEnv);
+    rawJson = await runJxaScript(scriptPath, jxaEnv, {
+      verbose,
+      passthroughStdout: process.argv.includes("--jxa-stdout"),
+    });
     if (verbose) console.log("[visual-notes-ingest] JXA execution complete.");
   } catch (err) {
     if (!allowDummy) throw err as Error;
