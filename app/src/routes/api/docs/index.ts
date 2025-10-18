@@ -36,3 +36,14 @@ export async function GET(event: APIEvent) {
   });
   return json({ items });
 }
+
+export async function DELETE(_event: APIEvent) {
+  try {
+    // Use transaction to ensure consistency if future related tables exist
+    await (prisma as any).$transaction([(prisma as any).doc.deleteMany({})]);
+    return json({ ok: true });
+  } catch (e) {
+    const msg = (e as Error).message || "Failed to delete";
+    return json({ error: msg }, { status: 500 });
+  }
+}

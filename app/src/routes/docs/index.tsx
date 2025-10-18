@@ -11,13 +11,35 @@ async function fetchDocs() {
   return json.items;
 }
 
+async function deleteAllDocs() {
+  const res = await apiFetch("/api/docs", { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete all notes");
+}
+
 const DocsIndex: VoidComponent = () => {
-  const [docs] = createResource(fetchDocs);
+  const [docs, { refetch }] = createResource(fetchDocs);
 
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4 space-y-4">
-        <h1 class="text-2xl font-bold">Notes</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold">Notes</h1>
+          <button
+            class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+            onClick={async () => {
+              if (!confirm("Delete ALL notes? This cannot be undone.")) return;
+              try {
+                await deleteAllDocs();
+                await refetch();
+              } catch (e) {
+                console.error(e);
+                alert("Failed to delete all notes");
+              }
+            }}
+          >
+            Delete All
+          </button>
+        </div>
         <Show when={docs()} fallback={<p>Loading…</p>}>
           {(items) => (
             <ul class="space-y-2">
