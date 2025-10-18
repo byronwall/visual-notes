@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? // @db.Text
+  access_token      String? // @db.Text
+  expires_in        Int?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? // @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String?
+  email         String?           @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  // Password hash for Credentials provider auth (nullable to allow future OAuth)
+  passwordHash  String?
+  // Relations
+  plans         Plan[]            @relation("UserPlans")
+  progress      ReadingProgress[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Reading plan a user can own or a global base plan
+model Plan {
+  id        String            @id @default(cuid())
+  title     String
+  isGlobal  Boolean           @default(false)
+  ownerId   String?
+  owner     User?             @relation("UserPlans", fields: [ownerId], references: [id])
+  createdAt DateTime          @default(now())
+  days      PlanDay[]
+  progress  ReadingProgress[]
+}
+
+model PlanDay {
+  id       String            @id @default(cuid())
+  planId   String
+  plan     Plan              @relation(fields: [planId], references: [id], onDelete: Cascade)
+  // Optional local date string like YYYY-MM-DD
+  date     String?
+  // Display label such as "Sun 10/19" or "Day 1"
+  label    String
+  // Position index within the plan for ordering
+  position Int
+  passages DayPassage[]
+  progress ReadingProgress[]
+
+  @@index([planId, position])
+}
+
+/// Canonical passage reference
+model Passage {
+  id        String            @id @default(cuid())
+  // Human display, e.g., "Ps 90–91"
+  ref       String
+  // Normalized query to use with ESV API
+  norm      String            @unique
+  days      DayPassage[]
+  progress  ReadingProgress[]
+  aiSummary AiSummary?
+}
+
+/// Join model between a day and a passage, preserves ordering
+model DayPassage {
+  id        String  @id @default(cuid())
+  dayId     String
+  day       PlanDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  passageId String
+  passage   Passage @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  // Order within the day's list of passages
+  position  Int
+
+  @@index([dayId, position])
+}
+
+/// Per-user reading progress at the passage granularity
+model ReadingProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String?
+  plan      Plan?    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayId     String?
+  day       PlanDay? @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  passageId String
+  passage   Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  done      Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, dayId, passageId])
+}
+
+/// Cache for ESV HTML by normalized passage query
+model PassageCache {
+  id        String   @id @default(cuid())
+  norm      String   @unique
+  html      String // @db.Text (implicit in sqlite)
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+}
+
+/// Cached AI-generated chapter summaries, linked to a Passage
+model AiSummary {
+  id        String   @id @default(cuid())
+  passageId String   @unique
+  passage   Passage  @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  /// Structured HTML content rendered in the Reader
+  html      String // @db.Text
+  /// Model used for generation
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Cached AI-generated book summaries, keyed by normalized book name
+model AiBookSummary {
+  id        String   @id @default(cuid())
+  /// Canonical display name (e.g., "Genesis")
+  book      String   @unique
+  /// Structured HTML content rendered in the Book modal
+  html      String // @db.Text
+  /// Model used for generation
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// --- AI Prompting & Evals ---
+
+enum RunStatus {
+  SUCCESS
+  ERROR
+  PARTIAL
+}
+
+/// Single prompt per task (e.g., "chapter_summary") with default model/params
+model Prompt {
+  id              String          @id @default(cuid())
+  task            String          @unique
+  description     String?
+  defaultModel    String          @default("gpt-4o-mini")
+  defaultTemp     Float           @default(0.2)
+  defaultTopP     Float?
+  activeVersionId String?         @unique
+  activeVersion   PromptVersion?  @relation("ActivePromptVersion", fields: [activeVersionId], references: [id])
+  versions        PromptVersion[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+/// Immutable template version; may override model params for rare A/B
+model PromptVersion {
+  id            String   @id @default(cuid())
+  promptId      String
+  template      String
+  system        String?
+  modelOverride String?
+  tempOverride  Float?
+  topPOverride  Float?
+  metadata      Json?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  PromptRun PromptRun[]
+  Prompt    Prompt?     @relation(fields: [promptId], references: [id])
+  activeFor Prompt?     @relation("ActivePromptVersion")
+
+  @@index([promptId, createdAt])
+}
+
+/// Run log for prompt generations
+model PromptRun {
+  id              String          @id @default(cuid())
+  promptVersionId String
+  promptVersion   PromptVersion   @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  model           String
+  inputVars       Json
+  compiledPrompt  String
+  systemUsed      String?
+  outputHtml      String?
+  rawResponse     Json?
+  usage           Json?
+  status          RunStatus       @default(SUCCESS)
+  error           String?
+  qaTranscript    Json?
+  createdAt       DateTime        @default(now())
+  passageId       String?
+  userId          String?
+  HumanFeedback   HumanFeedback[]
+
+  @@index([promptVersionId, createdAt])
+}
+
+model HumanFeedback {
+  id          String    @id @default(cuid())
+  promptRunId String
+  promptRun   PromptRun @relation(fields: [promptRunId], references: [id], onDelete: Cascade)
+  rating      Int?
+  comment     String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+}
+
+/// Centralized log of all LLM requests, regardless of feature
+model LlmRequest {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  // Inputs
+  model            String
+  system           String?
+  userPrompt       String // @db.Text
+  temperature      Float?
+  topP             Float?
+  // Outputs
+  status           RunStatus @default(PARTIAL)
+  outputText       String?
+  rawResponse      Json?
+  usage            Json?
+  // Token info (normalized across providers)
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  // Error message if any
+  error            String?
+
+  @@index([createdAt])
+}
+
+/// Minimal document for Markdown ingest
+model Doc {
+  id        String   @id @default(cuid())
+  title     String
+  markdown  String // @db.Text
+  html      String // @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

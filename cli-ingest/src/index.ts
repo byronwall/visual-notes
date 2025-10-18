@@ -1,0 +1,252 @@
+#!/usr/bin/env node
+
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+type RawNote = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  folder: string;
+  html?: string;
+  filePath?: string;
+};
+
+type ExportedNote = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  folder: string;
+  markdown: string;
+};
+
+function runJxaScript(scriptPath: string, env?: NodeJS.ProcessEnv): string {
+  try {
+    const output = execFileSync(
+      "/usr/bin/osascript",
+      ["-l", "JavaScript", scriptPath],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, ...env },
+      }
+    );
+    return output;
+  } catch (error) {
+    const err = error as Error & { stdout?: string; stderr?: string };
+    const msg = `Failed to execute JXA script: ${err.message}\n${
+      err.stderr ?? ""
+    }`;
+    throw new Error(msg);
+  }
+}
+
+async function main(): Promise<void> {
+  // Resolve paths relative to the CLI package root, works in tsx (src) and node (dist)
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = dirname(currentDir);
+  const scriptsDir = join(repoRoot, "scripts");
+  const outDir = join(repoRoot, "out");
+  const scriptPath = join(scriptsDir, "export-apple-notes.jxa");
+
+  mkdirSync(outDir, { recursive: true });
+
+  const allowDummy = process.argv.includes("--allow-dummy");
+  const verbose =
+    process.argv.includes("--verbose") || process.argv.includes("-v");
+
+  // optional flags for per-note file output (markdown)
+  const split = process.argv.includes("--split");
+  let splitDir = join(outDir, "notes-md");
+  const splitDirIndex = process.argv.findIndex((a) => a === "--split-dir");
+  if (splitDirIndex !== -1) {
+    const val = process.argv[splitDirIndex + 1];
+    if (val) splitDir = val.startsWith("/") ? val : join(process.cwd(), val);
+  }
+
+  // ask JXA to write raw HTML per-note (default to out/notes-html)
+  let jxaRawDir: string | undefined = join(outDir, "notes-html");
+  const jxaRawIndex = process.argv.findIndex((a) => a === "--jxa-raw-dir");
+  if (jxaRawIndex !== -1) {
+    const val = process.argv[jxaRawIndex + 1];
+    if (val) jxaRawDir = val.startsWith("/") ? val : join(process.cwd(), val);
+  }
+
+  // parse --limit / -n N (default 10)
+  let limit = 10;
+  const limitFlagIndex = process.argv.findIndex(
+    (a) => a === "--limit" || a === "-n"
+  );
+  if (limitFlagIndex !== -1) {
+    const val = process.argv[limitFlagIndex + 1];
+    const parsed = val ? Number(val) : NaN;
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      limit = Math.floor(parsed);
+    }
+  }
+
+  if (verbose) {
+    console.log("[visual-notes-ingest] Starting export...");
+    console.log(`[visual-notes-ingest] CLI root: ${repoRoot}`);
+    console.log(`[visual-notes-ingest] Script path: ${scriptPath}`);
+    console.log(`[visual-notes-ingest] Output dir: ${outDir}`);
+    if (split) console.log(`[visual-notes-ingest] Split dir: ${splitDir}`);
+    if (jxaRawDir)
+      console.log(`[visual-notes-ingest] JXA raw dir: ${jxaRawDir}`);
+    console.log(`[visual-notes-ingest] Limit: ${limit}`);
+  }
+
+  let rawJson: string;
+  try {
+    if (verbose)
+      console.log("[visual-notes-ingest] Running JXA script via osascript...");
+    const jxaEnv: NodeJS.ProcessEnv = jxaRawDir
+      ? { LIMIT: String(limit), HTML_OUT_DIR: jxaRawDir }
+      : { LIMIT: String(limit) };
+    rawJson = runJxaScript(scriptPath, jxaEnv);
+    if (verbose) console.log("[visual-notes-ingest] JXA execution complete.");
+  } catch (err) {
+    if (!allowDummy) throw err as Error;
+    // Use a small deterministic sample to prove the pipeline without permissions
+    const sample: RawNote[] = [
+      {
+        id: "sample-1",
+        title: "Sample Note",
+        createdAt: new Date("2024-01-01T12:00:00Z").toISOString(),
+        updatedAt: new Date("2024-01-02T12:00:00Z").toISOString(),
+        folder: "Samples",
+        html: "<h1>Hello</h1><p>This is a sample <strong>note</strong>.</p>",
+      },
+    ];
+    rawJson = JSON.stringify(sample);
+    console.warn(
+      "JXA execution failed; proceeding with dummy data because --allow-dummy was provided."
+    );
+  }
+
+  let rawNotes: RawNote[];
+  try {
+    if (verbose) console.log("[visual-notes-ingest] Parsing JSON from JXA...");
+    rawNotes = JSON.parse(rawJson);
+  } catch (e) {
+    throw new Error(
+      "Could not parse JXA JSON output. Ensure permissions are granted for Notes."
+    );
+  }
+
+  // Safety: slice to limit in case JXA ignored it
+  if (limit > 0 && rawNotes.length > limit) {
+    rawNotes = rawNotes.slice(0, limit);
+  }
+
+  // Markdown conversion is opt-in
+  const markdown = process.argv.includes("--markdown");
+  if (markdown) {
+    const TurndownService = (await import("turndown")).default;
+    const turndown = new TurndownService();
+
+    if (verbose)
+      console.log(
+        `[visual-notes-ingest] Converting ${rawNotes.length} notes to Markdown...`
+      );
+    const exported: ExportedNote[] = rawNotes.map((n, idx) => {
+      if (verbose) {
+        const title = n.title || "(untitled)";
+        console.log(
+          `[visual-notes-ingest] [${idx + 1}/${
+            rawNotes.length
+          }] Converting: ${title}`
+        );
+      }
+      return {
+        id: n.id,
+        title: n.title,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+        folder: n.folder,
+        markdown: turndown.turndown(n.html || ""),
+      };
+    });
+
+    const notesJsonPath = join(outDir, "notes.json");
+    if (verbose)
+      console.log(`[visual-notes-ingest] Writing JSON to ${notesJsonPath}...`);
+    writeFileSync(
+      notesJsonPath,
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          noteCount: exported.length,
+          notes: exported,
+        },
+        null,
+        2
+      )
+    );
+
+    if (split) {
+      mkdirSync(splitDir, { recursive: true });
+      const indexWidth = String(exported.length).length;
+      for (let i = 0; i < exported.length; i++) {
+        const n = exported[i];
+        const idxStr = String(i + 1).padStart(indexWidth, "0");
+        const base = sanitizeFilename(n.title || "note", n.id);
+        const filepath = join(splitDir, `${idxStr}-${base}.md`);
+        if (verbose) console.log(`[visual-notes-ingest] Writing ${filepath}`);
+        writeFileSync(filepath, n.markdown);
+      }
+    }
+
+    console.log(`Wrote ${exported.length} notes to ${notesJsonPath}`);
+  } else {
+    // Raw mode: write index with metadata + file paths only
+    const rawIndexPath = join(outDir, "raw-index.json");
+    if (verbose)
+      console.log(
+        `[visual-notes-ingest] Writing raw index to ${rawIndexPath}...`
+      );
+    const index = rawNotes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt,
+      folder: n.folder,
+      filePath: n.filePath || null,
+      hasHtmlInline: typeof n.html === "string" && n.html.length > 0,
+    }));
+    writeFileSync(
+      rawIndexPath,
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          noteCount: index.length,
+          notes: index,
+          htmlOutDir: jxaRawDir,
+        },
+        null,
+        2
+      )
+    );
+    console.log(`Wrote raw index for ${index.length} notes to ${rawIndexPath}`);
+  }
+}
+
+function sanitizeFilename(title: string, id: string): string {
+  const ascii = title
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-_.]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  const trimmed = ascii.slice(0, 64) || id.slice(0, 12);
+  return trimmed;
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exitCode = 1;
+});

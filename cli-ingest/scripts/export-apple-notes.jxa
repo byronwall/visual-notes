@@ -1,0 +1,114 @@
+// JXA script: run with `osascript -l JavaScript export-apple-notes.jxa`
+// Exports Apple Notes as JSON with minimal fields. Requires Notes.app access permission.
+
+function toISOString(date) {
+  // JXA Date object behaves as JS Date
+  return new Date(date).toISOString();
+}
+
+function sanitize(str) {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-_.]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '');
+}
+
+function main() {
+  try {
+  var app = Application('Notes');
+  app.includeStandardAdditions = true;
+
+  var accounts = app.accounts();
+  var results = [];
+
+  // Read LIMIT from environment, default to 10
+  var limit = 10;
+  var htmlOutDir = null;
+  try {
+    var env = $.NSProcessInfo.processInfo.environment;
+    var limitStr = String(env.objectForKey('LIMIT'));
+    var parsed = parseInt(limitStr, 10);
+    if (!isNaN(parsed) && parsed > 0) limit = parsed;
+    var htmlDir = env.objectForKey('HTML_OUT_DIR');
+    if (htmlDir) htmlOutDir = String(htmlDir);
+  } catch (e) {}
+
+  var wrote = 0;
+  var skipped = 0;
+
+  accounts.forEach(function (account) {
+    var folders = account.folders();
+    folders.forEach(function (folder) {
+      var notes = folder.notes();
+      notes.forEach(function (note) {
+        // Some notes can have undefined modification dates
+        var created = note.creationDate();
+        var modified = note.modificationDate ? note.modificationDate() : created;
+        var title = note.name();
+        var id = note.id();
+        var body = note.body(); // HTML
+
+        var obj = {
+          id: String(id),
+          title: String(title || ''),
+          createdAt: toISOString(created),
+          updatedAt: toISOString(modified),
+          folder: String(folder.name()),
+        };
+        results.push(obj);
+
+        // optionally write raw HTML per-note (default when provided)
+        if (htmlOutDir) {
+          try {
+            var fm = $.NSFileManager.defaultManager;
+            var isDir = Ref();
+            if (!fm.fileExistsAtPathIsDirectory($(htmlOutDir), isDir)) {
+              fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError($(htmlOutDir), true, null, null);
+            }
+            var safeTitle = sanitize(obj.title || 'note');
+            var safeId = sanitize(String(id)).slice(0, 24);
+            var filename = safeId + (safeTitle ? '-' + safeTitle : '') + '.html';
+            var filePath = htmlOutDir + '/' + filename;
+
+            obj.filePath = filePath;
+
+            // skip if already exists (resumable)
+            if (fm.fileExistsAtPath($(filePath))) {
+              skipped += 1;
+            } else {
+              var content = $(String(body || '')).dataUsingEncoding($.NSUTF8StringEncoding);
+              content.writeToFileAtomically(filePath, true);
+              wrote += 1;
+              if (wrote >= limit) {
+                throw { __stop: true };
+              }
+            }
+          } catch (e) {
+            // ignore file write errors
+          }
+        } else {
+          // no htmlOutDir: include html in JSON payload and count notes
+          obj.html = String(body || '');
+          wrote += 1;
+          if (wrote >= limit) {
+            throw { __stop: true };
+          }
+        }
+      });
+    });
+  });
+
+  return JSON.stringify(results);
+  } catch (e) {
+    if (e && e.__stop) {
+      return JSON.stringify(results);
+    }
+    throw e;
+  }
+}
+
+main();
+
+

@@ -1,0 +1,11 @@
+node_modules
+.pnpm-store
+.vinxi
+.git
+.gitignore
+.env
+.env.*
+Dockerfile
+dist
+.cache
+**/.DS_Store
