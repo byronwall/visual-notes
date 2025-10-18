@@ -1,6 +1,7 @@
 import { type VoidComponent, Show, createResource } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
+import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 
 type DocResponse = {
   id: string;
@@ -121,7 +122,18 @@ const DocView: VoidComponent = () => {
                 </div>
               </details>
               <h1>{d().title}</h1>
-              <div innerHTML={d().html} />
+              {(() => {
+                const html = normalizeAiOutputToHtml(
+                  d().markdown || d().html || ""
+                );
+                console.log("DocView render", {
+                  id: d().id,
+                  hasHtml: Boolean(d().html),
+                  hasMd: Boolean(d().markdown),
+                  preview: html.slice(0, 120),
+                });
+                return <div innerHTML={html} />;
+              })()}
             </article>
           )}
         </Show>

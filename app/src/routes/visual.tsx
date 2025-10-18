@@ -11,11 +11,12 @@ import {
 } from "solid-js";
 import SidePanel from "../components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
+import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 
 type DocItem = { id: string; title: string; createdAt: string };
 type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
 type UmapRun = { id: string; dims: number };
-type FullDoc = { id: string; title: string; html: string };
+type FullDoc = { id: string; title: string; html?: string; markdown?: string };
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
@@ -125,9 +126,26 @@ const VisualCanvas: VoidComponent = () => {
   const [isPanning, setIsPanning] = createSignal(false);
   let lastPan = { x: 0, y: 0 };
   let frame = 0 as number | undefined;
-  let containerEl: HTMLDivElement | undefined;
+  // SVG elements
+  let svgEl: SVGSVGElement | undefined;
+  let gEl: SVGGElement | undefined;
   const [useUmap, setUseUmap] = createSignal(true);
   const [layoutVersion, setLayoutVersion] = createSignal(0);
+
+  // Mouse tracking (screen and world space)
+  const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
+  const mouseWorld = createMemo(() => {
+    const s = scale();
+    const t = offset();
+    const m = mouseScreen();
+    return { x: (m.x - t.x) / s, y: (m.y - t.y) / s };
+  });
+
+  // Click detection thresholds (element-relative screen space)
+  const CLICK_TOL_PX = 5; // movement within this is considered a click, not a pan
+  const CLICK_TOL_MS = 500; // optional time window for a click
+  let clickStart: { x: number; y: number } | undefined;
+  let clickStartTime = 0;
 
   // Build a normalized index of UMAP positions mapped into a consistent world space
   const umapIndex = createMemo(() => {
@@ -199,19 +217,19 @@ const VisualCanvas: VoidComponent = () => {
     return map;
   });
 
-  function applyTransform() {
-    if (!containerEl) return;
+  // SVG transform string
+  const viewTransform = createMemo(() => {
     const t = offset();
     const s = scale();
-    containerEl.style.transform = `translate(${t.x}px, ${t.y}px) scale(${s})`;
-  }
+    return `translate(${t.x}, ${t.y}) scale(${s})`;
+  });
 
   function scheduleTransform() {
     if (!isBrowser) return;
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = undefined as unknown as number;
-      applyTransform();
+      // No imperative DOM updates needed; Solid will reactively update viewTransform
     });
   }
 
@@ -219,8 +237,11 @@ const VisualCanvas: VoidComponent = () => {
     e.preventDefault();
     const delta = e.deltaY;
     const zoomIntensity = 0.0015; // smaller = slower zoom
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
+    // Use element-relative mouse coordinates to avoid offset bugs
+    const container = e.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
     const currentScale = scale();
     const newScale = Math.min(
@@ -243,16 +264,33 @@ const VisualCanvas: VoidComponent = () => {
   }
 
   function onPointerDown(e: PointerEvent) {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const container = e.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    container.setPointerCapture(e.pointerId);
     setIsPanning(true);
-    lastPan = { x: e.clientX, y: e.clientY };
+    // Initialize pan anchor in element-relative coordinates for consistency
+    lastPan = { x: localX, y: localY };
+    // Ensure mouse position is current even if user doesn't move before release
+    setMouseScreen({ x: localX, y: localY });
+    // Track click candidate
+    clickStart = { x: localX, y: localY };
+    clickStartTime =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 
   function onPointerMove(e: PointerEvent) {
+    // Track element-relative mouse coordinates
+    const container = e.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    setMouseScreen({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     if (!isPanning()) return;
-    const dx = e.clientX - lastPan.x;
-    const dy = e.clientY - lastPan.y;
-    lastPan = { x: e.clientX, y: e.clientY };
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    const dx = localX - lastPan.x;
+    const dy = localY - lastPan.y;
+    lastPan = { x: localX, y: localY };
     const t = offset();
     setOffset({ x: t.x + dx, y: t.y + dy });
     scheduleTransform();
@@ -263,6 +301,31 @@ const VisualCanvas: VoidComponent = () => {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch (_) {}
     setIsPanning(false);
+    // Detect bare click (minimal movement, short duration) to open nearest item
+    const container = e.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    setMouseScreen({ x: localX, y: localY });
+    if (clickStart) {
+      const dx = localX - clickStart.x;
+      const dy = localY - clickStart.y;
+      const dist = Math.hypot(dx, dy);
+      const dt =
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+        clickStartTime;
+      if (
+        (e as any).button === 0 &&
+        dist <= CLICK_TOL_PX &&
+        dt <= CLICK_TOL_MS
+      ) {
+        // Consistent with hover behavior: open only if hover label would show
+        const canOpen = showHoverLabel();
+        const id = hoveredDocId();
+        if (canOpen && id) setSelectedId(id);
+      }
+    }
+    clickStart = undefined;
   }
 
   function measureNav() {
@@ -364,8 +427,150 @@ const VisualCanvas: VoidComponent = () => {
     }
   });
 
+  // ---------- Spatial index (KD-Tree) for nearest lookup ----------
+  type KDNode = {
+    point: { x: number; y: number; id: string };
+    left?: KDNode;
+    right?: KDNode;
+    axis: 0 | 1; // 0=x, 1=y
+  };
+
+  function buildKdTree(
+    points: { x: number; y: number; id: string }[],
+    depth = 0
+  ): KDNode | undefined {
+    if (points.length === 0) return undefined;
+    const axis = (depth % 2) as 0 | 1;
+    const sorted = points
+      .slice()
+      .sort((a, b) => (axis === 0 ? a.x - b.x : a.y - b.y));
+    const median = Math.floor(sorted.length / 2);
+    return {
+      point: sorted[median]!,
+      left: buildKdTree(sorted.slice(0, median), depth + 1),
+      right: buildKdTree(sorted.slice(median + 1), depth + 1),
+      axis,
+    };
+  }
+
+  function kdNearest(
+    root: KDNode | undefined,
+    target: { x: number; y: number }
+  ) {
+    let bestId: string | undefined;
+    let bestDist2 = Infinity;
+    function sqr(n: number) {
+      return n * n;
+    }
+    function dist2(a: { x: number; y: number }, b: { x: number; y: number }) {
+      return sqr(a.x - b.x) + sqr(a.y - b.y);
+    }
+    function search(node: KDNode | undefined) {
+      if (!node) return;
+      const d2 = dist2(target, node.point);
+      if (d2 < bestDist2) {
+        bestDist2 = d2;
+        bestId = node.point.id;
+      }
+      const axis = node.axis;
+      const diff =
+        axis === 0 ? target.x - node.point.x : target.y - node.point.y;
+      const first = diff < 0 ? node.left : node.right;
+      const second = diff < 0 ? node.right : node.left;
+      search(first);
+      if (sqr(diff) < bestDist2) search(second);
+    }
+    search(root);
+    return { id: bestId, dist2: bestDist2 };
+  }
+
+  const kdTree = createMemo(() => {
+    const list = docs();
+    if (!list) return undefined as unknown as KDNode | undefined;
+    const pos = positions();
+    const pts: { x: number; y: number; id: string }[] = [];
+    for (const d of list) {
+      const p = pos.get(d.id);
+      if (p) pts.push({ x: p.x, y: p.y, id: d.id });
+    }
+    return buildKdTree(pts);
+  });
+
+  // Nearest doc id to mouse
+  const nearestToMouse = createMemo(() => {
+    const root = kdTree();
+    const m = mouseWorld();
+    if (!root) return undefined as unknown as { id?: string; dist2?: number };
+    return kdNearest(root, m);
+  });
+
+  const hoveredDocId = createMemo(() => nearestToMouse()?.id);
+  const hoveredScreenDist = createMemo(() => {
+    const d2 = nearestToMouse()?.dist2;
+    if (d2 === undefined) return Infinity;
+    const s = scale();
+    return Math.sqrt(d2) * s; // convert world -> screen distance
+  });
+
+  // Show label only when cursor is reasonably close in screen space
+  const showHoverLabel = createMemo(() => hoveredScreenDist() < 48);
+
+  // Compute hovered label in SCREEN coordinates so it doesn't scale with zoom
+  const hoveredLabelScreen = createMemo(() => {
+    if (!showHoverLabel())
+      return undefined as unknown as {
+        x: number;
+        y: number;
+        title: string;
+      };
+    const id = hoveredDocId();
+    if (!id)
+      return undefined as unknown as { x: number; y: number; title: string };
+    const pos = positions().get(id);
+    if (!pos)
+      return undefined as unknown as { x: number; y: number; title: string };
+    const s = scale();
+    const t = offset();
+    const title = (docs() || []).find((d) => d.id === id)?.title || id;
+    return { x: pos.x * s + t.x, y: pos.y * s + t.y, title };
+  });
+
+  // ---------- Left list pane: search and sorting ----------
+  const [searchQuery, setSearchQuery] = createSignal("");
+  const [sortMode, setSortMode] = createSignal<"proximity" | "title" | "date">(
+    "proximity"
+  );
+
+  const filteredAndSortedDocs = createMemo(() => {
+    const list = docs() || [];
+    const q = searchQuery().trim().toLowerCase();
+    const pos = positions();
+    const m = mouseWorld();
+    const sMode = sortMode();
+    const filtered = q
+      ? list.filter((d) => d.title.toLowerCase().includes(q))
+      : list.slice();
+    if (sMode === "title") {
+      filtered.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sMode === "date") {
+      filtered.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    } else {
+      // proximity (default)
+      function d2(id: string) {
+        const p = pos.get(id);
+        if (!p) return Number.POSITIVE_INFINITY;
+        const dx = p.x - m.x;
+        const dy = p.y - m.y;
+        return dx * dx + dy * dy;
+      }
+      filtered.sort((a, b) => d2(a.id) - d2(b.id));
+    }
+    return filtered;
+  });
+
   return (
     <main class="min-h-screen bg-white">
+      {/* SVG infinite canvas */}
       <div
         class="fixed overflow-hidden bg-white"
         style={{
@@ -380,67 +585,81 @@ const VisualCanvas: VoidComponent = () => {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <div
-          ref={(el) => (containerEl = el)}
-          style={{
-            position: "absolute",
-            left: "0px",
-            top: "0px",
-            transform: "translate(0px, 0px) scale(1)",
-            "transform-origin": "0 0",
-            "will-change": "transform",
-          }}
+        <svg
+          ref={(el) => (svgEl = el)}
+          width="100%"
+          height="100%"
+          style={{ display: "block", background: "white" }}
         >
-          <Show
-            when={docs()}
-            fallback={<div class="absolute left-4 top-4">Loading…</div>}
-          >
-            {(list) => (
-              <For each={list()}>
-                {(d, i) => {
-                  const pos = createMemo(
-                    () =>
-                      positions().get(d.id) ?? seededPositionFor(d.title, i())
-                  );
-                  const bg = colorFor(d.title);
-                  return (
-                    <button
-                      type="button"
-                      title={d.title}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedId(d.id);
-                      }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      style={{
-                        position: "absolute",
-                        left: `${pos().x}px`,
-                        top: `${pos().y}px`,
-                        // changes to layoutVersion trigger style recomputation even if positions map stays referentially equal
-                        "--layout-ver": String(layoutVersion()),
-                        transform: "translate(-50%, -50%)",
-                        padding: "8px 10px",
-                        background: bg,
-                        color: "#111",
-                        "border-radius": "8px",
-                        border: "1px solid rgba(0,0,0,0.1)",
-                        "box-shadow": "0 1px 2px rgba(0,0,0,0.08)",
-                        "white-space": "nowrap",
-                        "font-size": "12px",
-                        "max-width": "320px",
-                        "text-overflow": "ellipsis",
-                        overflow: "hidden",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {d.title}
-                    </button>
-                  );
+          <g ref={(el) => (gEl = el)} transform={viewTransform()}>
+            <Show when={docs()}>
+              {(list) => (
+                <For each={list()}>
+                  {(d, i) => {
+                    const pos = createMemo(
+                      () =>
+                        positions().get(d.id) ?? seededPositionFor(d.title, i())
+                    );
+                    const fill = colorFor(d.title);
+                    const isHovered = createMemo(
+                      () => hoveredDocId() === d.id && showHoverLabel()
+                    );
+                    return (
+                      <g>
+                        <circle
+                          cx={pos().x}
+                          cy={pos().y}
+                          r={10}
+                          fill={fill}
+                          stroke={isHovered() ? "#111" : "#00000020"}
+                          stroke-width={isHovered() ? 2 : 1}
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedId(d.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        />
+                        {/* Hover label now rendered as HTML overlay (constant size) */}
+                      </g>
+                    );
+                  }}
+                </For>
+              )}
+            </Show>
+          </g>
+        </svg>
+        {/* Absolute-positioned hover label overlay in screen coordinates */}
+        <Show when={hoveredLabelScreen()}>
+          {(lbl) => (
+            <div
+              class="absolute"
+              style={{
+                left: `${lbl().x + 12}px`,
+                top: `${lbl().y - 10}px`,
+                "pointer-events": "none",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.98)",
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  padding: "4px 8px",
+                  "border-radius": "6px",
+                  "box-shadow": "0 2px 6px rgba(0,0,0,0.08)",
+                  color: "#111",
+                  "font-size": "14px",
+                  "max-width": "320px",
+                  "white-space": "nowrap",
+                  "text-overflow": "ellipsis",
+                  overflow: "hidden",
                 }}
-              </For>
-            )}
-          </Show>
-        </div>
+              >
+                {lbl().title}
+              </div>
+            </div>
+          )}
+        </Show>
       </div>
       <SidePanel open={!!selectedId()} onClose={() => setSelectedId(undefined)}>
         <Show
@@ -454,63 +673,117 @@ const VisualCanvas: VoidComponent = () => {
             {(doc) => (
               <article class="prose max-w-none">
                 <h2 class="mt-0">{doc().title}</h2>
-                <div innerHTML={doc().html} />
+                {(() => {
+                  const html = normalizeAiOutputToHtml(
+                    doc().markdown || doc().html || ""
+                  );
+                  console.log("Visual panel render", {
+                    id: doc().id,
+                    hasHtml: Boolean(doc().html),
+                    hasMd: Boolean(doc().markdown),
+                    preview: html.slice(0, 120),
+                  });
+                  return <div innerHTML={html} />;
+                })()}
               </article>
             )}
           </Show>
         </Show>
       </SidePanel>
+      {/* Left pane: search + list sorted by proximity (default) */}
       <div
-        class="fixed left-4 z-10 flex flex-col gap-2 bg-white/85 backdrop-blur border border-gray-200 rounded p-2 shadow"
-        style={{ top: `${navHeight() + 12}px` }}
+        class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"
+        style={{
+          top: `${navHeight()}px`,
+          left: "0",
+          width: "320px",
+          bottom: "0",
+          display: "flex",
+          "flex-direction": "column",
+        }}
       >
-        <div class="text-xs text-gray-700">Zoom: {scale().toFixed(2)}x</div>
-        <div class="text-xs text-gray-700">
-          Notes loaded: {docs()?.length || 0}
-        </div>
-        <div class="text-[11px] text-gray-500">Drag to pan, wheel to zoom</div>
-        <div class="flex gap-2">
-          <button class="cta" onClick={() => fitToSpread()}>
-            Fit to Notes
-          </button>
-          <button
-            class="cta"
-            onClick={() => {
-              const vw = window.innerWidth;
-              const vh = window.innerHeight;
-              setScale(1);
-              setOffset({ x: vw / 2, y: navHeight() + (vh - navHeight()) / 2 });
-              scheduleTransform();
-            }}
-          >
-            Reset View
-          </button>
-          <button
-            class="cta"
-            onClick={() => setUseUmap((v) => !v)}
-            title="Toggle between UMAP and seeded layout"
-          >
-            {useUmap() ? "Force Seeded Layout" : "Force UMAP Layout"}
-          </button>
-          <button
-            class="cta"
-            onClick={() => {
-              // Force re-layout: refetch latest run and points
-              setUseUmap(true);
-              refetchUmapRun?.();
-              refetchUmapPoints?.();
-              setLayoutVersion((v) => v + 1);
-            }}
-            title="Refetch UMAP run and points and re-apply layout"
-          >
-            Force Re-layout
-          </button>
-        </div>
-        {(docs()?.length || 0) === 0 && (
-          <div class="text-[11px] text-gray-600">
-            No notes yet. Ingest a note on the home page.
+        <div class="p-3 border-b border-gray-200">
+          <div class="text-sm font-medium mb-2">Notes</div>
+          <div class="flex items-center gap-2 mb-2">
+            <input
+              class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              type="search"
+              placeholder="Search titles…"
+              value={searchQuery()}
+              onInput={(e) => setSearchQuery(e.currentTarget.value)}
+            />
           </div>
-        )}
+          <div class="flex items-center gap-2 text-xs text-gray-700">
+            <label for="sortMode">Sort:</label>
+            <select
+              id="sortMode"
+              class="rounded border border-gray-300 px-2 py-1 text-xs"
+              value={sortMode()}
+              onChange={(e) => setSortMode(e.currentTarget.value as any)}
+            >
+              <option value="proximity">Proximity (to mouse)</option>
+              <option value="title">Title</option>
+              <option value="date">Newest</option>
+            </select>
+            <div class="ml-auto text-[11px] text-gray-500">
+              Zoom {scale().toFixed(2)}x · {docs()?.length || 0} notes
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <Show
+            when={filteredAndSortedDocs().length > 0}
+            fallback={<div class="p-3 text-sm text-gray-500">No notes</div>}
+          >
+            <ul>
+              <For each={filteredAndSortedDocs().slice(0, 200)}>
+                {(d) => {
+                  const p = createMemo(() => positions().get(d.id));
+                  const isHover = createMemo(
+                    () => hoveredDocId() === d.id && showHoverLabel()
+                  );
+                  return (
+                    <li>
+                      <button
+                        class={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-50 ${
+                          isHover() ? "bg-amber-50" : ""
+                        }`}
+                        onClick={() => setSelectedId(d.id)}
+                        title={d.title}
+                      >
+                        <span
+                          style={{
+                            width: "10px",
+                            height: "10px",
+                            background: colorFor(d.title),
+                            display: "inline-block",
+                            "border-radius": "9999px",
+                            border: "1px solid rgba(0,0,0,0.2)",
+                          }}
+                        />
+                        <span class="truncate text-sm">{d.title}</span>
+                        <span class="ml-auto text-[10px] text-gray-500">
+                          {(() => {
+                            const m = mouseWorld();
+                            const pp = p();
+                            if (!pp) return "";
+                            const dx = pp.x - m.x;
+                            const dy = pp.y - m.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            return `${Math.round(dist)}u`;
+                          })()}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+          </Show>
+        </div>
+        <div class="p-2 border-t border-gray-200 text-[11px] text-gray-600">
+          Drag to pan, wheel to zoom · Left pane sorts by mouse proximity
+        </div>
       </div>
     </main>
   );
