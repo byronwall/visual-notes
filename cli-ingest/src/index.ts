@@ -35,6 +35,45 @@ type ExportedNote = {
   markdown: string;
 };
 
+type SkipIndex = Record<string, string>; // id -> ISO updatedAt (Apple)
+
+function loadSkipIndex(path: string): SkipIndex {
+  try {
+    if (!existsSync(path)) return {};
+    const data = readFileSync(path, "utf8");
+    const json = JSON.parse(data);
+    if (json && typeof json === "object" && !Array.isArray(json))
+      return json as SkipIndex;
+    // support array format [{id, updatedAt}]
+    if (Array.isArray(json)) {
+      const out: SkipIndex = {};
+      for (const it of json) {
+        if (
+          it &&
+          typeof it.id === "string" &&
+          typeof it.updatedAt === "string"
+        ) {
+          out[it.id] = it.updatedAt;
+        }
+      }
+      return out;
+    }
+  } catch (_) {}
+  return {};
+}
+
+function saveSkipIndex(path: string, idx: SkipIndex): void {
+  try {
+    writeFileSync(path, JSON.stringify(idx, null, 2));
+  } catch (e) {
+    console.warn(
+      `[visual-notes-ingest] Failed to write skip index ${path}: ${
+        (e as Error).message
+      }`
+    );
+  }
+}
+
 async function runJxaScript(
   scriptPath: string,
   env?: NodeJS.ProcessEnv,
@@ -51,13 +90,27 @@ async function runJxaScript(
     );
 
     let output = "";
+    let verboseStdoutBuffer = "";
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
 
     child.stdout.on("data", (chunk: string) => {
       output += chunk;
-      if (options?.passthroughStdout || options?.verbose) {
+      if (options?.passthroughStdout) {
+        // Print JXA stdout verbatim when explicitly requested
         process.stdout.write(chunk);
+      } else if (options?.verbose) {
+        // In verbose mode, only echo JXA diagnostic lines, not the final JSON payload
+        verboseStdoutBuffer += chunk;
+        let newlineIndex = verboseStdoutBuffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = verboseStdoutBuffer.slice(0, newlineIndex + 1);
+          if (line.includes("[JXA]")) {
+            process.stdout.write(line);
+          }
+          verboseStdoutBuffer = verboseStdoutBuffer.slice(newlineIndex + 1);
+          newlineIndex = verboseStdoutBuffer.indexOf("\n");
+        }
       }
     });
     child.stderr.on("data", (chunk: string) => {
@@ -69,6 +122,17 @@ async function runJxaScript(
     });
 
     child.on("close", (code, signal) => {
+      // Flush any remaining partial line for verbose filtered output
+      if (
+        options?.verbose &&
+        !options?.passthroughStdout &&
+        verboseStdoutBuffer
+      ) {
+        if (verboseStdoutBuffer.includes("[JXA]")) {
+          process.stdout.write(verboseStdoutBuffer);
+        }
+        verboseStdoutBuffer = "";
+      }
       if (code === 0) return resolve(output);
       reject(
         new Error(
@@ -116,6 +180,71 @@ async function main(): Promise<void> {
   // optional: pass INLINE_HTML=1 to force inline JSON (no files)
   const inlineJson = process.argv.includes("--inline-json");
 
+  // Parse posting options early (needed for prefetch)
+  const markdown = process.argv.includes("--markdown");
+  const postToServer = process.argv.includes("--post");
+  let serverUrl = process.env.SERVER_URL || "http://localhost:3000";
+  const serverUrlIndex = process.argv.findIndex((a) => a === "--server-url");
+  if (serverUrlIndex !== -1) {
+    const val = process.argv[serverUrlIndex + 1];
+    if (val) serverUrl = val;
+  }
+
+  // optional: path to skip-index file containing id -> updatedAt (ISO)
+  let skipIndexPath = join(outDir, "skip-index.json");
+  const skipIdxFlag = process.argv.findIndex((a) => a === "--skip-index");
+  if (skipIdxFlag !== -1) {
+    const val = process.argv[skipIdxFlag + 1];
+    if (val)
+      skipIndexPath = val.startsWith("/") ? val : join(process.cwd(), val);
+  }
+
+  // Prefetch server inventory to seed skip-index so JXA can skip at source
+  const prefetchInventory =
+    process.argv.includes("--prefetch-inventory") || postToServer;
+  if (prefetchInventory) {
+    const fetchFn = (globalThis as any).fetch as
+      | ((input: string, init?: any) => Promise<any>)
+      | undefined;
+    if (!fetchFn) {
+      console.warn(
+        "[visual-notes-ingest] Cannot prefetch inventory: no global fetch available. Use Node 18+."
+      );
+    } else {
+      try {
+        const inventoryEndpoint =
+          serverUrl.replace(/\/?$/, "") + "/api/docs/inventory";
+        if (verbose)
+          console.log(
+            `[visual-notes-ingest] Prefetching server inventory from ${inventoryEndpoint}...`
+          );
+        const invRes = await fetchFn(inventoryEndpoint);
+        const invJson: any = await invRes.json().catch(() => ({}));
+        if (!invRes.ok)
+          throw new Error(invJson?.error || `Inventory HTTP ${invRes.status}`);
+        const skipMap: SkipIndex = {};
+        let count = 0;
+        for (const it of Array.isArray(invJson.items) ? invJson.items : []) {
+          if (it?.originalContentId && it?.updatedAt) {
+            skipMap[String(it.originalContentId)] = String(it.updatedAt);
+            count++;
+          }
+        }
+        saveSkipIndex(skipIndexPath, skipMap);
+        if (verbose)
+          console.log(
+            `[visual-notes-ingest] Prefetched inventory: ${count} ids -> ${skipIndexPath}`
+          );
+      } catch (e) {
+        console.warn(
+          `[visual-notes-ingest] Inventory prefetch failed: ${
+            (e as Error).message
+          }`
+        );
+      }
+    }
+  }
+
   // optional: filter notes modified since epoch seconds
   let sinceEpochSec: number | undefined;
   const sinceFlagIndex = process.argv.findIndex(
@@ -149,6 +278,7 @@ async function main(): Promise<void> {
     if (jxaRawDir)
       console.log(`[visual-notes-ingest] JXA raw dir: ${jxaRawDir}`);
     console.log(`[visual-notes-ingest] Limit: ${limit}`);
+    console.log(`[visual-notes-ingest] Skip index: ${skipIndexPath}`);
   }
 
   let rawJson: string;
@@ -160,6 +290,7 @@ async function main(): Promise<void> {
       ...(jxaRawDir ? { HTML_OUT_DIR: jxaRawDir } : {}),
       ...(inlineJson ? { INLINE_HTML: "1" } : {}),
       ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
+      ...(skipIndexPath ? { SKIP_INDEX_PATH: skipIndexPath } : {}),
       ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
     };
     rawJson = await runJxaScript(scriptPath, jxaEnv, {
@@ -229,16 +360,7 @@ async function main(): Promise<void> {
     rawNotes = rawNotes.slice(0, limit);
   }
 
-  // Markdown conversion is opt-in
-  const markdown = process.argv.includes("--markdown");
-  // Posting to server is opt-in
-  const postToServer = process.argv.includes("--post");
-  let serverUrl = process.env.SERVER_URL || "http://localhost:3000";
-  const serverUrlIndex = process.argv.findIndex((a) => a === "--server-url");
-  if (serverUrlIndex !== -1) {
-    const val = process.argv[serverUrlIndex + 1];
-    if (val) serverUrl = val;
-  }
+  // Markdown conversion and posting flags parsed earlier
   if (markdown) {
     const TurndownService = (await import("turndown")).default;
     const turndown = new TurndownService();
@@ -287,6 +409,39 @@ async function main(): Promise<void> {
         markdown: turndown.turndown(htmlSource),
       };
     });
+
+    // Update local skip index using Apple's updatedAt values
+    try {
+      const existing = loadSkipIndex(skipIndexPath);
+      for (const n of rawNotes) {
+        const prev = existing[n.id];
+        if (!prev) {
+          existing[n.id] = n.updatedAt;
+          continue;
+        }
+        const prevMs = Date.parse(prev);
+        const nextMs = Date.parse(n.updatedAt);
+        if (
+          !Number.isNaN(nextMs) &&
+          (Number.isNaN(prevMs) || nextMs > prevMs)
+        ) {
+          existing[n.id] = n.updatedAt;
+        }
+      }
+      saveSkipIndex(skipIndexPath, existing);
+      if (verbose)
+        console.log(
+          `[visual-notes-ingest] Skip index updated (${
+            Object.keys(existing).length
+          } ids)`
+        );
+    } catch (e) {
+      console.warn(
+        `[visual-notes-ingest] Skip index update failed: ${
+          (e as Error).message
+        }`
+      );
+    }
 
     const notesJsonPath = join(outDir, "notes.json");
     if (verbose)
@@ -356,6 +511,26 @@ async function main(): Promise<void> {
             };
           }
         }
+        if (verbose) {
+          const invCount = Array.isArray(invJson.items)
+            ? invJson.items.length
+            : 0;
+          const invKeys = Object.keys(inventory);
+          console.log(
+            `[visual-notes-ingest] Inventory fetched: rawItems=${invCount} uniqueKeys=${invKeys.length}`
+          );
+          const sampleKeys = invKeys.slice(0, 5);
+          if (sampleKeys.length > 0) {
+            console.log(
+              `[visual-notes-ingest] Inventory sample: ${sampleKeys
+                .map((k) => {
+                  const h = inventory[k].contentHash || "";
+                  return `${k}#${h.slice(0, 8)}`;
+                })
+                .join(", ")}`
+            );
+          }
+        }
 
         // 2) Compute local content hash per note
         const withHashes = exported.map((n) => ({
@@ -363,6 +538,50 @@ async function main(): Promise<void> {
           originalContentId: n.id,
           contentHash: sha256Hex(n.markdown),
         }));
+        if (verbose) {
+          console.log(
+            `[visual-notes-ingest] Computed content hashes for ${withHashes.length} notes`
+          );
+          const sample = withHashes
+            .slice(0, 5)
+            .map((n) => `${n.originalContentId}#${n.contentHash.slice(0, 8)}`)
+            .join(", ");
+          if (sample)
+            console.log(`[visual-notes-ingest] Hash sample: ${sample}`);
+        }
+
+        const reasonStats: Record<string, number> = {
+          new: 0,
+          changed: 0,
+          "server-missing-hash": 0,
+          unchanged: 0,
+        };
+        const decisionSamples: string[] = [];
+        for (const n of withHashes) {
+          const inv = inventory[n.originalContentId];
+          let reason = "unchanged";
+          if (!inv) reason = "new";
+          else if (!inv.contentHash) reason = "server-missing-hash";
+          else if (inv.contentHash !== n.contentHash) reason = "changed";
+          reasonStats[reason] = (reasonStats[reason] || 0) + 1;
+          if (
+            verbose &&
+            decisionSamples.length < 10 &&
+            reason !== "unchanged"
+          ) {
+            const srv = inv?.contentHash
+              ? inv.contentHash.slice(0, 8)
+              : "(none)";
+            decisionSamples.push(
+              `${
+                n.originalContentId
+              } reason=${reason} server=${srv} local=${n.contentHash.slice(
+                0,
+                8
+              )}`
+            );
+          }
+        }
 
         // 3) Filter to notes not present or changed
         const candidates = withHashes.filter((n) => {
@@ -371,13 +590,31 @@ async function main(): Promise<void> {
           if (!inv.contentHash) return true; // server missing hash; reupload
           return inv.contentHash !== n.contentHash; // changed content
         });
+        if (verbose) {
+          const summary = Object.entries(reasonStats)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(", ");
+          console.log(
+            `[visual-notes-ingest] Unique/changed candidates: ${candidates.length} (reasons: ${summary})`
+          );
+          for (const line of decisionSamples) {
+            console.log(`[visual-notes-ingest]   candidate ${line}`);
+          }
+        }
 
         // 4) Cap to 20 unique notes
         const toSend = candidates.slice(0, 20);
         if (verbose)
           console.log(
-            `[visual-notes-ingest] ${toSend.length} unique notes to upload (of ${exported.length} exported)`
+            `[visual-notes-ingest] ${toSend.length} unique notes to upload (capped at 20; total exported=${exported.length}, unique=${candidates.length})`
           );
+        if (verbose && toSend.length > 0) {
+          const preview = toSend
+            .slice(0, 10)
+            .map((n) => `${n.originalContentId}#${n.contentHash.slice(0, 8)}`)
+            .join(", ");
+          console.log(`[visual-notes-ingest] Upload preview: ${preview}`);
+        }
 
         // 5) Upload
         let successes = 0;
@@ -455,6 +692,39 @@ async function main(): Promise<void> {
       )
     );
     console.log(`Wrote raw index for ${index.length} notes to ${rawIndexPath}`);
+
+    // Update local skip index in raw mode as well
+    try {
+      const existing = loadSkipIndex(skipIndexPath);
+      for (const n of rawNotes) {
+        const prev = existing[n.id];
+        if (!prev) {
+          existing[n.id] = n.updatedAt;
+          continue;
+        }
+        const prevMs = Date.parse(prev);
+        const nextMs = Date.parse(n.updatedAt);
+        if (
+          !Number.isNaN(nextMs) &&
+          (Number.isNaN(prevMs) || nextMs > prevMs)
+        ) {
+          existing[n.id] = n.updatedAt;
+        }
+      }
+      saveSkipIndex(skipIndexPath, existing);
+      if (verbose)
+        console.log(
+          `[visual-notes-ingest] Skip index updated (${
+            Object.keys(existing).length
+          } ids)`
+        );
+    } catch (e) {
+      console.warn(
+        `[visual-notes-ingest] Skip index update failed: ${
+          (e as Error).message
+        }`
+      );
+    }
   }
 }
 

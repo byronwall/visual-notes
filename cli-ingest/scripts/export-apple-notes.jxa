@@ -15,32 +15,43 @@ function logErr(msg) {
   } catch (_) {}
 }
 
-function nowMs() { return Date.now(); }
+function nowMs() {
+  return Date.now();
+}
 
 function main() {
   try {
     var tStart = nowMs();
-    var app = Application('Notes');
+    var app = Application("Notes");
     app.includeStandardAdditions = true;
-    try { app.activate(); } catch (_) {}
-    logErr('[JXA] Started Notes export');
+    try {
+      app.activate();
+    } catch (_) {}
+    logErr("[JXA] Started Notes export");
 
     var results = [];
     var wrote = 0;
+    var skipped = 0;
     var limit = null;
     var htmlOutDir = null;
     var inlineHtml = false;
+    var sinceEpochSec = null;
+    var skipIndex = {};
 
     function getEnvString(key) {
       try {
         var env = $.NSProcessInfo.processInfo.environment;
         var obj = env.objectForKey(String(key));
         if (obj) {
-          try { return ObjC.unwrap(obj); } catch (_) { return String(obj); }
+          try {
+            return ObjC.unwrap(obj);
+          } catch (_) {
+            return String(obj);
+          }
         }
       } catch (_) {}
       try {
-        ObjC.import('stdlib');
+        ObjC.import("stdlib");
         var cstr = $.getenv(String(key));
         if (cstr) return ObjC.unwrap(cstr);
       } catch (_) {}
@@ -49,16 +60,17 @@ function main() {
 
     function sanitizeFilename(title, id) {
       try {
-        var base = String(title || '').toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9\-_.]/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^[-.]+|[-.]+$/g, '');
-        var fallback = String(id || '').slice(0, 12) || 'note';
+        var base = String(title || "")
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9\-_.]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^[-.]+|[-.]+$/g, "");
+        var fallback = String(id || "").slice(0, 12) || "note";
         var trimmed = base.slice(0, 64) || fallback;
         return trimmed;
       } catch (_) {
-        return 'note';
+        return "note";
       }
     }
 
@@ -68,7 +80,12 @@ function main() {
         var isDir = Ref();
         var nsPath = $(dirPath);
         if (!(fm.fileExistsAtPathIsDirectory(nsPath, isDir) && isDir[0])) {
-          fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(nsPath, true, null, null);
+          fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(
+            nsPath,
+            true,
+            null,
+            null
+          );
         }
       } catch (_) {}
     }
@@ -76,120 +93,226 @@ function main() {
     function writeHtmlFile(dirPath, idx, title, id, htmlStr) {
       try {
         var base = sanitizeFilename(title, id);
-        var fileName = String(idx) + '-' + base + '.html';
-        var fullPath = dirPath + '/' + fileName;
-        var data = $(String(htmlStr || '')).dataUsingEncoding($.NSUTF8StringEncoding);
+        var fileName = String(idx) + "-" + base + ".html";
+        var fullPath = dirPath + "/" + fileName;
+        var data = $(String(htmlStr || "")).dataUsingEncoding(
+          $.NSUTF8StringEncoding
+        );
         if (data) data.writeToFileAtomically($(fullPath), true);
         return fullPath;
       } catch (e) {
-        try { logErr('[JXA] Failed to write HTML file: ' + String(e)); } catch (_) {}
+        try {
+          logErr("[JXA] Failed to write HTML file: " + String(e));
+        } catch (_) {}
         return null;
       }
     }
 
     try {
-      var limitStr = getEnvString('LIMIT');
+      var limitStr = getEnvString("LIMIT");
       if (limitStr) {
         var parsed = parseInt(String(limitStr), 10);
         if (!isNaN(parsed) && parsed > 0) limit = parsed;
       }
-      var outDirStr = getEnvString('HTML_OUT_DIR');
+      var outDirStr = getEnvString("HTML_OUT_DIR");
       if (outDirStr && outDirStr.length > 0) {
         htmlOutDir = outDirStr;
         ensureDir(htmlOutDir);
       }
-      var inlineStr = getEnvString('INLINE_HTML');
-      if (inlineStr && (inlineStr === '1' || String(inlineStr).toLowerCase() === 'true')) inlineHtml = true;
+      var inlineStr = getEnvString("INLINE_HTML");
+      if (
+        inlineStr &&
+        (inlineStr === "1" || String(inlineStr).toLowerCase() === "true")
+      )
+        inlineHtml = true;
+      var sinceStr = getEnvString("SINCE_EPOCH_SEC");
+      if (sinceStr) {
+        var sParsed = parseInt(String(sinceStr), 10);
+        if (!isNaN(sParsed) && sParsed > 0) sinceEpochSec = sParsed;
+      }
+      var skipPath = getEnvString("SKIP_INDEX_PATH");
+      if (skipPath && skipPath.length > 0) {
+        try {
+          var data = $.NSString.stringWithContentsOfFileEncodingError(
+            $(skipPath),
+            $.NSUTF8StringEncoding,
+            null
+          );
+          if (data) {
+            var jsonStr = ObjC.unwrap(data);
+            try {
+              var parsed = JSON.parse(String(jsonStr));
+              if (parsed && typeof parsed === "object") skipIndex = parsed;
+            } catch (eJson) {}
+          }
+        } catch (eRead) {}
+      }
     } catch (_) {}
-    logErr('[JXA] LIMIT=' + (limit === null ? 'none' : String(limit)));
-    if (htmlOutDir) logErr('[JXA] HTML_OUT_DIR=' + String(htmlOutDir));
-    logErr('[JXA] INLINE_HTML=' + (inlineHtml ? 'yes' : 'no'));
+    logErr("[JXA] LIMIT=" + (limit === null ? "none" : String(limit)));
+    if (htmlOutDir) logErr("[JXA] HTML_OUT_DIR=" + String(htmlOutDir));
+    logErr("[JXA] INLINE_HTML=" + (inlineHtml ? "yes" : "no"));
+    if (sinceEpochSec !== null)
+      logErr("[JXA] SINCE_EPOCH_SEC=" + String(sinceEpochSec));
+    var skipCount = 0;
+    try {
+      skipCount = Object.keys(skipIndex).length;
+    } catch (_) {}
+    if (skipCount > 0) logErr("[JXA] SKIP_INDEX entries=" + String(skipCount));
+
+    function shouldSkip(id, modifiedDate) {
+      try {
+        var modMs = new Date(modifiedDate).getTime();
+        if (sinceEpochSec !== null) {
+          if (!isNaN(modMs) && modMs < sinceEpochSec * 1000) return true;
+        }
+        if (skipIndex && id && typeof skipIndex[id] === "string") {
+          var prevIso = skipIndex[id];
+          var prevMs = new Date(prevIso).getTime();
+          if (!isNaN(prevMs) && !isNaN(modMs) && modMs <= prevMs) return true;
+        }
+      } catch (_) {}
+      return false;
+    }
 
     // Fast path: try application-level notes() first and stop at LIMIT
     var tFastStart = nowMs();
-    logErr('[JXA] Fast path: app.notes() enumeration start');
+    logErr("[JXA] Fast path: app.notes() enumeration start");
     try {
       var appNotes = app.notes();
-      logErr('[JXA] app.notes() obtained; iterating...');
-      for (var i = 0; (limit === null || wrote < limit); i++) {
+      logErr("[JXA] app.notes() obtained; iterating...");
+      for (var i = 0; limit === null || wrote < limit; i++) {
         var note;
-        try { note = appNotes[i]; } catch (eIdx) { break; }
+        try {
+          note = appNotes[i];
+        } catch (eIdx) {
+          break;
+        }
         if (!note) break;
         var tNote = nowMs();
         var created = note.creationDate();
-        var modified = note.modificationDate ? note.modificationDate() : created;
+        var modified = note.modificationDate
+          ? note.modificationDate()
+          : created;
         var title = note.name();
         var id = note.id();
+        if (shouldSkip(String(id), modified)) {
+          skipped++;
+          continue;
+        }
         var tBody = nowMs();
         var body = note.body();
         var bodyMs = nowMs() - tBody;
-        var htmlStr = String(body || '');
-        var outPath = htmlOutDir ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr) : null;
+        var htmlStr = String(body || "");
+        var outPath = htmlOutDir
+          ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr)
+          : null;
         results.push({
           id: String(id),
-          title: String(title || ''),
+          title: String(title || ""),
           createdAt: toISOString(created),
           updatedAt: toISOString(modified),
-          folder: '',
-          html: inlineHtml ? htmlStr : '',
-          filePath: outPath
+          folder: "",
+          html: inlineHtml ? htmlStr : "",
+          filePath: outPath,
         });
         wrote++;
         var totalMs = nowMs() - tNote;
         if (wrote <= 5 || wrote % 50 === 0) {
-          logErr('[JXA] app.notes() note #' + wrote + ' timings: body=' + bodyMs + 'ms total=' + totalMs + 'ms');
+          logErr(
+            "[JXA] app.notes() note #" +
+              wrote +
+              " timings: body=" +
+              bodyMs +
+              "ms total=" +
+              totalMs +
+              "ms"
+          );
         }
       }
     } catch (_) {}
-    logErr('[JXA] Fast path complete: wrote=' + wrote + ' in ' + (nowMs() - tFastStart) + 'ms');
+    logErr(
+      "[JXA] Fast path complete: wrote=" +
+        wrote +
+        " in " +
+        (nowMs() - tFastStart) +
+        "ms"
+    );
 
     // Fallback: accounts -> folders -> notes
     try {
       if (limit !== null && wrote >= limit) throw { __done: true };
       var accounts = app.accounts();
-      logErr('[JXA] Fallback path: accounts()->folders()->notes() start');
-      for (var ai = 0; (limit === null || wrote < limit); ai++) {
+      logErr("[JXA] Fallback path: accounts()->folders()->notes() start");
+      for (var ai = 0; limit === null || wrote < limit; ai++) {
         var account;
-        try { account = accounts[ai]; } catch (eA) { break; }
+        try {
+          account = accounts[ai];
+        } catch (eA) {
+          break;
+        }
         if (!account) break;
         if (limit !== null && wrote >= limit) break;
         var folders = account.folders();
-        logErr('[JXA] account[' + ai + '] folders() iterating');
-        for (var fi = 0; (limit === null || wrote < limit); fi++) {
+        logErr("[JXA] account[" + ai + "] folders() iterating");
+        for (var fi = 0; limit === null || wrote < limit; fi++) {
           var folder;
-          try { folder = folders[fi]; } catch (eF) { break; }
+          try {
+            folder = folders[fi];
+          } catch (eF) {
+            break;
+          }
           if (!folder) break;
           if (limit !== null && wrote >= limit) break;
           var notes = folder.notes();
-          logErr('[JXA]  folder[' + ai + '/' + fi + '] notes() iterating');
-          for (var ni = 0; (limit === null || wrote < limit); ni++) {
+          logErr("[JXA]  folder[" + ai + "/" + fi + "] notes() iterating");
+          for (var ni = 0; limit === null || wrote < limit; ni++) {
             var note;
-            try { note = notes[ni]; } catch (eN) { break; }
+            try {
+              note = notes[ni];
+            } catch (eN) {
+              break;
+            }
             if (!note) break;
             if (limit !== null && wrote >= limit) break;
             var tNote2 = nowMs();
             var created = note.creationDate();
-            var modified = note.modificationDate ? note.modificationDate() : created;
+            var modified = note.modificationDate
+              ? note.modificationDate()
+              : created;
             var title = note.name();
             var id = note.id();
+            if (shouldSkip(String(id), modified)) {
+              skipped++;
+              continue;
+            }
             var tBody2 = nowMs();
             var body = note.body(); // HTML
             var bodyMs2 = nowMs() - tBody2;
-            var htmlStr2 = String(body || '');
-            var outPath2 = htmlOutDir ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr2) : null;
+            var htmlStr2 = String(body || "");
+            var outPath2 = htmlOutDir
+              ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr2)
+              : null;
             results.push({
               id: String(id),
-              title: String(title || ''),
+              title: String(title || ""),
               createdAt: toISOString(created),
               updatedAt: toISOString(modified),
               folder: String(folder.name()),
-              html: inlineHtml ? htmlStr2 : '',
-              filePath: outPath2
+              html: inlineHtml ? htmlStr2 : "",
+              filePath: outPath2,
             });
             wrote++;
             var totalMs2 = nowMs() - tNote2;
             if (wrote <= 5 || wrote % 50 === 0) {
-              logErr('[JXA] account/folder note #' + wrote + ' timings: body=' + bodyMs2 + 'ms total=' + totalMs2 + 'ms');
+              logErr(
+                "[JXA] account/folder note #" +
+                  wrote +
+                  " timings: body=" +
+                  bodyMs2 +
+                  "ms total=" +
+                  totalMs2 +
+                  "ms"
+              );
             }
           }
         }
@@ -200,42 +323,66 @@ function main() {
     if ((limit === null || wrote < limit) && results.length === 0) {
       try {
         var topFolders = app.folders();
-        logErr('[JXA] Fallback path: app.folders() start');
-        for (var tfi = 0; (limit === null || wrote < limit); tfi++) {
+        logErr("[JXA] Fallback path: app.folders() start");
+        for (var tfi = 0; limit === null || wrote < limit; tfi++) {
           var folder;
-          try { folder = topFolders[tfi]; } catch (eTF) { break; }
+          try {
+            folder = topFolders[tfi];
+          } catch (eTF) {
+            break;
+          }
           if (!folder) break;
           if (limit !== null && wrote >= limit) break;
           var notes = folder.notes();
-          logErr('[JXA]  topFolder[' + tfi + '] notes() iterating');
-          for (var tni = 0; (limit === null || wrote < limit); tni++) {
+          logErr("[JXA]  topFolder[" + tfi + "] notes() iterating");
+          for (var tni = 0; limit === null || wrote < limit; tni++) {
             var note;
-            try { note = notes[tni]; } catch (eTN) { break; }
+            try {
+              note = notes[tni];
+            } catch (eTN) {
+              break;
+            }
             if (!note) break;
             if (limit !== null && wrote >= limit) break;
             var tNote3 = nowMs();
             var created = note.creationDate();
-            var modified = note.modificationDate ? note.modificationDate() : created;
+            var modified = note.modificationDate
+              ? note.modificationDate()
+              : created;
             var title = note.name();
             var id = note.id();
+            if (shouldSkip(String(id), modified)) {
+              skipped++;
+              continue;
+            }
             var tBody3 = nowMs();
             var body = note.body();
             var bodyMs3 = nowMs() - tBody3;
-            var htmlStr3 = String(body || '');
-            var outPath3 = htmlOutDir ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr3) : null;
+            var htmlStr3 = String(body || "");
+            var outPath3 = htmlOutDir
+              ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr3)
+              : null;
             results.push({
               id: String(id),
-              title: String(title || ''),
+              title: String(title || ""),
               createdAt: toISOString(created),
               updatedAt: toISOString(modified),
               folder: String(folder.name()),
-              html: inlineHtml ? htmlStr3 : '',
-              filePath: outPath3
+              html: inlineHtml ? htmlStr3 : "",
+              filePath: outPath3,
             });
             wrote++;
             var totalMs3 = nowMs() - tNote3;
             if (wrote <= 5 || wrote % 50 === 0) {
-              logErr('[JXA] topFolders note #' + wrote + ' timings: body=' + bodyMs3 + 'ms total=' + totalMs3 + 'ms');
+              logErr(
+                "[JXA] topFolders note #" +
+                  wrote +
+                  " timings: body=" +
+                  bodyMs3 +
+                  "ms total=" +
+                  totalMs3 +
+                  "ms"
+              );
             }
           }
         }
@@ -251,37 +398,75 @@ function main() {
           var note = appNotes[an];
           var tNote4 = nowMs();
           var created = note.creationDate();
-          var modified = note.modificationDate ? note.modificationDate() : created;
+          var modified = note.modificationDate
+            ? note.modificationDate()
+            : created;
           var title = note.name();
           var id = note.id();
+          if (shouldSkip(String(id), modified)) {
+            skipped++;
+            continue;
+          }
           var tBody4 = nowMs();
           var body = note.body();
           var bodyMs4 = nowMs() - tBody4;
-          var htmlStr4 = String(body || '');
-          var outPath4 = htmlOutDir ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr4) : null;
+          var htmlStr4 = String(body || "");
+          var outPath4 = htmlOutDir
+            ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr4)
+            : null;
           results.push({
             id: String(id),
-            title: String(title || ''),
+            title: String(title || ""),
             createdAt: toISOString(created),
             updatedAt: toISOString(modified),
-            folder: '',
-            html: inlineHtml ? htmlStr4 : '',
-            filePath: outPath4
+            folder: "",
+            html: inlineHtml ? htmlStr4 : "",
+            filePath: outPath4,
           });
           wrote++;
           var totalMs4 = nowMs() - tNote4;
           if (wrote <= 5 || wrote % 50 === 0) {
-            logErr('[JXA] last-resort note #' + wrote + ' timings: body=' + bodyMs4 + 'ms total=' + totalMs4 + 'ms');
+            logErr(
+              "[JXA] last-resort note #" +
+                wrote +
+                " timings: body=" +
+                bodyMs4 +
+                "ms total=" +
+                totalMs4 +
+                "ms"
+            );
           }
         }
       } catch (_) {}
     }
 
-    logErr('[JXA] Done. wrote=' + wrote + ' totalTime=' + (nowMs() - tStart) + 'ms');
-    return JSON.stringify(results);
+    logErr(
+      "[JXA] Done. wrote=" +
+        wrote +
+        " skipped=" +
+        skipped +
+        " totalTime=" +
+        (nowMs() - tStart) +
+        "ms"
+    );
+    try {
+      return JSON.stringify({
+        notes: results,
+        wrote: wrote,
+        skipped: skipped,
+        outDir: htmlOutDir,
+        inline: inlineHtml,
+      });
+    } catch (_) {
+      return JSON.stringify(results);
+    }
   } catch (e) {
-    try { logErr('[JXA] Fatal error: ' + String(e)); } catch (_) {}
-    try { if (typeof results !== 'undefined') return JSON.stringify(results); } catch (_) {}
+    try {
+      logErr("[JXA] Fatal error: " + String(e));
+    } catch (_) {}
+    try {
+      if (typeof results !== "undefined") return JSON.stringify(results);
+    } catch (_) {}
     throw e;
   }
 }
