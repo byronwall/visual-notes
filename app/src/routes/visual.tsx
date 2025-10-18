@@ -101,12 +101,16 @@ function colorFor(title: string): string {
 
 const VisualCanvas: VoidComponent = () => {
   const [docs] = createResource(fetchDocs);
-  const [umapRun] = createResource(fetchLatestUmapRun);
-  const [umapPoints] = createResource(async () => {
-    const run = await fetchLatestUmapRun();
-    if (!run) return [] as UmapPoint[];
-    return fetchUmapPoints(run.id);
-  });
+  const [umapRun, { refetch: refetchUmapRun }] =
+    createResource(fetchLatestUmapRun);
+  // Refetch points whenever the latest run id changes to avoid stale data after client navigation
+  const [umapPoints, { refetch: refetchUmapPoints }] = createResource(
+    () => umapRun()?.id,
+    async (runId) => {
+      if (!runId) return [] as UmapPoint[];
+      return fetchUmapPoints(runId);
+    }
+  );
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
@@ -122,6 +126,8 @@ const VisualCanvas: VoidComponent = () => {
   let lastPan = { x: 0, y: 0 };
   let frame = 0 as number | undefined;
   let containerEl: HTMLDivElement | undefined;
+  const [useUmap, setUseUmap] = createSignal(true);
+  const [layoutVersion, setLayoutVersion] = createSignal(0);
 
   // Build a normalized index of UMAP positions mapped into a consistent world space
   const umapIndex = createMemo(() => {
@@ -174,6 +180,22 @@ const VisualCanvas: VoidComponent = () => {
       }));
       console.log(`[visual] UMAP sample (first ${preview.length})`, preview);
     } catch {}
+    return map;
+  });
+
+  // Compute final positions for all notes based on current layout preference
+  const positions = createMemo(() => {
+    const list = docs();
+    const index = umapIndex();
+    const preferUmap = useUmap();
+    const map = new Map<string, { x: number; y: number }>();
+    if (!list) return map;
+    for (let i = 0; i < list.length; i++) {
+      const d = list[i]!;
+      const fromUmap = preferUmap ? index.get(d.id) : undefined;
+      if (fromUmap) map.set(d.id, fromUmap);
+      else map.set(d.id, seededPositionFor(d.title, i));
+    }
     return map;
   });
 
@@ -317,11 +339,11 @@ const VisualCanvas: VoidComponent = () => {
     let usedUmap = 0;
     let usedSeed = 0;
     for (const d of list) {
-      if (index.has(d.id)) usedUmap++;
+      if (useUmap() && index.has(d.id)) usedUmap++;
       else usedSeed++;
     }
     const sample = list.slice(0, Math.min(10, list.length)).map((d, i) => {
-      const fromUmap = index.get(d.id);
+      const fromUmap = useUmap() ? index.get(d.id) : undefined;
       return {
         id: d.id,
         title: d.title,
@@ -376,8 +398,10 @@ const VisualCanvas: VoidComponent = () => {
             {(list) => (
               <For each={list()}>
                 {(d, i) => {
-                  const fromUmap = umapIndex().get(d.id);
-                  const p = fromUmap ?? seededPositionFor(d.title, i());
+                  const pos = createMemo(
+                    () =>
+                      positions().get(d.id) ?? seededPositionFor(d.title, i())
+                  );
                   const bg = colorFor(d.title);
                   return (
                     <button
@@ -390,8 +414,10 @@ const VisualCanvas: VoidComponent = () => {
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{
                         position: "absolute",
-                        left: `${p.x}px`,
-                        top: `${p.y}px`,
+                        left: `${pos().x}px`,
+                        top: `${pos().y}px`,
+                        // changes to layoutVersion trigger style recomputation even if positions map stays referentially equal
+                        "--layout-ver": String(layoutVersion()),
                         transform: "translate(-50%, -50%)",
                         padding: "8px 10px",
                         background: bg,
@@ -458,6 +484,26 @@ const VisualCanvas: VoidComponent = () => {
             }}
           >
             Reset View
+          </button>
+          <button
+            class="cta"
+            onClick={() => setUseUmap((v) => !v)}
+            title="Toggle between UMAP and seeded layout"
+          >
+            {useUmap() ? "Force Seeded Layout" : "Force UMAP Layout"}
+          </button>
+          <button
+            class="cta"
+            onClick={() => {
+              // Force re-layout: refetch latest run and points
+              setUseUmap(true);
+              refetchUmapRun?.();
+              refetchUmapPoints?.();
+              setLayoutVersion((v) => v + 1);
+            }}
+            title="Refetch UMAP run and points and re-apply layout"
+          >
+            Force Re-layout
           </button>
         </div>
         {(docs()?.length || 0) === 0 && (
