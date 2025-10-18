@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 
 type RawNote = {
   id: string;
@@ -321,6 +322,8 @@ async function main(): Promise<void> {
     // Optionally POST each markdown note to the server
     if (postToServer) {
       const endpoint = serverUrl.replace(/\/?$/, "") + "/api/docs";
+      const inventoryEndpoint =
+        serverUrl.replace(/\/?$/, "") + "/api/docs/inventory";
       if (verbose) {
         console.log(
           `[visual-notes-ingest] Posting ${exported.length} notes to ${endpoint}...`
@@ -334,22 +337,70 @@ async function main(): Promise<void> {
           "[visual-notes-ingest] No global fetch available. Use Node 18+ or set a fetch polyfill."
         );
       } else {
+        // 1) Fetch inventory from server
+        if (verbose)
+          console.log(`[visual-notes-ingest] Fetching server inventory...`);
+        const invRes = await fetchFn(inventoryEndpoint);
+        const invJson: any = await invRes.json().catch(() => ({}));
+        if (!invRes.ok)
+          throw new Error(invJson?.error || `Inventory HTTP ${invRes.status}`);
+        const inventory: Record<
+          string,
+          { contentHash: string | null; updatedAt: string }
+        > = {};
+        for (const it of Array.isArray(invJson.items) ? invJson.items : []) {
+          if (it?.originalContentId) {
+            inventory[String(it.originalContentId)] = {
+              contentHash: it.contentHash ?? null,
+              updatedAt: String(it.updatedAt),
+            };
+          }
+        }
+
+        // 2) Compute local content hash per note
+        const withHashes = exported.map((n) => ({
+          ...n,
+          originalContentId: n.id,
+          contentHash: sha256Hex(n.markdown),
+        }));
+
+        // 3) Filter to notes not present or changed
+        const candidates = withHashes.filter((n) => {
+          const inv = inventory[n.originalContentId];
+          if (!inv) return true; // not present on server
+          if (!inv.contentHash) return true; // server missing hash; reupload
+          return inv.contentHash !== n.contentHash; // changed content
+        });
+
+        // 4) Cap to 20 unique notes
+        const toSend = candidates.slice(0, 20);
+        if (verbose)
+          console.log(
+            `[visual-notes-ingest] ${toSend.length} unique notes to upload (of ${exported.length} exported)`
+          );
+
+        // 5) Upload
         let successes = 0;
         let failures = 0;
-        for (let i = 0; i < exported.length; i++) {
-          const note = exported[i];
+        for (let i = 0; i < toSend.length; i++) {
+          const note = toSend[i];
           const title = note.title || "(untitled)";
           try {
             if (verbose)
               console.log(
                 `[visual-notes-ingest] [${i + 1}/${
-                  exported.length
+                  toSend.length
                 }] POST ${title}`
               );
             const res = await fetchFn(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title, markdown: note.markdown }),
+              body: JSON.stringify({
+                title,
+                markdown: note.markdown,
+                originalContentId: note.originalContentId,
+                contentHash: note.contentHash,
+              }),
             });
             const json: any = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
@@ -416,6 +467,10 @@ function sanitizeFilename(title: string, id: string): string {
     .replace(/^[-.]+|[-.]+$/g, "");
   const trimmed = ascii.slice(0, 64) || id.slice(0, 12);
   return trimmed;
+}
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 main().catch((err) => {
