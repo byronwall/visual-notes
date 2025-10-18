@@ -33,6 +33,9 @@ const Navbar: VoidComponent = () => {
             <a href="/docs" class="hover:underline">
               Notes
             </a>
+            <a href="/visual" class="hover:underline">
+              Canvas
+            </a>
           </div>
         </div>
         <div class="flex items-center gap-2">
