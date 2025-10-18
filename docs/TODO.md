@@ -11,6 +11,10 @@
 - Goal is to get more local movement instead of 2 large global clusters -- really want to create small pockets of commonness
 - Probably need some sort of algo to separate things after the UMAP run
 
+## Content
+
+- Find all the notes with youtube links - organize those somehow
+
 ## Canvas
 
 - Too much bunching once things render - need to allow spreading - crude force directed

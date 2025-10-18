@@ -14,8 +14,10 @@ type Point = { docId: string; x: number; y: number; z?: number | null };
 type RunMeta = {
   id: string;
   dims: number;
+  params?: Record<string, unknown> | null;
   embeddingRunId: string;
   createdAt: string;
+  count?: number;
 };
 
 async function fetchRun(id: string): Promise<RunMeta> {
@@ -195,6 +197,44 @@ const UmapDetail: VoidComponent = () => {
                   <div>
                     <span class="font-medium">Created:</span>{" "}
                     {new Date(m().createdAt).toLocaleString()}
+                  </div>
+                  <div class="mt-2">
+                    <span class="font-medium">Params:</span>
+                    <Show
+                      when={
+                        m().params && Object.keys(m().params || {}).length > 0
+                      }
+                      fallback={<span class="ml-1 text-gray-500">(none)</span>}
+                    >
+                      <div class="mt-1 overflow-hidden rounded border border-gray-200">
+                        <table class="w-full text-xs">
+                          <thead class="bg-gray-50">
+                            <tr>
+                              <th class="text-left p-2">Key</th>
+                              <th class="text-left p-2">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For
+                              each={Object.entries(
+                                (m().params as Record<string, unknown>) || {}
+                              )}
+                            >
+                              {([k, v]) => (
+                                <tr class="border-t border-gray-200">
+                                  <td class="p-2 font-mono">{k}</td>
+                                  <td class="p-2">
+                                    {typeof v === "object"
+                                      ? JSON.stringify(v)
+                                      : String(v)}
+                                  </td>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    </Show>
                   </div>
                 </div>
               )}

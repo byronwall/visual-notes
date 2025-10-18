@@ -9,9 +9,17 @@ const createSchema = z.object({
   dims: z.union([z.literal(2), z.literal(3)]).default(2),
   params: z
     .object({
-      nNeighbors: z.number().int().positive().optional(),
+      nNeighbors: z.number().int().min(2).max(200).optional(),
       minDist: z.number().min(0).max(1).optional(),
       metric: z.enum(["cosine", "euclidean"]).optional(),
+      learningRate: z.number().positive().optional(),
+      nEpochs: z.number().int().positive().optional(),
+      localConnectivity: z.number().int().min(1).optional(),
+      repulsionStrength: z.number().positive().optional(),
+      negativeSampleRate: z.number().int().min(1).optional(),
+      setOpMixRatio: z.number().min(0).max(1).optional(),
+      spread: z.number().positive().optional(),
+      init: z.enum(["random", "spectral"]).optional(),
     })
     .optional(),
 });
@@ -39,6 +47,14 @@ export async function POST(event: APIEvent) {
       nNeighbors: input.params?.nNeighbors ?? 15,
       minDist: input.params?.minDist ?? 0.1,
       metric: input.params?.metric ?? "cosine",
+      learningRate: input.params?.learningRate,
+      nEpochs: input.params?.nEpochs,
+      localConnectivity: input.params?.localConnectivity,
+      repulsionStrength: input.params?.repulsionStrength,
+      negativeSampleRate: input.params?.negativeSampleRate,
+      setOpMixRatio: input.params?.setOpMixRatio,
+      spread: input.params?.spread,
+      init: input.params?.init,
     } as any);
     const embedding = umap.fit(matrix);
     // embedding is a number[][] with dims columns
