@@ -6,6 +6,14 @@ function toISOString(date) {
   return new Date(date).toISOString();
 }
 
+function asString(val) {
+  try {
+    return ObjC.unwrap(val);
+  } catch (e) {
+    try { return String(val); } catch (_) { return ''; }
+  }
+}
+
 function sanitize(str) {
   return String(str || '')
     .toLowerCase()
@@ -15,96 +23,327 @@ function sanitize(str) {
     .replace(/^[-.]+|[-.]+$/g, '');
 }
 
+function toArray(obj) {
+  try {
+    var unwrapped = ObjC.unwrap(obj);
+    // If the underlying value de-bridged into a native JS array, use it
+    if (Array.isArray(unwrapped)) return unwrapped;
+  } catch (_) {}
+  // Fall back to iterating the original scripting object (may expose a JS length)
+  try {
+    if (typeof obj !== 'undefined' && obj !== null && typeof obj.length === 'number') {
+      var out = [];
+      for (var i = 0; i < obj.length; i++) out.push(obj[i]);
+      return out;
+    }
+  } catch (_) {}
+  return [];
+}
+
+function safeLength(obj) {
+  try {
+    var unwrapped = ObjC.unwrap(obj);
+    if (Array.isArray(unwrapped)) return unwrapped.length;
+  } catch (_) {
+    // ignore and fall through
+  }
+  try {
+    if (typeof obj !== 'undefined' && obj !== null && typeof obj.length === 'number') return obj.length;
+  } catch (_) {}
+  return 0;
+}
+
 function main() {
   try {
   var app = Application('Notes');
   app.includeStandardAdditions = true;
 
-  var accounts = app.accounts();
-  var results = [];
+  // Use Standard Additions from the current script host (osascript) for dialogs/shell
+  var currentApp = Application.currentApplication();
+  currentApp.includeStandardAdditions = true;
 
-  // Read LIMIT from environment, default to 10
+  // Best-effort automation permission helper: activate Notes, show guidance, open Settings
+  function tryTriggerAutomationPrompt() {
+    function hasNotesAccess() {
+      try {
+        // Accessing accounts/notes should trigger the system prompt on first run
+        var _acc = app.accounts();
+        var count = safeLength(_acc); // may also throw if not authorized
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    if (hasNotesAccess()) return true;
+
+    // Bring Notes to foreground to make the system prompt more visible
+    try { app.activate(); } catch (_) {}
+
+    // Explain to the user what's needed and open the Automation privacy pane
+    try {
+      currentApp.displayAlert(
+        'Allow access to Notes',
+        {
+          message:
+            'To export Apple Notes, allow your terminal app to control Notes:\n' +
+            'System Settings → Privacy & Security → Automation → Enable “Notes”.\n' +
+            'The settings pane will open now. After enabling, return and rerun if prompted.',
+          as: 'informational'
+        }
+      );
+    } catch (_) {}
+
+    // Open directly to the Automation pane (Ventura/Sonoma and later)
+    try {
+      currentApp.doShellScript(
+        "open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'"
+      );
+    } catch (_) {}
+
+    // Small delay, then retry an operation that should re-trigger the prompt
+    try { delay(1); } catch (_) {}
+    try {
+      // Accessing notes again to (re)trigger the prompt if still pending
+      var _notes = app.notes();
+      var c = safeLength(_notes);
+    } catch (_) {}
+
+    // Final check — continue either way; downstream will simply return 0 if still blocked
+    return hasNotesAccess();
+  }
+
+  // Attempt to trigger the macOS automation permission prompt up-front
+  tryTriggerAutomationPrompt();
+  // Allow a brief warm-up for permissions/state to settle, retry a few times
+  try {
+    var retries = 3;
+    while (retries-- > 0) {
+      try {
+        var _acc = app.accounts();
+        // If we can access accounts, break early
+        var _len = safeLength(_acc);
+        if (_len >= 0) break;
+      } catch (_) {}
+      try { delay(0.5); } catch (_) {}
+    }
+  } catch (_) {}
+
+  // ---- Read env + set defaults ----
   var limit = 10;
   var htmlOutDir = null;
+  var sinceEpoch = null;
+  var inlineHtml = false;
+  var debug = [];
+
   try {
     var env = $.NSProcessInfo.processInfo.environment;
-    var limitStr = String(env.objectForKey('LIMIT'));
+
+    var limitStr = asString(env.objectForKey('LIMIT') || '');
     var parsed = parseInt(limitStr, 10);
     if (!isNaN(parsed) && parsed > 0) limit = parsed;
-    var htmlDir = env.objectForKey('HTML_OUT_DIR');
-    if (htmlDir) htmlOutDir = String(htmlDir);
-  } catch (e) {}
 
+    var sinceStr = env.objectForKey('SINCE_EPOCH_SEC');
+    if (sinceStr) {
+      var secs = parseInt(asString(sinceStr), 10);
+      if (!isNaN(secs) && secs > 0) sinceEpoch = secs;
+    }
+
+    // If INLINE_HTML=1, force inline mode (no file writes)
+    var inlineStr = env.objectForKey('INLINE_HTML');
+    if (inlineStr && String(inlineStr) === '1') {
+      inlineHtml = true;
+    }
+
+    var dbg = env.objectForKey('JXA_DEBUG');
+    if (dbg && String(dbg) === '1') {
+      debug.push('Debug mode enabled');
+    }
+
+    // Prefer provided HTML_OUT_DIR; otherwise default to ./notes_html
+    var envHtmlDir = env.objectForKey('HTML_OUT_DIR');
+    if (envHtmlDir) {
+      htmlOutDir = asString(envHtmlDir);
+      if (debug) debug.push('HTML_OUT_DIR from env: ' + htmlOutDir);
+    } else {
+      if (!inlineHtml) {
+        // Resolve CWD via Foundation (fast, no subshell)
+        var fm0 = $.NSFileManager.defaultManager;
+        var cwd = asString(fm0.currentDirectoryPath);
+        htmlOutDir = cwd + '/notes_html';
+        if (debug) debug.push('HTML_OUT_DIR defaulted to: ' + htmlOutDir);
+      }
+    }
+  } catch (e0) {}
+
+  var results = [];
   var wrote = 0;
   var skipped = 0;
 
-  accounts.forEach(function (account) {
-    var folders = account.folders();
-    folders.forEach(function (folder) {
-      var notes = folder.notes();
-      notes.forEach(function (note) {
-        // Some notes can have undefined modification dates
-        var created = note.creationDate();
-        var modified = note.modificationDate ? note.modificationDate() : created;
-        var title = note.name();
-        var id = note.id();
-        var body = note.body(); // HTML
-
-        var obj = {
-          id: String(id),
-          title: String(title || ''),
-          createdAt: toISOString(created),
-          updatedAt: toISOString(modified),
-          folder: String(folder.name()),
-        };
-        results.push(obj);
-
-        // optionally write raw HTML per-note (default when provided)
-        if (htmlOutDir) {
-          try {
-            var fm = $.NSFileManager.defaultManager;
-            var isDir = Ref();
-            if (!fm.fileExistsAtPathIsDirectory($(htmlOutDir), isDir)) {
-              fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError($(htmlOutDir), true, null, null);
-            }
-            var safeTitle = sanitize(obj.title || 'note');
-            var safeId = sanitize(String(id)).slice(0, 24);
-            var filename = safeId + (safeTitle ? '-' + safeTitle : '') + '.html';
-            var filePath = htmlOutDir + '/' + filename;
-
-            obj.filePath = filePath;
-
-            // skip if already exists (resumable)
-            if (fm.fileExistsAtPath($(filePath))) {
-              skipped += 1;
-            } else {
-              var content = $(String(body || '')).dataUsingEncoding($.NSUTF8StringEncoding);
-              content.writeToFileAtomically(filePath, true);
-              wrote += 1;
-              if (wrote >= limit) {
-                throw { __stop: true };
-              }
-            }
-          } catch (e) {
-            // ignore file write errors
-          }
-        } else {
-          // no htmlOutDir: include html in JSON payload and count notes
-          obj.html = String(body || '');
-          wrote += 1;
-          if (wrote >= limit) {
-            throw { __stop: true };
-          }
-        }
-      });
-    });
-  });
-
-  return JSON.stringify(results);
-  } catch (e) {
-    if (e && e.__stop) {
-      return JSON.stringify(results);
+  var fm = $.NSFileManager.defaultManager;
+  function ensureDir(path) {
+    var pStr = asString(path);
+    if (!pStr) return;
+    var isDirRef = Ref();
+    var exists = fm.fileExistsAtPathIsDirectory($(pStr), isDirRef);
+    var isDirectory = false;
+    try { isDirectory = exists && !!ObjC.unwrap(isDirRef[0]); } catch (_) { isDirectory = false; }
+    if (!isDirectory) {
+      var errRef = Ref();
+      // Use $.nil for NSDictionary* attributes and NSError** out param
+      fm.createDirectoryAtPathWithIntermediateDirectoriesAttributesError($(pStr), true, $.nil, errRef);
+      try { if (errRef[0]) throw new Error(asString(errRef[0])); } catch (_) {}
     }
+  }
+  if (htmlOutDir && !inlineHtml) {
+    try {
+      ensureDir(htmlOutDir);
+      if (debug) debug.push('Ensured HTML dir exists: ' + htmlOutDir);
+    } catch (eDir) {
+      if (debug) debug.push('Ensure dir failed: ' + asString(eDir));
+    }
+  }
+
+  var sinceDate = sinceEpoch ? new Date(sinceEpoch * 1000) : null;
+
+  // Helper to push a note entry with either file write or inline HTML
+  function pushNote(noteRef, folderName) {
+    var created = noteRef.creationDate();
+    var modified = noteRef.modificationDate() || created;
+    if (sinceDate && modified < sinceDate) return false;
+    var id = asString(noteRef.id() || '');
+    var title = asString(noteRef.name() || '');
+    var obj = {
+      id: id,
+      title: title,
+      createdAt: toISOString(created),
+      updatedAt: toISOString(modified),
+      folder: asString(folderName || '')
+    };
+    if (!inlineHtml && htmlOutDir) {
+      try {
+        var body = asString(noteRef.body() || '');
+        var safeTitle = sanitize(title || 'note');
+        var safeId = sanitize(id).slice(0, 24);
+        var filename = safeId + (safeTitle ? '-' + safeTitle : '') + '.html';
+        var filePath = htmlOutDir + '/' + filename;
+        obj.filePath = filePath;
+        var p = $(filePath);
+        if (fm.fileExistsAtPath(p)) {
+          skipped++;
+        } else {
+          var data = $(body).dataUsingEncoding($.NSUTF8StringEncoding);
+          data.writeToFileAtomically(filePath, true);
+          wrote++;
+        }
+      } catch (eWrite) {
+        if (debug) debug.push('Write failed for note id=' + id + ' title=' + title + ' error=' + asString(eWrite));
+        return false;
+      }
+    } else {
+      try { obj.html = asString(noteRef.body() || ''); } catch (_) { obj.html = ''; }
+      wrote++;
+    }
+    results.push(obj);
+    return true;
+  }
+
+  // Strategy 1: iterate by accounts → folders → notes
+  try {
+    var accountsObj = app.accounts();
+    var accounts = toArray(accountsObj);
+    if (debug) debug.push('accounts(): ' + accounts.length);
+    for (var ai = 0; ai < accounts.length; ai++) {
+      var foldersObj = accounts[ai].folders();
+      var folders = toArray(foldersObj);
+      if (debug) debug.push('account[' + ai + '] folders: ' + folders.length);
+      for (var fi = 0; fi < folders.length; fi++) {
+        var folder = folders[fi];
+        var notesObj = folder.notes();
+        var notes = toArray(notesObj);
+        if (debug) debug.push('folder[' + ai + '/' + fi + '] notes: ' + notes.length);
+        // Compute safe timestamps per-note for sorting to avoid ObjC vector pitfalls
+        var idx = Array.from({ length: notes.length }, function(_, i) { return i; });
+        idx.sort(function(a, b) {
+          var na = notes[a];
+          var nb = notes[b];
+          var ma = (function(){ try { return na.modificationDate() || na.creationDate(); } catch(_) { try { return na.creationDate(); } catch(__) { return null; } } })();
+          var mb = (function(){ try { return nb.modificationDate() || nb.creationDate(); } catch(_) { try { return nb.creationDate(); } catch(__) { return null; } } })();
+          var ta = ma ? new Date(ma).getTime() : 0;
+          var tb = mb ? new Date(mb).getTime() : 0;
+          return (tb - ta);
+        });
+        for (var k = 0; k < idx.length; k++) {
+          if (wrote >= limit) break;
+          var i = idx[k];
+          pushNote(notes[i], asString(folder.name()));
+        }
+        if (wrote >= limit) break;
+      }
+      if (wrote >= limit) break;
+    }
+  } catch (_) {}
+
+  // Strategy 2: top-level folders → notes (handles cases where accounts() is empty)
+  if (wrote < limit && results.length === 0) {
+    try {
+      var topFoldersObj = app.folders();
+      var topFolders = toArray(topFoldersObj);
+      if (debug) debug.push('top-level folders(): ' + topFolders.length);
+      for (var tfi = 0; tfi < topFolders.length; tfi++) {
+        var tf = topFolders[tfi];
+        var tnotesObj = tf.notes();
+        var tnotes = toArray(tnotesObj);
+        if (debug) debug.push('top folder[' + tfi + '] notes: ' + tnotes.length);
+        var tidx = Array.from({ length: tnotes.length }, function(_, i) { return i; });
+        tidx.sort(function(a, b) {
+          var na = tnotes[a];
+          var nb = tnotes[b];
+          var ma = (function(){ try { return na.modificationDate() || na.creationDate(); } catch(_) { try { return na.creationDate(); } catch(__) { return null; } } })();
+          var mb = (function(){ try { return nb.modificationDate() || nb.creationDate(); } catch(_) { try { return nb.creationDate(); } catch(__) { return null; } } })();
+          var ta = ma ? new Date(ma).getTime() : 0;
+          var tb = mb ? new Date(mb).getTime() : 0;
+          return (tb - ta);
+        });
+        for (var tk = 0; tk < tidx.length; tk++) {
+          if (wrote >= limit) break;
+          var ti = tidx[tk];
+          pushNote(tnotes[ti], asString(tf.name()));
+        }
+        if (wrote >= limit) break;
+      }
+    } catch (_) {}
+  }
+
+  // Strategy 3: application-level notes() (last resort)
+  if (wrote < limit && results.length === 0) {
+    try {
+      var appNotesObj = app.notes();
+      var appNotes = toArray(appNotesObj);
+      if (debug) debug.push('app.notes(): ' + appNotes.length);
+      var aidx = Array.from({ length: appNotes.length }, function(_, i) { return i; });
+      aidx.sort(function(a, b) {
+        var na = appNotes[a];
+        var nb = appNotes[b];
+        var ma = (function(){ try { return na.modificationDate() || na.creationDate(); } catch(_) { try { return na.creationDate(); } catch(__) { return null; } } })();
+        var mb = (function(){ try { return nb.modificationDate() || nb.creationDate(); } catch(_) { try { return nb.creationDate(); } catch(__) { return null; } } })();
+        var ta = ma ? new Date(ma).getTime() : 0;
+        var tb = mb ? new Date(mb).getTime() : 0;
+        return (tb - ta);
+      });
+      for (var ak = 0; ak < aidx.length; ak++) {
+        if (wrote >= limit) break;
+        var ai2 = aidx[ak];
+        // Folder unknown at this scope; pass empty
+        pushNote(appNotes[ai2], '');
+      }
+    } catch (_) {}
+  }
+
+  return JSON.stringify({ notes: results, wrote: wrote, skipped: skipped, outDir: asString(htmlOutDir) || null, inline: inlineHtml, debug: debug });
+  } catch (e) {
+    // Best-effort return if we have partial results
+    try { if (typeof results !== 'undefined') return JSON.stringify({ notes: results, wrote: wrote, skipped: skipped, outDir: asString(htmlOutDir) || null, inline: inlineHtml, debug: (typeof debug !== 'undefined' ? debug.concat(['fatal:' + asString(e)]) : ['fatal:' + asString(e)]) }); } catch (_) {}
     throw e;
   }
 }

@@ -15,6 +15,16 @@ type RawNote = {
   filePath?: string;
 };
 
+type JxaResult =
+  | RawNote[]
+  | {
+      notes: RawNote[];
+      wrote?: number;
+      skipped?: number;
+      outDir?: string | null;
+      inline?: boolean;
+    };
+
 type ExportedNote = {
   id: string;
   title: string;
@@ -58,6 +68,7 @@ async function main(): Promise<void> {
   const allowDummy = process.argv.includes("--allow-dummy");
   const verbose =
     process.argv.includes("--verbose") || process.argv.includes("-v");
+  const debugJxa = process.argv.includes("--debug-jxa");
 
   // optional flags for per-note file output (markdown)
   const split = process.argv.includes("--split");
@@ -74,6 +85,20 @@ async function main(): Promise<void> {
   if (jxaRawIndex !== -1) {
     const val = process.argv[jxaRawIndex + 1];
     if (val) jxaRawDir = val.startsWith("/") ? val : join(process.cwd(), val);
+  }
+
+  // optional: pass INLINE_HTML=1 to force inline JSON (no files)
+  const inlineJson = process.argv.includes("--inline-json");
+
+  // optional: filter notes modified since epoch seconds
+  let sinceEpochSec: number | undefined;
+  const sinceFlagIndex = process.argv.findIndex(
+    (a) => a === "--since" || a === "--since-epoch"
+  );
+  if (sinceFlagIndex !== -1) {
+    const val = process.argv[sinceFlagIndex + 1];
+    const parsed = val ? Number(val) : NaN;
+    if (!Number.isNaN(parsed) && parsed > 0) sinceEpochSec = Math.floor(parsed);
   }
 
   // parse --limit / -n N (default 10)
@@ -104,9 +129,13 @@ async function main(): Promise<void> {
   try {
     if (verbose)
       console.log("[visual-notes-ingest] Running JXA script via osascript...");
-    const jxaEnv: NodeJS.ProcessEnv = jxaRawDir
-      ? { LIMIT: String(limit), HTML_OUT_DIR: jxaRawDir }
-      : { LIMIT: String(limit) };
+    const jxaEnv: NodeJS.ProcessEnv = {
+      LIMIT: String(limit),
+      ...(jxaRawDir ? { HTML_OUT_DIR: jxaRawDir } : {}),
+      ...(inlineJson ? { INLINE_HTML: "1" } : {}),
+      ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
+      ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
+    };
     rawJson = runJxaScript(scriptPath, jxaEnv);
     if (verbose) console.log("[visual-notes-ingest] JXA execution complete.");
   } catch (err) {
@@ -129,13 +158,41 @@ async function main(): Promise<void> {
   }
 
   let rawNotes: RawNote[];
+  let jxaMeta: Record<string, unknown> | undefined;
   try {
     if (verbose) console.log("[visual-notes-ingest] Parsing JSON from JXA...");
-    rawNotes = JSON.parse(rawJson);
+    const parsed: JxaResult = JSON.parse(rawJson);
+    if (Array.isArray(parsed)) {
+      rawNotes = parsed;
+    } else {
+      rawNotes = parsed?.notes ?? [];
+      jxaMeta =
+        parsed && typeof parsed === "object" ? (parsed as any) : undefined;
+    }
   } catch (e) {
     throw new Error(
       "Could not parse JXA JSON output. Ensure permissions are granted for Notes."
     );
+  }
+
+  if (verbose && jxaMeta) {
+    const wrote = (jxaMeta as any).wrote;
+    const skipped = (jxaMeta as any).skipped;
+    const outDirMeta = (jxaMeta as any).outDir;
+    const inline = (jxaMeta as any).inline;
+    if (typeof wrote !== "undefined" || typeof skipped !== "undefined") {
+      console.log(
+        `[visual-notes-ingest] JXA summary: wrote=${wrote ?? "?"} skipped=${
+          skipped ?? "?"
+        } inline=${inline ? "yes" : "no"} outDir=${outDirMeta ?? "(none)"}`
+      );
+    }
+    const debug = (jxaMeta as any).debug;
+    if (Array.isArray(debug) && debug.length > 0) {
+      for (const line of debug) {
+        console.log(`[visual-notes-ingest][JXA] ${String(line)}`);
+      }
+    }
   }
 
   // Safety: slice to limit in case JXA ignored it
