@@ -8,12 +8,13 @@ import {
 import ReaderModal from "~/components/ReaderModal";
 import PassageChip from "~/components/PassageChip";
 import { findTodayIndex, parsePlanDate } from "~/utils/passages";
+import { apiFetch } from "~/utils/base-url";
 
 type LitePlan = { id: string; title: string; createdAt?: string };
 type PlansResponse = { global: LitePlan[]; mine: LitePlan[] };
 
 function fetchPlans() {
-  return fetch("/api/plans").then(async (res) => {
+  return apiFetch("/api/plans").then(async (res) => {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return (await res.json()) as PlansResponse;
   });
@@ -83,7 +84,7 @@ function PlanRow(props: {
   }) => void;
 }) {
   const [details] = createResource(async () => {
-    const res = await fetch(`/api/plans/${props.plan.id}`);
+    const res = await apiFetch(`/api/plans/${props.plan.id}`);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return (await res.json()) as any;
   });

@@ -9,6 +9,7 @@ import {
   createEffect,
 } from "solid-js";
 import SidePanel from "../components/SidePanel";
+import { apiFetch } from "~/utils/base-url";
 
 type DocItem = { id: string; title: string; createdAt: string };
 type FullDoc = { id: string; title: string; html: string };
@@ -16,14 +17,14 @@ type FullDoc = { id: string; title: string; html: string };
 const SPREAD = 1000;
 
 async function fetchDocs(): Promise<DocItem[]> {
-  const res = await fetch("/api/docs?take=500");
+  const res = await apiFetch("/api/docs?take=500");
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
 }
 
 async function fetchDoc(id: string): Promise<FullDoc> {
-  const res = await fetch(`/api/docs/${id}`);
+  const res = await apiFetch(`/api/docs/${id}`);
   if (!res.ok) throw new Error("Failed to load doc");
   return (await res.json()) as FullDoc;
 }

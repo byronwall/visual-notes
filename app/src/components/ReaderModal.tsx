@@ -1,4 +1,5 @@
 import { Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { apiFetch, getBaseUrl } from "~/utils/base-url";
 
 import { passageKey } from "~/utils/passages";
 
@@ -45,7 +46,7 @@ export default function ReaderModal(props: {
     console.log("[reader] open", { ref });
     setLoading(true);
     setError(null);
-    fetch(`/api/passage?query=${encodeURIComponent(ref)}`)
+    apiFetch(`/api/passage?query=${encodeURIComponent(ref)}`)
       .then(async (res) => {
         console.log("[reader] fetch /api/passage", { status: res.status });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -65,7 +66,9 @@ export default function ReaderModal(props: {
     // Try to load cached AI summary for the first chapter in this ref
     setAiLoading(true);
     setAiError(null);
-    fetch(`/api/passage/summary?query=${encodeURIComponent(ref)}&cachedOnly=1`)
+    apiFetch(
+      `/api/passage/summary?query=${encodeURIComponent(ref)}&cachedOnly=1`
+    )
       .then(async (res) => {
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -83,7 +86,7 @@ export default function ReaderModal(props: {
     // otherwise record an open event for ad-hoc reading
     const ids = props.refData;
     if (ids && ids.planId && ids.dayId && ids.passageId) {
-      fetch("/api/progress/mark", {
+      apiFetch("/api/progress/mark", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +113,7 @@ export default function ReaderModal(props: {
           console.error("[reader] server mark failed", e);
         });
     } else if (props.refData?.norm) {
-      fetch("/api/progress/open", {
+      apiFetch("/api/progress/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ norm: props.refData.norm }),
@@ -273,12 +276,10 @@ export default function ReaderModal(props: {
                   setAiError(null);
                   try {
                     const isRefresh = !!aiHtml();
-                    const url = new URL(
-                      window.location.origin + `/api/passage/summary`
-                    );
+                    const url = new URL(getBaseUrl() + `/api/passage/summary`);
                     url.searchParams.set("query", ref);
                     if (isRefresh) url.searchParams.set("refresh", "1");
-                    const res = await fetch(url.toString());
+                    const res = await apiFetch(url.toString());
                     if (!res.ok) {
                       const t = await res.text().catch(() => "");
                       throw new Error(`${res.status} ${res.statusText} ${t}`);

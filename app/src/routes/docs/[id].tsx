@@ -1,8 +1,9 @@
 import { type VoidComponent, Show, createResource } from "solid-js";
 import { useParams } from "@solidjs/router";
+import { apiFetch } from "~/utils/base-url";
 
 async function fetchDoc(id: string) {
-  const res = await fetch(`/api/docs/${id}`);
+  const res = await apiFetch(`/api/docs/${id}`);
   if (!res.ok) throw new Error("Failed to load doc");
   return (await res.json()) as { id: string; title: string; html: string };
 }

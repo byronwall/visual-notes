@@ -1,10 +1,11 @@
 import { type VoidComponent, For, Show, createResource } from "solid-js";
 import { A } from "@solidjs/router";
+import { apiFetch } from "~/utils/base-url";
 
 type DocListItem = { id: string; title: string; createdAt: string };
 
 async function fetchDocs() {
-  const res = await fetch("/api/docs");
+  const res = await apiFetch("/api/docs");
   if (!res.ok) throw new Error("Failed to load notes");
   const json = (await res.json()) as { items: DocListItem[] };
   return json.items;

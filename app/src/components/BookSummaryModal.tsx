@@ -1,4 +1,5 @@
 import { Show, createEffect, createSignal } from "solid-js";
+import { apiFetch, getBaseUrl } from "~/utils/base-url";
 
 export default function BookSummaryModal(props: {
   book: string | null;
@@ -24,7 +25,7 @@ export default function BookSummaryModal(props: {
     setError(null);
     if (!b) return;
     setLoading(true);
-    fetch(`/api/book/summary?book=${encodeURIComponent(b)}&cachedOnly=1`)
+    apiFetch(`/api/book/summary?book=${encodeURIComponent(b)}&cachedOnly=1`)
       .then(async (res) => {
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -44,10 +45,10 @@ export default function BookSummaryModal(props: {
     setError(null);
     try {
       const isRefresh = !!aiHtml();
-      const url = new URL(window.location.origin + "/api/book/summary");
+      const url = new URL(getBaseUrl() + "/api/book/summary");
       url.searchParams.set("book", b);
       if (isRefresh) url.searchParams.set("refresh", "1");
-      const res = await fetch(url.toString());
+      const res = await apiFetch(url.toString());
       if (!res.ok) {
         const t = await res.text().catch(() => "");
         throw new Error(`${res.status} ${res.statusText} ${t}`);

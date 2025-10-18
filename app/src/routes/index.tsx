@@ -1,5 +1,6 @@
 import { type VoidComponent, createSignal } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
+import { apiFetch } from "~/utils/base-url";
 
 const Home: VoidComponent = () => {
   return (
@@ -31,7 +32,7 @@ const MinimalIngestForm: VoidComponent = () => {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/docs", {
+      const res = await apiFetch("/api/docs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title(), markdown: markdown() }),

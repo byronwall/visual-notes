@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { sampleCsv } from "./sampleCsv";
+import { apiFetch } from "~/utils/base-url";
 
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
@@ -72,7 +73,7 @@ export default function PlanImport() {
           }
         }
       }
-      const res = await fetch("/api/plans", {
+      const res = await apiFetch("/api/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
