@@ -166,8 +166,28 @@ model Doc {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  docEmbeddings DocEmbedding[]
-  umapPoints    UmapPoint[]
+  docEmbeddings        DocEmbedding[]
+  umapPoints           UmapPoint[]
+  sections             DocSection[]
+  docSectionEmbeddings DocSectionEmbedding[]
+}
+
+/// Structural sections/chunks of a Doc after preprocessing
+model DocSection {
+  id          String   @id @default(cuid())
+  docId       String
+  headingPath String[] @default([])
+  text        String // @db.Text
+  contentHash String
+  orderIndex  Int
+  charCount   Int
+  tokenCount  Int?
+
+  doc        Doc                   @relation(fields: [docId], references: [id], onDelete: Cascade)
+  embeddings DocSectionEmbedding[]
+
+  @@unique([docId, contentHash])
+  @@index([docId, orderIndex])
 }
 
 /// Vector embedding run metadata
@@ -178,22 +198,45 @@ model EmbeddingRun {
   params    Json?
   createdAt DateTime @default(now())
 
-  docEmbeddings DocEmbedding[]
-  UmapRun       UmapRun[]
+  docEmbeddings        DocEmbedding[]
+  docSectionEmbeddings DocSectionEmbedding[]
+  UmapRun              UmapRun[]
 }
 
 /// Embedding vector for a full Doc under a specific EmbeddingRun
 model DocEmbedding {
-  id        String   @id @default(cuid())
-  runId     String
-  docId     String
-  vector    Float[]
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  runId        String
+  docId        String
+  vector       Float[]
+  contentHash  String?
+  sectionCount Int?
+  tokenCount   Int?
+  createdAt    DateTime @default(now())
 
   run EmbeddingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   doc Doc          @relation(fields: [docId], references: [id], onDelete: Cascade)
 
   @@unique([runId, docId])
+  @@index([docId])
+  @@index([contentHash])
+}
+
+/// Embedding vector for a specific DocSection under a given EmbeddingRun
+model DocSectionEmbedding {
+  id         String   @id @default(cuid())
+  runId      String
+  docId      String
+  sectionId  String
+  vector     Float[]
+  tokenCount Int?
+  createdAt  DateTime @default(now())
+
+  run     EmbeddingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  doc     Doc          @relation(fields: [docId], references: [id], onDelete: Cascade)
+  section DocSection   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, sectionId])
   @@index([docId])
 }
 

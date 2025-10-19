@@ -14,6 +14,7 @@ type EmbeddingRun = {
   params: Record<string, unknown> | null;
   createdAt: string;
   count: number;
+  sectionCount?: number;
   remaining?: number;
   docs?: {
     items: { id: string; title: string; embeddedAt: string }[];
@@ -77,6 +78,17 @@ const EmbeddingDetail: VoidComponent = () => {
   const [busy, setBusy] = createSignal(false);
   const [dims, setDims] = createSignal<2 | 3>(2);
   const [batchSize, setBatchSize] = createSignal(200);
+  const [selectedDocId, setSelectedDocId] = createSignal<string | null>(null);
+  const [sections, setSections] = createSignal<
+    {
+      id: string;
+      headingPath: string[];
+      orderIndex: number;
+      charCount: number;
+      preview: string;
+      embedded?: boolean;
+    }[]
+  >([]);
 
   return (
     <main class="min-h-screen bg-white">
@@ -99,10 +111,24 @@ const EmbeddingDetail: VoidComponent = () => {
                   <div>
                     <span class="font-medium">Embeddings:</span> {r().count}
                   </div>
+                  <Show when={r().sectionCount !== undefined}>
+                    <div>
+                      <span class="font-medium">Sections:</span>{" "}
+                      {r().sectionCount}
+                    </div>
+                  </Show>
                   <div>
                     <span class="font-medium">Created:</span>{" "}
                     {new Date(r().createdAt).toLocaleString()}
                   </div>
+                  <Show when={r().params}>
+                    <div class="mt-2">
+                      <span class="font-medium">Params:</span>
+                      <pre class="text-xs bg-gray-50 border rounded p-2 overflow-auto max-h-40">
+                        {JSON.stringify(r().params, null, 2)}
+                      </pre>
+                    </div>
+                  </Show>
                 </div>
               )}
             </Show>
@@ -213,79 +239,128 @@ const EmbeddingDetail: VoidComponent = () => {
 
         <Show when={run()}>
           {(r) => (
-            <div class="rounded border border-gray-200 p-3 space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="font-medium">Included Notes</div>
-                <div class="text-sm text-gray-600">
-                  {(() => {
-                    const start = (r().docs?.offset || 0) + 1;
-                    const end =
-                      (r().docs?.offset || 0) + (r().docs?.items?.length || 0);
-                    return `Showing ${start}-${end} of ${r().count}`;
-                  })()}
+            <>
+              <div class="rounded border border-gray-200 p-3 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="font-medium">Included Notes</div>
+                  <div class="text-sm text-gray-600">
+                    {(() => {
+                      const start = (r().docs?.offset || 0) + 1;
+                      const end =
+                        (r().docs?.offset || 0) +
+                        (r().docs?.items?.length || 0);
+                      return `Showing ${start}-${end} of ${r().count}`;
+                    })()}
+                  </div>
+                </div>
+
+                <div class="divide-y border rounded">
+                  <Show
+                    when={(r().docs?.items?.length || 0) > 0}
+                    fallback={
+                      <div class="p-3 text-sm text-gray-600">
+                        No notes found.
+                      </div>
+                    }
+                  >
+                    <ul>
+                      {r().docs!.items.map((d) => (
+                        <li class="p-3 flex items-center justify-between">
+                          <div class="min-w-0">
+                            <A
+                              href={`/docs/${d.id}`}
+                              class="text-blue-600 hover:underline truncate block"
+                            >
+                              {d.title}
+                            </A>
+                            <div class="text-xs text-gray-500">
+                              {new Date(d.embeddedAt).toLocaleString()}
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <button
+                              class="text-sm text-blue-600 underline whitespace-nowrap"
+                              onClick={async () => {
+                                setSelectedDocId(d.id);
+                                const res = await apiFetch(
+                                  `/api/embeddings/runs/docs/${encodeURIComponent(
+                                    d.id
+                                  )}/sections?runId=${encodeURIComponent(
+                                    params.id
+                                  )}`
+                                );
+                                if (res.ok) {
+                                  const json = (await res.json()) as {
+                                    items: any[];
+                                  };
+                                  setSections(json.items as any);
+                                }
+                              }}
+                            >
+                              Sections
+                            </button>
+                            <A
+                              href={`/docs/${d.id}`}
+                              class="text-sm text-blue-600 hover:underline whitespace-nowrap ml-1"
+                            >
+                              Open
+                            </A>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Show>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                  <button
+                    class="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
+                    disabled={(run()?.docs?.offset || 0) <= 0}
+                    onClick={() =>
+                      setDocsOffset(
+                        Math.max(0, (run()?.docs?.offset || 0) - DOCS_LIMIT)
+                      )
+                    }
+                  >
+                    Previous
+                  </button>
+                  <button
+                    class="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
+                    disabled={(() => {
+                      const off = run()?.docs?.offset || 0;
+                      const len = run()?.docs?.items?.length || 0;
+                      return off + len >= (run()?.count || 0);
+                    })()}
+                    onClick={() =>
+                      setDocsOffset((run()?.docs?.offset || 0) + DOCS_LIMIT)
+                    }
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
-
-              <div class="divide-y border rounded">
-                <Show
-                  when={(r().docs?.items?.length || 0) > 0}
-                  fallback={
-                    <div class="p-3 text-sm text-gray-600">No notes found.</div>
-                  }
-                >
-                  <ul>
-                    {r().docs!.items.map((d) => (
-                      <li class="p-3 flex items-center justify-between">
-                        <div class="min-w-0">
-                          <A
-                            href={`/docs/${d.id}`}
-                            class="text-blue-600 hover:underline truncate block"
-                          >
-                            {d.title}
-                          </A>
-                          <div class="text-xs text-gray-500">
-                            {new Date(d.embeddedAt).toLocaleString()}
-                          </div>
+              <Show when={selectedDocId()}>
+                <div class="rounded border border-gray-200 p-3 space-y-2">
+                  <div class="font-medium">Sections for note</div>
+                  <ul class="space-y-1 text-sm">
+                    {sections().map((s) => (
+                      <li class="border rounded p-2">
+                        <div class="text-gray-600 text-xs mb-1">
+                          {(s.headingPath || []).join(" → ") || "(no heading)"}
+                          <span class="ml-2">#{s.orderIndex}</span>
+                          <Show when={s.embedded}>
+                            <span class="ml-2 inline-block px-1.5 py-0.5 text-[10px] rounded bg-green-50 text-green-700 border border-green-200">
+                              embedded
+                            </span>
+                          </Show>
                         </div>
-                        <A
-                          href={`/docs/${d.id}`}
-                          class="text-sm text-blue-600 hover:underline whitespace-nowrap ml-3"
-                        >
-                          View
-                        </A>
+                        <div class="truncate">{s.preview}</div>
                       </li>
                     ))}
                   </ul>
-                </Show>
-              </div>
-
-              <div class="flex items-center justify-between pt-2">
-                <button
-                  class="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
-                  disabled={(run()?.docs?.offset || 0) <= 0}
-                  onClick={() =>
-                    setDocsOffset(
-                      Math.max(0, (run()?.docs?.offset || 0) - DOCS_LIMIT)
-                    )
-                  }
-                >
-                  Previous
-                </button>
-                <button
-                  class="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
-                  disabled={(() => {
-                    const off = run()?.docs?.offset || 0;
-                    const len = run()?.docs?.items?.length || 0;
-                    return off + len >= (run()?.count || 0);
-                  })()}
-                  onClick={() =>
-                    setDocsOffset((run()?.docs?.offset || 0) + DOCS_LIMIT)
-                  }
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+                </div>
+              </Show>
+            </>
           )}
         </Show>
 
