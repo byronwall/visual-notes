@@ -83,6 +83,7 @@ Outputs:
 
 - Raw (default): `out/raw-index.json` with metadata and file paths
 - JXA HTML files: `out/notes-html` by default, or as set via `--jxa-raw-dir`
+  - Filenames: `<index>-<sanitizedId>-<updatedUTC>-<sanitizedTitle>.html` (e.g., `12-abc123-20250102T120000Z-weekly-planning.html`)
 - Markdown (with `--markdown`): `out/notes.json` and optionally individual `*.md` files when `--split` is provided
 
 ### Typical runs

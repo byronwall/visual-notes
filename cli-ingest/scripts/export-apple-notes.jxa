@@ -74,6 +74,34 @@ function main() {
       }
     }
 
+    function sanitizeCoreDataId(id) {
+      try {
+        var s = String(id || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9\-_]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^[-.]+|[-.]+$/g, "");
+        return s.slice(0, 64) || "id";
+      } catch (_) {
+        return "id";
+      }
+    }
+
+    function formatTimestampUTC(dateLike) {
+      try {
+        var d = new Date(dateLike);
+        var yyyy = String(d.getUTCFullYear());
+        var mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        var dd = String(d.getUTCDate()).padStart(2, "0");
+        var hh = String(d.getUTCHours()).padStart(2, "0");
+        var mi = String(d.getUTCMinutes()).padStart(2, "0");
+        var ss = String(d.getUTCSeconds()).padStart(2, "0");
+        return yyyy + mm + dd + "T" + hh + mi + ss + "Z";
+      } catch (_) {
+        return "unknown";
+      }
+    }
+
     function ensureDir(dirPath) {
       try {
         var fm = $.NSFileManager.defaultManager;
@@ -90,10 +118,13 @@ function main() {
       } catch (_) {}
     }
 
-    function writeHtmlFile(dirPath, idx, title, id, htmlStr) {
+    function writeHtmlFile(dirPath, idx, title, id, updatedAt, htmlStr) {
       try {
         var base = sanitizeFilename(title, id);
-        var fileName = String(idx) + "-" + base + ".html";
+        var idPart = sanitizeCoreDataId(id);
+        var ts = formatTimestampUTC(updatedAt);
+        var fileName =
+          String(idx) + "-" + idPart + "-" + ts + "-" + base + ".html";
         var fullPath = dirPath + "/" + fileName;
         var data = $(String(htmlStr || "")).dataUsingEncoding(
           $.NSUTF8StringEncoding
@@ -204,7 +235,7 @@ function main() {
         var bodyMs = nowMs() - tBody;
         var htmlStr = String(body || "");
         var outPath = htmlOutDir
-          ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr)
+          ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, modified, htmlStr)
           : null;
         results.push({
           id: String(id),
@@ -290,7 +321,14 @@ function main() {
             var bodyMs2 = nowMs() - tBody2;
             var htmlStr2 = String(body || "");
             var outPath2 = htmlOutDir
-              ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr2)
+              ? writeHtmlFile(
+                  htmlOutDir,
+                  wrote + 1,
+                  title,
+                  id,
+                  modified,
+                  htmlStr2
+                )
               : null;
             results.push({
               id: String(id),
@@ -360,7 +398,14 @@ function main() {
             var bodyMs3 = nowMs() - tBody3;
             var htmlStr3 = String(body || "");
             var outPath3 = htmlOutDir
-              ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr3)
+              ? writeHtmlFile(
+                  htmlOutDir,
+                  wrote + 1,
+                  title,
+                  id,
+                  modified,
+                  htmlStr3
+                )
               : null;
             results.push({
               id: String(id),
@@ -412,7 +457,14 @@ function main() {
           var bodyMs4 = nowMs() - tBody4;
           var htmlStr4 = String(body || "");
           var outPath4 = htmlOutDir
-            ? writeHtmlFile(htmlOutDir, wrote + 1, title, id, htmlStr4)
+            ? writeHtmlFile(
+                htmlOutDir,
+                wrote + 1,
+                title,
+                id,
+                modified,
+                htmlStr4
+              )
             : null;
           results.push({
             id: String(id),
