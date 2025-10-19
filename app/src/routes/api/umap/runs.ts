@@ -29,7 +29,7 @@ export async function POST(event: APIEvent) {
     const input = createSchema.parse(await event.request.json());
 
     // Load vectors for this embedding run
-    const rows = await (prisma as any).docEmbedding.findMany({
+    const rows = await prisma.docEmbedding.findMany({
       where: { runId: input.embeddingRunId },
       select: { docId: true, vector: true },
       orderBy: { createdAt: "asc" },
@@ -59,7 +59,7 @@ export async function POST(event: APIEvent) {
     const embedding = umap.fit(matrix);
     // embedding is a number[][] with dims columns
 
-    const run = await (prisma as any).umapRun.create({
+    const run = await prisma.umapRun.create({
       data: {
         embeddingRunId: input.embeddingRunId,
         dims: input.dims,
@@ -78,7 +78,7 @@ export async function POST(event: APIEvent) {
         z: input.dims === 3 ? coords[2] ?? 0 : null,
       };
     });
-    await (prisma as any).umapPoint.createMany({
+    await prisma.umapPoint.createMany({
       data: points,
       skipDuplicates: true,
     });
@@ -91,7 +91,7 @@ export async function POST(event: APIEvent) {
 }
 
 export async function GET(_event: APIEvent) {
-  const runs = await (prisma as any).umapRun.findMany({
+  const runs = await prisma.umapRun.findMany({
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

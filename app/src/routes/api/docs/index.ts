@@ -24,7 +24,7 @@ export async function POST(event: APIEvent) {
     const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
 
     if (input.originalContentId) {
-      const upserted = await (prisma as any).doc.upsert({
+      const upserted = await prisma.doc.upsert({
         where: { originalContentId: input.originalContentId },
         create: {
           title: input.title,
@@ -43,7 +43,7 @@ export async function POST(event: APIEvent) {
       });
       return json({ id: upserted.id }, { status: 201 });
     } else {
-      const created = await (prisma as any).doc.create({
+      const created = await prisma.doc.create({
         data: {
           title: input.title,
           markdown: input.markdown,
@@ -64,7 +64,7 @@ export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
   const takeParam = url.searchParams.get("take");
   const take = Number(takeParam ?? "50");
-  const items = await (prisma as any).doc.findMany({
+  const items = await prisma.doc.findMany({
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, createdAt: true },
     take,
@@ -75,7 +75,7 @@ export async function GET(event: APIEvent) {
 export async function DELETE(_event: APIEvent) {
   try {
     // Use transaction to ensure consistency if future related tables exist
-    await (prisma as any).$transaction([(prisma as any).doc.deleteMany({})]);
+    await prisma.$transaction([prisma.doc.deleteMany({})]);
     return json({ ok: true });
   } catch (e) {
     const msg = (e as Error).message || "Failed to delete";

@@ -55,7 +55,7 @@ export async function POST(event: APIEvent) {
       model || serverEnv.EMBEDDING_MODEL || "text-embedding-3-small";
 
     // Fetch all docs (simple initial implementation). Real systems should page/batch.
-    const docs = await (prisma as any).doc.findMany({
+    const docs = await prisma.doc.findMany({
       select: { id: true, title: true, markdown: true },
       orderBy: { createdAt: "asc" },
     });
@@ -68,7 +68,7 @@ export async function POST(event: APIEvent) {
     const inferredDims = vectors[0]?.length ?? (dims || 1536);
 
     // Create an embedding run
-    const run = await (prisma as any).embeddingRun.create({
+    const run = await prisma.embeddingRun.create({
       data: { model: useModel, dims: inferredDims, params: params ?? {} },
       select: { id: true },
     });
@@ -83,7 +83,7 @@ export async function POST(event: APIEvent) {
     }));
     if (rows.length) {
       // prisma createMany for speed; fall back if not available on this client
-      await (prisma as any).docEmbedding.createMany({
+      await prisma.docEmbedding.createMany({
         data: rows,
         skipDuplicates: true,
       });
@@ -103,7 +103,7 @@ export async function GET(event: APIEvent) {
     Math.max(1, Number(url.searchParams.get("limit") || "20"))
   );
   // List recent embedding runs
-  const runs = await (prisma as any).embeddingRun.findMany({
+  const runs = await prisma.embeddingRun.findMany({
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -119,7 +119,7 @@ export async function GET(event: APIEvent) {
   let idToCount: Record<string, number> = {};
   if (runIds.length) {
     // Prefer a single groupBy query for efficiency; fall back to 0 if unsupported
-    const grouped = await (prisma as any).docEmbedding
+    const grouped = await prisma.docEmbedding
       .groupBy({
         by: ["runId"],
         _count: { _all: true },

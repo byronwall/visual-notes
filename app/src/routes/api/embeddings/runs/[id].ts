@@ -25,7 +25,7 @@ export async function GET(event: APIEvent) {
   );
   const offset = Math.max(0, Number(url.searchParams.get("offset") || "0"));
 
-  const run = await (prisma as any).embeddingRun.findUnique({
+  const run = await prisma.embeddingRun.findUnique({
     where: { id: parsed.data.id },
     select: {
       id: true,
@@ -36,15 +36,15 @@ export async function GET(event: APIEvent) {
     },
   });
   if (!run) return json({ error: "Not found" }, { status: 404 });
-  const count = await (prisma as any).docEmbedding.count({
+  const count = await prisma.docEmbedding.count({
     where: { runId: run.id },
   });
-  const totalDocs = await (prisma as any).doc.count();
+  const totalDocs = await prisma.doc.count();
   const remaining = Math.max(0, totalDocs - count);
   if (!includeDocs) return json({ ...run, count, remaining });
 
   // When requested, return a paginated list of note summaries included in this run
-  const rows = await (prisma as any).docEmbedding.findMany({
+  const rows = await prisma.docEmbedding.findMany({
     where: { runId: run.id },
     select: { docId: true, createdAt: true },
     orderBy: { createdAt: "asc" },
@@ -53,7 +53,7 @@ export async function GET(event: APIEvent) {
   });
   const docIds = rows.map((r: any) => r.docId);
   const docs = docIds.length
-    ? await (prisma as any).doc.findMany({
+    ? await prisma.doc.findMany({
         where: { id: { in: docIds } },
         select: { id: true, title: true },
       })
@@ -83,7 +83,7 @@ export async function PATCH(event: APIEvent) {
   if (!body.success)
     return json({ error: body.error.message }, { status: 400 });
 
-  const updated = await (prisma as any).embeddingRun
+  const updated = await prisma.embeddingRun
     .update({
       where: { id: parsed.data.id },
       data: body.data,
@@ -106,10 +106,10 @@ export async function DELETE(event: APIEvent) {
   const parsed = idParam.safeParse({ id });
   if (!parsed.success) return json({ error: "Invalid id" }, { status: 400 });
   // Delete embeddings then run
-  await (prisma as any).docEmbedding.deleteMany({
+  await prisma.docEmbedding.deleteMany({
     where: { runId: parsed.data.id },
   });
-  const deleted = await (prisma as any).embeddingRun
+  const deleted = await prisma.embeddingRun
     .delete({
       where: { id: parsed.data.id },
       select: { id: true },
@@ -171,14 +171,14 @@ export async function POST(event: APIEvent) {
     );
     const batchSize = Math.min(500, Math.max(1, body.limit ?? 100));
 
-    const run = await (prisma as any).embeddingRun.findUnique({
+    const run = await prisma.embeddingRun.findUnique({
       where: { id: parsed.data.id },
       select: { id: true, model: true, dims: true },
     });
     if (!run) return json({ error: "Not found" }, { status: 404 });
 
     // Determine which docs are not yet embedded for this run
-    const embedded = await (prisma as any).docEmbedding.findMany({
+    const embedded = await prisma.docEmbedding.findMany({
       where: { runId: run.id },
       select: { docId: true },
     });
@@ -186,7 +186,7 @@ export async function POST(event: APIEvent) {
       embedded.map((e: any) => String(e.docId))
     );
 
-    const docs = await (prisma as any).doc.findMany({
+    const docs = await prisma.doc.findMany({
       where: { id: { notIn: Array.from(embeddedIds) } },
       select: { id: true, title: true, markdown: true },
       orderBy: { createdAt: "asc" },
@@ -194,7 +194,7 @@ export async function POST(event: APIEvent) {
     });
 
     if (!docs.length) {
-      const totalDocs = await (prisma as any).doc.count();
+      const totalDocs = await prisma.doc.count();
       const have = embeddedIds.size;
       return json({ added: 0, remaining: Math.max(0, totalDocs - have) });
     }
@@ -212,13 +212,13 @@ export async function POST(event: APIEvent) {
       vector: vectors[i] || [],
       createdAt: now,
     }));
-    await (prisma as any).docEmbedding.createMany({
+    await prisma.docEmbedding.createMany({
       data: rows,
       skipDuplicates: true,
     });
 
-    const totalDocs = await (prisma as any).doc.count();
-    const have = await (prisma as any).docEmbedding.count({
+    const totalDocs = await prisma.doc.count();
+    const have = await prisma.docEmbedding.count({
       where: { runId: run.id },
     });
     return json(

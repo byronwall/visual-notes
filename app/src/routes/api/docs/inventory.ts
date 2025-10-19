@@ -18,7 +18,7 @@ export async function GET(event: APIEvent) {
     }
   }
 
-  const items = await (prisma as any).doc.findMany({
+  const items = await prisma.doc.findMany({
     where,
     select: {
       originalContentId: true,

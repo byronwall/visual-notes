@@ -1,0 +1,5 @@
+-- AddForeignKey
+ALTER TABLE "DocEmbedding" ADD CONSTRAINT "DocEmbedding_docId_fkey" FOREIGN KEY ("docId") REFERENCES "Doc"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UmapPoint" ADD CONSTRAINT "UmapPoint_docId_fkey" FOREIGN KEY ("docId") REFERENCES "Doc"("id") ON DELETE CASCADE ON UPDATE CASCADE;

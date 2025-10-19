@@ -164,6 +164,10 @@ model Doc {
   contentHash       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // Relations
+  docEmbeddings DocEmbedding[]
+  umapPoints    UmapPoint[]
 }
 
 /// Vector embedding run metadata
@@ -187,6 +191,7 @@ model DocEmbedding {
   createdAt DateTime @default(now())
 
   run EmbeddingRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  doc Doc          @relation(fields: [docId], references: [id], onDelete: Cascade)
 
   @@unique([runId, docId])
   @@index([docId])
@@ -216,6 +221,7 @@ model UmapPoint {
   z     Float?
 
   run UmapRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  doc Doc     @relation(fields: [docId], references: [id], onDelete: Cascade)
 
   @@unique([runId, docId])
   @@index([docId])

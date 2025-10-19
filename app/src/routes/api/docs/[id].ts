@@ -5,12 +5,12 @@ import { prisma } from "~/server/db";
 export async function GET(event: APIEvent) {
   const id = event.params?.id as string;
   if (!id) return json({ error: "Missing id" }, { status: 400 });
-  const doc = await (prisma as any).doc.findUnique({
+  const doc = await prisma.doc.findUnique({
     where: { id },
   });
   if (!doc) return json({ error: "Not found" }, { status: 404 });
   // Attach embedding runs relevant to this doc with summarized results
-  const embeddings = await (prisma as any).docEmbedding.findMany({
+  const embeddings = await prisma.docEmbedding.findMany({
     where: { docId: id },
     select: { runId: true, vector: true, createdAt: true },
     orderBy: { createdAt: "desc" },
@@ -20,7 +20,7 @@ export async function GET(event: APIEvent) {
   );
   let runs: any[] = [];
   if (runIds.length) {
-    runs = await (prisma as any).embeddingRun.findMany({
+    runs = await prisma.embeddingRun.findMany({
       where: { id: { in: runIds } },
       select: {
         id: true,

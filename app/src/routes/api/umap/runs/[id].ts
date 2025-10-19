@@ -15,7 +15,7 @@ export async function GET(event: APIEvent) {
   const parsed = idParam.safeParse({ id });
   if (!parsed.success) return json({ error: "Invalid id" }, { status: 400 });
 
-  const run = await (prisma as any).umapRun.findUnique({
+  const run = await prisma.umapRun.findUnique({
     where: { id: parsed.data.id },
     select: {
       id: true,
@@ -26,7 +26,7 @@ export async function GET(event: APIEvent) {
     },
   });
   if (!run) return json({ error: "Not found" }, { status: 404 });
-  const count = await (prisma as any).umapPoint.count({
+  const count = await prisma.umapPoint.count({
     where: { runId: run.id },
   });
   return json({ ...run, count });
@@ -43,7 +43,7 @@ export async function PATCH(event: APIEvent) {
   if (!body.success)
     return json({ error: body.error.message }, { status: 400 });
 
-  const updated = await (prisma as any).umapRun
+  const updated = await prisma.umapRun
     .update({
       where: { id: parsed.data.id },
       data: body.data,
@@ -65,10 +65,10 @@ export async function DELETE(event: APIEvent) {
     event.params?.id || new URL(event.request.url).pathname.split("/").pop();
   const parsed = idParam.safeParse({ id });
   if (!parsed.success) return json({ error: "Invalid id" }, { status: 400 });
-  await (prisma as any).umapPoint.deleteMany({
+  await prisma.umapPoint.deleteMany({
     where: { runId: parsed.data.id },
   });
-  const deleted = await (prisma as any).umapRun
+  const deleted = await prisma.umapRun
     .delete({
       where: { id: parsed.data.id },
       select: { id: true },
