@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  readdirSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -25,6 +31,15 @@ type JxaResult =
       outDir?: string | null;
       inline?: boolean;
     };
+
+type SkipLog = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  reason: string;
+  sinceEpochSec?: number;
+  prevUpdatedAt?: string;
+};
 
 type ExportedNote = {
   id: string;
@@ -78,7 +93,7 @@ async function runJxaScript(
   scriptPath: string,
   env?: NodeJS.ProcessEnv,
   options?: { verbose?: boolean; passthroughStdout?: boolean }
-): Promise<string> {
+): Promise<{ output: string; skipLogs: SkipLog[] }> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "/usr/bin/osascript",
@@ -90,7 +105,9 @@ async function runJxaScript(
     );
 
     let output = "";
+    const skipLogs: SkipLog[] = [];
     let verboseStdoutBuffer = "";
+    let stderrBuffer = "";
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
 
@@ -115,6 +132,44 @@ async function runJxaScript(
     });
     child.stderr.on("data", (chunk: string) => {
       process.stderr.write(chunk);
+      // Parse JXA skip lines of the form: [JXA][skip] {json}
+      stderrBuffer += chunk;
+      let newlineIndex = stderrBuffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = stderrBuffer.slice(0, newlineIndex).trimEnd();
+        if (line.startsWith("[JXA][skip] ")) {
+          const jsonStr = line.slice("[JXA][skip] ".length);
+          try {
+            const obj = JSON.parse(jsonStr);
+            // Validate minimal shape
+            if (
+              obj &&
+              typeof obj.id === "string" &&
+              typeof obj.updatedAt === "string" &&
+              typeof obj.reason === "string"
+            ) {
+              skipLogs.push({
+                id: obj.id,
+                title: typeof obj.title === "string" ? obj.title : "",
+                updatedAt: obj.updatedAt,
+                reason: obj.reason,
+                sinceEpochSec:
+                  typeof obj.sinceEpochSec === "number"
+                    ? obj.sinceEpochSec
+                    : undefined,
+                prevUpdatedAt:
+                  typeof obj.prevUpdatedAt === "string"
+                    ? obj.prevUpdatedAt
+                    : undefined,
+              });
+            }
+          } catch (_) {
+            // ignore parse errors
+          }
+        }
+        stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+        newlineIndex = stderrBuffer.indexOf("\n");
+      }
     });
 
     child.on("error", (err) => {
@@ -133,7 +188,7 @@ async function runJxaScript(
         }
         verboseStdoutBuffer = "";
       }
-      if (code === 0) return resolve(output);
+      if (code === 0) return resolve({ output, skipLogs });
       reject(
         new Error(
           `Failed to execute JXA script: exitCode=${code} signal=${
@@ -175,6 +230,27 @@ async function main(): Promise<void> {
   if (jxaRawIndex !== -1) {
     const val = process.argv[jxaRawIndex + 1];
     if (val) jxaRawDir = val.startsWith("/") ? val : join(process.cwd(), val);
+  }
+  if (jxaRawDir) {
+    try {
+      mkdirSync(jxaRawDir, { recursive: true });
+    } catch (_) {}
+  }
+
+  // Optionally skip JXA and process existing HTML files directly
+  let fromHtmlDir: string | undefined;
+  const fromHtmlFlagIdx = process.argv.findIndex(
+    (a) => a === "--from-html-dir"
+  );
+  if (fromHtmlFlagIdx !== -1) {
+    const val = process.argv[fromHtmlFlagIdx + 1];
+    fromHtmlDir = val
+      ? val.startsWith("/")
+        ? val
+        : join(process.cwd(), val)
+      : join(outDir, "notes-html");
+  } else if (process.argv.includes("--from-html")) {
+    fromHtmlDir = join(outDir, "notes-html");
   }
 
   // optional: pass INLINE_HTML=1 to force inline JSON (no files)
@@ -258,6 +334,58 @@ async function main(): Promise<void> {
     }
   }
 
+  // Prefetch local HTML inventory to seed skip-index so JXA can skip files already exported locally
+  try {
+    const existing = loadSkipIndex(skipIndexPath);
+    if (jxaRawDir) {
+      const files = readdirSync(jxaRawDir).filter((f) =>
+        f.toLowerCase().endsWith(".html")
+      );
+      let added = 0;
+      let updated = 0;
+      for (const f of files) {
+        const p = join(jxaRawDir, f);
+        let html = "";
+        try {
+          html = readFileSync(p, "utf8");
+        } catch (_) {
+          continue;
+        }
+        const meta = extractHtmlMetadata(html);
+        const id = (meta?.id as string) || "";
+        const updatedAt = (meta?.updatedAt as string) || "";
+        if (!id || !updatedAt) continue;
+        const prevIso = existing[id];
+        if (!prevIso) {
+          existing[id] = updatedAt;
+          added++;
+          continue;
+        }
+        const prevMs = Date.parse(prevIso);
+        const nextMs = Date.parse(updatedAt);
+        if (
+          !Number.isNaN(nextMs) &&
+          (Number.isNaN(prevMs) || nextMs > prevMs)
+        ) {
+          existing[id] = updatedAt;
+          updated++;
+        }
+      }
+      saveSkipIndex(skipIndexPath, existing);
+      if (verbose) {
+        console.log(
+          `[visual-notes-ingest] Prefetched local HTML inventory: files=${files.length} added=${added} updated=${updated}`
+        );
+      }
+    }
+  } catch (e) {
+    console.warn(
+      `[visual-notes-ingest] Local HTML inventory prefetch failed: ${
+        (e as Error).message
+      }`
+    );
+  }
+
   // optional: filter notes modified since epoch seconds
   let sinceEpochSec: number | undefined;
   const sinceFlagIndex = process.argv.findIndex(
@@ -295,58 +423,99 @@ async function main(): Promise<void> {
     console.log(`[visual-notes-ingest] Skip index: ${skipIndexPath}`);
   }
 
-  let rawJson: string;
-  try {
-    if (verbose)
-      console.log("[visual-notes-ingest] Running JXA script via osascript...");
-    const jxaEnv: NodeJS.ProcessEnv = {
-      LIMIT: String(limit),
-      ...(jxaRawDir ? { HTML_OUT_DIR: jxaRawDir } : {}),
-      ...(inlineJson ? { INLINE_HTML: "1" } : {}),
-      ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
-      ...(skipIndexPath ? { SKIP_INDEX_PATH: skipIndexPath } : {}),
-      ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
-    };
-    rawJson = await runJxaScript(scriptPath, jxaEnv, {
-      verbose,
-      passthroughStdout: process.argv.includes("--jxa-stdout"),
-    });
-    if (verbose) console.log("[visual-notes-ingest] JXA execution complete.");
-  } catch (err) {
-    if (!allowDummy) throw err as Error;
-    // Use a small deterministic sample to prove the pipeline without permissions
-    const sample: RawNote[] = [
-      {
-        id: "sample-1",
-        title: "Sample Note",
-        createdAt: new Date("2024-01-01T12:00:00Z").toISOString(),
-        updatedAt: new Date("2024-01-02T12:00:00Z").toISOString(),
-        folder: "Samples",
-        html: "<h1>Hello</h1><p>This is a sample <strong>note</strong>.</p>",
-      },
-    ];
-    rawJson = JSON.stringify(sample);
-    console.warn(
-      "JXA execution failed; proceeding with dummy data because --allow-dummy was provided."
-    );
-  }
-
-  let rawNotes: RawNote[];
+  let rawNotes: RawNote[] = [];
   let jxaMeta: Record<string, unknown> | undefined;
-  try {
-    if (verbose) console.log("[visual-notes-ingest] Parsing JSON from JXA...");
-    const parsed: JxaResult = JSON.parse(rawJson);
-    if (Array.isArray(parsed)) {
-      rawNotes = parsed;
-    } else {
-      rawNotes = parsed?.notes ?? [];
-      jxaMeta =
-        parsed && typeof parsed === "object" ? (parsed as any) : undefined;
+  let jxaSkipLogs: SkipLog[] = [];
+  if (fromHtmlDir) {
+    if (verbose)
+      console.log(
+        `[visual-notes-ingest] Building from HTML dir: ${fromHtmlDir}`
+      );
+    try {
+      const files = readdirSync(fromHtmlDir).filter((f) =>
+        f.toLowerCase().endsWith(".html")
+      );
+      const max = limit > 0 ? Math.min(files.length, limit) : files.length;
+      for (let i = 0; i < max; i++) {
+        const file = files[i];
+        const filePath = join(fromHtmlDir, file);
+        let html = "";
+        try {
+          html = readFileSync(filePath, "utf8");
+        } catch (_) {}
+        const meta = extractHtmlMetadata(html);
+        rawNotes.push({
+          id: (meta?.id as string) || file,
+          title: (meta?.title as string) || "",
+          createdAt: (meta?.createdAt as string) || new Date(0).toISOString(),
+          updatedAt: (meta?.updatedAt as string) || new Date(0).toISOString(),
+          folder: (meta?.folder as string) || "",
+          filePath,
+        });
+      }
+    } catch (e) {
+      throw new Error(
+        `[visual-notes-ingest] Failed to read HTML dir ${fromHtmlDir}: ${
+          (e as Error).message
+        }`
+      );
     }
-  } catch (e) {
-    throw new Error(
-      "Could not parse JXA JSON output. Ensure permissions are granted for Notes."
-    );
+  } else {
+    let rawJson: string;
+    try {
+      if (verbose)
+        console.log(
+          "[visual-notes-ingest] Running JXA script via osascript..."
+        );
+      const jxaEnv: NodeJS.ProcessEnv = {
+        LIMIT: String(limit),
+        ...(jxaRawDir ? { HTML_OUT_DIR: jxaRawDir } : {}),
+        ...(inlineJson ? { INLINE_HTML: "1" } : {}),
+        ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
+        ...(skipIndexPath ? { SKIP_INDEX_PATH: skipIndexPath } : {}),
+        ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
+      };
+      const jxaOut = await runJxaScript(scriptPath, jxaEnv, {
+        verbose,
+        passthroughStdout: process.argv.includes("--jxa-stdout"),
+      });
+      rawJson = jxaOut.output;
+      jxaSkipLogs = jxaOut.skipLogs;
+      if (verbose) console.log("[visual-notes-ingest] JXA execution complete.");
+    } catch (err) {
+      if (!allowDummy) throw err as Error;
+      const sample: RawNote[] = [
+        {
+          id: "sample-1",
+          title: "Sample Note",
+          createdAt: new Date("2024-01-01T12:00:00Z").toISOString(),
+          updatedAt: new Date("2024-01-02T12:00:00Z").toISOString(),
+          folder: "Samples",
+          html: "<h1>Hello</h1><p>This is a sample <strong>note</strong>.</p>",
+        },
+      ];
+      rawJson = JSON.stringify(sample);
+      console.warn(
+        "JXA execution failed; proceeding with dummy data because --allow-dummy was provided."
+      );
+    }
+
+    try {
+      if (verbose)
+        console.log("[visual-notes-ingest] Parsing JSON from JXA...");
+      const parsed: JxaResult = JSON.parse(rawJson);
+      if (Array.isArray(parsed)) {
+        rawNotes = parsed;
+      } else {
+        rawNotes = parsed?.notes ?? [];
+        jxaMeta =
+          parsed && typeof parsed === "object" ? (parsed as any) : undefined;
+      }
+    } catch (e) {
+      throw new Error(
+        "Could not parse JXA JSON output. Ensure permissions are granted for Notes."
+      );
+    }
   }
 
   if (verbose && jxaMeta) {
@@ -366,6 +535,42 @@ async function main(): Promise<void> {
       for (const line of debug) {
         console.log(`[visual-notes-ingest][JXA] ${String(line)}`);
       }
+    }
+  }
+
+  // Summarize and persist skip logs from JXA
+  if (jxaSkipLogs.length > 0) {
+    const counts: Record<string, number> = {};
+    for (const s of jxaSkipLogs) counts[s.reason] = (counts[s.reason] || 0) + 1;
+    const summary = Object.entries(counts)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(", ");
+    console.log(
+      `[visual-notes-ingest] JXA skip logs: total=${jxaSkipLogs.length} reasons: ${summary}`
+    );
+    try {
+      const reportPath = join(outDir, "skip-report.json");
+      writeFileSync(
+        reportPath,
+        JSON.stringify(
+          {
+            exportedAt: new Date().toISOString(),
+            total: jxaSkipLogs.length,
+            counts,
+            entries: jxaSkipLogs,
+          },
+          null,
+          2
+        )
+      );
+      if (verbose)
+        console.log(`[visual-notes-ingest] Wrote skip report to ${reportPath}`);
+    } catch (e) {
+      console.warn(
+        `[visual-notes-ingest] Failed to write skip report: ${
+          (e as Error).message
+        }`
+      );
     }
   }
 
@@ -393,6 +598,7 @@ async function main(): Promise<void> {
         );
       }
       let htmlSource = n.html || "";
+      let meta: any | undefined;
       if (!htmlSource && n.filePath) {
         try {
           if (existsSync(n.filePath)) {
@@ -401,6 +607,7 @@ async function main(): Promise<void> {
                 `[visual-notes-ingest] Reading HTML from file: ${n.filePath}`
               );
             htmlSource = readFileSync(n.filePath, "utf8");
+            meta = extractHtmlMetadata(htmlSource);
           } else if (verbose) {
             console.warn(
               `[visual-notes-ingest] HTML file not found: ${n.filePath}`
@@ -414,13 +621,19 @@ async function main(): Promise<void> {
           );
         }
       }
+      const id = (meta?.id as string) || n.id;
+      const title = (meta?.title as string) || n.title;
+      const createdAt = (meta?.createdAt as string) || n.createdAt;
+      const updatedAt = (meta?.updatedAt as string) || n.updatedAt;
+      const folder = (meta?.folder as string) || n.folder;
+      const bodyHtml = extractHtmlBody(htmlSource) || htmlSource;
       return {
-        id: n.id,
-        title: n.title,
-        createdAt: n.createdAt,
-        updatedAt: n.updatedAt,
-        folder: n.folder,
-        markdown: turndown.turndown(htmlSource),
+        id,
+        title,
+        createdAt,
+        updatedAt,
+        folder,
+        markdown: turndown.turndown(bodyHtml),
       };
     });
 
@@ -771,6 +984,43 @@ function sanitizeFilename(title: string, id: string): string {
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+function extractHtmlMetadata(html: string): any | undefined {
+  try {
+    const idStart = html.indexOf('id="visual-notes-meta"');
+    if (idStart === -1) return undefined;
+    // find the <script ...> open tag
+    let openStart = html.lastIndexOf("<script", idStart);
+    if (openStart === -1) openStart = html.indexOf("<script", idStart);
+    if (openStart === -1) return undefined;
+    const closeOpen = html.indexOf(">", openStart);
+    if (closeOpen === -1) return undefined;
+    const closeTag = html.indexOf("</script>", closeOpen);
+    if (closeTag === -1) return undefined;
+    const jsonStr = html.slice(closeOpen + 1, closeTag).trim();
+    try {
+      return JSON.parse(jsonStr);
+    } catch (_) {
+      return undefined;
+    }
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function extractHtmlBody(html: string): string | undefined {
+  try {
+    const start = html.toLowerCase().indexOf("<body");
+    if (start === -1) return undefined;
+    const gt = html.indexOf(">", start);
+    if (gt === -1) return undefined;
+    const end = html.toLowerCase().indexOf("</body>", gt);
+    if (end === -1) return undefined;
+    return html.slice(gt + 1, end);
+  } catch (_) {
+    return undefined;
+  }
 }
 
 main().catch((err) => {

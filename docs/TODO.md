@@ -24,6 +24,10 @@
 - Goal is to get more local movement instead of 2 large global clusters -- really want to create small pockets of commonness
 - Probably need some sort of algo to separate things after the UMAP run
 
+## CLI
+
+- Add logs to show when things are skipped or duplicated. Want to avoid sitting and wondering what is going on.
+
 ## Content
 
 - Find all the notes with youtube links - organize those somehow

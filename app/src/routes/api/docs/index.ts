@@ -24,24 +24,42 @@ export async function POST(event: APIEvent) {
     const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
 
     if (input.originalContentId) {
-      const upserted = await prisma.doc.upsert({
+      // If an item with the same originalContentId exists and content is unchanged, return a non-success code
+      const existing = await prisma.doc.findUnique({
         where: { originalContentId: input.originalContentId },
-        create: {
+        select: { id: true, contentHash: true },
+      });
+      if (existing) {
+        if (existing.contentHash && existing.contentHash === contentHash) {
+          // Duplicate unchanged
+          return json(
+            { error: "Duplicate unchanged", id: existing.id },
+            { status: 409 }
+          );
+        }
+        const updated = await prisma.doc.update({
+          where: { id: existing.id },
+          data: {
+            title: input.title,
+            markdown: input.markdown,
+            html,
+            contentHash,
+          },
+          select: { id: true },
+        });
+        return json({ id: updated.id }, { status: 200 });
+      }
+      const created = await prisma.doc.create({
+        data: {
           title: input.title,
           markdown: input.markdown,
           html,
           originalContentId: input.originalContentId,
           contentHash,
         },
-        update: {
-          title: input.title,
-          markdown: input.markdown,
-          html,
-          contentHash,
-        },
         select: { id: true },
       });
-      return json({ id: upserted.id }, { status: 201 });
+      return json({ id: created.id }, { status: 201 });
     } else {
       const created = await prisma.doc.create({
         data: {

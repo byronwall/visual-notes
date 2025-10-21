@@ -22,7 +22,7 @@ const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
 
 async function fetchDocs(): Promise<DocItem[]> {
-  const res = await apiFetch("/api/docs?take=500");
+  const res = await apiFetch("/api/docs?take=2000");
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
