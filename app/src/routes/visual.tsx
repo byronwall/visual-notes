@@ -10,6 +10,7 @@ import {
   createMemo,
 } from "solid-js";
 import SidePanel from "../components/SidePanel";
+import TiptapExample from "../components/TiptapExample";
 import { apiFetch } from "~/utils/base-url";
 import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 
@@ -24,7 +25,7 @@ const NODE_RADIUS = 10;
 const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
 async function fetchDocs(): Promise<DocItem[]> {
-  const res = await apiFetch("/api/docs?take=2000");
+  const res = await apiFetch("/api/docs?take=4000");
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
@@ -778,25 +779,20 @@ const VisualCanvas: VoidComponent = () => {
         >
           <Show
             when={selectedDoc()}
+            keyed
             fallback={<div class="p-2 text-sm text-gray-600">Loading…</div>}
           >
-            {(doc) => (
-              <article class="prose max-w-none">
-                <h2 class="mt-0">{doc().title}</h2>
-                {(() => {
-                  const html = normalizeAiOutputToHtml(
-                    doc().markdown || doc().html || ""
-                  );
-                  console.log("Visual panel render", {
-                    id: doc().id,
-                    hasHtml: Boolean(doc().html),
-                    hasMd: Boolean(doc().markdown),
-                    preview: html.slice(0, 120),
-                  });
-                  return <div innerHTML={html} />;
-                })()}
-              </article>
-            )}
+            {(doc) => {
+              const html = normalizeAiOutputToHtml(
+                doc.markdown || doc.html || ""
+              );
+              return (
+                <div class="prose max-w-none">
+                  <h2 class="mt-0">{doc.title}</h2>
+                  <TiptapExample initialHTML={html} />
+                </div>
+              );
+            }}
           </Show>
         </Show>
       </SidePanel>
@@ -840,7 +836,7 @@ const VisualCanvas: VoidComponent = () => {
                 nudging() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
               }`}
               disabled={nudging()}
-              onClick={() => nudgeOverlaps(50)}
+              onClick={() => nudgeOverlaps(1000)}
               title="Repel overlapping nodes a bit"
             >
               {nudging() ? "Nudging…" : "Nudge"}
