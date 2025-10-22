@@ -28,6 +28,11 @@
 - Consider switching to python or something faster - ideally with the ability to save
   - Can call out via node or embed another server in Docker
 
+## Doc editing
+
+- Does not handle images yet
+  - See this example: <http://localhost:3000/docs/cmgwgrwfg00g38ch9xr3hqgpe>
+
 ## CLI
 
 - Add logs to show when things are skipped or duplicated. Want to avoid sitting and wondering what is going on.

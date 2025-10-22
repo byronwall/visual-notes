@@ -588,7 +588,7 @@ const VisualCanvas: VoidComponent = () => {
         const accum = new Map<string, { dx: number; dy: number }>();
 
         // --- Congestion measurement (central crowding + overlap energy) ---
-        const centerR = SPREAD * 0.25; // radius defining the central region
+        const centerR = SPREAD * 0.1; // expanded central region to capture more crowding
         let inside = 0;
         let overlapped = 0;
         let overlapEnergy = 0;
@@ -622,9 +622,10 @@ const VisualCanvas: VoidComponent = () => {
           } catch {}
         }
 
-        // Scale repulsion aggressiveness based on congestion
-        const stiffness = 0.3 * (1 + 2.0 * congestion);
-        const maxStep = 2.0 * (1 + 1.5 * congestion);
+        // Scale repulsion aggressiveness based on congestion (more aggressive)
+        const congestionSq = congestion * congestion;
+        const stiffness = 0.3 * (1 + 5.0 * congestion + 8.0 * congestionSq);
+        const maxStep = 2.0 * (1 + 4.0 * congestion);
 
         // --- Pairwise nearest-neighbor repulsion ---
         for (const d of list) {
@@ -637,7 +638,8 @@ const VisualCanvas: VoidComponent = () => {
           const dx = p.x - q.x;
           const dy = p.y - q.y;
           const dist = Math.hypot(dx, dy);
-          const target = MIN_SEP;
+          // Increase desired separation under congestion
+          const target = MIN_SEP * (1 + 0.4 * congestion);
           if (dist < target) {
             // Compute limited push magnitude proportional to overlap
             const overlap = target - (dist === 0 ? 0.001 : dist);
@@ -654,25 +656,44 @@ const VisualCanvas: VoidComponent = () => {
             b.dx -= halfX;
             b.dy -= halfY;
             accum.set(nn.id, b);
+          } else if (dist < target * 1.5) {
+            // Gentle repulsion ring to prevent re-bunching near the threshold
+            const overlap = target * 1.5 - dist;
+            const ux = dx / (dist === 0 ? 1 : dist);
+            const uy = dy / (dist === 0 ? 1 : dist);
+            const mag = Math.min(overlap * (stiffness * 0.25), maxStep * 0.5);
+            const halfX = (ux * mag) / 2;
+            const halfY = (uy * mag) / 2;
+            const a = accum.get(d.id) || { dx: 0, dy: 0 };
+            a.dx += halfX;
+            a.dy += halfY;
+            accum.set(d.id, a);
+            const b = accum.get(nn.id) || { dx: 0, dy: 0 };
+            b.dx -= halfX;
+            b.dy -= halfY;
+            accum.set(nn.id, b);
           }
         }
 
         // --- Outward radial force to relieve central congestion ---
         if (congestion > 0 && inside > 0) {
-          const outwardBase = 2.5; // base outward magnitude per iter
+          const outwardBase = 12.0; // stronger outward magnitude per iter
           for (const d of list) {
             const p = cur.get(d.id);
             if (!p) continue;
             const r = Math.hypot(p.x, p.y);
             if (r >= centerR) continue; // only push central crowd
             const falloff = 1 - r / centerR; // stronger in the core
-            const radialMag = outwardBase * congestion * falloff;
+            const radialMag =
+              outwardBase *
+              (0.5 + 2.0 * congestion + 1.3 * congestionSq) *
+              falloff;
             if (radialMag <= 0) continue;
             const ux = r === 0 ? 1 : p.x / r;
             const uy = r === 0 ? 0 : p.y / r;
             const a = accum.get(d.id) || { dx: 0, dy: 0 };
             // apply small cap to keep motion stable
-            const step = Math.min(radialMag, maxStep);
+            const step = Math.min(radialMag, maxStep * 4);
             a.dx += ux * step;
             a.dy += uy * step;
             accum.set(d.id, a);
@@ -893,7 +914,7 @@ const VisualCanvas: VoidComponent = () => {
                 nudging() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
               }`}
               disabled={nudging()}
-              onClick={() => nudgeOverlaps(100)}
+              onClick={() => nudgeOverlaps(200)}
               title="Repel overlapping nodes a bit"
             >
               {nudging() ? "Nudging…" : "Nudge"}
