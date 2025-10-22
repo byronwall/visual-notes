@@ -194,6 +194,7 @@ this is a <em>basic</em> example of <strong>tiptap</strong>.
 export default function TiptapExample(props: {
   initialHTML?: string;
   class?: string;
+  onEditor?: (editor: Editor) => void;
 }) {
   const [container, setContainer] = createSignal<HTMLDivElement>();
 
@@ -205,6 +206,12 @@ export default function TiptapExample(props: {
     },
     content: props.initialHTML ?? CONTENT,
   }));
+
+  // Expose editor instance to parent when available
+  createEffect(() => {
+    const ed = editor();
+    if (ed && props.onEditor) props.onEditor(ed);
+  });
 
   // Keep editor content in sync when incoming HTML changes (e.g., new doc selection)
   createEffect(() => {

@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import SidePanel from "../components/SidePanel";
 import TiptapExample from "../components/TiptapExample";
+import DocumentEditor from "../components/DocumentEditor";
 import { apiFetch } from "~/utils/base-url";
 import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 
@@ -582,9 +583,50 @@ const VisualCanvas: VoidComponent = () => {
 
       for (let it = 0; it < iterations; it++) {
         // Rebuild KD tree each iteration to reflect moves
-        const tree = buildKdTree(toArray());
+        const pointsArr = toArray();
+        const tree = buildKdTree(pointsArr);
         const accum = new Map<string, { dx: number; dy: number }>();
 
+        // --- Congestion measurement (central crowding + overlap energy) ---
+        const centerR = SPREAD * 0.25; // radius defining the central region
+        let inside = 0;
+        let overlapped = 0;
+        let overlapEnergy = 0;
+        for (const pt of pointsArr) {
+          const r = Math.hypot(pt.x, pt.y);
+          if (r > centerR) continue;
+          inside++;
+          const nn = kdNearest(tree, { x: pt.x, y: pt.y }, pt.id);
+          if (nn.dist2 !== undefined && isFinite(nn.dist2)) {
+            const nnDist = Math.sqrt(nn.dist2);
+            if (nnDist < MIN_SEP) {
+              overlapped++;
+              overlapEnergy += MIN_SEP - nnDist;
+            }
+          }
+        }
+        const overlappedFrac = inside > 0 ? overlapped / inside : 0;
+        const avgOverlap = inside > 0 ? overlapEnergy / inside : 0;
+        // Congestion level in [0,1]
+        const congestion = Math.max(
+          0,
+          Math.min(1, 0.5 * overlappedFrac + 0.5 * (avgOverlap / MIN_SEP))
+        );
+        if (it % 50 === 0 && (inside > 0 || congestion > 0)) {
+          try {
+            console.log(
+              `[visual] nudge it=${it} congestion=${congestion.toFixed(
+                2
+              )} centerCount=${inside}`
+            );
+          } catch {}
+        }
+
+        // Scale repulsion aggressiveness based on congestion
+        const stiffness = 0.3 * (1 + 2.0 * congestion);
+        const maxStep = 2.0 * (1 + 1.5 * congestion);
+
+        // --- Pairwise nearest-neighbor repulsion ---
         for (const d of list) {
           const p = cur.get(d.id);
           if (!p) continue;
@@ -601,8 +643,6 @@ const VisualCanvas: VoidComponent = () => {
             const overlap = target - (dist === 0 ? 0.001 : dist);
             const ux = dist === 0 ? 1 : dx / dist;
             const uy = dist === 0 ? 0 : dy / dist;
-            const stiffness = 0.3; // small push
-            const maxStep = 2.0; // cap per-iter movement
             const mag = Math.min(overlap * stiffness, maxStep);
             const halfX = (ux * mag) / 2;
             const halfY = (uy * mag) / 2;
@@ -614,6 +654,28 @@ const VisualCanvas: VoidComponent = () => {
             b.dx -= halfX;
             b.dy -= halfY;
             accum.set(nn.id, b);
+          }
+        }
+
+        // --- Outward radial force to relieve central congestion ---
+        if (congestion > 0 && inside > 0) {
+          const outwardBase = 2.5; // base outward magnitude per iter
+          for (const d of list) {
+            const p = cur.get(d.id);
+            if (!p) continue;
+            const r = Math.hypot(p.x, p.y);
+            if (r >= centerR) continue; // only push central crowd
+            const falloff = 1 - r / centerR; // stronger in the core
+            const radialMag = outwardBase * congestion * falloff;
+            if (radialMag <= 0) continue;
+            const ux = r === 0 ? 1 : p.x / r;
+            const uy = r === 0 ? 0 : p.y / r;
+            const a = accum.get(d.id) || { dx: 0, dy: 0 };
+            // apply small cap to keep motion stable
+            const step = Math.min(radialMag, maxStep);
+            a.dx += ux * step;
+            a.dy += uy * step;
+            accum.set(d.id, a);
           }
         }
 
@@ -782,17 +844,12 @@ const VisualCanvas: VoidComponent = () => {
             keyed
             fallback={<div class="p-2 text-sm text-gray-600">Loading…</div>}
           >
-            {(doc) => {
-              const html = normalizeAiOutputToHtml(
-                doc.markdown || doc.html || ""
-              );
-              return (
-                <div class="prose max-w-none">
-                  <h2 class="mt-0">{doc.title}</h2>
-                  <TiptapExample initialHTML={html} />
-                </div>
-              );
-            }}
+            {(doc) => (
+              <div class="prose max-w-none">
+                <h2 class="mt-0">{doc.title}</h2>
+                <DocumentEditor docId={doc.id} />
+              </div>
+            )}
           </Show>
         </Show>
       </SidePanel>
@@ -836,7 +893,7 @@ const VisualCanvas: VoidComponent = () => {
                 nudging() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
               }`}
               disabled={nudging()}
-              onClick={() => nudgeOverlaps(1000)}
+              onClick={() => nudgeOverlaps(100)}
               title="Repel overlapping nodes a bit"
             >
               {nudging() ? "Nudging…" : "Nudge"}

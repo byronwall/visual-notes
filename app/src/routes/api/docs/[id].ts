@@ -1,6 +1,9 @@
 import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
+import { z } from "zod";
+import sanitizeHtml from "sanitize-html";
+import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 
 export async function GET(event: APIEvent) {
   const id = event.params?.id as string;
@@ -49,4 +52,47 @@ export async function GET(event: APIEvent) {
     };
   });
   return json({ ...doc, embeddingRuns });
+}
+
+const putInput = z.object({
+  title: z.string().min(1).max(200).optional(),
+  markdown: z.string().min(1).optional(),
+  html: z.string().min(1).optional(),
+});
+
+export async function PUT(event: APIEvent) {
+  const id = event.params?.id as string;
+  if (!id) return json({ error: "Missing id" }, { status: 400 });
+  try {
+    const body = await event.request.json();
+    const input = putInput.parse(body);
+    const updates: Record<string, any> = {};
+
+    if (input.title !== undefined) updates.title = input.title;
+
+    if (input.markdown) {
+      // Source of truth as markdown → regenerate sanitized HTML
+      const html = normalizeAiOutputToHtml(input.markdown);
+      updates.markdown = input.markdown;
+      updates.html = html;
+    } else if (input.html) {
+      // Accept raw HTML edits → sanitize before saving; keep prior markdown unchanged
+      const sanitized = sanitizeHtml(String(input.html));
+      updates.html = sanitized;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    const updated = await prisma.doc.update({
+      where: { id },
+      data: updates,
+      select: { id: true, updatedAt: true },
+    });
+    return json(updated, { status: 200 });
+  } catch (e) {
+    const msg = (e as Error).message || "Invalid request";
+    return json({ error: msg }, { status: 400 });
+  }
 }
