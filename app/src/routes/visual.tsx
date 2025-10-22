@@ -20,6 +20,8 @@ type FullDoc = { id: string; title: string; html?: string; markdown?: string };
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
+const NODE_RADIUS = 10;
+const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
 async function fetchDocs(): Promise<DocItem[]> {
   const res = await apiFetch("/api/docs?take=2000");
@@ -131,6 +133,9 @@ const VisualCanvas: VoidComponent = () => {
   let gEl: SVGGElement | undefined;
   const [useUmap, setUseUmap] = createSignal(true);
   const [layoutVersion, setLayoutVersion] = createSignal(0);
+  const [adjustments, setAdjustments] = createSignal(
+    new Map<string, { x: number; y: number }>()
+  );
 
   // Mouse tracking (screen and world space)
   const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
@@ -201,8 +206,8 @@ const VisualCanvas: VoidComponent = () => {
     return map;
   });
 
-  // Compute final positions for all notes based on current layout preference
-  const positions = createMemo(() => {
+  // Base positions from UMAP or seeded placement (no user adjustments)
+  const basePositions = createMemo(() => {
     const list = docs();
     const index = umapIndex();
     const preferUmap = useUmap();
@@ -213,6 +218,20 @@ const VisualCanvas: VoidComponent = () => {
       const fromUmap = preferUmap ? index.get(d.id) : undefined;
       if (fromUmap) map.set(d.id, fromUmap);
       else map.set(d.id, seededPositionFor(d.title, i));
+    }
+    return map;
+  });
+
+  // Compute final positions including adjustments/nudges
+  const positions = createMemo(() => {
+    const base = basePositions();
+    const adj = adjustments();
+    if (adj.size === 0) return base;
+    const map = new Map<string, { x: number; y: number }>();
+    for (const [id, p] of base) {
+      const d = adj.get(id);
+      if (d) map.set(id, { x: p.x + d.x, y: p.y + d.y });
+      else map.set(id, p);
     }
     return map;
   });
@@ -455,7 +474,8 @@ const VisualCanvas: VoidComponent = () => {
 
   function kdNearest(
     root: KDNode | undefined,
-    target: { x: number; y: number }
+    target: { x: number; y: number },
+    excludeId?: string
   ) {
     let bestId: string | undefined;
     let bestDist2 = Infinity;
@@ -467,10 +487,12 @@ const VisualCanvas: VoidComponent = () => {
     }
     function search(node: KDNode | undefined) {
       if (!node) return;
-      const d2 = dist2(target, node.point);
-      if (d2 < bestDist2) {
-        bestDist2 = d2;
-        bestId = node.point.id;
+      if (node.point.id !== excludeId) {
+        const d2 = dist2(target, node.point);
+        if (d2 < bestDist2) {
+          bestDist2 = d2;
+          bestId = node.point.id;
+        }
       }
       const axis = node.axis;
       const diff =
@@ -534,6 +556,94 @@ const VisualCanvas: VoidComponent = () => {
     const title = (docs() || []).find((d) => d.id === id)?.title || id;
     return { x: pos.x * s + t.x, y: pos.y * s + t.y, title };
   });
+
+  // --------- Nudge: simple repulsive iterations against nearest overlaps ---------
+  const [nudging, setNudging] = createSignal(false);
+
+  async function nudgeOverlaps(iterations = 200) {
+    if (nudging()) return;
+    const list = docs() || [];
+    if (list.length === 0) return;
+    setNudging(true);
+    try {
+      // Start from current displayed positions
+      let cur = new Map<string, { x: number; y: number }>(positions());
+
+      // Utility
+      function toArray() {
+        const arr: { x: number; y: number; id: string }[] = [];
+        for (const d of list) {
+          const p = cur.get(d.id);
+          if (p) arr.push({ x: p.x, y: p.y, id: d.id });
+        }
+        return arr;
+      }
+
+      for (let it = 0; it < iterations; it++) {
+        // Rebuild KD tree each iteration to reflect moves
+        const tree = buildKdTree(toArray());
+        const accum = new Map<string, { dx: number; dy: number }>();
+
+        for (const d of list) {
+          const p = cur.get(d.id);
+          if (!p) continue;
+          const nn = kdNearest(tree, p, d.id);
+          if (!nn.id || nn.dist2 === undefined || !isFinite(nn.dist2)) continue;
+          const q = cur.get(nn.id);
+          if (!q) continue;
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const dist = Math.hypot(dx, dy);
+          const target = MIN_SEP;
+          if (dist < target) {
+            // Compute limited push magnitude proportional to overlap
+            const overlap = target - (dist === 0 ? 0.001 : dist);
+            const ux = dist === 0 ? 1 : dx / dist;
+            const uy = dist === 0 ? 0 : dy / dist;
+            const stiffness = 0.3; // small push
+            const maxStep = 2.0; // cap per-iter movement
+            const mag = Math.min(overlap * stiffness, maxStep);
+            const halfX = (ux * mag) / 2;
+            const halfY = (uy * mag) / 2;
+            const a = accum.get(d.id) || { dx: 0, dy: 0 };
+            a.dx += halfX;
+            a.dy += halfY;
+            accum.set(d.id, a);
+            const b = accum.get(nn.id) || { dx: 0, dy: 0 };
+            b.dx -= halfX;
+            b.dy -= halfY;
+            accum.set(nn.id, b);
+          }
+        }
+
+        if (accum.size === 0) break; // converged
+
+        // Apply accumulated displacements
+        for (const [id, { dx, dy }] of accum) {
+          const p = cur.get(id);
+          if (!p) continue;
+          cur.set(id, { x: p.x + dx, y: p.y + dy });
+        }
+
+        // Yield to UI every ~10 iterations
+        if (it % 10 === 9) await Promise.resolve();
+      }
+
+      // Compute adjustments relative to base positions at finish
+      const base = basePositions();
+      const newAdj = new Map<string, { x: number; y: number }>();
+      for (const [id, p] of cur) {
+        const b = base.get(id);
+        if (!b) continue;
+        newAdj.set(id, { x: p.x - b.x, y: p.y - b.y });
+      }
+      setAdjustments(newAdj);
+      setLayoutVersion((v) => v + 1);
+      console.log(`[visual] Nudge complete: adjusted ${newAdj.size} nodes`);
+    } finally {
+      setNudging(false);
+    }
+  }
 
   // ---------- Left list pane: search and sorting ----------
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -725,6 +835,16 @@ const VisualCanvas: VoidComponent = () => {
               <option value="title">Title</option>
               <option value="date">Newest</option>
             </select>
+            <button
+              class={`ml-2 rounded px-2 py-1 border text-xs ${
+                nudging() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+              }`}
+              disabled={nudging()}
+              onClick={() => nudgeOverlaps(50)}
+              title="Repel overlapping nodes a bit"
+            >
+              {nudging() ? "Nudging…" : "Nudge"}
+            </button>
             <div class="ml-auto text-[11px] text-gray-500">
               Zoom {scale().toFixed(2)}x · {docs()?.length || 0} notes
             </div>
