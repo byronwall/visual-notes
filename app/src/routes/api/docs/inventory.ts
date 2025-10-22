@@ -6,11 +6,13 @@ import { prisma } from "~/server/db";
 // Optional query: take (1..100), cursorUpdatedAt ISO to filter items updated since
 export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
-  const takeParam = url.searchParams.get("take");
   const sinceParam = url.searchParams.get("since");
-  const take = Math.min(Math.max(Number(takeParam ?? "500"), 1), 1000);
+  const sourceParam = url.searchParams.get("source");
 
   const where: any = { originalContentId: { not: null } };
+  if (sourceParam) {
+    where.originalSource = sourceParam;
+  }
   if (sinceParam) {
     const since = new Date(sinceParam);
     if (!isNaN(since.getTime())) {
@@ -21,12 +23,12 @@ export async function GET(event: APIEvent) {
   const items = await prisma.doc.findMany({
     where,
     select: {
+      originalSource: true,
       originalContentId: true,
       contentHash: true,
       updatedAt: true,
     },
     orderBy: { updatedAt: "asc" },
-    take,
   });
 
   return json({ items });

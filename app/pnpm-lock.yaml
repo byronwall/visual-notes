@@ -53,6 +53,9 @@ importers:
       solid-js:
         specifier: ^1.9.5
         version: 1.9.9
+      svd-js:
+        specifier: ^1.1.1
+        version: 1.1.1
       tailwindcss:
         specifier: ^3.4.7
         version: 3.4.18
@@ -3120,6 +3123,9 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
+
+  svd-js@1.1.1:
+    resolution: {integrity: sha512-3Mpd08lu7HPD/aDMnHvhLBKHLdoUv+w9411ZLGjZYIR51e05CFNAY+MYMXLs7leo6jljZ8PGkoCSI1I4lF1Z4Q==}
 
   system-architecture@0.1.0:
     resolution: {integrity: sha512-ulAk51I9UVUyJgxlv9M6lFot2WP3e7t8Kz9+IS6D4rVba1tR9kON+Ey69f+1R4Q8cd45Lod6a4IcJIxnzGc/zA==}
@@ -6731,6 +6737,8 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  svd-js@1.1.1: {}
 
   system-architecture@0.1.0: {}
 

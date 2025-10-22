@@ -35,8 +35,8 @@ function main() {
     var limit = null;
     var htmlOutDir = null;
     var inlineHtml = false;
-    var sinceEpochSec = null;
-    var skipIndex = {};
+    var knownIds = {};
+    var knownCount = 0;
 
     function getEnvString(key) {
       try {
@@ -132,8 +132,7 @@ function main() {
         var base = sanitizeFilename(title, id);
         var idPart = sanitizeCoreDataId(id);
         var ts = formatTimestampUTC(updatedAt);
-        var fileName =
-          String(idx) + "-" + idPart + "-" + ts + "-" + base + ".html";
+        var fileName = idPart + "-" + ts + "-" + base + ".html";
         var fullPath = dirPath + "/" + fileName;
         // Build a minimal HTML document that embeds metadata required for downstream processing
         var metaObj = {
@@ -197,109 +196,87 @@ function main() {
         (inlineStr === "1" || String(inlineStr).toLowerCase() === "true")
       )
         inlineHtml = true;
-      var sinceStr = getEnvString("SINCE_EPOCH_SEC");
-      if (sinceStr) {
-        var sParsed = parseInt(String(sinceStr), 10);
-        if (!isNaN(sParsed) && sParsed > 0) sinceEpochSec = sParsed;
-      }
-      var skipPath = getEnvString("SKIP_INDEX_PATH");
-      if (skipPath && skipPath.length > 0) {
+      var knownPath = getEnvString("KNOWN_IDS_PATH");
+      if (knownPath && knownPath.length > 0) {
         try {
-          var data = $.NSString.stringWithContentsOfFileEncodingError(
-            $(skipPath),
+          var data2 = $.NSString.stringWithContentsOfFileEncodingError(
+            $(knownPath),
             $.NSUTF8StringEncoding,
             null
           );
-          if (data) {
-            var jsonStr = ObjC.unwrap(data);
+          if (data2) {
+            var jsonStr2 = ObjC.unwrap(data2);
             try {
-              var parsed = JSON.parse(String(jsonStr));
-              if (parsed && typeof parsed === "object") skipIndex = parsed;
-            } catch (eJson) {}
+              var parsed2 = JSON.parse(String(jsonStr2));
+              var arr = null;
+              if (parsed2 && parsed2.ids && parsed2.ids.map) {
+                arr = parsed2.ids.map(String);
+              } else if (
+                parsed2 &&
+                parsed2.map &&
+                parsed2.length !== undefined
+              ) {
+                arr = parsed2.map(String);
+              }
+              if (arr) {
+                for (var ii = 0; ii < arr.length; ii++) knownIds[arr[ii]] = 1;
+                knownCount = arr.length;
+              }
+              if (
+                parsed2 &&
+                parsed2.count &&
+                !isNaN(parseInt(String(parsed2.count), 10))
+              ) {
+                knownCount = parseInt(String(parsed2.count), 10);
+              }
+            } catch (eJson2) {}
           }
-        } catch (eRead) {}
+        } catch (eRead2) {}
+      }
+      var knownCountStr = getEnvString("KNOWN_COUNT");
+      if (knownCountStr) {
+        var kcParsed = parseInt(String(knownCountStr), 10);
+        if (!isNaN(kcParsed) && kcParsed >= 0) knownCount = kcParsed;
       }
     } catch (_) {}
     logErr("[JXA] LIMIT=" + (limit === null ? "none" : String(limit)));
     if (htmlOutDir) logErr("[JXA] HTML_OUT_DIR=" + String(htmlOutDir));
     logErr("[JXA] INLINE_HTML=" + (inlineHtml ? "yes" : "no"));
-    if (sinceEpochSec !== null)
-      logErr("[JXA] SINCE_EPOCH_SEC=" + String(sinceEpochSec));
-    var skipCount = 0;
+    var knownSize = 0;
     try {
-      skipCount = Object.keys(skipIndex).length;
+      knownSize = Object.keys(knownIds).length;
     } catch (_) {}
-    if (skipCount > 0) logErr("[JXA] SKIP_INDEX entries=" + String(skipCount));
+    if (knownSize > 0) logErr("[JXA] KNOWN_IDS entries=" + String(knownSize));
+    if (knownCount) logErr("[JXA] KNOWN_COUNT=" + String(knownCount));
 
-    // Return an object with reason/details if the note should be skipped, else null
-    function getSkipInfo(id, modifiedDate) {
-      try {
-        var modMs = new Date(modifiedDate).getTime();
-        if (sinceEpochSec !== null) {
-          var thresholdMs = sinceEpochSec * 1000;
-          if (!isNaN(modMs) && modMs < thresholdMs) {
-            return {
-              reason: "before-since-threshold",
-              sinceEpochSec: sinceEpochSec,
-            };
-          }
-        }
-        if (skipIndex && id && typeof skipIndex[id] === "string") {
-          var prevIso = skipIndex[id];
-          var prevMs = new Date(prevIso).getTime();
-          if (!isNaN(prevMs) && !isNaN(modMs) && modMs <= prevMs) {
-            return {
-              reason: "not-changed-since-prev",
-              prevUpdatedAt: prevIso,
-            };
-          }
-        }
-      } catch (_) {}
-      return null;
-    }
-
-    // Fast path: try application-level notes() first and stop at LIMIT
-    var tFastStart = nowMs();
-    logErr("[JXA] Fast path: app.notes() enumeration start");
+    // Index-based traversal using server inventory
+    var tStartWalk = nowMs();
+    var appNotes = app.notes();
+    var total = 0;
     try {
-      var appNotes = app.notes();
-      logErr("[JXA] app.notes() obtained; iterating...");
-      for (var i = 0; limit === null || wrote < limit; i++) {
-        var note;
-        try {
-          note = appNotes[i];
-        } catch (eIdx) {
-          break;
-        }
-        if (!note) break;
-        var tNote = nowMs();
+      total = appNotes.length;
+    } catch (_) {
+      total = 0;
+    }
+    logErr("[JXA] notes() length=" + String(total));
+
+    function exportNoteAtIndex(idx) {
+      logErr("[JXA] Exporting note at index " + idx);
+      try {
+        var note = appNotes[idx];
+        if (!note) return false;
         var created = note.creationDate();
         var modified = note.modificationDate
           ? note.modificationDate()
           : created;
         var title = note.name();
         var id = note.id();
-        var skipInfo = getSkipInfo(String(id), modified);
-        if (skipInfo) {
+        // Skip if already known
+        if (id && knownIds[String(id)]) {
           skipped++;
-          try {
-            var logObj = {
-              id: String(id),
-              title: String(title || ""),
-              updatedAt: toISOString(modified),
-              reason: String(skipInfo.reason || "unknown"),
-            };
-            if (skipInfo.sinceEpochSec !== undefined)
-              logObj.sinceEpochSec = skipInfo.sinceEpochSec;
-            if (skipInfo.prevUpdatedAt)
-              logObj.prevUpdatedAt = String(skipInfo.prevUpdatedAt);
-            logErr("[JXA][skip] " + JSON.stringify(logObj));
-          } catch (_) {}
-          continue;
+          return false;
         }
-        var tBody = nowMs();
         var body = note.body();
-        var bodyMs = nowMs() - tBody;
         var htmlStr = String(body || "");
         var outPath = htmlOutDir
           ? writeHtmlFile(
@@ -323,29 +300,72 @@ function main() {
           filePath: outPath,
         });
         wrote++;
-        var totalMs = nowMs() - tNote;
-        if (wrote <= 5 || wrote % 50 === 0) {
-          logErr(
-            "[JXA] app.notes() note #" +
-              wrote +
-              " timings: body=" +
-              bodyMs +
-              "ms total=" +
-              totalMs +
-              "ms"
-          );
-        }
+        return true;
+      } catch (_) {
+        logErr("[JXA] Error exporting note at index " + idx);
+        return false;
       }
-    } catch (_) {}
+    }
+
+    // Phase 1: from start until we hit a known id
+    var idx = 0;
+    var firstKnownIdx = -1;
+    for (; (limit === null || wrote < limit) && idx < total; idx++) {
+      var idTry = null;
+      try {
+        idTry = appNotes[idx].id();
+      } catch (_) {
+        logErr("Error getting id for note at index " + idx);
+        break;
+      }
+      if (idTry && knownIds[String(idTry)]) {
+        firstKnownIdx = idx;
+        break;
+      }
+      exportNoteAtIndex(idx);
+    }
+
+    if (limit === null || wrote < limit) {
+      // Phase 2: jump forward by knownCount
+      var jumpTo =
+        firstKnownIdx >= 0 ? firstKnownIdx + knownCount : idx + knownCount;
+      if (jumpTo >= total) jumpTo = total - 1;
+      if (jumpTo < 0) jumpTo = 0;
+
+      // Phase 3: walk backward until we find a known id
+      var back = jumpTo;
+      var boundary = -1;
+      while (back >= 0) {
+        var idBack = null;
+        try {
+          idBack = appNotes[back].id();
+        } catch (_) {
+          break;
+        }
+        if (idBack && knownIds[String(idBack)]) {
+          boundary = back;
+          break;
+        }
+        back--;
+      }
+      if (boundary < 0) boundary = -1; // start from 0 if none found
+
+      // Phase 4: go forward from boundary+1 until limit or end
+      var forward = boundary + 1;
+      while ((limit === null || wrote < limit) && forward < total) {
+        exportNoteAtIndex(forward);
+        forward++;
+      }
+    }
     logErr(
-      "[JXA] Fast path complete: wrote=" +
+      "[JXA] Index walk complete: wrote=" +
         wrote +
+        " skipped=" +
+        skipped +
         " in " +
-        (nowMs() - tFastStart) +
+        (nowMs() - tStartWalk) +
         "ms"
     );
-
-    // Fallback paths removed intentionally to avoid duplicates and slowness.
 
     logErr(
       "[JXA] Done. wrote=" +

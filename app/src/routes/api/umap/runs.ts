@@ -3,12 +3,14 @@ import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
 import * as UmapModule from "umap-js";
+import { projectWithPCA } from "~/server/lib/embedding/pca";
 
 const createSchema = z.object({
   embeddingRunId: z.string(),
   dims: z.union([z.literal(2), z.literal(3)]).default(2),
   params: z
     .object({
+      pcaVarsToKeep: z.number().int().min(0).max(2048).default(50).optional(),
       nNeighbors: z.number().int().min(2).max(200).optional(),
       minDist: z.number().min(0).max(1).optional(),
       metric: z.enum(["cosine", "euclidean"]).optional(),
@@ -38,6 +40,10 @@ export async function POST(event: APIEvent) {
       return json({ error: "No embeddings for run" }, { status: 400 });
 
     const matrix = rows.map((r: any) => r.vector as number[]);
+    const pcaKeep = input.params?.pcaVarsToKeep ?? 50;
+
+    // if PCA = 0, then no PCA is applied
+    const projected = pcaKeep === 0 ? matrix : projectWithPCA(matrix, pcaKeep);
     const UMAPCtor = (UmapModule as any).UMAP || (UmapModule as any).default;
     if (typeof UMAPCtor !== "function") {
       throw new Error("UMAP constructor not found in umap-js module");
@@ -56,7 +62,7 @@ export async function POST(event: APIEvent) {
       spread: input.params?.spread,
       init: input.params?.init,
     } as any);
-    const embedding = umap.fit(matrix);
+    const embedding = umap.fit(projected);
     // embedding is a number[][] with dims columns
 
     const run = await prisma.umapRun.create({

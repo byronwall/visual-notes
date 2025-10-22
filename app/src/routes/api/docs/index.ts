@@ -8,6 +8,7 @@ import { createHash } from "crypto";
 const ingestInput = z.object({
   title: z.string().min(1).max(200),
   markdown: z.string().min(1),
+  originalSource: z.string().min(1).max(128).optional(),
   originalContentId: z.string().min(1).max(512).optional(),
   contentHash: z.string().min(16).max(128).optional(),
 });
@@ -24,11 +25,24 @@ export async function POST(event: APIEvent) {
     const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
 
     if (input.originalContentId) {
-      // If an item with the same originalContentId exists and content is unchanged, return a non-success code
-      const existing = await prisma.doc.findUnique({
-        where: { originalContentId: input.originalContentId },
-        select: { id: true, contentHash: true },
-      });
+      // If an item with the same (originalSource, originalContentId) exists and content is unchanged, return a non-success code
+      const existing = input.originalSource
+        ? await prisma.doc.findUnique({
+            where: {
+              originalSource_originalContentId: {
+                originalSource: input.originalSource,
+                originalContentId: input.originalContentId,
+              },
+            },
+            select: { id: true, contentHash: true },
+          })
+        : await prisma.doc.findFirst({
+            where: {
+              originalContentId: input.originalContentId,
+              originalSource: null,
+            },
+            select: { id: true, contentHash: true },
+          });
       if (existing) {
         if (existing.contentHash && existing.contentHash === contentHash) {
           // Duplicate unchanged
@@ -54,6 +68,7 @@ export async function POST(event: APIEvent) {
           title: input.title,
           markdown: input.markdown,
           html,
+          originalSource: input.originalSource,
           originalContentId: input.originalContentId,
           contentHash,
         },

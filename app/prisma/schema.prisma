@@ -160,7 +160,9 @@ model Doc {
   title             String
   markdown          String // @db.Text
   html              String // @db.Text
-  originalContentId String?  @unique
+  // Source + content id form a stable identity for ingest pipelines
+  originalSource    String?
+  originalContentId String?
   contentHash       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -170,6 +172,8 @@ model Doc {
   umapPoints           UmapPoint[]
   sections             DocSection[]
   docSectionEmbeddings DocSectionEmbedding[]
+
+  @@unique([originalSource, originalContentId])
 }
 
 /// Structural sections/chunks of a Doc after preprocessing

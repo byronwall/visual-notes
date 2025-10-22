@@ -40,6 +40,7 @@
     "postcss": "^8.4.40",
     "sanitize-html": "^2.17.0",
     "solid-js": "^1.9.5",
+    "svd-js": "^1.1.1",
     "tailwindcss": "^3.4.7",
     "umap-js": "^1.4.0",
     "vinxi": "^0.5.3",

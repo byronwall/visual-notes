@@ -11,6 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import os from "node:os";
 
 type RawNote = {
   id: string;
@@ -266,6 +267,17 @@ async function main(): Promise<void> {
     if (val) serverUrl = val;
   }
 
+  // Identify source of ingestion (for composite uniqueness and inventory filtering)
+  const defaultSource = (process.env.INGEST_SOURCE || os.hostname() || "local")
+    .toString()
+    .trim();
+  let originalSource = defaultSource;
+  const sourceIdx = process.argv.findIndex((a) => a === "--source");
+  if (sourceIdx !== -1) {
+    const val = process.argv[sourceIdx + 1];
+    if (val) originalSource = val;
+  }
+
   // optional: batch size for posting (defaults to 20)
   let postBatchSize = 20;
   const batchSizeIndex = process.argv.findIndex(
@@ -288,7 +300,11 @@ async function main(): Promise<void> {
       skipIndexPath = val.startsWith("/") ? val : join(process.cwd(), val);
   }
 
-  // Prefetch server inventory to seed skip-index so JXA can skip at source
+  // Inventory-derived indices for JXA index-based traversal
+  let knownIdsPath: string | undefined;
+  let knownCount: number | undefined;
+
+  // Prefetch server inventory (filtered by source) to compute known IDs and counts
   const prefetchInventory =
     process.argv.includes("--prefetch-inventory") || postToServer;
   if (prefetchInventory) {
@@ -301,8 +317,11 @@ async function main(): Promise<void> {
       );
     } else {
       try {
-        const inventoryEndpoint =
+        const inventoryEndpointBase =
           serverUrl.replace(/\/?$/, "") + "/api/docs/inventory";
+        const inventoryEndpoint = `${inventoryEndpointBase}?source=${encodeURIComponent(
+          originalSource
+        )}`;
         if (verbose)
           console.log(
             `[visual-notes-ingest] Prefetching server inventory from ${inventoryEndpoint}...`
@@ -311,18 +330,21 @@ async function main(): Promise<void> {
         const invJson: any = await invRes.json().catch(() => ({}));
         if (!invRes.ok)
           throw new Error(invJson?.error || `Inventory HTTP ${invRes.status}`);
-        const skipMap: SkipIndex = {};
-        let count = 0;
+        const knownIds: string[] = [];
         for (const it of Array.isArray(invJson.items) ? invJson.items : []) {
-          if (it?.originalContentId && it?.updatedAt) {
-            skipMap[String(it.originalContentId)] = String(it.updatedAt);
-            count++;
-          }
+          if (it?.originalContentId)
+            knownIds.push(String(it.originalContentId));
         }
-        saveSkipIndex(skipIndexPath, skipMap);
+        const invOut = {
+          ids: knownIds,
+          count: knownIds.length,
+        };
+        knownIdsPath = join(outDir, "server-inventory.json");
+        writeFileSync(knownIdsPath, JSON.stringify(invOut, null, 2));
+        knownCount = invOut.count;
         if (verbose)
           console.log(
-            `[visual-notes-ingest] Prefetched inventory: ${count} ids -> ${skipIndexPath}`
+            `[visual-notes-ingest] Prefetched inventory: count=${invOut.count} -> ${knownIdsPath}`
           );
       } catch (e) {
         console.warn(
@@ -334,7 +356,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Prefetch local HTML inventory to seed skip-index so JXA can skip files already exported locally
+  // Prefetch local HTML inventory to seed skip-index (used later for local bookkeeping)
   try {
     const existing = loadSkipIndex(skipIndexPath);
     if (jxaRawDir) {
@@ -386,16 +408,7 @@ async function main(): Promise<void> {
     );
   }
 
-  // optional: filter notes modified since epoch seconds
-  let sinceEpochSec: number | undefined;
-  const sinceFlagIndex = process.argv.findIndex(
-    (a) => a === "--since" || a === "--since-epoch"
-  );
-  if (sinceFlagIndex !== -1) {
-    const val = process.argv[sinceFlagIndex + 1];
-    const parsed = val ? Number(val) : NaN;
-    if (!Number.isNaN(parsed) && parsed > 0) sinceEpochSec = Math.floor(parsed);
-  }
+  // Remove time-based filtering; indices are computed via server inventory
 
   // parse --limit / -n N (default 10)
   let limit = 10;
@@ -421,6 +434,9 @@ async function main(): Promise<void> {
     console.log(`[visual-notes-ingest] Limit: ${limit}`);
     console.log(`[visual-notes-ingest] Post batch size: ${postBatchSize}`);
     console.log(`[visual-notes-ingest] Skip index: ${skipIndexPath}`);
+    console.log(`[visual-notes-ingest] Source: ${originalSource}`);
+    if (knownCount !== undefined)
+      console.log(`[visual-notes-ingest] Known inventory count: ${knownCount}`);
   }
 
   let rawNotes: RawNote[] = [];
@@ -471,8 +487,10 @@ async function main(): Promise<void> {
         LIMIT: String(limit),
         ...(jxaRawDir ? { HTML_OUT_DIR: jxaRawDir } : {}),
         ...(inlineJson ? { INLINE_HTML: "1" } : {}),
-        ...(sinceEpochSec ? { SINCE_EPOCH_SEC: String(sinceEpochSec) } : {}),
-        ...(skipIndexPath ? { SKIP_INDEX_PATH: skipIndexPath } : {}),
+        ...(knownIdsPath ? { KNOWN_IDS_PATH: knownIdsPath } : {}),
+        ...(knownCount !== undefined
+          ? { KNOWN_COUNT: String(knownCount) }
+          : {}),
         ...(debugJxa ? { JXA_DEBUG: "1" } : {}),
       };
       const jxaOut = await runJxaScript(scriptPath, jxaEnv, {
@@ -704,8 +722,11 @@ async function main(): Promise<void> {
     // Optionally POST each markdown note to the server
     if (postToServer) {
       const endpoint = serverUrl.replace(/\/?$/, "") + "/api/docs";
-      const inventoryEndpoint =
+      const inventoryEndpointBase =
         serverUrl.replace(/\/?$/, "") + "/api/docs/inventory";
+      const inventoryEndpoint = `${inventoryEndpointBase}?source=${encodeURIComponent(
+        originalSource
+      )}`;
       if (verbose) {
         console.log(
           `[visual-notes-ingest] Posting ${exported.length} notes to ${endpoint}...`
@@ -877,6 +898,7 @@ async function main(): Promise<void> {
                 body: JSON.stringify({
                   title,
                   markdown: note.markdown,
+                  originalSource,
                   originalContentId: note.originalContentId,
                   contentHash: note.contentHash,
                 }),

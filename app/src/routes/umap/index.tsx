@@ -54,6 +54,7 @@ const UmapIndex: VoidComponent = () => {
   const [selectedEmbedding, setSelectedEmbedding] = createSignal("");
   const [dims, setDims] = createSignal<2 | 3>(2);
   // UMAP parameter controls
+  const [pcaVarsToKeep, setPcaVarsToKeep] = createSignal("50");
   const [nNeighbors, setNNeighbors] = createSignal("15");
   const [minDist, setMinDist] = createSignal("0.1");
   const [metric, setMetric] = createSignal<"cosine" | "euclidean">("cosine");
@@ -71,6 +72,7 @@ const UmapIndex: VoidComponent = () => {
     setDims(r.dims === 3 ? 3 : 2);
 
     // Reset optional fields first
+    setPcaVarsToKeep("50");
     setLearningRate("");
     setNEpochs("");
     setLocalConnectivity("");
@@ -80,6 +82,8 @@ const UmapIndex: VoidComponent = () => {
     setSpread("");
 
     const p = (r.params ?? {}) as any;
+    if (p.pcaVarsToKeep !== undefined)
+      setPcaVarsToKeep(String(p.pcaVarsToKeep));
     setNNeighbors(p.nNeighbors !== undefined ? String(p.nNeighbors) : "15");
     setMinDist(p.minDist !== undefined ? String(p.minDist) : "0.1");
     setMetric(p.metric === "euclidean" ? "euclidean" : "cosine");
@@ -134,6 +138,8 @@ const UmapIndex: VoidComponent = () => {
                 try {
                   setCreating(true);
                   const params: Record<string, unknown> = {};
+                  // PCA param
+                  params.pcaVarsToKeep = Number.parseInt(pcaVarsToKeep());
                   params.nNeighbors = Number.parseInt(nNeighbors());
                   params.minDist = Number(minDist());
                   params.metric = metric();
@@ -174,6 +180,33 @@ const UmapIndex: VoidComponent = () => {
         <div class="rounded border border-gray-200 p-3">
           <h2 class="text-sm font-semibold mb-2">UMAP Parameters</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-600">PCA variables to keep</span>
+              <div class="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={pcaVarsToKeep()}
+                  onInput={(e) => setPcaVarsToKeep(e.currentTarget.value)}
+                  placeholder="50"
+                  class="border border-gray-300 rounded px-2 py-1 text-sm"
+                />
+                <select
+                  onChange={(e) => {
+                    const v = e.currentTarget.value;
+                    if (v) setPcaVarsToKeep(v);
+                  }}
+                  class="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value="">...</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </div>
+            </label>
             <label class="flex flex-col gap-1">
               <span class="text-xs text-gray-600">nNeighbors</span>
               <div class="flex gap-2">

@@ -23,6 +23,10 @@
 - Need to be able to change the params for the UMAP run
 - Goal is to get more local movement instead of 2 large global clusters -- really want to create small pockets of commonness
 - Probably need some sort of algo to separate things after the UMAP run
+- Consider if the PWA step is helping anything?
+  - Running at 0, somewhat expensive to try a bunch rapidly
+- Consider switching to python or something faster - ideally with the ability to save
+  - Can call out via node or embed another server in Docker
 
 ## CLI
 
@@ -38,12 +42,16 @@
 ## Canvas
 
 - Too much bunching once things render - need to allow spreading - crude force directed
+  - Supposedly there is a quad tree in the mix - use it for simple forcing?
+  - Animate and then save final positions back to DB?
+  - Or keep the force thing and use it when we need to filter or change the view? **seems like a better idea**
 - Give the stories a small square or rect layout - allow them to pack better
 - Create a "focused" view that subsets based on locality and then allows me to work in there.
 - Perf is not great - esp zooming - should really be better
 - Maybe add a debounce on the mouse nearness changes - every frame or couple of frames is probably enough?
-- Need to be able to "jump" over to left side lisitng without changing the sort order - some sort of "lock" or "jump" -- lock is better.
-- Would be good to get a quick preview of the note contnet - for link only and short things - would save an open
+- Need to be able to "jump" over to left side listing without changing the sort order - some sort of "lock" or "jump" -- lock is better.
+- Would be good to get a quick preview of the note content - for link only and short things - would save an open
+- Mouse threshold for showing hover depends on zoom level
 
 ## Embeddings
 
