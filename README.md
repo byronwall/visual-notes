@@ -4,6 +4,8 @@
 
 This repo includes a minimal end-to-end slice to ingest a single Markdown document via API, persist it, and view it on the client. Images are intentionally omitted for now.
 
+![](docs/main-ui.png)
+
 ### What was added
 
 - Minimal Prisma model `Doc` with `title`, `markdown`, `html`, timestamps

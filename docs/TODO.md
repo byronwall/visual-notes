@@ -41,10 +41,7 @@
 
 ## Canvas
 
-- Too much bunching once things render - need to allow spreading - crude force directed
-  - Supposedly there is a quad tree in the mix - use it for simple forcing?
-  - Animate and then save final positions back to DB?
-  - Or keep the force thing and use it when we need to filter or change the view? **seems like a better idea**
+- Or keep the force thing and use it when we need to filter or change the view? **seems like a better idea**
 - Give the stories a small square or rect layout - allow them to pack better
 - Create a "focused" view that subsets based on locality and then allows me to work in there.
 - Perf is not great - esp zooming - should really be better
@@ -52,6 +49,7 @@
 - Need to be able to "jump" over to left side listing without changing the sort order - some sort of "lock" or "jump" -- lock is better.
 - Would be good to get a quick preview of the note content - for link only and short things - would save an open
 - Mouse threshold for showing hover depends on zoom level
+- Need a better color pallette - make it intentional - allow color to be a variable with dynamic data
 
 ## Embeddings
 
