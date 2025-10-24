@@ -1,3 +1,4 @@
+import type { Editor } from "@tiptap/core";
 import {
   type VoidComponent,
   Show,
@@ -5,10 +6,9 @@ import {
   createResource,
   createSignal,
 } from "solid-js";
-import TiptapExample from "./TiptapExample";
-import type { Editor } from "@tiptap/core";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { apiFetch } from "~/utils/base-url";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import TiptapEditor from "./TiptapEditor";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -118,12 +118,9 @@ const DocumentEditor: VoidComponent<{
         fallback={<div class="text-sm text-gray-600">Loading…</div>}
       >
         {(d) => {
-          const html = normalizeAiOutputToHtml(d().html || d().markdown || "");
+          const html = d().html || normalizeMarkdownToHtml(d().markdown);
           return (
-            <TiptapExample
-              initialHTML={html}
-              onEditor={(ed) => setEditor(ed)}
-            />
+            <TiptapEditor initialHTML={html} onEditor={(ed) => setEditor(ed)} />
           );
         }}
       </Show>

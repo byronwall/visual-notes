@@ -2,7 +2,7 @@ import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { createHash } from "crypto";
 
 const ingestInput = z.object({
@@ -21,7 +21,7 @@ export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
     const input = ingestInput.parse(body);
-    const html = normalizeAiOutputToHtml(input.markdown);
+    const html = normalizeMarkdownToHtml(input.markdown);
     const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
 
     if (input.originalContentId) {

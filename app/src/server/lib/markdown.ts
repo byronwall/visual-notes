@@ -94,40 +94,12 @@ function markdownToHtml(md: string): string {
   return sanitized;
 }
 
-export function normalizeAiOutputToHtml(raw: string): string {
+export function normalizeMarkdownToHtml(raw: string | undefined): string {
   if (!raw) return "";
 
   // Unwrap known wrappers first
   let s = stripAiHtmlWrapper(raw);
   s = stripCodeFences(s);
-
-  const hasMd = true;
-  if (!hasMd) return markdownToHtml(s).trim();
-
-  try {
-    const mdImgInline = (s.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
-    const htmlImgTags = (s.match(/<img\b/gi) || []).length;
-    const dataImgs = (
-      s.match(
-        /(?:!\[[^\]]*\]\(data:[^)]+\))|(<img[^>]*src=["']data:[^"']+["'][^>]*>)/gi
-      ) || []
-    ).length;
-
-    // Preview a couple of data:image URLs if present
-    const mdData: string[] = [];
-    const mdRe = /!\[[^\]]*\]\((data:[^)]+)\)/gi;
-    let m: RegExpExecArray | null;
-    while ((m = mdRe.exec(s)) && mdData.length < 2) mdData.push(m[1]);
-    const htmlData: string[] = [];
-    const htmlRe = /<img[^>]*src=["'](data:[^"']+)["'][^>]*>/gi;
-    let h: RegExpExecArray | null;
-    while ((h = htmlRe.exec(s)) && htmlData.length < 2) htmlData.push(h[1]);
-    const previews = [...mdData, ...htmlData].slice(0, 2).map((u) => {
-      const head = u.slice(0, 80);
-      return `${head}${u.length > 80 ? "…" : ""}`;
-    });
-    if (previews.length) console.log("[markdown.normalize.data]", previews);
-  } catch {}
 
   const out = markdownToHtml(s).trim();
 

@@ -5,3 +5,4 @@ alwaysApply: true
 Follow these coding standards:
 
 - Only modify the prisma schema. Always generate migrations via CLI. Never manually generate a migration.
+- Always use `console.log` for debugging. When creating large code chunks add a couple console.log calls to help determine control flow and how thing run.

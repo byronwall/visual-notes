@@ -1,7 +1,6 @@
-import { type VoidComponent, Show, createResource } from "solid-js";
 import { useParams } from "@solidjs/router";
+import { type VoidComponent, Show, createResource } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
 import DocumentEditor from "../../components/DocumentEditor";
 
 type DocResponse = {

@@ -1,11 +1,9 @@
 import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
-import { prisma } from "~/server/db";
 import { z } from "zod";
-import sanitizeHtml from "sanitize-html";
+import { prisma } from "~/server/db";
 import {
-  normalizeAiOutputToHtml,
-  getSanitizeOptions,
+  normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
 
@@ -88,7 +86,7 @@ export async function PUT(event: APIEvent) {
 
     if (input.markdown) {
       // Source of truth as markdown → regenerate sanitized HTML
-      const html = normalizeAiOutputToHtml(input.markdown);
+      const html = normalizeMarkdownToHtml(input.markdown);
       updates.markdown = input.markdown;
       updates.html = html;
     } else if (input.html) {

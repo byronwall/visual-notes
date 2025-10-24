@@ -1,6 +1,6 @@
 import { prisma } from "~/server/db";
 import { compilePrompt, getActivePrompt, callLLM } from "~/server/lib/ai";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
 type Input = {
   book: string;
@@ -65,7 +65,7 @@ export async function generateChapterSummary(input: Input): Promise<Result> {
     throw new Error("Empty AI response");
   }
 
-  const normalizedHtml = normalizeAiOutputToHtml(output);
+  const normalizedHtml = normalizeMarkdownToHtml(output);
 
   await prisma.promptRun.update({
     where: { id: run.id },

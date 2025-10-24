@@ -192,7 +192,7 @@ this is a <em>basic</em> example of <strong>tiptap</strong>.
 </p>
 `;
 
-export default function TiptapExample(props: {
+export default function TiptapEditor(props: {
   initialHTML?: string;
   class?: string;
   onEditor?: (editor: Editor) => void;

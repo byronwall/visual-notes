@@ -2,18 +2,16 @@ import {
   type VoidComponent,
   For,
   Show,
+  createEffect,
+  createMemo,
   createResource,
   createSignal,
   onCleanup,
   onMount,
-  createEffect,
-  createMemo,
 } from "solid-js";
-import SidePanel from "../components/SidePanel";
-import TiptapExample from "../components/TiptapExample";
-import DocumentEditor from "../components/DocumentEditor";
 import { apiFetch } from "~/utils/base-url";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import DocumentEditor from "../components/DocumentEditor";
+import SidePanel from "../components/SidePanel";
 
 type DocItem = { id: string; title: string; createdAt: string };
 type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
