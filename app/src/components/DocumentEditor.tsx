@@ -119,7 +119,7 @@ const DocumentEditor: VoidComponent<{
         fallback={<div class="text-sm text-gray-600">Loading…</div>}
       >
         {(d) => {
-          const html = normalizeAiOutputToHtml(d().html || "");
+          const html = normalizeAiOutputToHtml(d().html || d().markdown || "");
           return (
             <TiptapExample
               initialHTML={html}
