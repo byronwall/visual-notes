@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
 import { Show, createEffect, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 
@@ -200,7 +201,7 @@ export default function TiptapExample(props: {
 
   const editor = createTiptapEditor(() => ({
     element: container()!,
-    extensions: [StarterKit],
+    extensions: [StarterKit, Image.configure({ allowBase64: true })],
     editorProps: {
       attributes: { class: "p-4 focus:outline-none prose max-w-full" },
     },
@@ -220,8 +221,21 @@ export default function TiptapExample(props: {
     const next = props.initialHTML ?? CONTENT;
     try {
       const current = ed.getHTML();
+
       if (typeof next === "string" && next !== current) {
         ed.commands.setContent(next, { emitUpdate: false });
+        try {
+          const after = ed.getHTML();
+          const afterImgs = (after.match(/<img\b/gi) || []).length;
+          const afterDataImgs = (after.match(/<img[^>]*src=["']data:/gi) || [])
+            .length;
+          console.log(
+            "[tiptap.setContent] after len:%d imgs:%d dataImgs:%d",
+            after.length,
+            afterImgs,
+            afterDataImgs
+          );
+        } catch {}
       }
     } catch {}
   });

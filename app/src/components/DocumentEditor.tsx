@@ -65,7 +65,6 @@ const DocumentEditor: VoidComponent<{
     setError(undefined);
     try {
       const html = ed.getHTML();
-      // Prefer markdown as a stable source if we have original markdown; otherwise save sanitized HTML only
       await saveDoc(d.id, { html });
       setSavedAt(new Date());
       setDirty(false);

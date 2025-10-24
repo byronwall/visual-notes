@@ -43,42 +43,9 @@ export function looksLikeMarkdown(input: string): boolean {
   return false;
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderInlineMd(text: string): string {
-  // Code spans
-  let t = text.replace(
-    /`([^`]+)`/g,
-    (_m, code) => `<code>${escapeHtml(code)}</code>`
-  );
-  // Links [label](href)
-  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label, href) => {
-    const safeHref = escapeHtml(String(href));
-    const safeLabel = String(label);
-    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
-  });
-  // Autolink bare URLs
-  t = t.replace(/(?<!["'>])(https?:\/\/[^\s)]+)(?![^<]*>)/g, (_m, url) => {
-    const safe = escapeHtml(String(url));
-    return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
-  });
-  // Bold
-  t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  t = t.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  return t;
-}
-
-function markdownToHtml(md: string): string {
-  const rendered = marked.parse(md, { breaks: true });
-  const options: IOptions = {
+export function getSanitizeOptions(): IOptions {
+  // Centralized sanitize-html options used across the app
+  return {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
       "h1",
       "h2",
@@ -112,7 +79,18 @@ function markdownToHtml(md: string): string {
       }),
     },
   };
-  const sanitized = sanitizeHtml(String(rendered), options);
+}
+
+export function sanitizeHtmlContent(html: string): string {
+  const options = getSanitizeOptions();
+  const sanitized = sanitizeHtml(String(html), options);
+
+  return sanitized;
+}
+
+function markdownToHtml(md: string): string {
+  const rendered = marked.parse(md, { breaks: true });
+  const sanitized = sanitizeHtmlContent(String(rendered));
   return sanitized;
 }
 
@@ -126,5 +104,32 @@ export function normalizeAiOutputToHtml(raw: string): string {
   const hasMd = true;
   if (!hasMd) return markdownToHtml(s).trim();
 
-  return markdownToHtml(s).trim();
+  try {
+    const mdImgInline = (s.match(/!\[[^\]]*\]\([^)]*\)/g) || []).length;
+    const htmlImgTags = (s.match(/<img\b/gi) || []).length;
+    const dataImgs = (
+      s.match(
+        /(?:!\[[^\]]*\]\(data:[^)]+\))|(<img[^>]*src=["']data:[^"']+["'][^>]*>)/gi
+      ) || []
+    ).length;
+
+    // Preview a couple of data:image URLs if present
+    const mdData: string[] = [];
+    const mdRe = /!\[[^\]]*\]\((data:[^)]+)\)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = mdRe.exec(s)) && mdData.length < 2) mdData.push(m[1]);
+    const htmlData: string[] = [];
+    const htmlRe = /<img[^>]*src=["'](data:[^"']+)["'][^>]*>/gi;
+    let h: RegExpExecArray | null;
+    while ((h = htmlRe.exec(s)) && htmlData.length < 2) htmlData.push(h[1]);
+    const previews = [...mdData, ...htmlData].slice(0, 2).map((u) => {
+      const head = u.slice(0, 80);
+      return `${head}${u.length > 80 ? "…" : ""}`;
+    });
+    if (previews.length) console.log("[markdown.normalize.data]", previews);
+  } catch {}
+
+  const out = markdownToHtml(s).trim();
+
+  return out;
 }

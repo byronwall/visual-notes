@@ -3,7 +3,11 @@ import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
-import { normalizeAiOutputToHtml } from "~/server/lib/markdown";
+import {
+  normalizeAiOutputToHtml,
+  getSanitizeOptions,
+  sanitizeHtmlContent,
+} from "~/server/lib/markdown";
 
 export async function GET(event: APIEvent) {
   const id = event.params?.id as string;
@@ -51,6 +55,18 @@ export async function GET(event: APIEvent) {
       vectorPreview: vector.slice(0, 8),
     };
   });
+  try {
+    const html = String(doc.html || "");
+    const imgCount = (html.match(/<img\b/gi) || []).length;
+    const dataImgCount = (html.match(/<img[^>]*src=["']data:/gi) || []).length;
+    console.log(
+      "[api.docs.get] doc:%s html len:%d imgs:%d dataImgs:%d",
+      id,
+      html.length,
+      imgCount,
+      dataImgCount
+    );
+  } catch {}
   return json({ ...doc, embeddingRuns });
 }
 
@@ -77,7 +93,25 @@ export async function PUT(event: APIEvent) {
       updates.html = html;
     } else if (input.html) {
       // Accept raw HTML edits → sanitize before saving; keep prior markdown unchanged
-      const sanitized = sanitizeHtml(String(input.html));
+      const sanitized = sanitizeHtmlContent(String(input.html));
+      try {
+        const beforeImgs = (String(input.html).match(/<img\b/gi) || []).length;
+        const beforeDataImgs = (
+          String(input.html).match(/<img[^>]*src=["']data:/gi) || []
+        ).length;
+        const afterImgs = (sanitized.match(/<img\b/gi) || []).length;
+        const afterDataImgs = (
+          sanitized.match(/<img[^>]*src=["']data:/gi) || []
+        ).length;
+        console.log(
+          "[api.docs.put] doc:%s imgs:%d→%d dataImgs:%d→%d",
+          id,
+          beforeImgs,
+          afterImgs,
+          beforeDataImgs,
+          afterDataImgs
+        );
+      } catch {}
       updates.html = sanitized;
     }
 
