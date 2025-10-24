@@ -29,6 +29,9 @@ const DocumentViewer: VoidComponent<{ doc: DocumentData }> = (props) => {
 
   return (
     <div class="prose max-w-none">
+      <h2 class="mt-0">{props.doc.title}</h2>
+      <DocumentEditor docId={props.doc.id} />
+
       <details class="rounded border border-gray-200 p-3 mb-4">
         <summary class="cursor-pointer select-none font-medium">
           Metadata
@@ -103,9 +106,6 @@ const DocumentViewer: VoidComponent<{ doc: DocumentData }> = (props) => {
           </Show>
         </div>
       </details>
-
-      <h2 class="mt-0">{props.doc.title}</h2>
-      <DocumentEditor docId={props.doc.id} />
     </div>
   );
 };
