@@ -1,4 +1,4 @@
-import { useParams } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import { type VoidComponent, Show, createResource } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
 import DocumentViewer from "../../components/DocumentViewer";
@@ -30,10 +30,18 @@ async function fetchDoc(id: string) {
 
 const DocView: VoidComponent = () => {
   const params = useParams();
+  const navigate = useNavigate();
   const [doc] = createResource(
     () => params.id,
     (id) => fetchDoc(id!)
   );
+
+  const handleDeleted = () => {
+    try {
+      console.log("[DocView] onDeleted → navigating to /docs");
+    } catch {}
+    navigate("/docs");
+  };
 
   return (
     <main class="min-h-screen bg-white">
@@ -41,7 +49,7 @@ const DocView: VoidComponent = () => {
         <Show when={doc()} fallback={<p>Loading…</p>}>
           {(d) => (
             <article class="prose max-w-none">
-              <DocumentViewer doc={d()} />
+              <DocumentViewer doc={d()} onDeleted={handleDeleted} />
             </article>
           )}
         </Show>

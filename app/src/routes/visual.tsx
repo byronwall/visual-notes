@@ -96,7 +96,7 @@ function colorFor(title: string): string {
 }
 
 const VisualCanvas: VoidComponent = () => {
-  const [docs] = createResource(fetchDocs);
+  const [docs, { refetch: refetchDocs }] = createResource(fetchDocs);
   const [umapRun, { refetch: refetchUmapRun }] =
     createResource(fetchLatestUmapRun);
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
@@ -847,7 +847,12 @@ const VisualCanvas: VoidComponent = () => {
       <DocumentSidePanel
         open={!!selectedId()}
         docId={selectedId()}
-        onClose={() => setSelectedId(undefined)}
+        onClose={(shouldRefetch) => {
+          if (shouldRefetch) {
+            refetchDocs();
+          }
+          setSelectedId(undefined);
+        }}
       />
       {/* Left pane: search + list sorted by proximity (default) */}
       <div

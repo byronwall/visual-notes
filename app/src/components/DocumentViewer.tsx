@@ -22,7 +22,10 @@ type DocumentData = {
   }[];
 };
 
-const DocumentViewer: VoidComponent<{ doc: DocumentData }> = (props) => {
+const DocumentViewer: VoidComponent<{
+  doc: DocumentData;
+  onDeleted?: () => void;
+}> = (props) => {
   try {
     console.log("[DocumentViewer] render docId=", props.doc?.id);
   } catch {}
@@ -53,7 +56,15 @@ const DocumentViewer: VoidComponent<{ doc: DocumentData }> = (props) => {
                 throw new Error(msg);
               }
               console.log("[DocumentViewer] deleted docId=", props.doc?.id);
-              navigate("/docs");
+              if (props.onDeleted) {
+                try {
+                  props.onDeleted();
+                } catch (err) {
+                  console.error("[DocumentViewer] onDeleted threw", err);
+                }
+              } else {
+                navigate("/docs");
+              }
             } catch (e) {
               console.error(e);
               alert((e as Error).message || "Failed to delete note");

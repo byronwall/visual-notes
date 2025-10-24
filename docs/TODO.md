@@ -4,7 +4,6 @@
 
 1. Need to clean up HTML -> markdown pipeline - formatting + line breaks are busted - consider using HTML?
 2. add features around lasso and AI on top of the notes
-3. Need to be able to edit notes
 
 ## Major goals or guiding lights - what's the point?
 
@@ -19,9 +18,6 @@
 
 ## UMAP
 
-- Need to see the params for the UMAP run
-- Need to be able to change the params for the UMAP run
-- Goal is to get more local movement instead of 2 large global clusters -- really want to create small pockets of commonness
 - Probably need some sort of algo to separate things after the UMAP run
 - Consider if the PWA step is helping anything?
   - Running at 0, somewhat expensive to try a bunch rapidly
@@ -30,8 +26,8 @@
 
 ## Doc editing
 
-- Does not handle images yet
-  - See this example: <http://localhost:3000/docs/cmgwgrwfg00g38ch9xr3hqgpe>
+- Need to support tables
+- Need to get some representative "hard" documents to test with
 
 ## CLI
 
@@ -46,15 +42,14 @@
 
 ## Canvas
 
-- Or keep the force thing and use it when we need to filter or change the view? **seems like a better idea**
-- Give the stories a small square or rect layout - allow them to pack better
-- Create a "focused" view that subsets based on locality and then allows me to work in there.
 - Perf is not great - esp zooming - should really be better
 - Maybe add a debounce on the mouse nearness changes - every frame or couple of frames is probably enough?
+- Create a "focused" view that subsets based on locality and then allows me to work in there.
 - Need to be able to "jump" over to left side listing without changing the sort order - some sort of "lock" or "jump" -- lock is better.
-- Would be good to get a quick preview of the note content - for link only and short things - would save an open
+- Would be good to get a quick preview of the note content - for link only and short things - would save an open - should appear on hover that is long enough
 - Mouse threshold for showing hover depends on zoom level
 - Need a better color pallette - make it intentional - allow color to be a variable with dynamic data
+- Disconnect between hover display and click display - clicking should open the note in the side panel -- use the exact same code somehow to ensure it always opens the one that the hover preview shows
 
 ## Embeddings
 

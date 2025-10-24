@@ -31,7 +31,7 @@ async function fetchDoc(id: string): Promise<DocResponse> {
 const DocumentSidePanel: VoidComponent<{
   open: boolean;
   docId?: string;
-  onClose: () => void;
+  onClose: (shouldRefetch?: boolean) => void;
 }> = (props) => {
   const [doc] = createResource(
     () => (props.open && props.docId ? props.docId : undefined),
@@ -77,7 +77,7 @@ const DocumentSidePanel: VoidComponent<{
           type="button"
           class="ml-1 rounded p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
           aria-label="Close panel"
-          onClick={props.onClose}
+          onClick={() => props.onClose(false)}
         >
           ✕
         </button>
@@ -90,7 +90,17 @@ const DocumentSidePanel: VoidComponent<{
           keyed
           fallback={<div class="text-sm text-gray-600">Loading…</div>}
         >
-          {(d) => <DocumentViewer doc={d} />}
+          {(d) => (
+            <DocumentViewer
+              doc={d}
+              onDeleted={() => {
+                try {
+                  console.log("[DocumentSidePanel] onDeleted → closing panel");
+                } catch {}
+                props.onClose(true);
+              }}
+            />
+          )}
         </Show>
       </div>
     </SidePanel>
