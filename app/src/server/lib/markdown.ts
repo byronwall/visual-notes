@@ -119,13 +119,9 @@ function markdownToHtml(md: string): string {
 export function normalizeAiOutputToHtml(raw: string): string {
   if (!raw) return "";
 
-  console.log("normalizeAiOutputToHtml", { raw });
-
   // Unwrap known wrappers first
   let s = stripAiHtmlWrapper(raw);
   s = stripCodeFences(s);
-
-  console.log("normalizeAiOutputToHtml", { s });
 
   const hasMd = true;
   if (!hasMd) return markdownToHtml(s).trim();
