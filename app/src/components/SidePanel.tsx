@@ -23,20 +23,36 @@ export default function SidePanel(props: SidePanelProps) {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
+  // Lock background scroll while panel is open
+  createEffect(() => {
+    if (!props.open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    console.log("[SidePanel] Body scroll locked");
+    onCleanup(() => {
+      document.body.style.overflow = previousOverflow;
+      console.log("[SidePanel] Body scroll unlocked");
+    });
+  });
+
   return (
     <Show when={props.open}>
       <Portal>
-        <div class="fixed inset-0 z-50" role="dialog" aria-modal="true">
+        <div
+          class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
+          role="dialog"
+          aria-modal="true"
+        >
           {/* Backdrop */}
           <div class="absolute inset-0 bg-black/30" onClick={props.onClose} />
           {/* Panel */}
           <div
-            class={`absolute inset-y-0 right-0 flex h-full max-h-full w-[min(90vw,480px)] bg-white shadow-xl border-l border-gray-200 ${
+            class={`absolute inset-y-0 right-0 flex h-full max-h-full w-[min(90vw,480px)] bg-white shadow-xl border-l border-gray-200 overscroll-contain ${
               props.class || ""
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div class="flex h-full w-full flex-col overflow-y-auto">
+            <div class="flex h-full w-full flex-col overflow-y-auto overscroll-contain">
               {/* Header */}
               <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                 <div class="font-medium text-gray-900">Details</div>

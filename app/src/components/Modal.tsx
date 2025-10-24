@@ -21,18 +21,35 @@ export default function Modal(props: {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
+  // Lock background scroll while modal is open
+  createEffect(() => {
+    if (!props.open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    console.log("[Modal] Body scroll locked");
+    onCleanup(() => {
+      document.body.style.overflow = previousOverflow;
+      console.log("[Modal] Body scroll unlocked");
+    });
+  });
+
   return (
     <Show when={props.open}>
       <Portal>
         <div
-          class="fixed inset-0 z-50"
+          class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
           role="dialog"
           aria-modal="true"
           onClick={props.onClose}
         >
           {/* Backdrop is intentionally transparent for a subtle feel */}
           <div class="absolute inset-0 bg-black/0" />
-          <div class={props.contentClass || ""}>{props.children}</div>
+          <div
+            class={`${props.contentClass || ""} overscroll-contain`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {props.children}
+          </div>
         </div>
       </Portal>
     </Show>
