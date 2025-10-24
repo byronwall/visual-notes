@@ -128,3 +128,20 @@ export async function PUT(event: APIEvent) {
     return json({ error: msg }, { status: 400 });
   }
 }
+
+export async function DELETE(event: APIEvent) {
+  const id = event.params?.id as string;
+  if (!id) return json({ error: "Missing id" }, { status: 400 });
+  try {
+    console.log("[api.docs.delete] deleting doc:%s", id);
+    // Rely on ON DELETE CASCADE relations to clean up dependent rows
+    const deleted = await prisma.doc
+      .delete({ where: { id }, select: { id: true } })
+      .catch(() => null);
+    if (!deleted) return json({ error: "Not found" }, { status: 404 });
+    return json({ ok: true, id: deleted.id });
+  } catch (e) {
+    const msg = (e as Error).message || "Failed to delete";
+    return json({ error: msg }, { status: 500 });
+  }
+}

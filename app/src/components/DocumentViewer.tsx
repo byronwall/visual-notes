@@ -1,4 +1,6 @@
-import { type VoidComponent, Show } from "solid-js";
+import { type VoidComponent, Show, createSignal } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { apiFetch } from "~/utils/base-url";
 import DocumentEditor from "./DocumentEditor";
 
 type DocumentData = {
@@ -25,11 +27,44 @@ const DocumentViewer: VoidComponent<{ doc: DocumentData }> = (props) => {
     console.log("[DocumentViewer] render docId=", props.doc?.id);
   } catch {}
 
+  const navigate = useNavigate();
+  const [busy, setBusy] = createSignal(false);
   const runs = () => props.doc?.embeddingRuns || [];
 
   return (
     <div class="prose max-w-none">
-      <h2 class="mt-0">{props.doc.title}</h2>
+      <div class="flex items-center justify-between">
+        <h2 class="mt-0">{props.doc.title}</h2>
+        <button
+          class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+          disabled={busy()}
+          onClick={async () => {
+            if (!confirm("Delete this note? This cannot be undone.")) return;
+            try {
+              setBusy(true);
+              console.log("[DocumentViewer] deleting docId=", props.doc?.id);
+              const res = await apiFetch(`/api/docs/${props.doc.id}`, {
+                method: "DELETE",
+              });
+              if (!res.ok) {
+                const msg =
+                  (await res.json().catch(() => ({})))?.error ||
+                  "Failed to delete note";
+                throw new Error(msg);
+              }
+              console.log("[DocumentViewer] deleted docId=", props.doc?.id);
+              navigate("/docs");
+            } catch (e) {
+              console.error(e);
+              alert((e as Error).message || "Failed to delete note");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Delete Note
+        </button>
+      </div>
       <DocumentEditor docId={props.doc.id} />
 
       <details class="rounded border border-gray-200 p-3 mb-4">
