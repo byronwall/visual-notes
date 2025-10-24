@@ -1,7 +1,7 @@
 import { useAuth } from "@solid-mediakit/auth/client";
-import { Show, createSignal } from "solid-js";
-import Modal from "~/components/Modal";
 import type { VoidComponent } from "solid-js";
+import { createSignal } from "solid-js";
+import Modal from "~/components/Modal";
 
 const Navbar: VoidComponent = () => {
   const auth = useAuth();
@@ -33,7 +33,7 @@ const Navbar: VoidComponent = () => {
             <a href="/docs" class="hover:underline">
               Notes
             </a>
-            <a href="/new" class="hover:underline">
+            <a href="/docs/new" class="hover:underline">
               New Note
             </a>
 

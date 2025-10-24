@@ -2,16 +2,25 @@ import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
 import { prisma } from "~/server/db";
 import { z } from "zod";
-import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import {
+  normalizeMarkdownToHtml,
+  sanitizeHtmlContent,
+} from "~/server/lib/markdown";
 import { createHash } from "crypto";
 
-const ingestInput = z.object({
-  title: z.string().min(1).max(200),
-  markdown: z.string().min(1),
-  originalSource: z.string().min(1).max(128).optional(),
-  originalContentId: z.string().min(1).max(512).optional(),
-  contentHash: z.string().min(16).max(128).optional(),
-});
+const ingestInput = z
+  .object({
+    title: z.string().min(1).max(200),
+    markdown: z.string().min(1).optional(),
+    html: z.string().min(1).optional(),
+    originalSource: z.string().min(1).max(128).optional(),
+    originalContentId: z.string().min(1).max(512).optional(),
+    contentHash: z.string().min(16).max(128).optional(),
+  })
+  .refine((v) => Boolean(v.markdown || v.html), {
+    message: "markdown or html is required",
+    path: ["markdown"],
+  });
 
 function computeSha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
@@ -21,8 +30,15 @@ export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
     const input = ingestInput.parse(body);
-    const html = normalizeMarkdownToHtml(input.markdown);
-    const contentHash = input.contentHash ?? computeSha256Hex(input.markdown);
+    const usingMarkdown = Boolean(input.markdown);
+    const html = usingMarkdown
+      ? normalizeMarkdownToHtml(input.markdown!)
+      : sanitizeHtmlContent(String(input.html || ""));
+    const contentHash = input.contentHash
+      ? input.contentHash
+      : computeSha256Hex(
+          usingMarkdown ? input.markdown! : String(input.html || "")
+        );
 
     if (input.originalContentId) {
       // If an item with the same (originalSource, originalContentId) exists and content is unchanged, return a non-success code
@@ -55,7 +71,7 @@ export async function POST(event: APIEvent) {
           where: { id: existing.id },
           data: {
             title: input.title,
-            markdown: input.markdown,
+            markdown: usingMarkdown ? input.markdown! : "",
             html,
             contentHash,
           },
@@ -66,7 +82,7 @@ export async function POST(event: APIEvent) {
       const created = await prisma.doc.create({
         data: {
           title: input.title,
-          markdown: input.markdown,
+          markdown: usingMarkdown ? input.markdown! : "",
           html,
           originalSource: input.originalSource,
           originalContentId: input.originalContentId,
@@ -79,7 +95,7 @@ export async function POST(event: APIEvent) {
       const created = await prisma.doc.create({
         data: {
           title: input.title,
-          markdown: input.markdown,
+          markdown: usingMarkdown ? input.markdown! : "",
           html,
           contentHash,
         },

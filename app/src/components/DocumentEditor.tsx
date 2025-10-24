@@ -3,6 +3,7 @@ import {
   type VoidComponent,
   Show,
   createEffect,
+  createMemo,
   createResource,
   createSignal,
 } from "solid-js";
@@ -35,8 +36,12 @@ async function saveDoc(
 }
 
 const DocumentEditor: VoidComponent<{
-  docId: string;
+  docId?: string;
   class?: string;
+  initialTitle?: string;
+  initialMarkdown?: string;
+  initialHTML?: string;
+  onCreated?: (id: string) => void;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -45,6 +50,23 @@ const DocumentEditor: VoidComponent<{
   const [dirty, setDirty] = createSignal(false);
 
   const [doc, { refetch }] = createResource(() => props.docId, fetchDoc);
+
+  const isNew = createMemo(() => !props.docId);
+
+  const displayTitle = createMemo(
+    () => doc()?.title || props.initialTitle || "Untitled note"
+  );
+
+  const initialHTML = createMemo(() => {
+    const d = doc();
+    if (d) return d.html || normalizeMarkdownToHtml(d.markdown);
+    if (props.initialHTML) return props.initialHTML;
+
+    console.log("[editor.initialHTML] initialMarkdown:", props.initialMarkdown);
+    return normalizeMarkdownToHtml(
+      props.initialMarkdown || "# Untitled\n\nStart writing..."
+    );
+  });
 
   // Track editor updates to mark dirty
   createEffect(() => {
@@ -60,15 +82,35 @@ const DocumentEditor: VoidComponent<{
   async function onSave() {
     const ed = editor();
     const d = doc();
-    if (!ed || !d) return;
+    if (!ed) return;
     setSaving(true);
     setError(undefined);
     try {
       const html = ed.getHTML();
-      await saveDoc(d.id, { html });
-      setSavedAt(new Date());
-      setDirty(false);
-      await refetch();
+      if (isNew()) {
+        // First save → create the note
+        const title = displayTitle();
+        console.log("[editor.save] creating new doc with title:", title);
+        const res = await apiFetch(`/api/docs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, html }),
+        });
+        const json = (await res.json().catch(() => ({}))) as any;
+        console.log("[editor.save] create response", res.status, json);
+        if (!res.ok || !json?.id) {
+          throw new Error(json?.error || "Failed to create note");
+        }
+        setSavedAt(new Date());
+        setDirty(false);
+        if (props.onCreated) props.onCreated(String(json.id));
+      } else {
+        // Update existing
+        await saveDoc(d!.id, { html });
+        setSavedAt(new Date());
+        setDirty(false);
+        await refetch();
+      }
     } catch (e) {
       setError((e as Error).message || "Failed to save");
     } finally {
@@ -80,7 +122,7 @@ const DocumentEditor: VoidComponent<{
     <div class={props.class || "w-full"}>
       <div class="flex items-center gap-2 mb-2">
         <div class="text-sm font-medium truncate">
-          <Show when={doc()} fallback={<span>Loading…</span>}>
+          <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
             {(d) => <span>{d().title}</span>}
           </Show>
         </div>
@@ -99,7 +141,7 @@ const DocumentEditor: VoidComponent<{
             class={`rounded px-3 py-1.5 border text-xs ${
               saving() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
             }`}
-            disabled={saving() || !doc()}
+            disabled={saving() || !editor() || (props.docId ? !doc() : false)}
             onClick={onSave}
           >
             {saving() ? "Saving…" : "Save"}
@@ -113,17 +155,10 @@ const DocumentEditor: VoidComponent<{
           </div>
         )}
       </Show>
-      <Show
-        when={doc()}
-        fallback={<div class="text-sm text-gray-600">Loading…</div>}
-      >
-        {(d) => {
-          const html = d().html || normalizeMarkdownToHtml(d().markdown);
-          return (
-            <TiptapEditor initialHTML={html} onEditor={(ed) => setEditor(ed)} />
-          );
-        }}
-      </Show>
+      <TiptapEditor
+        initialHTML={initialHTML()}
+        onEditor={(ed) => setEditor(ed)}
+      />
     </div>
   );
 };
