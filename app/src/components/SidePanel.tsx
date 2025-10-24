@@ -5,10 +5,12 @@ type SidePanelProps = {
   open: boolean;
   onClose: () => void;
   children: JSX.Element;
-  /** Optional explicit width. Accepts tailwind-like class or CSS length via style prop below. */
+  /** Optional extra classes to apply to the panel container (e.g., width) */
   class?: string;
   /** If true, pressing Escape closes the panel (default true) */
   closeOnEsc?: boolean;
+  /** ARIA label for the dialog container */
+  ariaLabel?: string;
 };
 
 export default function SidePanel(props: SidePanelProps) {
@@ -42,31 +44,23 @@ export default function SidePanel(props: SidePanelProps) {
           class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
           role="dialog"
           aria-modal="true"
+          aria-label={props.ariaLabel || "Side panel"}
         >
           {/* Backdrop */}
-          <div class="absolute inset-0 bg-black/30" onClick={props.onClose} />
-          {/* Panel */}
           <div
-            class={`absolute inset-y-0 right-0 flex h-full max-h-full w-[min(90vw,480px)] bg-white shadow-xl border-l border-gray-200 overscroll-contain ${
+            class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+            onClick={props.onClose}
+          />
+          {/* Panel shell (layout-only) */}
+          <div
+            class={`absolute inset-y-0 right-0 flex h-full max-h-full w-[min(94vw,560px)] bg-white/98 backdrop-blur shadow-2xl border-l border-gray-200 ${
               props.class || ""
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div class="flex h-full w-full flex-col overflow-y-auto overscroll-contain">
-              {/* Header */}
-              <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                <div class="font-medium text-gray-900">Details</div>
-                <button
-                  type="button"
-                  class="rounded p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
-                  aria-label="Close panel"
-                  onClick={props.onClose}
-                >
-                  ✕
-                </button>
-              </div>
-              {/* Content */}
-              <div class="px-4 py-4">{props.children}</div>
+            {/* Scroll container for consumer content */}
+            <div class="flex h-full w-full flex-col overflow-y-auto overscroll-contain bg-white">
+              {props.children}
             </div>
           </div>
         </div>

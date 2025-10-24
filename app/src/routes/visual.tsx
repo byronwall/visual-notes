@@ -10,13 +10,12 @@ import {
   onMount,
 } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
-import DocumentEditor from "../components/DocumentEditor";
-import SidePanel from "../components/SidePanel";
+import DocumentSidePanel from "../components/DocumentSidePanel";
 
 type DocItem = { id: string; title: string; createdAt: string };
 type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
 type UmapRun = { id: string; dims: number };
-type FullDoc = { id: string; title: string; html?: string; markdown?: string };
+// DocumentSidePanel will load the full document on demand
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
@@ -44,12 +43,6 @@ async function fetchUmapPoints(runId: string): Promise<UmapPoint[]> {
   if (!res.ok) throw new Error("Failed to load UMAP points");
   const json = (await res.json()) as { points: UmapPoint[] };
   return json.points || [];
-}
-
-async function fetchDoc(id: string): Promise<FullDoc> {
-  const res = await apiFetch(`/api/docs/${id}`);
-  if (!res.ok) throw new Error("Failed to load doc");
-  return (await res.json()) as FullDoc;
 }
 
 function hashString(input: string): number {
@@ -117,9 +110,7 @@ const VisualCanvas: VoidComponent = () => {
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
-  const [selectedDoc] = createResource(selectedId, (id) =>
-    id ? fetchDoc(id) : Promise.resolve(undefined as unknown as FullDoc)
-  );
+  // Panel fetches document internally
 
   // Pan/zoom state
   const [scale, setScale] = createSignal(1);
@@ -853,25 +844,11 @@ const VisualCanvas: VoidComponent = () => {
           )}
         </Show>
       </div>
-      <SidePanel open={!!selectedId()} onClose={() => setSelectedId(undefined)}>
-        <Show
-          when={selectedId()}
-          fallback={<div class="text-sm text-gray-600">No note selected.</div>}
-        >
-          <Show
-            when={selectedDoc()}
-            keyed
-            fallback={<div class="p-2 text-sm text-gray-600">Loading…</div>}
-          >
-            {(doc) => (
-              <div class="prose max-w-none">
-                <h2 class="mt-0">{doc.title}</h2>
-                <DocumentEditor docId={doc.id} />
-              </div>
-            )}
-          </Show>
-        </Show>
-      </SidePanel>
+      <DocumentSidePanel
+        open={!!selectedId()}
+        docId={selectedId()}
+        onClose={() => setSelectedId(undefined)}
+      />
       {/* Left pane: search + list sorted by proximity (default) */}
       <div
         class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"

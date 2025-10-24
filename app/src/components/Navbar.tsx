@@ -33,9 +33,10 @@ const Navbar: VoidComponent = () => {
             <a href="/docs" class="hover:underline">
               Notes
             </a>
-            <a href="/visual" class="hover:underline">
-              Canvas
+            <a href="/new" class="hover:underline">
+              New Note
             </a>
+
             <a href="/embeddings" class="hover:underline">
               Embeddings
             </a>
