@@ -1,23 +1,23 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { IngestSource, ExportedNote, RawNote } from "./types";
-import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
+import { globalCliOptions } from "./cli";
 import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
+import { Logger } from "./logger";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
-import { IngestOptions } from "./cli";
-import { Logger } from "./logger";
+import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
+import { ExportedNote, IngestSource, RawNote } from "./types";
 
-export async function runPipeline(opts: IngestOptions, logger: Logger) {
-  const outDir = opts.outDir ?? join(process.cwd(), "out");
+export async function runPipeline(logger: Logger) {
+  const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
   mkdirSync(outDir, { recursive: true });
 
-  const source: IngestSource = await resolveSource(opts);
+  const source: IngestSource = await resolveSource(globalCliOptions);
 
-  logger.info(`[ingest] source=${source.name} limit=${opts.limit}`);
+  logger.info(`[ingest] source=${source.name} limit=${globalCliOptions.limit}`);
   const { notes, meta, skipLogs } = await source.load({
-    limit: opts.limit,
-    verbose: opts.verbose,
+    limit: globalCliOptions.limit,
+    verbose: globalCliOptions.verbose,
   });
 
   if (skipLogs?.length) {
@@ -40,27 +40,27 @@ export async function runPipeline(opts: IngestOptions, logger: Logger) {
   }
 
   const limited =
-    opts.limit > 0 && notes.length > opts.limit
-      ? notes.slice(0, opts.limit)
+    globalCliOptions.limit > 0 && notes.length > globalCliOptions.limit
+      ? notes.slice(0, globalCliOptions.limit)
       : notes;
 
   // TODO: clean up this "should convert to markdown" logic - CLI should decide, not user
-  const exported: ExportedNote[] = opts.markdown
+  const exported: ExportedNote[] = globalCliOptions.markdown
     ? convertToMarkdown(limited)
     : [];
 
   // TODO: not clear why this switch is here or what the file does
   const jsonPath = join(
     outDir,
-    opts.markdown ? "notes.json" : "raw-index.json"
+    globalCliOptions.markdown ? "notes.json" : "raw-index.json"
   );
   writeFileSync(
     jsonPath,
     JSON.stringify(
       {
         exportedAt: new Date().toISOString(),
-        noteCount: opts.markdown ? exported.length : limited.length,
-        notes: opts.markdown ? exported : limited,
+        noteCount: globalCliOptions.markdown ? exported.length : limited.length,
+        notes: globalCliOptions.markdown ? exported : limited,
         meta,
       },
       null,
@@ -68,12 +68,14 @@ export async function runPipeline(opts: IngestOptions, logger: Logger) {
     )
   );
   logger.info(
-    `[ingest] wrote ${opts.markdown ? "markdown" : "raw"} index -> ${jsonPath}`
+    `[ingest] wrote ${
+      globalCliOptions.markdown ? "markdown" : "raw"
+    } index -> ${jsonPath}`
   );
 
   // TODO: why `split` - give a better name about "write markdown to disk"
-  if (opts.markdown && opts.split) {
-    const splitDir = opts.splitDir ?? join(outDir, "notes-md");
+  if (globalCliOptions.markdown && globalCliOptions.split) {
+    const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md");
     mkdirSync(splitDir, { recursive: true });
     exported.forEach((n: ExportedNote, i: number) => {
       const idx = String(i + 1).padStart(String(exported.length).length, "0");
@@ -86,18 +88,21 @@ export async function runPipeline(opts: IngestOptions, logger: Logger) {
 
   // TODO: why is this here? should do the skipping during ingest - not export
   // TODO: can rely on teh server rejecting bad uploads
-  if (opts.skipIndex) {
-    const existing = loadSkipIndex(opts.skipIndex);
+  if (globalCliOptions.skipIndex) {
+    const existing = loadSkipIndex(globalCliOptions.skipIndex);
     const merged = mergeSkipIndex(existing, limited);
-    saveSkipIndex(opts.skipIndex, merged);
+    saveSkipIndex(globalCliOptions.skipIndex, merged);
     logger.info(
       `[ingest] skip-index updated (${Object.keys(merged).length} ids)`
     );
   }
 
-  if (opts.post) {
-    const inv = opts.prefetchInventory
-      ? await fetchInventory(opts.serverUrl, opts.sourceTag)
+  if (globalCliOptions.post) {
+    const inv = globalCliOptions.prefetchInventory
+      ? await fetchInventory(
+          globalCliOptions.serverUrl,
+          globalCliOptions.sourceTag
+        )
       : {};
     const { candidates, reasons } = planUploads(exported, inv);
     logger.info(
@@ -106,10 +111,10 @@ export async function runPipeline(opts: IngestOptions, logger: Logger) {
         .join(", ")}`
     );
     const { ok, fail } = await postBatches(
-      opts.serverUrl,
-      opts.sourceTag,
+      globalCliOptions.serverUrl,
+      globalCliOptions.sourceTag,
       candidates,
-      opts.batchSize,
+      globalCliOptions.batchSize,
       globalThis.fetch,
       (m) => logger.warn(m)
     );

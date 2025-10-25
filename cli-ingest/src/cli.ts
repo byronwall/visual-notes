@@ -1,7 +1,12 @@
-import { program, InvalidOptionArgumentError } from "commander";
+import { program } from "commander";
 import { z } from "zod";
-import { runPipeline } from "./pipeline";
 import { createLogger } from "./logger";
+import { runPipeline } from "./pipeline";
+
+// TODO: Major work to be done still:
+// Verify that option passing and global stuff is OK
+// Confirm that apple notes still works
+// Clean up various code paths to locate code where it's needed
 
 const Base = z.object({
   source: z.enum(["apple-notes", "html-dir", "notion-md"]),
@@ -44,14 +49,8 @@ const CliSchema = z.discriminatedUnion("source", [
 ]);
 export type IngestOptions = z.infer<typeof CliSchema>;
 
-/** Commander config **/
-
-const positiveInt = (v: string) => {
-  const n = Number(v);
-  if (!Number.isInteger(n) || n <= 0)
-    throw new InvalidOptionArgumentError("Must be a positive integer");
-  return n;
-};
+// forcing types here since a validated object will overwrite if CLI succeeds
+export const globalCliOptions: IngestOptions = {} as IngestOptions;
 
 export async function parseCli(
   argv: readonly string[]
@@ -59,8 +58,7 @@ export async function parseCli(
   program
     .name("visual-notes-ingest")
     .option("--source <source>", "apple-notes | html-dir | notion-md")
-    .option("-n, --limit <n>", "max notes", positiveInt, 10)
-    .option("-v, --verbose", "verbose logs", false)
+    .option("-n, --limit <n>", "max notes", "10")
     .option("--markdown", "convert to markdown", true)
     .option("--split", "write split .md files", false)
     .option("--split-dir <path>", "output dir for split markdown")
@@ -82,9 +80,10 @@ export async function parseCli(
       "source tag for server",
       process.env.INGEST_SOURCE ?? "local"
     )
-    .option("--batch-size <n>", "POST batch size", positiveInt, 20)
+    .option("--batch-size <n>", "POST batch size", "20")
     .option("--skip-index <path>", "skip-index file")
-    .option("--prefetch-inventory", "prefetch remote inventory", false);
+    .option("--prefetch-inventory", "prefetch remote inventory", false)
+    .option("-v, --verbose", "verbose logging", false);
 
   await program.parseAsync(argv);
 
@@ -94,7 +93,7 @@ export async function parseCli(
   if (!parsed.success) {
     const issues = parsed.error.flatten();
     const details = JSON.stringify(issues, null, 2);
-    console.error("[cli] invalid options:\n", details);
+    console.error("[cli] invalid options:\n", { details, issues, raw });
     throw parsed.error;
   }
 
@@ -105,18 +104,20 @@ export async function parseCli(
 
 // TODO: allow top level await
 (async () => {
-  let options: IngestOptions;
   try {
-    options = await parseCli(process.argv);
+    const parsedOptions = await parseCli(process.argv);
+
+    // assign parsed options to globalCliOptions so available to the pipeline
+    Object.assign(globalCliOptions, parsedOptions);
   } catch (e) {
     process.exit(2);
   }
 
-  const logger = createLogger(options.verbose);
+  const logger = createLogger(globalCliOptions.verbose);
 
   try {
     console.log("[cli] invoking pipeline…");
-    await runPipeline(options, logger);
+    await runPipeline(logger);
     console.log("[cli] pipeline complete");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

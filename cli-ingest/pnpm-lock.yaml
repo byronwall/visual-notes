@@ -24,8 +24,8 @@ importers:
         specifier: ^7.2.0
         version: 7.2.1
       zod:
-        specifier: ^3.23.8
-        version: 3.25.76
+        specifier: ^4.1.12
+        version: 4.1.12
     devDependencies:
       '@types/node':
         specifier: ^22.7.5
@@ -383,8 +383,8 @@ packages:
     engines: {node: '>= 8'}
     hasBin: true
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.1.12:
+    resolution: {integrity: sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==}
 
 snapshots:
 
@@ -685,4 +685,4 @@ snapshots:
     dependencies:
       isexe: 2.0.0
 
-  zod@3.25.76: {}
+  zod@4.1.12: {}
