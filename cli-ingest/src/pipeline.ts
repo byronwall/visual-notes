@@ -5,11 +5,10 @@ import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
 import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
+import { IngestOptions } from "./cli";
+import { Logger } from "./logger";
 
-export async function runPipeline(
-  opts: any, // TODO: type this
-  logger: ReturnType<typeof import("./logger").createLogger> // TODO: type this
-) {
+export async function runPipeline(opts: IngestOptions, logger: Logger) {
   const outDir = opts.outDir ?? join(process.cwd(), "out");
   mkdirSync(outDir, { recursive: true });
 
@@ -142,6 +141,8 @@ async function resolveSource(opts: any): Promise<IngestSource> {
     const { appleNotesSource } = await import("./sources/appleNotes");
     const { join, dirname } = await import("node:path");
     const { fileURLToPath } = await import("node:url");
+
+    // TODO: move this into the appleNotesSource function.
     const scriptPath = join(
       dirname(fileURLToPath(import.meta.url)),
       "../scripts/export-apple-notes.jxa"
