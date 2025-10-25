@@ -10,3 +10,4 @@ Follow these coding standards:
 - Avoid `typeof import('...')` imports. Instead use `import {type ...} from '...'`.
 - Avoid `any` types. Instead use more specific types when possible. If any must be used , add a comment in the output code explaining why.
 - Imports should occur at the top of the file. Avoid lazy or deferred imports.
+- Prefer early returns over nested if statements.
