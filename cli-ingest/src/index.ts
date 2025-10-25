@@ -330,21 +330,21 @@ async function main(): Promise<void> {
         const invJson: any = await invRes.json().catch(() => ({}));
         if (!invRes.ok)
           throw new Error(invJson?.error || `Inventory HTTP ${invRes.status}`);
-        const knownIds: string[] = [];
+
+        const knownIds: Record<string, string> = {};
         for (const it of Array.isArray(invJson.items) ? invJson.items : []) {
           if (it?.originalContentId)
-            knownIds.push(String(it.originalContentId));
+            knownIds[it.originalContentId] = String(it.updatedAt);
         }
-        const invOut = {
-          ids: knownIds,
-          count: knownIds.length,
-        };
+
         knownIdsPath = join(outDir, "server-inventory.json");
-        writeFileSync(knownIdsPath, JSON.stringify(invOut, null, 2));
-        knownCount = invOut.count;
+        writeFileSync(knownIdsPath, JSON.stringify(knownIds, null, 2));
+
         if (verbose)
           console.log(
-            `[visual-notes-ingest] Prefetched inventory: count=${invOut.count} -> ${knownIdsPath}`
+            `[visual-notes-ingest] Prefetched inventory: count=${
+              Object.keys(knownIds).length
+            } -> ${knownIdsPath}`
           );
       } catch (e) {
         console.warn(

@@ -4,6 +4,8 @@
 
 1. Need to clean up HTML -> markdown pipeline - formatting + line breaks are busted - consider using HTML?
 2. add features around lasso and AI on top of the notes
+3. Public deploy so it's always available = replace task site for one off notes
+4. Pull in Notion notes and start to think about hierarchies + databases
 
 ## Major goals or guiding lights - what's the point?
 
@@ -32,6 +34,8 @@
 ## CLI
 
 - Add logs to show when things are skipped or duplicated. Want to avoid sitting and wondering what is going on.
+- Apple Notes is going to be fickle to maintain the drip sync
+  - Need to detect the edges of new + old, but hard to know if the upload was interrupted or incomplete
 
 ## Content
 

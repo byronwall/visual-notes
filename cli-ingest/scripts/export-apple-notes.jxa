@@ -19,6 +19,8 @@ function nowMs() {
   return Date.now();
 }
 
+var knownIds = {};
+
 function main() {
   try {
     var tStart = nowMs();
@@ -35,7 +37,7 @@ function main() {
     var limit = null;
     var htmlOutDir = null;
     var inlineHtml = false;
-    var knownIds = {};
+
     var knownCount = 0;
 
     function getEnvString(key) {
@@ -207,27 +209,11 @@ function main() {
           if (data2) {
             var jsonStr2 = ObjC.unwrap(data2);
             try {
+              // this will be a Record<string, string = Date>
               var parsed2 = JSON.parse(String(jsonStr2));
-              var arr = null;
-              if (parsed2 && parsed2.ids && parsed2.ids.map) {
-                arr = parsed2.ids.map(String);
-              } else if (
-                parsed2 &&
-                parsed2.map &&
-                parsed2.length !== undefined
-              ) {
-                arr = parsed2.map(String);
-              }
-              if (arr) {
-                for (var ii = 0; ii < arr.length; ii++) knownIds[arr[ii]] = 1;
-                knownCount = arr.length;
-              }
-              if (
-                parsed2 &&
-                parsed2.count &&
-                !isNaN(parseInt(String(parsed2.count), 10))
-              ) {
-                knownCount = parseInt(String(parsed2.count), 10);
+              if (parsed2) {
+                knownIds = parsed2;
+                knownCount = Object.keys(parsed2).length;
               }
             } catch (eJson2) {}
           }
@@ -261,7 +247,6 @@ function main() {
     logErr("[JXA] notes() length=" + String(total));
 
     function exportNoteAtIndex(idx) {
-      logErr("[JXA] Exporting note at index " + idx);
       try {
         var note = appNotes[idx];
         if (!note) return false;
@@ -269,6 +254,12 @@ function main() {
         var modified = note.modificationDate
           ? note.modificationDate()
           : created;
+        logErr(
+          "[JXA] Exporting note at index " +
+            idx +
+            " modified=" +
+            toISOString(modified)
+        );
         var title = note.name();
         var id = note.id();
         // Skip if already known
@@ -312,13 +303,17 @@ function main() {
     var firstKnownIdx = -1;
     for (; (limit === null || wrote < limit) && idx < total; idx++) {
       var idTry = null;
+      var note = appNotes[idx];
       try {
-        idTry = appNotes[idx].id();
+        idTry = note.id();
       } catch (_) {
         logErr("Error getting id for note at index " + idx);
         break;
       }
-      if (idTry && knownIds[String(idTry)]) {
+      if (note && idTry && isDiscoveredKnownIdSameAsInInventory(note)) {
+        logErr("[JXA] Found known id at index " + idx);
+        // detect the first note that is known and same or older
+        // this means we've hit the ones we've already exported
         firstKnownIdx = idx;
         break;
       }
@@ -396,6 +391,21 @@ function main() {
     } catch (_) {}
     throw e;
   }
+}
+
+function isDiscoveredKnownIdSameAsInInventory(discoveredNote) {
+  if (discoveredNote === undefined) return false;
+
+  const discoveredId = discoveredNote.id();
+
+  var knownDate = knownIds[String(discoveredId)];
+  if (!knownDate) return false;
+
+  var noteDate = discoveredNote.modificationDate();
+  if (!noteDate) return false;
+
+  // check if the discovered one is newer than the inventory one
+  return knownDate >= noteDate.toISOString();
 }
 
 main();
