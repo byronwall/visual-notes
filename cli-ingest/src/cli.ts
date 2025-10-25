@@ -98,21 +98,12 @@ export async function parseCli(
     throw parsed.error;
   }
 
-  console.log("[cli] parsed options:", {
-    source: parsed.data.source,
-    outDir: parsed.data.outDir,
-    post: parsed.data.post,
-    ...(parsed.data.source === "html-dir"
-      ? { fromHtmlDir: parsed.data.fromHtmlDir }
-      : {}),
-    ...(parsed.data.source === "notion-md"
-      ? { notionRoot: parsed.data.notionRoot }
-      : {}),
-  });
+  console.log("[cli] parsed options:", parsed.data);
 
   return parsed.data;
 }
 
+// TODO: allow top level await
 (async () => {
   let options: IngestOptions;
   try {
