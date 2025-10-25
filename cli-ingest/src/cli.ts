@@ -19,7 +19,7 @@ const Base = z.object({
   jxaRawDir: z.string().optional(),
   inlineJson: z.coerce.boolean().default(false),
   debugJxa: z.coerce.boolean().default(false),
-  jxaStdout: z.coerce.boolean().default(false),
+  jxaStdout: z.coerce.boolean().default(true),
   allowDummy: z.coerce.boolean().default(false),
   post: z.coerce.boolean().default(false),
   serverUrl: z.string().url().default("http://localhost:3000"),
@@ -65,8 +65,8 @@ export async function parseCli(
     .option("--out-dir <path>", "output root (default: ./out)")
     .option("--jxa-raw-dir <path>", "write raw HTML to dir (apple-notes)")
     .option("--inline-json", "JXA returns inline HTML in JSON", false)
-    .option("--debug-jxa", "enable extra JXA debug", false)
-    .option("--jxa-stdout", "passthrough JXA stdout", false)
+    .option("--debug-jxa", "enable extra JXA debug", true)
+    .option("--jxa-stdout", "passthrough JXA stdout", true)
     .option("--allow-dummy", "fall back to dummy data on JXA failure", false)
     .option("--from-html-dir <path>", "read HTML files (html-dir)")
     .option(
@@ -102,6 +102,8 @@ export async function parseCli(
   return parsed.data;
 }
 
+export const logger = createLogger(globalCliOptions.verbose);
+
 // TODO: allow top level await
 (async () => {
   try {
@@ -113,11 +115,9 @@ export async function parseCli(
     process.exit(2);
   }
 
-  const logger = createLogger(globalCliOptions.verbose);
-
   try {
     console.log("[cli] invoking pipeline…");
-    await runPipeline(logger);
+    await runPipeline();
     console.log("[cli] pipeline complete");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -1,5 +1,6 @@
 import { execa } from "execa";
 import { IngestSource, RawNote, SkipLog, IngestSourceOptions } from "../types";
+import { logger } from "../cli";
 
 export function appleNotesSource(args: {
   scriptPath: string;
@@ -10,6 +11,7 @@ export function appleNotesSource(args: {
   allowDummy?: boolean;
   knownIdsPath?: string;
 }): IngestSource {
+  logger.info(`[ingest] resolving apple-notes source`);
   return {
     name: "apple-notes",
     async load({ limit }: IngestSourceOptions) {
@@ -21,6 +23,10 @@ export function appleNotesSource(args: {
         ...(args.debugJxa ? { JXA_DEBUG: "1" } : {}),
       } as Record<string, string>;
 
+      logger.info(
+        `[ingest] executing apple-notes source with env=${JSON.stringify(env)}`
+      );
+
       const child = execa(
         "/usr/bin/osascript",
         ["-l", "JavaScript", args.scriptPath],
@@ -28,39 +34,24 @@ export function appleNotesSource(args: {
       );
       const skipLogs: SkipLog[] = [];
 
-      child.stderr?.on("data", (buf: Buffer) => {
-        const lines = buf.toString("utf8").split("\n");
-        for (const line of lines) {
-          if (line.startsWith("[JXA][skip] ")) {
-            try {
-              skipLogs.push(JSON.parse(line.slice(11)));
-            } catch {
-              // ignore
-            }
-          }
-        }
-      });
+      if (args.jxaStdout) {
+        child.stderr?.on("data", (buf: Buffer) => {
+          logger.info(`[ingest] JXA stderr: ${buf.toString("utf8")}`);
+        });
 
-      if (args.jxaStdout) child.stdout?.pipe(process.stdout);
+        child.stdout?.on("data", (buf: Buffer) => {
+          logger.info(`[ingest] JXA stdout: ${buf.toString("utf8")}`);
+        });
+      }
 
       let raw: string;
       try {
+        logger.info(`[ingest] waiting for JXA script to complete`);
         const { stdout } = await child;
+        logger.info(`[ingest] JXA script completed`);
         raw = stdout;
       } catch (e) {
-        // TODO: remove this allowDummy fallback - it's not a good idea.
-        if (!args.allowDummy)
-          throw new Error(`osascript failed: ${(e as Error).message}`);
-        raw = JSON.stringify([
-          {
-            id: "sample-1",
-            title: "Sample Note",
-            createdAt: new Date("2024-01-01T12:00:00Z").toISOString(),
-            updatedAt: new Date("2024-01-02T12:00:00Z").toISOString(),
-            folder: "Samples",
-            html: "<h1>Hello</h1><p>Sample</p>",
-          } satisfies RawNote,
-        ]);
+        throw new Error(`osascript failed: ${(e as Error).message}`);
       }
 
       // TODO: get rid of parsing the output of the JXA script

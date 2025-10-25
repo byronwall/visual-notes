@@ -1,14 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { globalCliOptions } from "./cli";
+import { globalCliOptions, logger } from "./cli";
 import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
-import { Logger } from "./logger";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
 import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
 import { ExportedNote, IngestSource, RawNote } from "./types";
 
-export async function runPipeline(logger: Logger) {
+export async function runPipeline() {
   const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
   mkdirSync(outDir, { recursive: true });
 
@@ -146,6 +145,8 @@ async function resolveSource(opts: any): Promise<IngestSource> {
     const { appleNotesSource } = await import("./sources/appleNotes");
     const { join, dirname } = await import("node:path");
     const { fileURLToPath } = await import("node:url");
+
+    logger.info(`[ingest] resolving source=${opts.source}`);
 
     // TODO: move this into the appleNotesSource function.
     const scriptPath = join(
