@@ -49,30 +49,6 @@ export async function runPipeline() {
     ? convertToMarkdown(limited)
     : [];
 
-  // TODO: not clear why this switch is here or what the file does
-  const jsonPath = join(
-    outDir,
-    globalCliOptions.markdown ? "notes.json" : "raw-index.json"
-  );
-  writeFileSync(
-    jsonPath,
-    JSON.stringify(
-      {
-        exportedAt: new Date().toISOString(),
-        noteCount: globalCliOptions.markdown ? exported.length : limited.length,
-        notes: globalCliOptions.markdown ? exported : limited,
-        meta,
-      },
-      null,
-      2
-    )
-  );
-  logger.info(
-    `[ingest] wrote ${
-      globalCliOptions.markdown ? "markdown" : "raw"
-    } index -> ${jsonPath}`
-  );
-
   // TODO: why `split` - give a better name about "write markdown to disk"
   if (globalCliOptions.markdown && globalCliOptions.split) {
     const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md");
