@@ -5,6 +5,7 @@ import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
 import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
+import { inlineRelativeImages } from "./transforms/inlineImages";
 import { ExportedNote, IngestSource, RawNote } from "./types";
 
 export async function runPipeline() {
@@ -137,7 +138,8 @@ function convertToMarkdown(raw: RawNote[]): ExportedNote[] {
       }
     }
     const md = htmlToMarkdown(bodyHtml);
-    return { ...n, markdown: md };
+    const mdWithImages = inlineRelativeImages(md, n.folder);
+    return { ...n, markdown: mdWithImages };
   });
 }
 
