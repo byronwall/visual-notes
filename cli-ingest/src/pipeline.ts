@@ -7,6 +7,8 @@ import { planUploads, postBatches } from "./services/uploader";
 import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
 import { inlineRelativeImages } from "./transforms/inlineImages";
 import { ExportedNote, IngestSource, RawNote } from "./types";
+import { htmlDirSource } from "./sources/htmlDir";
+import { notionMdSource } from "./sources/notionMd";
 
 export async function runPipeline() {
   const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
@@ -171,15 +173,12 @@ async function resolveSource(): Promise<IngestSource> {
     return appleNotesSource(scriptPath, knownIdsPath);
   }
 
-  // TODO: don't do these lazy imports - just import and call w/ cleaner code
   if (globalCliOptions.source === "html-dir") {
-    const { htmlDirSource } = await import("./sources/htmlDir");
     if (!globalCliOptions.fromHtmlDir)
       throw new Error("--from-html-dir is required for source=html-dir");
     return htmlDirSource(globalCliOptions.fromHtmlDir);
   }
   if (globalCliOptions.source === "notion-md") {
-    const { notionMdSource } = await import("./sources/notionMd");
     if (!globalCliOptions.notionRoot)
       throw new Error("--notion-root is required for source=notion-md");
     return notionMdSource(globalCliOptions.notionRoot);
