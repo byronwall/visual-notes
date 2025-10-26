@@ -1,0 +1,31 @@
+import { logger } from "../cli";
+import { NoteExternalId, NoteUpdatedAt } from "../io/skipIndex";
+
+export type ServerInventoryItem = {
+  originalContentId: NoteExternalId;
+  contentHash?: string | null;
+  updatedAt: NoteUpdatedAt;
+};
+
+export async function fetchInventory(serverUrl: string, sourceTag: string) {
+  const url =
+    serverUrl.replace(/\/?$/, "") +
+    `/api/docs/inventory?source=${encodeURIComponent(sourceTag)}`;
+
+  logger.info(`[inventory] fetching inventory from ${url}`);
+
+  const res = await fetch(url);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Inventory HTTP ${res.status}`);
+  const map: Record<string, { contentHash: string | null; updatedAt: string }> =
+    {};
+  for (const it of Array.isArray(json.items)
+    ? (json.items as ServerInventoryItem[])
+    : []) {
+    map[it.originalContentId] = {
+      contentHash: it.contentHash ?? null,
+      updatedAt: String(it.updatedAt),
+    };
+  }
+  return map;
+}

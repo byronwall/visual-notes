@@ -4,13 +4,13 @@
     "private": true,
     "type": "module",
     "bin": {
-        "visual-notes-ingest": "dist/index.js"
+        "visual-notes-ingest": "dist/cli.js"
     },
     "scripts": {
         "build": "tsc -p tsconfig.json",
-        "dev": "tsx src/index.ts",
-        "start": "node dist/index.js",
-        "ingest": "tsx src/index.ts --markdown --split --post -v",
+        "dev": "tsx src/cli.ts",
+        "start": "node dist/cli.js",
+        "ingest": "tsx src/cli.ts --markdown --split --post -v",
         "export:compile": "osacompile -l JavaScript -o scripts/export-apple-notes.scpt scripts/export-apple-notes.jxa",
         "export:10": "LIMIT=10 osascript scripts/export-apple-notes.jxa"
     },
@@ -18,7 +18,12 @@
         "node": ">=18"
     },
     "dependencies": {
-        "turndown": "^7.2.0"
+        "turndown": "^7.2.0",
+        "commander": "^12.1.0",
+        "zod": "^4.1.12",
+        "consola": "^3.2.3",
+        "execa": "^8.0.1",
+        "cheerio": "^1.0.0-rc.12"
     },
     "devDependencies": {
         "@types/node": "^22.7.5",
