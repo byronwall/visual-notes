@@ -3,6 +3,8 @@ import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 
 type DocListItem = { id: string; title: string; createdAt: string };
+type SourceCount = { originalSource: string; count: number };
+type SourcesResponse = { total: number; sources: SourceCount[] };
 
 async function fetchDocs() {
   const res = await apiFetch("/api/docs");
@@ -14,6 +16,23 @@ async function fetchDocs() {
 async function deleteAllDocs() {
   const res = await apiFetch("/api/docs", { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete all notes");
+}
+
+async function fetchSources() {
+  const res = await apiFetch("/api/docs/sources");
+  if (!res.ok) throw new Error("Failed to load sources");
+  const json = (await res.json()) as SourcesResponse;
+  return json;
+}
+
+async function deleteBySource(source: string) {
+  const res = await apiFetch(
+    `/api/docs/source?originalSource=${encodeURIComponent(source)}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) throw new Error("Failed to delete notes by source");
 }
 
 async function bulkSetSource() {
@@ -32,6 +51,38 @@ async function bulkSetSource() {
 
 const DocsIndex: VoidComponent = () => {
   const [docs, { refetch }] = createResource(fetchDocs);
+  const [sources, { refetch: refetchSources }] = createResource(fetchSources);
+
+  const handleDeleteAll = async () => {
+    const total = sources()?.total ?? 0;
+    if (!confirm(`Delete ALL notes (${total})? This cannot be undone.`)) return;
+    try {
+      await deleteAllDocs();
+      console.log("[DocsIndex] delete all completed");
+      await Promise.all([refetch(), refetchSources()]);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete all notes");
+    }
+  };
+
+  const makeDeleteSourceHandler =
+    (source: string, count: number) => async () => {
+      if (
+        !confirm(
+          `Delete all notes for “${source}” (${count})? This cannot be undone.`
+        )
+      )
+        return;
+      try {
+        await deleteBySource(source);
+        console.log("[DocsIndex] delete by source completed", source);
+        await Promise.all([refetch(), refetchSources()]);
+      } catch (e) {
+        console.error(e);
+        alert(`Failed to delete notes for ${source}`);
+      }
+    };
 
   return (
     <main class="min-h-screen bg-white">
@@ -53,21 +104,31 @@ const DocsIndex: VoidComponent = () => {
             >
               Set Source (All)
             </button>
+            <Show when={sources()}>
+              {(data) => (
+                <div class="flex items-center gap-2 overflow-x-auto">
+                  <For each={data().sources}>
+                    {(s) => (
+                      <button
+                        class="px-3 py-1.5 rounded bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50 whitespace-nowrap"
+                        onClick={makeDeleteSourceHandler(
+                          s.originalSource,
+                          s.count
+                        )}
+                      >
+                        Delete {s.originalSource} ({s.count})
+                      </button>
+                    )}
+                  </For>
+                </div>
+              )}
+            </Show>
             <button
               class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
-              onClick={async () => {
-                if (!confirm("Delete ALL notes? This cannot be undone."))
-                  return;
-                try {
-                  await deleteAllDocs();
-                  await refetch();
-                } catch (e) {
-                  console.error(e);
-                  alert("Failed to delete all notes");
-                }
-              }}
+              onClick={handleDeleteAll}
             >
               Delete All
+              <Show when={sources()}>{(d) => <span> ({d().total})</span>}</Show>
             </button>
           </div>
         </div>
