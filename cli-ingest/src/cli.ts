@@ -1,4 +1,4 @@
-import { program } from "commander";
+import { Command, program } from "commander";
 import { z } from "zod";
 import { createLogger } from "./logger";
 import { runPipeline } from "./pipeline";
@@ -23,7 +23,7 @@ const Base = z.object({
   allowDummy: z.coerce.boolean().default(false),
   post: z.coerce.boolean().default(false),
   serverUrl: z.string().url().default("http://localhost:3000"),
-  sourceTag: z.string().default(process.env.INGEST_SOURCE ?? "local"),
+  sourceTag: z.string().optional(),
   batchSize: z.coerce.number().int().positive().default(20),
   skipIndex: z.string().optional(),
   prefetchInventory: z.coerce.boolean().default(false),
@@ -40,6 +40,7 @@ const HtmlDir = Base.extend({
 
 const NotionMd = Base.extend({
   source: z.literal("notion-md"),
+  notionRoot: z.string().min(1, "Provide --notion-root for notion-md source"),
 });
 
 const CliSchema = z.discriminatedUnion("source", [
@@ -51,6 +52,14 @@ export type IngestOptions = z.infer<typeof CliSchema>;
 
 // forcing types here since a validated object will overwrite if CLI succeeds
 export const globalCliOptions: IngestOptions = {} as IngestOptions;
+
+export function getSourceTag() {
+  return (
+    globalCliOptions.sourceTag ??
+    process.env.INGEST_SOURCE ??
+    globalCliOptions.source
+  );
+}
 
 export async function parseCli(
   argv: readonly string[]

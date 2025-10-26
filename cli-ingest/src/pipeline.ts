@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { globalCliOptions, logger } from "./cli";
+import { getSourceTag, globalCliOptions, logger } from "./cli";
 import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
@@ -11,7 +11,7 @@ export async function runPipeline() {
   const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
   mkdirSync(outDir, { recursive: true });
 
-  const source: IngestSource = await resolveSource(globalCliOptions);
+  const source: IngestSource = await resolveSource();
 
   logger.info(`[ingest] source=${source.name} limit=${globalCliOptions.limit}`);
   const { notes, meta, skipLogs } = await source.load({
@@ -98,10 +98,7 @@ export async function runPipeline() {
 
   if (globalCliOptions.post) {
     const inv = globalCliOptions.prefetchInventory
-      ? await fetchInventory(
-          globalCliOptions.serverUrl,
-          globalCliOptions.sourceTag
-        )
+      ? await fetchInventory(globalCliOptions.serverUrl, getSourceTag())
       : {};
     const { candidates, reasons } = planUploads(exported, inv);
     logger.info(
@@ -111,7 +108,7 @@ export async function runPipeline() {
     );
     const { ok, fail } = await postBatches(
       globalCliOptions.serverUrl,
-      globalCliOptions.sourceTag,
+      getSourceTag(),
       candidates,
       globalCliOptions.batchSize,
       globalThis.fetch,
@@ -140,45 +137,64 @@ function sanitizeFilename(title: string, fallbackId: string) {
   return ascii.slice(0, 64) || fallbackId.slice(0, 12);
 }
 
-async function resolveSource(opts: any): Promise<IngestSource> {
-  if (opts.source === "apple-notes") {
+async function resolveSource(): Promise<IngestSource> {
+  if (globalCliOptions.source === "apple-notes") {
     const { appleNotesSource } = await import("./sources/appleNotes");
     const { join, dirname } = await import("node:path");
     const { fileURLToPath } = await import("node:url");
 
-    logger.info(`[ingest] resolving source=${opts.source}`);
+    logger.info(`[ingest] resolving source=${globalCliOptions.source}`);
 
     // TODO: move this into the appleNotesSource function.
     const scriptPath = join(
       dirname(fileURLToPath(import.meta.url)),
       "../scripts/export-apple-notes.jxa"
     );
-    // TODO: code like this points to a global options object being useful.
-    return appleNotesSource({
-      scriptPath,
-      jxaRawDir: opts.jxaRawDir,
-      inlineJson: opts.inlineJson,
-      debugJxa: opts.debugJxa,
-      jxaStdout: opts.jxaStdout,
-      allowDummy: opts.allowDummy,
-      knownIdsPath: undefined,
-    });
+    // Prefetch server inventory and write known IDs file before JXA runs
+    // so the script can skip already-known notes efficiently.
+    const outDir = (globalCliOptions.outDir ??
+      join(process.cwd(), "out")) as string;
+    let knownIdsPath: string | undefined = undefined;
+    if (globalCliOptions.prefetchInventory || globalCliOptions.post) {
+      try {
+        const inv = await fetchInventory(
+          globalCliOptions.serverUrl,
+          getSourceTag()
+        );
+        const knownIds: Record<string, string> = {};
+        for (const [id, meta] of Object.entries(inv))
+          knownIds[id] = meta.updatedAt;
+        knownIdsPath = join(outDir, "server-inventory.json");
+        writeFileSync(knownIdsPath, JSON.stringify(knownIds, null, 2));
+        logger.info(`[ingest] wrote server inventory -> ${knownIdsPath}`);
+      } catch (e) {
+        logger.warn(
+          `[ingest] inventory prefetch failed: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+          globalCliOptions.serverUrl,
+          getSourceTag()
+        );
+      }
+    }
+    return appleNotesSource(scriptPath, knownIdsPath);
   }
 
   // TODO: don't do these lazy imports - just import and call w/ cleaner code
-  if (opts.source === "html-dir") {
+  if (globalCliOptions.source === "html-dir") {
     const { htmlDirSource } = await import("./sources/htmlDir");
-    if (!opts.fromHtmlDir)
+    if (!globalCliOptions.fromHtmlDir)
       throw new Error("--from-html-dir is required for source=html-dir");
-    return htmlDirSource(opts.fromHtmlDir);
+    return htmlDirSource(globalCliOptions.fromHtmlDir);
   }
-  if (opts.source === "notion-md") {
+  if (globalCliOptions.source === "notion-md") {
     const { notionMdSource } = await import("./sources/notionMd");
-    if (!opts.notionRoot)
+    if (!globalCliOptions.notionRoot)
       throw new Error("--notion-root is required for source=notion-md");
-    return notionMdSource(opts.notionRoot);
+    return notionMdSource(globalCliOptions.notionRoot);
   }
-  throw new Error(`Unknown source: ${opts.source}`);
+
+  throw new Error(`Unknown source`);
 }
 
 function countBy<T>(arr: T[], key: (t: T) => string) {

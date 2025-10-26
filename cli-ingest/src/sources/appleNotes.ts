@@ -1,16 +1,12 @@
 import { execa } from "execa";
 import { IngestSource, RawNote, SkipLog, IngestSourceOptions } from "../types";
-import { logger } from "../cli";
+import { globalCliOptions, logger } from "../cli";
 
-export function appleNotesSource(args: {
-  scriptPath: string;
-  jxaRawDir?: string;
-  inlineJson?: boolean;
-  debugJxa?: boolean;
-  jxaStdout?: boolean;
-  allowDummy?: boolean;
-  knownIdsPath?: string;
-}): IngestSource {
+export function appleNotesSource(
+  scriptPath: string,
+  knownIdsPath: string | undefined
+): IngestSource {
+  const args = globalCliOptions;
   logger.info(`[ingest] resolving apple-notes source`);
   return {
     name: "apple-notes",
@@ -19,7 +15,7 @@ export function appleNotesSource(args: {
         LIMIT: String(limit),
         ...(args.jxaRawDir ? { HTML_OUT_DIR: args.jxaRawDir } : {}),
         ...(args.inlineJson ? { INLINE_HTML: "1" } : {}),
-        ...(args.knownIdsPath ? { KNOWN_IDS_PATH: args.knownIdsPath } : {}),
+        ...(knownIdsPath ? { KNOWN_IDS_PATH: knownIdsPath } : {}),
         ...(args.debugJxa ? { JXA_DEBUG: "1" } : {}),
       } as Record<string, string>;
 
@@ -29,7 +25,7 @@ export function appleNotesSource(args: {
 
       const child = execa(
         "/usr/bin/osascript",
-        ["-l", "JavaScript", args.scriptPath],
+        ["-l", "JavaScript", scriptPath],
         { env }
       );
       const skipLogs: SkipLog[] = [];
