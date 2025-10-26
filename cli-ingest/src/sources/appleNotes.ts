@@ -1,6 +1,7 @@
 import { execa } from "execa";
 import { IngestSource, RawNote, SkipLog, IngestSourceOptions } from "../types";
 import { globalCliOptions, logger } from "../cli";
+import { join } from "node:path";
 
 export function appleNotesSource(
   scriptPath: string,
@@ -13,7 +14,8 @@ export function appleNotesSource(
     async load({ limit }: IngestSourceOptions) {
       const env = {
         LIMIT: String(limit),
-        ...(args.jxaRawDir ? { HTML_OUT_DIR: args.jxaRawDir } : {}),
+        // TODO: need to mkdir if nor around
+        HTML_OUT_DIR: join(args.outDir, "notes-html"),
         ...(args.inlineJson ? { INLINE_HTML: "1" } : {}),
         ...(knownIdsPath ? { KNOWN_IDS_PATH: knownIdsPath } : {}),
         ...(args.debugJxa ? { JXA_DEBUG: "1" } : {}),

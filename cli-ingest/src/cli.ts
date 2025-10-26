@@ -2,6 +2,7 @@ import { Command, program } from "commander";
 import { z } from "zod";
 import { createLogger } from "./logger";
 import { runPipeline } from "./pipeline";
+import { join } from "node:path";
 
 // TODO: Major work to be done still:
 // Verify that option passing and global stuff is OK
@@ -15,7 +16,7 @@ const Base = z.object({
   markdown: z.coerce.boolean().default(true),
   split: z.coerce.boolean().default(false),
   splitDir: z.string().optional(),
-  outDir: z.string().optional(),
+  outDir: z.string().optional().default(join(process.cwd(), "out")),
   jxaRawDir: z.string().optional(),
   inlineJson: z.coerce.boolean().default(false),
   debugJxa: z.coerce.boolean().default(false),

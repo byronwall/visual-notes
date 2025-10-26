@@ -152,8 +152,6 @@ async function resolveSource(): Promise<IngestSource> {
     );
     // Prefetch server inventory and write known IDs file before JXA runs
     // so the script can skip already-known notes efficiently.
-    const outDir = (globalCliOptions.outDir ??
-      join(process.cwd(), "out")) as string;
     let knownIdsPath: string | undefined = undefined;
     if (globalCliOptions.prefetchInventory || globalCliOptions.post) {
       try {
@@ -164,7 +162,7 @@ async function resolveSource(): Promise<IngestSource> {
         const knownIds: Record<string, string> = {};
         for (const [id, meta] of Object.entries(inv))
           knownIds[id] = meta.updatedAt;
-        knownIdsPath = join(outDir, "server-inventory.json");
+        knownIdsPath = join(globalCliOptions.outDir, "server-inventory.json");
         writeFileSync(knownIdsPath, JSON.stringify(knownIds, null, 2));
         logger.info(`[ingest] wrote server inventory -> ${knownIdsPath}`);
       } catch (e) {

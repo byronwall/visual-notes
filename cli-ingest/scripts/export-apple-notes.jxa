@@ -136,6 +136,9 @@ function main() {
         var ts = formatTimestampUTC(updatedAt);
         var fileName = idPart + "-" + ts + "-" + base + ".html";
         var fullPath = dirPath + "/" + fileName;
+
+        logErr("[JXA] Writing HTML file: " + fullPath);
+
         // Build a minimal HTML document that embeds metadata required for downstream processing
         var metaObj = {
           id: String(id),
