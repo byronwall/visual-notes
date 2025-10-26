@@ -31,7 +31,7 @@ function isRelativeUrl(raw: string): boolean {
   return true;
 }
 
-function rewriteUrl(u: string, prefix = "__NOTION/"): string {
+function rewriteUrl(u: string, prefix = "__NOTION__"): string {
   return `${prefix}${u.trim()}`;
 }
 

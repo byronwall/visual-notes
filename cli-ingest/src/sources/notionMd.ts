@@ -29,10 +29,13 @@ export function notionMdSource(root: string): IngestSource {
         )}</pre></article>`;
 
         const fullPathRelativeToNotionRoot = p.replace(root, "");
-        const id = fullPathRelativeToNotionRoot.replace(
+        let id = fullPathRelativeToNotionRoot.replace(
           extname(fullPathRelativeToNotionRoot),
           ""
         );
+
+        // if id starts with /, remove it
+        if (id.startsWith("/")) id = id.slice(1);
 
         return {
           id,
