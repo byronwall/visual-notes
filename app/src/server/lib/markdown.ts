@@ -1,17 +1,7 @@
 import { marked } from "marked";
 import sanitizeHtml, { type IOptions } from "sanitize-html";
 
-function stripCodeFences(input: string): string {
-  let s = (input || "").trim();
-  // Unwrap ```lang\n...\n``` fences
-  if (/^```/.test(s)) {
-    s = s.replace(/^```[a-zA-Z0-9_-]*\s*/i, "");
-    s = s.replace(/\s*```\s*$/i, "");
-  }
-  // Remove any stray fences left inside
-  s = s.replace(/```[a-zA-Z0-9_-]*/g, "").replace(/```/g, "");
-  return s.trim();
-}
+// Preserve fenced code blocks; do not strip them. Marked will handle them.
 
 function stripAiHtmlWrapper(input: string): string {
   const m = input.match(
@@ -58,11 +48,16 @@ export function getSanitizeOptions(): IOptions {
       "td",
       "code",
       "pre",
+      // Allow spans for Shiki token wrappers
+      "span",
     ]),
     allowedAttributes: {
       a: ["href", "name", "target", "rel"],
       img: ["src", "alt", "title"],
       code: ["class"],
+      // Shiki adds classes and inline styles on pre/span
+      pre: ["class", "style"],
+      span: ["class", "style"],
     },
     // Allow data: URLs for images so base64-embedded images are preserved
     allowedSchemesByTag: {
@@ -99,9 +94,31 @@ export function normalizeMarkdownToHtml(raw: string | undefined): string {
 
   // Unwrap known wrappers first
   let s = stripAiHtmlWrapper(raw);
-  s = stripCodeFences(s);
+  // Keep fenced code blocks intact for proper rendering/highlighting
+
+  try {
+    const hasFences = /^```/m.test(s);
+    const sample = s.slice(0, 200);
+    console.log(
+      "[markdown.normalize] input len:%d fenced:%s sample:%s",
+      s.length,
+      hasFences,
+      sample
+    );
+  } catch {}
 
   const out = markdownToHtml(s).trim();
+
+  try {
+    const hasPre = /<pre\b[^>]*>\s*<code\b/i.test(out);
+    const outSample = out.slice(0, 200);
+    console.log(
+      "[markdown.normalize] output len:%d preCode:%s sample:%s",
+      out.length,
+      hasPre,
+      outSample
+    );
+  } catch {}
 
   return out;
 }
