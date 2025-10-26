@@ -67,32 +67,28 @@ export async function parseCli(
   program
     .name("visual-notes-ingest")
     .option("--source <source>", "apple-notes | html-dir | notion-md")
-    .option("-n, --limit <n>", "max notes", "10")
-    .option("--markdown", "convert to markdown", true)
-    .option("--split", "write split .md files", false)
+    .option("-n, --limit <n>", "max notes")
+    .option("--markdown", "convert to markdown")
+    .option("--split", "write split .md files")
     .option("--split-dir <path>", "output dir for split markdown")
     .option("--out-dir <path>", "output root (default: ./out)")
     .option("--jxa-raw-dir <path>", "write raw HTML to dir (apple-notes)")
-    .option("--inline-json", "JXA returns inline HTML in JSON", false)
-    .option("--debug-jxa", "enable extra JXA debug", true)
-    .option("--jxa-stdout", "passthrough JXA stdout", true)
-    .option("--allow-dummy", "fall back to dummy data on JXA failure", false)
+    .option("--inline-json", "JXA returns inline HTML in JSON")
+    .option("--debug-jxa", "enable extra JXA debug")
+    .option("--jxa-stdout", "passthrough JXA stdout")
+    .option("--allow-dummy", "fall back to dummy data on JXA failure")
     .option("--from-html-dir <path>", "read HTML files (html-dir)")
     .option(
       "--notion-root <path>",
       "root of Notion exported Markdown tree (notion-md)"
     )
-    .option("--post", "POST to server", false)
-    .option("--server-url <url>", "server base URL", "http://localhost:3000")
-    .option(
-      "--source-tag <name>",
-      "source tag for server",
-      process.env.INGEST_SOURCE ?? "local"
-    )
-    .option("--batch-size <n>", "POST batch size", "20")
+    .option("--post", "POST to server")
+    .option("--server-url <url>", "server base URL")
+    .option("--source-tag <name>", "source tag for server")
+    .option("--batch-size <n>", "POST batch size")
     .option("--skip-index <path>", "skip-index file")
-    .option("--prefetch-inventory", "prefetch remote inventory", false)
-    .option("-v, --verbose", "verbose logging", false);
+    .option("--prefetch-inventory", "prefetch remote inventory")
+    .option("-v, --verbose", "verbose logging");
 
   await program.parseAsync(argv);
 
