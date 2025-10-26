@@ -53,7 +53,7 @@ export async function runPipeline() {
 
   // TODO: why `split` - give a better name about "write markdown to disk"
   if (globalCliOptions.markdown && globalCliOptions.split) {
-    const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md");
+    const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md3");
     mkdirSync(splitDir, { recursive: true });
     exported.forEach((n: ExportedNote, i: number) => {
       const idx = String(i + 1).padStart(String(exported.length).length, "0");

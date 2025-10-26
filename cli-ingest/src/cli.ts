@@ -1,8 +1,8 @@
-import { Command, program } from "commander";
+import { program } from "commander";
+import { join } from "node:path";
 import { z } from "zod";
 import { createLogger } from "./logger";
 import { runPipeline } from "./pipeline";
-import { join } from "node:path";
 
 // TODO: Major work to be done still:
 // Verify that option passing and global stuff is OK
