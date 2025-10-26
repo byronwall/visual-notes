@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 const Base = z.object({
   source: z.enum(["apple-notes", "html-dir", "notion-md"]),
-  limit: z.coerce.number().int().positive().default(10),
+  limit: z.coerce.number().int().positive().default(200),
   verbose: z.coerce.boolean().default(false),
   markdown: z.coerce.boolean().default(true),
   split: z.coerce.boolean().default(false),
