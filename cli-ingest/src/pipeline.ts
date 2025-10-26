@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getSourceTag, globalCliOptions, logger } from "./cli";
 import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
@@ -120,7 +120,22 @@ export async function runPipeline() {
 
 function convertToMarkdown(raw: RawNote[]): ExportedNote[] {
   return raw.map((n) => {
-    const bodyHtml = n.html ?? "";
+    // Prefer inline HTML if present; otherwise, read from filePath when available
+    let bodyHtml: string = typeof n.html === "string" ? n.html : "";
+    if ((!bodyHtml || bodyHtml.trim().length === 0) && n.filePath) {
+      try {
+        const full = readFileSync(n.filePath, "utf8");
+        const match = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        bodyHtml = match ? match[1] : full;
+      } catch (e) {
+        logger.warn(
+          `[ingest] failed reading HTML file at ${n.filePath}: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
+        bodyHtml = "";
+      }
+    }
     const md = htmlToMarkdown(bodyHtml);
     return { ...n, markdown: md };
   });
