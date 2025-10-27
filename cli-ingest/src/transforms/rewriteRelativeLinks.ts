@@ -3,6 +3,7 @@ import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import remarkGfm from "remark-gfm";
 import { visit } from "unist-util-visit";
+import { sanitizeId } from "../sources/notionMd";
 // import type { Root, Definition, Link } from "mdast";
 
 const ABSOLUTE_SCHEMES = new Set([
@@ -32,7 +33,7 @@ function isRelativeUrl(raw: string): boolean {
 }
 
 function rewriteUrl(u: string, prefix = "__NOTION__"): string {
-  return `${prefix}${u.trim()}`;
+  return `${prefix}${sanitizeId(u.trim())}`;
 }
 
 export function rewriteRelativeLinks(markdown: string): string {

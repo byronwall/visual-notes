@@ -29,13 +29,12 @@ export function notionMdSource(root: string): IngestSource {
         )}</pre></article>`;
 
         const fullPathRelativeToNotionRoot = p.replace(root, "");
-        let id = fullPathRelativeToNotionRoot.replace(
-          extname(fullPathRelativeToNotionRoot),
-          ""
+        const id = sanitizeId(
+          fullPathRelativeToNotionRoot.replace(
+            extname(fullPathRelativeToNotionRoot),
+            ""
+          )
         );
-
-        // if id starts with /, remove it
-        if (id.startsWith("/")) id = id.slice(1);
 
         return {
           id,
@@ -58,3 +57,13 @@ const escapeHtml = (s: string) =>
     /[&<>"]/g,
     (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!)
   );
+
+export function sanitizeId(id: string) {
+  // if id starts with /, remove it
+  if (id.startsWith("/")) id = id.slice(1);
+
+  // take that id and remove any slashes - convert to `__`
+  id = id.replace(/\//g, "__");
+
+  return id;
+}
