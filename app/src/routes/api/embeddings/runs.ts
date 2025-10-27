@@ -90,19 +90,33 @@ export async function POST(event: APIEvent) {
     const chunkCfg: ChunkerConfig | undefined = params as any;
 
     for (const d of docs as any[]) {
-      const sections = preprocessMarkdown(String(d.markdown || ""), flags);
-      const chunks = makeChunks(sections, chunkCfg);
-      for (const c of chunks) {
-        const contentHash = sha256(c.text);
-        allChunks.push({
-          docId: String(d.id),
-          text: c.text,
-          headingPath: c.headingPath,
-          orderIndex: c.orderIndex,
-          charCount: c.charCount,
-          tokenCount: c.tokenCount,
-          contentHash,
-        });
+      try {
+        const sections = preprocessMarkdown(String(d.markdown || ""), flags);
+        const chunks = makeChunks(sections, chunkCfg);
+        for (const c of chunks) {
+          const contentHash = sha256(c.text);
+          const headingPath = Array.isArray(c.headingPath)
+            ? c.headingPath.filter(
+                (h: unknown): h is string =>
+                  typeof h === "string" && h.length > 0
+              )
+            : [];
+          allChunks.push({
+            docId: String(d.id),
+            text: c.text,
+            headingPath,
+            orderIndex: c.orderIndex,
+            charCount: c.charCount,
+            tokenCount: c.tokenCount,
+            contentHash,
+          });
+        }
+      } catch (err) {
+        console.log(
+          `[embeddings] Skipping doc during chunking ${String(d.id)}:`,
+          err
+        );
+        continue;
       }
     }
 
@@ -113,41 +127,57 @@ export async function POST(event: APIEvent) {
     });
 
     // Upsert DocSection rows to obtain IDs
+    const validChunks: ChunkItem[] = [];
     for (const item of allChunks) {
-      const existing = await prisma.docSection
-        .findUnique({
-          where: {
-            docId_contentHash: {
-              docId: item.docId,
-              contentHash: item.contentHash,
+      try {
+        const existing = await prisma.docSection
+          .findUnique({
+            where: {
+              docId_contentHash: {
+                docId: item.docId,
+                contentHash: item.contentHash,
+              },
             },
+            select: { id: true },
+          })
+          .catch(() => null as any);
+        if (existing?.id) {
+          item.sectionId = existing.id;
+          validChunks.push(item);
+          continue;
+        }
+        const created = await prisma.docSection.create({
+          data: {
+            docId: item.docId,
+            headingPath: item.headingPath,
+            text: item.text,
+            contentHash: item.contentHash,
+            orderIndex: item.orderIndex,
+            charCount: item.charCount,
+            tokenCount: item.tokenCount ?? null,
           },
           select: { id: true },
-        })
-        .catch(() => null as any);
-      if (existing?.id) {
-        item.sectionId = existing.id;
+        });
+        item.sectionId = created.id;
+        validChunks.push(item);
+      } catch (err) {
+        console.log(
+          `[embeddings] Skipping section ${item.docId} ${item.contentHash}:`,
+          err
+        );
         continue;
       }
-      const created = await prisma.docSection.create({
-        data: {
-          docId: item.docId,
-          headingPath: item.headingPath,
-          text: item.text,
-          contentHash: item.contentHash,
-          orderIndex: item.orderIndex,
-          charCount: item.charCount,
-          tokenCount: item.tokenCount ?? null,
-        },
-        select: { id: true },
-      });
-      item.sectionId = created.id;
     }
 
     // Embed all chunk texts in batches
-    const vectors = allChunks.length
+    console.log(
+      `[embeddings] Creating section embeddings for`,
+      validChunks.length,
+      `chunks`
+    );
+    const vectors = validChunks.length
       ? await embedBatched(
-          allChunks.map((c) => c.text),
+          validChunks.map((c) => c.text),
           useModel
         )
       : [];
@@ -162,7 +192,7 @@ export async function POST(event: APIEvent) {
 
     // Prepare DocSectionEmbedding rows
     const now = new Date();
-    const sectionEmbRows = allChunks.map((c, i) => ({
+    const sectionEmbRows = validChunks.map((c, i) => ({
       runId: run.id,
       docId: c.docId,
       sectionId: c.sectionId!,
@@ -179,8 +209,8 @@ export async function POST(event: APIEvent) {
 
     // Build pooled doc embeddings
     const docIdToVectors = new Map<string, number[][]>();
-    for (let i = 0; i < allChunks.length; i++) {
-      const c = allChunks[i];
+    for (let i = 0; i < validChunks.length; i++) {
+      const c = validChunks[i];
       const v = vectors[i] || [];
       if (!docIdToVectors.has(c.docId)) docIdToVectors.set(c.docId, []);
       docIdToVectors.get(c.docId)!.push(v);
@@ -200,13 +230,13 @@ export async function POST(event: APIEvent) {
       const vecs = docIdToVectors.get(docId) || [];
       if (!vecs.length) continue;
       const pooled = meanPool(vecs);
-      const textForHash = allChunks
+      const textForHash = validChunks
         .filter((c) => c.docId === docId)
         .map((c) => c.text)
         .join("\n\n");
       const contentHash = sha256(textForHash);
       const sectionCount = vecs.length;
-      const tokenCount = allChunks
+      const tokenCount = validChunks
         .filter((c) => c.docId === docId)
         .reduce((sum, c) => sum + (c.tokenCount || 0), 0);
       docRows.push({
