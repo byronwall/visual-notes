@@ -43,17 +43,103 @@ async function embedWithOpenAI(
   return data.map((d: any) => d.embedding as number[]);
 }
 
+function estimateTokensApprox(s: string): number {
+  // Use a conservative estimate (~3 chars/token) to avoid undercounting
+  return Math.max(1, Math.round(s.length / 3));
+}
+
 async function embedBatched(
   texts: string[],
   model: string
 ): Promise<number[][]> {
-  const all: number[][] = [];
-  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-    const batch = texts.slice(i, i + BATCH_SIZE);
-    const vecs = await embedWithOpenAI(batch, model);
-    all.push(...vecs);
+  // OpenAI embeddings have a max context per request (~8192 tokens).
+  // Keep a conservative cap for both items and the total batch.
+  const MAX_BATCH_TOKENS = 7500;
+  const PER_ITEM_TOKEN_LIMIT = 7400;
+
+  function truncateToTokenLimit(s: string, maxTokens: number): string {
+    const maxChars = Math.max(32, maxTokens * 3);
+    if (estimateTokensApprox(s) <= maxTokens) return s;
+    const out = s.slice(0, maxChars).trim();
+    return out;
   }
-  return all;
+
+  // Prepare output aligned to input order
+  const result: number[][] = new Array(texts.length).fill(null as any);
+
+  // Build batches (preserving order) and send
+  let cursor = 0;
+  while (cursor < texts.length) {
+    let tokenSum = 0;
+    const batchTexts: string[] = [];
+    const batchIdxs: number[] = [];
+
+    // Fill batch respecting token cap and skipping empty inputs
+    while (cursor < texts.length && batchTexts.length < BATCH_SIZE) {
+      const raw = String(texts[cursor] || "").trim();
+      if (!raw) {
+        result[cursor] = [];
+        cursor++;
+        continue;
+      }
+      const truncated = truncateToTokenLimit(raw, PER_ITEM_TOKEN_LIMIT);
+      const tok = estimateTokensApprox(truncated);
+      if (tok > MAX_BATCH_TOKENS && batchTexts.length === 0) {
+        // Send this single item alone
+        batchTexts.push(truncated);
+        batchIdxs.push(cursor);
+        cursor++;
+        break;
+      }
+      if (tokenSum + tok > MAX_BATCH_TOKENS) break;
+      batchTexts.push(truncated);
+      batchIdxs.push(cursor);
+      tokenSum += tok;
+      cursor++;
+    }
+
+    if (batchTexts.length === 0) {
+      // Nothing to send in this loop; advance to avoid infinite loop
+      cursor++;
+      continue;
+    }
+
+    try {
+      const vecs = await embedWithOpenAI(batchTexts, model);
+      console.log(
+        `[embeddings] batch size`,
+        batchTexts.length,
+        `approxTokens`,
+        tokenSum
+      );
+      for (let k = 0; k < batchIdxs.length; k++) {
+        result[batchIdxs[k]] = vecs[k] || [];
+      }
+    } catch (err) {
+      console.log(
+        `[embeddings] batch failed, falling back to single requests`,
+        err
+      );
+      // Fallback: try each item individually; skip on error
+      for (let k = 0; k < batchIdxs.length; k++) {
+        const idx = batchIdxs[k];
+        const t = batchTexts[k];
+        try {
+          const v = await embedWithOpenAI([t], model);
+          result[idx] = v[0] || [];
+        } catch (e) {
+          console.log(`[embeddings] item failed, skipping index`, idx, e);
+          result[idx] = [];
+        }
+      }
+    }
+  }
+
+  // Ensure all positions are set
+  for (let i = 0; i < result.length; i++) {
+    if (!Array.isArray(result[i])) result[i] = [];
+  }
+  return result;
 }
 
 export async function POST(event: APIEvent) {
