@@ -9,6 +9,7 @@ import { inlineRelativeImages } from "./transforms/inlineImages";
 import { ExportedNote, IngestSource, RawNote } from "./types";
 import { htmlDirSource } from "./sources/htmlDir";
 import { notionMdSource } from "./sources/notionMd";
+import { chatgptHtmlSource } from "./sources/chatgptHtml";
 
 export async function runPipeline() {
   const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
@@ -182,6 +183,14 @@ async function resolveSource(): Promise<IngestSource> {
     if (!globalCliOptions.notionRoot)
       throw new Error("--notion-root is required for source=notion-md");
     return notionMdSource(globalCliOptions.notionRoot);
+  }
+
+  if (globalCliOptions.source === "chatgpt-html") {
+    if (!("chatHtmlRoot" in globalCliOptions) || !globalCliOptions.chatHtmlRoot)
+      throw new Error("--chat-html-root is required for source=chatgpt-html");
+    return chatgptHtmlSource(
+      globalCliOptions.chatHtmlRoot as unknown as string
+    );
   }
 
   throw new Error(`Unknown source`);

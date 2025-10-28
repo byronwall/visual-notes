@@ -25,7 +25,7 @@ export interface IngestSourceOptions {
 }
 
 export interface IngestSource {
-  name: "apple-notes" | "html-dir" | "notion-md";
+  name: "apple-notes" | "html-dir" | "notion-md" | "chatgpt-html";
   load(opts: IngestSourceOptions): Promise<{
     notes: RawNote[];
     meta?: Record<string, unknown>;
