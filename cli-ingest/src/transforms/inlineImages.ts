@@ -8,6 +8,7 @@ export function inlineRelativeImages(
   if (!markdown || !baseDir) return markdown;
 
   let inlinedCount = 0;
+  let totalImageMatches = 0;
   const imageRegex =
     /!\[([^\]]*)\]\((\s*<?)([^)\s]+?)(>?)(\s+("[^"]*"|'[^']*'|\([^)]+\)))?\)/g;
 
@@ -21,6 +22,7 @@ export function inlineRelativeImages(
       suffix: string,
       titlePart: string | undefined
     ) => {
+      totalImageMatches++;
       const trimmedUrl = url.trim();
       const lower = trimmedUrl.toLowerCase();
       const isAbsolute =
@@ -44,14 +46,24 @@ export function inlineRelativeImages(
       const joined = join(baseDir, fsPath);
       try {
         const st = statSync(joined);
-        if (!st.isFile()) return full;
+        if (!st.isFile()) {
+          console.log(
+            `[inlineImages] not a file: url="${trimmedUrl}" -> joined="${joined}" baseDir="${baseDir}"`
+          );
+          return full;
+        }
 
         const buf = readFileSync(joined);
         const mime = guessMimeType(extname(joined));
         const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
         inlinedCount++;
         return `![${alt}](${prefix}${dataUrl}${suffix}${titlePart ?? ""})`;
-      } catch (_) {
+      } catch (e) {
+        console.log(
+          `[inlineImages] missing file: url="${trimmedUrl}" -> joined="${joined}" baseDir="${baseDir}" error="${
+            e instanceof Error ? e.message : String(e)
+          }"`
+        );
         return full;
       }
     }
@@ -60,6 +72,11 @@ export function inlineRelativeImages(
   if (inlinedCount > 0) {
     console.log(
       `[inlineImages] inlined ${inlinedCount} image(s) from ${baseDir}`
+    );
+  }
+  if (totalImageMatches > 0 && inlinedCount === 0) {
+    console.log(
+      `[inlineImages] found ${totalImageMatches} relative image(s) but inlined 0 from ${baseDir}`
     );
   }
   return replaced;

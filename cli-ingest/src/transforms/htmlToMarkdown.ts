@@ -6,9 +6,17 @@ export function htmlToMarkdown(html: string): string {
   // TODO: determine what this is for and if it's still needed.
   if (html.includes("data-md")) {
     const match = html.match(/<pre[^>]*data-md[^>]*>([\s\S]*?)<\/pre>/i);
-    if (match) return decodeHtmlEntities(match[1]);
+    if (match) {
+      const md = decodeHtmlEntities(match[1]);
+      console.log(
+        `[htmlToMarkdown] using embedded markdown (len=${md.length})`
+      );
+      return md;
+    }
   }
-  return td.turndown(html);
+  const out = td.turndown(html);
+  console.log(`[htmlToMarkdown] turndown produced (len=${out.length})`);
+  return out;
 }
 
 function decodeHtmlEntities(s: string) {

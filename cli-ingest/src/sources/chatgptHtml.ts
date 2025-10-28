@@ -1,7 +1,10 @@
-import { join, basename, resolve } from "node:path";
-import { statSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import {
+  cleanChatgptPlainText,
+  hasVisibleContent,
+} from "../transforms/sanitizeChatgptText";
 import { IngestSource, IngestSourceOptions, RawNote } from "../types";
-import { rewriteRelativeLinks } from "../transforms/rewriteRelativeLinks";
 
 const escapeHtml = (s: string) =>
   s.replace(
@@ -133,35 +136,24 @@ export function chatgptHtmlSource(rootOrFile: string): IngestSource {
       ? new Date(unixSeconds * 1000).toISOString()
       : new Date(0).toISOString();
 
-  const toSlug = (s: string, max = 64) =>
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, max);
-
   const renderMessagesToMarkdown = (
     messages: ConversationMessage[],
-    assets: AssetIndex
+    assets: AssetIndex,
+    assetsBaseDir: string
   ) => {
     const lines: string[] = [];
     for (const m of messages) {
-      const author = m.author ?? "Unknown";
-      const ts = m.create_time
-        ? new Date(m.create_time * 1000).toISOString()
-        : "";
-      lines.push(`\n### ${author}${ts ? ` — ${ts}` : ""}`);
-      if (!m.parts?.length) {
-        lines.push("");
-        continue;
-      }
-      for (const part of m.parts) {
+      const contentLines: string[] = [];
+      for (const part of m.parts ?? []) {
         if ("text" in part && typeof part.text === "string") {
-          lines.push(part.text);
+          const cleaned = cleanChatgptPlainText(part.text);
+          if (hasVisibleContent(cleaned)) contentLines.push(cleaned);
           continue;
         }
         if ("transcript" in part && typeof part.transcript === "string") {
-          lines.push(`\n> [Transcript]\n>\n> ${part.transcript}`);
+          const cleaned = cleanChatgptPlainText(part.transcript);
+          if (hasVisibleContent(cleaned))
+            contentLines.push(`\n> [Transcript]\n>\n> ${cleaned}`);
           continue;
         }
         if ("asset" in part && part.asset) {
@@ -171,18 +163,172 @@ export function chatgptHtmlSource(rootOrFile: string): IngestSource {
           if (link) {
             const fileName = link.split("/").pop() ?? "file";
             if (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(fileName)) {
-              lines.push(`\n![${fileName}](${link})`);
+              const inlined = inlineImageIfExists(link, assetsBaseDir);
+              if (!inlined) {
+                console.log(
+                  `[chatgpt-html] image not inlined, leaving as relative: link="${link}" baseDir="${assetsBaseDir}"`
+                );
+              } else {
+                console.log(
+                  `[chatgpt-html] image inlined from relative path: link="${link}" baseDir="${assetsBaseDir}"`
+                );
+              }
+
+              contentLines.push(`\n![${fileName}](${inlined ?? link})`);
+              // throw new Error("stop");
             } else {
-              lines.push(`\n[File: ${fileName}](${link})`);
+              contentLines.push(`\n[File: ${fileName}](${link})`);
             }
           } else {
-            lines.push(`\n[File]: -Deleted-`);
+            contentLines.push(`\n[File]: -Deleted-`);
           }
         }
       }
+      if (contentLines.length === 0) continue; // skip empty messages entirely
+
+      const author = m.author ?? "Unknown";
+      const ts = m.create_time
+        ? new Date(m.create_time * 1000).toISOString()
+        : "";
+      lines.push(`\n### ${author}${ts ? ` — ${ts}` : ""}`);
+      lines.push(...contentLines);
     }
     return lines.join("\n\n").trim() + "\n";
   };
+
+  function isAbsoluteLike(p: string): boolean {
+    const lower = p.toLowerCase();
+    return (
+      lower.startsWith("http://") ||
+      lower.startsWith("https://") ||
+      lower.startsWith("data:") ||
+      lower.startsWith("file:") ||
+      lower.startsWith("blob:") ||
+      p.startsWith("/")
+    );
+  }
+
+  function isDirectory(path: string): boolean {
+    try {
+      const st = statSync(path);
+      return st.isDirectory();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function resolveAssetsBaseDir(startDir: string, assets: AssetIndex): string {
+    // Collect first path segments from relative asset links (e.g., "dalle-generations")
+    const segments = new Set<string>();
+    for (const link of Object.values(assets)) {
+      if (!link || typeof link !== "string") continue;
+      if (isAbsoluteLike(link)) continue;
+      const first = link.split("/")[0] || "";
+      if (first) segments.add(first);
+    }
+
+    if (segments.size === 0) {
+      console.log(
+        `[chatgpt-html] assets: no relative segments detected; using startDir="${startDir}"`
+      );
+      return startDir;
+    }
+
+    // Try startDir and up to two parent directories for any matching segment directory
+    const segList = Array.from(segments);
+    let cur = startDir;
+    for (let depth = 0; depth < 3; depth++) {
+      for (const seg of segList) {
+        const candidateDir = join(cur, seg);
+        if (isDirectory(candidateDir)) {
+          if (cur !== startDir) {
+            console.log(
+              `[chatgpt-html] resolved assets baseDir="${cur}" via segment="${seg}" (start="${startDir}")`
+            );
+          } else {
+            console.log(
+              `[chatgpt-html] assets baseDir confirmed: "${cur}" (segment="${seg}")`
+            );
+          }
+          return cur;
+        }
+      }
+      const parent = dirname(cur);
+      if (parent === cur) break;
+      cur = parent;
+    }
+
+    console.log(
+      `[chatgpt-html] assets baseDir unresolved; falling back to startDir="${startDir}" segments=[${segList.join(
+        ", "
+      )}]]`
+    );
+    return startDir;
+  }
+
+  function inlineImageIfExists(
+    relOrAbsPath: string,
+    baseDir: string
+  ): string | null {
+    const lower = relOrAbsPath.toLowerCase();
+    const isAbsolute =
+      lower.startsWith("http://") ||
+      lower.startsWith("https://") ||
+      lower.startsWith("data:") ||
+      lower.startsWith("file:") ||
+      lower.startsWith("blob:") ||
+      relOrAbsPath.startsWith("/");
+    if (isAbsolute) return null;
+    let fsPath = relOrAbsPath;
+    try {
+      fsPath = decodeURIComponent(relOrAbsPath);
+    } catch (_) {}
+    const joined = join(baseDir, fsPath);
+    try {
+      const st = statSync(joined);
+      if (!st.isFile()) {
+        console.log(
+          `[chatgpt-html] asset path not a file: rel="${relOrAbsPath}" -> joined="${joined}" baseDir="${baseDir}"`
+        );
+        return null;
+      }
+      const buf = readFileSync(joined);
+      const mime = guessMimeType(joined);
+      return `data:${mime};base64,${buf.toString("base64")}`;
+    } catch (e) {
+      console.log(
+        `[chatgpt-html] asset missing: rel="${relOrAbsPath}" -> joined="${joined}" baseDir="${baseDir}" error="${
+          e instanceof Error ? e.message : String(e)
+        }"`
+      );
+      return null;
+    }
+  }
+
+  function guessMimeType(pathOrName: string): string {
+    const idx = pathOrName.lastIndexOf(".");
+    const ext = idx >= 0 ? pathOrName.slice(idx).toLowerCase() : "";
+    switch (ext) {
+      case ".png":
+        return "image/png";
+      case ".jpg":
+      case ".jpeg":
+        return "image/jpeg";
+      case ".gif":
+        return "image/gif";
+      case ".webp":
+        return "image/webp";
+      case ".svg":
+        return "image/svg+xml";
+      case ".bmp":
+        return "image/bmp";
+      case ".tiff":
+      case ".tif":
+        return "image/tiff";
+      default:
+        return "application/octet-stream";
+    }
+  }
 
   const getConversationMessages = (
     conversation: ChatExport
@@ -295,28 +441,25 @@ export function chatgptHtmlSource(rootOrFile: string): IngestSource {
         );
 
         const createdAt = toIso(convo.create_time);
-        const baseSlug = toSlug(convo.title || "chat");
-        const convoFolder = `ChatGPT/${createdAt.slice(
-          0,
-          10
-        )}/${baseSlug}__${convo.id.slice(0, 8)}`;
 
         const mdHeader = [
-          `<!-- source: chatgpt-html; conversation_id: ${convo.id} -->`,
           `# ${convo.title}`,
-          `*Conversation ID:* \`${convo.id}\`  `,
-          `*Created:* ${createdAt}`,
+          `*Link back:* <https://chatgpt.com/c/${convo.id}>`,
           ``,
         ].join("\n");
 
-        const mdBody = renderMessagesToMarkdown(messages, assetsJson);
+        const assetsBaseDir = resolveAssetsBaseDir(dirname(file), assetsJson);
+        const mdBody = renderMessagesToMarkdown(
+          messages,
+          assetsJson,
+          assetsBaseDir
+        );
         const mdFull = [mdHeader, mdBody].join("\n\n");
 
-        const mdRewritten = rewriteRelativeLinks(mdFull);
-
+        // Do not rewrite relative links for ChatGPT; images will be inlined later using the source directory
         const fauxHtml = `<article data-origin="chatgpt-html"><h1>${escapeHtml(
           convo.title
-        )}</h1>\n<pre data-md>${escapeHtml(mdRewritten)}</pre></article>`;
+        )}</h1>\n<pre data-md>${escapeHtml(mdFull)}</pre></article>`;
 
         const id = sanitizeId(`${convo.id}__0`);
         notes.push({
@@ -324,7 +467,7 @@ export function chatgptHtmlSource(rootOrFile: string): IngestSource {
           title: convo.title,
           createdAt,
           updatedAt: createdAt,
-          folder: convoFolder,
+          folder: assetsBaseDir,
           html: fauxHtml,
         });
       }
