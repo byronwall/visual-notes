@@ -34,11 +34,19 @@ const VisualRoute: VoidComponent = () => {
 
   // Stores
   const canvasStore = createCanvasStore();
+  const [viewportW, setViewportW] = createSignal(0);
+  const [viewportH, setViewportH] = createSignal(0);
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
     umapPoints,
     useUmap: canvasStore.useUmap,
+    layoutMode: canvasStore.layoutMode,
+    aspectRatio: () => {
+      const w = viewportW();
+      const h = Math.max(1, viewportH() - canvasStore.navHeight());
+      return w > 0 && h > 0 ? w / h : 1;
+    },
   });
 
   // Hover derivations
@@ -73,6 +81,8 @@ const VisualRoute: VoidComponent = () => {
     // Center the origin initially under navbar
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    setViewportW(vw);
+    setViewportH(vh);
     canvasStore.setOffset({
       x: vw / 2,
       y: canvasStore.navHeight() + (vh - canvasStore.navHeight()) / 2,
@@ -80,6 +90,8 @@ const VisualRoute: VoidComponent = () => {
     scheduleTransform();
     window.addEventListener("resize", () => {
       measureNav();
+      setViewportW(window.innerWidth);
+      setViewportH(window.innerHeight);
       scheduleTransform();
     });
   });
@@ -104,6 +116,15 @@ const VisualRoute: VoidComponent = () => {
   onCleanup(() => {
     if (isBrowser) {
       window.removeEventListener("resize", scheduleTransform);
+    }
+  });
+
+  // Recenter when layout mode changes
+  createEffect(() => {
+    const mode = canvasStore.layoutMode();
+    console.log(`[visual] layout mode: ${mode}`);
+    if (isBrowser) {
+      fitToSpread();
     }
   });
 
@@ -151,6 +172,8 @@ const VisualRoute: VoidComponent = () => {
         nudging={positionsStore.nudging}
         onNudge={positionsStore.runNudge}
         onSelectDoc={(id) => setSelectedId(id)}
+        layoutMode={canvasStore.layoutMode}
+        setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
       />
     </main>
   );

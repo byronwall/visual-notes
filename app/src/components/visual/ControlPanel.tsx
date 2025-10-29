@@ -30,6 +30,8 @@ export type ControlPanelProps = {
   nudging: Accessor<boolean>;
   onNudge: (iterations?: number) => void;
   onSelectDoc: (id: string) => void;
+  layoutMode: Accessor<"umap" | "grid">;
+  setLayoutMode: (m: "umap" | "grid") => void;
 };
 
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
@@ -82,7 +84,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
           />
         </div>
-        <div class="flex items-center gap-2 text-xs text-gray-700">
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700">
           <label for="sortMode">Sort:</label>
           <select
             id="sortMode"
@@ -94,6 +96,28 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             <option value="title">Title</option>
             <option value="date">Newest</option>
           </select>
+          <label for="layoutMode" class="ml-2">
+            Layout:
+          </label>
+          {(() => {
+            const handleLayoutChange = (
+              e: Event & { currentTarget: HTMLSelectElement }
+            ) => {
+              const value = e.currentTarget.value as "umap" | "grid";
+              props.setLayoutMode(value);
+            };
+            return (
+              <select
+                id="layoutMode"
+                class="rounded border border-gray-300 px-2 py-1 text-xs"
+                value={props.layoutMode()}
+                onChange={handleLayoutChange}
+              >
+                <option value="umap">UMAP (raw)</option>
+                <option value="grid">Grid (Z-order)</option>
+              </select>
+            );
+          })()}
           <button
             class={`ml-2 rounded px-2 py-1 border text-xs ${
               props.nudging()
@@ -106,8 +130,14 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
           >
             {props.nudging() ? "Nudging…" : "Nudge"}
           </button>
-          <div class="ml-auto text-[11px] text-gray-500">
-            Zoom {props.scale().toFixed(2)}x · {props.docs()?.length || 0} notes
+          <div class="ml-auto flex items-center gap-2 text-[11px] text-gray-500 basis-full sm:basis-auto justify-end">
+            <span class="whitespace-nowrap">
+              Zoom {props.scale().toFixed(2)}x
+            </span>
+            <span class="text-gray-300">·</span>
+            <span class="whitespace-nowrap">
+              {props.docs()?.length || 0} notes
+            </span>
           </div>
         </div>
       </div>

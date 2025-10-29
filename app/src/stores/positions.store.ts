@@ -4,6 +4,11 @@ import { normalizeUmap } from "~/layout/umap-normalize";
 import { seededPositionFor } from "~/layout/seeded";
 import { buildKdTree, type KDNode } from "~/spatial/kdtree";
 import { nudgePositions } from "~/layout/nudge";
+import {
+  assignToGridZOrderSnaked,
+  bestFitGridForAspect,
+  gridCellCenterWorld,
+} from "~/layout/zorder-grid";
 
 const SPREAD = 1000;
 const NODE_RADIUS = 10;
@@ -16,8 +21,10 @@ export function createPositionsStore(deps: {
   umapRun: Accessor<UmapRun | undefined>;
   umapPoints: Accessor<UmapPoint[] | undefined>;
   useUmap: Accessor<boolean>;
+  layoutMode?: Accessor<"umap" | "grid">;
+  aspectRatio?: Accessor<number>;
 }) {
-  const { docs, umapPoints, useUmap } = deps;
+  const { docs, umapPoints, useUmap, layoutMode, aspectRatio } = deps;
 
   const umapIndex = createMemo(() => normalizeUmap(umapPoints(), SPREAD));
 
@@ -36,10 +43,55 @@ export function createPositionsStore(deps: {
     return map;
   });
 
+  // Grid positions computed via Z-order space-filling curve and snaked row-major placement
+  const gridPositions = createMemo(() => {
+    const list = docs() || [];
+    const base = basePositions();
+    if (list.length === 0) return base;
+    // Build an array of points in the same order as docs to preserve id mapping
+    const pts: { x: number; y: number; id: string }[] = [];
+    for (const d of list) {
+      const p = base.get(d.id);
+      if (p) pts.push({ x: p.x, y: p.y, id: d.id });
+    }
+    const n = pts.length;
+    const aspect = Math.max(0.25, Math.min(4, aspectRatio?.() || 1));
+    const [gridW, gridH] = bestFitGridForAspect(n, aspect);
+    const mapping = assignToGridZOrderSnaked(
+      pts.map((p) => ({ x: p.x, y: p.y })),
+      gridW,
+      gridH
+    );
+    // Ensure no overlap: choose cell size based on minimal separation
+    const cellSize = MIN_SEP;
+    const originX = 0;
+    const originY = 0;
+    const out = new Map<string, Point>();
+    for (let cell = 0; cell < gridW * gridH; cell++) {
+      const idx = mapping[cell]!;
+      if (idx == null || idx < 0) continue;
+      const center = gridCellCenterWorld(
+        cell,
+        gridW,
+        gridH,
+        cellSize,
+        originX,
+        originY
+      );
+      const id = pts[idx]!.id;
+      out.set(id, center);
+    }
+    console.log(
+      `[positions.store] Grid layout built: ${n} pts in ${gridW}x${gridH}, cell=${cellSize}`
+    );
+    return out;
+  });
+
   const [adjustments, setAdjustments] = createSignal(new Map<string, Point>());
 
   const positions = createMemo(() => {
-    const base = basePositions();
+    const mode = layoutMode?.() || (useUmap() ? "umap" : "umap");
+    const base = mode === "grid" ? gridPositions() : basePositions();
     const adj = adjustments();
     if (adj.size === 0) return base;
     const map = new Map<string, Point>();

@@ -9,6 +9,7 @@ export function createCanvasStore() {
   const [isPanning, setIsPanning] = createSignal(false);
   const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
   const [useUmap, setUseUmap] = createSignal(true);
+  const [layoutMode, setLayoutMode] = createSignal<"umap" | "grid">("umap");
 
   let frame = 0 as number | undefined;
 
@@ -54,6 +55,8 @@ export function createCanvasStore() {
     setMouseScreen,
     useUmap,
     setUseUmap,
+    layoutMode,
+    setLayoutMode,
     // derived
     viewTransform,
     // helpers
