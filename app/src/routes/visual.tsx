@@ -9,12 +9,13 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
 import DocumentSidePanel from "../components/DocumentSidePanel";
-
-type DocItem = { id: string; title: string; createdAt: string };
-type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
-type UmapRun = { id: string; dims: number };
+import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
+import {
+  fetchDocs,
+  fetchLatestUmapRun,
+  fetchUmapPoints,
+} from "~/services/docs.service";
 // DocumentSidePanel will load the full document on demand
 
 const SPREAD = 1000;
@@ -22,28 +23,7 @@ const isBrowser = typeof window !== "undefined";
 const NODE_RADIUS = 10;
 const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
-async function fetchDocs(): Promise<DocItem[]> {
-  const res = await apiFetch("/api/docs?take=8000");
-  if (!res.ok) throw new Error("Failed to load docs");
-  const json = (await res.json()) as { items: DocItem[] };
-  return json.items || [];
-}
-
-async function fetchLatestUmapRun(): Promise<UmapRun | undefined> {
-  const res = await apiFetch("/api/umap/runs");
-  if (!res.ok) return undefined;
-  const json = (await res.json()) as { runs: UmapRun[] };
-  return json.runs?.[0];
-}
-
-async function fetchUmapPoints(runId: string): Promise<UmapPoint[]> {
-  const res = await apiFetch(
-    `/api/umap/points?runId=${encodeURIComponent(runId)}`
-  );
-  if (!res.ok) throw new Error("Failed to load UMAP points");
-  const json = (await res.json()) as { points: UmapPoint[] };
-  return json.points || [];
-}
+// data fetching moved to services module
 
 function hashString(input: string): number {
   // Simple 32-bit FNV-1a hash
