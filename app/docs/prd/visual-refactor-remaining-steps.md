@@ -27,6 +27,14 @@ This document describes the remaining work to finish the visualization refactor.
 
 ## Step 4 — Create granular stores (state layer)
 
+Status: Completed (2025-10-29)
+
+Implemented
+
+- `app/src/stores/canvas.store.ts`
+- `app/src/stores/positions.store.ts`
+- `app/src/routes/visual.tsx` updated to instantiate and use the stores
+
 Create two stores to separate UI/canvas state from data/layout state.
 
 ### 4.1 `app/src/stores/canvas.store.ts`
@@ -84,6 +92,14 @@ Create two stores to separate UI/canvas state from data/layout state.
 
 ## Step 5 — Extract interaction logic into hooks (interaction layer)
 
+Status: Completed (2025-10-29)
+
+Implemented
+
+- `app/src/hooks/usePanZoom.ts`
+- `app/src/hooks/useHover.ts`
+- `app/src/routes/visual.tsx` updated to use hooks and remove inline handlers/hover memos
+
 ### 5.1 `app/src/hooks/usePanZoom.ts`
 
 - Export `createPanZoomHandlers(canvasStore)` returning handlers: `{ onWheel, onPointerDown, onPointerMove, onPointerUp }`.
@@ -116,6 +132,20 @@ Create two stores to separate UI/canvas state from data/layout state.
 
 ## Step 6 — Extract nudge algorithm (pure layout)
 
+Status: Completed (2025-10-29)
+
+Implemented
+
+- `app/src/layout/nudge.ts` (pure, KD-tree based, congestion-scaled repulsion)
+- `app/src/stores/positions.store.ts` `runNudge` now calls `nudgePositions` and applies returned adjustments
+- `app/src/routes/visual.tsx` Nudge button triggers `positionsStore.runNudge()`
+
+Notes
+
+- Parameters used: `SPREAD=1000`, `MIN_SEP=NODE_RADIUS*2+2` where `NODE_RADIUS=10` (i.e., `MIN_SEP=22`).
+- Logs emit every ~50 iterations; function yields every ~10 iterations for UI responsiveness.
+- Future tuning: iteration count and force scaling constants may be adjusted based on dataset size.
+
 ### 6.1 `app/src/layout/nudge.ts`
 
 - Export `async function nudgePositions(params): Promise<{ adjustments: Map<string, { x: number; y: number }>; stats?: Record<string, number> }>`
@@ -146,6 +176,16 @@ Create two stores to separate UI/canvas state from data/layout state.
 - Lints clean.
 
 ---
+
+## Remaining work at handoff (next steps)
+
+- Step 7 — Split view into dumb components (component layer)
+  - Create `app/src/components/visual/VisualCanvas.tsx` and `app/src/components/visual/ControlPanel.tsx`.
+  - Move SVG rendering and left-panel UI into these components; accept props only (no state ownership).
+  - Pass `eventHandlers` from `usePanZoom` and use hover values from `useHover`.
+- Step 8 — Wire everything in the route (final composition)
+  - Compose resources, stores, hooks, and new components in `app/src/routes/visual.tsx`.
+  - Ensure `DocumentSidePanel` close handler still refetches docs when needed.
 
 ## Step 7 — Split view into dumb components (component layer)
 

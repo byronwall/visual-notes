@@ -9,6 +9,8 @@ import {
   onMount,
 } from "solid-js";
 import DocumentSidePanel from "../components/DocumentSidePanel";
+import { VisualCanvas } from "~/components/visual/VisualCanvas";
+import { ControlPanel } from "~/components/visual/ControlPanel";
 import {
   useDocsResource,
   useUmapPointsResource,
@@ -29,7 +31,7 @@ const isBrowser = typeof window !== "undefined";
 
 // seededPositionFor, colorFor now imported
 
-const VisualCanvas: VoidComponent = () => {
+const VisualRoute: VoidComponent = () => {
   const [docs, { refetch: refetchDocs }] = useDocsResource();
   const [umapRun, { refetch: refetchUmapRun }] = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
@@ -49,11 +51,6 @@ const VisualCanvas: VoidComponent = () => {
     umapPoints,
     useUmap: canvasStore.useUmap,
   });
-
-  // SVG elements + pan anchor
-  let svgEl: SVGSVGElement | undefined;
-  let gEl: SVGGElement | undefined;
-  let lastPan = { x: 0, y: 0 };
 
   // Hover derivations
   const hover = createHoverDerivations({ positionsStore, canvasStore, docs });
@@ -204,98 +201,17 @@ const VisualCanvas: VoidComponent = () => {
 
   return (
     <main class="min-h-screen bg-white">
-      {/* SVG infinite canvas */}
-      <div
-        class="fixed overflow-hidden bg-white"
-        style={{
-          position: "fixed",
-          left: "0",
-          right: "0",
-          bottom: "0",
-          top: `${canvasStore.navHeight()}px`,
-        }}
-        onWheel={panZoomHandlers.onWheel}
-        onPointerDown={panZoomHandlers.onPointerDown}
-        onPointerMove={panZoomHandlers.onPointerMove}
-        onPointerUp={panZoomHandlers.onPointerUp}
-      >
-        <svg
-          ref={(el) => (svgEl = el)}
-          width="100%"
-          height="100%"
-          style={{ display: "block", background: "white" }}
-        >
-          <g ref={(el) => (gEl = el)} transform={viewTransform()}>
-            <Show when={docs()}>
-              {(list) => (
-                <For each={list()}>
-                  {(d, i) => {
-                    const pos = createMemo(
-                      () =>
-                        positions().get(d.id) ??
-                        seededPositionFor(d.title, i(), SPREAD)
-                    );
-                    const fill = colorFor(d.title);
-                    const isHovered = createMemo(
-                      () => hoveredDocId() === d.id && showHoverLabel()
-                    );
-                    return (
-                      <g>
-                        <circle
-                          cx={pos().x}
-                          cy={pos().y}
-                          r={10}
-                          fill={fill}
-                          stroke={isHovered() ? "#111" : "#00000020"}
-                          stroke-width={isHovered() ? 2 : 1}
-                          style={{ cursor: "pointer" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedId(d.id);
-                          }}
-                          onPointerDown={(e) => e.stopPropagation()}
-                        />
-                        {/* Hover label now rendered as HTML overlay (constant size) */}
-                      </g>
-                    );
-                  }}
-                </For>
-              )}
-            </Show>
-          </g>
-        </svg>
-        {/* Absolute-positioned hover label overlay in screen coordinates */}
-        <Show when={hoveredLabelScreen()}>
-          {(lbl) => (
-            <div
-              class="absolute"
-              style={{
-                left: `${lbl().x + 12}px`,
-                top: `${lbl().y - 10}px`,
-                "pointer-events": "none",
-              }}
-            >
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.98)",
-                  border: "1px solid rgba(0,0,0,0.15)",
-                  padding: "4px 8px",
-                  "border-radius": "6px",
-                  "box-shadow": "0 2px 6px rgba(0,0,0,0.08)",
-                  color: "#111",
-                  "font-size": "14px",
-                  "max-width": "320px",
-                  "white-space": "nowrap",
-                  "text-overflow": "ellipsis",
-                  overflow: "hidden",
-                }}
-              >
-                {lbl().title}
-              </div>
-            </div>
-          )}
-        </Show>
-      </div>
+      <VisualCanvas
+        docs={docs}
+        positions={positions}
+        hoveredId={hover.hoveredId}
+        hoveredLabelScreen={hover.hoveredLabelScreen}
+        showHoverLabel={hover.showHoverLabel}
+        viewTransform={viewTransform}
+        navHeight={canvasStore.navHeight}
+        eventHandlers={panZoomHandlers}
+        onSelectDoc={(id) => setSelectedId(id)}
+      />
       <DocumentSidePanel
         open={!!selectedId()}
         docId={selectedId()}
@@ -306,138 +222,24 @@ const VisualCanvas: VoidComponent = () => {
           setSelectedId(undefined);
         }}
       />
-      {/* Left pane: search + list sorted by proximity (default) */}
-      <div
-        class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"
-        style={{
-          top: `${canvasStore.navHeight()}px`,
-          left: "0",
-          width: "320px",
-          bottom: "0",
-          display: "flex",
-          "flex-direction": "column",
-        }}
-      >
-        <div class="p-3 border-b border-gray-200">
-          <div class="text-sm font-medium mb-2">Notes</div>
-          <div class="flex items-center gap-2 mb-2">
-            <input
-              class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-              type="search"
-              placeholder="Search titles…"
-              value={searchQuery()}
-              onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            />
-          </div>
-          <div class="flex items-center gap-2 text-xs text-gray-700">
-            <label for="sortMode">Sort:</label>
-            <select
-              id="sortMode"
-              class="rounded border border-gray-300 px-2 py-1 text-xs"
-              value={sortMode()}
-              onChange={(e) => setSortMode(e.currentTarget.value as any)}
-            >
-              <option value="proximity">Proximity (to mouse)</option>
-              <option value="title">Title</option>
-              <option value="date">Newest</option>
-            </select>
-            <button
-              class={`ml-2 rounded px-2 py-1 border text-xs ${
-                positionsStore.nudging()
-                  ? "opacity-60 cursor-not-allowed"
-                  : "hover:bg-gray-50"
-              }`}
-              disabled={positionsStore.nudging()}
-              onClick={() => positionsStore.runNudge(200)}
-              title="Repel overlapping nodes a bit"
-            >
-              {positionsStore.nudging() ? "Nudging…" : "Nudge"}
-            </button>
-            <div class="ml-auto text-[11px] text-gray-500">
-              Zoom {canvasStore.scale().toFixed(2)}x · {docs()?.length || 0}{" "}
-              notes
-            </div>
-          </div>
-        </div>
-        <div class="flex-1 overflow-y-auto">
-          <Show
-            when={filteredAndSortedDocs().length > 0}
-            fallback={<div class="p-3 text-sm text-gray-500">No notes</div>}
-          >
-            <ul>
-              <For each={filteredAndSortedDocs().slice(0, 200)}>
-                {(d) => {
-                  const p = createMemo(() => positions().get(d.id));
-                  const isHover = createMemo(
-                    () => hoveredDocId() === d.id && showHoverLabel()
-                  );
-                  return (
-                    <li>
-                      <button
-                        class={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-50 ${
-                          isHover() ? "bg-amber-50" : ""
-                        }`}
-                        onClick={() => setSelectedId(d.id)}
-                        title={d.title}
-                      >
-                        <span
-                          style={{
-                            "flex-shrink": 0,
-                            width: "10px",
-                            height: "10px",
-                            background: colorFor(d.title),
-                            display: "inline-block",
-                            "border-radius": "9999px",
-                            border: "1px solid rgba(0,0,0,0.2)",
-                          }}
-                        />
-                        <span class="truncate text-sm">{d.title}</span>
-                        <span class="ml-auto text-[10px] text-gray-500 flex-shrink-0">
-                          {(() => {
-                            const m = hover.mouseWorld();
-                            const pp = p();
-                            if (!pp) return "";
-                            const dx = pp.x - m.x;
-                            const dy = pp.y - m.y;
-                            const dist = Math.sqrt(dx * dx + dy * dy);
-                            // Determine 8-way direction from mouse to item for subtle guidance
-                            const angle = Math.atan2(-dy, dx);
-                            const arrows = [
-                              "→",
-                              "↗",
-                              "↑",
-                              "↖",
-                              "←",
-                              "↙",
-                              "↓",
-                              "↘",
-                            ];
-                            const idx =
-                              ((Math.round((angle * 8) / (2 * Math.PI)) % 8) +
-                                8) %
-                              8;
-                            const arrow = arrows[idx];
-                            return `${Math.round(dist)}u ${arrow}`;
-                          })()}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                }}
-              </For>
-            </ul>
-          </Show>
-        </div>
-        <div class="p-2 border-t border-gray-200 text-[11px] text-gray-600">
-          Drag to pan, wheel to zoom · Left pane sorts by mouse proximity
-        </div>
-      </div>
+      <ControlPanel
+        docs={docs}
+        positions={positions}
+        mouseWorld={hover.mouseWorld}
+        hoveredId={hover.hoveredId}
+        showHoverLabel={hover.showHoverLabel}
+        navHeight={canvasStore.navHeight}
+        scale={canvasStore.scale}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortMode={sortMode}
+        setSortMode={(m) => setSortMode(m)}
+        nudging={positionsStore.nudging}
+        onNudge={positionsStore.runNudge}
+        onSelectDoc={(id) => setSelectedId(id)}
+      />
     </main>
   );
-};
-
-const VisualRoute: VoidComponent = () => {
-  return <VisualCanvas />;
 };
 
 export default VisualRoute;
