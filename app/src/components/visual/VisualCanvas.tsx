@@ -1,6 +1,7 @@
 import {
   For,
   Show,
+  createEffect,
   createMemo,
   type Accessor,
   type VoidComponent,
@@ -33,6 +34,7 @@ export type VisualCanvasProps = {
   showHoverLabel: Accessor<boolean>;
   viewTransform: Accessor<string>;
   navHeight: Accessor<number>;
+  searchQuery: Accessor<string>;
   eventHandlers: PanZoomHandlers;
   onSelectDoc: (id: string) => void;
 };
@@ -40,6 +42,13 @@ export type VisualCanvasProps = {
 const SPREAD = 1000;
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
+  // Log when the active search changes to help debug rendering state
+  createEffect(() => {
+    try {
+      console.log("[VisualCanvas] searchQuery=", props.searchQuery().trim());
+    } catch {}
+  });
+
   return (
     <div
       class="fixed overflow-hidden bg-white"
@@ -74,14 +83,28 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   const isHovered = createMemo(
                     () => props.hoveredId() === d.id && props.showHoverLabel()
                   );
+                  const matchesSearch = createMemo(() => {
+                    const q = props.searchQuery().trim().toLowerCase();
+                    if (!q) return true;
+                    return d.title.toLowerCase().includes(q);
+                  });
+                  const dimmed = createMemo(
+                    () => !!props.searchQuery().trim() && !matchesSearch()
+                  );
                   return (
                     <g>
                       <circle
                         cx={pos().x}
                         cy={pos().y}
                         r={10}
-                        fill={fill}
-                        stroke={isHovered() ? "#111" : "#00000020"}
+                        fill={dimmed() ? "#9CA3AF" : fill}
+                        stroke={
+                          isHovered()
+                            ? "#111"
+                            : dimmed()
+                            ? "#00000010"
+                            : "#00000020"
+                        }
                         stroke-width={isHovered() ? 2 : 1}
                         style={{ cursor: "pointer" }}
                         onClick={(e) => {

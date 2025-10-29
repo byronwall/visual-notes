@@ -144,6 +144,7 @@ const VisualRoute: VoidComponent = () => {
         showHoverLabel={hover.showHoverLabel}
         viewTransform={viewTransform}
         navHeight={canvasStore.navHeight}
+        searchQuery={searchQuery}
         eventHandlers={panZoomHandlers}
         onSelectDoc={(id) => setSelectedId(id)}
       />
