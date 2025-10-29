@@ -23,6 +23,8 @@ export function createPositionsStore(deps: {
   useUmap: Accessor<boolean>;
   layoutMode?: Accessor<"umap" | "grid">;
   aspectRatio?: Accessor<number>;
+  searchQuery: Accessor<string>;
+  hideNonMatches: Accessor<boolean>;
 }) {
   const { docs, umapPoints, useUmap, layoutMode, aspectRatio } = deps;
 
@@ -43,9 +45,17 @@ export function createPositionsStore(deps: {
     return map;
   });
 
+  // Filtered docs for layout/interaction based on search
+  const filteredDocs = createMemo(() => {
+    const list = docs() || [];
+    const q = deps.searchQuery().trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((d) => d.title.toLowerCase().includes(q));
+  });
+
   // Grid positions computed via Z-order space-filling curve and snaked row-major placement
   const gridPositions = createMemo(() => {
-    const list = docs() || [];
+    const list = deps.hideNonMatches() ? filteredDocs() : docs() || [];
     const base = basePositions();
     if (list.length === 0) return base;
     // Build an array of points in the same order as docs to preserve id mapping
@@ -82,7 +92,7 @@ export function createPositionsStore(deps: {
       out.set(id, center);
     }
     console.log(
-      `[positions.store] Grid layout built: ${n} pts in ${gridW}x${gridH}, cell=${cellSize}`
+      `[positions.store] Grid layout built: ${n} visible pts in ${gridW}x${gridH}, cell=${cellSize}`
     );
     return out;
   });
@@ -104,7 +114,7 @@ export function createPositionsStore(deps: {
   });
 
   const kdTree = createMemo<KDNode | undefined>(() => {
-    const list = docs();
+    const list = deps.hideNonMatches() ? filteredDocs() : docs();
     if (!list) return undefined;
     const pos = positions();
     const pts: { x: number; y: number; id: string }[] = [];

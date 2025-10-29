@@ -36,6 +36,9 @@ const VisualRoute: VoidComponent = () => {
   const canvasStore = createCanvasStore();
   const [viewportW, setViewportW] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
+  // Search/filter state used by layout and UI
+  const [searchQuery, setSearchQuery] = createSignal("");
+  const [hideNonMatches, setHideNonMatches] = createSignal(true);
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
@@ -47,6 +50,8 @@ const VisualRoute: VoidComponent = () => {
       const h = Math.max(1, viewportH() - canvasStore.navHeight());
       return w > 0 && h > 0 ? w / h : 1;
     },
+    searchQuery,
+    hideNonMatches,
   });
 
   // Hover derivations
@@ -129,8 +134,6 @@ const VisualRoute: VoidComponent = () => {
   });
 
   // ---------- Left list pane: search and sorting ----------
-  const [searchQuery, setSearchQuery] = createSignal("");
-  const [hideNonMatches, setHideNonMatches] = createSignal(true);
   const [sortMode, setSortMode] = createSignal<"proximity" | "title" | "date">(
     "proximity"
   );
