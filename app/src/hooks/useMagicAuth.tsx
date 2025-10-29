@@ -1,5 +1,6 @@
 import { createContext, useContext, type ParentComponent } from "solid-js";
-import { createSignal, createResource, onMount } from "solid-js";
+import { createResource } from "solid-js";
+import { apiFetch } from "~/utils/base-url";
 
 type MagicAuthValue = {
   authed: () => boolean;
@@ -12,7 +13,12 @@ const MagicAuthContext = createContext<MagicAuthValue>();
 
 async function fetchSession(): Promise<boolean> {
   try {
-    const res = await fetch("/api/magic-session", { credentials: "include" });
+    const isServer = typeof window === "undefined";
+    console.log("[magic-auth] fetchSession", { isServer });
+    const res = await apiFetch("/api/magic-session", {
+      credentials: "include",
+      cache: "no-store",
+    });
     if (!res.ok) return false;
     const data = (await res.json()) as { authed?: boolean };
     return Boolean(data?.authed);
@@ -22,15 +28,10 @@ async function fetchSession(): Promise<boolean> {
 }
 
 export const MagicAuthProvider: ParentComponent = (props) => {
-  const [force, setForce] = createSignal(0);
-  const [authed, { refetch }] = createResource(force, fetchSession, {
-    initialValue: false,
-  });
-  const [loading, setLoading] = createSignal(true);
+  const [authed, { refetch }] = createResource(fetchSession);
 
   const refresh = async () => {
     console.log("[magic-auth] refresh");
-    setForce((v) => v + 1);
     await refetch();
   };
 
@@ -41,14 +42,9 @@ export const MagicAuthProvider: ParentComponent = (props) => {
     if (typeof window !== "undefined") window.location.href = "/login";
   };
 
-  onMount(async () => {
-    await refresh();
-    setLoading(false);
-  });
-
   const value: MagicAuthValue = {
     authed: () => Boolean(authed()) === true,
-    loading,
+    loading: () => Boolean((authed as any).loading) === true,
     refresh,
     logout,
   };

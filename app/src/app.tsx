@@ -22,9 +22,11 @@ export default function App() {
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
-                <AuthGate>
-                  <Suspense>{props.children}</Suspense>
-                </AuthGate>
+                <Suspense fallback={null}>
+                  <AuthGate>
+                    <Suspense>{props.children}</Suspense>
+                  </AuthGate>
+                </Suspense>
               </MagicAuthProvider>
             </QueryClientProvider>
           </SessionProvider>
@@ -43,7 +45,9 @@ const AuthGate = (props: { children: any }) => {
 
   createEffect(() => {
     if (typeof window === "undefined") return;
-    if (loading()) return;
+    if (loading()) {
+      return;
+    }
     const path = location.pathname;
     if (!authed() && path !== "/login") {
       console.log("[auth-gate] redirecting to /login from", path);
