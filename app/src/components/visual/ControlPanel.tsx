@@ -25,6 +25,8 @@ export type ControlPanelProps = {
   scale: Accessor<number>;
   searchQuery: Accessor<string>;
   setSearchQuery: (v: string) => void;
+  hideNonMatches: Accessor<boolean>;
+  setHideNonMatches: (v: boolean) => void;
   sortMode: Accessor<"proximity" | "title" | "date">;
   setSortMode: (m: "proximity" | "title" | "date") => void;
   nudging: Accessor<boolean>;
@@ -118,6 +120,14 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
               </select>
             );
           })()}
+          <label class="ml-2 inline-flex items-center gap-1 select-none">
+            <input
+              type="checkbox"
+              checked={props.hideNonMatches()}
+              onChange={(e) => props.setHideNonMatches(e.currentTarget.checked)}
+            />
+            <span>Hide non-matches</span>
+          </label>
           <button
             class={`ml-2 rounded px-2 py-1 border text-xs ${
               props.nudging()

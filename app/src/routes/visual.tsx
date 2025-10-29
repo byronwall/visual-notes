@@ -130,6 +130,7 @@ const VisualRoute: VoidComponent = () => {
 
   // ---------- Left list pane: search and sorting ----------
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [hideNonMatches, setHideNonMatches] = createSignal(true);
   const [sortMode, setSortMode] = createSignal<"proximity" | "title" | "date">(
     "proximity"
   );
@@ -145,6 +146,7 @@ const VisualRoute: VoidComponent = () => {
         viewTransform={viewTransform}
         navHeight={canvasStore.navHeight}
         searchQuery={searchQuery}
+        hideNonMatches={hideNonMatches}
         eventHandlers={panZoomHandlers}
         onSelectDoc={(id) => setSelectedId(id)}
       />
@@ -168,6 +170,8 @@ const VisualRoute: VoidComponent = () => {
         scale={canvasStore.scale}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        hideNonMatches={hideNonMatches}
+        setHideNonMatches={setHideNonMatches}
         sortMode={sortMode}
         setSortMode={(m) => setSortMode(m)}
         nudging={positionsStore.nudging}

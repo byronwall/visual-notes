@@ -35,6 +35,7 @@ export type VisualCanvasProps = {
   viewTransform: Accessor<string>;
   navHeight: Accessor<number>;
   searchQuery: Accessor<string>;
+  hideNonMatches: Accessor<boolean>;
   eventHandlers: PanZoomHandlers;
   onSelectDoc: (id: string) => void;
 };
@@ -92,28 +93,30 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                     () => !!props.searchQuery().trim() && !matchesSearch()
                   );
                   return (
-                    <g>
-                      <circle
-                        cx={pos().x}
-                        cy={pos().y}
-                        r={10}
-                        fill={dimmed() ? "#9CA3AF" : fill}
-                        stroke={
-                          isHovered()
-                            ? "#111"
-                            : dimmed()
-                            ? "#00000010"
-                            : "#00000020"
-                        }
-                        stroke-width={isHovered() ? 2 : 1}
-                        style={{ cursor: "pointer" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          props.onSelectDoc(d.id);
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      />
-                    </g>
+                    <Show when={!props.hideNonMatches() || matchesSearch()}>
+                      <g>
+                        <circle
+                          cx={pos().x}
+                          cy={pos().y}
+                          r={10}
+                          fill={dimmed() ? "#9CA3AF" : fill}
+                          stroke={
+                            isHovered()
+                              ? "#111"
+                              : dimmed()
+                              ? "#00000010"
+                              : "#00000020"
+                          }
+                          stroke-width={isHovered() ? 2 : 1}
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            props.onSelectDoc(d.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        />
+                      </g>
+                    </Show>
                   );
                 }}
               </For>
@@ -121,36 +124,58 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           </Show>
         </g>
       </svg>
-      <Show when={props.hoveredLabelScreen()}>
-        {(lbl) => (
-          <div
-            class="absolute"
-            style={{
-              left: `${lbl().x + 12}px`,
-              top: `${lbl().y - 10}px`,
-              "pointer-events": "none",
-            }}
-          >
-            <div
-              style={{
-                background: "rgba(255,255,255,0.98)",
-                border: "1px solid rgba(0,0,0,0.15)",
-                padding: "4px 8px",
-                "border-radius": "6px",
-                "box-shadow": "0 2px 6px rgba(0,0,0,0.08)",
-                color: "#111",
-                "font-size": "14px",
-                "max-width": "320px",
-                "white-space": "nowrap",
-                "text-overflow": "ellipsis",
-                overflow: "hidden",
-              }}
-            >
-              {lbl().title}
-            </div>
-          </div>
-        )}
-      </Show>
+      {(() => {
+        const hoveredIsMatch = createMemo(() => {
+          const id = props.hoveredId();
+          if (!id) return false;
+          const q = props.searchQuery().trim().toLowerCase();
+          if (!q) return true;
+          const d = (props.docs() || []).find((x) => x.id === id);
+          return d ? d.title.toLowerCase().includes(q) : false;
+        });
+        const showHover = createMemo(() => {
+          const hasLbl = !!props.hoveredLabelScreen();
+          if (!hasLbl) return false;
+          if (props.hideNonMatches() && !hoveredIsMatch()) return false;
+          return true;
+        });
+        const lbl = createMemo(() => props.hoveredLabelScreen());
+        return (
+          <Show when={showHover()}>
+            {(() => {
+              const l = lbl()!;
+              return (
+                <div
+                  class="absolute"
+                  style={{
+                    left: `${l.x + 12}px`,
+                    top: `${l.y - 10}px`,
+                    "pointer-events": "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.98)",
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      padding: "4px 8px",
+                      "border-radius": "6px",
+                      "box-shadow": "0 2px 6px rgba(0,0,0,0.08)",
+                      color: "#111",
+                      "font-size": "14px",
+                      "max-width": "320px",
+                      "white-space": "nowrap",
+                      "text-overflow": "ellipsis",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {l.title}
+                  </div>
+                </div>
+              );
+            })()}
+          </Show>
+        );
+      })()}
     </div>
   );
 };
