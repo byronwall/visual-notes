@@ -4,18 +4,16 @@ import {
   Show,
   createEffect,
   createMemo,
-  createResource,
   createSignal,
   onCleanup,
   onMount,
 } from "solid-js";
 import DocumentSidePanel from "../components/DocumentSidePanel";
-import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
 import {
-  fetchDocs,
-  fetchLatestUmapRun,
-  fetchUmapPoints,
-} from "~/services/docs.service";
+  useDocsResource,
+  useUmapPointsResource,
+  useUmapRunResource,
+} from "~/services/docs.resources";
 // DocumentSidePanel will load the full document on demand
 
 const SPREAD = 1000;
@@ -76,16 +74,11 @@ function colorFor(title: string): string {
 }
 
 const VisualCanvas: VoidComponent = () => {
-  const [docs, { refetch: refetchDocs }] = createResource(fetchDocs);
-  const [umapRun, { refetch: refetchUmapRun }] =
-    createResource(fetchLatestUmapRun);
+  const [docs, { refetch: refetchDocs }] = useDocsResource();
+  const [umapRun, { refetch: refetchUmapRun }] = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
-  const [umapPoints, { refetch: refetchUmapPoints }] = createResource(
-    () => umapRun()?.id,
-    async (runId) => {
-      if (!runId) return [] as UmapPoint[];
-      return fetchUmapPoints(runId);
-    }
+  const [umapPoints, { refetch: refetchUmapPoints }] = useUmapPointsResource(
+    () => umapRun()?.id
   );
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
