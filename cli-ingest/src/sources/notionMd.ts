@@ -1,6 +1,7 @@
 import { join, extname, basename, dirname } from "node:path";
 import { statSync, readFileSync, readdirSync } from "node:fs";
 import { IngestSource, IngestSourceOptions, RawNote } from "../types";
+import { rewriteRelativeLinks } from "../transforms/rewriteRelativeLinks";
 
 export function notionMdSource(root: string): IngestSource {
   const walk = (dir: string, acc: string[] = []) => {
@@ -15,18 +16,28 @@ export function notionMdSource(root: string): IngestSource {
 
   return {
     name: "notion-md",
-    async load({ limit }: IngestSourceOptions) {
-      // TODO: code is highly suspect will stub in correct stuff later
+    async load({}: IngestSourceOptions) {
       const files = walk(root);
-      const slice = limit > 0 ? files.slice(0, limit) : files;
-      const notes: RawNote[] = slice.map((p) => {
+
+      const notes: RawNote[] = files.map((p) => {
+        console.log("[notionMdSource.load] reading file:", p);
         const md = readFileSync(p, "utf8");
+        const mdRewritten = rewriteRelativeLinks(md);
         const title = basename(p, ".md");
         const fauxHtml = `<article data-origin="notion-md"><h1>${title}</h1>\n<pre data-md>${escapeHtml(
-          md
+          mdRewritten
         )}</pre></article>`;
+
+        const fullPathRelativeToNotionRoot = p.replace(root, "");
+        const id = sanitizeId(
+          fullPathRelativeToNotionRoot.replace(
+            extname(fullPathRelativeToNotionRoot),
+            ""
+          )
+        );
+
         return {
-          id: p,
+          id,
           title,
           createdAt: new Date(0).toISOString(),
           updatedAt: new Date(0).toISOString(),
@@ -46,3 +57,13 @@ const escapeHtml = (s: string) =>
     /[&<>"]/g,
     (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!)
   );
+
+export function sanitizeId(id: string) {
+  // if id starts with /, remove it
+  if (id.startsWith("/")) id = id.slice(1);
+
+  // take that id and remove any slashes - convert to `__`
+  id = id.replace(/\//g, "__");
+
+  return id;
+}

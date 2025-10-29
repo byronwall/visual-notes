@@ -1,8 +1,8 @@
-import { Command, program } from "commander";
+import { program } from "commander";
+import { join } from "node:path";
 import { z } from "zod";
 import { createLogger } from "./logger";
 import { runPipeline } from "./pipeline";
-import { join } from "node:path";
 
 // TODO: Major work to be done still:
 // Verify that option passing and global stuff is OK
@@ -10,8 +10,8 @@ import { join } from "node:path";
 // Clean up various code paths to locate code where it's needed
 
 const Base = z.object({
-  source: z.enum(["apple-notes", "html-dir", "notion-md"]),
-  limit: z.coerce.number().int().positive().default(10),
+  source: z.enum(["apple-notes", "html-dir", "notion-md", "chatgpt-html"]),
+  limit: z.coerce.number().int().positive().default(200),
   verbose: z.coerce.boolean().default(false),
   markdown: z.coerce.boolean().default(true),
   split: z.coerce.boolean().default(false),
@@ -44,10 +44,18 @@ const NotionMd = Base.extend({
   notionRoot: z.string().min(1, "Provide --notion-root for notion-md source"),
 });
 
+const ChatGptHtml = Base.extend({
+  source: z.literal("chatgpt-html"),
+  chatHtmlRoot: z
+    .string()
+    .min(1, "Provide --chat-html-root for chatgpt-html source"),
+});
+
 const CliSchema = z.discriminatedUnion("source", [
   AppleNotes,
   HtmlDir,
   NotionMd,
+  ChatGptHtml,
 ]);
 export type IngestOptions = z.infer<typeof CliSchema>;
 
@@ -67,7 +75,10 @@ export async function parseCli(
 ): Promise<IngestOptions> {
   program
     .name("visual-notes-ingest")
-    .option("--source <source>", "apple-notes | html-dir | notion-md")
+    .option(
+      "--source <source>",
+      "apple-notes | html-dir | notion-md | chatgpt-html"
+    )
     .option("-n, --limit <n>", "max notes")
     .option("--markdown", "convert to markdown")
     .option("--split", "write split .md files")
@@ -82,6 +93,10 @@ export async function parseCli(
     .option(
       "--notion-root <path>",
       "root of Notion exported Markdown tree (notion-md)"
+    )
+    .option(
+      "--chat-html-root <path>",
+      "root dir or a file containing chat.html (chatgpt-html)"
     )
     .option("--post", "POST to server")
     .option("--server-url <url>", "server base URL")

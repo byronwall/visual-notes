@@ -57,15 +57,41 @@ const DocumentEditor: VoidComponent<{
     () => doc()?.title || props.initialTitle || "Untitled note"
   );
 
+  // TODO: need to delete HTML from imports - just rely on markdown
+
   const initialHTML = createMemo(() => {
     const d = doc();
-    if (d) return d.html || normalizeMarkdownToHtml(d.markdown);
+    if (d) {
+      const from = d.html ? "html" : d.markdown ? "markdown" : "none";
+      const html = d.html || normalizeMarkdownToHtml(d.markdown);
+      try {
+        const hasPre = /<pre\b[^>]*>\s*<code\b/i.test(html);
+        const sample = html.slice(0, 200);
+        console.log(
+          "[editor.initialHTML] source:%s len:%d preCode:%s sample:%s",
+          from,
+          html.length,
+          hasPre,
+          sample
+        );
+      } catch {}
+      return html;
+    }
     if (props.initialHTML) return props.initialHTML;
 
     console.log("[editor.initialHTML] initialMarkdown:", props.initialMarkdown);
-    return normalizeMarkdownToHtml(
+    const html = normalizeMarkdownToHtml(
       props.initialMarkdown || "# Untitled\n\nStart writing..."
     );
+    try {
+      const hasPre = /<pre\b[^>]*>\s*<code\b/i.test(html);
+      console.log(
+        "[editor.initialHTML] fallback len:%d preCode:%s",
+        html.length,
+        hasPre
+      );
+    } catch {}
+    return html;
   });
 
   // Track editor updates to mark dirty

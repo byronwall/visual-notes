@@ -7,16 +7,38 @@ import {
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
 
+function getIdFromNotionId(id: string) {
+  let initialId = decodeURIComponent(id.slice("__NOTION__".length));
+
+  // if it ends with `.md`, remove it
+  if (initialId.endsWith(".md")) {
+    initialId = initialId.slice(0, -3);
+  }
+
+  return initialId;
+}
+
 export async function GET(event: APIEvent) {
   const id = event.params?.id as string;
+
   if (!id) return json({ error: "Missing id" }, { status: 400 });
-  const doc = await prisma.doc.findUnique({
-    where: { id },
-  });
+  // Support special Notion links that encode originalContentId with a __NOTION__ prefix
+  const isNotionId = id.startsWith("__NOTION__");
+
+  const resolvedDoc = isNotionId
+    ? await prisma.doc.findFirst({
+        where: {
+          originalContentId: getIdFromNotionId(id),
+        },
+      })
+    : await prisma.doc.findUnique({
+        where: { id },
+      });
+  const doc = resolvedDoc;
   if (!doc) return json({ error: "Not found" }, { status: 404 });
   // Attach embedding runs relevant to this doc with summarized results
   const embeddings = await prisma.docEmbedding.findMany({
-    where: { docId: id },
+    where: { docId: doc.id },
     select: { runId: true, vector: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
@@ -59,7 +81,7 @@ export async function GET(event: APIEvent) {
     const dataImgCount = (html.match(/<img[^>]*src=["']data:/gi) || []).length;
     console.log(
       "[api.docs.get] doc:%s html len:%d imgs:%d dataImgs:%d",
-      id,
+      doc.id,
       html.length,
       imgCount,
       dataImgCount

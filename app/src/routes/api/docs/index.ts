@@ -1,12 +1,9 @@
 import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
-import { prisma } from "~/server/db";
-import { z } from "zod";
-import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
 import { createHash } from "crypto";
+import { z } from "zod";
+import { prisma } from "~/server/db";
+import { sanitizeHtmlContent } from "~/server/lib/markdown";
 
 const ingestInput = z
   .object({
@@ -30,15 +27,20 @@ export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
     const input = ingestInput.parse(body);
-    const usingMarkdown = Boolean(input.markdown);
-    const html = usingMarkdown
-      ? normalizeMarkdownToHtml(input.markdown!)
-      : sanitizeHtmlContent(String(input.html || ""));
+
+    // html is preferred - if it's used, we don't want to populate markdown
+    const usingHtml = Boolean(input.html);
+    const usingMarkdown = !usingHtml && Boolean(input.markdown);
+
+    // if html is used, we want to sanitize it
+    const html = usingHtml ? sanitizeHtmlContent(String(input.html)) : "";
+    const markdown = usingMarkdown ? input.markdown! : "";
+
+    // NOTE: from here down, do not refer to input.html or input.markdown - only use html and markdown
+
     const contentHash = input.contentHash
       ? input.contentHash
-      : computeSha256Hex(
-          usingMarkdown ? input.markdown! : String(input.html || "")
-        );
+      : computeSha256Hex(usingMarkdown ? markdown : html);
 
     if (input.originalContentId) {
       // If an item with the same (originalSource, originalContentId) exists and content is unchanged, return a non-success code
@@ -71,7 +73,7 @@ export async function POST(event: APIEvent) {
           where: { id: existing.id },
           data: {
             title: input.title,
-            markdown: usingMarkdown ? input.markdown! : "",
+            markdown,
             html,
             contentHash,
           },
@@ -82,7 +84,7 @@ export async function POST(event: APIEvent) {
       const created = await prisma.doc.create({
         data: {
           title: input.title,
-          markdown: usingMarkdown ? input.markdown! : "",
+          markdown,
           html,
           originalSource: input.originalSource,
           originalContentId: input.originalContentId,
@@ -95,7 +97,7 @@ export async function POST(event: APIEvent) {
       const created = await prisma.doc.create({
         data: {
           title: input.title,
-          markdown: usingMarkdown ? input.markdown! : "",
+          markdown,
           html,
           contentHash,
         },

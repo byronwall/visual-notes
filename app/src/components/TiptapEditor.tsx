@@ -1,6 +1,9 @@
 import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { createLowlight, common } from "lowlight";
+import "highlight.js/styles/github.css";
 import { Show, createEffect, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 
@@ -201,7 +204,11 @@ export default function TiptapEditor(props: {
 
   const editor = createTiptapEditor(() => ({
     element: container()!,
-    extensions: [StarterKit, Image.configure({ allowBase64: true })],
+    extensions: [
+      StarterKit.configure({ codeBlock: false }),
+      Image.configure({ allowBase64: true }),
+      CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
+    ],
     editorProps: {
       attributes: { class: "p-4 focus:outline-none prose max-w-full" },
     },
@@ -226,14 +233,19 @@ export default function TiptapEditor(props: {
         ed.commands.setContent(next, { emitUpdate: false });
         try {
           const after = ed.getHTML();
+          const hasPre = /<pre\b[^>]*>\s*<code\b/i.test(after);
+          const json = ed.getJSON();
+          const hasCodeBlockNode = JSON.stringify(json).includes('"codeBlock"');
           const afterImgs = (after.match(/<img\b/gi) || []).length;
           const afterDataImgs = (after.match(/<img[^>]*src=["']data:/gi) || [])
             .length;
           console.log(
-            "[tiptap.setContent] after len:%d imgs:%d dataImgs:%d",
+            "[tiptap.setContent] after len:%d imgs:%d dataImgs:%d preCode:%s codeBlockNode:%s",
             after.length,
             afterImgs,
-            afterDataImgs
+            afterDataImgs,
+            hasPre,
+            hasCodeBlockNode
           );
         } catch {}
       }

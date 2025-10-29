@@ -14,6 +14,21 @@
       1. Basically... never lose a link
       2. Even better though, links will be brought into the fold so they immediate are adding to a whole in a useful way (or possibly more useful)
 
+## ChatGPT import
+
+- Review embedding token limits - hitting the limit by a ton on one request -- also why is this bringing down the whole thing?
+
+> hook.js:608 Error: OpenAI embeddings error 400: {
+> "error": {
+
+    "message": "This model's maximum context length is 8192 tokens, however you requested 18742 tokens (18742 in your prompt; 0 for the completion). Please reduce your prompt; or completion length.",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+
+}
+}
+
 ## Prisma + DB
 
 - Need to add proper relations instead of just storing IDs as string

@@ -5,7 +5,12 @@ import { loadSkipIndex, mergeSkipIndex, saveSkipIndex } from "./io/skipIndex";
 import { fetchInventory } from "./services/inventory";
 import { planUploads, postBatches } from "./services/uploader";
 import { htmlToMarkdown } from "./transforms/htmlToMarkdown";
+import { inlineRelativeImages } from "./transforms/inlineImages";
+import { cleanChatgptMarkdownAst } from "./transforms/markdownAstClean";
 import { ExportedNote, IngestSource, RawNote } from "./types";
+import { htmlDirSource } from "./sources/htmlDir";
+import { notionMdSource } from "./sources/notionMd";
+import { chatgptHtmlSource } from "./sources/chatgptHtml";
 
 export async function runPipeline() {
   const outDir = globalCliOptions.outDir ?? join(process.cwd(), "out");
@@ -18,6 +23,7 @@ export async function runPipeline() {
     limit: globalCliOptions.limit,
     verbose: globalCliOptions.verbose,
   });
+  console.log(`[ingest] notes loaded: ${notes.length}`);
 
   if (skipLogs?.length) {
     const counts = countBy(skipLogs, (s) => s.reason);
@@ -44,37 +50,17 @@ export async function runPipeline() {
       : notes;
 
   // TODO: clean up this "should convert to markdown" logic - CLI should decide, not user
+  if (globalCliOptions.markdown)
+    console.log(`[ingest] converting to markdown...`);
   const exported: ExportedNote[] = globalCliOptions.markdown
     ? convertToMarkdown(limited)
     : [];
-
-  // TODO: not clear why this switch is here or what the file does
-  const jsonPath = join(
-    outDir,
-    globalCliOptions.markdown ? "notes.json" : "raw-index.json"
-  );
-  writeFileSync(
-    jsonPath,
-    JSON.stringify(
-      {
-        exportedAt: new Date().toISOString(),
-        noteCount: globalCliOptions.markdown ? exported.length : limited.length,
-        notes: globalCliOptions.markdown ? exported : limited,
-        meta,
-      },
-      null,
-      2
-    )
-  );
-  logger.info(
-    `[ingest] wrote ${
-      globalCliOptions.markdown ? "markdown" : "raw"
-    } index -> ${jsonPath}`
-  );
+  if (globalCliOptions.markdown)
+    console.log(`[ingest] converted ${exported.length} note(s) to markdown`);
 
   // TODO: why `split` - give a better name about "write markdown to disk"
   if (globalCliOptions.markdown && globalCliOptions.split) {
-    const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md");
+    const splitDir = globalCliOptions.splitDir ?? join(outDir, "notes-md3");
     mkdirSync(splitDir, { recursive: true });
     exported.forEach((n: ExportedNote, i: number) => {
       const idx = String(i + 1).padStart(String(exported.length).length, "0");
@@ -119,25 +105,42 @@ export async function runPipeline() {
 }
 
 function convertToMarkdown(raw: RawNote[]): ExportedNote[] {
-  return raw.map((n) => {
-    // Prefer inline HTML if present; otherwise, read from filePath when available
-    let bodyHtml: string = typeof n.html === "string" ? n.html : "";
-    if ((!bodyHtml || bodyHtml.trim().length === 0) && n.filePath) {
-      try {
-        const full = readFileSync(n.filePath, "utf8");
-        const match = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-        bodyHtml = match ? match[1] : full;
-      } catch (e) {
-        logger.warn(
-          `[ingest] failed reading HTML file at ${n.filePath}: ${
-            e instanceof Error ? e.message : String(e)
-          }`
-        );
-        bodyHtml = "";
+  return raw.map((n, i) => {
+    try {
+      console.log(`[convert] ${i + 1}/${raw.length} id=${n.id}`);
+      // Prefer inline HTML if present; otherwise, read from filePath when available
+      let bodyHtml: string = typeof n.html === "string" ? n.html : "";
+      if ((!bodyHtml || bodyHtml.trim().length === 0) && n.filePath) {
+        try {
+          const full = readFileSync(n.filePath, "utf8");
+          const match = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+          bodyHtml = match ? match[1] : full;
+        } catch (e) {
+          logger.warn(
+            `[ingest] failed reading HTML file at ${n.filePath}: ${
+              e instanceof Error ? e.message : String(e)
+            }`
+          );
+          bodyHtml = "";
+        }
       }
+      console.log(`[convert] html length=${bodyHtml.length}`);
+      const md = htmlToMarkdown(bodyHtml);
+      console.log(`[convert] md length=${md.length}`);
+      const mdAstClean = cleanChatgptMarkdownAst(md);
+      console.log(`[convert] mdAstClean length=${mdAstClean.length}`);
+      console.log(`[convert] inline images baseDir=${n.folder}`);
+      const mdWithImages = inlineRelativeImages(mdAstClean, n.folder);
+      console.log(`[convert] images inlined length=${mdWithImages.length}`);
+      return { ...n, markdown: mdWithImages };
+    } catch (e) {
+      console.log(
+        `[convert] error for id=${n.id}: ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
+      return { ...n, markdown: "" };
     }
-    const md = htmlToMarkdown(bodyHtml);
-    return { ...n, markdown: md };
   });
 }
 
@@ -193,18 +196,23 @@ async function resolveSource(): Promise<IngestSource> {
     return appleNotesSource(scriptPath, knownIdsPath);
   }
 
-  // TODO: don't do these lazy imports - just import and call w/ cleaner code
   if (globalCliOptions.source === "html-dir") {
-    const { htmlDirSource } = await import("./sources/htmlDir");
     if (!globalCliOptions.fromHtmlDir)
       throw new Error("--from-html-dir is required for source=html-dir");
     return htmlDirSource(globalCliOptions.fromHtmlDir);
   }
   if (globalCliOptions.source === "notion-md") {
-    const { notionMdSource } = await import("./sources/notionMd");
     if (!globalCliOptions.notionRoot)
       throw new Error("--notion-root is required for source=notion-md");
     return notionMdSource(globalCliOptions.notionRoot);
+  }
+
+  if (globalCliOptions.source === "chatgpt-html") {
+    if (!("chatHtmlRoot" in globalCliOptions) || !globalCliOptions.chatHtmlRoot)
+      throw new Error("--chat-html-root is required for source=chatgpt-html");
+    return chatgptHtmlSource(
+      globalCliOptions.chatHtmlRoot as unknown as string
+    );
   }
 
   throw new Error(`Unknown source`);
