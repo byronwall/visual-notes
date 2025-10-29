@@ -3,8 +3,11 @@ import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
 import { normalizeUmap } from "~/layout/umap-normalize";
 import { seededPositionFor } from "~/layout/seeded";
 import { buildKdTree, type KDNode } from "~/spatial/kdtree";
+import { nudgePositions } from "~/layout/nudge";
 
 const SPREAD = 1000;
+const NODE_RADIUS = 10;
+const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
 type Point = { x: number; y: number };
 
@@ -65,13 +68,25 @@ export function createPositionsStore(deps: {
 
   async function runNudge(iterations = 200) {
     if (nudging()) return;
+    const list = docs() || [];
+    if (list.length === 0) return;
     setNudging(true);
     try {
-      // Placeholder for Step 6; no-op for now except a log.
+      const startPositions = positions();
+      const base = basePositions();
+      const { adjustments } = await nudgePositions({
+        docs: list,
+        startPositions,
+        basePositions: base,
+        minSeparation: MIN_SEP,
+        spread: SPREAD,
+        iterations,
+      });
+      setAdjustments(adjustments);
+      setLayoutVersion((v) => v + 1);
       console.log(
-        `[positions.store] runNudge(iterations=${iterations}) placeholder`
+        `[positions.store] Nudge complete: adjusted ${adjustments.size} nodes`
       );
-      await Promise.resolve();
     } finally {
       setNudging(false);
     }
