@@ -16,7 +16,8 @@ import {
 } from "~/services/docs.resources";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
-import { kdNearest } from "~/spatial/kdtree";
+import { createPanZoomHandlers } from "~/hooks/usePanZoom";
+import { createHoverDerivations } from "~/hooks/useHover";
 import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 // DocumentSidePanel will load the full document on demand
@@ -54,122 +55,20 @@ const VisualCanvas: VoidComponent = () => {
   let gEl: SVGGElement | undefined;
   let lastPan = { x: 0, y: 0 };
 
-  // Mouse tracking (screen and world space)
-  const mouseWorld = createMemo(() => {
-    const s = canvasStore.scale();
-    const t = canvasStore.offset();
-    const m = canvasStore.mouseScreen();
-    return { x: (m.x - t.x) / s, y: (m.y - t.y) / s };
-  });
-
-  // Click detection thresholds (element-relative screen space)
-  const CLICK_TOL_PX = 5; // movement within this is considered a click, not a pan
-  const CLICK_TOL_MS = 500; // optional time window for a click
-  let clickStart: { x: number; y: number } | undefined;
-  let clickStartTime = 0;
+  // Hover derivations
+  const hover = createHoverDerivations({ positionsStore, canvasStore, docs });
 
   // Positions and transform via stores
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
   const scheduleTransform = () => canvasStore.scheduleTransform();
 
-  function onWheel(e: WheelEvent) {
-    e.preventDefault();
-    const delta = e.deltaY;
-    const zoomIntensity = 0.0015; // smaller = slower zoom
-    // Use element-relative mouse coordinates to avoid offset bugs
-    const container = e.currentTarget as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const currentScale = canvasStore.scale();
-    const newScale = Math.min(
-      4,
-      Math.max(0.2, currentScale * Math.pow(2, -delta * zoomIntensity))
-    );
-
-    const t = canvasStore.offset();
-    // Zoom towards the mouse position (screen-space to world-space adjustment)
-    const worldXBefore = mouseX - t.x;
-    const worldYBefore = mouseY - t.y;
-    const worldXAfter = worldXBefore * (newScale / currentScale);
-    const worldYAfter = worldYBefore * (newScale / currentScale);
-    const dx = worldXBefore - worldXAfter;
-    const dy = worldYBefore - worldYAfter;
-
-    canvasStore.setScale(newScale);
-    canvasStore.setOffset({ x: t.x + dx, y: t.y + dy });
-    scheduleTransform();
-  }
-
-  function onPointerDown(e: PointerEvent) {
-    const container = e.currentTarget as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    const localX = e.clientX - rect.left;
-    const localY = e.clientY - rect.top;
-    container.setPointerCapture(e.pointerId);
-    canvasStore.setIsPanning(true);
-    // Initialize pan anchor in element-relative coordinates for consistency
-    lastPan = { x: localX, y: localY };
-    // Ensure mouse position is current even if user doesn't move before release
-    canvasStore.setMouseScreen({ x: localX, y: localY });
-    // Track click candidate
-    clickStart = { x: localX, y: localY };
-    clickStartTime =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    // Track element-relative mouse coordinates
-    const container = e.currentTarget as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    canvasStore.setMouseScreen({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-    if (!canvasStore.isPanning()) return;
-    const localX = e.clientX - rect.left;
-    const localY = e.clientY - rect.top;
-    const dx = localX - lastPan.x;
-    const dy = localY - lastPan.y;
-    lastPan = { x: localX, y: localY };
-    const t = canvasStore.offset();
-    canvasStore.setOffset({ x: t.x + dx, y: t.y + dy });
-    scheduleTransform();
-  }
-
-  function onPointerUp(e: PointerEvent) {
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (_) {}
-    canvasStore.setIsPanning(false);
-    // Detect bare click (minimal movement, short duration) to open nearest item
-    const container = e.currentTarget as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    const localX = e.clientX - rect.left;
-    const localY = e.clientY - rect.top;
-    canvasStore.setMouseScreen({ x: localX, y: localY });
-    if (clickStart) {
-      const dx = localX - clickStart.x;
-      const dy = localY - clickStart.y;
-      const dist = Math.hypot(dx, dy);
-      const dt =
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
-        clickStartTime;
-      if (
-        (e as any).button === 0 &&
-        dist <= CLICK_TOL_PX &&
-        dt <= CLICK_TOL_MS
-      ) {
-        // Consistent with hover behavior: open only if hover label would show
-        const canOpen = showHoverLabel();
-        const id = hoveredDocId();
-        if (canOpen && id) setSelectedId(id);
-      }
-    }
-    clickStart = undefined;
-  }
+  // Pan/zoom handlers
+  const panZoomHandlers = createPanZoomHandlers(canvasStore, {
+    getCanOpen: hover.showHoverLabel,
+    getHoveredId: hover.hoveredId,
+    onOpenDoc: (id) => setSelectedId(id),
+  });
 
   function measureNav() {
     const nav = document.querySelector("nav");
@@ -263,48 +162,10 @@ const VisualCanvas: VoidComponent = () => {
     }
   });
 
-  // ---------- Spatial index (KD-Tree) for nearest lookup ----------
-
-  const kdTree = createMemo(() => positionsStore.kdTree());
-
-  // Nearest doc id to mouse
-  const nearestToMouse = createMemo(() => {
-    const root = kdTree();
-    const m = mouseWorld();
-    if (!root) return undefined as unknown as { id?: string; dist2?: number };
-    return kdNearest(root, m);
-  });
-
-  const hoveredDocId = createMemo(() => nearestToMouse()?.id);
-  const hoveredScreenDist = createMemo(() => {
-    const d2 = nearestToMouse()?.dist2;
-    if (d2 === undefined) return Infinity;
-    const s = canvasStore.scale();
-    return Math.sqrt(d2) * s; // convert world -> screen distance
-  });
-
-  // Show label only when cursor is reasonably close in screen space
-  const showHoverLabel = createMemo(() => hoveredScreenDist() < 48);
-
-  // Compute hovered label in SCREEN coordinates so it doesn't scale with zoom
-  const hoveredLabelScreen = createMemo(() => {
-    if (!showHoverLabel())
-      return undefined as unknown as {
-        x: number;
-        y: number;
-        title: string;
-      };
-    const id = hoveredDocId();
-    if (!id)
-      return undefined as unknown as { x: number; y: number; title: string };
-    const pos = positions().get(id);
-    if (!pos)
-      return undefined as unknown as { x: number; y: number; title: string };
-    const s = canvasStore.scale();
-    const t = canvasStore.offset();
-    const title = (docs() || []).find((d) => d.id === id)?.title || id;
-    return { x: pos.x * s + t.x, y: pos.y * s + t.y, title };
-  });
+  // Hover values
+  const hoveredDocId = () => hover.hoveredId();
+  const hoveredLabelScreen = () => hover.hoveredLabelScreen();
+  const showHoverLabel = () => hover.showHoverLabel();
 
   // Nudge handled by positions store (placeholder in Step 4)
 
@@ -318,7 +179,7 @@ const VisualCanvas: VoidComponent = () => {
     const list = docs() || [];
     const q = searchQuery().trim().toLowerCase();
     const pos = positions();
-    const m = mouseWorld();
+    const m = hover.mouseWorld();
     const sMode = sortMode();
     const filtered = q
       ? list.filter((d) => d.title.toLowerCase().includes(q))
@@ -353,10 +214,10 @@ const VisualCanvas: VoidComponent = () => {
           bottom: "0",
           top: `${canvasStore.navHeight()}px`,
         }}
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        onWheel={panZoomHandlers.onWheel}
+        onPointerDown={panZoomHandlers.onPointerDown}
+        onPointerMove={panZoomHandlers.onPointerMove}
+        onPointerUp={panZoomHandlers.onPointerUp}
       >
         <svg
           ref={(el) => (svgEl = el)}
@@ -533,7 +394,7 @@ const VisualCanvas: VoidComponent = () => {
                         <span class="truncate text-sm">{d.title}</span>
                         <span class="ml-auto text-[10px] text-gray-500 flex-shrink-0">
                           {(() => {
-                            const m = mouseWorld();
+                            const m = hover.mouseWorld();
                             const pp = p();
                             if (!pp) return "";
                             const dx = pp.x - m.x;
