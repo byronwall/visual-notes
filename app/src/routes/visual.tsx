@@ -14,6 +14,10 @@ import {
   useUmapPointsResource,
   useUmapRunResource,
 } from "~/services/docs.resources";
+import { colorFor } from "~/utils/colors";
+import { seededPositionFor } from "~/layout/seeded";
+import { normalizeUmap } from "~/layout/umap-normalize";
+import { buildKdTree, kdNearest, type KDNode } from "~/spatial/kdtree";
 // DocumentSidePanel will load the full document on demand
 
 const SPREAD = 1000;
@@ -21,57 +25,9 @@ const isBrowser = typeof window !== "undefined";
 const NODE_RADIUS = 10;
 const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
-// data fetching moved to services module
+// data & layout helpers moved to services/utils/layout modules
 
-function hashString(input: string): number {
-  // Simple 32-bit FNV-1a hash
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash =
-      (hash +
-        ((hash << 1) +
-          (hash << 4) +
-          (hash << 7) +
-          (hash << 8) +
-          (hash << 24))) >>>
-      0;
-  }
-  return hash >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let t = seed >>> 0;
-  return () => {
-    t += 0x6d2b79f5;
-    let x = Math.imul(t ^ (t >>> 15), 1 | t);
-    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function seededPositionFor(
-  title: string,
-  index: number
-): { x: number; y: number } {
-  const base = `${title}\u0000${index}`;
-  const seed = hashString(base);
-  const rnd = mulberry32(seed);
-  // Map to roughly a circle, then scale out to a generous plane
-  const angle = rnd() * Math.PI * 2;
-  const radius = Math.sqrt(rnd());
-  const x = Math.cos(angle) * radius * SPREAD;
-  const y = Math.sin(angle) * radius * SPREAD;
-  return { x, y };
-}
-
-function colorFor(title: string): string {
-  const h = hashString(title);
-  const hue = h % 360;
-  const sat = 55 + (h % 20); // 55–74
-  const light = 55; // fixed for readability
-  return `hsl(${hue} ${sat}% ${light}%)`;
-}
+// seededPositionFor, colorFor now imported
 
 const VisualCanvas: VoidComponent = () => {
   const [docs, { refetch: refetchDocs }] = useDocsResource();
@@ -117,58 +73,7 @@ const VisualCanvas: VoidComponent = () => {
   let clickStartTime = 0;
 
   // Build a normalized index of UMAP positions mapped into a consistent world space
-  const umapIndex = createMemo(() => {
-    const pts = umapPoints();
-    if (!pts || pts.length === 0)
-      return new Map<string, { x: number; y: number }>();
-
-    // Compute bounding box
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const p of pts) {
-      if (p.x < minX) minX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y > maxY) maxY = p.y;
-    }
-
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-
-    // Scale to fit within [-SPREAD, SPREAD] while preserving aspect ratio
-    const safeWidth = width === 0 ? 1 : width;
-    const safeHeight = height === 0 ? 1 : height;
-    const scale = Math.min((2 * SPREAD) / safeWidth, (2 * SPREAD) / safeHeight);
-
-    const map = new Map<string, { x: number; y: number }>();
-    for (const p of pts) {
-      const nx = (p.x - cx) * scale;
-      const ny = (p.y - cy) * scale;
-      map.set(p.docId, { x: nx, y: ny });
-    }
-    try {
-      console.log(
-        `[visual] UMAP normalization: bbox min=(${minX.toFixed(
-          2
-        )}, ${minY.toFixed(2)}) max=(${maxX.toFixed(2)}, ${maxY.toFixed(
-          2
-        )}), span=(${(maxX - minX).toFixed(2)}, ${(maxY - minY).toFixed(
-          2
-        )}), scale=${scale.toFixed(3)}; points=${pts.length}`
-      );
-      const preview = pts.slice(0, Math.min(5, pts.length)).map((p) => ({
-        docId: p.docId,
-        src: { x: p.x, y: p.y },
-        norm: map.get(p.docId),
-      }));
-      console.log(`[visual] UMAP sample (first ${preview.length})`, preview);
-    } catch {}
-    return map;
-  });
+  const umapIndex = createMemo(() => normalizeUmap(umapPoints(), SPREAD));
 
   // Base positions from UMAP or seeded placement (no user adjustments)
   const basePositions = createMemo(() => {
@@ -181,7 +86,7 @@ const VisualCanvas: VoidComponent = () => {
       const d = list[i]!;
       const fromUmap = preferUmap ? index.get(d.id) : undefined;
       if (fromUmap) map.set(d.id, fromUmap);
-      else map.set(d.id, seededPositionFor(d.title, i));
+      else map.set(d.id, seededPositionFor(d.title, i, SPREAD));
     }
     return map;
   });
@@ -355,7 +260,7 @@ const VisualCanvas: VoidComponent = () => {
         sample.map((d, i) => ({
           id: d.id,
           title: d.title,
-          pos: seededPositionFor(d.title, i),
+          pos: seededPositionFor(d.title, i, SPREAD),
         }))
       );
       if (isBrowser && list.length > 0) fitToSpread();
@@ -394,7 +299,7 @@ const VisualCanvas: VoidComponent = () => {
         id: d.id,
         title: d.title,
         source: fromUmap ? "umap" : "seed",
-        pos: fromUmap ?? seededPositionFor(d.title, i),
+        pos: fromUmap ?? seededPositionFor(d.title, i, SPREAD),
       };
     });
     console.log(
@@ -411,64 +316,6 @@ const VisualCanvas: VoidComponent = () => {
   });
 
   // ---------- Spatial index (KD-Tree) for nearest lookup ----------
-  type KDNode = {
-    point: { x: number; y: number; id: string };
-    left?: KDNode;
-    right?: KDNode;
-    axis: 0 | 1; // 0=x, 1=y
-  };
-
-  function buildKdTree(
-    points: { x: number; y: number; id: string }[],
-    depth = 0
-  ): KDNode | undefined {
-    if (points.length === 0) return undefined;
-    const axis = (depth % 2) as 0 | 1;
-    const sorted = points
-      .slice()
-      .sort((a, b) => (axis === 0 ? a.x - b.x : a.y - b.y));
-    const median = Math.floor(sorted.length / 2);
-    return {
-      point: sorted[median]!,
-      left: buildKdTree(sorted.slice(0, median), depth + 1),
-      right: buildKdTree(sorted.slice(median + 1), depth + 1),
-      axis,
-    };
-  }
-
-  function kdNearest(
-    root: KDNode | undefined,
-    target: { x: number; y: number },
-    excludeId?: string
-  ) {
-    let bestId: string | undefined;
-    let bestDist2 = Infinity;
-    function sqr(n: number) {
-      return n * n;
-    }
-    function dist2(a: { x: number; y: number }, b: { x: number; y: number }) {
-      return sqr(a.x - b.x) + sqr(a.y - b.y);
-    }
-    function search(node: KDNode | undefined) {
-      if (!node) return;
-      if (node.point.id !== excludeId) {
-        const d2 = dist2(target, node.point);
-        if (d2 < bestDist2) {
-          bestDist2 = d2;
-          bestId = node.point.id;
-        }
-      }
-      const axis = node.axis;
-      const diff =
-        axis === 0 ? target.x - node.point.x : target.y - node.point.y;
-      const first = diff < 0 ? node.left : node.right;
-      const second = diff < 0 ? node.right : node.left;
-      search(first);
-      if (sqr(diff) < bestDist2) search(second);
-    }
-    search(root);
-    return { id: bestId, dist2: bestDist2 };
-  }
 
   const kdTree = createMemo(() => {
     const list = docs();
@@ -754,7 +601,8 @@ const VisualCanvas: VoidComponent = () => {
                   {(d, i) => {
                     const pos = createMemo(
                       () =>
-                        positions().get(d.id) ?? seededPositionFor(d.title, i())
+                        positions().get(d.id) ??
+                        seededPositionFor(d.title, i(), SPREAD)
                     );
                     const fill = colorFor(d.title);
                     const isHovered = createMemo(
