@@ -2,6 +2,10 @@ import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import { createLowlight, common } from "lowlight";
 import "highlight.js/styles/github.css";
 import { Show, createEffect, createSignal } from "solid-js";
@@ -65,6 +69,52 @@ function Control(props: {
 }
 
 function ToolbarContents(props: { editor: Editor }) {
+  const insertTable = () => {
+    try {
+      console.log("[tiptap.table] insert 3x3 with header");
+    } catch {}
+    props.editor
+      .chain()
+      .focus()
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+      .run();
+  };
+
+  const addRowAfter = () => {
+    try {
+      console.log("[tiptap.table] addRowAfter");
+    } catch {}
+    props.editor.chain().focus().addRowAfter().run();
+  };
+
+  const addColumnAfter = () => {
+    try {
+      console.log("[tiptap.table] addColumnAfter");
+    } catch {}
+    props.editor.chain().focus().addColumnAfter().run();
+  };
+
+  const deleteRow = () => {
+    try {
+      console.log("[tiptap.table] deleteRow");
+    } catch {}
+    props.editor.chain().focus().deleteRow().run();
+  };
+
+  const deleteColumn = () => {
+    try {
+      console.log("[tiptap.table] deleteColumn");
+    } catch {}
+    props.editor.chain().focus().deleteColumn().run();
+  };
+
+  const deleteTable = () => {
+    try {
+      console.log("[tiptap.table] deleteTable");
+    } catch {}
+    props.editor.chain().focus().deleteTable().run();
+  };
+
   return (
     <div class="p-2 flex space-x-1">
       <div class="flex space-x-1">
@@ -182,6 +232,63 @@ function ToolbarContents(props: { editor: Editor }) {
           {"{ }"}
         </Control>
       </div>
+      <Separator />
+      <div class="flex space-x-1">
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={insertTable}
+          title="Insert Table"
+        >
+          Tbl
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={addRowAfter}
+          title="Add Row"
+        >
+          +R
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={addColumnAfter}
+          title="Add Column"
+        >
+          +C
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={deleteRow}
+          title="Delete Row"
+        >
+          -R
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={deleteColumn}
+          title="Delete Column"
+        >
+          -C
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={deleteTable}
+          title="Delete Table"
+        >
+          ×Tbl
+        </Control>
+      </div>
     </div>
   );
 }
@@ -208,6 +315,14 @@ export default function TiptapEditor(props: {
       StarterKit.configure({ codeBlock: false }),
       Image.configure({ allowBase64: true }),
       CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
+      Table.configure({
+        resizable: true,
+        lastColumnResizable: true,
+        allowTableNodeSelection: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     editorProps: {
       attributes: { class: "p-4 focus:outline-none prose max-w-full" },
