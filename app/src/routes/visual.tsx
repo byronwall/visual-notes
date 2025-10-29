@@ -16,14 +16,13 @@ import {
 } from "~/services/docs.resources";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
-import { normalizeUmap } from "~/layout/umap-normalize";
-import { buildKdTree, kdNearest, type KDNode } from "~/spatial/kdtree";
+import { kdNearest } from "~/spatial/kdtree";
+import { createCanvasStore } from "~/stores/canvas.store";
+import { createPositionsStore } from "~/stores/positions.store";
 // DocumentSidePanel will load the full document on demand
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
-const NODE_RADIUS = 10;
-const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
 // data & layout helpers moved to services/utils/layout modules
 
@@ -41,28 +40,25 @@ const VisualCanvas: VoidComponent = () => {
   );
   // Panel fetches document internally
 
-  // Pan/zoom state
-  const [scale, setScale] = createSignal(1);
-  const [offset, setOffset] = createSignal({ x: 0, y: 0 });
-  const [navHeight, setNavHeight] = createSignal(56);
-  const [isPanning, setIsPanning] = createSignal(false);
-  let lastPan = { x: 0, y: 0 };
-  let frame = 0 as number | undefined;
-  // SVG elements
+  // Stores
+  const canvasStore = createCanvasStore();
+  const positionsStore = createPositionsStore({
+    docs,
+    umapRun,
+    umapPoints,
+    useUmap: canvasStore.useUmap,
+  });
+
+  // SVG elements + pan anchor
   let svgEl: SVGSVGElement | undefined;
   let gEl: SVGGElement | undefined;
-  const [useUmap, setUseUmap] = createSignal(true);
-  const [layoutVersion, setLayoutVersion] = createSignal(0);
-  const [adjustments, setAdjustments] = createSignal(
-    new Map<string, { x: number; y: number }>()
-  );
+  let lastPan = { x: 0, y: 0 };
 
   // Mouse tracking (screen and world space)
-  const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
   const mouseWorld = createMemo(() => {
-    const s = scale();
-    const t = offset();
-    const m = mouseScreen();
+    const s = canvasStore.scale();
+    const t = canvasStore.offset();
+    const m = canvasStore.mouseScreen();
     return { x: (m.x - t.x) / s, y: (m.y - t.y) / s };
   });
 
@@ -72,54 +68,10 @@ const VisualCanvas: VoidComponent = () => {
   let clickStart: { x: number; y: number } | undefined;
   let clickStartTime = 0;
 
-  // Build a normalized index of UMAP positions mapped into a consistent world space
-  const umapIndex = createMemo(() => normalizeUmap(umapPoints(), SPREAD));
-
-  // Base positions from UMAP or seeded placement (no user adjustments)
-  const basePositions = createMemo(() => {
-    const list = docs();
-    const index = umapIndex();
-    const preferUmap = useUmap();
-    const map = new Map<string, { x: number; y: number }>();
-    if (!list) return map;
-    for (let i = 0; i < list.length; i++) {
-      const d = list[i]!;
-      const fromUmap = preferUmap ? index.get(d.id) : undefined;
-      if (fromUmap) map.set(d.id, fromUmap);
-      else map.set(d.id, seededPositionFor(d.title, i, SPREAD));
-    }
-    return map;
-  });
-
-  // Compute final positions including adjustments/nudges
-  const positions = createMemo(() => {
-    const base = basePositions();
-    const adj = adjustments();
-    if (adj.size === 0) return base;
-    const map = new Map<string, { x: number; y: number }>();
-    for (const [id, p] of base) {
-      const d = adj.get(id);
-      if (d) map.set(id, { x: p.x + d.x, y: p.y + d.y });
-      else map.set(id, p);
-    }
-    return map;
-  });
-
-  // SVG transform string
-  const viewTransform = createMemo(() => {
-    const t = offset();
-    const s = scale();
-    return `translate(${t.x}, ${t.y}) scale(${s})`;
-  });
-
-  function scheduleTransform() {
-    if (!isBrowser) return;
-    if (frame) return;
-    frame = requestAnimationFrame(() => {
-      frame = undefined as unknown as number;
-      // No imperative DOM updates needed; Solid will reactively update viewTransform
-    });
-  }
+  // Positions and transform via stores
+  const positions = () => positionsStore.positions();
+  const viewTransform = () => canvasStore.viewTransform();
+  const scheduleTransform = () => canvasStore.scheduleTransform();
 
   function onWheel(e: WheelEvent) {
     e.preventDefault();
@@ -131,13 +83,13 @@ const VisualCanvas: VoidComponent = () => {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const currentScale = scale();
+    const currentScale = canvasStore.scale();
     const newScale = Math.min(
       4,
       Math.max(0.2, currentScale * Math.pow(2, -delta * zoomIntensity))
     );
 
-    const t = offset();
+    const t = canvasStore.offset();
     // Zoom towards the mouse position (screen-space to world-space adjustment)
     const worldXBefore = mouseX - t.x;
     const worldYBefore = mouseY - t.y;
@@ -146,8 +98,8 @@ const VisualCanvas: VoidComponent = () => {
     const dx = worldXBefore - worldXAfter;
     const dy = worldYBefore - worldYAfter;
 
-    setScale(newScale);
-    setOffset({ x: t.x + dx, y: t.y + dy });
+    canvasStore.setScale(newScale);
+    canvasStore.setOffset({ x: t.x + dx, y: t.y + dy });
     scheduleTransform();
   }
 
@@ -157,11 +109,11 @@ const VisualCanvas: VoidComponent = () => {
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
     container.setPointerCapture(e.pointerId);
-    setIsPanning(true);
+    canvasStore.setIsPanning(true);
     // Initialize pan anchor in element-relative coordinates for consistency
     lastPan = { x: localX, y: localY };
     // Ensure mouse position is current even if user doesn't move before release
-    setMouseScreen({ x: localX, y: localY });
+    canvasStore.setMouseScreen({ x: localX, y: localY });
     // Track click candidate
     clickStart = { x: localX, y: localY };
     clickStartTime =
@@ -172,15 +124,18 @@ const VisualCanvas: VoidComponent = () => {
     // Track element-relative mouse coordinates
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
-    setMouseScreen({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    if (!isPanning()) return;
+    canvasStore.setMouseScreen({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    if (!canvasStore.isPanning()) return;
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
     const dx = localX - lastPan.x;
     const dy = localY - lastPan.y;
     lastPan = { x: localX, y: localY };
-    const t = offset();
-    setOffset({ x: t.x + dx, y: t.y + dy });
+    const t = canvasStore.offset();
+    canvasStore.setOffset({ x: t.x + dx, y: t.y + dy });
     scheduleTransform();
   }
 
@@ -188,13 +143,13 @@ const VisualCanvas: VoidComponent = () => {
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch (_) {}
-    setIsPanning(false);
+    canvasStore.setIsPanning(false);
     // Detect bare click (minimal movement, short duration) to open nearest item
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
-    setMouseScreen({ x: localX, y: localY });
+    canvasStore.setMouseScreen({ x: localX, y: localY });
     if (clickStart) {
       const dx = localX - clickStart.x;
       const dy = localY - clickStart.y;
@@ -221,20 +176,11 @@ const VisualCanvas: VoidComponent = () => {
     const h = nav
       ? Math.round((nav as HTMLElement).getBoundingClientRect().height)
       : 56;
-    setNavHeight(h);
+    canvasStore.setNavHeight(h);
   }
 
   function fitToSpread() {
-    if (!isBrowser) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const availH = Math.max(100, vh - navHeight());
-    const s = (0.9 * Math.min(vw, availH)) / (2 * SPREAD);
-    const screenCx = vw / 2;
-    const screenCy = navHeight() + availH / 2;
-    setScale(Math.max(0.2, Math.min(2, s)));
-    setOffset({ x: screenCx, y: screenCy });
-    scheduleTransform();
+    canvasStore.fitToSpread(SPREAD);
   }
 
   onMount(() => {
@@ -242,7 +188,10 @@ const VisualCanvas: VoidComponent = () => {
     // Center the origin initially under navbar
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    setOffset({ x: vw / 2, y: navHeight() + (vh - navHeight()) / 2 });
+    canvasStore.setOffset({
+      x: vw / 2,
+      y: canvasStore.navHeight() + (vh - canvasStore.navHeight()) / 2,
+    });
     scheduleTransform();
     window.addEventListener("resize", () => {
       measureNav();
@@ -286,15 +235,15 @@ const VisualCanvas: VoidComponent = () => {
   createEffect(() => {
     const list = docs();
     if (!list) return;
-    const index = umapIndex();
+    const index = positionsStore.umapIndex();
     let usedUmap = 0;
     let usedSeed = 0;
     for (const d of list) {
-      if (useUmap() && index.has(d.id)) usedUmap++;
+      if (canvasStore.useUmap() && index.has(d.id)) usedUmap++;
       else usedSeed++;
     }
     const sample = list.slice(0, Math.min(10, list.length)).map((d, i) => {
-      const fromUmap = useUmap() ? index.get(d.id) : undefined;
+      const fromUmap = canvasStore.useUmap() ? index.get(d.id) : undefined;
       return {
         id: d.id,
         title: d.title,
@@ -310,24 +259,13 @@ const VisualCanvas: VoidComponent = () => {
 
   onCleanup(() => {
     if (isBrowser) {
-      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("resize", scheduleTransform);
     }
   });
 
   // ---------- Spatial index (KD-Tree) for nearest lookup ----------
 
-  const kdTree = createMemo(() => {
-    const list = docs();
-    if (!list) return undefined as unknown as KDNode | undefined;
-    const pos = positions();
-    const pts: { x: number; y: number; id: string }[] = [];
-    for (const d of list) {
-      const p = pos.get(d.id);
-      if (p) pts.push({ x: p.x, y: p.y, id: d.id });
-    }
-    return buildKdTree(pts);
-  });
+  const kdTree = createMemo(() => positionsStore.kdTree());
 
   // Nearest doc id to mouse
   const nearestToMouse = createMemo(() => {
@@ -341,7 +279,7 @@ const VisualCanvas: VoidComponent = () => {
   const hoveredScreenDist = createMemo(() => {
     const d2 = nearestToMouse()?.dist2;
     if (d2 === undefined) return Infinity;
-    const s = scale();
+    const s = canvasStore.scale();
     return Math.sqrt(d2) * s; // convert world -> screen distance
   });
 
@@ -362,181 +300,13 @@ const VisualCanvas: VoidComponent = () => {
     const pos = positions().get(id);
     if (!pos)
       return undefined as unknown as { x: number; y: number; title: string };
-    const s = scale();
-    const t = offset();
+    const s = canvasStore.scale();
+    const t = canvasStore.offset();
     const title = (docs() || []).find((d) => d.id === id)?.title || id;
     return { x: pos.x * s + t.x, y: pos.y * s + t.y, title };
   });
 
-  // --------- Nudge: simple repulsive iterations against nearest overlaps ---------
-  const [nudging, setNudging] = createSignal(false);
-
-  async function nudgeOverlaps(iterations = 200) {
-    if (nudging()) return;
-    const list = docs() || [];
-    if (list.length === 0) return;
-    setNudging(true);
-    try {
-      // Start from current displayed positions
-      let cur = new Map<string, { x: number; y: number }>(positions());
-
-      // Utility
-      function toArray() {
-        const arr: { x: number; y: number; id: string }[] = [];
-        for (const d of list) {
-          const p = cur.get(d.id);
-          if (p) arr.push({ x: p.x, y: p.y, id: d.id });
-        }
-        return arr;
-      }
-
-      for (let it = 0; it < iterations; it++) {
-        // Rebuild KD tree each iteration to reflect moves
-        const pointsArr = toArray();
-        const tree = buildKdTree(pointsArr);
-        const accum = new Map<string, { dx: number; dy: number }>();
-
-        // --- Congestion measurement (central crowding + overlap energy) ---
-        const centerR = SPREAD * 0.1; // expanded central region to capture more crowding
-        let inside = 0;
-        let overlapped = 0;
-        let overlapEnergy = 0;
-        for (const pt of pointsArr) {
-          const r = Math.hypot(pt.x, pt.y);
-          if (r > centerR) continue;
-          inside++;
-          const nn = kdNearest(tree, { x: pt.x, y: pt.y }, pt.id);
-          if (nn.dist2 !== undefined && isFinite(nn.dist2)) {
-            const nnDist = Math.sqrt(nn.dist2);
-            if (nnDist < MIN_SEP) {
-              overlapped++;
-              overlapEnergy += MIN_SEP - nnDist;
-            }
-          }
-        }
-        const overlappedFrac = inside > 0 ? overlapped / inside : 0;
-        const avgOverlap = inside > 0 ? overlapEnergy / inside : 0;
-        // Congestion level in [0,1]
-        const congestion = Math.max(
-          0,
-          Math.min(1, 0.5 * overlappedFrac + 0.5 * (avgOverlap / MIN_SEP))
-        );
-        if (it % 50 === 0 && (inside > 0 || congestion > 0)) {
-          try {
-            console.log(
-              `[visual] nudge it=${it} congestion=${congestion.toFixed(
-                2
-              )} centerCount=${inside}`
-            );
-          } catch {}
-        }
-
-        // Scale repulsion aggressiveness based on congestion (more aggressive)
-        const congestionSq = congestion * congestion;
-        const stiffness = 0.3 * (1 + 5.0 * congestion + 8.0 * congestionSq);
-        const maxStep = 2.0 * (1 + 4.0 * congestion);
-
-        // --- Pairwise nearest-neighbor repulsion ---
-        for (const d of list) {
-          const p = cur.get(d.id);
-          if (!p) continue;
-          const nn = kdNearest(tree, p, d.id);
-          if (!nn.id || nn.dist2 === undefined || !isFinite(nn.dist2)) continue;
-          const q = cur.get(nn.id);
-          if (!q) continue;
-          const dx = p.x - q.x;
-          const dy = p.y - q.y;
-          const dist = Math.hypot(dx, dy);
-          // Increase desired separation under congestion
-          const target = MIN_SEP * (1 + 0.4 * congestion);
-          if (dist < target) {
-            // Compute limited push magnitude proportional to overlap
-            const overlap = target - (dist === 0 ? 0.001 : dist);
-            const ux = dist === 0 ? 1 : dx / dist;
-            const uy = dist === 0 ? 0 : dy / dist;
-            const mag = Math.min(overlap * stiffness, maxStep);
-            const halfX = (ux * mag) / 2;
-            const halfY = (uy * mag) / 2;
-            const a = accum.get(d.id) || { dx: 0, dy: 0 };
-            a.dx += halfX;
-            a.dy += halfY;
-            accum.set(d.id, a);
-            const b = accum.get(nn.id) || { dx: 0, dy: 0 };
-            b.dx -= halfX;
-            b.dy -= halfY;
-            accum.set(nn.id, b);
-          } else if (dist < target * 1.5) {
-            // Gentle repulsion ring to prevent re-bunching near the threshold
-            const overlap = target * 1.5 - dist;
-            const ux = dx / (dist === 0 ? 1 : dist);
-            const uy = dy / (dist === 0 ? 1 : dist);
-            const mag = Math.min(overlap * (stiffness * 0.25), maxStep * 0.5);
-            const halfX = (ux * mag) / 2;
-            const halfY = (uy * mag) / 2;
-            const a = accum.get(d.id) || { dx: 0, dy: 0 };
-            a.dx += halfX;
-            a.dy += halfY;
-            accum.set(d.id, a);
-            const b = accum.get(nn.id) || { dx: 0, dy: 0 };
-            b.dx -= halfX;
-            b.dy -= halfY;
-            accum.set(nn.id, b);
-          }
-        }
-
-        // --- Outward radial force to relieve central congestion ---
-        if (congestion > 0 && inside > 0) {
-          const outwardBase = 12.0; // stronger outward magnitude per iter
-          for (const d of list) {
-            const p = cur.get(d.id);
-            if (!p) continue;
-            const r = Math.hypot(p.x, p.y);
-            if (r >= centerR) continue; // only push central crowd
-            const falloff = 1 - r / centerR; // stronger in the core
-            const radialMag =
-              outwardBase *
-              (0.5 + 2.0 * congestion + 1.3 * congestionSq) *
-              falloff;
-            if (radialMag <= 0) continue;
-            const ux = r === 0 ? 1 : p.x / r;
-            const uy = r === 0 ? 0 : p.y / r;
-            const a = accum.get(d.id) || { dx: 0, dy: 0 };
-            // apply small cap to keep motion stable
-            const step = Math.min(radialMag, maxStep * 4);
-            a.dx += ux * step;
-            a.dy += uy * step;
-            accum.set(d.id, a);
-          }
-        }
-
-        if (accum.size === 0) break; // converged
-
-        // Apply accumulated displacements
-        for (const [id, { dx, dy }] of accum) {
-          const p = cur.get(id);
-          if (!p) continue;
-          cur.set(id, { x: p.x + dx, y: p.y + dy });
-        }
-
-        // Yield to UI every ~10 iterations
-        if (it % 10 === 9) await Promise.resolve();
-      }
-
-      // Compute adjustments relative to base positions at finish
-      const base = basePositions();
-      const newAdj = new Map<string, { x: number; y: number }>();
-      for (const [id, p] of cur) {
-        const b = base.get(id);
-        if (!b) continue;
-        newAdj.set(id, { x: p.x - b.x, y: p.y - b.y });
-      }
-      setAdjustments(newAdj);
-      setLayoutVersion((v) => v + 1);
-      console.log(`[visual] Nudge complete: adjusted ${newAdj.size} nodes`);
-    } finally {
-      setNudging(false);
-    }
-  }
+  // Nudge handled by positions store (placeholder in Step 4)
 
   // ---------- Left list pane: search and sorting ----------
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -581,7 +351,7 @@ const VisualCanvas: VoidComponent = () => {
           left: "0",
           right: "0",
           bottom: "0",
-          top: `${navHeight()}px`,
+          top: `${canvasStore.navHeight()}px`,
         }}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
@@ -679,7 +449,7 @@ const VisualCanvas: VoidComponent = () => {
       <div
         class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"
         style={{
-          top: `${navHeight()}px`,
+          top: `${canvasStore.navHeight()}px`,
           left: "0",
           width: "320px",
           bottom: "0",
@@ -712,16 +482,19 @@ const VisualCanvas: VoidComponent = () => {
             </select>
             <button
               class={`ml-2 rounded px-2 py-1 border text-xs ${
-                nudging() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+                positionsStore.nudging()
+                  ? "opacity-60 cursor-not-allowed"
+                  : "hover:bg-gray-50"
               }`}
-              disabled={nudging()}
-              onClick={() => nudgeOverlaps(200)}
+              disabled={positionsStore.nudging()}
+              onClick={() => positionsStore.runNudge(200)}
               title="Repel overlapping nodes a bit"
             >
-              {nudging() ? "Nudging…" : "Nudge"}
+              {positionsStore.nudging() ? "Nudging…" : "Nudge"}
             </button>
             <div class="ml-auto text-[11px] text-gray-500">
-              Zoom {scale().toFixed(2)}x · {docs()?.length || 0} notes
+              Zoom {canvasStore.scale().toFixed(2)}x · {docs()?.length || 0}{" "}
+              notes
             </div>
           </div>
         </div>
