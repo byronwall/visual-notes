@@ -1,3 +1,4 @@
+import { getRequestEvent } from "solid-js/web";
 // Utility to compute a robust base URL for both server and client
 // Handles common deployment providers and local dev.
 
@@ -57,5 +58,13 @@ export async function apiFetch(
     const base = getBaseUrl();
     url = new URL(input as URL, base).toString();
   }
-  return fetch(url, { credentials: "include", ...init });
+  const headers = new Headers(init?.headers || {});
+  if (typeof window === "undefined") {
+    // Forward client cookies on SSR so API sees the same auth state
+    const evt = getRequestEvent?.();
+    const incomingCookie = evt?.request.headers.get("cookie");
+    if (incomingCookie && !headers.has("cookie"))
+      headers.set("cookie", incomingCookie);
+  }
+  return fetch(url, { credentials: "include", ...init, headers });
 }

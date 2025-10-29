@@ -8,6 +8,7 @@ export const serverScheme = z.object({
   AUTH_TRUST_HOST: z.string().optional(),
   AUTH_URL: z.string().optional(),
   DATABASE_URL: z.string(),
+  MAGIC_PASSWORD: z.string(),
   OPENAI_API_KEY: z.string().optional(),
   EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Explicit public base URL for server-side absolute fetch construction

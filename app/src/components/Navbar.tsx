@@ -1,16 +1,19 @@
-import { useAuth } from "@solid-mediakit/auth/client";
 import type { VoidComponent } from "solid-js";
-import { createSignal } from "solid-js";
-import Modal from "~/components/Modal";
+import { createSignal, onMount } from "solid-js";
 
 const Navbar: VoidComponent = () => {
-  const auth = useAuth();
-  const [menuOpen, setMenuOpen] = createSignal(false);
+  const [authed, setAuthed] = createSignal(false);
+  const handleLogout = async () => {
+    console.log("Logging out");
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
 
-  const initial = () =>
-    (auth.session()?.user?.name?.[0] || auth.session()?.user?.email?.[0] || "?")
-      .toString()
-      .toUpperCase();
+  onMount(() => {
+    setAuthed(
+      typeof document !== "undefined" && document.cookie.includes("magic_auth=")
+    );
+  });
 
   return (
     <nav class="w-full border-b border-gray-200 bg-white">
@@ -46,28 +49,12 @@ const Navbar: VoidComponent = () => {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          {auth.status() === "authenticated" ? (
-            <div class="relative">
-              <button
-                class="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white"
-                title="Account"
-                onClick={() => setMenuOpen(!menuOpen())}
-              >
-                <span class="text-sm font-semibold">{initial()}</span>
-              </button>
-              <Modal open={menuOpen()} onClose={() => setMenuOpen(false)}>
-                <div class="absolute right-4 top-16 w-44 bg-white border border-gray-200 rounded-md shadow-md p-1">
-                  <button
-                    class="w-full text-left cta"
-                    onClick={() => auth.signOut({ redirectTo: "/" })}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </Modal>
-            </div>
+          {authed() ? (
+            <button class="cta" onClick={handleLogout}>
+              Sign out
+            </button>
           ) : (
-            <a class="cta" href="/">
+            <a class="cta" href="/login">
               Sign in
             </a>
           )}
