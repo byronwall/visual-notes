@@ -16,6 +16,7 @@ function isAllowedUnauthed(pathname: string): boolean {
   if (pathname === "/login") return true;
   if (pathname === "/api/magic-login") return true;
   if (pathname === "/api/logout") return true;
+  if (pathname === "/api/magic-session") return true;
   // Keep legacy auth endpoints reachable (not used by the app now)
   if (pathname.startsWith("/api/auth")) return true;
   return isAssetPath(pathname);

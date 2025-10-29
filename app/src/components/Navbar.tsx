@@ -1,19 +1,12 @@
 import type { VoidComponent } from "solid-js";
-import { createSignal, onMount } from "solid-js";
+import { createSignal } from "solid-js";
+import { useMagicAuth } from "~/hooks/useMagicAuth";
 
 const Navbar: VoidComponent = () => {
-  const [authed, setAuthed] = createSignal(false);
+  const { authed, logout } = useMagicAuth();
   const handleLogout = async () => {
-    console.log("Logging out");
-    await fetch("/api/logout", { method: "POST" });
-    window.location.href = "/login";
+    await logout();
   };
-
-  onMount(() => {
-    setAuthed(
-      typeof document !== "undefined" && document.cookie.includes("magic_auth=")
-    );
-  });
 
   return (
     <nav class="w-full border-b border-gray-200 bg-white">

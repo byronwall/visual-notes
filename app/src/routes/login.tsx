@@ -1,10 +1,15 @@
+import { useNavigate } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
 import { createSignal } from "solid-js";
+import { useMagicAuth } from "~/hooks/useMagicAuth";
 
 const LoginPage: VoidComponent = () => {
   const [password, setPassword] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
   const [submitting, setSubmitting] = createSignal(false);
+
+  const { refresh } = useMagicAuth();
+  const navigate = useNavigate();
 
   const onSubmit = async (e: Event) => {
     e.preventDefault();
@@ -15,6 +20,7 @@ const LoginPage: VoidComponent = () => {
       const res = await fetch("/api/magic-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ password: password() }),
       });
       if (!res.ok) {
@@ -22,7 +28,8 @@ const LoginPage: VoidComponent = () => {
         setError(data?.error || "Login failed");
         return;
       }
-      window.location.href = "/";
+      await refresh();
+      navigate("/", { replace: true });
     } catch (err) {
       setError((err as Error)?.message || "Network error");
     } finally {
