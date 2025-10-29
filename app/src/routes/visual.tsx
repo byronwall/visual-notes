@@ -23,7 +23,7 @@ const NODE_RADIUS = 10;
 const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
 async function fetchDocs(): Promise<DocItem[]> {
-  const res = await apiFetch("/api/docs?take=5000");
+  const res = await apiFetch("/api/docs?take=8000");
   if (!res.ok) throw new Error("Failed to load docs");
   const json = (await res.json()) as { items: DocItem[] };
   return json.items || [];
