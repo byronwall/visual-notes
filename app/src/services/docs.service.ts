@@ -40,3 +40,25 @@ export async function fetchUmapPoints(runId: string): Promise<UmapPoint[]> {
   } catch {}
   return points;
 }
+
+export async function updateDocTitle(
+  id: string,
+  title: string
+): Promise<{ id: string; updatedAt: string }> {
+  const res = await apiFetch(`/api/docs/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))) as any;
+    throw new Error(msg?.error || "Failed to update title");
+  }
+  const json = (await res.json()) as { id: string; updatedAt: string };
+  try {
+    console.log(
+      `[services] updateDocTitle: id=${json.id} updatedAt=${json.updatedAt}`
+    );
+  } catch {}
+  return json;
+}
