@@ -73,7 +73,6 @@
 - Mouse threshold for showing hover depends on zoom level
 - Need a better color pallette - make it intentional - allow color to be a variable with dynamic data
 - Disconnect between hover display and click display - clicking should open the note in the side panel -- use the exact same code somehow to ensure it always opens the one that the hover preview shows
-- Figure out why the view resets when the document panel is closed
 
 ## Embeddings
 

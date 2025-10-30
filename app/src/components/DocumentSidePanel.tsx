@@ -1,4 +1,9 @@
-import { Show, createResource, type VoidComponent } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createResource,
+  type VoidComponent,
+} from "solid-js";
 import SidePanel from "./SidePanel";
 import { apiFetch } from "~/utils/base-url";
 import DocumentViewer from "./DocumentViewer";
@@ -33,7 +38,10 @@ const DocumentSidePanel: VoidComponent<{
   docId?: string;
   onClose: (shouldRefetch?: boolean) => void;
 }> = (props) => {
-  const [doc] = createResource(props.docId, (id) => fetchDoc(id!));
+  const [doc] = createResource(
+    () => props.docId,
+    (id) => fetchDoc(id)
+  );
 
   return (
     <SidePanel
