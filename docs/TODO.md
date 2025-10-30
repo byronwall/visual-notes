@@ -13,11 +13,6 @@
       1. Basically... never lose a link
       2. Even better though, links will be brought into the fold so they immediate are adding to a whole in a useful way (or possibly more useful)
 
-## Note creation + editing
-
-- Infer title automatically
-- Allow changing the title
-
 ## ChatGPT import
 
 - Review embedding token limits - hitting the limit by a ton on one request -- also why is this bringing down the whole thing?
@@ -32,6 +27,10 @@
 
 }
 }
+
+## Consistent UI
+
+- Choose a library for icons and use consistently - bring as SVG for now
 
 ## Prisma + DB
 
@@ -70,7 +69,6 @@
 - Review link only notes and process them - load the apge with LLM and get a summary or something?
   - Or really, figure out what the goal is on these - they were meant to be for "future ref" - it'd be nice to know what they are and have that info available when reviewing similar stuff.
   - When processing, might just bring across all content if it's a short blog post or tweet or similar.
-- Need to clean up the titles on all the notion notes - they all include a guid at end -- remove it
 - Lots of ChatGPT threads with images that do not exist - add a piece of meta data -> filter -> delete
 - Should we bring in a large stack of links from Chrome bookmarks? Where to put them? What to do next?
 - Allow adding lists of tags to the notes
@@ -98,7 +96,3 @@
 
 - Likely thrown off by the repeating elements - may want to strip out markdown formatting and URLs?
 - Detect when content has changed and re-run the embeddings
-
-## General
-
-- Need some sort of large table view or something of the embeddings

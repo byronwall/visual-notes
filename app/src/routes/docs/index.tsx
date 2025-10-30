@@ -1,4 +1,10 @@
-import { type VoidComponent, For, Show, createResource } from "solid-js";
+import {
+  type VoidComponent,
+  For,
+  Show,
+  createResource,
+  createSignal,
+} from "solid-js";
 import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 
@@ -52,6 +58,7 @@ async function bulkSetSource() {
 const DocsIndex: VoidComponent = () => {
   const [docs, { refetch }] = createResource(fetchDocs);
   const [sources, { refetch: refetchSources }] = createResource(fetchSources);
+  const [cleaning, setCleaning] = createSignal(false);
 
   const handleDeleteAll = async () => {
     const total = sources()?.total ?? 0;
@@ -84,6 +91,40 @@ const DocsIndex: VoidComponent = () => {
       }
     };
 
+  const handleCleanupTitles = async () => {
+    setCleaning(true);
+    try {
+      // Dry run to get count for confirmation
+      const pre = await apiFetch("/api/docs/cleanup-titles?dryRun=1", {
+        method: "POST",
+      });
+      const preJson = (await pre.json().catch(() => ({}))) as any;
+      const count = Number(preJson?.candidates || 0);
+      if (!count) {
+        alert("No titles to clean.");
+        return;
+      }
+      if (
+        !confirm(
+          `Clean bad titles for ${count} notes? This will remove long hex-like blocks.`
+        )
+      )
+        return;
+      console.log("[DocsIndex] cleanup starting count=", count);
+      const res = await apiFetch("/api/docs/cleanup-titles", {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => ({}))) as any;
+      console.log("[DocsIndex] cleanup done", json);
+      await Promise.all([refetch(), refetchSources()]);
+    } catch (e) {
+      console.error(e);
+      alert("Failed during title cleanup");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4 space-y-4">
@@ -103,6 +144,13 @@ const DocsIndex: VoidComponent = () => {
               }}
             >
               Set Source (All)
+            </button>
+            <button
+              class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+              onClick={handleCleanupTitles}
+              disabled={cleaning()}
+            >
+              {cleaning() ? "Cleaning…" : "Clean Bad Titles"}
             </button>
             <Show when={sources()}>
               {(data) => (
