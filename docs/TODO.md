@@ -37,6 +37,11 @@
 
 - Need to add proper relations instead of just storing IDs as string
 
+## Search
+
+- Need to search the content of the notes - not just the titles
+- Allow embedding searches too
+
 ## UMAP
 
 - Probably need some sort of algo to separate things after the UMAP run
@@ -47,8 +52,11 @@
 
 ## Doc editing
 
-- Need to support tables
 - Need to get some representative "hard" documents to test with
+- Need to render block quotes
+- Review lists and disc style
+- Syntax highlighting is a bad color + theme -- need light theme
+- Allow user to see + control the syntax highlighting language
 
 ## CLI
 
@@ -62,6 +70,14 @@
 - Review link only notes and process them - load the apge with LLM and get a summary or something?
   - Or really, figure out what the goal is on these - they were meant to be for "future ref" - it'd be nice to know what they are and have that info available when reviewing similar stuff.
   - When processing, might just bring across all content if it's a short blog post or tweet or similar.
+- Need to clean up the titles on all the notion notes - they all include a guid at end -- remove it
+- Lots of ChatGPT threads with images that do not exist - add a piece of meta data -> filter -> delete
+- Should we bring in a large stack of links from Chrome bookmarks? Where to put them? What to do next?
+- Allow adding lists of tags to the notes
+- Allow assigning meta data based on note content or other things - maybe even just a search with logic?
+  - Does the content contain data: urls?
+- Some ability to summarize with a link back to the source - need to really think about this one.
+- Consider how to think through databases.
 
 ## Canvas
 
@@ -73,6 +89,10 @@
 - Mouse threshold for showing hover depends on zoom level
 - Need a better color pallette - make it intentional - allow color to be a variable with dynamic data
 - Disconnect between hover display and click display - clicking should open the note in the side panel -- use the exact same code somehow to ensure it always opens the one that the hover preview shows
+- Really want to be able to create a group of notes and have the group render instead of all notes - click to open or expand
+  - General purpose feature based on nested variables - allow selecting note = assign tag. Tag could be `prog.docker` where it's nested
+- Quicker ability to review all notes or walk through notes - reveal on hover could be really good here.
+- Consider what variables should map to color?
 
 ## Embeddings
 
