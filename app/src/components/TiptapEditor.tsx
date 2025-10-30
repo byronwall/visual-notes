@@ -8,7 +8,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { createLowlight, common } from "lowlight";
 import "highlight.js/styles/github.css";
-import { Show, createEffect, createSignal } from "solid-js";
+import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 
 function Separator() {
@@ -308,6 +308,18 @@ export default function TiptapEditor(props: {
   onEditor?: (editor: Editor) => void;
 }) {
   const [container, setContainer] = createSignal<HTMLDivElement>();
+  const [overlay, setOverlay] = createSignal<{ top: number; left: number }>();
+
+  const languageOptions = createMemo(() => {
+    try {
+      const keys = Object.keys(common as Record<string, unknown>);
+      const base = ["text", "plaintext"];
+      const merged = [...base, ...keys.filter((k) => !base.includes(k))];
+      return merged.sort((a, b) => a.localeCompare(b));
+    } catch {
+      return ["text", "plaintext", "javascript", "typescript", "python"];
+    }
+  });
 
   const editor = createTiptapEditor(() => ({
     element: container()!,
@@ -367,15 +379,110 @@ export default function TiptapEditor(props: {
     } catch {}
   });
 
+  // Track whether we're inside a code block and position the language picker
+  const isInCodeBlock = createEditorTransaction(
+    () => editor()!,
+    (instance) => instance.isActive("codeBlock")
+  );
+  const currentLanguage = createEditorTransaction(
+    () => editor()!,
+    (instance) => instance.getAttributes("codeBlock")?.language || "text"
+  );
+
+  function updateOverlayPosition() {
+    const ed = editor();
+    const host = container();
+    if (!ed || !host) return;
+    if (!ed.isActive("codeBlock")) {
+      setOverlay(undefined);
+      return;
+    }
+    // We need ProseMirror DOM node of the active code block. Types are not exported for this API.
+    // Using `any` here to access view/state is acceptable because Tiptap's Editor type hides them.
+    const view = (ed as any).view as { nodeDOM: (pos: number) => Node | null };
+    const state = (ed as any).state as { selection: any };
+    const $from = state.selection.$from;
+    let dom: HTMLElement | null = null;
+    for (let d = $from.depth; d >= 0; d--) {
+      const node = $from.node(d);
+      if (node?.type?.name === "codeBlock") {
+        const pos = $from.before(d);
+        dom = (view.nodeDOM(pos) as HTMLElement) || null;
+        break;
+      }
+    }
+    if (!dom) {
+      setOverlay(undefined);
+      return;
+    }
+    const pre = dom.matches("pre")
+      ? dom
+      : (dom.querySelector("pre") as HTMLElement | null);
+    const target = pre || dom;
+    const block = target.getBoundingClientRect();
+    const wrap = host.getBoundingClientRect();
+    const top = block.top - wrap.top + host.scrollTop - 8; // nudge above block
+    const left = block.left - wrap.left + host.scrollLeft + 8; // nudge to left padding
+    try {
+      console.log("[tiptap.codeBlock] overlay pos:", { top, left });
+    } catch {}
+    setOverlay({ top, left });
+  }
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed) return;
+    const handler = () => updateOverlayPosition();
+    ed.on("selectionUpdate", handler);
+    ed.on("transaction", handler);
+    window.addEventListener("resize", handler);
+    window.addEventListener("scroll", handler, true);
+    handler();
+    return () => {
+      ed.off("selectionUpdate", handler);
+      ed.off("transaction", handler);
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("scroll", handler, true);
+    };
+  });
+
   return (
     <div class={props.class || "w-full"}>
-      <div class="mb-2 rounded bg-gray-800 text-white">
+      <div class="mb-2 rounded bg-gray-50 text-gray-800 border border-gray-300">
         <Show when={editor()} keyed>
           {(instance) => <ToolbarContents editor={instance} />}
         </Show>
       </div>
-      <div class="rounded border border-gray-300">
+      <div class="relative rounded border border-gray-300">
         <div class="min-h-[200px]" ref={setContainer} />
+        <Show when={editor() && isInCodeBlock() && overlay()}>
+          <div
+            class="absolute z-10"
+            style={{ top: `${overlay()!.top}px`, left: `${overlay()!.left}px` }}
+          >
+            <div class="flex items-center gap-1 bg-white/95 border border-gray-300 rounded px-2 py-[2px] shadow-sm">
+              <select
+                class="text-xs bg-transparent"
+                value={currentLanguage()}
+                onInput={(e) => {
+                  const lang = (e.currentTarget as HTMLSelectElement).value;
+                  try {
+                    console.log("[tiptap.codeBlock] set language=", lang);
+                  } catch {}
+                  editor()
+                    ?.chain()
+                    .focus()
+                    .updateAttributes("codeBlock", { language: lang })
+                    .run();
+                }}
+              >
+                {languageOptions().map((l) => (
+                  <option value={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Show>
       </div>
     </div>
   );
