@@ -33,25 +33,12 @@ const DocumentSidePanel: VoidComponent<{
   docId?: string;
   onClose: (shouldRefetch?: boolean) => void;
 }> = (props) => {
-  const [doc] = createResource(
-    () => (props.open && props.docId ? props.docId : undefined),
-    (id) => fetchDoc(id!)
-  );
-
-  // Helpful debug breadcrumbs
-  try {
-    console.log(
-      "[DocumentSidePanel] open=",
-      !!props.open,
-      "docId=",
-      props.docId
-    );
-  } catch {}
+  const [doc] = createResource(props.docId, (id) => fetchDoc(id!));
 
   return (
     <SidePanel
       open={props.open}
-      onClose={props.onClose}
+      onClose={() => props.onClose(false)}
       ariaLabel="Document details"
     >
       {/* Header */}

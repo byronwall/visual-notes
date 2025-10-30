@@ -4,8 +4,7 @@
 
 1. Need to clean up HTML -> markdown pipeline - formatting + line breaks are busted - consider using HTML?
 2. add features around lasso and AI on top of the notes
-3. Public deploy so it's always available = replace task site for one off notes
-4. Pull in Notion notes and start to think about hierarchies + databases
+3. Pull in Notion notes and start to think about hierarchies + databases
 
 ## Major goals or guiding lights - what's the point?
 
@@ -13,6 +12,11 @@
    1. Combine stuff that is longer form from Notion w/ the shorter links and bookmarks of Notes, Chrome, and other link tracking sites
       1. Basically... never lose a link
       2. Even better though, links will be brought into the fold so they immediate are adding to a whole in a useful way (or possibly more useful)
+
+## Note creation + editing
+
+- Infer title automatically
+- Allow changing the title
 
 ## ChatGPT import
 
@@ -69,10 +73,12 @@
 - Mouse threshold for showing hover depends on zoom level
 - Need a better color pallette - make it intentional - allow color to be a variable with dynamic data
 - Disconnect between hover display and click display - clicking should open the note in the side panel -- use the exact same code somehow to ensure it always opens the one that the hover preview shows
+- Figure out why the view resets when the document panel is closed
 
 ## Embeddings
 
 - Likely thrown off by the repeating elements - may want to strip out markdown formatting and URLs?
+- Detect when content has changed and re-run the embeddings
 
 ## General
 

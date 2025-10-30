@@ -16,7 +16,7 @@ type DocItem = {
 };
 
 export type ControlPanelProps = {
-  docs: Accessor<DocItem[] | undefined>;
+  docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
   mouseWorld: Accessor<{ x: number; y: number }>;
   hoveredId: Accessor<string | undefined>;
@@ -38,7 +38,7 @@ export type ControlPanelProps = {
 
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
   const filteredAndSortedDocs = createMemo(() => {
-    const list = props.docs() || [];
+    const list = props.docs || [];
     const q = props.searchQuery().trim().toLowerCase();
     const pos = props.positions();
     const m = props.mouseWorld();
@@ -146,7 +146,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             </span>
             <span class="text-gray-300">·</span>
             <span class="whitespace-nowrap">
-              {props.docs()?.length || 0} notes
+              {props.docs?.length || 0} notes
             </span>
           </div>
         </div>

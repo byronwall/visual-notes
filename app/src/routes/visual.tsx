@@ -141,7 +141,7 @@ const VisualRoute: VoidComponent = () => {
   return (
     <main class="min-h-screen bg-white">
       <VisualCanvas
-        docs={docs}
+        docs={docs.latest}
         positions={positions}
         hoveredId={hover.hoveredId}
         hoveredLabelScreen={hover.hoveredLabelScreen}
@@ -164,7 +164,7 @@ const VisualRoute: VoidComponent = () => {
         }}
       />
       <ControlPanel
-        docs={docs}
+        docs={docs.latest}
         positions={positions}
         mouseWorld={hover.mouseWorld}
         hoveredId={hover.hoveredId}

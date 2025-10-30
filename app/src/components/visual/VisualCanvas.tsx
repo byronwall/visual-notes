@@ -25,7 +25,7 @@ type DocItem = {
 };
 
 export type VisualCanvasProps = {
-  docs: Accessor<DocItem[] | undefined>;
+  docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
   hoveredId: Accessor<string | undefined>;
   hoveredLabelScreen: Accessor<
@@ -43,13 +43,6 @@ export type VisualCanvasProps = {
 const SPREAD = 1000;
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
-  // Log when the active search changes to help debug rendering state
-  createEffect(() => {
-    try {
-      console.log("[VisualCanvas] searchQuery=", props.searchQuery().trim());
-    } catch {}
-  });
-
   return (
     <div
       class="fixed overflow-hidden bg-white"
@@ -71,9 +64,9 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
         style={{ display: "block", background: "white" }}
       >
         <g transform={props.viewTransform()}>
-          <Show when={props.docs()}>
-            {(list) => (
-              <For each={list()}>
+          <Show when={props.docs}>
+            {(docs) => (
+              <For each={docs()}>
                 {(d, i) => {
                   const pos = createMemo(
                     () =>
@@ -130,7 +123,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           if (!id) return false;
           const q = props.searchQuery().trim().toLowerCase();
           if (!q) return true;
-          const d = (props.docs() || []).find((x) => x.id === id);
+          const d = (props.docs || []).find((x) => x.id === id);
           return d ? d.title.toLowerCase().includes(q) : false;
         });
         const showHover = createMemo(() => {

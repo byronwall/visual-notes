@@ -13,11 +13,7 @@ export function hashString(input: string): number {
       0;
   }
   const result = hash >>> 0;
-  try {
-    console.log(
-      `[utils/hash] hashString: inputLen=${input.length} -> ${result}`
-    );
-  } catch {}
+
   return result;
 }
 
