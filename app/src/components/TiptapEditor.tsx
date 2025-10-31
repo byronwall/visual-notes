@@ -362,7 +362,6 @@ export default function TiptapEditor(props: {
     },
   }).configure({ lowlight: createLowlight(common) });
 
-
   const editor = createTiptapEditor(() => ({
     element: container()!,
     extensions: [

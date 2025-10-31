@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { type VoidComponent, Show, createResource } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
+import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
 
 type DocResponse = {
@@ -43,17 +44,31 @@ const DocView: VoidComponent = () => {
     navigate("/docs");
   };
 
+  let articleEl: HTMLElement | undefined;
+
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4">
-        <div class="mx-auto max-w-[900px]">
+        <div class="mx-auto max-w-[900px] relative">
           <Show when={doc()} fallback={<p>Loading…</p>}>
             {(d) => (
-              <article class="prose max-w-none">
+              <article class="prose max-w-none" ref={(el) => (articleEl = el)}>
                 <DocumentViewer doc={d()} onDeleted={handleDeleted} />
               </article>
             )}
           </Show>
+          {/* TOC attached to the right edge of the note view */}
+          <TableOfContents
+            getRootEl={() => {
+              const root = articleEl as HTMLElement | undefined;
+              if (!root) return null;
+              const pm = root.querySelector(
+                ".ProseMirror"
+              ) as HTMLElement | null;
+              return pm || root;
+            }}
+            maxVh={60}
+          />
         </div>
       </div>
     </main>

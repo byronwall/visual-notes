@@ -6,6 +6,7 @@ Follow these coding standards:
 
 - Only modify the prisma schema. Always generate migrations via CLI. Never manually generate a migration.
 - Always use `console.log` for debugging. When creating large code chunks add a couple console.log calls to help determine control flow and how thing run.
+  - DO NOT WRAP CONSOLE.LOG IN TRY/CATCH BLOCKS.
 - Preview creating event handlers as `const handlerName = () => { ... }` and then using `onClick={handlerName}` in the component. Avoid inline event handlers unless they are very simple.
 - Avoid `typeof import('...')` imports. Instead use `import {type ...} from '...'`.
 - Avoid `any` types. Instead use more specific types when possible. If any must be used , add a comment in the output code explaining why.
