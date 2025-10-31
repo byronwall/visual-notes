@@ -6,7 +6,10 @@ import {
   createMemo,
   createResource,
   createSignal,
+  onCleanup,
 } from "solid-js";
+import { useBeforeLeave } from "@solidjs/router";
+import { extractFirstH1FromHtml } from "~/utils/extractHeading";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "./TiptapEditor";
@@ -105,6 +108,40 @@ const DocumentEditor: VoidComponent<{
     };
   });
 
+  // Intercept Cmd+S / Ctrl+S to save
+  createEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const isSave =
+        (isMac && e.metaKey && e.key.toLowerCase() === "s") ||
+        (!isMac && e.ctrlKey && e.key.toLowerCase() === "s");
+      if (isSave) {
+        e.preventDefault();
+        void onSave();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    onCleanup(() => window.removeEventListener("keydown", onKey));
+  });
+
+  // Warn on tab close/refresh when dirty
+  createEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!dirty()) return;
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    onCleanup(() => window.removeEventListener("beforeunload", handler));
+  });
+
+  // Block client-side route navigation when dirty
+  useBeforeLeave((evt) => {
+    if (!dirty()) return;
+    evt.preventDefault();
+  });
+
   async function onSave() {
     const ed = editor();
     const d = doc();
@@ -115,7 +152,9 @@ const DocumentEditor: VoidComponent<{
       const html = ed.getHTML();
       if (isNew()) {
         // First save → create the note
-        const title = displayTitle();
+        let title = displayTitle();
+        const detected = extractFirstH1FromHtml(html);
+        if (detected && detected.trim().length > 0) title = detected.trim();
         console.log("[editor.save] creating new doc with title:", title);
         const res = await apiFetch(`/api/docs`, {
           method: "POST",
