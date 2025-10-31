@@ -121,14 +121,12 @@ export function getSanitizeOptions(): IOptions {
       },
     },
     textFilter: (text: string) => {
-      console.log("[sanitizeHtml.textFilter] text:", text);
       // Replace any URL-like substrings with UTM-stripped versions
       const urlLikePattern = /(https?:)?\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+/gi;
       const out = text.replace(urlLikePattern, (m) =>
         removeUtmParamsFromUrl(m)
       );
-      if (out !== text)
-        console.log("[sanitizeHtml.textFilter] cleaned text:", out);
+
       return out;
     },
   };
