@@ -4,6 +4,8 @@ import {
   Show,
   createResource,
   createSignal,
+  createEffect,
+  onCleanup,
 } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
@@ -64,6 +66,9 @@ const DocsIndex: VoidComponent = () => {
   const [docs, { refetch }] = createResource(fetchDocs);
   const [sources, { refetch: refetchSources }] = createResource(fetchSources);
   const [cleaning, setCleaning] = createSignal(false);
+  const [popoverOpen, setPopoverOpen] = createSignal(false);
+  let popoverButtonRef: HTMLButtonElement | undefined;
+  let popoverRef: HTMLDivElement | undefined;
 
   const handleDeleteAll = async () => {
     const total = sources()?.total ?? 0;
@@ -122,6 +127,7 @@ const DocsIndex: VoidComponent = () => {
       const json = (await res.json().catch(() => ({}))) as any;
       console.log("[DocsIndex] cleanup done", json);
       await Promise.all([refetch(), refetchSources()]);
+      setPopoverOpen(false);
     } catch (e) {
       console.error(e);
       alert("Failed during title cleanup");
@@ -130,87 +136,199 @@ const DocsIndex: VoidComponent = () => {
     }
   };
 
+  const handleTogglePopover = () => {
+    setPopoverOpen(!popoverOpen());
+  };
+
+  // Close popover on escape key
+  createEffect(() => {
+    if (!popoverOpen()) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPopoverOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    onCleanup(() => window.removeEventListener("keydown", handleEscape));
+  });
+
+  // Close popover when clicking outside
+  createEffect(() => {
+    if (!popoverOpen()) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        popoverRef &&
+        !popoverRef.contains(target) &&
+        popoverButtonRef &&
+        !popoverButtonRef.contains(target)
+      ) {
+        setPopoverOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    onCleanup(() =>
+      window.removeEventListener("mousedown", handleClickOutside)
+    );
+  });
+
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4 space-y-4">
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold">Notes</h1>
-          <div class="flex items-center gap-2">
-            <button
-              class="px-3 py-1.5 rounded bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50"
-              onClick={async () => {
-                try {
-                  await bulkSetSource();
-                  await refetch();
-                } catch (e) {
-                  console.error(e);
-                  alert((e as Error).message || "Failed to set source");
-                }
-              }}
-            >
-              Set Source (All)
-            </button>
-            <button
-              class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-              onClick={handleCleanupTitles}
-              disabled={cleaning()}
-            >
-              {cleaning() ? "Cleaning…" : "Clean Bad Titles"}
-            </button>
-            <Show when={sources()}>
-              {(data) => (
-                <div class="flex items-center gap-2 overflow-x-auto">
-                  <For each={data().sources}>
-                    {(s) => (
-                      <button
-                        class="px-3 py-1.5 rounded bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50 whitespace-nowrap"
-                        onClick={makeDeleteSourceHandler(
-                          s.originalSource,
-                          s.count
-                        )}
-                      >
-                        Delete {s.originalSource} ({s.count})
-                      </button>
-                    )}
-                  </For>
+        <div class="mx-auto max-w-[900px]">
+          <div class="flex items-center justify-between relative">
+            <h1 class="text-2xl font-bold">Notes</h1>
+            <div class="relative">
+              <button
+                ref={popoverButtonRef}
+                class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+                onClick={handleTogglePopover}
+              >
+                <span>⚙️</span>
+                <span>Actions</span>
+              </button>
+              <Show when={popoverOpen()}>
+                <div
+                  ref={popoverRef}
+                  class="absolute right-0 mt-2 w-80 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3"
+                >
+                  <div class="space-y-3">
+                    <div>
+                      <div class="text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">
+                        Bulk Actions
+                      </div>
+                      <div class="space-y-2">
+                        <button
+                          class="w-full px-3 py-2 rounded bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50 text-left"
+                          onClick={async () => {
+                            try {
+                              await bulkSetSource();
+                              await refetch();
+                              setPopoverOpen(false);
+                            } catch (e) {
+                              console.error(e);
+                              alert(
+                                (e as Error).message || "Failed to set source"
+                              );
+                            }
+                          }}
+                        >
+                          Set Source (All)
+                        </button>
+                        <button
+                          class="w-full px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 text-left whitespace-nowrap"
+                          onClick={handleCleanupTitles}
+                          disabled={cleaning()}
+                        >
+                          {cleaning() ? "Cleaning…" : "Clean Bad Titles"}
+                        </button>
+                      </div>
+                    </div>
+                    <div class="border-t border-gray-200 pt-3">
+                      <div class="text-xs font-medium text-red-700 mb-2 uppercase tracking-wide">
+                        ⚠️ Dangerous Actions
+                      </div>
+                      <div class="space-y-2">
+                        <Show when={sources()}>
+                          {(data) => (
+                            <For each={data().sources}>
+                              {(s) => (
+                                <button
+                                  class="w-full px-3 py-2 rounded bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50 text-left whitespace-nowrap"
+                                  onClick={async () => {
+                                    if (
+                                      !confirm(
+                                        `Delete all notes for "${s.originalSource}" (${s.count})? This cannot be undone.`
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    try {
+                                      await deleteBySource(s.originalSource);
+                                      console.log(
+                                        "[DocsIndex] delete by source completed",
+                                        s.originalSource
+                                      );
+                                      await Promise.all([
+                                        refetch(),
+                                        refetchSources(),
+                                      ]);
+                                      setPopoverOpen(false);
+                                    } catch (e) {
+                                      console.error(e);
+                                      alert(
+                                        `Failed to delete notes for ${s.originalSource}`
+                                      );
+                                    }
+                                  }}
+                                >
+                                  Delete {s.originalSource} ({s.count})
+                                </button>
+                              )}
+                            </For>
+                          )}
+                        </Show>
+                        <button
+                          class="w-full px-3 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50 text-left"
+                          onClick={async () => {
+                            const total = sources()?.total ?? 0;
+                            if (
+                              !confirm(
+                                `Delete ALL notes (${total})? This cannot be undone.`
+                              )
+                            ) {
+                              return;
+                            }
+                            setPopoverOpen(false);
+                            try {
+                              await deleteAllDocs();
+                              console.log("[DocsIndex] delete all completed");
+                              await Promise.all([refetch(), refetchSources()]);
+                            } catch (e) {
+                              console.error(e);
+                              alert("Failed to delete all notes");
+                            }
+                          }}
+                        >
+                          Delete All
+                          <Show when={sources()}>
+                            {(d) => <span> ({d().total})</span>}
+                          </Show>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </Show>
-            <button
-              class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
-              onClick={handleDeleteAll}
-            >
-              Delete All
-              <Show when={sources()}>{(d) => <span> ({d().total})</span>}</Show>
-            </button>
+              </Show>
+            </div>
           </div>
+          <Show when={docs()} fallback={<p>Loading…</p>}>
+            {(items) => (
+              <ul class="space-y-2 mt-4">
+                <For each={items()}>
+                  {(d) => (
+                    <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
+                      <A
+                        href={`/docs/${d.id}`}
+                        class="font-medium hover:underline"
+                      >
+                        {d.title}
+                      </A>
+                      <span
+                        class="text-gray-500 text-sm"
+                        title={`Created ${new Date(
+                          d.createdAt
+                        ).toLocaleString()}`}
+                      >
+                        {new Date(d.updatedAt).toLocaleString()}
+                      </span>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            )}
+          </Show>
         </div>
-        <Show when={docs()} fallback={<p>Loading…</p>}>
-          {(items) => (
-            <ul class="space-y-2">
-              <For each={items()}>
-                {(d) => (
-                  <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
-                    <A
-                      href={`/docs/${d.id}`}
-                      class="font-medium hover:underline"
-                    >
-                      {d.title}
-                    </A>
-                    <span
-                      class="text-gray-500 text-sm"
-                      title={`Created ${new Date(
-                        d.createdAt
-                      ).toLocaleString()}`}
-                    >
-                      {new Date(d.updatedAt).toLocaleString()}
-                    </span>
-                  </li>
-                )}
-              </For>
-            </ul>
-          )}
-        </Show>
       </div>
     </main>
   );
