@@ -46,13 +46,15 @@ const DocView: VoidComponent = () => {
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4">
-        <Show when={doc()} fallback={<p>Loading…</p>}>
-          {(d) => (
-            <article class="prose max-w-none">
-              <DocumentViewer doc={d()} onDeleted={handleDeleted} />
-            </article>
-          )}
-        </Show>
+        <div class="mx-auto max-w-[900px]">
+          <Show when={doc()} fallback={<p>Loading…</p>}>
+            {(d) => (
+              <article class="prose max-w-none">
+                <DocumentViewer doc={d()} onDeleted={handleDeleted} />
+              </article>
+            )}
+          </Show>
+        </div>
       </div>
     </main>
   );
