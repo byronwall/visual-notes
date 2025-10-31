@@ -8,7 +8,12 @@ import {
 import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 
-type DocListItem = { id: string; title: string; createdAt: string };
+type DocListItem = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
 type SourceCount = { originalSource: string; count: number };
 type SourcesResponse = { total: number; sources: SourceCount[] };
 
@@ -192,8 +197,13 @@ const DocsIndex: VoidComponent = () => {
                     >
                       {d.title}
                     </A>
-                    <span class="text-gray-500 text-sm">
-                      {new Date(d.createdAt).toLocaleString()}
+                    <span
+                      class="text-gray-500 text-sm"
+                      title={`Created ${new Date(
+                        d.createdAt
+                      ).toLocaleString()}`}
+                    >
+                      {new Date(d.updatedAt).toLocaleString()}
                     </span>
                   </li>
                 )}

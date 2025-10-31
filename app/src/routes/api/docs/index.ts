@@ -116,8 +116,8 @@ export async function GET(event: APIEvent) {
   const takeParam = url.searchParams.get("take");
   const take = Number(takeParam ?? "50");
   const items = await prisma.doc.findMany({
-    orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, createdAt: true },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true, createdAt: true, updatedAt: true },
     take,
   });
   return json({ items });
