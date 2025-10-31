@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import Code from "@tiptap/extension-code";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -321,12 +322,54 @@ export default function TiptapEditor(props: {
     }
   });
 
+  // Inline <code> mark with spellcheck disabled
+  const CustomCode = Code.extend({
+    addAttributes() {
+      try {
+        console.log("[CustomCode.addAttributes]");
+      } catch {}
+      // Tiptap's parent attribute typing isn't exported; casting to any preserves base attrs
+      const parent = (this as any).parent?.() ?? {};
+      return {
+        ...parent,
+        spellcheck: {
+          default: false,
+          renderHTML: (attrs: { spellcheck?: boolean }) => ({
+            spellcheck: attrs.spellcheck ? "true" : "false",
+          }),
+        },
+      } as any;
+    },
+  });
+
+  // CodeBlock extension with spellcheck disabled on the <pre>
+  const CustomCodeBlock = CodeBlockLowlight.extend({
+    addAttributes() {
+      try {
+        console.log("[CustomCodeBlock.addAttributes]");
+      } catch {}
+      // Tiptap's parent attribute typing isn't exported; casting to any preserves base attrs
+      const parent = (this as any).parent?.() ?? {};
+      return {
+        ...parent,
+        spellcheck: {
+          default: false,
+          renderHTML: (attrs: { spellcheck?: boolean }) => ({
+            spellcheck: attrs.spellcheck ? "true" : "false",
+          }),
+        },
+      } as any;
+    },
+  }).configure({ lowlight: createLowlight(common) });
+
+
   const editor = createTiptapEditor(() => ({
     element: container()!,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, code: false }),
       Image.configure({ allowBase64: true }),
-      CodeBlockLowlight.configure({ lowlight: createLowlight(common) }),
+      CustomCode,
+      CustomCodeBlock,
       Table.configure({
         resizable: true,
         lastColumnResizable: true,
