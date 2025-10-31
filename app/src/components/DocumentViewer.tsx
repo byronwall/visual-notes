@@ -1,4 +1,4 @@
-import { type VoidComponent, Show, createSignal } from "solid-js";
+import { type VoidComponent, Show, createEffect, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 import DocumentEditor from "./DocumentEditor";
@@ -75,6 +75,14 @@ const DocumentViewer: VoidComponent<{
     }
   };
   const runs = () => props.doc?.embeddingRuns || [];
+
+  // Update page title to match note title
+  createEffect(() => {
+    const t = title();
+    if (typeof document !== "undefined" && t) {
+      document.title = `${t} • Visual Notes`;
+    }
+  });
 
   return (
     <div class="prose max-w-none">
