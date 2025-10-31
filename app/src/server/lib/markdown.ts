@@ -10,6 +10,42 @@ function stripAiHtmlWrapper(input: string): string {
   return m ? m[1].trim() : input;
 }
 
+function removeUtmParamsFromUrl(input: string): string {
+  if (!input) return input;
+  const isProtocolRelative = /^\/\//.test(input);
+  const hasHttpProtocol = /^https?:\/\//i.test(input);
+  if (!isProtocolRelative && !hasHttpProtocol) return input;
+
+  try {
+    const urlForParse = isProtocolRelative ? `https:${input}` : input;
+    const urlObj = new URL(urlForParse);
+
+    const toDelete: string[] = [];
+    urlObj.searchParams.forEach((_v, k) => {
+      if (/^utm_/i.test(k)) toDelete.push(k);
+    });
+
+    if (toDelete.length) {
+      console.log("[removeUtmParamsFromUrl] stripping:", toDelete);
+    }
+
+    toDelete.forEach((k) => urlObj.searchParams.delete(k));
+
+    const out = urlObj.toString();
+    const finalOut = isProtocolRelative ? out.replace(/^https?:/, "") : out;
+    if (finalOut !== input) {
+      console.log("[removeUtmParamsFromUrl] cleaned:", {
+        before: input,
+        after: finalOut,
+      });
+    }
+    return finalOut;
+  } catch (err) {
+    console.log("[removeUtmParamsFromUrl] failed to parse:", input, err);
+    return input;
+  }
+}
+
 export function looksLikeHtml(input: string): boolean {
   const s = input.trim();
   if (!s) return false;
@@ -64,14 +100,36 @@ export function getSanitizeOptions(): IOptions {
       img: ["http", "https", "data"],
     },
     transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName: "a",
-        attribs: {
-          ...attribs,
-          target: attribs.target || "_blank",
-          rel: attribs.rel || "noopener noreferrer",
-        },
-      }),
+      a: (tagName: string, attribs: Record<string, string>) => {
+        let href = attribs.href || "";
+        try {
+          href = removeUtmParamsFromUrl(href);
+        } catch {}
+        return {
+          tagName: "a",
+          attribs: {
+            ...attribs,
+            href,
+            target: attribs.target || "_blank",
+            rel: attribs.rel || "noopener noreferrer",
+          },
+          // Also set the anchor's visible text to the sanitized URL.
+          // Usually link text is the same as the URL; this ensures utm_* params
+          // are stripped from both the href and the displayed text.
+          text: href,
+        };
+      },
+    },
+    textFilter: (text: string) => {
+      console.log("[sanitizeHtml.textFilter] text:", text);
+      // Replace any URL-like substrings with UTM-stripped versions
+      const urlLikePattern = /(https?:)?\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+/gi;
+      const out = text.replace(urlLikePattern, (m) =>
+        removeUtmParamsFromUrl(m)
+      );
+      if (out !== text)
+        console.log("[sanitizeHtml.textFilter] cleaned text:", out);
+      return out;
     },
   };
 }
