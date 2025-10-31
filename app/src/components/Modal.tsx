@@ -9,8 +9,12 @@ export default function Modal(props: {
   contentClass?: string;
   /** If true, pressing Escape closes the modal (default true) */
   closeOnEsc?: boolean;
+  /** If true, clicking the backdrop keeps the modal open (default false, backdrop closes modal) */
+  shouldKeepOpenOnBackdropClick?: boolean;
 }) {
   const shouldCloseOnEsc = () => props.closeOnEsc !== false;
+  const shouldCloseOnBackdrop = () =>
+    props.shouldKeepOpenOnBackdropClick !== true;
 
   createEffect(() => {
     if (!props.open || !shouldCloseOnEsc()) return;
@@ -40,13 +44,17 @@ export default function Modal(props: {
           class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
           role="dialog"
           aria-modal="true"
-          onClick={props.onClose}
         >
           {/* Backdrop is intentionally transparent for a subtle feel */}
           <div class="absolute inset-0 bg-black/0" />
           <div
             class={`${props.contentClass || ""} overscroll-contain`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => {
+              console.log("[Modal] Backdrop clicked");
+              if (shouldCloseOnBackdrop()) {
+                props.onClose();
+              }
+            }}
           >
             {props.children}
           </div>
