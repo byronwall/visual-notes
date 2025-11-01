@@ -48,6 +48,26 @@ export const PathEditor: VoidComponent<{
     return parts.join(".");
   });
 
+  // Sync internal state when external initialPath changes (e.g., clicking a path pill)
+  createEffect(() => {
+    const incoming = (props.initialPath || "").trim();
+    const currentJoined = joinedPath();
+    if (incoming === currentJoined) return;
+    if (!incoming) {
+      setCommitted([]);
+      setCurrent("");
+      return;
+    }
+    const tokens = incoming.split(".").filter((t) => t.length > 0);
+    if (tokens.length <= 1) {
+      setCommitted([]);
+      setCurrent(tokens[0] || "");
+    } else {
+      setCommitted(tokens.slice(0, -1));
+      setCurrent(tokens[tokens.length - 1] || "");
+    }
+  });
+
   createEffect(() => {
     const value = joinedPath();
     try {

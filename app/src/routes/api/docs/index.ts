@@ -147,6 +147,7 @@ export async function GET(event: APIEvent) {
       createdAt: true,
       updatedAt: true,
       path: true,
+      meta: true,
     },
     take,
   });

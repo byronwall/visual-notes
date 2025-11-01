@@ -12,13 +12,16 @@ import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
+import { PathEditor } from "~/components/PathEditor";
 
+type MetaRecord = Record<string, string | number | boolean | null>;
 type DocListItem = {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
   path?: string | null;
+  meta?: MetaRecord | null;
 };
 type SourceCount = { originalSource: string; count: number };
 type SourcesResponse = { total: number; sources: SourceCount[] };
@@ -104,6 +107,19 @@ const DocsIndex: VoidComponent = () => {
   const handleSelectMetaValue = (value: string) => {
     setMetaValue(value);
     console.log("[DocsIndex] selected meta value", value);
+  };
+
+  const handlePathFilterClick = (pathValue: string) => () => {
+    if (!pathValue) return;
+    console.log("[DocsIndex] filter by path", pathValue);
+    setPathPrefix(pathValue);
+  };
+
+  const makeMetaFilterHandler = (key: string, value: string) => () => {
+    if (!key) return;
+    console.log("[DocsIndex] filter by meta", { key, value });
+    setMetaKey(key);
+    setMetaValue(value);
   };
 
   const handleClearMetaFilter = () => {
@@ -349,11 +365,9 @@ const DocsIndex: VoidComponent = () => {
               <label class="block text-xs text-gray-600 mb-1">
                 Path prefix
               </label>
-              <input
-                class="w-full border rounded px-2 py-1 text-sm"
-                placeholder="work.projects"
-                value={pathPrefix()}
-                onInput={(e) => setPathPrefix(e.currentTarget.value)}
+              <PathEditor
+                initialPath={pathPrefix()}
+                onChange={(p) => setPathPrefix(p)}
               />
             </div>
             <div>
@@ -398,38 +412,78 @@ const DocsIndex: VoidComponent = () => {
             </div>
           </div>
           <Show when={docs()} fallback={<p>Loading…</p>}>
-            {(items) => (
-              <ul class="space-y-2 mt-4">
-                <For each={items()}>
-                  {(d) => (
-                    <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
-                      <A
-                        href={`/docs/${d.id}`}
-                        class="font-medium hover:underline"
-                      >
-                        {d.title}
-                      </A>
-                      <div class="flex items-center gap-3 text-sm text-gray-500">
-                        <Show when={d.path}>
-                          {(p) => (
-                            <span class="text-xs px-2 py-0.5 rounded bg-gray-100 border">
-                              {p()}
-                            </span>
-                          )}
-                        </Show>
-                        <span
-                          title={`Created ${new Date(
-                            d.createdAt
-                          ).toLocaleString()}`}
-                        >
-                          {new Date(d.updatedAt).toLocaleString()}
-                        </span>
-                      </div>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            )}
+            {(items) => {
+              const groups = () => groupByUpdatedAt(items());
+              console.log(
+                "[DocsIndex] group sizes",
+                groups().map((g) => ({ label: g.label, count: g.items.length }))
+              );
+              return (
+                <div class="space-y-6 mt-4">
+                  <For each={groups()}>
+                    {(g) => (
+                      <Show when={g.items.length}>
+                        <section>
+                          <h2 class="text-sm font-semibold text-gray-600">
+                            {g.label}
+                          </h2>
+                          <ul class="space-y-2 mt-2">
+                            <For each={g.items}>
+                              {(d) => (
+                                <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
+                                  <A
+                                    href={`/docs/${d.id}`}
+                                    class="font-medium hover:underline"
+                                  >
+                                    {d.title}
+                                  </A>
+                                  <div class="flex items-center gap-2 text-sm text-gray-500">
+                                    <Show when={d.path}>
+                                      {(p) => (
+                                        <button
+                                          type="button"
+                                          class="text-xs px-2 py-0.5 rounded bg-gray-100 border hover:bg-gray-200 cursor-pointer"
+                                          onClick={handlePathFilterClick(p())}
+                                          title={`Filter by path: ${p()}`}
+                                        >
+                                          {p()}
+                                        </button>
+                                      )}
+                                    </Show>
+                                    <For each={getTopMetaEntries(d.meta)}>
+                                      {(entry) => (
+                                        <button
+                                          type="button"
+                                          class="text-xs px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                                          onClick={makeMetaFilterHandler(
+                                            entry[0],
+                                            entry[1]
+                                          )}
+                                          title={`Filter by ${entry[0]}=${entry[1]}`}
+                                        >
+                                          {entry[0]}: {entry[1]}
+                                        </button>
+                                      )}
+                                    </For>
+                                    <span
+                                      title={`Updated ${new Date(
+                                        d.updatedAt
+                                      ).toLocaleString()}`}
+                                    >
+                                      {formatRelativeTime(d.updatedAt)}
+                                    </span>
+                                  </div>
+                                </li>
+                              )}
+                            </For>
+                          </ul>
+                        </section>
+                      </Show>
+                    )}
+                  </For>
+                </div>
+              );
+            }}
           </Show>
         </div>
       </div>
@@ -438,3 +492,68 @@ const DocsIndex: VoidComponent = () => {
 };
 
 export default DocsIndex;
+
+function formatRelativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  const week = Math.floor(day / 7);
+  if (week < 4) return `${week}w ago`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month}mo ago`;
+  const year = Math.floor(day / 365);
+  return `${year}y ago`;
+}
+
+function getTopMetaEntries(meta?: MetaRecord | null): [string, string][] {
+  if (!meta) return [];
+  const entries = Object.entries(meta)
+    .filter(([, v]) => v !== null && String(v).trim() !== "")
+    .slice(0, 3)
+    .map(([k, v]) => [k, String(v)] as [string, string]);
+  return entries;
+}
+
+function groupByUpdatedAt(items: DocListItem[]) {
+  const now = Date.now();
+  const HOUR = 60 * 60 * 1000;
+  const DAY = 24 * HOUR;
+  const WEEK = 7 * DAY;
+  const MONTH = 30 * DAY;
+  const YEAR = 365 * DAY;
+
+  const buckets: Record<string, DocListItem[]> = {
+    hour: [],
+    day: [],
+    week: [],
+    month: [],
+    year: [],
+    older: [],
+  };
+
+  for (const d of items) {
+    const t = new Date(d.updatedAt).getTime();
+    const dt = now - t;
+    if (dt <= HOUR) buckets.hour.push(d);
+    else if (dt <= DAY) buckets.day.push(d);
+    else if (dt <= WEEK) buckets.week.push(d);
+    else if (dt <= MONTH) buckets.month.push(d);
+    else if (dt <= YEAR) buckets.year.push(d);
+    else buckets.older.push(d);
+  }
+
+  return [
+    { label: "Last hour", items: buckets.hour },
+    { label: "Last day", items: buckets.day },
+    { label: "Last week", items: buckets.week },
+    { label: "Last month", items: buckets.month },
+    { label: "Last year", items: buckets.year },
+    { label: "Older", items: buckets.older },
+  ];
+}
