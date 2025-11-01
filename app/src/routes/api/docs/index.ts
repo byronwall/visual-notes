@@ -134,11 +134,20 @@ export async function GET(event: APIEvent) {
   if (pathPrefix) where.path = { startsWith: pathPrefix };
   if (metaKey && metaValue !== undefined) {
     where.meta = { path: [metaKey], equals: metaValue } as any;
+  } else if (metaKey && metaValue === undefined) {
+    // If only a key is provided, match any non-null value for that key
+    where.meta = { path: [metaKey], not: null } as any;
   }
   const items = await prisma.doc.findMany({
     orderBy: { updatedAt: "desc" },
     where,
-    select: { id: true, title: true, createdAt: true, updatedAt: true, path: true },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      updatedAt: true,
+      path: true,
+    },
     take,
   });
   return json({ items });
