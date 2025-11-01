@@ -24,6 +24,7 @@ export const MetaKeySuggestions: VoidComponent<{
                 class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
                 onClick={() => props.onSelect(s.key)}
                 title={`${s.key} (${s.count})`}
+                tabindex="-1"
               >
                 <span class="font-medium text-gray-800 truncate max-w-[10rem]">
                   {s.key}

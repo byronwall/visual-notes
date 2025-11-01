@@ -10,6 +10,7 @@ import type { VoidComponent } from "solid-js";
 import { updateDocMeta, type MetaRecord } from "~/services/docs.service";
 import { MetaKeySuggestions } from "./MetaKeySuggestions";
 import { MetaValueSuggestions } from "./MetaValueSuggestions";
+import { Popover } from "./Popover";
 
 type Entry = { key: string; value: string };
 
@@ -28,6 +29,7 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [editingIndex, setEditingIndex] = createSignal<number | null>(null);
   const [editKey, setEditKey] = createSignal("");
   const [editValue, setEditValue] = createSignal("");
+  let anchorRef: HTMLDivElement | undefined;
 
   // suggestions now handled in child components
 
@@ -121,7 +123,7 @@ export const MetaKeyValueEditor: VoidComponent<{
 
   return (
     <div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2" ref={(el) => (anchorRef = el)}>
         <For each={entries()}>
           {(e, i) => (
             <button
@@ -161,63 +163,64 @@ export const MetaKeyValueEditor: VoidComponent<{
         {(e) => <div class="text-xs text-red-700 mt-1">{e()}</div>}
       </Show>
 
-      <Show when={isOpen()}>
-        <div class="fixed inset-0 z-50 flex items-center justify-center">
-          <div class="absolute inset-0 bg-black/20" onClick={closePopup} />
-          <div class="relative z-10 w-[90%] max-w-md rounded border border-gray-300 bg-white p-4 shadow-lg">
-            <div class="text-sm font-medium mb-2">Edit metadata</div>
-            <div class="flex gap-2">
-              <div>
-                <input
-                  class="border rounded px-2 py-1 text-sm w-40"
-                  placeholder="key"
-                  value={editKey()}
-                  onInput={(evt) => setEditKey(evt.currentTarget.value)}
-                  onKeyDown={handleFieldKeyDown}
-                />
-                <Suspense fallback={null}>
-                  <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
-                </Suspense>
-              </div>
-              <span class="text-gray-400">:</span>
-              <div>
-                <input
-                  class="border rounded px-2 py-1 text-sm flex-1"
-                  placeholder="value"
-                  value={editValue()}
-                  onInput={(evt) => setEditValue(evt.currentTarget.value)}
-                  onKeyDown={handleFieldKeyDown}
-                />
-                <Suspense fallback={null}>
-                  <MetaValueSuggestions
-                    keyName={editKey()}
-                    onSelect={(v) => setEditValue(v)}
-                  />
-                </Suspense>
-              </div>
-            </div>
-
-            <div class="mt-3 flex items-center gap-2 justify-end">
-              <button
-                class="px-3 py-1.5 rounded border text-sm hover:bg-gray-50"
-                onClick={closePopup}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                class={`px-3 py-1.5 rounded border text-sm ${
-                  busy() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
-                }`}
-                onClick={handleSave}
-                disabled={busy()}
-              >
-                {busy() ? "Saving…" : "Save"}
-              </button>
-            </div>
+      <Popover
+        open={isOpen()}
+        onClose={closePopup}
+        anchorEl={anchorRef}
+        placement="bottom-start"
+        class="w-[90%] max-w-md p-4"
+      >
+        <div class="text-sm font-medium mb-2">Edit metadata</div>
+        <div class="flex gap-2">
+          <div>
+            <input
+              class="border rounded px-2 py-1 text-sm w-40"
+              placeholder="key"
+              value={editKey()}
+              onInput={(evt) => setEditKey(evt.currentTarget.value)}
+              onKeyDown={handleFieldKeyDown}
+            />
+            <Suspense fallback={null}>
+              <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
+            </Suspense>
+          </div>
+          <span class="text-gray-400">:</span>
+          <div>
+            <input
+              class="border rounded px-2 py-1 text-sm flex-1"
+              placeholder="value"
+              value={editValue()}
+              onInput={(evt) => setEditValue(evt.currentTarget.value)}
+              onKeyDown={handleFieldKeyDown}
+            />
+            <Suspense fallback={null}>
+              <MetaValueSuggestions
+                keyName={editKey()}
+                onSelect={(v) => setEditValue(v)}
+              />
+            </Suspense>
           </div>
         </div>
-      </Show>
+
+        <div class="mt-3 flex items-center gap-2 justify-end">
+          <button
+            class="px-3 py-1.5 rounded border text-sm hover:bg-gray-50"
+            onClick={closePopup}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            class={`px-3 py-1.5 rounded border text-sm ${
+              busy() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
+            }`}
+            onClick={handleSave}
+            disabled={busy()}
+          >
+            {busy() ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </Popover>
     </div>
   );
 };
