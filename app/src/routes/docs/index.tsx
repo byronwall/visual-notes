@@ -15,6 +15,11 @@ import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 import { PathEditor } from "~/components/PathEditor";
 
+// TODO in here
+// comp needs some major refactoring
+// server + client results need merged or unified somehow
+// search loses focus when results come in - Suspense + resource woes
+
 type MetaRecord = Record<string, string | number | boolean | null>;
 type DocListItem = {
   id: string;
