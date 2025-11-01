@@ -95,7 +95,8 @@ const putInput = z.object({
   title: z.string().min(1).max(200).optional(),
   markdown: z.string().min(1).optional(),
   html: z.string().min(1).optional(),
-  path: z.string().min(1).max(512).optional(),
+  // Allow empty string to clear path
+  path: z.string().max(512).optional(),
   meta: z.record(jsonPrimitive).optional(),
 });
 
@@ -138,7 +139,8 @@ export async function PUT(event: APIEvent) {
       updates.html = sanitized;
     }
 
-    if (input.path !== undefined) updates.path = input.path;
+    if (input.path !== undefined)
+      updates.path = input.path.trim().length ? input.path.trim() : null;
     if (input.meta !== undefined) updates.meta = input.meta;
 
     if (Object.keys(updates).length === 0) {

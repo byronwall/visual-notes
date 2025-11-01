@@ -48,11 +48,10 @@ export const PathEditor: VoidComponent<{
     return parts.join(".");
   });
 
-  // Sync internal state when external initialPath changes (e.g., clicking a path pill)
+  // Sync internal state only when external initialPath changes
+  // Important: do NOT depend on joinedPath() here, or typing will be reset
   createEffect(() => {
     const incoming = (props.initialPath || "").trim();
-    const currentJoined = joinedPath();
-    if (incoming === currentJoined) return;
     if (!incoming) {
       setCommitted([]);
       setCurrent("");
@@ -70,9 +69,7 @@ export const PathEditor: VoidComponent<{
 
   createEffect(() => {
     const value = joinedPath();
-    try {
-      console.log(`[PathEditor] path=${value}`);
-    } catch {}
+    console.log(`[PathEditor] path=${value}`);
     if (props.onChange) props.onChange(value);
   });
 
@@ -167,7 +164,6 @@ export const PathEditor: VoidComponent<{
   const handleSave = async () => {
     if (!props.docId) return;
     const finalPath = joinedPath().trim();
-    if (!finalPath) return;
     setSaving(true);
     setError(undefined);
     try {
@@ -197,10 +193,20 @@ export const PathEditor: VoidComponent<{
     setIsOpen(true);
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
+    if (props.docId) {
+      // only confirm if we have a docId -- cannot save otherwise
+      // TODO: this logic should really be in one place.
+      const confirmed = window.confirm(
+        "Clear the path and save it as empty? This will reset the path to the base level."
+      );
+      if (!confirmed) return;
+    }
+    console.log("[PathEditor] clear -> saving empty path");
     setCommitted([]);
     setCurrent("");
-    setIsOpen(true);
+    setIsOpen(false);
+    await handleSave();
   };
 
   return (
@@ -277,6 +283,9 @@ export const PathEditor: VoidComponent<{
               >
                 <span>Popular top-level segments</span>
               </Show>
+            </div>
+            <div class="text-xs text-gray-500 mb-2">
+              Hit <span class="font-mono">.</span> to nest
             </div>
             <div class="flex flex-wrap gap-2">
               <For each={nextSegmentSuggestions()}>

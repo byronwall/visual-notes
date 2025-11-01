@@ -15,7 +15,8 @@ const ingestInput = z
     originalSource: z.string().min(1).max(128).optional(),
     originalContentId: z.string().min(1).max(512).optional(),
     contentHash: z.string().min(16).max(128).optional(),
-    path: z.string().min(1).max(512).optional(),
+    // Allow empty string which we will store as null
+    path: z.string().max(512).optional(),
     meta: z.record(jsonPrimitive).optional(),
   })
   .refine((v) => Boolean(v.markdown || v.html), {
@@ -80,7 +81,7 @@ export async function POST(event: APIEvent) {
             markdown,
             html,
             contentHash,
-            path: input.path,
+            path: input.path?.trim()?.length ? input.path.trim() : null,
             meta: input.meta,
           },
           select: { id: true },
@@ -95,7 +96,7 @@ export async function POST(event: APIEvent) {
           originalSource: input.originalSource,
           originalContentId: input.originalContentId,
           contentHash,
-          path: input.path,
+          path: input.path?.trim()?.length ? input.path.trim() : null,
           meta: input.meta,
         },
         select: { id: true },
@@ -108,7 +109,7 @@ export async function POST(event: APIEvent) {
           markdown,
           html,
           contentHash,
-          path: input.path,
+          path: input.path?.trim()?.length ? input.path.trim() : null,
           meta: input.meta,
         },
         select: { id: true },
