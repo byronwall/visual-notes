@@ -6,6 +6,7 @@ import {
   createResource,
   createSignal,
   createEffect,
+  createMemo,
   onCleanup,
 } from "solid-js";
 import { A } from "@solidjs/router";
@@ -35,12 +36,68 @@ async function fetchDocs(q?: {
   if (q?.pathPrefix) params.set("pathPrefix", q.pathPrefix);
   if (q?.metaKey) params.set("metaKey", q.metaKey);
   if (q?.metaValue) params.set("metaValue", q.metaValue);
+  // Load many so client-side filtering is instant
+  params.set("take", "8000");
   const qs = params.toString();
   const url = qs ? `/api/docs?${qs}` : "/api/docs";
   const res = await apiFetch(url);
   if (!res.ok) throw new Error("Failed to load notes");
   const json = (await res.json()) as { items: DocListItem[] };
   return json.items;
+}
+
+type ServerSearchItem = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  path?: string | null;
+  snippet?: string | null;
+};
+
+// Abort controller for cancelling in-flight server searches
+let activeSearchAbort: AbortController | undefined;
+
+async function fetchServerSearch(q: {
+  query: string;
+  pathPrefix?: string;
+  metaKey?: string;
+  metaValue?: string;
+}) {
+  const params = new URLSearchParams();
+  params.set("q", q.query);
+  if (q.pathPrefix) params.set("pathPrefix", q.pathPrefix);
+  if (q.metaKey) params.set("metaKey", q.metaKey);
+  if (q.metaValue) params.set("metaValue", q.metaValue);
+  params.set("take", "50");
+  const url = `/api/docs/search?${params.toString()}`;
+  // cancel previous search
+  if (activeSearchAbort) {
+    try {
+      activeSearchAbort.abort();
+    } catch {}
+  }
+  const controller = new AbortController();
+  activeSearchAbort = controller;
+  let res: Response;
+  try {
+    res = await apiFetch(url, { signal: controller.signal });
+  } catch (e) {
+    if ((e as any)?.name === "AbortError") {
+      try {
+        console.log("[DocsIndex] server search aborted");
+      } catch {}
+      return [];
+    }
+    throw e;
+  }
+  if (!res.ok) throw new Error("Failed to search notes");
+  const json = (await res.json()) as { items: ServerSearchItem[] };
+  try {
+    console.log(
+      `[DocsIndex] server search returned ${json.items?.length ?? 0} items`
+    );
+  } catch {}
+  return json.items || [];
 }
 
 async function deleteAllDocs() {
@@ -83,6 +140,9 @@ const DocsIndex: VoidComponent = () => {
   const [pathPrefix, setPathPrefix] = createSignal("");
   const [metaKey, setMetaKey] = createSignal("");
   const [metaValue, setMetaValue] = createSignal("");
+  const [searchText, setSearchText] = createSignal("");
+  const [clientShown, setClientShown] = createSignal(100);
+  const [serverShown, setServerShown] = createSignal(25);
 
   const [docs, { refetch }] = createResource(
     () => ({ p: pathPrefix(), k: metaKey(), v: metaValue() }),
@@ -98,6 +158,101 @@ const DocsIndex: VoidComponent = () => {
   const [popoverOpen, setPopoverOpen] = createSignal(false);
   let popoverButtonRef: HTMLButtonElement | undefined;
   let popoverRef: HTMLDivElement | undefined;
+
+  // Client-side fuzzy filter over titles
+  const isSearching = createMemo(() => searchText().trim().length > 0);
+  const clientMatches = createMemo(() => {
+    const q = searchText().trim().toLowerCase();
+    const items = docs() || [];
+    if (!q) {
+      try {
+        console.log("[DocsIndex] clientMatches browse mode", {
+          docs: items.length,
+          q,
+        });
+      } catch {}
+      return items;
+    }
+    const scored: { item: DocListItem; score: number }[] = [];
+    for (const it of items) {
+      const title = (it.title || "").toLowerCase();
+      const score = computeFuzzyScore(title, q);
+      if (score > 0) scored.push({ item: it, score });
+    }
+    scored.sort(
+      (a, b) =>
+        b.score - a.score ||
+        new Date(b.item.updatedAt).getTime() -
+          new Date(a.item.updatedAt).getTime()
+    );
+    const out = scored.map((s) => s.item);
+    try {
+      console.log("[DocsIndex] clientMatches search mode", {
+        docs: items.length,
+        q,
+        matched: out.length,
+      });
+    } catch {}
+    return out;
+  });
+
+  // Server-side search with 100ms lead + 500ms trailing debounce
+  const [serverQuery, setServerQuery] = createSignal("");
+  const [serverResults] = createResource(
+    () => ({
+      q: serverQuery(),
+      p: pathPrefix(),
+      k: metaKey(),
+      v: metaValue(),
+    }),
+    (src) =>
+      src.q
+        ? fetchServerSearch({
+            query: src.q,
+            pathPrefix: src.p || undefined,
+            metaKey: src.k || undefined,
+            metaValue: src.v || undefined,
+          })
+        : Promise.resolve([])
+  );
+
+  let leadTimeout: number | undefined;
+  let trailTimeout: number | undefined;
+  createEffect(() => {
+    const q = searchText().trim();
+    // Reset client pagination on search change
+    setClientShown(100);
+    setServerShown(25);
+    try {
+      if (q) console.log("[DocsIndex] reset clientShown due to search change");
+    } catch {}
+    // Clear scheduled calls when input changes
+    if (leadTimeout) window.clearTimeout(leadTimeout);
+    if (trailTimeout) window.clearTimeout(trailTimeout);
+    if (!q) {
+      if (activeSearchAbort) {
+        try {
+          activeSearchAbort.abort();
+        } catch {}
+      }
+      setServerQuery("");
+      return;
+    }
+    // Leading call after 100ms
+    leadTimeout = window.setTimeout(() => {
+      setServerQuery((prev) => (prev === q ? prev : q));
+      console.log("[DocsIndex] server search (lead)", q);
+    }, 100);
+    // Trailing call 500ms after last keypress
+    trailTimeout = window.setTimeout(() => {
+      setServerQuery((prev) => (prev === q ? prev : q));
+      console.log("[DocsIndex] server search (trail)", q);
+    }, 500);
+    onCleanup(() => {
+      if (leadTimeout) window.clearTimeout(leadTimeout);
+      if (trailTimeout) window.clearTimeout(trailTimeout);
+    });
+  });
 
   const handleSelectMetaKey = (key: string) => {
     setMetaKey(key);
@@ -360,6 +515,15 @@ const DocsIndex: VoidComponent = () => {
               </Show>
             </div>
           </div>
+          <div class="mt-3">
+            <label class="block text-xs text-gray-600 mb-1">Search</label>
+            <input
+              class="w-full border rounded px-2 py-1 text-sm"
+              placeholder="Filter by title (client) and contents (server)"
+              value={searchText()}
+              onInput={(e) => setSearchText(e.currentTarget.value)}
+            />
+          </div>
           <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <label class="block text-xs text-gray-600 mb-1">
@@ -414,73 +578,319 @@ const DocsIndex: VoidComponent = () => {
           <Show when={docs()} fallback={<p>Loading…</p>}>
             {(items) => {
               const groups = () => groupByUpdatedAt(items());
-              console.log(
-                "[DocsIndex] group sizes",
-                groups().map((g) => ({ label: g.label, count: g.items.length }))
-              );
+              try {
+                console.log("[DocsIndex] render container q=", searchText());
+              } catch {}
               return (
                 <div class="space-y-6 mt-4">
-                  <For each={groups()}>
-                    {(g) => (
-                      <Show when={g.items.length}>
-                        <section>
-                          <h2 class="text-sm font-semibold text-gray-600">
-                            {g.label}
-                          </h2>
-                          <ul class="space-y-2 mt-2">
-                            <For each={g.items}>
-                              {(d) => (
-                                <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
-                                  <A
-                                    href={`/docs/${d.id}`}
-                                    class="font-medium hover:underline"
+                  <Show
+                    when={isSearching()}
+                    fallback={
+                      <div class="space-y-6">
+                        {(() => {
+                          const all = items();
+                          const visible = all.slice(0, clientShown());
+                          const groupedVisible = groupByUpdatedAt(visible);
+                          console.log(
+                            "[DocsIndex] group sizes",
+                            groupedVisible.map((g) => ({
+                              label: g.label,
+                              count: g.items.length,
+                            }))
+                          );
+                          return (
+                            <>
+                              <For each={groupedVisible}>
+                                {(g) => (
+                                  <Show when={g.items.length}>
+                                    <section>
+                                      <h2 class="text-sm font-semibold text-gray-600">
+                                        {g.label}
+                                      </h2>
+                                      <ul class="space-y-2 mt-2">
+                                        <For each={g.items}>
+                                          {(d) => (
+                                            <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
+                                              <A
+                                                href={`/docs/${d.id}`}
+                                                class="font-medium hover:underline"
+                                              >
+                                                {d.title}
+                                              </A>
+                                              <div class="flex items-center gap-2 text-sm text-gray-500">
+                                                <Show when={d.path}>
+                                                  {(p) => (
+                                                    <button
+                                                      type="button"
+                                                      class="text-xs px-2 py-0.5 rounded bg-gray-100 border hover:bg-gray-200 cursor-pointer"
+                                                      onClick={handlePathFilterClick(
+                                                        p()
+                                                      )}
+                                                      title={`Filter by path: ${p()}`}
+                                                    >
+                                                      {p()}
+                                                    </button>
+                                                  )}
+                                                </Show>
+                                                <For
+                                                  each={getTopMetaEntries(
+                                                    d.meta
+                                                  )}
+                                                >
+                                                  {(entry) => (
+                                                    <button
+                                                      type="button"
+                                                      class="text-xs px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                                                      onClick={makeMetaFilterHandler(
+                                                        entry[0],
+                                                        entry[1]
+                                                      )}
+                                                      title={`Filter by ${entry[0]}=${entry[1]}`}
+                                                    >
+                                                      {entry[0]}: {entry[1]}
+                                                    </button>
+                                                  )}
+                                                </For>
+                                                <span
+                                                  title={`Updated ${new Date(
+                                                    d.updatedAt
+                                                  ).toLocaleString()}`}
+                                                >
+                                                  {formatRelativeTime(
+                                                    d.updatedAt
+                                                  )}
+                                                </span>
+                                              </div>
+                                            </li>
+                                          )}
+                                        </For>
+                                      </ul>
+                                    </section>
+                                  </Show>
+                                )}
+                              </For>
+                              <Show when={all.length > clientShown()}>
+                                <div class="mt-2">
+                                  <button
+                                    class="px-3 py-1.5 rounded bg-gray-100 border hover:bg-gray-200 text-sm"
+                                    onClick={() => {
+                                      setClientShown((n) => n + 100);
+                                      try {
+                                        console.log(
+                                          "[DocsIndex] show more browse",
+                                          {
+                                            next: clientShown() + 100,
+                                          }
+                                        );
+                                      } catch {}
+                                    }}
                                   >
-                                    {d.title}
-                                  </A>
-                                  <div class="flex items-center gap-2 text-sm text-gray-500">
-                                    <Show when={d.path}>
-                                      {(p) => (
-                                        <button
-                                          type="button"
-                                          class="text-xs px-2 py-0.5 rounded bg-gray-100 border hover:bg-gray-200 cursor-pointer"
-                                          onClick={handlePathFilterClick(p())}
-                                          title={`Filter by path: ${p()}`}
+                                    Show more (
+                                    {Math.min(clientShown(), all.length)} /{" "}
+                                    {all.length})
+                                  </button>
+                                </div>
+                              </Show>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    }
+                  >
+                    {(() => {
+                      const client = clientMatches();
+                      const clientVisible = client.slice(0, clientShown());
+                      const server = serverResults() || [];
+                      const serverVisible = (
+                        server as ServerSearchItem[]
+                      ).slice(0, serverShown());
+                      try {
+                        console.log("[DocsIndex] render search lists", {
+                          clientTotal: client.length,
+                          clientShown: clientShown(),
+                          clientVisible: clientVisible.length,
+                          serverTotal: (server as any[]).length,
+                        });
+                      } catch {}
+                      return (
+                        <>
+                          <section>
+                            <h2 class="text-sm font-semibold text-gray-600">
+                              Client results – title match
+                            </h2>
+                            {(() => {
+                              console.log(
+                                "[DocsIndex] rendering client groups",
+                                {
+                                  shown: clientVisible.length,
+                                  total: client.length,
+                                }
+                              );
+                              const grouped = groupByUpdatedAt(clientVisible);
+                              return (
+                                <div class="space-y-4 mt-2">
+                                  <For each={grouped}>
+                                    {(g) => (
+                                      <Show when={g.items.length}>
+                                        <section>
+                                          <h3 class="text-xs font-semibold text-gray-500">
+                                            {g.label}
+                                          </h3>
+                                          <ul class="space-y-2 mt-1">
+                                            <For each={g.items}>
+                                              {(d) => (
+                                                <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
+                                                  <A
+                                                    href={`/docs/${d.id}`}
+                                                    class="font-medium hover:underline"
+                                                  >
+                                                    {renderHighlighted(
+                                                      d.title,
+                                                      searchText()
+                                                    )}
+                                                  </A>
+                                                  <div class="flex items-center gap-2 text-sm text-gray-500">
+                                                    <Show when={d.path}>
+                                                      {(p) => (
+                                                        <button
+                                                          type="button"
+                                                          class="text-xs px-2 py-0.5 rounded bg-gray-100 border hover:bg-gray-200 cursor-pointer"
+                                                          onClick={handlePathFilterClick(
+                                                            p()
+                                                          )}
+                                                          title={`Filter by path: ${p()}`}
+                                                        >
+                                                          {p()}
+                                                        </button>
+                                                      )}
+                                                    </Show>
+                                                    <span
+                                                      title={`Updated ${new Date(
+                                                        d.updatedAt
+                                                      ).toLocaleString()}`}
+                                                    >
+                                                      {formatRelativeTime(
+                                                        d.updatedAt
+                                                      )}
+                                                    </span>
+                                                  </div>
+                                                </li>
+                                              )}
+                                            </For>
+                                          </ul>
+                                        </section>
+                                      </Show>
+                                    )}
+                                  </For>
+                                </div>
+                              );
+                            })()}
+                            <Show when={client.length > clientShown()}>
+                              <div class="mt-2">
+                                <button
+                                  class="px-3 py-1.5 rounded bg-gray-100 border hover:bg-gray-200 text-sm"
+                                  onClick={() => {
+                                    setClientShown((n) => n + 100);
+                                    try {
+                                      console.log(
+                                        "[DocsIndex] show more client",
+                                        {
+                                          next: clientShown() + 100,
+                                        }
+                                      );
+                                    } catch {}
+                                  }}
+                                >
+                                  Show more (
+                                  {Math.min(clientShown(), client.length)} /{" "}
+                                  {client.length})
+                                </button>
+                              </div>
+                            </Show>
+                          </section>
+                          <section>
+                            <h2 class="text-sm font-semibold text-gray-600">
+                              Server results – full text
+                            </h2>
+                            <Show when={serverResults.loading}>
+                              <p class="text-sm text-gray-500 mt-2">
+                                Searching…
+                              </p>
+                            </Show>
+                            <ul class="space-y-2 mt-2">
+                              <For each={serverVisible as ServerSearchItem[]}>
+                                {(d) => (
+                                  <li class="border border-gray-200 rounded p-3 hover:bg-gray-50">
+                                    <div class="flex items-center justify-between">
+                                      <A
+                                        href={`/docs/${d.id}`}
+                                        class="font-medium hover:underline"
+                                      >
+                                        {renderHighlighted(
+                                          d.title,
+                                          searchText()
+                                        )}
+                                      </A>
+                                      <div class="flex items-center gap-2 text-sm text-gray-500">
+                                        <Show when={d.path}>
+                                          {(p) => (
+                                            <span class="text-xs px-2 py-0.5 rounded bg-gray-100 border">
+                                              {p()}
+                                            </span>
+                                          )}
+                                        </Show>
+                                        <span
+                                          title={`Updated ${new Date(
+                                            d.updatedAt
+                                          ).toLocaleString()}`}
                                         >
-                                          {p()}
-                                        </button>
+                                          {formatRelativeTime(d.updatedAt)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Show when={d.snippet}>
+                                      {(s) => (
+                                        <div class="text-sm text-gray-700 mt-1">
+                                          {renderHighlighted(s(), searchText())}
+                                        </div>
                                       )}
                                     </Show>
-                                    <For each={getTopMetaEntries(d.meta)}>
-                                      {(entry) => (
-                                        <button
-                                          type="button"
-                                          class="text-xs px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                                          onClick={makeMetaFilterHandler(
-                                            entry[0],
-                                            entry[1]
-                                          )}
-                                          title={`Filter by ${entry[0]}=${entry[1]}`}
-                                        >
-                                          {entry[0]}: {entry[1]}
-                                        </button>
-                                      )}
-                                    </For>
-                                    <span
-                                      title={`Updated ${new Date(
-                                        d.updatedAt
-                                      ).toLocaleString()}`}
-                                    >
-                                      {formatRelativeTime(d.updatedAt)}
-                                    </span>
-                                  </div>
-                                </li>
-                              )}
-                            </For>
-                          </ul>
-                        </section>
-                      </Show>
-                    )}
-                  </For>
+                                  </li>
+                                )}
+                              </For>
+                            </ul>
+                            <Show
+                              when={(server as any[]).length > serverShown()}
+                            >
+                              <div class="mt-2">
+                                <button
+                                  class="px-3 py-1.5 rounded bg-gray-100 border hover:bg-gray-200 text-sm"
+                                  onClick={() => {
+                                    setServerShown((n) => n + 25);
+                                    try {
+                                      console.log(
+                                        "[DocsIndex] show more server",
+                                        {
+                                          next: serverShown() + 25,
+                                        }
+                                      );
+                                    } catch {}
+                                  }}
+                                >
+                                  Show more (
+                                  {Math.min(
+                                    serverShown(),
+                                    (server as any[]).length
+                                  )}{" "}
+                                  / {(server as any[]).length})
+                                </button>
+                              </div>
+                            </Show>
+                          </section>
+                        </>
+                      );
+                    })()}
+                  </Show>
                 </div>
               );
             }}
@@ -556,4 +966,52 @@ function groupByUpdatedAt(items: DocListItem[]) {
     { label: "Last year", items: buckets.year },
     { label: "Older", items: buckets.older },
   ];
+}
+
+function computeFuzzyScore(text: string, query: string): number {
+  if (!query) return 1;
+  if (!text) return 0;
+  if (text.includes(query)) return 100 + query.length; // exact substring bonus
+  // Simple subsequence match
+  let tIdx = 0;
+  let qIdx = 0;
+  let consecutive = 0;
+  let score = 0;
+  while (tIdx < text.length && qIdx < query.length) {
+    if (text[tIdx] === query[qIdx]) {
+      qIdx++;
+      consecutive++;
+      score += 2 + consecutive; // reward runs
+    } else {
+      consecutive = 0;
+    }
+    tIdx++;
+  }
+  return qIdx === query.length ? score : 0;
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderHighlighted(text: string, query: string) {
+  const q = query.trim();
+  if (!q) return text;
+  const pattern = new RegExp(`(${escapeRegExp(q)})`, "ig");
+  const parts = text.split(pattern);
+  return (
+    <>
+      <For each={parts}>
+        {(part, i) =>
+          pattern.test(part) ? (
+            <mark class="bg-yellow-200 px-0.5" data-idx={i()}>
+              {part}
+            </mark>
+          ) : (
+            <span data-idx={i()}>{part}</span>
+          )
+        }
+      </For>
+    </>
+  );
 }
