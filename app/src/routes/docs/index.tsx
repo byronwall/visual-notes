@@ -2,6 +2,7 @@ import {
   type VoidComponent,
   For,
   Show,
+  Suspense,
   createResource,
   createSignal,
   createEffect,
@@ -9,6 +10,8 @@ import {
 } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
+import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
+import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 
 type DocListItem = {
   id: string;
@@ -20,7 +23,11 @@ type DocListItem = {
 type SourceCount = { originalSource: string; count: number };
 type SourcesResponse = { total: number; sources: SourceCount[] };
 
-async function fetchDocs(q?: { pathPrefix?: string; metaKey?: string; metaValue?: string }) {
+async function fetchDocs(q?: {
+  pathPrefix?: string;
+  metaKey?: string;
+  metaValue?: string;
+}) {
   const params = new URLSearchParams();
   if (q?.pathPrefix) params.set("pathPrefix", q.pathPrefix);
   if (q?.metaKey) params.set("metaKey", q.metaKey);
@@ -76,13 +83,34 @@ const DocsIndex: VoidComponent = () => {
 
   const [docs, { refetch }] = createResource(
     () => ({ p: pathPrefix(), k: metaKey(), v: metaValue() }),
-    (src) => fetchDocs({ pathPrefix: src.p || undefined, metaKey: src.k || undefined, metaValue: src.v || undefined })
+    (src) =>
+      fetchDocs({
+        pathPrefix: src.p || undefined,
+        metaKey: src.k || undefined,
+        metaValue: src.v || undefined,
+      })
   );
   const [sources, { refetch: refetchSources }] = createResource(fetchSources);
   const [cleaning, setCleaning] = createSignal(false);
   const [popoverOpen, setPopoverOpen] = createSignal(false);
   let popoverButtonRef: HTMLButtonElement | undefined;
   let popoverRef: HTMLDivElement | undefined;
+
+  const handleSelectMetaKey = (key: string) => {
+    setMetaKey(key);
+    console.log("[DocsIndex] selected meta key", key);
+  };
+
+  const handleSelectMetaValue = (value: string) => {
+    setMetaValue(value);
+    console.log("[DocsIndex] selected meta value", value);
+  };
+
+  const handleClearMetaFilter = () => {
+    setMetaKey("");
+    setMetaValue("");
+    console.log("[DocsIndex] cleared meta filters");
+  };
 
   const handleDeleteAll = async () => {
     const total = sources()?.total ?? 0;
@@ -318,7 +346,9 @@ const DocsIndex: VoidComponent = () => {
           </div>
           <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
-              <label class="block text-xs text-gray-600 mb-1">Path prefix</label>
+              <label class="block text-xs text-gray-600 mb-1">
+                Path prefix
+              </label>
               <input
                 class="w-full border rounded px-2 py-1 text-sm"
                 placeholder="work.projects"
@@ -334,15 +364,37 @@ const DocsIndex: VoidComponent = () => {
                 value={metaKey()}
                 onInput={(e) => setMetaKey(e.currentTarget.value)}
               />
+              <Suspense fallback={null}>
+                <MetaKeySuggestions onSelect={handleSelectMetaKey} />
+              </Suspense>
             </div>
             <div>
-              <label class="block text-xs text-gray-600 mb-1">Meta value</label>
+              <div class="flex items-center justify-between">
+                <label class="block text-xs text-gray-600 mb-1">
+                  Meta value
+                </label>
+                <Show when={metaKey().trim() || metaValue().trim()}>
+                  <button
+                    class="text-xs text-blue-600 hover:underline"
+                    onClick={handleClearMetaFilter}
+                    title="Clear meta filters"
+                  >
+                    Clear
+                  </button>
+                </Show>
+              </div>
               <input
                 class="w-full border rounded px-2 py-1 text-sm"
                 placeholder="design"
                 value={metaValue()}
                 onInput={(e) => setMetaValue(e.currentTarget.value)}
               />
+              <Suspense fallback={null}>
+                <MetaValueSuggestions
+                  keyName={metaKey()}
+                  onSelect={handleSelectMetaValue}
+                />
+              </Suspense>
             </div>
           </div>
           <Show when={docs()} fallback={<p>Loading…</p>}>
@@ -359,10 +411,16 @@ const DocsIndex: VoidComponent = () => {
                       </A>
                       <div class="flex items-center gap-3 text-sm text-gray-500">
                         <Show when={d.path}>
-                          {(p) => <span class="text-xs px-2 py-0.5 rounded bg-gray-100 border">{p()}</span>}
+                          {(p) => (
+                            <span class="text-xs px-2 py-0.5 rounded bg-gray-100 border">
+                              {p()}
+                            </span>
+                          )}
                         </Show>
                         <span
-                          title={`Created ${new Date(d.createdAt).toLocaleString()}`}
+                          title={`Created ${new Date(
+                            d.createdAt
+                          ).toLocaleString()}`}
                         >
                           {new Date(d.updatedAt).toLocaleString()}
                         </span>
