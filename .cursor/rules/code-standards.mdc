@@ -13,3 +13,4 @@ Follow these coding standards:
 - Imports should occur at the top of the file. Avoid lazy or deferred imports.
 - Prefer early returns over nested if statements.
 - Prefer named exports over default exports.
+- When pairing an onCleanup with an onMount, always place the onCleanup in the onMount block. Do not create a separate onCleanup block.
