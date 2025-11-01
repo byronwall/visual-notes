@@ -15,12 +15,19 @@ type DocListItem = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  path?: string | null;
 };
 type SourceCount = { originalSource: string; count: number };
 type SourcesResponse = { total: number; sources: SourceCount[] };
 
-async function fetchDocs() {
-  const res = await apiFetch("/api/docs");
+async function fetchDocs(q?: { pathPrefix?: string; metaKey?: string; metaValue?: string }) {
+  const params = new URLSearchParams();
+  if (q?.pathPrefix) params.set("pathPrefix", q.pathPrefix);
+  if (q?.metaKey) params.set("metaKey", q.metaKey);
+  if (q?.metaValue) params.set("metaValue", q.metaValue);
+  const qs = params.toString();
+  const url = qs ? `/api/docs?${qs}` : "/api/docs";
+  const res = await apiFetch(url);
   if (!res.ok) throw new Error("Failed to load notes");
   const json = (await res.json()) as { items: DocListItem[] };
   return json.items;
@@ -63,7 +70,14 @@ async function bulkSetSource() {
 }
 
 const DocsIndex: VoidComponent = () => {
-  const [docs, { refetch }] = createResource(fetchDocs);
+  const [pathPrefix, setPathPrefix] = createSignal("");
+  const [metaKey, setMetaKey] = createSignal("");
+  const [metaValue, setMetaValue] = createSignal("");
+
+  const [docs, { refetch }] = createResource(
+    () => ({ p: pathPrefix(), k: metaKey(), v: metaValue() }),
+    (src) => fetchDocs({ pathPrefix: src.p || undefined, metaKey: src.k || undefined, metaValue: src.v || undefined })
+  );
   const [sources, { refetch: refetchSources }] = createResource(fetchSources);
   const [cleaning, setCleaning] = createSignal(false);
   const [popoverOpen, setPopoverOpen] = createSignal(false);
@@ -302,6 +316,35 @@ const DocsIndex: VoidComponent = () => {
               </Show>
             </div>
           </div>
+          <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">Path prefix</label>
+              <input
+                class="w-full border rounded px-2 py-1 text-sm"
+                placeholder="work.projects"
+                value={pathPrefix()}
+                onInput={(e) => setPathPrefix(e.currentTarget.value)}
+              />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">Meta key</label>
+              <input
+                class="w-full border rounded px-2 py-1 text-sm"
+                placeholder="tag"
+                value={metaKey()}
+                onInput={(e) => setMetaKey(e.currentTarget.value)}
+              />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 mb-1">Meta value</label>
+              <input
+                class="w-full border rounded px-2 py-1 text-sm"
+                placeholder="design"
+                value={metaValue()}
+                onInput={(e) => setMetaValue(e.currentTarget.value)}
+              />
+            </div>
+          </div>
           <Show when={docs()} fallback={<p>Loading…</p>}>
             {(items) => (
               <ul class="space-y-2 mt-4">
@@ -314,14 +357,16 @@ const DocsIndex: VoidComponent = () => {
                       >
                         {d.title}
                       </A>
-                      <span
-                        class="text-gray-500 text-sm"
-                        title={`Created ${new Date(
-                          d.createdAt
-                        ).toLocaleString()}`}
-                      >
-                        {new Date(d.updatedAt).toLocaleString()}
-                      </span>
+                      <div class="flex items-center gap-3 text-sm text-gray-500">
+                        <Show when={d.path}>
+                          {(p) => <span class="text-xs px-2 py-0.5 rounded bg-gray-100 border">{p()}</span>}
+                        </Show>
+                        <span
+                          title={`Created ${new Date(d.createdAt).toLocaleString()}`}
+                        >
+                          {new Date(d.updatedAt).toLocaleString()}
+                        </span>
+                      </div>
                     </li>
                   )}
                 </For>

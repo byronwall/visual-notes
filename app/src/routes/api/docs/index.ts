@@ -5,6 +5,8 @@ import { z } from "zod";
 import { prisma } from "~/server/db";
 import { sanitizeHtmlContent } from "~/server/lib/markdown";
 
+const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
 const ingestInput = z
   .object({
     title: z.string().min(1).max(200),
@@ -13,6 +15,8 @@ const ingestInput = z
     originalSource: z.string().min(1).max(128).optional(),
     originalContentId: z.string().min(1).max(512).optional(),
     contentHash: z.string().min(16).max(128).optional(),
+    path: z.string().min(1).max(512).optional(),
+    meta: z.record(jsonPrimitive).optional(),
   })
   .refine((v) => Boolean(v.markdown || v.html), {
     message: "markdown or html is required",
@@ -76,6 +80,8 @@ export async function POST(event: APIEvent) {
             markdown,
             html,
             contentHash,
+            path: input.path,
+            meta: input.meta,
           },
           select: { id: true },
         });
@@ -89,6 +95,8 @@ export async function POST(event: APIEvent) {
           originalSource: input.originalSource,
           originalContentId: input.originalContentId,
           contentHash,
+          path: input.path,
+          meta: input.meta,
         },
         select: { id: true },
       });
@@ -100,6 +108,8 @@ export async function POST(event: APIEvent) {
           markdown,
           html,
           contentHash,
+          path: input.path,
+          meta: input.meta,
         },
         select: { id: true },
       });
@@ -114,10 +124,21 @@ export async function POST(event: APIEvent) {
 export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
   const takeParam = url.searchParams.get("take");
+  const pathPrefix = url.searchParams.get("pathPrefix") || undefined;
+  const metaKey = url.searchParams.get("metaKey") || undefined;
+  const metaValueRaw = url.searchParams.get("metaValue");
+  // Treat all values as strings for now to keep UI simple
+  const metaValue = metaValueRaw ?? undefined;
   const take = Number(takeParam ?? "50");
+  const where: any = {};
+  if (pathPrefix) where.path = { startsWith: pathPrefix };
+  if (metaKey && metaValue !== undefined) {
+    where.meta = { path: [metaKey], equals: metaValue } as any;
+  }
   const items = await prisma.doc.findMany({
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, createdAt: true, updatedAt: true },
+    where,
+    select: { id: true, title: true, createdAt: true, updatedAt: true, path: true },
     take,
   });
   return json({ items });

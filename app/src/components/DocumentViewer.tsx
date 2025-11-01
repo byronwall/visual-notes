@@ -11,6 +11,8 @@ type DocumentData = {
   title: string;
   markdown?: string;
   html?: string;
+  path?: string | null;
+  meta?: Record<string, unknown> | null;
   createdAt?: string;
   updatedAt?: string;
   embeddingRuns?: {
@@ -155,16 +157,7 @@ const DocumentViewer: VoidComponent<{
       </div>
       <DocumentEditor docId={props.doc.id} />
 
-      <details class="rounded border border-gray-200 p-3 mb-4">
-        <summary class="cursor-pointer select-none font-medium">
-          Metadata
-        </summary>
-        <div class="mt-2">
-          <pre class="text-xs bg-gray-50 p-3 rounded border overflow-x-auto">
-            <code>{JSON.stringify(props.doc, null, 2)}</code>
-          </pre>
-        </div>
-      </details>
+      {/* Inline properties moved to page-level top section in docs/[id].tsx */}
 
       <details class="rounded border border-gray-200 p-3 mb-4">
         <summary class="cursor-pointer select-none font-medium">

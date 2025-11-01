@@ -62,3 +62,50 @@ export async function updateDocTitle(
   } catch {}
   return json;
 }
+
+export async function updateDocPath(
+  id: string,
+  path: string
+): Promise<{ id: string; updatedAt: string }> {
+  const res = await apiFetch(`/api/docs/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))) as any;
+    throw new Error(msg?.error || "Failed to update path");
+  }
+  const json = (await res.json()) as { id: string; updatedAt: string };
+  console.log(`[services] updateDocPath: id=${json.id} updatedAt=${json.updatedAt}`);
+  return json;
+}
+
+export type MetaRecord = Record<string, string | number | boolean | null>;
+
+export async function updateDocMeta(
+  id: string,
+  meta: MetaRecord
+): Promise<{ id: string; updatedAt: string }> {
+  const res = await apiFetch(`/api/docs/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ meta }),
+  });
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))) as any;
+    throw new Error(msg?.error || "Failed to update metadata");
+  }
+  const json = (await res.json()) as { id: string; updatedAt: string };
+  console.log(`[services] updateDocMeta: id=${json.id} updatedAt=${json.updatedAt}`);
+  return json;
+}
+
+export async function fetchPathSuggestions(): Promise<{ path: string; count: number }[]> {
+  const res = await apiFetch(`/api/docs/paths`);
+  if (!res.ok) return [];
+  const json = (await res.json()) as { paths: { path: string; count: number }[] };
+  const items = json.paths || [];
+  console.log(`[services] fetchPathSuggestions: count=${items.length}`);
+  return items;
+}

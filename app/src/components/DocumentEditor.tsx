@@ -16,6 +16,8 @@ import {
 } from "~/server/lib/markdown";
 import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "./TiptapEditor";
+import { PathEditor } from "./PathEditor";
+import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -56,6 +58,8 @@ const DocumentEditor: VoidComponent<{
   const [dirty, setDirty] = createSignal(false);
 
   const [doc, { refetch }] = createResource(() => props.docId, fetchDoc);
+  const [newPath, setNewPath] = createSignal<string>("");
+  const [newMeta, setNewMeta] = createSignal<Record<string, string>>({});
 
   const isNew = createMemo(() => !props.docId);
 
@@ -145,7 +149,7 @@ const DocumentEditor: VoidComponent<{
         const res = await apiFetch(`/api/docs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, html }),
+          body: JSON.stringify({ title, html, path: newPath() || undefined, meta: newMeta() }),
         });
         const json = (await res.json().catch(() => ({}))) as any;
         console.log("[editor.save] create response", res.status, json);
@@ -205,6 +209,18 @@ const DocumentEditor: VoidComponent<{
             {e()}
           </div>
         )}
+      </Show>
+      <Show when={isNew()}>
+        <div class="mb-3 space-y-3">
+          <div>
+            <div class="text-xs text-gray-600 mb-1">Path</div>
+            <PathEditor onChange={(p) => setNewPath(p)} />
+          </div>
+          <div>
+            <div class="text-xs text-gray-600 mb-1">Key/Value metadata</div>
+            <MetaKeyValueEditor onChange={(m) => setNewMeta(m as Record<string, string>)} />
+          </div>
+        </div>
       </Show>
       <TiptapEditor
         initialHTML={initialHTML()}

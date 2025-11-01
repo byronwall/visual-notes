@@ -3,6 +3,8 @@ import { type VoidComponent, Show, createResource } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
 import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
+import { PathEditor } from "../../components/PathEditor";
+import { MetaKeyValueEditor } from "../../components/MetaKeyValueEditor";
 
 type DocResponse = {
   id: string;
@@ -52,9 +54,31 @@ const DocView: VoidComponent = () => {
         <div class="mx-auto max-w-[900px] relative">
           <Show when={doc()} fallback={<p>Loading…</p>}>
             {(d) => (
-              <article class="prose max-w-none" ref={(el) => (articleEl = el)}>
-                <DocumentViewer doc={d()} onDeleted={handleDeleted} />
-              </article>
+              <>
+                <div class="mx-auto max-w-[900px] mb-4">
+                  <div class="rounded border border-gray-200 p-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">Path</div>
+                        <PathEditor
+                          docId={d().id}
+                          initialPath={d().path || undefined}
+                        />
+                      </div>
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">Key/Value metadata</div>
+                        <MetaKeyValueEditor
+                          docId={d().id}
+                          initialMeta={d().meta as any}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <article class="prose max-w-none" ref={(el) => (articleEl = el)}>
+                  <DocumentViewer doc={d()} onDeleted={handleDeleted} />
+                </article>
+              </>
             )}
           </Show>
           {/* TOC attached to the right edge of the note view */}
