@@ -164,6 +164,10 @@ model Doc {
   originalSource    String?
   originalContentId String?
   contentHash       String?
+  // Dot path for filtering/nesting (e.g., "work.projects.alpha")
+  path              String?
+  // Arbitrary single-level key/value pairs from client (stored as JSONB)
+  meta              Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -174,6 +178,7 @@ model Doc {
   docSectionEmbeddings DocSectionEmbedding[]
 
   @@unique([originalSource, originalContentId])
+  @@index([path])
 }
 
 /// Structural sections/chunks of a Doc after preprocessing
