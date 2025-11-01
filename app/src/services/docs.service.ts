@@ -77,7 +77,9 @@ export async function updateDocPath(
     throw new Error(msg?.error || "Failed to update path");
   }
   const json = (await res.json()) as { id: string; updatedAt: string };
-  console.log(`[services] updateDocPath: id=${json.id} updatedAt=${json.updatedAt}`);
+  console.log(
+    `[services] updateDocPath: id=${json.id} updatedAt=${json.updatedAt}`
+  );
   return json;
 }
 
@@ -97,15 +99,48 @@ export async function updateDocMeta(
     throw new Error(msg?.error || "Failed to update metadata");
   }
   const json = (await res.json()) as { id: string; updatedAt: string };
-  console.log(`[services] updateDocMeta: id=${json.id} updatedAt=${json.updatedAt}`);
+  console.log(
+    `[services] updateDocMeta: id=${json.id} updatedAt=${json.updatedAt}`
+  );
   return json;
 }
 
-export async function fetchPathSuggestions(): Promise<{ path: string; count: number }[]> {
+export async function fetchPathSuggestions(): Promise<
+  { path: string; count: number }[]
+> {
   const res = await apiFetch(`/api/docs/paths`);
   if (!res.ok) return [];
-  const json = (await res.json()) as { paths: { path: string; count: number }[] };
+  const json = (await res.json()) as {
+    paths: { path: string; count: number }[];
+  };
   const items = json.paths || [];
   console.log(`[services] fetchPathSuggestions: count=${items.length}`);
+  return items;
+}
+
+export async function fetchMetaKeys(): Promise<
+  { key: string; count: number }[]
+> {
+  const res = await apiFetch(`/api/docs/meta/keys`);
+  if (!res.ok) return [];
+  const json = (await res.json()) as { keys: { key: string; count: number }[] };
+  const items = json.keys || [];
+  console.log(`[services] fetchMetaKeys: count=${items.length}`);
+  return items;
+}
+
+export async function fetchMetaValues(
+  key: string
+): Promise<{ value: string; count: number }[]> {
+  if (!key) return [];
+  const res = await apiFetch(
+    `/api/docs/meta/values?key=${encodeURIComponent(key)}`
+  );
+  if (!res.ok) return [];
+  const json = (await res.json()) as {
+    values: { value: string; count: number }[];
+  };
+  const items = json.values || [];
+  console.log(`[services] fetchMetaValues: key=${key} count=${items.length}`);
   return items;
 }
