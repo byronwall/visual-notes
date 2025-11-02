@@ -1,36 +1,52 @@
-import { createSignal } from "solid-js";
+import { createMemo } from "solid-js";
+import { createStore } from "solid-js/store";
 
 export function createDocsQueryStore() {
-  // TODO: convert this over to a store
-  const [pathPrefix, setPathPrefix] = createSignal("");
-  const [metaKey, setMetaKey] = createSignal("");
-  const [metaValue, setMetaValue] = createSignal("");
-  const [searchText, setSearchText] = createSignal("");
-  const [clientShown, setClientShown] = createSignal(100);
-  const [serverShown, setServerShown] = createSignal(25);
+  // Convert to a Solid store to group related state
+  const [state, setState] = createStore({
+    pathPrefix: "",
+    metaKey: "",
+    metaValue: "",
+    searchText: "",
+    clientShown: 100,
+    serverShown: 25,
+  });
+
+  // Accessors to preserve the existing function-based API
+  const pathPrefix = createMemo(() => state.pathPrefix);
+  const metaKey = createMemo(() => state.metaKey);
+  const metaValue = createMemo(() => state.metaValue);
+  const searchText = createMemo(() => state.searchText);
+  const clientShown = createMemo(() => state.clientShown);
+  const serverShown = createMemo(() => state.serverShown);
+
+  const setPathPrefix = (v: string) => setState("pathPrefix", v);
+  const setMetaKey = (v: string) => setState("metaKey", v);
+  const setMetaValue = (v: string) => setState("metaValue", v);
+  const setSearchText = (v: string) => setState("searchText", v);
 
   const resetMeta = () => {
-    setMetaKey("");
-    setMetaValue("");
+    setState({ metaKey: "", metaValue: "" });
   };
   const resetPaging = () => {
-    setClientShown(100);
-    setServerShown(25);
+    setState({ clientShown: 100, serverShown: 25 });
   };
-  const showMoreClient = (n = 100) => setClientShown((x) => x + n);
-  const showMoreServer = (n = 25) => setServerShown((x) => x + n);
+  const showMoreClient = (n = 100) => setState("clientShown", (x) => x + n);
+  const showMoreServer = (n = 25) => setState("serverShown", (x) => x + n);
 
   return {
+    // Accessors
     pathPrefix,
-    setPathPrefix,
     metaKey,
-    setMetaKey,
     metaValue,
-    setMetaValue,
     searchText,
-    setSearchText,
     clientShown,
     serverShown,
+    // Setters / actions
+    setPathPrefix,
+    setMetaKey,
+    setMetaValue,
+    setSearchText,
     resetMeta,
     resetPaging,
     showMoreClient,

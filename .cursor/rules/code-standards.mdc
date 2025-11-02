@@ -17,3 +17,7 @@ Follow these coding standards:
 - Always import types and other things at the top of the file. Do not import them inline.
 - If a resource is involved (from `createResource`), always use a Suspense fallback. Avoid using a Show component. Prefer Suspense over Show for resources.
 - Prefere creating a store over a large stack of signals. For one off, signal is OK. For more than 1 related piece of state, create a store.
+
+Comments on thinking and planning:
+
+- When designing new comps, think through some edge cases and handle them if simple. If the code will be complicated, add a `TODO:EDGE_CASE` comment.

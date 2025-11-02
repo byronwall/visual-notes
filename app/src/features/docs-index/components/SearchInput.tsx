@@ -9,13 +9,17 @@ export const SearchInput: VoidComponent<{
     props.onChange(target.value);
   };
   return (
-    <div class="mt-3">
-      <label class="block text-xs text-gray-600 mb-1">Search</label>
+    <div class="mt-3 flex items-center gap-2">
+      <span class="text-xs text-gray-600 w-24 shrink-0">Search</span>
       <input
-        class="w-full border rounded px-2 py-1 text-sm"
+        class="flex-1 border rounded px-2 py-1 text-sm"
         placeholder="Filter by title (client) and contents (server)"
         value={props.value}
         onInput={handleChange}
+        autocomplete="off"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck={false}
       />
     </div>
   );

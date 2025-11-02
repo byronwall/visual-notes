@@ -179,6 +179,10 @@ export const MetaKeyValueEditor: VoidComponent<{
               value={editKey()}
               onInput={(evt) => setEditKey(evt.currentTarget.value)}
               onKeyDown={handleFieldKeyDown}
+              autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck={false}
             />
             <Suspense fallback={null}>
               <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
@@ -192,6 +196,10 @@ export const MetaKeyValueEditor: VoidComponent<{
               value={editValue()}
               onInput={(evt) => setEditValue(evt.currentTarget.value)}
               onKeyDown={handleFieldKeyDown}
+              autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck={false}
             />
             <Suspense fallback={null}>
               <MetaValueSuggestions

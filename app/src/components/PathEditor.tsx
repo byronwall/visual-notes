@@ -256,6 +256,10 @@ export const PathEditor: VoidComponent<{
               handleKeyDown(e as unknown as KeyboardEvent);
               handleBackspace(e as unknown as KeyboardEvent);
             }}
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck={false}
           />
         </div>
 
