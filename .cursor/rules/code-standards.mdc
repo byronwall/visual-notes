@@ -17,6 +17,7 @@ Follow these coding standards:
 - Always import types and other things at the top of the file. Do not import them inline.
 - If a resource is involved (from `createResource`), always use a Suspense fallback. Avoid using a Show component. Prefer Suspense over Show for resources.
 - Prefere creating a store over a large stack of signals. For one off, signal is OK. For more than 1 related piece of state, create a store.
+- When creating SVG icons directly, put them into their own comp with a decent name.
 
 Comments on thinking and planning:
 
