@@ -5,6 +5,7 @@ import { searchDocs } from "../data/docs.service";
 
 type Filters = {
   pathPrefix?: string;
+  blankPathOnly?: boolean;
   metaKey?: string;
   metaValue?: string;
   source?: string;

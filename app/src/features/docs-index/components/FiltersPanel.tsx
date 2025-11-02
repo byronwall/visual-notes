@@ -15,11 +15,30 @@ export const FiltersPanel = (props: {
       <div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-600 w-24 shrink-0">Path</span>
-          <div class="flex-1">
-            <PathEditor
-              initialPath={q.pathPrefix()}
-              onChange={(p) => q.setPathPrefix(p)}
-            />
+
+          <div class="flex flex-col gap-1">
+            <div
+              class={`flex-1 ${
+                q.blankPathOnly() ? "opacity-50 pointer-events-none" : ""
+              }`}
+            >
+              <PathEditor
+                initialPath={q.pathPrefix()}
+                onChange={(p) => q.setPathPrefix(p)}
+              />
+            </div>
+            <label class="flex items-center gap-1 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={q.blankPathOnly()}
+                onChange={(e) => {
+                  const checked = (e.currentTarget as HTMLInputElement).checked;
+                  q.setBlankPathOnly(checked);
+                  if (checked) q.setPathPrefix("");
+                }}
+              />
+              <span>Blank only</span>
+            </label>
           </div>
         </div>
       </div>
@@ -91,7 +110,6 @@ export const FiltersPanel = (props: {
           />
         </Suspense>
       </div>
-
       <div>
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-600 w-24 shrink-0">Source</span>
@@ -131,7 +149,6 @@ export const FiltersPanel = (props: {
           </Show>
         </div>
       </div>
-
       <div>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-600">Created</span>
@@ -175,7 +192,6 @@ export const FiltersPanel = (props: {
           </div>
         </div>
       </div>
-
       <div>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-600">Updated</span>

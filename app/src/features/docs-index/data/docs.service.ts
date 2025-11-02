@@ -17,6 +17,7 @@ export type SourcesResponse = {
 
 export async function fetchDocs(q: {
   pathPrefix?: string;
+  pathBlankOnly?: boolean;
   metaKey?: string;
   metaValue?: string;
   source?: string;
@@ -28,6 +29,7 @@ export async function fetchDocs(q: {
 }) {
   const params = new URLSearchParams();
   if (q.pathPrefix) params.set("pathPrefix", q.pathPrefix);
+  if (q.pathBlankOnly) params.set("pathBlankOnly", "1");
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
   if (q.source) params.set("source", q.source);
@@ -47,6 +49,7 @@ export async function fetchDocs(q: {
 export async function searchDocs(q: {
   q: string;
   pathPrefix?: string;
+  pathBlankOnly?: boolean;
   metaKey?: string;
   metaValue?: string;
   source?: string;
@@ -59,6 +62,7 @@ export async function searchDocs(q: {
 }) {
   const params = new URLSearchParams({ q: q.q, take: String(q.take ?? 50) });
   if (q.pathPrefix) params.set("pathPrefix", q.pathPrefix);
+  if (q.pathBlankOnly) params.set("pathBlankOnly", "1");
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
   if (q.source) params.set("source", q.source);

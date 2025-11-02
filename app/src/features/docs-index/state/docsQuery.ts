@@ -5,6 +5,7 @@ export function createDocsQueryStore() {
   // Convert to a Solid store to group related state
   const [state, setState] = createStore({
     pathPrefix: "",
+    blankPathOnly: false,
     metaKey: "",
     metaValue: "",
     searchText: "",
@@ -19,6 +20,7 @@ export function createDocsQueryStore() {
 
   // Accessors to preserve the existing function-based API
   const pathPrefix = createMemo(() => state.pathPrefix);
+  const blankPathOnly = createMemo(() => state.blankPathOnly);
   const metaKey = createMemo(() => state.metaKey);
   const metaValue = createMemo(() => state.metaValue);
   const searchText = createMemo(() => state.searchText);
@@ -31,6 +33,7 @@ export function createDocsQueryStore() {
   const serverShown = createMemo(() => state.serverShown);
 
   const setPathPrefix = (v: string) => setState("pathPrefix", v);
+  const setBlankPathOnly = (v: boolean) => setState("blankPathOnly", v);
   const setMetaKey = (v: string) => setState("metaKey", v);
   const setMetaValue = (v: string) => setState("metaValue", v);
   const setSearchText = (v: string) => setState("searchText", v);
@@ -63,6 +66,7 @@ export function createDocsQueryStore() {
   return {
     // Accessors
     pathPrefix,
+    blankPathOnly,
     metaKey,
     metaValue,
     searchText,
@@ -75,6 +79,7 @@ export function createDocsQueryStore() {
     serverShown,
     // Setters / actions
     setPathPrefix,
+    setBlankPathOnly,
     setMetaKey,
     setMetaValue,
     setSearchText,
@@ -92,3 +97,5 @@ export function createDocsQueryStore() {
     setServerShown,
   };
 }
+
+export type DocsQueryStore = ReturnType<typeof createDocsQueryStore>;

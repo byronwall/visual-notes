@@ -19,6 +19,10 @@ import { SearchInput } from "./SearchInput";
 
 const DocsIndexPage = () => {
   const q = createDocsQueryStore();
+  type FiltersPanelStore = ReturnType<typeof createDocsQueryStore> & {
+    blankPathOnly: () => boolean;
+    setBlankPathOnly: (v: boolean) => void;
+  };
   const location = useLocation();
   const [, setSearchParams] = useSearchParams();
   let initializedFromUrl = false;
@@ -37,6 +41,10 @@ const DocsIndexPage = () => {
     const next = {
       searchText: qp("q"),
       pathPrefix: qp("pathPrefix"),
+      blankPathOnly: (() => {
+        const v = qp("pathBlankOnly").toLowerCase();
+        return v === "1" || v === "true";
+      })(),
       metaKey: qp("metaKey"),
       metaValue: qp("metaValue"),
       source: qp("source"),
@@ -51,6 +59,8 @@ const DocsIndexPage = () => {
     // Apply only when changes are detected to avoid loops
     if (q.searchText() !== next.searchText) q.setSearchText(next.searchText);
     if (q.pathPrefix() !== next.pathPrefix) q.setPathPrefix(next.pathPrefix);
+    if (q.blankPathOnly() !== next.blankPathOnly)
+      q.setBlankPathOnly(next.blankPathOnly);
     if (q.metaKey() !== next.metaKey) q.setMetaKey(next.metaKey);
     if (q.metaValue() !== next.metaValue) q.setMetaValue(next.metaValue);
     if (q.source() !== next.source) q.setSource(next.source);
@@ -96,6 +106,7 @@ const DocsIndexPage = () => {
     const params = new URLSearchParams();
     if (q.searchText().trim()) params.set("q", q.searchText().trim());
     if (q.pathPrefix().trim()) params.set("pathPrefix", q.pathPrefix().trim());
+    if (q.blankPathOnly()) params.set("pathBlankOnly", "1");
     if (q.metaKey().trim()) params.set("metaKey", q.metaKey().trim());
     if (q.metaValue().trim()) params.set("metaValue", q.metaValue().trim());
     if (q.source().trim()) params.set("source", q.source().trim());
@@ -130,6 +141,7 @@ const DocsIndexPage = () => {
       const MANAGED_KEYS = [
         "q",
         "pathPrefix",
+        "pathBlankOnly",
         "metaKey",
         "metaValue",
         "source",
@@ -150,6 +162,7 @@ const DocsIndexPage = () => {
   const [docs, { refetch }] = createResource(
     () => ({
       p: q.pathPrefix(),
+      b: q.blankPathOnly(),
       k: q.metaKey(),
       v: q.metaValue(),
       s: q.source(),
@@ -161,6 +174,7 @@ const DocsIndexPage = () => {
     (s) =>
       fetchDocs({
         pathPrefix: s.p || undefined,
+        pathBlankOnly: s.b || undefined,
         metaKey: s.k || undefined,
         metaValue: s.v || undefined,
         source: s.s || undefined,
@@ -177,6 +191,7 @@ const DocsIndexPage = () => {
     q.searchText,
     () => ({
       pathPrefix: q.pathPrefix(),
+      blankPathOnly: q.blankPathOnly() || undefined,
       metaKey: q.metaKey(),
       metaValue: q.metaValue(),
       source: q.source() || undefined,
@@ -269,7 +284,7 @@ const DocsIndexPage = () => {
             }}
           />
 
-          <FiltersPanel q={q} sources={sources()?.sources ?? []} />
+          <FiltersPanel q={(q as unknown as FiltersPanelStore)} sources={sources()?.sources ?? []} />
 
           <Suspense fallback={<p>Loading…</p>}>
             <ResultsSection

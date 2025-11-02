@@ -126,6 +126,7 @@ export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
   const takeParam = url.searchParams.get("take");
   const pathPrefix = url.searchParams.get("pathPrefix") || undefined;
+  const pathBlankOnlyParam = url.searchParams.get("pathBlankOnly") || undefined;
   const metaKey = url.searchParams.get("metaKey") || undefined;
   const metaValueRaw = url.searchParams.get("metaValue");
   // Treat all values as strings for now to keep UI simple
@@ -138,6 +139,13 @@ export async function GET(event: APIEvent) {
   const take = Number(takeParam ?? "50");
   const where: any = {};
   if (pathPrefix) where.path = { startsWith: pathPrefix };
+  if (
+    pathBlankOnlyParam &&
+    (pathBlankOnlyParam === "1" || pathBlankOnlyParam.toLowerCase() === "true")
+  ) {
+    // Blank-only overrides any prefix filter
+    where.path = null;
+  }
   if (metaKey && metaValue !== undefined) {
     where.meta = { path: [metaKey], equals: metaValue } as any;
   } else if (metaKey && metaValue === undefined) {
@@ -184,9 +192,9 @@ export async function GET(event: APIEvent) {
   });
   try {
     console.log(
-      `[api/docs] filters pathPrefix=${pathPrefix || ""} metaKey=${
-        metaKey || ""
-      } source=${source || ""}`
+      `[api/docs] filters pathPrefix=${pathPrefix || ""} pathBlankOnly=${
+        pathBlankOnlyParam || ""
+      } metaKey=${metaKey || ""} source=${source || ""}`
     );
   } catch {}
   return json({ items });

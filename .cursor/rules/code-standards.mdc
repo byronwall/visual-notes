@@ -19,6 +19,7 @@ Follow these coding standards:
 - Prefere creating a store over a large stack of signals. For one off, signal is OK. For more than 1 related piece of state, create a store.
 - When creating SVG icons directly, put them into their own comp with a decent name.
 - Always prefer `Show` over `&&` for conditional rendering. If narrowing out `undefined` values, use `Show` with functional render to make use of the narrowed type: `<Show when={value()}>{narrowedValue=>(...)}</Show>`
+- Do not add `as any` type casts due to linter errors. Mark them with a comment as `TODO:AS_ANY, <reason>`. I likely need to restart the IDE to make things work correctly.
 
 Comments on thinking and planning:
 

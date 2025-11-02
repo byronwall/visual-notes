@@ -6,6 +6,7 @@ export async function GET(event: APIEvent) {
   const url = new URL(event.request.url);
   const q = (url.searchParams.get("q") || "").trim();
   const pathPrefix = url.searchParams.get("pathPrefix") || undefined;
+  const pathBlankOnlyParam = url.searchParams.get("pathBlankOnly") || undefined;
   const metaKey = url.searchParams.get("metaKey") || undefined;
   const metaValueRaw = url.searchParams.get("metaValue");
   const metaValue = metaValueRaw ?? undefined;
@@ -26,6 +27,7 @@ export async function GET(event: APIEvent) {
   };
   if (
     pathPrefix ||
+    pathBlankOnlyParam ||
     metaKey ||
     source ||
     createdFromParam ||
@@ -35,6 +37,13 @@ export async function GET(event: APIEvent) {
   ) {
     where.doc = {};
     if (pathPrefix) where.doc.path = { startsWith: pathPrefix };
+    if (
+      pathBlankOnlyParam &&
+      (pathBlankOnlyParam === "1" ||
+        pathBlankOnlyParam.toLowerCase() === "true")
+    ) {
+      (where.doc as any).path = null;
+    }
     if (metaKey && metaValue !== undefined) {
       where.doc.meta = { path: [metaKey], equals: metaValue } as any;
     } else if (metaKey && metaValue === undefined) {
