@@ -10,7 +10,6 @@ export default defineConfig({
         /* features options - all disabled by default */
         autoname: true, // e.g. enable autoname
         locator: {
-          targetIDE: "cursor",
           componentLocation: true,
           jsxLocation: true,
         },
