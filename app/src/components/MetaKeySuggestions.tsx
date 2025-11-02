@@ -17,7 +17,7 @@ export const MetaKeySuggestions: VoidComponent<{
   return (
     <div class="mt-2">
       <Show when={topKeys().length > 0}>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 justify-start md:justify-end">
           <For each={topKeys()}>
             {(s) => (
               <button

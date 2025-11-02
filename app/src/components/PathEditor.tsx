@@ -326,11 +326,24 @@ export const PathEditor: VoidComponent<{
         </button>
       </Show>
       <button
-        class="px-2 py-1 rounded border text-xs hover:bg-gray-50"
+        class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 shrink-0"
         onClick={clearAll}
+        title="Clear path"
+        aria-label="Clear path"
         type="button"
       >
-        Clear
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          class="h-4 w-4"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
+            clip-rule="evenodd"
+          />
+        </svg>
       </button>
     </div>
   );

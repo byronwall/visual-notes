@@ -21,7 +21,7 @@ export const MetaValueSuggestions: VoidComponent<{
   return (
     <Show when={props.keyName.trim().length > 0 && topValues().length > 0}>
       <div class="mt-2">
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 justify-start md:justify-end">
           <For each={topValues()}>
             {(s) => (
               <button
