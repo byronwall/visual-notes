@@ -6,6 +6,7 @@ import {
   deleteBySource,
   fetchDocs,
   fetchSources,
+  processPathRound,
 } from "../data/docs.service";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
@@ -226,6 +227,17 @@ const DocsIndexPage = () => {
     await Promise.all([refetch(), refetchSources()]);
   };
 
+  const handleProcessPathRound = async () => {
+    const res = await processPathRound();
+    try {
+      console.log("[DocsIndex] path round", res);
+    } catch {}
+    await Promise.all([refetch(), refetchSources()]);
+    alert(
+      `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`
+    );
+  };
+
   const handleDeleteAll = async () => {
     const total = sources()?.total ?? 0;
     if (!confirm(`Delete ALL notes (${total})? This cannot be undone.`)) return;
@@ -243,6 +255,7 @@ const DocsIndexPage = () => {
               sources={sources}
               onBulkSetSource={handleBulkSetSource}
               onCleanupTitles={handleCleanupTitles}
+              onProcessPathRound={handleProcessPathRound}
               onDeleteBySource={handleDeleteBySource}
               onDeleteAll={handleDeleteAll}
             />

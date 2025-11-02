@@ -6,6 +6,7 @@ export const ActionsPopover = (props: {
   sources: Accessor<SourcesResponse | undefined>;
   onBulkSetSource: () => Promise<void>;
   onCleanupTitles: () => Promise<void>;
+  onProcessPathRound: () => Promise<void>;
   onDeleteBySource: (source: string, count: number) => Promise<void>;
   onDeleteAll: () => Promise<void>;
 }) => {
@@ -32,6 +33,15 @@ export const ActionsPopover = (props: {
                 Bulk Actions
               </div>
               <div class="space-y-2">
+                <button
+                  class="w-full px-3 py-2 rounded bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50 text-left whitespace-nowrap"
+                  onClick={async () => {
+                    await props.onProcessPathRound();
+                    pop.closePopover();
+                  }}
+                >
+                  Process one path round
+                </button>
                 <button
                   class="w-full px-3 py-2 rounded bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50 text-left"
                   onClick={async () => {

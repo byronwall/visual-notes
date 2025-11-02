@@ -106,6 +106,23 @@ export async function bulkSetSource(value: string) {
   }
 }
 
+export async function processPathRound(): Promise<{
+  ok: boolean;
+  updated: number;
+  failed: number;
+  considered: number;
+  init?: number;
+  extend?: number;
+}> {
+  const res = await apiFetch("/api/docs/path-round", { method: "POST" });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({} as any));
+    throw new Error((json as any).error || "Failed to process path round");
+  }
+  const json = (await res.json().catch(() => ({}))) as any;
+  return json as any;
+}
+
 function toIsoDateStart(dateOnly: string): string {
   // dateOnly is YYYY-MM-DD
   const d = new Date(dateOnly + "T00:00:00");
