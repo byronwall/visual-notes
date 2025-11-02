@@ -14,3 +14,6 @@ Follow these coding standards:
 - Prefer early returns over nested if statements.
 - Prefer named exports over default exports.
 - When pairing an onCleanup with an onMount, always place the onCleanup in the onMount block. Do not create a separate onCleanup block.
+- Always import types and other things at the top of the file. Do not import them inline.
+- If a resource is involved (from `createResource`), always use a Suspense fallback. Avoid using a Show component. Prefer Suspense over Show for resources.
+- Prefere creating a store over a large stack of signals. For one off, signal is OK. For more than 1 related piece of state, create a store.
