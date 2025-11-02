@@ -14,6 +14,7 @@ import { ActionsPopover } from "./ActionsPopover";
 import { FiltersPanel } from "./FiltersPanel";
 import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
+import { PathTreeSidebar } from "./PathTreeSidebar";
 
 // TOOD: refactor all the query param stuff into a helper
 
@@ -262,38 +263,44 @@ const DocsIndexPage = () => {
 
   return (
     <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-4">
-        <div class="mx-auto max-w-[900px]">
-          <div class="flex items-center justify-between">
-            <h1 class="text-2xl font-bold">Notes</h1>
-            <ActionsPopover
-              sources={sources}
-              onBulkSetSource={handleBulkSetSource}
-              onCleanupTitles={handleCleanupTitles}
-              onProcessPathRound={handleProcessPathRound}
-              onDeleteBySource={handleDeleteBySource}
-              onDeleteAll={handleDeleteAll}
+      <PathTreeSidebar q={q} />
+      <div class="pl-64">
+        <div class="container mx-auto p-4 space-y-4">
+          <div class="mx-auto max-w-[900px]">
+            <div class="flex items-center justify-between">
+              <h1 class="text-2xl font-bold">Notes</h1>
+              <ActionsPopover
+                sources={sources}
+                onBulkSetSource={handleBulkSetSource}
+                onCleanupTitles={handleCleanupTitles}
+                onProcessPathRound={handleProcessPathRound}
+                onDeleteBySource={handleDeleteBySource}
+                onDeleteAll={handleDeleteAll}
+              />
+            </div>
+
+            <SearchInput
+              value={q.searchText()}
+              onChange={(v) => {
+                q.setSearchText(v);
+                q.resetPaging();
+              }}
             />
+
+            <FiltersPanel
+              q={q as unknown as FiltersPanelStore}
+              sources={sources()?.sources ?? []}
+            />
+
+            <Suspense fallback={<p>Loading…</p>}>
+              <ResultsSection
+                items={docs() || []}
+                query={q}
+                serverResults={serverResults() || []}
+                serverLoading={serverLoading}
+              />
+            </Suspense>
           </div>
-
-          <SearchInput
-            value={q.searchText()}
-            onChange={(v) => {
-              q.setSearchText(v);
-              q.resetPaging();
-            }}
-          />
-
-          <FiltersPanel q={(q as unknown as FiltersPanelStore)} sources={sources()?.sources ?? []} />
-
-          <Suspense fallback={<p>Loading…</p>}>
-            <ResultsSection
-              items={docs() || []}
-              query={q}
-              serverResults={serverResults() || []}
-              serverLoading={serverLoading}
-            />
-          </Suspense>
         </div>
       </div>
     </main>
