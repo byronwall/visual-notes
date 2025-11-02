@@ -8,6 +8,11 @@ export function createDocsQueryStore() {
     metaKey: "",
     metaValue: "",
     searchText: "",
+    source: "",
+    createdFrom: "" as string,
+    createdTo: "" as string,
+    updatedFrom: "" as string,
+    updatedTo: "" as string,
     clientShown: 100,
     serverShown: 25,
   });
@@ -17,6 +22,11 @@ export function createDocsQueryStore() {
   const metaKey = createMemo(() => state.metaKey);
   const metaValue = createMemo(() => state.metaValue);
   const searchText = createMemo(() => state.searchText);
+  const source = createMemo(() => state.source);
+  const createdFrom = createMemo(() => state.createdFrom);
+  const createdTo = createMemo(() => state.createdTo);
+  const updatedFrom = createMemo(() => state.updatedFrom);
+  const updatedTo = createMemo(() => state.updatedTo);
   const clientShown = createMemo(() => state.clientShown);
   const serverShown = createMemo(() => state.serverShown);
 
@@ -24,9 +34,23 @@ export function createDocsQueryStore() {
   const setMetaKey = (v: string) => setState("metaKey", v);
   const setMetaValue = (v: string) => setState("metaValue", v);
   const setSearchText = (v: string) => setState("searchText", v);
+  const setSource = (v: string) => setState("source", v);
+  const setCreatedFrom = (v?: string) => setState("createdFrom", v ?? "");
+  const setCreatedTo = (v?: string) => setState("createdTo", v ?? "");
+  const setUpdatedFrom = (v?: string) => setState("updatedFrom", v ?? "");
+  const setUpdatedTo = (v?: string) => setState("updatedTo", v ?? "");
 
   const resetMeta = () => {
     setState({ metaKey: "", metaValue: "" });
+  };
+  const resetDatesAndSource = () => {
+    setState({
+      source: "",
+      createdFrom: "",
+      createdTo: "",
+      updatedFrom: "",
+      updatedTo: "",
+    });
   };
   const resetPaging = () => {
     setState({ clientShown: 100, serverShown: 25 });
@@ -40,6 +64,11 @@ export function createDocsQueryStore() {
     metaKey,
     metaValue,
     searchText,
+    source,
+    createdFrom,
+    createdTo,
+    updatedFrom,
+    updatedTo,
     clientShown,
     serverShown,
     // Setters / actions
@@ -47,7 +76,13 @@ export function createDocsQueryStore() {
     setMetaKey,
     setMetaValue,
     setSearchText,
+    setSource,
+    setCreatedFrom,
+    setCreatedTo,
+    setUpdatedFrom,
+    setUpdatedTo,
     resetMeta,
+    resetDatesAndSource,
     resetPaging,
     showMoreClient,
     showMoreServer,

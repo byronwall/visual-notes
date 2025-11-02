@@ -16,12 +16,26 @@ const DocsIndexPage = () => {
   const q = createDocsQueryStore();
 
   const [docs, { refetch }] = createResource(
-    () => ({ p: q.pathPrefix(), k: q.metaKey(), v: q.metaValue() }),
+    () => ({
+      p: q.pathPrefix(),
+      k: q.metaKey(),
+      v: q.metaValue(),
+      s: q.source(),
+      cFrom: q.createdFrom(),
+      cTo: q.createdTo(),
+      uFrom: q.updatedFrom(),
+      uTo: q.updatedTo(),
+    }),
     (s) =>
       fetchDocs({
         pathPrefix: s.p || undefined,
         metaKey: s.k || undefined,
         metaValue: s.v || undefined,
+        source: s.s || undefined,
+        createdFrom: s.cFrom || undefined,
+        createdTo: s.cTo || undefined,
+        updatedFrom: s.uFrom || undefined,
+        updatedTo: s.uTo || undefined,
       })
   );
 
@@ -33,6 +47,11 @@ const DocsIndexPage = () => {
       pathPrefix: q.pathPrefix(),
       metaKey: q.metaKey(),
       metaValue: q.metaValue(),
+      source: q.source() || undefined,
+      createdFrom: q.createdFrom() || undefined,
+      createdTo: q.createdTo() || undefined,
+      updatedFrom: q.updatedFrom() || undefined,
+      updatedTo: q.updatedTo() || undefined,
     })
   );
 
@@ -106,7 +125,7 @@ const DocsIndexPage = () => {
             }}
           />
 
-          <FiltersPanel q={q} />
+          <FiltersPanel q={q} sources={sources()?.sources ?? []} />
 
           <Suspense fallback={<p>Loading…</p>}>
             <ResultsSection

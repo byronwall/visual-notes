@@ -3,7 +3,16 @@ import { useDebouncedSignal } from "./useDebouncedSignal";
 import { useAbortableFetch } from "./useAbortableFetch";
 import { searchDocs } from "../data/docs.service";
 
-type Filters = { pathPrefix?: string; metaKey?: string; metaValue?: string };
+type Filters = {
+  pathPrefix?: string;
+  metaKey?: string;
+  metaValue?: string;
+  source?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
+};
 
 export function useServerSearch(
   qSig: Accessor<string>,

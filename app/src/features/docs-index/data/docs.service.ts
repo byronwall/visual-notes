@@ -10,26 +10,65 @@ export type DocListItem = {
   meta?: MetaRecord | null;
 };
 export type ServerSearchItem = DocListItem & { snippet?: string | null };
-export type SourcesResponse = { total: number; sources: { originalSource: string; count: number }[] };
+export type SourcesResponse = {
+  total: number;
+  sources: { originalSource: string; count: number }[];
+};
 
-export async function fetchDocs(q: { pathPrefix?: string; metaKey?: string; metaValue?: string; take?: number }) {
+export async function fetchDocs(q: {
+  pathPrefix?: string;
+  metaKey?: string;
+  metaValue?: string;
+  source?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
+  take?: number;
+}) {
   const params = new URLSearchParams();
   if (q.pathPrefix) params.set("pathPrefix", q.pathPrefix);
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
+  if (q.source) params.set("source", q.source);
+  if (q.createdFrom) params.set("createdFrom", toIsoDateStart(q.createdFrom));
+  if (q.createdTo) params.set("createdTo", toIsoDateEnd(q.createdTo));
+  if (q.updatedFrom) params.set("updatedFrom", toIsoDateStart(q.updatedFrom));
+  if (q.updatedTo) params.set("updatedTo", toIsoDateEnd(q.updatedTo));
   params.set("take", String(q.take ?? 8000));
-  const res = await apiFetch(`/api/docs${params.toString() ? `?${params}` : ""}`);
+  const res = await apiFetch(
+    `/api/docs${params.toString() ? `?${params}` : ""}`
+  );
   if (!res.ok) throw new Error("Failed to load notes");
   const { items } = (await res.json()) as { items: DocListItem[] };
   return items;
 }
 
-export async function searchDocs(q: { q: string; pathPrefix?: string; metaKey?: string; metaValue?: string; take?: number; signal?: AbortSignal }) {
+export async function searchDocs(q: {
+  q: string;
+  pathPrefix?: string;
+  metaKey?: string;
+  metaValue?: string;
+  source?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
+  take?: number;
+  signal?: AbortSignal;
+}) {
   const params = new URLSearchParams({ q: q.q, take: String(q.take ?? 50) });
   if (q.pathPrefix) params.set("pathPrefix", q.pathPrefix);
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
-  const res = await apiFetch(`/api/docs/search?${params}`, { signal: q.signal });
+  if (q.source) params.set("source", q.source);
+  if (q.createdFrom) params.set("createdFrom", toIsoDateStart(q.createdFrom));
+  if (q.createdTo) params.set("createdTo", toIsoDateEnd(q.createdTo));
+  if (q.updatedFrom) params.set("updatedFrom", toIsoDateStart(q.updatedFrom));
+  if (q.updatedTo) params.set("updatedTo", toIsoDateEnd(q.updatedTo));
+  const res = await apiFetch(`/api/docs/search?${params}`, {
+    signal: q.signal,
+  });
   if (!res.ok) throw new Error("Failed to search notes");
   const { items } = (await res.json()) as { items: ServerSearchItem[] };
   return items ?? [];
@@ -48,7 +87,10 @@ export async function deleteAllDocs() {
 }
 
 export async function deleteBySource(source: string) {
-  const res = await apiFetch(`/api/docs/source?originalSource=${encodeURIComponent(source)}`, { method: "DELETE" });
+  const res = await apiFetch(
+    `/api/docs/source?originalSource=${encodeURIComponent(source)}`,
+    { method: "DELETE" }
+  );
   if (!res.ok) throw new Error("Failed to delete notes by source");
 }
 
@@ -64,4 +106,13 @@ export async function bulkSetSource(value: string) {
   }
 }
 
+function toIsoDateStart(dateOnly: string): string {
+  // dateOnly is YYYY-MM-DD
+  const d = new Date(dateOnly + "T00:00:00");
+  return d.toISOString();
+}
 
+function toIsoDateEnd(dateOnly: string): string {
+  const d = new Date(dateOnly + "T23:59:59.999");
+  return d.toISOString();
+}

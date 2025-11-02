@@ -130,6 +130,11 @@ export async function GET(event: APIEvent) {
   const metaValueRaw = url.searchParams.get("metaValue");
   // Treat all values as strings for now to keep UI simple
   const metaValue = metaValueRaw ?? undefined;
+  const source = url.searchParams.get("source") || undefined;
+  const createdFromParam = url.searchParams.get("createdFrom") || undefined;
+  const createdToParam = url.searchParams.get("createdTo") || undefined;
+  const updatedFromParam = url.searchParams.get("updatedFrom") || undefined;
+  const updatedToParam = url.searchParams.get("updatedTo") || undefined;
   const take = Number(takeParam ?? "50");
   const where: any = {};
   if (pathPrefix) where.path = { startsWith: pathPrefix };
@@ -138,6 +143,31 @@ export async function GET(event: APIEvent) {
   } else if (metaKey && metaValue === undefined) {
     // If only a key is provided, match any non-null value for that key
     where.meta = { path: [metaKey], not: null } as any;
+  }
+  if (source) where.originalSource = source;
+  if (createdFromParam || createdToParam) {
+    const range: any = {};
+    if (createdFromParam) {
+      const d = new Date(createdFromParam);
+      if (!isNaN(d.getTime())) range.gte = d;
+    }
+    if (createdToParam) {
+      const d = new Date(createdToParam);
+      if (!isNaN(d.getTime())) range.lte = d;
+    }
+    if (Object.keys(range).length) where.createdAt = range;
+  }
+  if (updatedFromParam || updatedToParam) {
+    const range: any = {};
+    if (updatedFromParam) {
+      const d = new Date(updatedFromParam);
+      if (!isNaN(d.getTime())) range.gte = d;
+    }
+    if (updatedToParam) {
+      const d = new Date(updatedToParam);
+      if (!isNaN(d.getTime())) range.lte = d;
+    }
+    if (Object.keys(range).length) where.updatedAt = range;
   }
   const items = await prisma.doc.findMany({
     orderBy: { updatedAt: "desc" },
@@ -152,6 +182,13 @@ export async function GET(event: APIEvent) {
     },
     take,
   });
+  try {
+    console.log(
+      `[api/docs] filters pathPrefix=${pathPrefix || ""} metaKey=${
+        metaKey || ""
+      } source=${source || ""}`
+    );
+  } catch {}
   return json({ items });
 }
 
