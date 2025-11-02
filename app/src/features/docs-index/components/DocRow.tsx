@@ -9,18 +9,26 @@ export const DocRow = (props: {
   updatedAt: string;
   path?: string | null;
   meta?: Record<string, unknown> | null;
+  snippet?: string | null;
   query?: string;
   onFilterPath?: (p: string) => void;
   onFilterMeta?: (k: string, v: string) => void;
 }) => {
   return (
     <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
-      <A href={`/docs/${props.id}`} class="font-medium hover:underline">
-        {props.query
-          ? renderHighlighted(props.title, props.query)
-          : props.title}
-      </A>
-      <div class="flex items-center gap-2 text-sm text-gray-500">
+      <div class="min-w-0">
+        <A href={`/docs/${props.id}`} class="font-medium hover:underline">
+          {props.query
+            ? renderHighlighted(props.title, props.query)
+            : props.title}
+        </A>
+        {props.snippet && props.query ? (
+          <div class="text-sm text-gray-600 mt-1 truncate">
+            {renderHighlighted(props.snippet, props.query)}
+          </div>
+        ) : null}
+      </div>
+      <div class="flex items-center gap-2 text-sm text-gray-500 ml-3">
         {props.path && (
           <button
             type="button"
