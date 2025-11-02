@@ -125,7 +125,23 @@ const DocsIndexPage = () => {
     });
     if (nextSearch !== (location.search || "")) {
       console.log("[DocsIndex] Sync to URL", nextSearch);
-      const obj = Object.fromEntries(params.entries());
+      // Explicitly clear all managed keys so removed ones (like q) are deleted
+      const MANAGED_KEYS = [
+        "q",
+        "pathPrefix",
+        "metaKey",
+        "metaValue",
+        "source",
+        "createdFrom",
+        "createdTo",
+        "updatedFrom",
+        "updatedTo",
+        "clientShown",
+        "serverShown",
+      ];
+      const obj: Record<string, string | undefined> = {};
+      for (const k of MANAGED_KEYS) obj[k] = undefined;
+      for (const [k, v] of params.entries()) obj[k] = v;
       setSearchParams(obj, { replace: true });
     }
   });
