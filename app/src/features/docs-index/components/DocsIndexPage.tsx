@@ -1,19 +1,134 @@
-import { Suspense, createResource, Show } from "solid-js";
-import { fetchDocs, fetchSources } from "../data/docs.service";
-import { createDocsQueryStore } from "../state/docsQuery";
-import { useServerSearch } from "../hooks/useServerSearch";
-import { SearchInput } from "./SearchInput";
-import { FiltersPanel } from "./FiltersPanel";
-import { ActionsPopover } from "./ActionsPopover";
-import { ResultsSection } from "./ResultsSection";
+import { useLocation, useSearchParams } from "@solidjs/router";
+import { Suspense, createEffect, createResource } from "solid-js";
 import {
   bulkSetSource,
   deleteAllDocs,
   deleteBySource,
+  fetchDocs,
+  fetchSources,
 } from "../data/docs.service";
+import { useServerSearch } from "../hooks/useServerSearch";
+import { createDocsQueryStore } from "../state/docsQuery";
+import { ActionsPopover } from "./ActionsPopover";
+import { FiltersPanel } from "./FiltersPanel";
+import { ResultsSection } from "./ResultsSection";
+import { SearchInput } from "./SearchInput";
+
+// TOOD: refactor all the query param stuff into a helper
 
 const DocsIndexPage = () => {
   const q = createDocsQueryStore();
+  const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
+  let initializedFromUrl = false;
+  let lastSearchSnapshot = "";
+  let isFirstUrlSync = true;
+  // We avoid echo loops by comparing nextSearch to location.search; a separate
+  // suppression flag is unnecessary and can swallow the first user change.
+
+  const parseParamsIntoStore = (sp: URLSearchParams) => {
+    const qp = (key: string) => sp.get(key) || "";
+    const num = (key: string, def: number) => {
+      const v = Number(sp.get(key));
+      return Number.isFinite(v) && v > 0 ? v : def;
+    };
+
+    const next = {
+      searchText: qp("q"),
+      pathPrefix: qp("pathPrefix"),
+      metaKey: qp("metaKey"),
+      metaValue: qp("metaValue"),
+      source: qp("source"),
+      createdFrom: qp("createdFrom"),
+      createdTo: qp("createdTo"),
+      updatedFrom: qp("updatedFrom"),
+      updatedTo: qp("updatedTo"),
+      clientShown: num("clientShown", 100),
+      serverShown: num("serverShown", 25),
+    };
+
+    // Apply only when changes are detected to avoid loops
+    if (q.searchText() !== next.searchText) q.setSearchText(next.searchText);
+    if (q.pathPrefix() !== next.pathPrefix) q.setPathPrefix(next.pathPrefix);
+    if (q.metaKey() !== next.metaKey) q.setMetaKey(next.metaKey);
+    if (q.metaValue() !== next.metaValue) q.setMetaValue(next.metaValue);
+    if (q.source() !== next.source) q.setSource(next.source);
+    if (q.createdFrom() !== next.createdFrom)
+      q.setCreatedFrom(next.createdFrom || undefined);
+    if (q.createdTo() !== next.createdTo)
+      q.setCreatedTo(next.createdTo || undefined);
+    if (q.updatedFrom() !== next.updatedFrom)
+      q.setUpdatedFrom(next.updatedFrom || undefined);
+    if (q.updatedTo() !== next.updatedTo)
+      q.setUpdatedTo(next.updatedTo || undefined);
+    // Handle load counts with reset + incremental add (no direct setter available across app)
+    const desiredClient = Math.max(100, next.clientShown);
+    const desiredServer = Math.max(25, next.serverShown);
+    let didReset = false;
+    if (q.clientShown() !== desiredClient) {
+      q.resetPaging();
+      didReset = true;
+      if (desiredClient > 100) q.showMoreClient(desiredClient - 100);
+    }
+    if (q.serverShown() !== desiredServer) {
+      if (!didReset) q.resetPaging();
+      if (desiredServer > 25) q.showMoreServer(desiredServer - 25);
+    }
+  };
+
+  // Initialize from URL and keep store in sync when URL changes (e.g., back/forward)
+  createEffect(() => {
+    const currentSearch = location.search || "";
+    if (isFirstUrlSync || currentSearch !== lastSearchSnapshot) {
+      lastSearchSnapshot = currentSearch;
+      isFirstUrlSync = false;
+      const sp = new URLSearchParams(currentSearch);
+      console.log("[DocsIndex] Sync from URL", currentSearch);
+      parseParamsIntoStore(sp);
+      initializedFromUrl = true;
+    }
+  });
+
+  // Push store changes into URL (replace to avoid noisy history during typing)
+  createEffect(() => {
+    if (!initializedFromUrl) return; // wait until initial URL -> store sync
+    const params = new URLSearchParams();
+    if (q.searchText().trim()) params.set("q", q.searchText().trim());
+    if (q.pathPrefix().trim()) params.set("pathPrefix", q.pathPrefix().trim());
+    if (q.metaKey().trim()) params.set("metaKey", q.metaKey().trim());
+    if (q.metaValue().trim()) params.set("metaValue", q.metaValue().trim());
+    if (q.source().trim()) params.set("source", q.source().trim());
+    if (q.createdFrom().trim())
+      params.set("createdFrom", q.createdFrom().trim());
+    if (q.createdTo().trim()) params.set("createdTo", q.createdTo().trim());
+    if (q.updatedFrom().trim())
+      params.set("updatedFrom", q.updatedFrom().trim());
+    if (q.updatedTo().trim()) params.set("updatedTo", q.updatedTo().trim());
+    if (q.clientShown() !== 100)
+      params.set("clientShown", String(q.clientShown()));
+    if (q.serverShown() !== 25)
+      params.set("serverShown", String(q.serverShown()));
+
+    const nextSearch = params.toString() ? `?${params.toString()}` : "";
+    console.log("[DocsIndex] Compute URL from store", {
+      nextSearch,
+      currentSearch: location.search || "",
+      searchText: q.searchText(),
+      pathPrefix: q.pathPrefix(),
+      metaKey: q.metaKey(),
+      metaValue: q.metaValue(),
+      source: q.source(),
+      createdFrom: q.createdFrom(),
+      createdTo: q.createdTo(),
+      updatedFrom: q.updatedFrom(),
+      updatedTo: q.updatedTo(),
+    });
+    if (nextSearch !== (location.search || "")) {
+      console.log("[DocsIndex] Sync to URL", nextSearch);
+      const obj = Object.fromEntries(params.entries());
+      setSearchParams(obj, { replace: true });
+    }
+  });
 
   const [docs, { refetch }] = createResource(
     () => ({

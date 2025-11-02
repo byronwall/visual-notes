@@ -57,6 +57,8 @@ export function createDocsQueryStore() {
   };
   const showMoreClient = (n = 100) => setState("clientShown", (x) => x + n);
   const showMoreServer = (n = 25) => setState("serverShown", (x) => x + n);
+  const setClientShown = (n: number) => setState("clientShown", Math.max(1, n));
+  const setServerShown = (n: number) => setState("serverShown", Math.max(1, n));
 
   return {
     // Accessors
@@ -86,5 +88,7 @@ export function createDocsQueryStore() {
     resetPaging,
     showMoreClient,
     showMoreServer,
+    setClientShown,
+    setServerShown,
   };
 }
