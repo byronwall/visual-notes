@@ -49,8 +49,8 @@ export const ResultsSection = (props: {
                   clientMatches().slice(0, q.clientShown())
                 )}
               >
-                {(g) =>
-                  g.items.length && (
+                {(g) => (
+                  <Show when={g.items.length}>
                     <section>
                       <h3 class="text-xs font-semibold text-gray-500">
                         {g.label}
@@ -71,8 +71,8 @@ export const ResultsSection = (props: {
                         </For>
                       </ul>
                     </section>
-                  )
-                }
+                  </Show>
+                )}
               </For>
               <LoadMoreButton
                 shown={Math.min(q.clientShown(), clientMatches().length)}
@@ -104,8 +104,8 @@ export const ResultsSection = (props: {
       >
         <div class="space-y-6">
           <For each={groupByUpdatedAt(props.items.slice(0, q.clientShown()))}>
-            {(g) =>
-              g.items.length && (
+            {(g) => (
+              <Show when={g.items.length}>
                 <section>
                   <h2 class="text-sm font-semibold text-gray-600">{g.label}</h2>
                   <ul class="space-y-2 mt-2">
@@ -123,8 +123,8 @@ export const ResultsSection = (props: {
                     </For>
                   </ul>
                 </section>
-              )
-            }
+              </Show>
+            )}
           </For>
           <LoadMoreButton
             shown={Math.min(q.clientShown(), props.items.length)}
