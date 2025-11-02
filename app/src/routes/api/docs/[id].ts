@@ -36,45 +36,6 @@ export async function GET(event: APIEvent) {
       });
   const doc = resolvedDoc;
   if (!doc) return json({ error: "Not found" }, { status: 404 });
-  // Attach embedding runs relevant to this doc with summarized results
-  const embeddings = await prisma.docEmbedding.findMany({
-    where: { docId: doc.id },
-    select: { runId: true, vector: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  });
-  const runIds = Array.from(
-    new Set((embeddings as any[]).map((e: any) => e.runId))
-  );
-  let runs: any[] = [];
-  if (runIds.length) {
-    runs = await prisma.embeddingRun.findMany({
-      where: { id: { in: runIds } },
-      select: {
-        id: true,
-        model: true,
-        dims: true,
-        params: true,
-        createdAt: true,
-      },
-    });
-  }
-  const byRunId = new Map<string, any>(
-    (runs as any[]).map((r: any) => [String(r.id), r])
-  );
-  const embeddingRuns = (embeddings as any[]).map((e: any) => {
-    const run = byRunId.get(String(e.runId)) || { id: e.runId };
-    const vector = Array.isArray(e.vector) ? e.vector : [];
-    return {
-      id: String(run.id),
-      model: run.model,
-      dims: run.dims,
-      params: run.params,
-      runCreatedAt: run.createdAt,
-      embeddedAt: e.createdAt,
-      vectorDims: vector.length,
-      vectorPreview: vector.slice(0, 8),
-    };
-  });
   try {
     const html = String(doc.html || "");
     const imgCount = (html.match(/<img\b/gi) || []).length;
@@ -87,7 +48,7 @@ export async function GET(event: APIEvent) {
       dataImgCount
     );
   } catch {}
-  return json({ ...doc, embeddingRuns });
+  return json({ ...doc });
 }
 
 const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);

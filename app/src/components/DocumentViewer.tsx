@@ -15,16 +15,6 @@ type DocumentData = {
   meta?: Record<string, unknown> | null;
   createdAt?: string;
   updatedAt?: string;
-  embeddingRuns?: {
-    id: string;
-    model?: string;
-    dims?: number;
-    params?: Record<string, unknown> | null;
-    runCreatedAt?: string;
-    embeddedAt?: string;
-    vectorDims?: number;
-    vectorPreview?: number[];
-  }[];
 };
 
 const DocumentViewer: VoidComponent<{
@@ -76,7 +66,6 @@ const DocumentViewer: VoidComponent<{
       alert((e as Error).message || "Failed to sync title");
     }
   };
-  const runs = () => props.doc?.embeddingRuns || [];
 
   // Update page title to match note title
   createEffect(() => {
@@ -158,70 +147,6 @@ const DocumentViewer: VoidComponent<{
       <DocumentEditor docId={props.doc.id} />
 
       {/* Inline properties moved to page-level top section in docs/[id].tsx */}
-
-      <details class="rounded border border-gray-200 p-3 mb-4">
-        <summary class="cursor-pointer select-none font-medium">
-          Embeddings
-        </summary>
-        <div class="mt-2 text-sm">
-          <Show
-            when={runs().length > 0}
-            fallback={
-              <div class="text-gray-600">No embeddings for this note.</div>
-            }
-          >
-            <ul class="not-prose divide-y border rounded">
-              {runs().map((r) => (
-                <li class="p-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="font-medium truncate">Run {r.id}</div>
-                      <div class="text-xs text-gray-600">
-                        Model: {r.model || "-"} · Dims:{" "}
-                        {r.dims || r.vectorDims || 0}
-                      </div>
-                      <div class="text-xs text-gray-600">
-                        Embedded:{" "}
-                        {r.embeddedAt
-                          ? new Date(r.embeddedAt).toLocaleString()
-                          : "-"}
-                        {" · Run: "}
-                        {r.runCreatedAt
-                          ? new Date(r.runCreatedAt).toLocaleString()
-                          : "-"}
-                      </div>
-                    </div>
-                    <a
-                      class="text-blue-600 text-sm whitespace-nowrap hover:underline"
-                      href={`/embeddings/runs/${r.id}`}
-                    >
-                      View run
-                    </a>
-                  </div>
-                  <Show when={(r.vectorPreview?.length || 0) > 0}>
-                    <div class="mt-2">
-                      <div class="text-xs text-gray-700">Vector preview:</div>
-                      <pre class="text-[11px] bg-gray-50 p-2 rounded border overflow-x-auto">
-                        <code>{JSON.stringify(r.vectorPreview)}</code>
-                      </pre>
-                    </div>
-                  </Show>
-                  <Show
-                    when={r.params && Object.keys(r.params || {}).length > 0}
-                  >
-                    <div class="mt-2">
-                      <div class="text-xs text-gray-700">Params:</div>
-                      <pre class="text-[11px] bg-gray-50 p-2 rounded border overflow-x-auto">
-                        <code>{JSON.stringify(r.params, null, 2)}</code>
-                      </pre>
-                    </div>
-                  </Show>
-                </li>
-              ))}
-            </ul>
-          </Show>
-        </div>
-      </details>
     </div>
   );
 };

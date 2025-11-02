@@ -11,29 +11,19 @@ import { TitleEditPopover } from "./TitleEditPopover";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { updateDocTitle } from "~/services/docs.service";
 
-type DocResponse = {
+type DocDetail = {
   id: string;
   title: string;
   markdown?: string;
   html?: string;
   createdAt?: string;
   updatedAt?: string;
-  embeddingRuns?: {
-    id: string;
-    model?: string;
-    dims?: number;
-    params?: Record<string, unknown> | null;
-    runCreatedAt?: string;
-    embeddedAt?: string;
-    vectorDims?: number;
-    vectorPreview?: number[];
-  }[];
 };
 
-async function fetchDoc(id: string): Promise<DocResponse> {
+async function fetchDoc(id: string): Promise<DocDetail> {
   const res = await apiFetch(`/api/docs/${id}`);
   if (!res.ok) throw new Error("Failed to load doc");
-  return (await res.json()) as DocResponse;
+  return (await res.json()) as DocDetail;
 }
 
 const DocumentSidePanel: VoidComponent<{
