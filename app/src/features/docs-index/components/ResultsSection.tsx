@@ -103,6 +103,7 @@ export const ResultsSection = (props: {
         }
       >
         <div class="space-y-6">
+          <div>Total results: {props.items.length}</div>
           <For each={groupByUpdatedAt(props.items.slice(0, q.clientShown()))}>
             {(g) => (
               <Show when={g.items.length}>
