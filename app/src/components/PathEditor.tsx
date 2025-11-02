@@ -12,6 +12,8 @@ import type { VoidComponent } from "solid-js";
 import { fetchPathSuggestions, updateDocPath } from "~/services/docs.service";
 import { Popover } from "./Popover";
 
+// TODO: this needs a `disabled` prop to disable the editor
+
 export const PathEditor: VoidComponent<{
   docId?: string;
   initialPath?: string;
