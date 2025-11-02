@@ -6,14 +6,9 @@ import {
   type VoidComponent,
 } from "solid-js";
 import { colorFor } from "~/utils/colors";
+import type { DocItem } from "~/types/notes";
 
 type Point = { x: number; y: number };
-
-type DocItem = {
-  id: string;
-  title: string;
-  createdAt: string;
-};
 
 export type ControlPanelProps = {
   docs: DocItem[] | undefined;
@@ -34,6 +29,10 @@ export type ControlPanelProps = {
   onSelectDoc: (id: string) => void;
   layoutMode: Accessor<"umap" | "grid">;
   setLayoutMode: (m: "umap" | "grid") => void;
+  nestByPath: Accessor<boolean>;
+  setNestByPath: (v: boolean) => void;
+  // TODO:TYPE_MIRROR, allow extra props for forward-compat without tightening here
+  [key: string]: unknown;
 };
 
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
@@ -123,6 +122,14 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
           <label class="ml-2 inline-flex items-center gap-1 select-none">
             <input
               type="checkbox"
+              checked={props.nestByPath()}
+              onChange={(e) => props.setNestByPath(e.currentTarget.checked)}
+            />
+            <span>Nest by path</span>
+          </label>
+          <label class="ml-2 inline-flex items-center gap-1 select-none">
+            <input
+              type="checkbox"
               checked={props.hideNonMatches()}
               onChange={(e) => props.setHideNonMatches(e.currentTarget.checked)}
             />
@@ -177,7 +184,10 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                           "flex-shrink": 0,
                           width: "10px",
                           height: "10px",
-                          background: colorFor(d.title),
+                          background:
+                            props.layoutMode() === "umap"
+                              ? colorFor(d.path || d.title)
+                              : colorFor(d.title),
                           display: "inline-block",
                           "border-radius": "9999px",
                           border: "1px solid rgba(0,0,0,0.2)",

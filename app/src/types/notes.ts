@@ -1,4 +1,9 @@
-export type DocItem = { id: string; title: string; createdAt: string };
+export type DocItem = {
+  id: string;
+  title: string;
+  createdAt: string;
+  path?: string | null;
+};
 
 export type UmapPoint = {
   docId: string;

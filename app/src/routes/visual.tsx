@@ -5,8 +5,8 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import { ControlPanel } from "~/components/visual/ControlPanel";
-import { VisualCanvas } from "~/components/visual/VisualCanvas";
+import ControlPanel from "~/components/visual/ControlPanel";
+import VisualCanvas from "~/components/visual/VisualCanvas";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { seededPositionFor } from "~/layout/seeded";
@@ -39,6 +39,7 @@ const VisualRoute: VoidComponent = () => {
   // Search/filter state used by layout and UI
   const [searchQuery, setSearchQuery] = createSignal("");
   const [hideNonMatches, setHideNonMatches] = createSignal(true);
+  const [nestByPath, setNestByPath] = createSignal(false);
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
@@ -52,6 +53,7 @@ const VisualRoute: VoidComponent = () => {
     },
     searchQuery,
     hideNonMatches,
+    nestByPath,
   });
 
   // Hover derivations
@@ -61,6 +63,7 @@ const VisualRoute: VoidComponent = () => {
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
   const scheduleTransform = () => canvasStore.scheduleTransform();
+  const umapIndex = () => positionsStore.umapIndex();
 
   // Pan/zoom handlers
   const panZoomHandlers = createPanZoomHandlers(canvasStore, {
@@ -143,6 +146,7 @@ const VisualRoute: VoidComponent = () => {
       <VisualCanvas
         docs={docs.latest}
         positions={positions}
+        umapIndex={umapIndex}
         hoveredId={hover.hoveredId}
         hoveredLabelScreen={hover.hoveredLabelScreen}
         showHoverLabel={hover.showHoverLabel}
@@ -150,6 +154,8 @@ const VisualRoute: VoidComponent = () => {
         navHeight={canvasStore.navHeight}
         searchQuery={searchQuery}
         hideNonMatches={hideNonMatches}
+        layoutMode={canvasStore.layoutMode}
+        nestByPath={nestByPath}
         eventHandlers={panZoomHandlers}
         onSelectDoc={(id) => setSelectedId(id)}
       />
@@ -182,6 +188,8 @@ const VisualRoute: VoidComponent = () => {
         onSelectDoc={(id) => setSelectedId(id)}
         layoutMode={canvasStore.layoutMode}
         setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
+        nestByPath={nestByPath}
+        setNestByPath={setNestByPath}
       />
     </main>
   );

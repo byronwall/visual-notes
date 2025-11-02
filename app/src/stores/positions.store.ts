@@ -25,6 +25,9 @@ export function createPositionsStore(deps: {
   aspectRatio?: Accessor<number>;
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
+  nestByPath?: Accessor<boolean>;
+  // TODO:TYPE_MIRROR, allow extra props for forward-compat
+  [key: string]: unknown;
 }) {
   const { docs, umapPoints, useUmap, layoutMode, aspectRatio } = deps;
 
@@ -58,41 +61,98 @@ export function createPositionsStore(deps: {
     const list = deps.hideNonMatches() ? filteredDocs() : docs() || [];
     const base = basePositions();
     if (list.length === 0) return base;
+    const groupEnabled = deps.nestByPath?.() === true;
     // Build an array of points in the same order as docs to preserve id mapping
-    const pts: { x: number; y: number; id: string }[] = [];
+    const pts: { x: number; y: number; id: string; pathTop: string }[] = [];
     for (const d of list) {
       const p = base.get(d.id);
-      if (p) pts.push({ x: p.x, y: p.y, id: d.id });
+      if (!p) continue;
+      const top = (d as any).path ? String((d as any).path) : "";
+      const topSeg = top.split(".").filter(Boolean)[0] || "∅";
+      pts.push({ x: p.x, y: p.y, id: d.id, pathTop: topSeg });
     }
     const n = pts.length;
     const aspect = Math.max(0.25, Math.min(4, aspectRatio?.() || 1));
     const [gridW, gridH] = bestFitGridForAspect(n, aspect);
-    const mapping = assignToGridZOrderSnaked(
-      pts.map((p) => ({ x: p.x, y: p.y })),
-      gridW,
-      gridH
-    );
-    // Ensure no overlap: choose cell size based on minimal separation
     const cellSize = MIN_SEP;
     const originX = 0;
     const originY = 0;
-    const out = new Map<string, Point>();
-    for (let cell = 0; cell < gridW * gridH; cell++) {
-      const idx = mapping[cell]!;
-      if (idx == null || idx < 0) continue;
-      const center = gridCellCenterWorld(
-        cell,
+
+    if (!groupEnabled) {
+      const mapping = assignToGridZOrderSnaked(
+        pts.map((p) => ({ x: p.x, y: p.y })),
         gridW,
-        gridH,
-        cellSize,
-        originX,
-        originY
+        gridH
       );
-      const id = pts[idx]!.id;
-      out.set(id, center);
+      const out = new Map<string, Point>();
+      for (let cell = 0; cell < gridW * gridH; cell++) {
+        const idx = mapping[cell]!;
+        if (idx == null || idx < 0) continue;
+        const center = gridCellCenterWorld(
+          cell,
+          gridW,
+          gridH,
+          cellSize,
+          originX,
+          originY
+        );
+        const id = pts[idx]!.id;
+        out.set(id, center);
+      }
+      console.log(
+        `[positions.store] Grid layout built: ${n} visible pts in ${gridW}x${gridH}, cell=${cellSize}`
+      );
+      return out;
+    }
+
+    // Grouped grid: allocate exclusive regions per top-level path
+    const byGroup = new Map<string, { id: string; x: number; y: number }[]>();
+    for (const p of pts) {
+      const arr = byGroup.get(p.pathTop) || [];
+      arr.push({ id: p.id, x: p.x, y: p.y });
+      byGroup.set(p.pathTop, arr);
+    }
+    const groups = Array.from(byGroup.keys()).sort((a, b) => a.localeCompare(b));
+    const out = new Map<string, Point>();
+
+    // Simple shelf packing of group rectangles
+    let cursorX = 0;
+    let cursorY = 0;
+    let rowH = 0;
+    for (const g of groups) {
+      const arr = byGroup.get(g)!;
+      // order docs within group by x (UMAP-derived base positions)
+      arr.sort((a, b) => a.x - b.x);
+      const count = arr.length;
+      const [gw, gh] = bestFitGridForAspect(count, aspect);
+      if (cursorX + gw > gridW && cursorX > 0) {
+        cursorY += rowH;
+        cursorX = 0;
+        rowH = 0;
+      }
+      const startX = cursorX;
+      const startY = cursorY;
+      rowH = Math.max(rowH, gh);
+      cursorX += gw;
+      // place docs row-major inside group rect
+      for (let i = 0; i < count; i++) {
+        const lx = i % gw;
+        const ly = Math.floor(i / gw);
+        const globalCell = (startY + ly) * gridW + (startX + lx);
+        const center = gridCellCenterWorld(
+          globalCell,
+          gridW,
+          gridH,
+          cellSize,
+          originX,
+          originY
+        );
+        const id = arr[i]!.id;
+        out.set(id, center);
+      }
     }
     console.log(
-      `[positions.store] Grid layout built: ${n} visible pts in ${gridW}x${gridH}, cell=${cellSize}`
+      `[positions.store] Grouped grid layout: ${groups.length} groups across ${gridW}x${gridH}, cell=${cellSize}`
     );
     return out;
   });

@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
+import type { DocItem } from "~/types/notes";
 
 type Point = { x: number; y: number };
 
@@ -18,15 +19,10 @@ type PanZoomHandlers = {
   onPointerUp: (e: PointerEvent) => void;
 };
 
-type DocItem = {
-  id: string;
-  title: string;
-  createdAt: string;
-};
-
 export type VisualCanvasProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
+  umapIndex: Accessor<Map<string, { x: number; y: number }>>;
   hoveredId: Accessor<string | undefined>;
   hoveredLabelScreen: Accessor<
     { x: number; y: number; title: string } | undefined
@@ -36,8 +32,12 @@ export type VisualCanvasProps = {
   navHeight: Accessor<number>;
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
+  layoutMode: Accessor<"umap" | "grid">;
+  nestByPath: Accessor<boolean>;
   eventHandlers: PanZoomHandlers;
   onSelectDoc: (id: string) => void;
+  // TODO:TYPE_MIRROR, allow extra props to avoid JSX excess property errors during incremental edits
+  [key: string]: unknown;
 };
 
 const SPREAD = 1000;
@@ -65,15 +65,113 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       >
         <g transform={props.viewTransform()}>
           <Show when={props.docs}>
-            {(docs) => (
-              <For each={docs()}>
-                {(d, i) => {
+            {(docs) => {
+              const listOrdered = createMemo(() => {
+                const list = docs();
+                if (!list) return [] as DocItem[];
+                if (!props.nestByPath() || props.layoutMode() !== "grid") return list;
+                const byTop = new Map<string, DocItem[]>();
+                for (const d of list) {
+                  const top = (d.path || "").split(".").filter(Boolean)[0] || "∅";
+                  const arr = byTop.get(top) || [];
+                  arr.push(d);
+                  byTop.set(top, arr);
+                }
+                const groups = Array.from(byTop.keys()).sort((a, b) => a.localeCompare(b));
+                const index = props.umapIndex();
+                const out: DocItem[] = [];
+                for (const g of groups) {
+                  const arr = byTop.get(g)!;
+                  arr.sort((a, b) => {
+                    const pa = index.get(a.id);
+                    const pb = index.get(b.id);
+                    const xa = pa ? pa.x : 0;
+                    const xb = pb ? pb.x : 0;
+                    return xa - xb;
+                  });
+                  out.push(...arr);
+                }
+                try {
+                  console.log(`[visual-canvas] nestByPath ordering applied: groups=${groups.length}`);
+                } catch {}
+                return out;
+              });
+
+              const pathBoxes = createMemo(() => {
+                if (!props.nestByPath() || props.layoutMode() !== "grid")
+                  return [] as { key: string; depth: number; minX: number; minY: number; maxX: number; maxY: number }[];
+                const list = docs() || [];
+                const pos = props.positions();
+                const tree = new Map<string, { ids: string[]; depth: number }>();
+                for (const d of list) {
+                  const segments = (d.path || "").split(".").filter(Boolean);
+                  let prefix = "";
+                  for (let i = 0; i < segments.length; i++) {
+                    prefix = prefix ? `${prefix}.${segments[i]}` : segments[i]!;
+                    const node = tree.get(prefix) || { ids: [], depth: i + 1 };
+                    node.ids.push(d.id);
+                    tree.set(prefix, node);
+                  }
+                }
+                const boxes: { key: string; depth: number; minX: number; minY: number; maxX: number; maxY: number }[] = [];
+                for (const [key, node] of tree) {
+                  let minX = Number.POSITIVE_INFINITY;
+                  let minY = Number.POSITIVE_INFINITY;
+                  let maxX = Number.NEGATIVE_INFINITY;
+                  let maxY = Number.NEGATIVE_INFINITY;
+                  for (const id of node.ids) {
+                    const p = pos.get(id);
+                    if (!p) continue;
+                    if (p.x < minX) minX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y > maxY) maxY = p.y;
+                  }
+                  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) continue;
+                  const pad = 18;
+                  boxes.push({ key, depth: node.depth, minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad });
+                }
+                boxes.sort((a, b) => a.depth - b.depth);
+                return boxes;
+              });
+
+              return (
+                <>
+                  <For each={pathBoxes()}>
+                    {(b) => {
+                      const isGrid = props.layoutMode() === "grid";
+                      const boxFill = isGrid ? "#e5e7eb" : "#f8fafc"; // darker bg in Z-order view
+                      const boxStroke = isGrid ? "#475569" : "#cbd5e1"; // thicker, darker border in Z-order view
+                      const boxStrokeW = isGrid ? 3 : 1;
+                      return (
+                        <g>
+                          <rect
+                            x={b.minX}
+                            y={b.minY}
+                            width={b.maxX - b.minX}
+                            height={b.maxY - b.minY}
+                            rx={8}
+                            ry={8}
+                            fill={boxFill}
+                            stroke={boxStroke}
+                            stroke-width={boxStrokeW}
+                          />
+                        </g>
+                      );
+                    }}
+                  </For>
+                  <For each={listOrdered()}>
+                    {(d, i) => {
                   const pos = createMemo(
                     () =>
                       props.positions().get(d.id) ??
                       seededPositionFor(d.title, i(), SPREAD)
                   );
-                  const fill = colorFor(d.title);
+                      const fill = createMemo(() =>
+                        props.layoutMode() === "umap"
+                          ? colorFor(d.path || d.title)
+                          : colorFor(d.title)
+                      );
                   const isHovered = createMemo(
                     () => props.hoveredId() === d.id && props.showHoverLabel()
                   );
@@ -92,7 +190,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                           cx={pos().x}
                           cy={pos().y}
                           r={10}
-                          fill={dimmed() ? "#9CA3AF" : fill}
+                              fill={dimmed() ? "#9CA3AF" : fill()}
                           stroke={
                             isHovered()
                               ? "#111"
@@ -111,9 +209,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       </g>
                     </Show>
                   );
-                }}
-              </For>
-            )}
+                    }}
+                  </For>
+                </>
+              );
+            }}
           </Show>
         </g>
       </svg>
