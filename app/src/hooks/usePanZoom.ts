@@ -34,7 +34,7 @@ export function createPanZoomHandlers(
 
     const currentScale = canvasStore.scale();
     const newScale = Math.min(
-      4,
+      12,
       Math.max(0.2, currentScale * Math.pow(2, -delta * zoomIntensity))
     );
 

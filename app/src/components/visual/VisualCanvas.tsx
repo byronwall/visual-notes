@@ -30,6 +30,7 @@ export type VisualCanvasProps = {
   showHoverLabel: Accessor<boolean>;
   viewTransform: Accessor<string>;
   navHeight: Accessor<number>;
+  scale?: Accessor<number>;
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
   layoutMode: Accessor<"umap" | "grid">;
@@ -69,15 +70,19 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               const listOrdered = createMemo(() => {
                 const list = docs();
                 if (!list) return [] as DocItem[];
-                if (!props.nestByPath() || props.layoutMode() !== "grid") return list;
+                if (!props.nestByPath() || props.layoutMode() !== "grid")
+                  return list;
                 const byTop = new Map<string, DocItem[]>();
                 for (const d of list) {
-                  const top = (d.path || "").split(".").filter(Boolean)[0] || "∅";
+                  const top =
+                    (d.path || "").split(".").filter(Boolean)[0] || "∅";
                   const arr = byTop.get(top) || [];
                   arr.push(d);
                   byTop.set(top, arr);
                 }
-                const groups = Array.from(byTop.keys()).sort((a, b) => a.localeCompare(b));
+                const groups = Array.from(byTop.keys()).sort((a, b) =>
+                  a.localeCompare(b)
+                );
                 const index = props.umapIndex();
                 const out: DocItem[] = [];
                 for (const g of groups) {
@@ -92,17 +97,45 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   out.push(...arr);
                 }
                 try {
-                  console.log(`[visual-canvas] nestByPath ordering applied: groups=${groups.length}`);
+                  console.log(
+                    `[visual-canvas] nestByPath ordering applied: groups=${groups.length}`
+                  );
                 } catch {}
                 return out;
               });
 
+              const circleRadius = createMemo(() => {
+                const s = Math.max(0.001, props.scale?.() ?? 1);
+                if (props.layoutMode() !== "umap") return 10;
+                const alpha = 1.2; // shrink against zoom: r_world = base / s^alpha
+                const rWorld = 10 / Math.pow(s, alpha);
+                try {
+                  console.log(
+                    `[visual-canvas] circle radius (world)=${rWorld.toFixed(
+                      2
+                    )} at scale=${s.toFixed(2)}`
+                  );
+                } catch {}
+                // clamp to 2-12
+                return Math.max(1, Math.min(10, rWorld));
+              });
+
               const pathBoxes = createMemo(() => {
                 if (!props.nestByPath() || props.layoutMode() !== "grid")
-                  return [] as { key: string; depth: number; minX: number; minY: number; maxX: number; maxY: number }[];
+                  return [] as {
+                    key: string;
+                    depth: number;
+                    minX: number;
+                    minY: number;
+                    maxX: number;
+                    maxY: number;
+                  }[];
                 const list = docs() || [];
                 const pos = props.positions();
-                const tree = new Map<string, { ids: string[]; depth: number }>();
+                const tree = new Map<
+                  string,
+                  { ids: string[]; depth: number }
+                >();
                 for (const d of list) {
                   const segments = (d.path || "").split(".").filter(Boolean);
                   let prefix = "";
@@ -113,7 +146,14 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                     tree.set(prefix, node);
                   }
                 }
-                const boxes: { key: string; depth: number; minX: number; minY: number; maxX: number; maxY: number }[] = [];
+                const boxes: {
+                  key: string;
+                  depth: number;
+                  minX: number;
+                  minY: number;
+                  maxX: number;
+                  maxY: number;
+                }[] = [];
                 for (const [key, node] of tree) {
                   let minX = Number.POSITIVE_INFINITY;
                   let minY = Number.POSITIVE_INFINITY;
@@ -127,9 +167,22 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                     if (p.x > maxX) maxX = p.x;
                     if (p.y > maxY) maxY = p.y;
                   }
-                  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) continue;
+                  if (
+                    !Number.isFinite(minX) ||
+                    !Number.isFinite(minY) ||
+                    !Number.isFinite(maxX) ||
+                    !Number.isFinite(maxY)
+                  )
+                    continue;
                   const pad = 18;
-                  boxes.push({ key, depth: node.depth, minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad });
+                  boxes.push({
+                    key,
+                    depth: node.depth,
+                    minX: minX - pad,
+                    minY: minY - pad,
+                    maxX: maxX + pad,
+                    maxY: maxY + pad,
+                  });
                 }
                 boxes.sort((a, b) => a.depth - b.depth);
                 return boxes;
@@ -155,6 +208,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                             fill={boxFill}
                             stroke={boxStroke}
                             stroke-width={boxStrokeW}
+                            vector-effect="non-scaling-stroke"
                           />
                         </g>
                       );
@@ -162,53 +216,55 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   </For>
                   <For each={listOrdered()}>
                     {(d, i) => {
-                  const pos = createMemo(
-                    () =>
-                      props.positions().get(d.id) ??
-                      seededPositionFor(d.title, i(), SPREAD)
-                  );
+                      const pos = createMemo(
+                        () =>
+                          props.positions().get(d.id) ??
+                          seededPositionFor(d.title, i(), SPREAD)
+                      );
                       const fill = createMemo(() =>
                         props.layoutMode() === "umap"
                           ? colorFor(d.path || d.title)
                           : colorFor(d.title)
                       );
-                  const isHovered = createMemo(
-                    () => props.hoveredId() === d.id && props.showHoverLabel()
-                  );
-                  const matchesSearch = createMemo(() => {
-                    const q = props.searchQuery().trim().toLowerCase();
-                    if (!q) return true;
-                    return d.title.toLowerCase().includes(q);
-                  });
-                  const dimmed = createMemo(
-                    () => !!props.searchQuery().trim() && !matchesSearch()
-                  );
-                  return (
-                    <Show when={!props.hideNonMatches() || matchesSearch()}>
-                      <g>
-                        <circle
-                          cx={pos().x}
-                          cy={pos().y}
-                          r={10}
+                      const isHovered = createMemo(
+                        () =>
+                          props.hoveredId() === d.id && props.showHoverLabel()
+                      );
+                      const matchesSearch = createMemo(() => {
+                        const q = props.searchQuery().trim().toLowerCase();
+                        if (!q) return true;
+                        return d.title.toLowerCase().includes(q);
+                      });
+                      const dimmed = createMemo(
+                        () => !!props.searchQuery().trim() && !matchesSearch()
+                      );
+                      return (
+                        <Show when={!props.hideNonMatches() || matchesSearch()}>
+                          <g>
+                            <circle
+                              cx={pos().x}
+                              cy={pos().y}
+                              r={circleRadius()}
                               fill={dimmed() ? "#9CA3AF" : fill()}
-                          stroke={
-                            isHovered()
-                              ? "#111"
-                              : dimmed()
-                              ? "#00000010"
-                              : "#00000020"
-                          }
-                          stroke-width={isHovered() ? 2 : 1}
-                          style={{ cursor: "pointer" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            props.onSelectDoc(d.id);
-                          }}
-                          onPointerDown={(e) => e.stopPropagation()}
-                        />
-                      </g>
-                    </Show>
-                  );
+                              stroke={
+                                isHovered()
+                                  ? "#111"
+                                  : dimmed()
+                                  ? "#00000010"
+                                  : "#00000020"
+                              }
+                              stroke-width={isHovered() ? 2 : 1}
+                              vector-effect="non-scaling-stroke"
+                              style={{ cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onSelectDoc(d.id);
+                              }}
+                              onPointerDown={(e) => e.stopPropagation()}
+                            />
+                          </g>
+                        </Show>
+                      );
                     }}
                   </For>
                 </>

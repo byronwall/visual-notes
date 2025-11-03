@@ -152,6 +152,7 @@ const VisualRoute: VoidComponent = () => {
         showHoverLabel={hover.showHoverLabel}
         viewTransform={viewTransform}
         navHeight={canvasStore.navHeight}
+        scale={canvasStore.scale}
         searchQuery={searchQuery}
         hideNonMatches={hideNonMatches}
         layoutMode={canvasStore.layoutMode}
