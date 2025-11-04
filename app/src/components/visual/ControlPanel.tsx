@@ -12,6 +12,8 @@ import type { createSelectionStore } from "~/stores/selection.store";
 import Modal from "~/components/Modal";
 import { MetaKeyValueEditor } from "~/components/MetaKeyValueEditor";
 import { PathEditor } from "~/components/PathEditor";
+import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
+import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 import {
   updateDocMeta,
   updateDocPath,
@@ -42,6 +44,15 @@ export type ControlPanelProps = {
   nestByPath: Accessor<boolean>;
   setNestByPath: (v: boolean) => void;
   selection?: ReturnType<typeof createSelectionStore>;
+  // Filters
+  pathPrefix: Accessor<string>;
+  setPathPrefix: (v: string) => void;
+  blankPathOnly: Accessor<boolean>;
+  setBlankPathOnly: (v: boolean) => void;
+  metaKey: Accessor<string>;
+  setMetaKey: (v: string) => void;
+  metaValue: Accessor<string>;
+  setMetaValue: (v: string) => void;
   // TODO:TYPE_MIRROR, allow extra props for forward-compat without tightening here
   [key: string]: unknown;
 };
@@ -130,7 +141,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
 
   return (
     <div
-      class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"
+      class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow overflow-x-hidden"
       style={{
         top: `${props.navHeight()}px`,
         left: "0",
@@ -151,6 +162,99 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
           />
         </div>
+        {/* Path and Meta Filters */}
+        {(() => {
+          const handlePathChange = (p: string) => props.setPathPrefix(p);
+          const handleBlankToggle = (
+            ev: Event & { currentTarget: HTMLInputElement }
+          ) => {
+            const checked = ev.currentTarget.checked;
+            props.setBlankPathOnly(checked);
+            if (checked) props.setPathPrefix("");
+          };
+          const handleMetaKeyInput = (
+            ev: Event & { currentTarget: HTMLInputElement }
+          ) => {
+            props.setMetaKey(ev.currentTarget.value);
+          };
+          const handleMetaValueInput = (
+            ev: Event & { currentTarget: HTMLInputElement }
+          ) => {
+            props.setMetaValue(ev.currentTarget.value);
+          };
+          const clearMetaFilter = () => {
+            props.setMetaKey("");
+            props.setMetaValue("");
+          };
+          return (
+            <div class="space-y-3 mb-3">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-600">Path</span>
+                </div>
+                <div
+                  class={`${
+                    props.blankPathOnly()
+                      ? "opacity-50 pointer-events-none"
+                      : ""
+                  }`}
+                >
+                  <PathEditor
+                    initialPath={props.pathPrefix()}
+                    onChange={handlePathChange}
+                  />
+                </div>
+                <label class="mt-2 flex items-center gap-1 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={props.blankPathOnly()}
+                    onChange={handleBlankToggle}
+                  />
+                  <span>Blank only</span>
+                </label>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs text-gray-600">Meta</span>
+                  <button
+                    class="rounded border px-2 py-1 text-xs hover:bg-gray-50"
+                    onClick={clearMetaFilter}
+                    title="Clear meta filter"
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <input
+                    class="min-w-0 rounded border border-gray-300 px-2 py-1 text-xs"
+                    placeholder="key"
+                    value={props.metaKey()}
+                    onInput={handleMetaKeyInput}
+                  />
+                  <input
+                    class="min-w-0 rounded border border-gray-300 px-2 py-1 text-xs"
+                    placeholder="value"
+                    value={props.metaValue()}
+                    onInput={handleMetaValueInput}
+                  />
+                </div>
+                <div class="mt-2">
+                  <MetaKeySuggestions
+                    onSelect={(k) => props.setMetaKey(k)}
+                    limit={8}
+                  />
+                  <MetaValueSuggestions
+                    keyName={props.metaKey()}
+                    onSelect={(v) => props.setMetaValue(v)}
+                    limit={8}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         <Show when={(props.selection?.breadcrumbs().length || 0) > 0}>
           {(() => {
             const crumbs = props.selection!.breadcrumbs();

@@ -5,6 +5,7 @@ import {
   createMemo,
   onCleanup,
   onMount,
+  createResource,
 } from "solid-js";
 import ControlPanel from "~/components/visual/ControlPanel";
 import VisualCanvas from "~/components/visual/VisualCanvas";
@@ -12,10 +13,10 @@ import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { seededPositionFor } from "~/layout/seeded";
 import {
-  useDocsResource,
   useUmapPointsResource,
   useUmapRunResource,
 } from "~/services/docs.resources";
+import { fetchDocs as fetchFilteredDocs } from "~/features/docs-index/data/docs.service";
 import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
@@ -26,7 +27,27 @@ const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
 
 const VisualRoute: VoidComponent = () => {
-  const [docs, { refetch: refetchDocs }] = useDocsResource();
+  // Filters for server-backed docs fetch (path + meta)
+  const [pathPrefix, setPathPrefix] = createSignal("");
+  const [blankPathOnly, setBlankPathOnly] = createSignal(false);
+  const [metaKey, setMetaKey] = createSignal("");
+  const [metaValue, setMetaValue] = createSignal("");
+
+  const [docs, { refetch: refetchDocs }] = createResource(
+    () => ({
+      p: pathPrefix(),
+      b: blankPathOnly(),
+      k: metaKey(),
+      v: metaValue(),
+    }),
+    (s) =>
+      fetchFilteredDocs({
+        pathPrefix: s.p || undefined,
+        pathBlankOnly: s.b || undefined,
+        metaKey: s.k || undefined,
+        metaValue: s.v || undefined,
+      })
+  );
   const [umapRun] = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
   const [umapPoints] = useUmapPointsResource(() => umapRun()?.id);
@@ -160,7 +181,16 @@ const VisualRoute: VoidComponent = () => {
   });
 
   return (
-    <main class="min-h-screen bg-white">
+    <main
+      class="bg-white overflow-hidden"
+      style={{
+        position: "fixed",
+        left: "0",
+        right: "0",
+        top: `${canvasStore.navHeight()}px`,
+        bottom: "0",
+      }}
+    >
       <VisualCanvas
         docs={isolatedDocs()}
         positions={positions}
@@ -211,6 +241,14 @@ const VisualRoute: VoidComponent = () => {
         nestByPath={nestByPath}
         setNestByPath={setNestByPath}
         selection={selectionStore}
+        pathPrefix={pathPrefix}
+        setPathPrefix={setPathPrefix}
+        blankPathOnly={blankPathOnly}
+        setBlankPathOnly={setBlankPathOnly}
+        metaKey={metaKey}
+        setMetaKey={setMetaKey}
+        metaValue={metaValue}
+        setMetaValue={setMetaValue}
       />
     </main>
   );
