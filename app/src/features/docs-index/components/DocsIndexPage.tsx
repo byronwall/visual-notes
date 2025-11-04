@@ -1,7 +1,14 @@
 import { useLocation, useSearchParams } from "@solidjs/router";
-import { Suspense, createEffect, createResource } from "solid-js";
+import {
+  Suspense,
+  createEffect,
+  createResource,
+  createSignal,
+  createMemo,
+} from "solid-js";
 import {
   bulkSetSource,
+  bulkDeleteDocs,
   deleteAllDocs,
   deleteBySource,
   fetchDocs,
@@ -189,6 +196,34 @@ const DocsIndexPage = () => {
 
   const [sources, { refetch: refetchSources }] = createResource(fetchSources);
 
+  const [visibleIds, setVisibleIds] = createSignal<string[]>([]);
+  const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
+  const selectedVisibleCount = createMemo(() => {
+    const selected = selectedIds();
+    let count = 0;
+    for (const id of visibleIds()) if (selected.has(id)) count++;
+    return count;
+  });
+  const handleToggleSelect = (id: string, next: boolean) => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (next) s.add(id);
+      else s.delete(id);
+      return s;
+    });
+  };
+  const handleSelectAllVisible = () => {
+    const ids = visibleIds();
+    if (!ids.length) return;
+    console.log("[DocsIndex] select all visible count=", ids.length);
+    setSelectedIds(new Set(ids));
+  };
+  const handleSelectNone = () => {
+    if (selectedIds().size === 0) return;
+    console.log("[DocsIndex] select none");
+    setSelectedIds(new Set<string>());
+  };
+
   const { results: serverResults, loading: serverLoading } = useServerSearch(
     q.searchText,
     () => ({
@@ -262,6 +297,26 @@ const DocsIndexPage = () => {
     await Promise.all([refetch(), refetchSources()]);
   };
 
+  const handleDeleteSelected = async () => {
+    const ids = visibleIds().filter((id) => selectedIds().has(id));
+    const count = ids.length;
+    if (!count) {
+      alert("No selected visible notes to delete.");
+      return;
+    }
+    if (!confirm(`Delete the ${count} selected notes? This cannot be undone.`))
+      return;
+    console.log("[DocsIndex] bulk delete selected ids count=", count);
+    await bulkDeleteDocs(ids);
+    // Remove deleted ids from selection
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      for (const id of ids) s.delete(id);
+      return s;
+    });
+    await Promise.all([refetch(), refetchSources()]);
+  };
+
   const handleScanRelativeImages = async () => {
     const pre = await scanRelativeImages({ dryRun: true });
     const count = Number(pre.matches || 0);
@@ -291,15 +346,38 @@ const DocsIndexPage = () => {
           <div class="mx-auto max-w-[900px]">
             <div class="flex items-center justify-between">
               <h1 class="text-2xl font-bold">Notes</h1>
-              <ActionsPopover
-                sources={sources}
-                onBulkSetSource={handleBulkSetSource}
-                onCleanupTitles={handleCleanupTitles}
-                onProcessPathRound={handleProcessPathRound}
-                onScanRelativeImages={handleScanRelativeImages}
-                onDeleteBySource={handleDeleteBySource}
-                onDeleteAll={handleDeleteAll}
-              />
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-3 py-1.5 rounded bg-gray-200 text-gray-900 text-sm hover:bg-gray-300 disabled:opacity-50"
+                  disabled={visibleIds().length === 0}
+                  onClick={handleSelectAllVisible}
+                >
+                  Select All Visible ({visibleIds().length})
+                </button>
+                <button
+                  class="px-3 py-1.5 rounded bg-gray-200 text-gray-900 text-sm hover:bg-gray-300 disabled:opacity-50"
+                  disabled={selectedIds().size === 0}
+                  onClick={handleSelectNone}
+                >
+                  Select None
+                </button>
+                <button
+                  class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+                  disabled={selectedVisibleCount() === 0}
+                  onClick={handleDeleteSelected}
+                >
+                  Delete Selected ({selectedVisibleCount()})
+                </button>
+                <ActionsPopover
+                  sources={sources}
+                  onBulkSetSource={handleBulkSetSource}
+                  onCleanupTitles={handleCleanupTitles}
+                  onProcessPathRound={handleProcessPathRound}
+                  onScanRelativeImages={handleScanRelativeImages}
+                  onDeleteBySource={handleDeleteBySource}
+                  onDeleteAll={handleDeleteAll}
+                />
+              </div>
             </div>
 
             <SearchInput
@@ -321,6 +399,9 @@ const DocsIndexPage = () => {
                 query={q}
                 serverResults={serverResults() || []}
                 serverLoading={serverLoading}
+                onVisibleIdsChange={setVisibleIds}
+                selectedIds={selectedIds()}
+                onToggleSelect={handleToggleSelect}
               />
             </Suspense>
           </div>

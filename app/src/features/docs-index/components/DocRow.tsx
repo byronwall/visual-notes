@@ -14,10 +14,26 @@ export const DocRow = (props: {
   query?: string;
   onFilterPath?: (p: string) => void;
   onFilterMeta?: (k: string, v: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string, next: boolean) => void;
 }) => {
+  const handleToggle = (e: Event) => {
+    const t = e.currentTarget as HTMLInputElement;
+    try {
+      console.log("[DocRow] toggle select id=", props.id, "next=", t.checked);
+    } catch {}
+    props.onToggleSelect?.(props.id, t.checked);
+  };
   return (
     <li class="flex items-center justify-between border border-gray-200 rounded p-3 hover:bg-gray-50">
-      <div class="min-w-0">
+      <div class="min-w-0 flex items-center gap-2">
+        <input
+          type="checkbox"
+          class="h-4 w-4"
+          checked={props.selected}
+          onChange={handleToggle}
+          title="Select note"
+        />
         <A href={`/docs/${props.id}`} class="font-medium hover:underline">
           <Show when={props.query}>
             {(query) => (

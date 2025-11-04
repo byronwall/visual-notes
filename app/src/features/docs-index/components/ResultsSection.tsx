@@ -1,4 +1,4 @@
-import { Show, For, createMemo } from "solid-js";
+import { Show, For, createMemo, createEffect } from "solid-js";
 import { groupByUpdatedAt } from "../utils/grouping";
 import { DocRow } from "./DocRow";
 import { computeFuzzyScore } from "../utils/fuzzy";
@@ -10,6 +10,9 @@ export const ResultsSection = (props: {
   query: ReturnType<typeof createDocsQueryStore>;
   serverResults: any[];
   serverLoading: boolean;
+  onVisibleIdsChange?: (ids: string[]) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string, next: boolean) => void;
 }) => {
   const q = props.query;
 
@@ -33,6 +36,39 @@ export const ResultsSection = (props: {
   });
 
   const isSearching = () => q.searchText().trim().length > 0;
+
+  const visibleIds = createMemo(() => {
+    if (isSearching()) {
+      const clientIds = groupByUpdatedAt(
+        clientMatches().slice(0, q.clientShown())
+      )
+        .flatMap((g) => g.items)
+        .map((x) => x.id);
+      const serverIds = props.serverResults
+        .slice(0, q.serverShown())
+        .map((x) => x.id);
+      // de-dupe while preserving order: client first then server
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const id of [...clientIds, ...serverIds]) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          out.push(id);
+        }
+      }
+      return out;
+    } else {
+      return groupByUpdatedAt(props.items.slice(0, q.clientShown()))
+        .flatMap((g) => g.items)
+        .map((x) => x.id);
+    }
+  });
+
+  createEffect(() => {
+    try {
+      if (props.onVisibleIdsChange) props.onVisibleIdsChange(visibleIds());
+    } catch {}
+  });
 
   return (
     <div class="space-y-6 mt-4">
@@ -66,6 +102,8 @@ export const ResultsSection = (props: {
                                 q.setMetaKey(k);
                                 q.setMetaValue(v);
                               }}
+                              selected={props.selectedIds?.has(d.id)}
+                              onToggleSelect={props.onToggleSelect}
                             />
                           )}
                         </For>
@@ -90,7 +128,14 @@ export const ResultsSection = (props: {
               </Show>
               <ul class="space-y-2 mt-2">
                 <For each={props.serverResults.slice(0, q.serverShown())}>
-                  {(d) => <DocRow {...d} query={q.searchText()} />}
+                  {(d) => (
+                    <DocRow
+                      {...d}
+                      query={q.searchText()}
+                      selected={props.selectedIds?.has(d.id)}
+                      onToggleSelect={props.onToggleSelect}
+                    />
+                  )}
                 </For>
               </ul>
               <LoadMoreButton
@@ -119,6 +164,8 @@ export const ResultsSection = (props: {
                             q.setMetaKey(k);
                             q.setMetaValue(v);
                           }}
+                          selected={props.selectedIds?.has(d.id)}
+                          onToggleSelect={props.onToggleSelect}
                         />
                       )}
                     </For>

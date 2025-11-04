@@ -159,6 +159,18 @@ export async function scanRelativeImages(options?: {
   return json;
 }
 
+export async function bulkDeleteDocs(ids: string[]) {
+  const res = await apiFetch("/api/docs/bulk-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({} as any));
+    throw new Error((json as any).error || "Failed to bulk delete notes");
+  }
+}
+
 function toIsoDateStart(dateOnly: string): string {
   // dateOnly is YYYY-MM-DD
   const d = new Date(dateOnly + "T00:00:00");

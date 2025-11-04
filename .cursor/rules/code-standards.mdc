@@ -22,6 +22,7 @@ Follow these coding standards:
 - Do not add `as any` type casts due to linter errors. Mark them with a comment as `TODO:AS_ANY, <reason>`. I likely need to restart the IDE to make things work correctly.
 - When creating types, try as hard as possible to type based on an existing object or data structure or return. Do not create types that simply mirror existing ones. If a linter error is preventing this, add a comment as `TODO:TYPE_MIRROR, <reason>` and let me deal with it.
 - Avoid creating IIFEs for Solid Comps. Just create new components and pass props like normal. IFFEs should be avoided. Render funcs are OK, but IIFEs should be avoided.
+- Avoid wrapping things in try/catch unless it's very common or I explicitly ask for it. For example, calling a method in a prop does not need to be wrapped in try/catch. Async/await fetch stuff can be wrapped in try/catch if needed.
 
 Comments on thinking and planning:
 
