@@ -15,6 +15,7 @@ import {
   fetchSources,
   processPathRound,
   scanRelativeImages,
+  bulkUpdateMeta,
 } from "../data/docs.service";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
@@ -23,6 +24,7 @@ import { FiltersPanel } from "./FiltersPanel";
 import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
 import { PathTreeSidebar } from "./PathTreeSidebar";
+import { BulkMetaModal } from "./BulkMetaModal";
 
 // TOOD: refactor all the query param stuff into a helper
 
@@ -198,6 +200,9 @@ const DocsIndexPage = () => {
 
   const [visibleIds, setVisibleIds] = createSignal<string[]>([]);
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
+  const [showBulkMeta, setShowBulkMeta] = createSignal(false);
+  const [bulkBusy, setBulkBusy] = createSignal(false);
+  const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -317,6 +322,37 @@ const DocsIndexPage = () => {
     await Promise.all([refetch(), refetchSources()]);
   };
 
+  const handleOpenBulkMeta = () => setShowBulkMeta(true);
+  const handleCloseBulkMeta = () => {
+    if (bulkBusy()) return;
+    setShowBulkMeta(false);
+    setBulkError(undefined);
+  };
+  const handleApplyBulkMeta = async (
+    actions: { type: "add" | "update" | "remove"; key: string; value?: unknown }[]
+  ) => {
+    const ids = visibleIds().filter((id) => selectedIds().has(id));
+    const count = ids.length;
+    if (!count) {
+      alert("No selected visible notes.");
+      return;
+    }
+    if (!confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`))
+      return;
+    setBulkBusy(true);
+    setBulkError(undefined);
+    try {
+      console.log("[DocsIndex] bulk meta ids count=", count, actions);
+      await bulkUpdateMeta(ids, actions as any);
+      await refetch();
+      setShowBulkMeta(false);
+    } catch (e) {
+      setBulkError((e as Error).message || "Failed to apply metadata");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleScanRelativeImages = async () => {
     const pre = await scanRelativeImages({ dryRun: true });
     const count = Number(pre.matches || 0);
@@ -368,6 +404,13 @@ const DocsIndexPage = () => {
                 >
                   Delete Selected ({selectedVisibleCount()})
                 </button>
+                <button
+                  class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+                  disabled={selectedVisibleCount() === 0}
+                  onClick={handleOpenBulkMeta}
+                >
+                  Edit Metadata (Selected)
+                </button>
                 <ActionsPopover
                   sources={sources}
                   onBulkSetSource={handleBulkSetSource}
@@ -404,6 +447,12 @@ const DocsIndexPage = () => {
                 onToggleSelect={handleToggleSelect}
               />
             </Suspense>
+            <BulkMetaModal
+              open={showBulkMeta()}
+              onClose={handleCloseBulkMeta}
+              selectedCount={selectedVisibleCount()}
+              onApply={handleApplyBulkMeta}
+            />
           </div>
         </div>
       </div>

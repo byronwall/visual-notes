@@ -171,6 +171,31 @@ export async function bulkDeleteDocs(ids: string[]) {
   }
 }
 
+export type BulkMetaAction =
+  | { type: "add"; key: string; value: string | number | boolean | null }
+  | { type: "update"; key: string; value: string | number | boolean | null }
+  | { type: "remove"; key: string };
+
+export async function bulkUpdateMeta(
+  ids: string[],
+  actions: BulkMetaAction[]
+): Promise<{ ok: boolean; updated: number }> {
+  const res = await apiFetch(`/api/docs/bulk-meta`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, actions }),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({} as any));
+    throw new Error((json as any).error || "Failed to bulk update metadata");
+  }
+  const json = (await res.json().catch(() => ({}))) as any;
+  try {
+    console.log("[services] bulkUpdateMeta:", json);
+  } catch {}
+  return json as { ok: boolean; updated: number };
+}
+
 function toIsoDateStart(dateOnly: string): string {
   // dateOnly is YYYY-MM-DD
   const d = new Date(dateOnly + "T00:00:00");
