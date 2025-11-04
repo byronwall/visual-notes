@@ -52,6 +52,7 @@
     "marked": "^16.4.1",
     "mustache": "^4.2.0",
     "postcss": "^8.4.40",
+    "prosemirror-state": "^1.4.4",
     "sanitize-html": "^2.17.0",
     "shiki": "^3.13.0",
     "solid-js": "^1.9.5",

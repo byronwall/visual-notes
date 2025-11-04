@@ -127,6 +127,38 @@ export async function processPathRound(): Promise<{
   return json as any;
 }
 
+export type ScanRelativeImagesResult = {
+  ok: boolean;
+  total: number;
+  considered: number;
+  matches: number;
+  updated?: number;
+  failed?: number;
+  dryRun?: boolean;
+};
+
+export async function scanRelativeImages(options?: {
+  dryRun?: boolean;
+}): Promise<ScanRelativeImagesResult> {
+  const params = new URLSearchParams();
+  if (options?.dryRun) params.set("dryRun", "1");
+  const url = `/api/docs/scan-relative-images${
+    params.toString() ? `?${params}` : ""
+  }`;
+  const res = await apiFetch(url, { method: "POST" });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({} as any));
+    throw new Error(
+      (json as any).error || "Failed to scan notes for relative images"
+    );
+  }
+  const json = (await res.json().catch(() => ({}))) as ScanRelativeImagesResult;
+  try {
+    console.log("[services] scanRelativeImages:", json);
+  } catch {}
+  return json;
+}
+
 function toIsoDateStart(dateOnly: string): string {
   // dateOnly is YYYY-MM-DD
   const d = new Date(dateOnly + "T00:00:00");

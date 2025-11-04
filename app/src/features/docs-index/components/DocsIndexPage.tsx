@@ -7,6 +7,7 @@ import {
   fetchDocs,
   fetchSources,
   processPathRound,
+  scanRelativeImages,
 } from "../data/docs.service";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
@@ -261,6 +262,27 @@ const DocsIndexPage = () => {
     await Promise.all([refetch(), refetchSources()]);
   };
 
+  const handleScanRelativeImages = async () => {
+    const pre = await scanRelativeImages({ dryRun: true });
+    const count = Number(pre.matches || 0);
+    if (!count) {
+      alert("No notes found with relative image links.");
+      return;
+    }
+    if (
+      !confirm(
+        `Mark ${count} notes with meta has_relative_image=true? This updates note metadata.`
+      )
+    )
+      return;
+    const res = await scanRelativeImages({});
+    try {
+      console.log("[DocsIndex] scan-relative-images", res);
+    } catch {}
+    await Promise.all([refetch(), refetchSources()]);
+    alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
+  };
+
   return (
     <main class="min-h-screen bg-white">
       <PathTreeSidebar q={q} />
@@ -274,6 +296,7 @@ const DocsIndexPage = () => {
                 onBulkSetSource={handleBulkSetSource}
                 onCleanupTitles={handleCleanupTitles}
                 onProcessPathRound={handleProcessPathRound}
+                onScanRelativeImages={handleScanRelativeImages}
                 onDeleteBySource={handleDeleteBySource}
                 onDeleteAll={handleDeleteAll}
               />

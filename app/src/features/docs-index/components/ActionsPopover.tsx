@@ -7,6 +7,7 @@ export const ActionsPopover = (props: {
   onBulkSetSource: () => Promise<void>;
   onCleanupTitles: () => Promise<void>;
   onProcessPathRound: () => Promise<void>;
+  onScanRelativeImages: () => Promise<void>;
   onDeleteBySource: (source: string, count: number) => Promise<void>;
   onDeleteAll: () => Promise<void>;
 }) => {
@@ -41,6 +42,15 @@ export const ActionsPopover = (props: {
                   }}
                 >
                   Process one path round
+                </button>
+                <button
+                  class="w-full px-3 py-2 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50 text-left whitespace-nowrap"
+                  onClick={async () => {
+                    await props.onScanRelativeImages();
+                    pop.closePopover();
+                  }}
+                >
+                  Mark notes with relative images
                 </button>
                 <button
                   class="w-full px-3 py-2 rounded bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50 text-left"
