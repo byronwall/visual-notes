@@ -1,4 +1,5 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -11,6 +12,7 @@ import { createLowlight, common } from "lowlight";
 import "highlight.js/styles/github.css";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
+import { Plugin } from "prosemirror-state";
 
 function Separator() {
   return (
@@ -69,11 +71,170 @@ function Control(props: {
   );
 }
 
+// Simple CSV/TSV parser with quoted field handling
+function parseDelimited(text: string): string[][] {
+  const trimmed = text.replace(/\r\n?/g, "\n");
+  const hasTab = /\t/.test(trimmed);
+  const hasComma = /,/.test(trimmed);
+  const delimiter = hasTab && !hasComma ? "\t" : ","; // prefer tab when no commas
+
+  const rows: string[][] = [];
+  let current: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        const next = trimmed[i + 1];
+        if (next === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === delimiter) {
+        current.push(field);
+        field = "";
+      } else if (ch === "\n") {
+        current.push(field);
+        rows.push(current);
+        current = [];
+        field = "";
+      } else {
+        field += ch;
+      }
+    }
+  }
+  current.push(field);
+  rows.push(current);
+  // Trim trailing empty last row from trailing newline
+  if (rows.length > 1) {
+    const last = rows[rows.length - 1];
+    const allEmpty = last.every((c) => c === "");
+    if (allEmpty) rows.pop();
+  }
+  return rows;
+}
+
+function isProbablyCSV(text: string): boolean {
+  const sample = text.slice(0, 2000);
+  const hasNewline = /\n/.test(sample);
+  const firstLine = sample.split(/\n/)[0] || sample;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  return hasNewline && (commaCount >= 1 || tabCount >= 1);
+}
+
+function csvTextToTableJson(text: string): JSONContent {
+  const rows = parseDelimited(text);
+  const numRows = rows.length;
+  const numCols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+  // Build table JSONContent
+  const bodyRows: JSONContent[] = rows.map((r, idx) => {
+    const isHeader = idx === 0;
+    const cells: JSONContent[] = [];
+    for (let c = 0; c < numCols; c++) {
+      const raw = r[c] ?? "";
+      const cellNode: JSONContent = {
+        type: isHeader ? "tableHeader" : "tableCell",
+        content: [
+          {
+            type: "paragraph",
+            content: raw ? [{ type: "text", text: raw }] : [],
+          },
+        ],
+      };
+      cells.push(cellNode);
+    }
+    return { type: "tableRow", content: cells };
+  });
+  const table: JSONContent = { type: "table", content: bodyRows };
+  console.log("[csv] parsed rows:%d cols:%d", numRows, numCols);
+  return table;
+}
+
+const CsvPaste = Extension.create({
+  name: "csvPaste",
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        props: {
+          handlePaste(view, event) {
+            const dt = event.clipboardData;
+            if (!dt) return false;
+            // Handle explicit text/csv
+            const csv = dt.getData("text/csv");
+            if (csv && isProbablyCSV(csv)) {
+              event.preventDefault();
+              const json = csvTextToTableJson(csv);
+              editor.chain().focus().insertContent(json).run();
+              return true;
+            }
+            // Handle files (CSV)
+            const files = dt.files;
+            if (files && files.length) {
+              const file = Array.from(files).find(
+                (f) => f.type === "text/csv" || /\.csv$/i.test(f.name)
+              );
+              if (file) {
+                event.preventDefault();
+                file.text().then((text) => {
+                  const json = csvTextToTableJson(text);
+                  editor.chain().focus().insertContent(json).run();
+                });
+                return true;
+              }
+            }
+            // Heuristic for plain text that looks like CSV/TSV
+            const plain = dt.getData("text/plain");
+            if (plain && isProbablyCSV(plain)) {
+              event.preventDefault();
+              const json = csvTextToTableJson(plain);
+              editor.chain().focus().insertContent(json).run();
+              return true;
+            }
+            return false;
+          },
+          handleDrop(view, event) {
+            const dt = event.dataTransfer;
+            if (!dt) return false;
+            const files = dt.files;
+            if (!files || files.length === 0) return false;
+            const file = Array.from(files).find(
+              (f) =>
+                f.type === "text/csv" ||
+                f.type === "text/tab-separated-values" ||
+                f.type === "application/vnd.ms-excel" ||
+                /\.csv$/i.test(f.name) ||
+                /\.tsv$/i.test(f.name)
+            );
+            if (!file) return false;
+            event.preventDefault();
+            console.log("[csv] drop import:", file.name);
+            file.text().then((text) => {
+              const json = csvTextToTableJson(text);
+              editor.chain().focus().insertContent(json).run();
+            });
+            return true;
+          },
+        },
+      }),
+    ];
+  },
+});
+
 function ToolbarContents(props: { editor: Editor }) {
+  let csvInputRef: HTMLInputElement | undefined;
   const insertTable = () => {
-    try {
-      console.log("[tiptap.table] insert 3x3 with header");
-    } catch {}
+    console.log("[tiptap.table] insert 3x3 with header");
     props.editor
       .chain()
       .focus()
@@ -82,42 +243,55 @@ function ToolbarContents(props: { editor: Editor }) {
   };
 
   const addRowAfter = () => {
-    try {
-      console.log("[tiptap.table] addRowAfter");
-    } catch {}
+    console.log("[tiptap.table] addRowAfter");
     props.editor.chain().focus().addRowAfter().run();
   };
 
   const addColumnAfter = () => {
-    try {
-      console.log("[tiptap.table] addColumnAfter");
-    } catch {}
+    console.log("[tiptap.table] addColumnAfter");
     props.editor.chain().focus().addColumnAfter().run();
   };
 
   const deleteRow = () => {
-    try {
-      console.log("[tiptap.table] deleteRow");
-    } catch {}
+    console.log("[tiptap.table] deleteRow");
     props.editor.chain().focus().deleteRow().run();
   };
 
   const deleteColumn = () => {
-    try {
-      console.log("[tiptap.table] deleteColumn");
-    } catch {}
+    console.log("[tiptap.table] deleteColumn");
     props.editor.chain().focus().deleteColumn().run();
   };
 
   const deleteTable = () => {
-    try {
-      console.log("[tiptap.table] deleteTable");
-    } catch {}
+    console.log("[tiptap.table] deleteTable");
     props.editor.chain().focus().deleteTable().run();
+  };
+
+  const onChooseCsvFile = () => {
+    csvInputRef?.click();
+  };
+
+  const onCsvFileChange = (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    console.log("[csv] importing file:", file.name);
+    file.text().then((text) => {
+      const json = csvTextToTableJson(text);
+      props.editor.chain().focus().insertContent(json).run();
+      input.value = "";
+    });
   };
 
   return (
     <div class="p-2 flex space-x-1">
+      <input
+        ref={(el) => (csvInputRef = el)}
+        type="file"
+        accept=".csv,text/csv"
+        class="hidden"
+        onChange={onCsvFileChange}
+      />
       <div class="flex space-x-1">
         <Control
           name="paragraph"
@@ -243,6 +417,15 @@ function ToolbarContents(props: { editor: Editor }) {
           title="Insert Table"
         >
           Tbl
+        </Control>
+        <Control
+          name="table"
+          class=""
+          editor={props.editor}
+          onChange={onChooseCsvFile}
+          title="Import CSV as Table"
+        >
+          CSV
         </Control>
         <Control
           name="table"
@@ -377,6 +560,7 @@ export default function TiptapEditor(props: {
       TableRow,
       TableHeader,
       TableCell,
+      CsvPaste,
     ],
     editorProps: {
       attributes: { class: "p-4 focus:outline-none prose max-w-full" },
