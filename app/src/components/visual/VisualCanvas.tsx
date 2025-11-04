@@ -5,10 +5,12 @@ import {
   createMemo,
   type Accessor,
   type VoidComponent,
+  type JSX,
 } from "solid-js";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
+import type { createSelectionStore } from "~/stores/selection.store";
 
 type Point = { x: number; y: number };
 
@@ -37,6 +39,7 @@ export type VisualCanvasProps = {
   nestByPath: Accessor<boolean>;
   eventHandlers: PanZoomHandlers;
   onSelectDoc: (id: string) => void;
+  selection?: ReturnType<typeof createSelectionStore>;
   // TODO:TYPE_MIRROR, allow extra props to avoid JSX excess property errors during incremental edits
   [key: string]: unknown;
 };
@@ -66,9 +69,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       >
         <g transform={props.viewTransform()}>
           <Show when={props.docs}>
-            {(docs) => {
+            {(() => {
+              const docsArr = createMemo(() => props.docs || []);
               const listOrdered = createMemo(() => {
-                const list = docs();
+                const list = docsArr();
                 if (!list) return [] as DocItem[];
                 if (!props.nestByPath() || props.layoutMode() !== "grid")
                   return list;
@@ -130,7 +134,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                     maxX: number;
                     maxY: number;
                   }[];
-                const list = docs() || [];
+                const list = docsArr() || [];
                 const pos = props.positions();
                 const tree = new Map<
                   string,
@@ -226,6 +230,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                           ? colorFor(d.path || d.title)
                           : colorFor(d.title)
                       );
+                      const isSelected = createMemo(() =>
+                        props.selection
+                          ? props.selection.isSelected(d.id)
+                          : false
+                      );
                       const isHovered = createMemo(
                         () =>
                           props.hoveredId() === d.id && props.showHoverLabel()
@@ -247,13 +256,17 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                               r={circleRadius()}
                               fill={dimmed() ? "#9CA3AF" : fill()}
                               stroke={
-                                isHovered()
+                                isSelected()
+                                  ? "#1D4ED8"
+                                  : isHovered()
                                   ? "#111"
                                   : dimmed()
                                   ? "#00000010"
                                   : "#00000020"
                               }
-                              stroke-width={isHovered() ? 2 : 1}
+                              stroke-width={
+                                isSelected() ? 3 : isHovered() ? 2 : 1
+                              }
                               vector-effect="non-scaling-stroke"
                               style={{ cursor: "pointer" }}
                               onClick={(e) => {
@@ -269,10 +282,41 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   </For>
                 </>
               );
-            }}
+            })()}
           </Show>
         </g>
       </svg>
+      {(() => {
+        const sel = props.selection;
+        if (!sel) return null as unknown as JSX.Element;
+        const rect = sel.brushRectScreen;
+        return (
+          <Show when={sel.isBrushing()}>
+            {(() => {
+              const r = rect();
+              if (!r) return null as unknown as JSX.Element;
+              const left = Math.min(r.minX, r.maxX);
+              const top = Math.min(r.minY, r.maxY);
+              const width = Math.abs(r.maxX - r.minX);
+              const height = Math.abs(r.maxY - r.minY);
+              return (
+                <div
+                  class="absolute pointer-events-none"
+                  style={{
+                    left: `${left}px`,
+                    top: `${top}px`,
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    border: "1px solid #2563EB",
+                    background: "rgba(37, 99, 235, 0.08)",
+                    "box-shadow": "inset 0 0 0 1px rgba(37,99,235,0.15)",
+                  }}
+                />
+              );
+            })()}
+          </Show>
+        );
+      })()}
       {(() => {
         const hoveredIsMatch = createMemo(() => {
           const id = props.hoveredId();

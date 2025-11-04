@@ -2,11 +2,21 @@ import {
   For,
   Show,
   createMemo,
+  createSignal,
   type Accessor,
   type VoidComponent,
 } from "solid-js";
 import { colorFor } from "~/utils/colors";
 import type { DocItem } from "~/types/notes";
+import type { createSelectionStore } from "~/stores/selection.store";
+import Modal from "~/components/Modal";
+import { MetaKeyValueEditor } from "~/components/MetaKeyValueEditor";
+import { PathEditor } from "~/components/PathEditor";
+import {
+  updateDocMeta,
+  updateDocPath,
+  type MetaRecord,
+} from "~/services/docs.service";
 
 type Point = { x: number; y: number };
 
@@ -31,6 +41,7 @@ export type ControlPanelProps = {
   setLayoutMode: (m: "umap" | "grid") => void;
   nestByPath: Accessor<boolean>;
   setNestByPath: (v: boolean) => void;
+  selection?: ReturnType<typeof createSelectionStore>;
   // TODO:TYPE_MIRROR, allow extra props for forward-compat without tightening here
   [key: string]: unknown;
 };
@@ -62,6 +73,61 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     return filtered;
   });
 
+  // Selection action state
+  const selectedCount = createMemo(
+    () => props.selection?.selectedIds().size || 0
+  );
+  const [showMetaModal, setShowMetaModal] = createSignal(false);
+  const [showPathModal, setShowPathModal] = createSignal(false);
+  const [bulkBusy, setBulkBusy] = createSignal(false);
+  const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
+  const [bulkPathDraft, setBulkPathDraft] = createSignal("");
+
+  const handleIsolate = () => props.selection?.isolateSelection();
+  const handleClearSelection = () => props.selection?.clearSelection();
+  const handleOpenMeta = () => setShowMetaModal(true);
+  const handleOpenPath = () => setShowPathModal(true);
+  const handleCloseMeta = () => setShowMetaModal(false);
+  const handleClosePath = () => setShowPathModal(false);
+  const handlePopIso = () => props.selection?.popIsolation();
+  const handleClearIso = () => props.selection?.clearIsolation();
+
+  const handleApplyMeta = async (record: MetaRecord) => {
+    const sel = props.selection;
+    if (!sel) return;
+    const ids = Array.from(sel.selectedIds());
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    setBulkError(undefined);
+    try {
+      console.log("[panel] bulk meta apply", { count: ids.length, record });
+      await Promise.all(ids.map((id) => updateDocMeta(id, record)));
+    } catch (e) {
+      setBulkError((e as Error).message || "Failed to apply metadata");
+    } finally {
+      setBulkBusy(false);
+      setShowMetaModal(false);
+    }
+  };
+
+  const handleApplyPath = async (path: string) => {
+    const sel = props.selection;
+    if (!sel) return;
+    const ids = Array.from(sel.selectedIds());
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    setBulkError(undefined);
+    try {
+      console.log("[panel] bulk path apply", { count: ids.length, path });
+      await Promise.all(ids.map((id) => updateDocPath(id, path)));
+    } catch (e) {
+      setBulkError((e as Error).message || "Failed to update paths");
+    } finally {
+      setBulkBusy(false);
+      setShowPathModal(false);
+    }
+  };
+
   return (
     <div
       class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow"
@@ -85,6 +151,35 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
           />
         </div>
+        <Show when={(props.selection?.breadcrumbs().length || 0) > 0}>
+          {(() => {
+            const crumbs = props.selection!.breadcrumbs();
+            return (
+              <div class="flex flex-wrap items-center gap-1 mb-2 text-xs">
+                {crumbs.map((c, i) => (
+                  <button
+                    class="px-2 py-1 rounded border hover:bg-gray-50"
+                    onClick={() => props.selection!.popIsolationTo(i)}
+                  >
+                    {c.label || `Level ${i + 1}`} ({c.ids.length})
+                  </button>
+                ))}
+                <button
+                  class="ml-auto px-2 py-1 rounded border hover:bg-gray-50"
+                  onClick={handlePopIso}
+                >
+                  Back
+                </button>
+                <button
+                  class="px-2 py-1 rounded border hover:bg-gray-50"
+                  onClick={handleClearIso}
+                >
+                  Clear
+                </button>
+              </div>
+            );
+          })()}
+        </Show>
         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700">
           <label for="sortMode">Sort:</label>
           <select
@@ -155,8 +250,49 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             <span class="whitespace-nowrap">
               {props.docs?.length || 0} notes
             </span>
+            <Show when={selectedCount() > 0}>
+              {(() => (
+                <>
+                  <span class="text-gray-300">·</span>
+                  <span class="whitespace-nowrap">
+                    {selectedCount()} selected
+                  </span>
+                </>
+              ))()}
+            </Show>
           </div>
         </div>
+        <Show when={selectedCount() > 0}>
+          {(() => (
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <button
+                class="rounded px-2 py-1 border hover:bg-gray-50"
+                onClick={handleIsolate}
+                title="Render only the selected items"
+              >
+                Isolate
+              </button>
+              <button
+                class="rounded px-2 py-1 border hover:bg-gray-50"
+                onClick={handleOpenMeta}
+              >
+                Tag (meta)
+              </button>
+              <button
+                class="rounded px-2 py-1 border hover:bg-gray-50"
+                onClick={handleOpenPath}
+              >
+                Bulk Path
+              </button>
+              <button
+                class="rounded px-2 py-1 border hover:bg-gray-50"
+                onClick={handleClearSelection}
+              >
+                Clear Sel
+              </button>
+            </div>
+          ))()}
+        </Show>
       </div>
       <div class="flex-1 overflow-y-auto">
         <Show
@@ -232,6 +368,58 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
       <div class="p-2 border-t border-gray-200 text-[11px] text-gray-600">
         Drag to pan, wheel to zoom · Left pane sorts by mouse proximity
       </div>
+
+      <Modal open={showMetaModal()} onClose={handleCloseMeta}>
+        <div class="p-3">
+          <div class="text-sm font-medium mb-2">
+            Apply metadata to selection
+          </div>
+          <Show when={!!bulkError()}>
+            <div class="text-red-600 text-xs mb-2">{bulkError()}</div>
+          </Show>
+          <MetaKeyValueEditor
+            onChange={(rec) => {
+              if (bulkBusy()) return;
+              void handleApplyMeta(rec);
+            }}
+          />
+        </div>
+      </Modal>
+
+      <Modal open={showPathModal()} onClose={handleClosePath}>
+        <div class="p-3">
+          <div class="text-sm font-medium mb-2">Set path for selection</div>
+          <Show when={!!bulkError()}>
+            <div class="text-red-600 text-xs mb-2">{bulkError()}</div>
+          </Show>
+          <div class="mb-3">
+            <PathEditor onChange={(path) => setBulkPathDraft(path)} />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
+              onClick={handleClosePath}
+            >
+              Cancel
+            </button>
+            <button
+              class={`rounded px-3 py-1.5 border text-xs ${
+                bulkBusy()
+                  ? "opacity-60 cursor-not-allowed"
+                  : "hover:bg-gray-50"
+              }`}
+              disabled={bulkBusy()}
+              onClick={() => {
+                const v = bulkPathDraft().trim();
+                if (!v) return;
+                void handleApplyPath(v);
+              }}
+            >
+              Apply to {selectedCount()} items
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

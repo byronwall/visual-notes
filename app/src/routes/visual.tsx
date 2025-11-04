@@ -2,6 +2,7 @@ import {
   type VoidComponent,
   createEffect,
   createSignal,
+  createMemo,
   onCleanup,
   onMount,
 } from "solid-js";
@@ -17,7 +18,9 @@ import {
 } from "~/services/docs.resources";
 import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
+import { createSelectionStore } from "~/stores/selection.store";
 import DocumentSidePanel from "../components/DocumentSidePanel";
+import type { DocItem } from "~/types/notes";
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
@@ -65,11 +68,19 @@ const VisualRoute: VoidComponent = () => {
   const scheduleTransform = () => canvasStore.scheduleTransform();
   const umapIndex = () => positionsStore.umapIndex();
 
+  // Selection store (brush + isolation)
+  const selectionStore = createSelectionStore({
+    getScale: canvasStore.scale,
+    getOffset: canvasStore.offset,
+    getPositions: positions,
+  });
+
   // Pan/zoom handlers
   const panZoomHandlers = createPanZoomHandlers(canvasStore, {
     getCanOpen: hover.showHoverLabel,
     getHoveredId: hover.hoveredId,
     onOpenDoc: (id) => setSelectedId(id),
+    selection: selectionStore,
   });
 
   function measureNav() {
@@ -141,10 +152,17 @@ const VisualRoute: VoidComponent = () => {
     "proximity"
   );
 
+  const isolatedDocs = createMemo<DocItem[]>(() => {
+    const list: DocItem[] = (docs() || []) as DocItem[];
+    const iso = selectionStore.isolatedIdSet();
+    if (!iso) return list;
+    return list.filter((d: DocItem) => iso.has(d.id));
+  });
+
   return (
     <main class="min-h-screen bg-white">
       <VisualCanvas
-        docs={docs.latest}
+        docs={isolatedDocs()}
         positions={positions}
         umapIndex={umapIndex}
         hoveredId={hover.hoveredId}
@@ -159,6 +177,7 @@ const VisualRoute: VoidComponent = () => {
         nestByPath={nestByPath}
         eventHandlers={panZoomHandlers}
         onSelectDoc={(id) => setSelectedId(id)}
+        selection={selectionStore}
       />
       <DocumentSidePanel
         open={!!selectedId()}
@@ -171,7 +190,7 @@ const VisualRoute: VoidComponent = () => {
         }}
       />
       <ControlPanel
-        docs={docs.latest}
+        docs={isolatedDocs()}
         positions={positions}
         mouseWorld={hover.mouseWorld}
         hoveredId={hover.hoveredId}
@@ -191,6 +210,7 @@ const VisualRoute: VoidComponent = () => {
         setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
         nestByPath={nestByPath}
         setNestByPath={setNestByPath}
+        selection={selectionStore}
       />
     </main>
   );

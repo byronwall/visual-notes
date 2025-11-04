@@ -45,18 +45,22 @@ export default function Modal(props: {
           role="dialog"
           aria-modal="true"
         >
-          {/* Backdrop is intentionally transparent for a subtle feel */}
-          <div class="absolute inset-0 bg-black/0" />
+          {/* Backdrop */}
           <div
-            class={`${props.contentClass || ""} overscroll-contain`}
+            class="absolute inset-0 bg-black/0"
             onClick={() => {
               console.log("[Modal] Backdrop clicked");
-              if (shouldCloseOnBackdrop()) {
-                props.onClose();
-              }
+              if (shouldCloseOnBackdrop()) props.onClose();
             }}
-          >
-            {props.children}
+          />
+          {/* Centered content wrapper */}
+          <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <div
+              class={`${props.contentClass || "max-w-2xl w-full"} pointer-events-auto max-h-[90vh] overflow-auto bg-white border border-gray-200 rounded shadow-lg`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {props.children}
+            </div>
           </div>
         </div>
       </Portal>

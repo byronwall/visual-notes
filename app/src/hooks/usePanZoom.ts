@@ -1,14 +1,17 @@
 import type { Accessor } from "solid-js";
 import type { createCanvasStore } from "~/stores/canvas.store";
+import type { createSelectionStore } from "~/stores/selection.store";
 
 const isBrowser = typeof window !== "undefined";
 
 type CanvasStore = ReturnType<typeof createCanvasStore>;
+type SelectionStore = ReturnType<typeof createSelectionStore>;
 
 type PanZoomOptions = {
   getCanOpen?: Accessor<boolean>;
   getHoveredId?: Accessor<string | undefined>;
   onOpenDoc?: (id: string) => void;
+  selection?: SelectionStore;
 };
 
 export function createPanZoomHandlers(
@@ -18,6 +21,7 @@ export function createPanZoomHandlers(
   let lastPan = { x: 0, y: 0 };
   let clickStart: { x: number; y: number } | undefined;
   let clickStartTime = 0;
+  let isBrushing = false;
 
   function scheduleTransform() {
     canvasStore.scheduleTransform();
@@ -57,12 +61,21 @@ export function createPanZoomHandlers(
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
     container.setPointerCapture(e.pointerId);
-    canvasStore.setIsPanning(true);
-    lastPan = { x: localX, y: localY };
     canvasStore.setMouseScreen({ x: localX, y: localY });
-    clickStart = { x: localX, y: localY };
-    clickStartTime =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (e.shiftKey && opts.selection) {
+      // Begin brush selection
+      isBrushing = true;
+      opts.selection.beginBrush({ x: localX, y: localY });
+      canvasStore.setIsPanning(false);
+      clickStart = undefined;
+    } else {
+      // Begin panning
+      canvasStore.setIsPanning(true);
+      lastPan = { x: localX, y: localY };
+      clickStart = { x: localX, y: localY };
+      clickStartTime =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -72,6 +85,13 @@ export function createPanZoomHandlers(
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     });
+    if (isBrushing && opts.selection) {
+      opts.selection.updateBrush({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      return;
+    }
     if (!canvasStore.isPanning()) return;
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
@@ -87,6 +107,12 @@ export function createPanZoomHandlers(
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch (_) {}
+    if (isBrushing && opts.selection) {
+      // Finalize brush selection
+      opts.selection.commitBrushSelection();
+      isBrushing = false;
+      return;
+    }
     canvasStore.setIsPanning(false);
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
