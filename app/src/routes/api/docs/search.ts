@@ -11,6 +11,8 @@ export async function GET(event: APIEvent) {
   const metaValueRaw = url.searchParams.get("metaValue");
   const metaValue = metaValueRaw ?? undefined;
   const source = url.searchParams.get("source") || undefined;
+  const originalContentId =
+    url.searchParams.get("originalContentId") || undefined;
   const createdFromParam = url.searchParams.get("createdFrom") || undefined;
   const createdToParam = url.searchParams.get("createdTo") || undefined;
   const updatedFromParam = url.searchParams.get("updatedFrom") || undefined;
@@ -50,6 +52,11 @@ export async function GET(event: APIEvent) {
       where.doc.meta = { path: [metaKey], not: null } as any;
     }
     if (source) (where.doc as any).originalSource = source;
+    if (originalContentId)
+      (where.doc as any).originalContentId = {
+        contains: originalContentId,
+        mode: "insensitive",
+      } as any;
     if (createdFromParam || createdToParam) {
       const range: any = {};
       if (createdFromParam) {

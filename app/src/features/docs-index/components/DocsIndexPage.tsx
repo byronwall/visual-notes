@@ -59,6 +59,7 @@ const DocsIndexPage = () => {
       metaKey: qp("metaKey"),
       metaValue: qp("metaValue"),
       source: qp("source"),
+      originalContentId: qp("originalContentId"),
       createdFrom: qp("createdFrom"),
       createdTo: qp("createdTo"),
       updatedFrom: qp("updatedFrom"),
@@ -75,6 +76,8 @@ const DocsIndexPage = () => {
     if (q.metaKey() !== next.metaKey) q.setMetaKey(next.metaKey);
     if (q.metaValue() !== next.metaValue) q.setMetaValue(next.metaValue);
     if (q.source() !== next.source) q.setSource(next.source);
+    if (q.originalContentId() !== next.originalContentId)
+      q.setOriginalContentId(next.originalContentId);
     if (q.createdFrom() !== next.createdFrom)
       q.setCreatedFrom(next.createdFrom || undefined);
     if (q.createdTo() !== next.createdTo)
@@ -121,6 +124,8 @@ const DocsIndexPage = () => {
     if (q.metaKey().trim()) params.set("metaKey", q.metaKey().trim());
     if (q.metaValue().trim()) params.set("metaValue", q.metaValue().trim());
     if (q.source().trim()) params.set("source", q.source().trim());
+    if (q.originalContentId().trim())
+      params.set("originalContentId", q.originalContentId().trim());
     if (q.createdFrom().trim())
       params.set("createdFrom", q.createdFrom().trim());
     if (q.createdTo().trim()) params.set("createdTo", q.createdTo().trim());
@@ -156,6 +161,7 @@ const DocsIndexPage = () => {
         "metaKey",
         "metaValue",
         "source",
+        "originalContentId",
         "createdFrom",
         "createdTo",
         "updatedFrom",
@@ -177,6 +183,7 @@ const DocsIndexPage = () => {
       k: q.metaKey(),
       v: q.metaValue(),
       s: q.source(),
+      ocid: q.originalContentId(),
       cFrom: q.createdFrom(),
       cTo: q.createdTo(),
       uFrom: q.updatedFrom(),
@@ -189,6 +196,7 @@ const DocsIndexPage = () => {
         metaKey: s.k || undefined,
         metaValue: s.v || undefined,
         source: s.s || undefined,
+        originalContentId: s.ocid || undefined,
         createdFrom: s.cFrom || undefined,
         createdTo: s.cTo || undefined,
         updatedFrom: s.uFrom || undefined,
@@ -237,6 +245,7 @@ const DocsIndexPage = () => {
       metaKey: q.metaKey(),
       metaValue: q.metaValue(),
       source: q.source() || undefined,
+      originalContentId: q.originalContentId() || undefined,
       createdFrom: q.createdFrom() || undefined,
       createdTo: q.createdTo() || undefined,
       updatedFrom: q.updatedFrom() || undefined,

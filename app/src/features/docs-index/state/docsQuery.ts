@@ -10,6 +10,7 @@ export function createDocsQueryStore() {
     metaValue: "",
     searchText: "",
     source: "",
+    originalContentId: "",
     createdFrom: "" as string,
     createdTo: "" as string,
     updatedFrom: "" as string,
@@ -25,6 +26,7 @@ export function createDocsQueryStore() {
   const metaValue = createMemo(() => state.metaValue);
   const searchText = createMemo(() => state.searchText);
   const source = createMemo(() => state.source);
+  const originalContentId = createMemo(() => state.originalContentId);
   const createdFrom = createMemo(() => state.createdFrom);
   const createdTo = createMemo(() => state.createdTo);
   const updatedFrom = createMemo(() => state.updatedFrom);
@@ -38,6 +40,7 @@ export function createDocsQueryStore() {
   const setMetaValue = (v: string) => setState("metaValue", v);
   const setSearchText = (v: string) => setState("searchText", v);
   const setSource = (v: string) => setState("source", v);
+  const setOriginalContentId = (v: string) => setState("originalContentId", v);
   const setCreatedFrom = (v?: string) => setState("createdFrom", v ?? "");
   const setCreatedTo = (v?: string) => setState("createdTo", v ?? "");
   const setUpdatedFrom = (v?: string) => setState("updatedFrom", v ?? "");
@@ -71,6 +74,7 @@ export function createDocsQueryStore() {
     metaValue,
     searchText,
     source,
+    originalContentId,
     createdFrom,
     createdTo,
     updatedFrom,
@@ -84,6 +88,7 @@ export function createDocsQueryStore() {
     setMetaValue,
     setSearchText,
     setSource,
+    setOriginalContentId,
     setCreatedFrom,
     setCreatedTo,
     setUpdatedFrom,

@@ -21,6 +21,7 @@ export async function fetchDocs(q: {
   metaKey?: string;
   metaValue?: string;
   source?: string;
+  originalContentId?: string;
   createdFrom?: string;
   createdTo?: string;
   updatedFrom?: string;
@@ -33,6 +34,8 @@ export async function fetchDocs(q: {
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
   if (q.source) params.set("source", q.source);
+  if (q.originalContentId)
+    params.set("originalContentId", q.originalContentId);
   if (q.createdFrom) params.set("createdFrom", toIsoDateStart(q.createdFrom));
   if (q.createdTo) params.set("createdTo", toIsoDateEnd(q.createdTo));
   if (q.updatedFrom) params.set("updatedFrom", toIsoDateStart(q.updatedFrom));
@@ -53,6 +56,7 @@ export async function searchDocs(q: {
   metaKey?: string;
   metaValue?: string;
   source?: string;
+  originalContentId?: string;
   createdFrom?: string;
   createdTo?: string;
   updatedFrom?: string;
@@ -66,6 +70,8 @@ export async function searchDocs(q: {
   if (q.metaKey) params.set("metaKey", q.metaKey);
   if (q.metaValue) params.set("metaValue", q.metaValue);
   if (q.source) params.set("source", q.source);
+  if (q.originalContentId)
+    params.set("originalContentId", q.originalContentId);
   if (q.createdFrom) params.set("createdFrom", toIsoDateStart(q.createdFrom));
   if (q.createdTo) params.set("createdTo", toIsoDateEnd(q.createdTo));
   if (q.updatedFrom) params.set("updatedFrom", toIsoDateStart(q.updatedFrom));

@@ -18,6 +18,8 @@ type DocDetail = {
   html: string;
   path?: string | null;
   meta?: Record<string, unknown> | null;
+  originalSource?: string | null;
+  originalContentId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -79,6 +81,14 @@ const DocView: VoidComponent = () => {
                   ref={(el) => (articleEl = el)}
                 >
                   <DocumentViewer doc={d()} onDeleted={handleDeleted} />
+                  <Show when={d().originalContentId}>
+                    {(cid) => (
+                      <div class="mt-6 text-xs text-gray-500 border-t border-gray-200 pt-3">
+                        <span class="text-gray-600">Original content ID:</span>{" "}
+                        <code class="text-gray-600">{cid()}</code>
+                      </div>
+                    )}
+                  </Show>
                 </article>
               </>
             )}

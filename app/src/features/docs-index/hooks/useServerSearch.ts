@@ -9,6 +9,7 @@ type Filters = {
   metaKey?: string;
   metaValue?: string;
   source?: string;
+  originalContentId?: string;
   createdFrom?: string;
   createdTo?: string;
   updatedFrom?: string;
