@@ -41,6 +41,8 @@ export type ControlPanelProps = {
   onSelectDoc: (id: string) => void;
   layoutMode: Accessor<"umap" | "grid">;
   setLayoutMode: (m: "umap" | "grid") => void;
+  clusterUnknownTopCenter: Accessor<boolean>;
+  setClusterUnknownTopCenter: (v: boolean) => void;
   nestByPath: Accessor<boolean>;
   setNestByPath: (v: boolean) => void;
   selection?: ReturnType<typeof createSelectionStore>;
@@ -316,6 +318,23 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 <option value="umap">UMAP (raw)</option>
                 <option value="grid">Grid (Z-order)</option>
               </select>
+            );
+          })()}
+          {(() => {
+            const handleClusterUnknownChange = (
+              e: Event & { currentTarget: HTMLInputElement }
+            ) => {
+              props.setClusterUnknownTopCenter(e.currentTarget.checked);
+            };
+            return (
+              <label class="ml-2 inline-flex items-center gap-1 select-none">
+                <input
+                  type="checkbox"
+                  checked={props.clusterUnknownTopCenter()}
+                  onChange={handleClusterUnknownChange}
+                />
+                <span>Cluster unknown at top</span>
+              </label>
             );
           })()}
           <label class="ml-2 inline-flex items-center gap-1 select-none">

@@ -26,6 +26,7 @@ export function createPositionsStore(deps: {
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
   nestByPath?: Accessor<boolean>;
+  clusterUnknownTopCenter?: Accessor<boolean>;
   // TODO:TYPE_MIRROR, allow extra props for forward-compat
   [key: string]: unknown;
 }) {
@@ -37,14 +38,70 @@ export function createPositionsStore(deps: {
     const list = docs();
     const index = umapIndex();
     const preferUmap = useUmap();
+    const clusterUnknown = deps.clusterUnknownTopCenter?.() === true;
+    const isUmapLayout = (layoutMode?.() || "umap") === "umap";
     const map = new Map<string, Point>();
     if (!list) return map;
+
+    // First, place all known UMAP points; collect unknowns
+    const unknown: { id: string; title: string; seeded: Point }[] = [];
     for (let i = 0; i < list.length; i++) {
       const d = list[i]!;
       const fromUmap = preferUmap ? index.get(d.id) : undefined;
-      if (fromUmap) map.set(d.id, fromUmap);
-      else map.set(d.id, seededPositionFor(d.title, i, SPREAD));
+      if (fromUmap) {
+        map.set(d.id, fromUmap);
+      } else {
+        // fallback seeded for deterministic baseline
+        const seeded = seededPositionFor(d.title, i, SPREAD);
+        unknown.push({ id: d.id, title: d.title, seeded });
+      }
     }
+
+    if (
+      !preferUmap ||
+      !isUmapLayout ||
+      !clusterUnknown ||
+      unknown.length === 0
+    ) {
+      // Default behavior: use seeded for unknowns
+      for (const u of unknown) map.set(u.id, u.seeded);
+      return map;
+    }
+
+    // Compute bounds of known UMAP points to place unknowns above them
+    let minY = Number.POSITIVE_INFINITY;
+    for (const p of index.values()) {
+      if (p.y < minY) minY = p.y;
+    }
+    if (!Number.isFinite(minY)) minY = 0;
+
+    // Lay out unknowns in a compact grid centered at x=0, above known minY
+    const count = unknown.length;
+    const cols = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / cols);
+    const cell = MIN_SEP; // separation to avoid overlaps
+    const gridW = cols * cell;
+    const gridH = rows * cell;
+    const margin = cell * 2;
+    const startX = -gridW / 2 + cell / 2; // center around x=0
+    const startY = minY - margin - gridH; // fully above known cluster
+
+    for (let i = 0; i < count; i++) {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const x = startX + c * cell;
+      const y = startY + r * cell;
+      map.set(unknown[i]!.id, { x, y });
+    }
+
+    try {
+      console.log(
+        `[positions.store] Clustered ${count} unknown points at top-center (startY=${startY.toFixed(
+          1
+        )})`
+      );
+    } catch {}
+
     return map;
   });
 
@@ -112,7 +169,9 @@ export function createPositionsStore(deps: {
       arr.push({ id: p.id, x: p.x, y: p.y });
       byGroup.set(p.pathTop, arr);
     }
-    const groups = Array.from(byGroup.keys()).sort((a, b) => a.localeCompare(b));
+    const groups = Array.from(byGroup.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    );
     const out = new Map<string, Point>();
 
     // Simple shelf packing of group rectangles

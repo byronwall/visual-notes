@@ -70,6 +70,7 @@ const VisualRoute: VoidComponent = () => {
     umapPoints,
     useUmap: canvasStore.useUmap,
     layoutMode: canvasStore.layoutMode,
+    clusterUnknownTopCenter: canvasStore.clusterUnknownTopCenter,
     aspectRatio: () => {
       const w = viewportW();
       const h = Math.max(1, viewportH() - canvasStore.navHeight());
@@ -238,6 +239,10 @@ const VisualRoute: VoidComponent = () => {
         onSelectDoc={(id) => setSelectedId(id)}
         layoutMode={canvasStore.layoutMode}
         setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
+        clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
+        setClusterUnknownTopCenter={(v) =>
+          canvasStore.setClusterUnknownTopCenter(v)
+        }
         nestByPath={nestByPath}
         setNestByPath={setNestByPath}
         selection={selectionStore}
