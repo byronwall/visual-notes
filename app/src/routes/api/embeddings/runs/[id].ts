@@ -51,7 +51,23 @@ export async function GET(event: APIEvent) {
     .catch(() => 0);
   const totalDocs = await prisma.doc.count();
   const remaining = Math.max(0, totalDocs - count);
-  if (!includeDocs) return json({ ...run, count, sectionCount, remaining });
+  // Count docs that have changed since their embedding for this run
+  let changedEligible = 0;
+  try {
+    const rows = (await prisma.$queryRaw<any[]>`
+      SELECT COUNT(*)::int AS c
+      FROM "DocEmbedding" de
+      JOIN "Doc" d ON d."id" = de."docId"
+      WHERE de."runId" = ${run.id}
+        AND d."updatedAt" > de."createdAt";
+    `) as any[];
+    changedEligible = Number(rows?.[0]?.c || 0);
+  } catch (e) {
+    console.log("[embeddings] failed to count changedEligible", e);
+    changedEligible = 0;
+  }
+  if (!includeDocs)
+    return json({ ...run, count, sectionCount, remaining, changedEligible });
 
   // When requested, return a paginated list of note summaries included in this run
   const rows = await prisma.docEmbedding.findMany({
@@ -84,6 +100,7 @@ export async function GET(event: APIEvent) {
     count,
     sectionCount,
     remaining,
+    changedEligible,
     docs: { items, limit, offset },
   });
 }
@@ -139,6 +156,7 @@ export async function DELETE(event: APIEvent) {
 const processMoreSchema = z.object({
   limit: z.number().int().positive().max(500).optional(),
   model: z.string().optional(),
+  mode: z.enum(["missing", "changed"]).optional(),
 });
 
 const BATCH_SIZE = 128;
@@ -260,6 +278,7 @@ export async function POST(event: APIEvent) {
       await event.request.json().catch(() => ({}))
     );
     const batchSize = Math.min(500, Math.max(1, body.limit ?? 100));
+    const mode = body.mode || "missing";
 
     const run = await prisma.embeddingRun.findUnique({
       where: { id: parsed.data.id },
@@ -267,30 +286,64 @@ export async function POST(event: APIEvent) {
     });
     if (!run) return json({ error: "Not found" }, { status: 404 });
 
-    // Determine which docs are not yet embedded for this run
-    const embedded = await prisma.docEmbedding.findMany({
-      where: { runId: run.id },
-      select: { docId: true },
-    });
-    const embeddedIds = new Set<string>(
-      embedded.map((e: any) => String(e.docId))
-    );
-
-    const docs = await prisma.doc.findMany({
-      where: { id: { notIn: Array.from(embeddedIds) } },
-      select: { id: true, title: true, markdown: true },
-      orderBy: { createdAt: "asc" },
-      take: batchSize,
-    });
+    let docs: { id: string; title: string; markdown: string }[] = [];
+    if (mode === "missing") {
+      // Determine which docs are not yet embedded for this run
+      const embedded = await prisma.docEmbedding.findMany({
+        where: { runId: run.id },
+        select: { docId: true },
+      });
+      const embeddedIds = new Set<string>(
+        embedded.map((e: any) => String(e.docId))
+      );
+      docs = (await prisma.doc.findMany({
+        where: { id: { notIn: Array.from(embeddedIds) } },
+        select: { id: true, title: true, markdown: true },
+        orderBy: { createdAt: "asc" },
+        take: batchSize,
+      })) as any;
+    } else {
+      // mode === "changed": docs where updatedAt > embedding.createdAt for this run
+      try {
+        const rows = (await prisma.$queryRaw<any[]>`
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown
+          FROM "DocEmbedding" de
+          JOIN "Doc" d ON d."id" = de."docId"
+          WHERE de."runId" = ${run.id}
+            AND d."updatedAt" > de."createdAt"
+          ORDER BY d."updatedAt" ASC
+          LIMIT ${batchSize};
+        `) as any[];
+        docs = rows as any;
+      } catch (err) {
+        console.log("[embeddings] failed to select changed docs", err);
+        docs = [] as any;
+      }
+    }
 
     if (!docs.length) {
-      const totalDocs = await prisma.doc.count();
-      const have = embeddedIds.size;
-      return json({
-        addedDocs: 0,
-        addedSections: 0,
-        remaining: Math.max(0, totalDocs - have),
-      });
+      if (mode === "missing") {
+        const totalDocs = await prisma.doc.count();
+        const have = await prisma.docEmbedding.count({ where: { runId: run.id } });
+        return json({
+          addedDocs: 0,
+          addedSections: 0,
+          remaining: Math.max(0, totalDocs - have),
+        });
+      }
+      // mode === changed
+      let changedRemaining = 0;
+      try {
+        const rows = (await prisma.$queryRaw<any[]>`
+          SELECT COUNT(*)::int AS c
+          FROM "DocEmbedding" de
+          JOIN "Doc" d ON d."id" = de."docId"
+          WHERE de."runId" = ${run.id}
+            AND d."updatedAt" > de."createdAt";
+        `) as any[];
+        changedRemaining = Number(rows?.[0]?.c || 0);
+      } catch {}
+      return json({ addedDocs: 0, addedSections: 0, remaining: changedRemaining });
     }
 
     const model = body.model || run.model;
@@ -310,6 +363,18 @@ export async function POST(event: APIEvent) {
     };
 
     const allChunks: ChunkItem[] = [];
+    // If reprocessing changed docs, remove existing embeddings for these docs in this run
+    if (mode === "changed") {
+      const docIds = docs.map((d: any) => String(d.id));
+      if (docIds.length) {
+        await prisma.docSectionEmbedding.deleteMany({
+          where: { runId: run.id, docId: { in: docIds } },
+        });
+        await prisma.docEmbedding.deleteMany({
+          where: { runId: run.id, docId: { in: docIds } },
+        });
+      }
+    }
     for (const d of docs as any[]) {
       try {
         const sections = preprocessMarkdown(String(d.markdown || ""), flags);
@@ -461,16 +526,38 @@ export async function POST(event: APIEvent) {
       });
     }
 
-    const totalDocs = await prisma.doc.count();
-    const have = await prisma.docEmbedding.count({ where: { runId: run.id } });
-    return json(
-      {
-        addedDocs: docRows.length,
-        addedSections: sectionEmbRows.length,
-        remaining: Math.max(0, totalDocs - have),
-      },
-      { status: 201 }
-    );
+    if (mode === "missing") {
+      const totalDocs = await prisma.doc.count();
+      const have = await prisma.docEmbedding.count({ where: { runId: run.id } });
+      return json(
+        {
+          addedDocs: docRows.length,
+          addedSections: sectionEmbRows.length,
+          remaining: Math.max(0, totalDocs - have),
+        },
+        { status: 201 }
+      );
+    } else {
+      let changedRemaining = 0;
+      try {
+        const rows = (await prisma.$queryRaw<any[]>`
+          SELECT COUNT(*)::int AS c
+          FROM "DocEmbedding" de
+          JOIN "Doc" d ON d."id" = de."docId"
+          WHERE de."runId" = ${run.id}
+            AND d."updatedAt" > de."createdAt";
+        `) as any[];
+        changedRemaining = Number(rows?.[0]?.c || 0);
+      } catch {}
+      return json(
+        {
+          addedDocs: docRows.length,
+          addedSections: sectionEmbRows.length,
+          remaining: changedRemaining,
+        },
+        { status: 201 }
+      );
+    }
   } catch (e) {
     const msg = (e as Error).message || "Failed to process more docs";
     return json({ error: msg }, { status: 400 });

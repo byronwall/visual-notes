@@ -16,6 +16,7 @@ type EmbeddingRun = {
   count: number;
   sectionCount?: number;
   remaining?: number;
+  changedEligible?: number;
   docs?: {
     items: { id: string; title: string; embeddedAt: string }[];
     limit: number;
@@ -64,6 +65,17 @@ async function processMore(id: string, limit: number) {
   });
   if (!res.ok)
     throw new Error((await res.json()).error || "Failed to process more");
+  return (await res.json()) as { added: number; remaining: number };
+}
+
+async function processChanged(id: string, limit: number) {
+  const res = await apiFetch(`/api/embeddings/runs/${encodeURIComponent(id)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit, mode: "changed" }),
+  });
+  if (!res.ok)
+    throw new Error((await res.json()).error || "Failed to process changed");
   return (await res.json()) as { added: number; remaining: number };
 }
 
@@ -233,6 +245,52 @@ const EmbeddingDetail: VoidComponent = () => {
               }}
             >
               {busy() ? "Processing…" : "Process More"}
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded border border-gray-200 p-3 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="font-medium">Re-embed Changed Notes</div>
+            <Show when={run()}>
+              {(r) => (
+                <div class="text-sm text-gray-600">
+                  Changed eligible: {r().changedEligible ?? 0}
+                </div>
+              )}
+            </Show>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-sm">Batch size</label>
+            <input
+              type="number"
+              min="1"
+              max="500"
+              value={String(batchSize())}
+              onInput={(e) =>
+                setBatchSize(
+                  Math.max(1, Math.min(500, Number(e.currentTarget.value) || 0))
+                )
+              }
+              class="border border-gray-300 rounded px-2 py-1 text-sm w-24"
+            />
+            <button
+              class="cta"
+              disabled={busy()}
+              onClick={async () => {
+                try {
+                  setBusy(true);
+                  await processChanged(params.id, batchSize());
+                  await refetch();
+                } catch (e) {
+                  console.error(e);
+                  alert("Failed to process changed notes");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy() ? "Processing…" : "Process Changed"}
             </button>
           </div>
         </div>
