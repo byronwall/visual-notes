@@ -77,7 +77,38 @@ export default function TiptapEditor(props: {
   );
 
   const languageOptions = createMemo(() => {
-    return ["text", "plaintext", "javascript", "typescript", "python"];
+    return [
+      "text",
+      "plaintext",
+      "bash",
+      "shell",
+      "javascript",
+      "typescript",
+      "json",
+      "yaml",
+      "markdown",
+      "html",
+      "xml",
+      "css",
+      "scss",
+      "python",
+      "java",
+      "c",
+      "cpp",
+      "csharp",
+      "go",
+      "rust",
+      "php",
+      "ruby",
+      "swift",
+      "kotlin",
+      "sql",
+      "dockerfile",
+      "ini",
+      "toml",
+      "diff",
+      "makefile",
+    ];
   });
 
   return (
