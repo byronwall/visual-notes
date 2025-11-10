@@ -16,3 +16,19 @@ export function createEditor(
     content: initial,
   })) as unknown as () => Editor | null;
 }
+
+export function createEditorWithPrompts(
+  element: () => HTMLElement | undefined,
+  initial: string,
+  onCsvPrompt: Parameters<typeof buildExtensions>[0],
+  onMarkdownPrompt?: Parameters<typeof buildExtensions>[1]
+) {
+  return createTiptapEditor(() => ({
+    element: element()!,
+    extensions: buildExtensions(onCsvPrompt, onMarkdownPrompt),
+    editorProps: {
+      attributes: { class: "p-4 focus:outline-none prose max-w-full" },
+    },
+    content: initial,
+  })) as unknown as () => Editor | null;
+}

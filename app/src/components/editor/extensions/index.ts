@@ -7,21 +7,33 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { CustomCode } from "./CustomCode";
 import { CustomCodeBlock } from "./CustomCodeBlock";
 import { CsvPaste } from "./CsvPaste";
+import { MarkdownPaste } from "./MarkdownPaste";
 
 export function buildExtensions(
-  prompt: (text: string, src: "paste" | "drop" | "file") => Promise<"table" | "text" | "cancel">
+  csvPrompt: (
+    text: string,
+    src: "paste" | "drop" | "file"
+  ) => Promise<"table" | "text" | "cancel">,
+  _mdPrompt?: (
+    text: string,
+    src: "paste" | "drop" | "file"
+  ) => Promise<"formatted" | "text" | "cancel">
 ) {
   return [
     StarterKit.configure({ codeBlock: false, code: false }),
     Image.configure({ allowBase64: true }),
     CustomCode,
     CustomCodeBlock,
-    Table.configure({ resizable: true, lastColumnResizable: true, allowTableNodeSelection: true }),
+    Table.configure({
+      resizable: true,
+      lastColumnResizable: true,
+      allowTableNodeSelection: true,
+    }),
     TableRow,
     TableHeader,
     TableCell,
-    CsvPaste.configure({ onPrompt: prompt }),
+    CsvPaste.configure({ onPrompt: csvPrompt }),
+    // MarkdownPaste will read prompt from registry; no need to pass here
+    MarkdownPaste.configure({}),
   ];
 }
-
-

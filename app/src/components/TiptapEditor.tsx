@@ -4,6 +4,8 @@ import { createEditor } from "./editor/core/createEditor";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
 import { useCodeBlockOverlay } from "./editor/core/useCodeBlockOverlay";
 import { useCsvPrompt } from "./editor/ui/CsvPrompt";
+import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
+import { setMarkdownPrompt } from "./editor/core/promptRegistry";
 import "highlight.js/styles/github.css";
 
 const DEFAULT_HTML = `
@@ -18,6 +20,12 @@ export default function TiptapEditor(props: {
 }) {
   const [container, setContainer] = createSignal<HTMLDivElement>();
   const { prompt, view: csvPromptView } = useCsvPrompt();
+  const { prompt: mdPrompt, view: mdPromptView } = useMarkdownPrompt();
+
+  // Register markdown prompt for the MarkdownPaste extension
+  setMarkdownPrompt((text: string, _src: "paste" | "drop" | "file") =>
+    mdPrompt(text)
+  );
 
   const editor = createEditor(
     () => container(),
@@ -93,6 +101,7 @@ export default function TiptapEditor(props: {
       </div>
 
       {csvPromptView}
+      {mdPromptView}
     </div>
   );
 }
