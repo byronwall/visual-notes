@@ -19,6 +19,9 @@ export default function TiptapEditor(props: {
   onEditor?: (editor: Editor) => void;
 }) {
   const [container, setContainer] = createSignal<HTMLDivElement>();
+  // Capture the first non-null editor instance and keep it stable to avoid
+  // transaction-driven reactive churn in the view layer.
+  const [stableEditor, setStableEditor] = createSignal<Editor | null>(null);
   const { prompt, view: csvPromptView } = useCsvPrompt();
   const { prompt: mdPrompt, view: mdPromptView } = useMarkdownPrompt();
 
@@ -33,22 +36,38 @@ export default function TiptapEditor(props: {
     (text: string, _src: "paste" | "drop" | "file") => prompt(text)
   );
 
-  // Expose instance to parent
+  // Set stable editor instance once when available
   createEffect(() => {
     const ed = editor();
-    if (ed && props.onEditor) props.onEditor(ed);
+    if (ed && !stableEditor()) {
+      setStableEditor(ed);
+    }
   });
 
-  // Sync incoming HTML
+  // Expose instance to parent once stable
   createEffect(() => {
-    const ed = editor();
+    const ed = stableEditor();
+    if (ed && props.onEditor) {
+      props.onEditor(ed);
+    }
+  });
+
+  // Sync incoming HTML ONLY when the prop changes, not on every transaction.
+  // Track the last applied prop value to avoid redundant setContent calls.
+  let lastAppliedFromProps: string | undefined = undefined;
+  const initialHtmlFromProps = createMemo(
+    () => props.initialHTML ?? DEFAULT_HTML
+  );
+  createEffect(() => {
+    const ed = stableEditor();
     if (!ed) return;
-    const next = props.initialHTML ?? DEFAULT_HTML;
+    const next = initialHtmlFromProps();
+    if (lastAppliedFromProps === next) return;
     const current = ed.getHTML();
     if (typeof next === "string" && next !== current) {
-      console.log("[editor] setContent");
       ed.commands.setContent(next, { emitUpdate: false });
     }
+    lastAppliedFromProps = next;
   });
 
   // Code block overlay
@@ -64,15 +83,15 @@ export default function TiptapEditor(props: {
   return (
     <div class={props.class || "w-full"}>
       <div class="mb-2 rounded bg-gray-50 text-gray-800 border border-gray-300">
-        <Show when={editor()} keyed>
-          {(instance) => <ToolbarContents editor={instance} />}
+        <Show when={stableEditor()}>
+          <ToolbarContents editor={stableEditor()!} />
         </Show>
       </div>
 
       <div class="relative rounded border border-gray-300">
         <div class="min-h-[200px]" ref={setContainer} />
 
-        <Show when={editor() && overlay()}>
+        <Show when={stableEditor() && overlay()}>
           <div
             class="absolute z-10"
             style={{ top: `${overlay()!.top}px`, left: `${overlay()!.left}px` }}
@@ -80,11 +99,13 @@ export default function TiptapEditor(props: {
             <div class="flex items-center gap-1 bg-white/95 border border-gray-300 rounded px-2 py-[2px] shadow-sm">
               <select
                 class="text-xs bg-transparent"
-                value={editor()?.getAttributes("codeBlock")?.language || "text"}
+                value={
+                  stableEditor()?.getAttributes("codeBlock")?.language || "text"
+                }
                 onInput={(e) => {
                   const lang = (e.currentTarget as HTMLSelectElement).value;
                   console.log("[codeblock] set language:", lang);
-                  editor()
+                  stableEditor()
                     ?.chain()
                     .focus()
                     .updateAttributes("codeBlock", { language: lang })

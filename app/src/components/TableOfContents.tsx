@@ -50,13 +50,11 @@ export const TableOfContents: VoidComponent<{
       const tag = el.tagName.toLowerCase();
       const level = (tag === "h1" ? 1 : tag === "h2" ? 2 : 3) as 1 | 2 | 3;
       const text = (el.textContent || "").trim();
-      let id = el.id;
-      if (!id) {
-        id = slugify(
-          text || `section-${Math.random().toString(36).slice(2, 8)}`
-        );
-        el.id = id;
-      }
+      // Avoid mutating the ProseMirror DOM (setting el.id causes constant attribute churn).
+      // Generate a stable id for TOC use only.
+      const id =
+        el.id ||
+        slugify(text || `section-${Math.random().toString(36).slice(2, 8)}`);
       return { id, text, level, el } as TocItem;
     });
 

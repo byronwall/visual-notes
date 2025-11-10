@@ -9,6 +9,9 @@ export function useCodeBlockOverlay(
     undefined
   );
 
+  let lastTop = Number.NaN;
+  let lastLeft = Number.NaN;
+
   const update = () => {
     const ed = editor();
     const host = hostEl();
@@ -40,8 +43,11 @@ export function useCodeBlockOverlay(
     const wrap = host.getBoundingClientRect();
     const top = block.top - wrap.top + host.scrollTop - 8;
     const left = block.left - wrap.left + host.scrollLeft + 8;
-    console.log("[overlay] pos:", { top, left });
-    setPos({ top, left });
+    if (top !== lastTop || left !== lastLeft) {
+      lastTop = top;
+      lastLeft = left;
+      setPos({ top, left });
+    }
   };
 
   onMount(() => {
