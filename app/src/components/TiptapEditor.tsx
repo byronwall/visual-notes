@@ -13,6 +13,7 @@ import "highlight.js/styles/github.css";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createEditorTransaction, createTiptapEditor } from "solid-tiptap";
 import { Plugin } from "prosemirror-state";
+import Modal from "./Modal";
 
 function Separator() {
   return (
@@ -162,8 +163,19 @@ function csvTextToTableJson(text: string): JSONContent {
 
 const CsvPaste = Extension.create({
   name: "csvPaste",
+  addOptions() {
+    return {
+      onPrompt: undefined as
+        | ((
+            text: string,
+            source: "paste" | "drop" | "file"
+          ) => Promise<"table" | "text" | "cancel">)
+        | undefined,
+    };
+  },
   addProseMirrorPlugins() {
     const editor = this.editor;
+    const ask = this.options.onPrompt;
     return [
       new Plugin({
         props: {
@@ -174,6 +186,23 @@ const CsvPaste = Extension.create({
             const csv = dt.getData("text/csv");
             if (csv && isProbablyCSV(csv)) {
               event.preventDefault();
+              console.log("[csv] detected text/csv on paste");
+              if (ask) {
+                void ask(csv, "paste").then(
+                  (choice: "table" | "text" | "cancel") => {
+                    if (choice === "table") {
+                      const json = csvTextToTableJson(csv);
+                      editor.chain().focus().insertContent(json).run();
+                      return;
+                    }
+                    if (choice === "text") {
+                      const v = (editor as unknown as { view: any }).view;
+                      v.dispatch(v.state.tr.insertText(csv));
+                    }
+                  }
+                );
+                return true;
+              }
               const json = csvTextToTableJson(csv);
               editor.chain().focus().insertContent(json).run();
               return true;
@@ -186,6 +215,25 @@ const CsvPaste = Extension.create({
               );
               if (file) {
                 event.preventDefault();
+                if (ask) {
+                  file.text().then((text) => {
+                    console.log("[csv] detected file on paste:", file.name);
+                    void ask(text, "file").then(
+                      (choice: "table" | "text" | "cancel") => {
+                        if (choice === "table") {
+                          const json = csvTextToTableJson(text);
+                          editor.chain().focus().insertContent(json).run();
+                          return;
+                        }
+                        if (choice === "text") {
+                          const v = (editor as unknown as { view: any }).view;
+                          v.dispatch(v.state.tr.insertText(text));
+                        }
+                      }
+                    );
+                  });
+                  return true;
+                }
                 file.text().then((text) => {
                   const json = csvTextToTableJson(text);
                   editor.chain().focus().insertContent(json).run();
@@ -197,6 +245,25 @@ const CsvPaste = Extension.create({
             const plain = dt.getData("text/plain");
             if (plain && isProbablyCSV(plain)) {
               event.preventDefault();
+              console.log(
+                "[csv] detected plain text that looks like CSV on paste"
+              );
+              if (ask) {
+                void ask(plain, "paste").then(
+                  (choice: "table" | "text" | "cancel") => {
+                    if (choice === "table") {
+                      const json = csvTextToTableJson(plain);
+                      editor.chain().focus().insertContent(json).run();
+                      return;
+                    }
+                    if (choice === "text") {
+                      const v = (editor as unknown as { view: any }).view;
+                      v.dispatch(v.state.tr.insertText(plain));
+                    }
+                  }
+                );
+                return true;
+              }
               const json = csvTextToTableJson(plain);
               editor.chain().focus().insertContent(json).run();
               return true;
@@ -219,6 +286,24 @@ const CsvPaste = Extension.create({
             if (!file) return false;
             event.preventDefault();
             console.log("[csv] drop import:", file.name);
+            if (ask) {
+              file.text().then((text) => {
+                void ask(text, "drop").then(
+                  (choice: "table" | "text" | "cancel") => {
+                    if (choice === "table") {
+                      const json = csvTextToTableJson(text);
+                      editor.chain().focus().insertContent(json).run();
+                      return;
+                    }
+                    if (choice === "text") {
+                      const v = (editor as unknown as { view: any }).view;
+                      v.dispatch(v.state.tr.insertText(text));
+                    }
+                  }
+                );
+              });
+              return true;
+            }
             file.text().then((text) => {
               const json = csvTextToTableJson(text);
               editor.chain().focus().insertContent(json).run();
@@ -493,6 +578,27 @@ export default function TiptapEditor(props: {
 }) {
   const [container, setContainer] = createSignal<HTMLDivElement>();
   const [overlay, setOverlay] = createSignal<{ top: number; left: number }>();
+  const [csvPromptOpen, setCsvPromptOpen] = createSignal(false);
+  const [csvPromptText, setCsvPromptText] = createSignal<string>("");
+  let resolveCsvChoice:
+    | ((choice: "table" | "text" | "cancel") => void)
+    | undefined;
+
+  const promptCsvChoice = (
+    text: string,
+    _source: "paste" | "drop" | "file"
+  ): Promise<"table" | "text" | "cancel"> => {
+    console.log("[csv] opening paste prompt, chars:", text.length);
+    setCsvPromptText(text);
+    setCsvPromptOpen(true);
+    return new Promise((resolve) => {
+      resolveCsvChoice = (choice) => {
+        console.log("[csv] paste prompt resolved:", choice);
+        setCsvPromptOpen(false);
+        resolve(choice);
+      };
+    });
+  };
 
   const languageOptions = createMemo(() => {
     try {
@@ -560,7 +666,7 @@ export default function TiptapEditor(props: {
       TableRow,
       TableHeader,
       TableCell,
-      CsvPaste,
+      CsvPaste.configure({ onPrompt: promptCsvChoice }),
     ],
     editorProps: {
       attributes: { class: "p-4 focus:outline-none prose max-w-full" },
@@ -710,6 +816,41 @@ export default function TiptapEditor(props: {
           </div>
         </Show>
       </div>
+      <Modal
+        open={csvPromptOpen()}
+        onClose={() => {
+          if (resolveCsvChoice) resolveCsvChoice("cancel");
+        }}
+      >
+        <div class="p-4 space-y-3">
+          <div class="text-sm font-medium">Paste detected as CSV/TSV</div>
+          <div class="text-xs text-gray-600">
+            Choose how to insert the content:
+          </div>
+          <div class="bg-gray-50 border border-gray-200 rounded p-2 max-h-40 overflow-auto text-xs font-mono whitespace-pre">
+            {csvPromptText().slice(0, 500)}
+            {csvPromptText().length > 500 ? "…" : ""}
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
+              onClick={() => {
+                if (resolveCsvChoice) resolveCsvChoice("text");
+              }}
+            >
+              Paste contents directly
+            </button>
+            <button
+              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
+              onClick={() => {
+                if (resolveCsvChoice) resolveCsvChoice("table");
+              }}
+            >
+              Paste as table
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
