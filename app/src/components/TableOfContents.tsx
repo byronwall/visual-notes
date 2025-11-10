@@ -118,14 +118,6 @@ export const TableOfContents: VoidComponent<{
 
     if (idx < 0 || idx >= list.length) idx = 0;
     setActiveIndex(idx);
-    try {
-      console.log(
-        "[TOC.active] idx=",
-        idx,
-        "tops=",
-        tops.map((t) => Math.round(t))
-      );
-    } catch {}
   }
 
   function findHeadingByLevelAndText(
