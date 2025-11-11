@@ -1,11 +1,14 @@
 import type { JSONContent } from "@tiptap/core";
 
-export function parseDelimited(text: string): string[][] {
+export function parseDelimited(
+  text: string,
+  delimiterHint?: "," | "\t"
+): string[][] {
   console.log("[csv] parseDelimited inputLen:", text.length);
   const trimmed = text.replace(/\r\n?/g, "\n");
   const hasTab = /\t/.test(trimmed);
   const hasComma = /,/.test(trimmed);
-  const delimiter = hasTab && !hasComma ? "\t" : ",";
+  const delimiter = delimiterHint ?? (hasTab && !hasComma ? "\t" : ",");
 
   const rows: string[][] = [];
   let current: string[] = [];
@@ -52,17 +55,94 @@ export function parseDelimited(text: string): string[][] {
   return rows;
 }
 
-export function isProbablyCSV(text: string): boolean {
-  const sample = text.slice(0, 2000);
+type Delim = "," | "\t";
+
+function analyzeConsistency(text: string, delim: Delim) {
+  const rows = parseDelimited(text, delim);
+  const totalRows = rows.length;
+  let nonEmptyRows = 0;
+  const colCounts: number[] = [];
+  for (const r of rows) {
+    const isBlank = r.every((c) => (c ?? "").trim() === "");
+    if (!isBlank) {
+      nonEmptyRows++;
+      colCounts.push(r.length);
+    }
+  }
+  // Require at least 5 non-empty rows of data
+  if (nonEmptyRows < 5) {
+    return {
+      ok: false as const,
+      delim,
+      totalRows,
+      nonEmptyRows,
+      modeCols: 0,
+      mismatches: totalRows,
+    };
+  }
+  // Compute modal column count among non-empty rows
+  const freq = new Map<number, number>();
+  for (const n of colCounts) freq.set(n, (freq.get(n) ?? 0) + 1);
+  let modeCols = 0;
+  let modeCount = -1;
+  for (const [n, f] of freq) {
+    if (f > modeCount) {
+      modeCount = f;
+      modeCols = n;
+    }
+  }
+  // Count mismatches across ALL rows. Blank rows count as mismatches.
+  let mismatches = 0;
+  for (const r of rows) {
+    const isBlank = r.every((c) => (c ?? "").trim() === "");
+    if (isBlank) {
+      mismatches++;
+      continue;
+    }
+    if (r.length !== modeCols) mismatches++;
+  }
+  const allowed = totalRows < 10 ? 1 : Math.floor(totalRows * 0.1);
+  const ok = mismatches <= allowed;
+  console.log("[csv] analyzeConsistency", {
+    delim,
+    totalRows,
+    nonEmptyRows,
+    modeCols,
+    mismatches,
+    allowed,
+    ok,
+  });
+  return { ok, delim, totalRows, nonEmptyRows, modeCols, mismatches };
+}
+
+function detectDelimiter(text: string): Delim | null {
+  const sample = text; // Use full text; callers may pass trimmed sample if desired
   const hasNewline = /\n/.test(sample);
-  const first = sample.split(/\n/)[0] || sample;
-  const commaCount = (first.match(/,/g) || []).length;
-  const tabCount = (first.match(/\t/g) || []).length;
-  return hasNewline && (commaCount >= 1 || tabCount >= 1);
+  if (!hasNewline) return null;
+  const candidates: Delim[] = [",", "\t"];
+  const results = candidates.map((d) => analyzeConsistency(sample, d));
+  const passing = results.filter((r) => r.ok);
+  if (passing.length === 0) return null;
+  // Choose the one with fewer mismatches; tie-break on larger modeCols, then prefer tab.
+  passing.sort((a, b) => {
+    if (a.mismatches !== b.mismatches) return a.mismatches - b.mismatches;
+    if (a.modeCols !== b.modeCols) return b.modeCols - a.modeCols;
+    if (a.delim === "\t" && b.delim === ",") return -1;
+    if (a.delim === "," && b.delim === "\t") return 1;
+    return 0;
+  });
+  return passing[0].delim;
+}
+
+export function isProbablyCSV(text: string): boolean {
+  const sample = text.slice(0, 8000);
+  const detected = detectDelimiter(sample);
+  return detected !== null;
 }
 
 export function csvTextToTableJson(text: string): JSONContent {
-  const rows = parseDelimited(text);
+  const delim = detectDelimiter(text) ?? undefined;
+  const rows = parseDelimited(text, delim);
   const numCols = rows.reduce((m, r) => Math.max(m, r.length), 0);
 
   const body: JSONContent[] = rows.map((r, idx) => {

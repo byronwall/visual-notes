@@ -5,6 +5,7 @@ import { exec } from "../core/exec";
 import { csvTextToTableJson } from "../csv/csvUtils";
 import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
 export function ToolbarContents(props: { editor: Editor }) {
   let csvInputRef: HTMLInputElement | undefined;
@@ -21,9 +22,33 @@ export function ToolbarContents(props: { editor: Editor }) {
     input.value = "";
   };
 
+  const onForceCsvPasteFromClipboard = async () => {
+    const text = await navigator.clipboard.readText();
+    console.log("[csv] force paste from clipboard, len:", text?.length ?? 0);
+    if (!text) return;
+    insertContentOrText(props.editor, csvTextToTableJson(text), text);
+  };
+
+  const onForceMarkdownPasteFromClipboard = async () => {
+    const text = await navigator.clipboard.readText();
+    console.log(
+      "[markdown] force paste from clipboard, len:",
+      text?.length ?? 0
+    );
+    if (!text) return;
+    const html = normalizeMarkdownToHtml(text);
+    props.editor.chain().focus().insertContent(html).run();
+  };
+
   return (
     <div class="p-2 flex space-x-1">
-      <input ref={(el) => (csvInputRef = el)} type="file" accept=".csv,text/csv" class="hidden" onChange={onCsvFileChange} />
+      <input
+        ref={(el) => (csvInputRef = el)}
+        type="file"
+        accept=".csv,text/csv"
+        class="hidden"
+        onChange={onCsvFileChange}
+      />
 
       <div class="flex space-x-1">
         {blocks.map((b) => (
@@ -44,7 +69,13 @@ export function ToolbarContents(props: { editor: Editor }) {
 
       <div class="flex space-x-1">
         {marks.map((b) => (
-          <Control name={b.name} class={b.class} editor={props.editor} onChange={() => run(b.run)} title={b.title}>
+          <Control
+            name={b.name}
+            class={b.class}
+            editor={props.editor}
+            onChange={() => run(b.run)}
+            title={b.title}
+          >
             {b.label}
           </Control>
         ))}
@@ -54,7 +85,13 @@ export function ToolbarContents(props: { editor: Editor }) {
 
       <div class="flex space-x-1">
         {listsBlocks.map((b) => (
-          <Control name={b.name} class={b.class} editor={props.editor} onChange={() => run(b.run)} title={b.title}>
+          <Control
+            name={b.name}
+            class={b.class}
+            editor={props.editor}
+            onChange={() => run(b.run)}
+            title={b.title}
+          >
             {b.label}
           </Control>
         ))}
@@ -70,14 +107,23 @@ export function ToolbarContents(props: { editor: Editor }) {
           onChange={() =>
             run((ch) => {
               // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true });
+              (ch as unknown as any).insertTable({
+                rows: 3,
+                cols: 3,
+                withHeaderRow: true,
+              });
               return ch;
             })
           }
         >
           Tbl
         </Control>
-        <Control name="table" editor={props.editor} title="Import CSV as Table" onChange={() => csvInputRef?.click()}>
+        <Control
+          name="table"
+          editor={props.editor}
+          title="Import CSV as Table"
+          onChange={() => csvInputRef?.click()}
+        >
           CSV
         </Control>
         <Control
@@ -150,9 +196,23 @@ export function ToolbarContents(props: { editor: Editor }) {
         >
           ×Tbl
         </Control>
+        <Control
+          name="forceCsvPaste"
+          editor={props.editor}
+          title="Paste Clipboard as Table (CSV/TSV)"
+          onChange={onForceCsvPasteFromClipboard}
+        >
+          ⇢CSV
+        </Control>
+        <Control
+          name="forceMarkdownPaste"
+          editor={props.editor}
+          title="Paste Clipboard as Markdown"
+          onChange={onForceMarkdownPasteFromClipboard}
+        >
+          ⇢MD
+        </Control>
       </div>
     </div>
   );
 }
-
-
