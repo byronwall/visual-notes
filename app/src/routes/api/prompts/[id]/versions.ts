@@ -27,8 +27,10 @@ export async function POST(event: APIEvent) {
         template: input.template,
         system: input.system ?? null,
         modelOverride: input.modelOverride ?? null,
-        tempOverride: typeof input.tempOverride === "number" ? input.tempOverride : null,
-        topPOverride: typeof input.topPOverride === "number" ? input.topPOverride : null,
+        tempOverride:
+          typeof input.tempOverride === "number" ? input.tempOverride : null,
+        topPOverride:
+          typeof input.topPOverride === "number" ? input.topPOverride : null,
       },
       select: { id: true },
     });
@@ -45,5 +47,3 @@ export async function POST(event: APIEvent) {
     return json({ error: msg }, { status: 400 });
   }
 }
-
-

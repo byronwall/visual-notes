@@ -37,8 +37,10 @@ export async function POST(event: APIEvent) {
         task: input.task,
         description: input.description ?? null,
         defaultModel: input.defaultModel ?? "gpt-4o-mini",
-        defaultTemp: typeof input.defaultTemp === "number" ? input.defaultTemp : 0.2,
-        defaultTopP: typeof input.defaultTopP === "number" ? input.defaultTopP : null,
+        defaultTemp:
+          typeof input.defaultTemp === "number" ? input.defaultTemp : 0.2,
+        defaultTopP:
+          typeof input.defaultTopP === "number" ? input.defaultTopP : null,
       },
     });
     const version = await prisma.promptVersion.create({
@@ -47,8 +49,10 @@ export async function POST(event: APIEvent) {
         template: input.template,
         system: input.system ?? null,
         modelOverride: input.modelOverride ?? null,
-        tempOverride: typeof input.tempOverride === "number" ? input.tempOverride : null,
-        topPOverride: typeof input.topPOverride === "number" ? input.topPOverride : null,
+        tempOverride:
+          typeof input.tempOverride === "number" ? input.tempOverride : null,
+        topPOverride:
+          typeof input.topPOverride === "number" ? input.topPOverride : null,
       },
     });
     if (input.activate !== false) {
@@ -68,5 +72,3 @@ export async function POST(event: APIEvent) {
     return json({ error: msg }, { status: 400 });
   }
 }
-
-

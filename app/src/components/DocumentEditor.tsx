@@ -150,7 +150,12 @@ const DocumentEditor: VoidComponent<{
         const res = await apiFetch(`/api/docs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, html, path: newPath() || undefined, meta: newMeta() }),
+          body: JSON.stringify({
+            title,
+            html,
+            path: newPath() || undefined,
+            meta: newMeta(),
+          }),
         });
         const json = (await res.json().catch(() => ({}))) as any;
         console.log("[editor.save] create response", res.status, json);
@@ -219,7 +224,9 @@ const DocumentEditor: VoidComponent<{
           </div>
           <div>
             <div class="text-xs text-gray-600 mb-1">Key/Value metadata</div>
-            <MetaKeyValueEditor onChange={(m) => setNewMeta(m as Record<string, string>)} />
+            <MetaKeyValueEditor
+              onChange={(m) => setNewMeta(m as Record<string, string>)}
+            />
           </div>
         </div>
       </Show>
