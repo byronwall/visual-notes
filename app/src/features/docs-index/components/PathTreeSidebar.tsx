@@ -193,7 +193,9 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
         fallback={<div class="p-2 text-sm text-gray-500">Loading paths…</div>}
       >
         <div class="py-2">
-          <NodeRow node={tree()} depth={0} />
+          <For each={[...tree().children.values()]}>
+            {(child) => <NodeRow node={child} depth={0} />}
+          </For>
         </div>
       </Suspense>
     </aside>
