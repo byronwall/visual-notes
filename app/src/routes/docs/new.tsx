@@ -7,17 +7,19 @@ const NewDocRoute: VoidComponent = () => {
   return (
     <main class="min-h-screen bg-white">
       <div class="container mx-auto p-4">
-        <h1 class="text-2xl font-bold mb-2">New note</h1>
-        <article class="prose max-w-none">
-          <DocumentEditor
-            initialTitle="Untitled note"
-            initialMarkdown={"# Untitled\n\nStart writing..."}
-            onCreated={(id) => {
-              console.log("[new-doc] created id", id);
-              nav(`/docs/${id}`);
-            }}
-          />
-        </article>
+        <div class="mx-auto max-w-[900px]">
+          <h1 class="text-2xl font-bold mb-2">New note</h1>
+          <article class="prose max-w-none">
+            <DocumentEditor
+              initialTitle="Untitled note"
+              initialMarkdown={"# Untitled\n\nStart writing..."}
+              onCreated={(id) => {
+                console.log("[new-doc] created id", id);
+                nav(`/docs/${id}`);
+              }}
+            />
+          </article>
+        </div>
       </div>
     </main>
   );
