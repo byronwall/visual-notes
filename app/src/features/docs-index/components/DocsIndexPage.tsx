@@ -25,6 +25,8 @@ import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
 import { PathTreeSidebar } from "./PathTreeSidebar";
 import { BulkMetaModal } from "./BulkMetaModal";
+import { BulkPathModal } from "./BulkPathModal";
+import { updateDocPath } from "~/services/docs.service";
 
 // TOOD: refactor all the query param stuff into a helper
 
@@ -209,6 +211,7 @@ const DocsIndexPage = () => {
   const [visibleIds, setVisibleIds] = createSignal<string[]>([]);
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
   const [showBulkMeta, setShowBulkMeta] = createSignal(false);
+  const [showBulkPath, setShowBulkPath] = createSignal(false);
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
   const selectedVisibleCount = createMemo(() => {
@@ -337,8 +340,18 @@ const DocsIndexPage = () => {
     setShowBulkMeta(false);
     setBulkError(undefined);
   };
+  const handleOpenBulkPath = () => setShowBulkPath(true);
+  const handleCloseBulkPath = () => {
+    if (bulkBusy()) return;
+    setShowBulkPath(false);
+    setBulkError(undefined);
+  };
   const handleApplyBulkMeta = async (
-    actions: { type: "add" | "update" | "remove"; key: string; value?: unknown }[]
+    actions: {
+      type: "add" | "update" | "remove";
+      key: string;
+      value?: unknown;
+    }[]
   ) => {
     const ids = visibleIds().filter((id) => selectedIds().has(id));
     const count = ids.length;
@@ -346,7 +359,9 @@ const DocsIndexPage = () => {
       alert("No selected visible notes.");
       return;
     }
-    if (!confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`))
+    if (
+      !confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`)
+    )
       return;
     setBulkBusy(true);
     setBulkError(undefined);
@@ -357,6 +372,27 @@ const DocsIndexPage = () => {
       setShowBulkMeta(false);
     } catch (e) {
       setBulkError((e as Error).message || "Failed to apply metadata");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const handleApplyBulkPath = async (path: string) => {
+    const ids = visibleIds().filter((id) => selectedIds().has(id));
+    const count = ids.length;
+    if (!count) {
+      alert("No selected visible notes.");
+      return;
+    }
+    if (!confirm(`Set path for ${count} selected notes?`)) return;
+    setBulkBusy(true);
+    setBulkError(undefined);
+    try {
+      console.log("[DocsIndex] bulk set path ids count=", count, { path });
+      await Promise.all(ids.map((id) => updateDocPath(id, path)));
+      await refetch();
+      setShowBulkPath(false);
+    } catch (e) {
+      setBulkError((e as Error).message || "Failed to update paths");
     } finally {
       setBulkBusy(false);
     }
@@ -393,32 +429,39 @@ const DocsIndexPage = () => {
               <h1 class="text-2xl font-bold">Notes</h1>
               <div class="flex items-center gap-2">
                 <button
-                  class="px-3 py-1.5 rounded bg-gray-200 text-gray-900 text-sm hover:bg-gray-300 disabled:opacity-50"
+                  class="px-2 py-1 rounded bg-gray-200 text-gray-900 text-xs hover:bg-gray-300 disabled:opacity-50"
                   disabled={visibleIds().length === 0}
                   onClick={handleSelectAllVisible}
                 >
-                  Select All Visible ({visibleIds().length})
+                  Select All ({visibleIds().length})
                 </button>
                 <button
-                  class="px-3 py-1.5 rounded bg-gray-200 text-gray-900 text-sm hover:bg-gray-300 disabled:opacity-50"
+                  class="px-2 py-1 rounded bg-gray-200 text-gray-900 text-xs hover:bg-gray-300 disabled:opacity-50"
                   disabled={selectedIds().size === 0}
                   onClick={handleSelectNone}
                 >
-                  Select None
+                  None
                 </button>
                 <button
-                  class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+                  class="px-2 py-1 rounded bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-50"
                   disabled={selectedVisibleCount() === 0}
                   onClick={handleDeleteSelected}
                 >
-                  Delete Selected ({selectedVisibleCount()})
+                  Delete ({selectedVisibleCount()})
                 </button>
                 <button
-                  class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+                  class="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:opacity-50"
                   disabled={selectedVisibleCount() === 0}
                   onClick={handleOpenBulkMeta}
                 >
-                  Edit Metadata (Selected)
+                  Edit Meta
+                </button>
+                <button
+                  class="px-2 py-1 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                  disabled={selectedVisibleCount() === 0}
+                  onClick={handleOpenBulkPath}
+                >
+                  Set Path
                 </button>
                 <ActionsPopover
                   sources={sources}
@@ -461,6 +504,12 @@ const DocsIndexPage = () => {
               onClose={handleCloseBulkMeta}
               selectedCount={selectedVisibleCount()}
               onApply={handleApplyBulkMeta}
+            />
+            <BulkPathModal
+              open={showBulkPath()}
+              onClose={handleCloseBulkPath}
+              selectedCount={selectedVisibleCount()}
+              onApply={handleApplyBulkPath}
             />
           </div>
         </div>
