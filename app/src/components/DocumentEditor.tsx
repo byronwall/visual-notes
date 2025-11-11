@@ -18,6 +18,7 @@ import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "./TiptapEditor";
 import { PathEditor } from "./PathEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
+import { AIPromptsBar } from "./editor/ui/AIPromptsBar";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -222,6 +223,9 @@ const DocumentEditor: VoidComponent<{
           </div>
         </div>
       </Show>
+      <div class="mb-2">
+        <AIPromptsBar editor={editor()} />
+      </div>
       <TiptapEditor
         initialHTML={initialHTML()}
         onEditor={(ed) => setEditor(ed)}

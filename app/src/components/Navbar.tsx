@@ -39,6 +39,9 @@ const Navbar: VoidComponent = () => {
             <a href="/umap" class="hover:underline">
               UMAP
             </a>
+            <a href="/ai" class="hover:underline">
+              AI
+            </a>
           </div>
         </div>
         <div class="flex items-center gap-2">
