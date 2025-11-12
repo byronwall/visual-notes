@@ -10,6 +10,7 @@ import {
 } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
+import { ModelSelect } from "~/components/ModelSelect";
 
 type PromptVersion = {
   id: string;
@@ -69,6 +70,12 @@ const PromptDetailPage: VoidComponent = () => {
   const [editBusy, setEditBusy] = createSignal(false);
   const [editInited, setEditInited] = createSignal(false);
 
+  // Defaults edit state
+  const [defModel, setDefModel] = createSignal<string>("");
+  const [defTemp, setDefTemp] = createSignal<string>("");
+  const [defTopP, setDefTopP] = createSignal<string>("");
+  const [savingDefaults, setSavingDefaults] = createSignal(false);
+
   // Revise with feedback state
   const [feedback, setFeedback] = createSignal<string>("");
   const [reviseBusy, setReviseBusy] = createSignal(false);
@@ -78,13 +85,48 @@ const PromptDetailPage: VoidComponent = () => {
   onMount(() => {
     createEffect(() => {
       const p = prompt();
-      if (!p || !p.activeVersion || editInited()) return;
+      if (!p) return;
+      // Initialize defaults editor
+      setDefModel(p.defaultModel || "");
+      setDefTemp(String(p.defaultTemp ?? ""));
+      setDefTopP(
+        typeof p.defaultTopP === "number" ? String(p.defaultTopP) : ""
+      );
+      if (!p.activeVersion || editInited()) return;
       setEditTemplate(p.activeVersion.template || "");
       setEditSystem(p.activeVersion.system || "");
       setEditInited(true);
       console.log("[ai-prompt-detail] init edit from active version");
     });
   });
+
+  const saveDefaults = async () => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    const payload: {
+      defaultModel?: string;
+      defaultTemp?: number;
+      defaultTopP?: number | null;
+    } = {};
+    if (defModel().trim().length) payload.defaultModel = defModel().trim();
+    const t = Number(defTemp());
+    if (!Number.isNaN(t)) payload.defaultTemp = t;
+    const tp = defTopP().trim().length ? Number(defTopP()) : NaN;
+    if (!Number.isNaN(tp)) payload.defaultTopP = tp;
+    if (defTopP().trim().length === 0) payload.defaultTopP = null;
+    setSavingDefaults(true);
+    try {
+      const res = await apiFetch(`/api/prompts/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      console.log("[ai-prompt-detail] save defaults status", res.status);
+      await refetchPrompt();
+    } finally {
+      setSavingDefaults(false);
+    }
+  };
 
   const handleCreateVersion = async (activate: boolean) => {
     if (!prompt()) return;
@@ -209,6 +251,53 @@ const PromptDetailPage: VoidComponent = () => {
                             </span>
                           )}
                         </Show>
+                      </div>
+                    </div>
+
+                    <div class="rounded border p-3">
+                      <div class="text-sm font-semibold mb-2">Defaults</div>
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <div class="text-xs text-gray-600 mb-1">Model</div>
+                          <ModelSelect
+                            value={defModel()}
+                            onChange={(v) => setDefModel(v)}
+                          />
+                        </div>
+                        <div>
+                          <div class="text-xs text-gray-600 mb-1">Temp</div>
+                          <input
+                            class="border rounded px-2 py-1 text-sm w-full"
+                            value={defTemp()}
+                            onInput={(e) =>
+                              setDefTemp(
+                                (e.target as HTMLInputElement).value || ""
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <div class="text-xs text-gray-600 mb-1">TopP</div>
+                          <input
+                            class="border rounded px-2 py-1 text-sm w-full"
+                            placeholder="optional"
+                            value={defTopP()}
+                            onInput={(e) =>
+                              setDefTopP(
+                                (e.target as HTMLInputElement).value || ""
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div class="mt-2">
+                        <button
+                          class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                          disabled={savingDefaults()}
+                          onClick={saveDefaults}
+                        >
+                          Save Defaults
+                        </button>
                       </div>
                     </div>
 

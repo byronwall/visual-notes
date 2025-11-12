@@ -1,6 +1,7 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal, Suspense } from "solid-js";
 import Modal from "../../Modal";
 import { apiFetch } from "~/utils/base-url";
+import { ModelSelect } from "~/components/ModelSelect";
 
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -274,14 +275,13 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
                   onInput={(e) => setDesc((e.target as HTMLInputElement).value)}
                 />
                 <div class="grid grid-cols-2 gap-2">
-                  <input
-                    class="border rounded px-2 py-1 text-sm w-full"
-                    placeholder="default model"
-                    value={defModel()}
-                    onInput={(e) =>
-                      setDefModel((e.target as HTMLInputElement).value)
-                    }
-                  />
+                  <div>
+                    <div class="text-xs text-gray-600 mb-1">Default model</div>
+                    <ModelSelect
+                      value={defModel()}
+                      onChange={(v) => setDefModel(v)}
+                    />
+                  </div>
                   <input
                     class="border rounded px-2 py-1 text-sm w-full"
                     placeholder="default temp"
