@@ -42,41 +42,40 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
     setRunning(p.id);
     try {
       const ctx = getSelectionContext(ed);
-      const needsInput =
-        !ctx.hasSelection || ctx.selectionText.trim().length === 0;
+      const hasNonEmptySelection =
+        ctx.hasSelection && ctx.selectionText.trim().length > 0;
+      const selectionOrDocText = hasNonEmptySelection
+        ? ctx.selectionText
+        : ctx.docText;
+      const sanitizedPreview = stripDataUrlsFromText(selectionOrDocText);
       const resp = await openAiModal({
-        needsInput,
         defaultModel:
           p.activeVersion?.modelOverride || p.defaultModel || "gpt-4o-mini",
+        previewText: sanitizedPreview,
+        details: {
+          task: p.task,
+          system: p.activeVersion?.system ?? undefined,
+          template: p.activeVersion?.template || "",
+        },
       });
       if (resp === "cancel") return;
       const vars =
         resp.varsJson && resp.varsJson.trim().length
           ? safeParseJson(resp.varsJson)
           : {};
-      if (needsInput && resp.inputText && resp.inputText.trim().length) {
-        // Treat user input as the selection_text
-        Object.assign(vars, {
-          selection_text: stripDataUrlsFromText(resp.inputText),
-        });
-      }
 
-      const finalSelectionText =
-        needsInput && resp.inputText && resp.inputText.trim().length
-          ? resp.inputText
-          : ctx.selectionText;
+      // Assume no selection => process whole document
+      const finalSelectionText = selectionOrDocText;
       const sanitizedSelectionText = stripDataUrlsFromText(finalSelectionText);
 
       // Debug: log gathered context and vars prior to sending
       console.log("[ai] run body preview:", {
         promptId: p.id,
         model: resp.model,
-        hasSelection: ctx.hasSelection,
+        hasSelection: hasNonEmptySelection,
         selectionTextLen: finalSelectionText.length,
         docTextLen: ctx.docText.length,
-        hasVarsSelectionText:
-          typeof (vars as any).selection_text === "string" &&
-          (vars as any).selection_text.length > 0,
+        hasVarsSelectionText: false,
       });
 
       const body = {
