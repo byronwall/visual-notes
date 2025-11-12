@@ -5,6 +5,8 @@ import {
   Suspense,
   createResource,
   createSignal,
+  createEffect,
+  onMount,
 } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
@@ -38,7 +40,9 @@ async function fetchPrompt(id: string): Promise<PromptFull> {
 }
 
 async function fetchRunsForPrompt(promptId: string) {
-  const res = await apiFetch(`/api/ai/runs?promptId=${encodeURIComponent(promptId)}`);
+  const res = await apiFetch(
+    `/api/ai/runs?promptId=${encodeURIComponent(promptId)}`
+  );
   const json = (await res.json()) as {
     items: Array<{
       id: string;
@@ -53,7 +57,10 @@ async function fetchRunsForPrompt(promptId: string) {
 
 const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
-  const [prompt] = createResource(() => params.id, fetchPrompt);
+  const [prompt, { refetch: refetchPrompt }] = createResource(
+    () => params.id,
+    fetchPrompt
+  );
   const [runs] = createResource(() => params.id, fetchRunsForPrompt);
 
   // Edit → Create New Version state
@@ -68,16 +75,16 @@ const PromptDetailPage: VoidComponent = () => {
   const [suggestedTemplate, setSuggestedTemplate] = createSignal<string>("");
   const [suggestedSystem, setSuggestedSystem] = createSignal<string>("");
 
-  const initEditFromActive = () => {
-    const p = prompt();
-    if (!p || !p.activeVersion || editInited()) return;
-    setEditTemplate(p.activeVersion.template || "");
-    setEditSystem(p.activeVersion.system || "");
-    setEditInited(true);
-    try {
+  onMount(() => {
+    createEffect(() => {
+      const p = prompt();
+      if (!p || !p.activeVersion || editInited()) return;
+      setEditTemplate(p.activeVersion.template || "");
+      setEditSystem(p.activeVersion.system || "");
+      setEditInited(true);
       console.log("[ai-prompt-detail] init edit from active version");
-    } catch {}
-  };
+    });
+  });
 
   const handleCreateVersion = async (activate: boolean) => {
     if (!prompt()) return;
@@ -98,7 +105,7 @@ const PromptDetailPage: VoidComponent = () => {
       });
       console.log("[ai-prompt-detail] create version status", res.status);
       // Refresh prompt data
-      await prompt.refetch?.();
+      await refetchPrompt();
     } finally {
       setEditBusy(false);
     }
@@ -121,7 +128,10 @@ const PromptDetailPage: VoidComponent = () => {
         error?: string;
       };
       if (data?.error || !data?.suggestion) {
-        console.log("[ai-prompt-detail] revise error:", data?.error || "unknown");
+        console.log(
+          "[ai-prompt-detail] revise error:",
+          data?.error || "unknown"
+        );
         return;
       }
       setSuggestedTemplate(data.suggestion.template || "");
@@ -150,7 +160,7 @@ const PromptDetailPage: VoidComponent = () => {
         }),
       });
       console.log("[ai-prompt-detail] accept suggestion status", res.status);
-      await prompt.refetch?.();
+      await refetchPrompt();
       setSuggestedTemplate("");
       setSuggestedSystem("");
       setFeedback("");
@@ -186,14 +196,16 @@ const PromptDetailPage: VoidComponent = () => {
                     <div class="rounded border p-3">
                       <div class="text-xs text-gray-600">Defaults</div>
                       <div class="text-sm">
-                        Model: <span class="font-medium">{p().defaultModel}</span>
+                        Model:{" "}
+                        <span class="font-medium">{p().defaultModel}</span>
                       </div>
                       <div class="text-sm">
                         Temp: <span class="font-medium">{p().defaultTemp}</span>{" "}
                         <Show when={typeof p().defaultTopP === "number"}>
                           {(v) => (
                             <span>
-                              · TopP: <span class="font-medium">{String(v())}</span>
+                              · TopP:{" "}
+                              <span class="font-medium">{String(v())}</span>
                             </span>
                           )}
                         </Show>
@@ -201,29 +213,48 @@ const PromptDetailPage: VoidComponent = () => {
                     </div>
 
                     <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">Active Version</div>
-                      <Show when={p().activeVersion} fallback={<div class="text-sm">—</div>}>
+                      <div class="text-sm font-semibold mb-2">
+                        Active Version
+                      </div>
+                      <Show
+                        when={p().activeVersion}
+                        fallback={<div class="text-sm">—</div>}
+                      >
                         {(av) => (
                           <div class="space-y-2">
                             <div class="text-sm font-mono">{av().id}</div>
                             <div class="text-xs text-gray-600">
                               Overrides:{" "}
-                              {av().modelOverride || av().tempOverride || av().topPOverride
-                                ? `${av().modelOverride || "model—"} · temp ${typeof av().tempOverride === "number" ? av().tempOverride : "—"} · top_p ${typeof av().topPOverride === "number" ? av().topPOverride : "—"}`
+                              {av().modelOverride ||
+                              av().tempOverride ||
+                              av().topPOverride
+                                ? `${av().modelOverride || "model—"} · temp ${
+                                    typeof av().tempOverride === "number"
+                                      ? av().tempOverride
+                                      : "—"
+                                  } · top_p ${
+                                    typeof av().topPOverride === "number"
+                                      ? av().topPOverride
+                                      : "—"
+                                  }`
                                 : "none"}
                             </div>
                             <details>
-                              <summary class="text-xs cursor-pointer">Template</summary>
+                              <summary class="text-xs cursor-pointer">
+                                Template
+                              </summary>
                               <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{av().template}
+                                {av().template}
                               </pre>
                             </details>
                             <Show when={av().system}>
                               {(s) => (
                                 <details>
-                                  <summary class="text-xs cursor-pointer">System</summary>
+                                  <summary class="text-xs cursor-pointer">
+                                    System
+                                  </summary>
                                   <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{s()}
+                                    {s()}
                                   </pre>
                                 </details>
                               )}
@@ -234,58 +265,72 @@ const PromptDetailPage: VoidComponent = () => {
                     </div>
 
                     <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">Edit → New Version</div>
+                      <div class="text-sm font-semibold mb-2">
+                        Edit → New Version
+                      </div>
                       <Show when={p().activeVersion}>
-                        {() => (
-                          <>
-                            {/* Initialize edit fields from active on first view render */}
-                            {initEditFromActive()}
-                            <div class="space-y-2">
-                              <div class="text-xs text-gray-600">Template (Mustache)</div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
-                                value={editTemplate()}
-                                onInput={(e) => setEditTemplate((e.target as HTMLTextAreaElement).value)}
-                              />
+                        <>
+                          <div class="space-y-2">
+                            <div class="text-xs text-gray-600">
+                              Template (Mustache)
                             </div>
-                            <div class="mt-2 space-y-2">
-                              <div class="text-xs text-gray-600">System (optional)</div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
-                                value={editSystem()}
-                                onInput={(e) => setEditSystem((e.target as HTMLTextAreaElement).value)}
-                              />
+                            <textarea
+                              class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
+                              value={editTemplate()}
+                              onInput={(e) =>
+                                setEditTemplate(
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                          </div>
+                          <div class="mt-2 space-y-2">
+                            <div class="text-xs text-gray-600">
+                              System (optional)
                             </div>
-                            <div class="mt-3 flex gap-2">
-                              <button
-                                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                                disabled={editBusy()}
-                                onClick={() => handleCreateVersion(false)}
-                              >
-                                Save as New Version
-                              </button>
-                              <button
-                                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                                disabled={editBusy()}
-                                onClick={() => handleCreateVersion(true)}
-                              >
-                                Save & Activate
-                              </button>
-                            </div>
-                          </>
-                        )}
+                            <textarea
+                              class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
+                              value={editSystem()}
+                              onInput={(e) =>
+                                setEditSystem(
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                          </div>
+                          <div class="mt-3 flex gap-2">
+                            <button
+                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                              disabled={editBusy()}
+                              onClick={() => handleCreateVersion(false)}
+                            >
+                              Save as New Version
+                            </button>
+                            <button
+                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                              disabled={editBusy()}
+                              onClick={() => handleCreateVersion(true)}
+                            >
+                              Save & Activate
+                            </button>
+                          </div>
+                        </>
                       </Show>
                     </div>
 
                     <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">Revise with Feedback (LLM)</div>
+                      <div class="text-sm font-semibold mb-2">
+                        Revise with Feedback (LLM)
+                      </div>
                       <div class="space-y-2">
                         <div class="text-xs text-gray-600">Feedback</div>
                         <textarea
                           class="border rounded px-2 py-1 text-xs w-full h-24"
                           placeholder="Describe what to improve. E.g., 'Make headings consistent, add examples, keep {{selection}} intact.'"
                           value={feedback()}
-                          onInput={(e) => setFeedback((e.target as HTMLTextAreaElement).value)}
+                          onInput={(e) =>
+                            setFeedback((e.target as HTMLTextAreaElement).value)
+                          }
                         />
                         <div>
                           <button
@@ -299,20 +344,28 @@ const PromptDetailPage: VoidComponent = () => {
                       </div>
                       <Show when={suggestedTemplate().length > 0}>
                         <div class="mt-3 space-y-2">
-                          <div class="text-xs text-gray-600">Suggested Template</div>
+                          <div class="text-xs text-gray-600">
+                            Suggested Template
+                          </div>
                           <textarea
                             class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
                             value={suggestedTemplate()}
                             onInput={(e) =>
-                              setSuggestedTemplate((e.target as HTMLTextAreaElement).value)
+                              setSuggestedTemplate(
+                                (e.target as HTMLTextAreaElement).value
+                              )
                             }
                           />
-                          <div class="text-xs text-gray-600">Suggested System (optional)</div>
+                          <div class="text-xs text-gray-600">
+                            Suggested System (optional)
+                          </div>
                           <textarea
                             class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
                             value={suggestedSystem()}
                             onInput={(e) =>
-                              setSuggestedSystem((e.target as HTMLTextAreaElement).value)
+                              setSuggestedSystem(
+                                (e.target as HTMLTextAreaElement).value
+                              )
                             }
                           />
                           <div class="flex gap-2">
@@ -351,22 +404,36 @@ const PromptDetailPage: VoidComponent = () => {
                               </div>
                               <div class="mt-2 text-xs text-gray-700">
                                 Overrides:{" "}
-                                {v.modelOverride || v.tempOverride || v.topPOverride
-                                  ? `${v.modelOverride || "model—"} · temp ${typeof v.tempOverride === "number" ? v.tempOverride : "—"} · top_p ${typeof v.topPOverride === "number" ? v.topPOverride : "—"}`
+                                {v.modelOverride ||
+                                v.tempOverride ||
+                                v.topPOverride
+                                  ? `${v.modelOverride || "model—"} · temp ${
+                                      typeof v.tempOverride === "number"
+                                        ? v.tempOverride
+                                        : "—"
+                                    } · top_p ${
+                                      typeof v.topPOverride === "number"
+                                        ? v.topPOverride
+                                        : "—"
+                                    }`
                                   : "none"}
                               </div>
                               <details class="mt-2">
-                                <summary class="text-xs cursor-pointer">Template</summary>
+                                <summary class="text-xs cursor-pointer">
+                                  Template
+                                </summary>
                                 <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{v.template}
+                                  {v.template}
                                 </pre>
                               </details>
                               <Show when={v.system}>
                                 {(s) => (
                                   <details class="mt-2">
-                                    <summary class="text-xs cursor-pointer">System</summary>
+                                    <summary class="text-xs cursor-pointer">
+                                      System
+                                    </summary>
                                     <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{s()}
+                                      {s()}
                                     </pre>
                                   </details>
                                 )}
@@ -379,7 +446,11 @@ const PromptDetailPage: VoidComponent = () => {
                   </div>
                   <div class="space-y-3">
                     <div class="text-sm font-semibold">Recent Runs</div>
-                    <Suspense fallback={<div class="text-sm text-gray-500">Loading runs…</div>}>
+                    <Suspense
+                      fallback={
+                        <div class="text-sm text-gray-500">Loading runs…</div>
+                      }
+                    >
                       <div class="overflow-hidden rounded border border-gray-200">
                         <table class="w-full text-sm">
                           <thead class="bg-gray-50">
@@ -395,7 +466,9 @@ const PromptDetailPage: VoidComponent = () => {
                             <For each={runs() || []}>
                               {(r) => (
                                 <tr class="border-t border-gray-200 hover:bg-gray-50">
-                                  <td class="p-2 font-mono">{r.id.slice(0, 8)}</td>
+                                  <td class="p-2 font-mono">
+                                    {r.id.slice(0, 8)}
+                                  </td>
                                   <td class="p-2">{r.model}</td>
                                   <td class="p-2">
                                     <span
@@ -440,5 +513,3 @@ const PromptDetailPage: VoidComponent = () => {
 };
 
 export default PromptDetailPage;
-
-
