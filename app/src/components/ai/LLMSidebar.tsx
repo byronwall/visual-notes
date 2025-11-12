@@ -172,6 +172,10 @@ function LLMSidebarView(props: {
   const [noteInput, setNoteInput] = createSignal("");
   const [titleInput, setTitleInput] = createSignal("");
   const [draft, setDraft] = createSignal("");
+  const [isSending, setIsSending] = createSignal(false);
+  const [sendPhase, setSendPhase] = createSignal<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
   const [messageState, setMessageState] = createStore<
     Record<
       string,
@@ -192,9 +196,26 @@ function LLMSidebarView(props: {
   };
   const handleSend = async () => {
     const txt = draft().trim();
-    if (!txt) return;
-    await props.onSend(txt);
-    setDraft("");
+    if (!txt || isSending()) return;
+    console.log("[LLMSidebar] Sending message");
+    setIsSending(true);
+    setSendPhase("sending");
+    try {
+      await props.onSend(txt);
+      setDraft("");
+      setSendPhase("sent");
+      setTimeout(() => {
+        setSendPhase("idle");
+      }, 1200);
+    } catch (e) {
+      console.log("[LLMSidebar] Send failed", e);
+      setSendPhase("error");
+      setTimeout(() => {
+        setSendPhase("idle");
+      }, 2000);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   // Reset message state when switching threads
@@ -313,6 +334,12 @@ function LLMSidebarView(props: {
                   </div>
                   <div class="text-xs text-gray-500">
                     <Show when={th().status === "LOADING"}>Loading…</Show>
+                    <Show when={isSending()}>
+                      <span class="inline-flex items-center gap-1 ml-2 text-amber-600">
+                        <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                        Sending…
+                      </span>
+                    </Show>
                   </div>
                 </div>
               )}
@@ -411,8 +438,21 @@ function LLMSidebarView(props: {
                 }
               />
               <div class="flex flex-col gap-2">
-                <button class="cta" onClick={handleSend}>
-                  Send
+                <button
+                  class="cta"
+                  onClick={handleSend}
+                  disabled={isSending() || !draft().trim()}
+                  aria-busy={isSending()}
+                >
+                  <Show when={sendPhase() === "sending"}>
+                    <span class="inline-flex items-center gap-2">
+                      <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                      Sending…
+                    </span>
+                  </Show>
+                  <Show when={sendPhase() === "sent"}>Sent</Show>
+                  <Show when={sendPhase() === "error"}>Retry</Show>
+                  <Show when={sendPhase() === "idle"}>Send</Show>
                 </button>
                 <button class="secondary" onClick={props.onClose}>
                   Close
