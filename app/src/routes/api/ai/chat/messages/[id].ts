@@ -46,4 +46,39 @@ export async function PATCH(event: APIEvent) {
   }
 }
 
+export async function DELETE(event: APIEvent) {
+  try {
+    const userId = getUserIdFromRequest(event.request);
+    const id = event.params.id!;
 
+    // Ensure the message belongs to the user's thread
+    const msg = await prisma.chatMessage.findUnique({
+      where: { id },
+      include: { thread: { select: { id: true, userId: true } } },
+    });
+    if (!msg || msg.thread.userId !== userId) {
+      return json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Delete the message
+    await prisma.chatMessage.delete({ where: { id } });
+
+    // Recompute lastMessageAt based on remaining messages in the thread
+    const latest = await prisma.chatMessage.findFirst({
+      where: { threadId: msg.thread.id },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    await prisma.chatThread.update({
+      where: { id: msg.thread.id },
+      data: {
+        updatedAt: new Date(),
+        lastMessageAt: latest?.createdAt ?? new Date(),
+      },
+    });
+    return json({ ok: true });
+  } catch (e) {
+    const msg = (e as Error)?.message || "Invalid request";
+    return json({ error: msg }, { status: 400 });
+  }
+}

@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
+import type { Component } from "solid-js";
 import { createEditor } from "./editor/core/createEditor";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
 import { useCodeBlockOverlay } from "./editor/core/useCodeBlockOverlay";
@@ -13,11 +14,15 @@ const DEFAULT_HTML = `
 <p>this is a <em>basic</em> example of <strong>tiptap</strong>.</p>
 `;
 
-export default function TiptapEditor(props: {
+type TiptapEditorProps = {
   initialHTML?: string;
   class?: string;
   onEditor?: (editor: Editor) => void;
-}) {
+  /** Show formatting toolbar. Defaults to true. */
+  showToolbar?: boolean;
+};
+
+const TiptapEditor: Component<TiptapEditorProps> = (props) => {
   const [container, setContainer] = createSignal<HTMLDivElement>();
   // Capture the first non-null editor instance and keep it stable to avoid
   // transaction-driven reactive churn in the view layer.
@@ -113,11 +118,13 @@ export default function TiptapEditor(props: {
 
   return (
     <div class={props.class || "w-full"}>
-      <div class="mb-2 rounded bg-gray-50 text-gray-800 border border-gray-300">
-        <Show when={stableEditor()}>
-          <ToolbarContents editor={stableEditor()!} />
-        </Show>
-      </div>
+      <Show when={props.showToolbar !== false}>
+        <div class="mb-2 rounded bg-gray-50 text-gray-800 border border-gray-300">
+          <Show when={stableEditor()}>
+            <ToolbarContents editor={stableEditor()!} />
+          </Show>
+        </div>
+      </Show>
 
       <div class="relative rounded border border-gray-300">
         <div class="min-h-[200px]" ref={setContainer} />
@@ -156,4 +163,6 @@ export default function TiptapEditor(props: {
       {mdPromptView}
     </div>
   );
-}
+};
+
+export default TiptapEditor;

@@ -1,6 +1,17 @@
-import { For, Show, Suspense, createResource, createSignal } from "solid-js";
+import {
+  For,
+  Show,
+  Suspense,
+  createEffect,
+  createResource,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import SidePanel from "~/components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
+import TiptapEditor from "~/components/TiptapEditor";
+import { createStore } from "solid-js/store";
+import type { Editor } from "@tiptap/core";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 type ChatMessageRole = "user" | "assistant";
@@ -114,6 +125,15 @@ export function useLLMSidebar() {
     await refetchThread();
   };
 
+  const deleteMessage = async (msgId: string) => {
+    console.log("[LLMSidebar] Deleting message:", msgId);
+    const res = await apiFetch(`/api/ai/chat/messages/${msgId}`, {
+      method: "DELETE",
+    });
+    const _ = await res.json();
+    await Promise.all([refetchThread(), refetchThreads()]);
+  };
+
   const view = (
     <LLMSidebarView
       open={open()}
@@ -129,6 +149,7 @@ export function useLLMSidebar() {
       onCreateThread={createThread}
       onSend={sendMessage}
       onSaveEdit={saveAssistantEdit}
+      onDeleteMessage={deleteMessage}
     />
   );
 
@@ -146,12 +167,21 @@ function LLMSidebarView(props: {
   onCreateThread: (noteId: string, title?: string) => Promise<void>;
   onSend: (text: string) => Promise<void>;
   onSaveEdit: (msgId: string, contentHtml: string) => Promise<void>;
+  onDeleteMessage: (msgId: string) => Promise<void>;
 }) {
   const [noteInput, setNoteInput] = createSignal("");
   const [titleInput, setTitleInput] = createSignal("");
   const [draft, setDraft] = createSignal("");
-  const [editingId, setEditingId] = createSignal<string | undefined>(undefined);
-  const [editingHtml, setEditingHtml] = createSignal("");
+  const [messageState, setMessageState] = createStore<
+    Record<
+      string,
+      {
+        initialHtml: string;
+        currentHtml: string;
+        dirty: boolean;
+      }
+    >
+  >({});
 
   const handleCreate = async () => {
     const nid = noteInput().trim();
@@ -167,11 +197,31 @@ function LLMSidebarView(props: {
     setDraft("");
   };
 
+  // Reset message state when switching threads
+  createEffect(() => {
+    const th = props.thread;
+    if (!th) return;
+    const next: Record<
+      string,
+      { initialHtml: string; currentHtml: string; dirty: boolean }
+    > = {};
+    for (const m of th.messages) {
+      next[m.id] = {
+        initialHtml: m.contentHtml,
+        currentHtml: m.contentHtml,
+        dirty: false,
+      };
+    }
+    setMessageState(next);
+    console.log("[LLMSidebar] Initialized message state for thread:", th.id);
+  });
+
   return (
     <SidePanel
       open={props.open}
       onClose={props.onClose}
       ariaLabel="LLM Chat Sidebar"
+      class="w-[min(96vw,1000px)]"
     >
       <div class="flex h-full">
         {/* Left column: threads list */}
@@ -279,61 +329,70 @@ function LLMSidebarView(props: {
                   <For each={th().messages}>
                     {(m) => (
                       <div class="border rounded p-3">
-                        <div class="text-xs text-gray-500 mb-1">
+                        <div class="text-xs text-gray-500 mb-2">
                           {m.role === "user" ? "You" : "Assistant"}
                         </div>
-                        <Show
-                          when={editingId() === m.id}
-                          fallback={<div innerHTML={m.contentHtml} />}
-                        >
-                          <textarea
-                            class="w-full border rounded px-2 py-1 min-h-[120px]"
-                            value={editingHtml()}
-                            onInput={(e) =>
-                              setEditingHtml(
-                                (e.currentTarget as HTMLTextAreaElement).value
-                              )
-                            }
-                          />
-                        </Show>
-                        <Show when={m.role === "assistant"}>
-                          <div class="mt-2 flex gap-2">
-                            <Show when={editingId() !== m.id}>
+                        <TiptapEditor
+                          initialHTML={m.contentHtml}
+                          class="w-full"
+                          showToolbar={false}
+                          onEditor={(ed: Editor) => {
+                            console.log(
+                              "[LLMSidebar] Editor ready for message:",
+                              m.id
+                            );
+                            const onUpdate = () => {
+                              const html = ed.getHTML();
+                              const state = messageState[m.id];
+                              const isDirty = state
+                                ? html !== state.initialHtml
+                                : html !== m.contentHtml;
+                              setMessageState(m.id, {
+                                initialHtml:
+                                  state?.initialHtml ?? m.contentHtml,
+                                currentHtml: html,
+                                dirty: isDirty,
+                              });
+                            };
+                            ed.on("update", onUpdate);
+                            // Initialize current state immediately
+                            onUpdate();
+                            onCleanup(() => {
+                              ed.off("update", onUpdate);
+                            });
+                          }}
+                        />
+                        <div class="mt-2 flex items-center justify-between">
+                          <div>
+                            <Show when={messageState[m.id]?.dirty}>
                               <button
                                 class="text-xs text-blue-600 hover:underline"
-                                onClick={() => {
-                                  setEditingId(m.id);
-                                  setEditingHtml(m.contentHtml);
+                                onClick={async () => {
+                                  const html =
+                                    messageState[m.id]?.currentHtml ??
+                                    m.contentHtml;
+                                  console.log(
+                                    "[LLMSidebar] Save clicked for message:",
+                                    m.id
+                                  );
+                                  await props.onSaveEdit(m.id, html);
                                 }}
                               >
-                                Edit
+                                Save
                               </button>
                             </Show>
-                            <Show when={editingId() === m.id}>
-                              <div class="flex items-center gap-2">
-                                <button
-                                  class="text-xs text-blue-600 hover:underline"
-                                  onClick={async () => {
-                                    await props.onSaveEdit(m.id, editingHtml());
-                                    setEditingId(undefined);
-                                    setEditingHtml("");
-                                  }}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  class="text-xs text-gray-600 hover:underline"
-                                  onClick={() => {
-                                    setEditingId(undefined);
-                                    setEditingHtml("");
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </Show>
                           </div>
-                        </Show>
+                          <div>
+                            <button
+                              class="text-xs text-red-600 hover:underline"
+                              onClick={async () => {
+                                await props.onDeleteMessage(m.id);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </For>
