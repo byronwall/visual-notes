@@ -1,12 +1,25 @@
 import type { VoidComponent } from "solid-js";
-import { createSignal } from "solid-js";
+import { createSignal, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
+import { useLLMSidebar } from "~/components/ai/LLMSidebar";
+import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
 
 const Navbar: VoidComponent = () => {
   const { authed, logout } = useMagicAuth();
+  const { open: openLLM, view: llmSidebarView } = useLLMSidebar();
   const handleLogout = async () => {
     await logout();
   };
+  onMount(() => {
+    const off = onLLMSidebarEvent((e) => {
+      if (e.type === "open") {
+        openLLM(e.threadId);
+      }
+    });
+    return () => {
+      off();
+    };
+  });
 
   return (
     <nav class="w-full border-b border-gray-200 bg-white">
@@ -42,6 +55,9 @@ const Navbar: VoidComponent = () => {
             <a href="/ai" class="hover:underline">
               AI
             </a>
+            <button class="hover:underline" onClick={() => openLLM()}>
+              Chat
+            </button>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -56,6 +72,7 @@ const Navbar: VoidComponent = () => {
           )}
         </div>
       </div>
+      {llmSidebarView}
     </nav>
   );
 };

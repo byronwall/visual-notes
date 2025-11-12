@@ -132,6 +132,7 @@ export async function callLLM(opts: {
   model: string;
   temperature?: number;
   top_p?: number;
+  noteId?: string;
 }) {
   // Create a centralized LLM request log record first (status PARTIAL)
   const req = await prisma.llmRequest.create({
@@ -143,6 +144,7 @@ export async function callLLM(opts: {
         typeof opts.temperature === "number" ? opts.temperature : null,
       topP: typeof opts.top_p === "number" ? opts.top_p : null,
       status: "PARTIAL",
+      noteId: opts.noteId ?? null,
     },
   });
 

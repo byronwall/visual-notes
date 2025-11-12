@@ -8,12 +8,16 @@ import {
   normalizeMarkdownToHtml,
 } from "~/server/lib/markdown";
 import { callLLM } from "~/server/lib/ai";
+import { parseCookie, MAGIC_COOKIE_NAME } from "~/server/magic-auth";
+import { createHash } from "crypto";
 
 const runInput = z
   .object({
     // Identify which prompt version to run
     promptId: z.string().optional(),
     promptVersionId: z.string().optional(),
+    // Optional note link for traceability
+    noteId: z.string().optional(),
     // Optional model override
     model: z.string().optional(),
     // Arbitrary variables for Mustache placeholders
@@ -33,6 +37,10 @@ export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
     const input = runInput.parse(body);
+    const cookies = parseCookie(event.request.headers.get("cookie"));
+    const token = cookies[MAGIC_COOKIE_NAME] || "anonymous";
+    const userHash = createHash("sha256").update(String(token)).digest("hex");
+    const userId = `magic_${userHash.slice(0, 24)}`;
 
     // Debug: log incoming selection info (lengths only)
     console.log("[api/ai/runPrompt] incoming", {
@@ -73,7 +81,9 @@ export async function POST(event: APIEvent) {
     } else if (input.promptId) {
       const prompt = await prisma.prompt.findUnique({
         where: { id: input.promptId },
-        include: { activeVersion: true },
+        include: {
+          activeVersion: true,
+        },
       });
       if (!prompt?.activeVersion) {
         return json({ error: "No active version" }, { status: 400 });
@@ -155,6 +165,7 @@ export async function POST(event: APIEvent) {
       model,
       temperature,
       top_p,
+      noteId: input.noteId,
     });
 
     const outputHtml = output
@@ -180,6 +191,7 @@ export async function POST(event: APIEvent) {
         inputVars: vars as any,
         compiledPrompt: compiledUser,
         systemUsed: systemUsed ?? null,
+        noteId: input.noteId ?? null,
         outputHtml,
         rawResponse: raw as any,
         status: output ? "SUCCESS" : "ERROR",
@@ -187,6 +199,58 @@ export async function POST(event: APIEvent) {
       },
       select: { id: true },
     });
+
+    // Create a chat thread + messages when we have a noteId
+    let threadId: string | undefined = undefined;
+    if (input.noteId) {
+      // Title preference: Prompt task if available, else first 40 chars of selection or compiled prompt
+      let title = "Prompt run";
+      try {
+        const parentPrompt = await prisma.prompt.findFirst({
+          where: { versions: { some: { id: version.id } } },
+          select: { task: true },
+        });
+        if (parentPrompt?.task) title = `Prompt: ${parentPrompt.task}`;
+      } catch {}
+      if (title === "Prompt run") {
+        const sel = String(vars.selection_text || "").trim();
+        if (sel) {
+          title = `Selection: ${sel.slice(0, 40)}${sel.length > 40 ? "…" : ""}`;
+        } else {
+          title = `Prompt run`;
+        }
+      }
+      const thread = await prisma.chatThread.create({
+        data: {
+          userId,
+          noteId: input.noteId,
+          title,
+          status: "DONE",
+          lastMessageAt: new Date(),
+        },
+      });
+      threadId = thread.id;
+      // Store user message as compiled prompt for transparency
+      const compiledHtml = sanitizeHtmlContent(
+        looksLikeMarkdown(compiledUser)
+          ? normalizeMarkdownToHtml(compiledUser)
+          : compiledUser
+      );
+      await prisma.chatMessage.create({
+        data: {
+          threadId: thread.id,
+          role: "user",
+          contentHtml: compiledHtml,
+        },
+      });
+      await prisma.chatMessage.create({
+        data: {
+          threadId: thread.id,
+          role: "assistant",
+          contentHtml: outputHtml || "<p>(no response)</p>",
+        },
+      });
+    }
 
     console.log(
       `[api/ai/runPrompt] version=${version.id} model=${model} ok=${!!output}`
@@ -197,6 +261,7 @@ export async function POST(event: APIEvent) {
       outputText: output,
       compiledPrompt: compiledUser,
       systemPrompt: systemUsed || null,
+      threadId: threadId || null,
     });
   } catch (e) {
     const msg = (e as Error)?.message || "Invalid request";

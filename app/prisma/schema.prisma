@@ -114,6 +114,8 @@ model PromptRun {
   qaTranscript    Json?
   createdAt       DateTime        @default(now())
   userId          String?
+  // Optional link to a note/document this run was made against
+  noteId          String?
   HumanFeedback   HumanFeedback[]
 
   @@index([promptVersionId, createdAt])
@@ -150,6 +152,8 @@ model LlmRequest {
   totalTokens      Int?
   // Error message if any
   error            String?
+  // Optional link to a note/document this request was made against
+  noteId           String?
 
   @@index([createdAt])
 }
@@ -277,4 +281,47 @@ model UmapPoint {
 
   @@unique([runId, docId])
   @@index([docId])
+}
+
+/// --- Chat (Threaded) ---
+
+enum ChatThreadStatus {
+  ACTIVE
+  LOADING
+  DONE
+}
+
+enum ChatMessageRole {
+  user
+  assistant
+}
+
+model ChatThread {
+  id            String           @id @default(cuid())
+  userId        String
+  noteId        String
+  title         String
+  status        ChatThreadStatus @default(ACTIVE)
+  lastMessageAt DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([noteId, lastMessageAt])
+}
+
+model ChatMessage {
+  id          String          @id @default(cuid())
+  threadId    String
+  role        ChatMessageRole
+  contentHtml String
+  isEdited    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
 }

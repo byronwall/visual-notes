@@ -231,7 +231,7 @@ const DocumentEditor: VoidComponent<{
         </div>
       </Show>
       <div class="mb-2">
-        <AIPromptsBar editor={editor()} />
+        <AIPromptsBar editor={editor()} noteId={props.docId || doc()?.id} />
       </div>
       <TiptapEditor
         initialHTML={initialHTML()}

@@ -4,8 +4,7 @@ import { apiFetch } from "~/utils/base-url";
 import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
 import { useAiPromptModal } from "./AiPromptModal";
 import { usePromptsManagerModal } from "./PromptsManagerModal";
-import { useAiResultEditorModal } from "./AiResultEditorModal";
-import type { AiResultEditorOpenArgs } from "./AiResultEditorModal";
+import { emitLLMSidebarOpen } from "~/components/ai/LLMSidebarBus";
 
 type PromptRecord = {
   id: string;
@@ -30,13 +29,12 @@ async function fetchPrompts(): Promise<PromptRecord[]> {
   return data.items || [];
 }
 
-export function AIPromptsBar(props: { editor?: Editor }) {
+export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
   const [prompts] = createResource(fetchPrompts);
   const [running, setRunning] = createSignal<string | null>(null);
   const { prompt: openAiModal, view: aiModalView } = useAiPromptModal();
   const { open: openManager, view: managerView } = usePromptsManagerModal();
-  const { open: openResultEditor, view: resultEditorView } =
-    useAiResultEditorModal();
+  const resultEditorView = null;
 
   const onRun = async (p: PromptRecord) => {
     const ed = props.editor;
@@ -89,6 +87,7 @@ export function AIPromptsBar(props: { editor?: Editor }) {
         selection_html: ctx.selectionHtml || undefined,
         doc_text: ctx.docText,
         doc_html: ctx.docHtml,
+        noteId: props.noteId,
       };
       // Debug: log final payload lengths
       console.log("[ai] posting /api/ai/runPrompt", {
@@ -108,25 +107,15 @@ export function AIPromptsBar(props: { editor?: Editor }) {
         outputText?: string | null;
         compiledPrompt?: string | null;
         systemPrompt?: string | null;
+        threadId?: string | null;
         error?: string;
       };
       if (data?.error) {
         console.log("[ai] run error:", data.error);
         return;
       }
-      const md = data?.outputText || "";
-      if (!md.trim()) {
-        console.log("[ai] empty output");
-        return;
-      }
-      // Open editor modal with markdown output
-      const openArgs = {
-        selectionText: sanitizedSelectionText,
-        outputMarkdown: md,
-        compiledPrompt: data.compiledPrompt || "",
-        systemPrompt: data.systemPrompt || "",
-      } as unknown as AiResultEditorOpenArgs; // TODO:AS_ANY, type cache mismatch until IDE restarts
-      await openResultEditor(openArgs);
+      // Open the chat sidebar and select the created thread
+      emitLLMSidebarOpen(data.threadId || undefined);
     } finally {
       setRunning(null);
     }
