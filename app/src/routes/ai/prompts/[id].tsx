@@ -4,6 +4,7 @@ import {
   Show,
   Suspense,
   createResource,
+  createSignal,
 } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
@@ -54,6 +55,109 @@ const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
   const [prompt] = createResource(() => params.id, fetchPrompt);
   const [runs] = createResource(() => params.id, fetchRunsForPrompt);
+
+  // Edit → Create New Version state
+  const [editTemplate, setEditTemplate] = createSignal<string>("");
+  const [editSystem, setEditSystem] = createSignal<string>("");
+  const [editBusy, setEditBusy] = createSignal(false);
+  const [editInited, setEditInited] = createSignal(false);
+
+  // Revise with feedback state
+  const [feedback, setFeedback] = createSignal<string>("");
+  const [reviseBusy, setReviseBusy] = createSignal(false);
+  const [suggestedTemplate, setSuggestedTemplate] = createSignal<string>("");
+  const [suggestedSystem, setSuggestedSystem] = createSignal<string>("");
+
+  const initEditFromActive = () => {
+    const p = prompt();
+    if (!p || !p.activeVersion || editInited()) return;
+    setEditTemplate(p.activeVersion.template || "");
+    setEditSystem(p.activeVersion.system || "");
+    setEditInited(true);
+    try {
+      console.log("[ai-prompt-detail] init edit from active version");
+    } catch {}
+  };
+
+  const handleCreateVersion = async (activate: boolean) => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    const template = editTemplate().trim();
+    const system = editSystem().trim();
+    if (!template) return;
+    setEditBusy(true);
+    try {
+      const res = await apiFetch(`/api/prompts/${id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template,
+          system: system || undefined,
+          activate,
+        }),
+      });
+      console.log("[ai-prompt-detail] create version status", res.status);
+      // Refresh prompt data
+      await prompt.refetch?.();
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const handleRevise = async () => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    const fb = feedback().trim();
+    if (!fb) return;
+    setReviseBusy(true);
+    try {
+      const res = await apiFetch(`/api/prompts/${id}/revise`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback: fb }),
+      });
+      const data = (await res.json()) as {
+        suggestion?: { template: string; system?: string | null };
+        error?: string;
+      };
+      if (data?.error || !data?.suggestion) {
+        console.log("[ai-prompt-detail] revise error:", data?.error || "unknown");
+        return;
+      }
+      setSuggestedTemplate(data.suggestion.template || "");
+      setSuggestedSystem(data.suggestion.system || "");
+      console.log("[ai-prompt-detail] got suggestion");
+    } finally {
+      setReviseBusy(false);
+    }
+  };
+
+  const handleAcceptSuggestion = async (activate: boolean) => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    const template = suggestedTemplate().trim();
+    const system = suggestedSystem().trim();
+    if (!template) return;
+    setReviseBusy(true);
+    try {
+      const res = await apiFetch(`/api/prompts/${id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template,
+          system: system || undefined,
+          activate,
+        }),
+      });
+      console.log("[ai-prompt-detail] accept suggestion status", res.status);
+      await prompt.refetch?.();
+      setSuggestedTemplate("");
+      setSuggestedSystem("");
+      setFeedback("");
+    } finally {
+      setReviseBusy(false);
+    }
+  };
 
   return (
     <main class="min-h-screen bg-white">
@@ -126,6 +230,108 @@ const PromptDetailPage: VoidComponent = () => {
                             </Show>
                           </div>
                         )}
+                      </Show>
+                    </div>
+
+                    <div class="rounded border p-3">
+                      <div class="text-sm font-semibold mb-2">Edit → New Version</div>
+                      <Show when={p().activeVersion}>
+                        {() => (
+                          <>
+                            {/* Initialize edit fields from active on first view render */}
+                            {initEditFromActive()}
+                            <div class="space-y-2">
+                              <div class="text-xs text-gray-600">Template (Mustache)</div>
+                              <textarea
+                                class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
+                                value={editTemplate()}
+                                onInput={(e) => setEditTemplate((e.target as HTMLTextAreaElement).value)}
+                              />
+                            </div>
+                            <div class="mt-2 space-y-2">
+                              <div class="text-xs text-gray-600">System (optional)</div>
+                              <textarea
+                                class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
+                                value={editSystem()}
+                                onInput={(e) => setEditSystem((e.target as HTMLTextAreaElement).value)}
+                              />
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                              <button
+                                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                                disabled={editBusy()}
+                                onClick={() => handleCreateVersion(false)}
+                              >
+                                Save as New Version
+                              </button>
+                              <button
+                                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                                disabled={editBusy()}
+                                onClick={() => handleCreateVersion(true)}
+                              >
+                                Save & Activate
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </Show>
+                    </div>
+
+                    <div class="rounded border p-3">
+                      <div class="text-sm font-semibold mb-2">Revise with Feedback (LLM)</div>
+                      <div class="space-y-2">
+                        <div class="text-xs text-gray-600">Feedback</div>
+                        <textarea
+                          class="border rounded px-2 py-1 text-xs w-full h-24"
+                          placeholder="Describe what to improve. E.g., 'Make headings consistent, add examples, keep {{selection}} intact.'"
+                          value={feedback()}
+                          onInput={(e) => setFeedback((e.target as HTMLTextAreaElement).value)}
+                        />
+                        <div>
+                          <button
+                            class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                            disabled={reviseBusy()}
+                            onClick={handleRevise}
+                          >
+                            Generate Suggestion
+                          </button>
+                        </div>
+                      </div>
+                      <Show when={suggestedTemplate().length > 0}>
+                        <div class="mt-3 space-y-2">
+                          <div class="text-xs text-gray-600">Suggested Template</div>
+                          <textarea
+                            class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
+                            value={suggestedTemplate()}
+                            onInput={(e) =>
+                              setSuggestedTemplate((e.target as HTMLTextAreaElement).value)
+                            }
+                          />
+                          <div class="text-xs text-gray-600">Suggested System (optional)</div>
+                          <textarea
+                            class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
+                            value={suggestedSystem()}
+                            onInput={(e) =>
+                              setSuggestedSystem((e.target as HTMLTextAreaElement).value)
+                            }
+                          />
+                          <div class="flex gap-2">
+                            <button
+                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                              disabled={reviseBusy()}
+                              onClick={() => handleAcceptSuggestion(false)}
+                            >
+                              Accept → New Version
+                            </button>
+                            <button
+                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                              disabled={reviseBusy()}
+                              onClick={() => handleAcceptSuggestion(true)}
+                            >
+                              Accept → New Version & Activate
+                            </button>
+                          </div>
+                        </div>
                       </Show>
                     </div>
 
