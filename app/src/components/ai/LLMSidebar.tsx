@@ -7,12 +7,14 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
+import type { Accessor } from "solid-js";
 import SidePanel from "~/components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "~/components/TiptapEditor";
 import { createStore } from "solid-js/store";
 import type { Editor } from "@tiptap/core";
 import { useToasts } from "~/components/Toast";
+import { isServer } from "solid-js/web";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 type ChatMessageRole = "user" | "assistant";
@@ -107,6 +109,7 @@ export function useLLMSidebar() {
   const stepMs = 10000;
 
   const schedulePoll = () => {
+    if (isServer) return;
     if (destroyed) return;
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = window.setTimeout(runPoll, pollDelayMs);
@@ -260,15 +263,17 @@ export function useLLMSidebar() {
     await Promise.all([refetchThread(), refetchThreads()]);
   };
 
+  // Pass accessors to keep the view reactive without remounting on polls
   const view = (
     <LLMSidebarView
-      open={open()}
+      open={open}
       onClose={() => setOpen(false)}
-      threads={threads.latest || []}
-      selectedId={selectedId()}
+      threads={() => threads.latest || []}
+      selectedId={selectedId}
       onSelect={(id) => setSelectedId(id)}
-      thread={thread()}
+      thread={() => thread.latest}
       onRefresh={() => {
+        console.log("[LLMSidebar] Manual refresh clicked");
         void refetchThreads();
         void refetchThread();
       }}
@@ -289,12 +294,12 @@ export function useLLMSidebar() {
 }
 
 function LLMSidebarView(props: {
-  open: boolean;
+  open: Accessor<boolean>;
   onClose: () => void;
-  threads: ThreadPreview[];
-  selectedId?: string;
+  threads: Accessor<ThreadPreview[]>;
+  selectedId: Accessor<string | undefined>;
   onSelect: (id: string) => void;
-  thread?: ThreadDetail;
+  thread: Accessor<ThreadDetail | undefined>;
   onRefresh: () => void;
   onCreateThread: (noteId: string, title?: string) => Promise<void>;
   onSend: (text: string) => Promise<void>;
@@ -341,6 +346,7 @@ function LLMSidebarView(props: {
       }, 1200);
     } catch (e) {
       console.log("[LLMSidebar] Send failed", e);
+
       setSendPhase("error");
       setTimeout(() => {
         setSendPhase("idle");
@@ -352,7 +358,7 @@ function LLMSidebarView(props: {
 
   // Reset message state when switching threads
   createEffect(() => {
-    const th = props.thread;
+    const th = props.thread();
     if (!th) return;
     const next: Record<
       string,
@@ -371,7 +377,7 @@ function LLMSidebarView(props: {
 
   return (
     <SidePanel
-      open={props.open}
+      open={props.open()}
       onClose={props.onClose}
       ariaLabel="LLM Chat Sidebar"
       class="w-[min(96vw,1000px)]"
@@ -415,11 +421,11 @@ function LLMSidebarView(props: {
             <Suspense
               fallback={<div class="p-3 text-sm text-gray-500">Loading…</div>}
             >
-              <For each={props.threads}>
+              <For each={props.threads()}>
                 {(t) => (
                   <button
                     class={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
-                      props.selectedId === t.id ? "bg-blue-50" : ""
+                      props.selectedId() === t.id ? "bg-blue-50" : ""
                     }`}
                     onClick={() => props.onSelect(t.id)}
                   >
@@ -458,7 +464,7 @@ function LLMSidebarView(props: {
         <div class="flex-1 flex flex-col bg-white">
           <div class="p-3 border-b">
             <Show
-              when={props.thread}
+              when={props.thread()}
               fallback={<div class="text-sm text-gray-500">Select a chat</div>}
             >
               {(th) => (
@@ -486,7 +492,7 @@ function LLMSidebarView(props: {
                 <div class="text-sm text-gray-500">Loading messages…</div>
               }
             >
-              <Show when={props.thread}>
+              <Show when={props.thread()}>
                 {(th) => (
                   <For each={th().messages}>
                     {(m) => (
