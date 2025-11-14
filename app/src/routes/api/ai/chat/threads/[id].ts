@@ -34,4 +34,39 @@ export async function GET(event: APIEvent) {
   return json({ item: thread });
 }
 
+export async function PATCH(event: APIEvent) {
+  try {
+    const userId = getUserIdFromRequest(event.request);
+    const id = event.params.id!;
+    const body = await event.request.json().catch(() => ({}));
+    const hasUnread =
+      typeof body?.hasUnread === "boolean"
+        ? (body.hasUnread as boolean)
+        : undefined;
+    const status =
+      typeof body?.status === "string"
+        ? (body.status as "ACTIVE" | "LOADING" | "DONE")
+        : undefined;
 
+    const thread = await prisma.chatThread.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+    if (!thread) return json({ error: "Not found" }, { status: 404 });
+
+    const data: Record<string, unknown> = {};
+    if (typeof hasUnread === "boolean") data.hasUnread = hasUnread;
+    if (status) data.status = status;
+    if (Object.keys(data).length === 0) {
+      return json({ error: "No valid fields" }, { status: 400 });
+    }
+    const updated = await prisma.chatThread.update({
+      where: { id: thread.id },
+      data: { ...data, updatedAt: new Date() },
+    });
+    return json({ item: updated });
+  } catch (e) {
+    const msg = (e as Error)?.message || "Invalid request";
+    return json({ error: msg }, { status: 400 });
+  }
+}

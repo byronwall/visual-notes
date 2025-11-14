@@ -11,6 +11,7 @@ import Navbar from "~/components/Navbar";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { createEffect } from "solid-js";
+import { ToastProvider, ToastViewport } from "~/components/Toast";
 
 export default function App() {
   const queryClient = new QueryClient();
@@ -22,11 +23,14 @@ export default function App() {
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
-                <Suspense fallback={null}>
-                  <AuthGate>
-                    <Suspense>{props.children}</Suspense>
-                  </AuthGate>
-                </Suspense>
+                <ToastProvider>
+                  <Suspense fallback={null}>
+                    <AuthGate>
+                      <Suspense>{props.children}</Suspense>
+                    </AuthGate>
+                  </Suspense>
+                  <ToastViewport />
+                </ToastProvider>
               </MagicAuthProvider>
             </QueryClientProvider>
           </SessionProvider>

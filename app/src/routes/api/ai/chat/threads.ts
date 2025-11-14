@@ -34,6 +34,7 @@ export async function GET(event: APIEvent) {
     id: t.id,
     title: t.title,
     status: t.status,
+    hasUnread: t.hasUnread,
     noteId: t.noteId,
     lastMessageAt: t.lastMessageAt,
     updatedAt: t.updatedAt,

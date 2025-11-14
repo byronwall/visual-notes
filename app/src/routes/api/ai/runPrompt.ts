@@ -159,48 +159,7 @@ export async function POST(event: APIEvent) {
       selection_text_len: (vars.selection_text as string)?.length || 0,
     });
 
-    const { output, raw } = await callLLM({
-      system: systemUsed,
-      user: compiledUser,
-      model,
-      temperature,
-      top_p,
-      noteId: input.noteId,
-    });
-
-    const outputHtml = output
-      ? sanitizeHtmlContent(
-          looksLikeMarkdown(output) ? normalizeMarkdownToHtml(output) : output
-        )
-      : null;
-
-    // Debug: check if compiled prompt contains selection_text
-    try {
-      const sel = (vars.selection_text as string) || "";
-      const contains = sel ? compiledUser.includes(sel) : false;
-      console.log("[api/ai/runPrompt] compiled contains selection_text:", {
-        contains,
-        sel_len: sel.length,
-      });
-    } catch {}
-
-    const run = await prisma.promptRun.create({
-      data: {
-        promptVersionId: version.id,
-        model,
-        inputVars: vars as any,
-        compiledPrompt: compiledUser,
-        systemUsed: systemUsed ?? null,
-        noteId: input.noteId ?? null,
-        outputHtml,
-        rawResponse: raw as any,
-        status: output ? "SUCCESS" : "ERROR",
-        error: output ? null : "empty output",
-      },
-      select: { id: true },
-    });
-
-    // Create a chat thread + messages when we have a noteId
+    // If linked to a note, immediately create a chat thread in LOADING state and return.
     let threadId: string | undefined = undefined;
     if (input.noteId) {
       // Title preference: Prompt task if available, else first 40 chars of selection or compiled prompt
@@ -220,17 +179,18 @@ export async function POST(event: APIEvent) {
           title = `Prompt run`;
         }
       }
-      const thread = await prisma.chatThread.create({
+      const created = await prisma.chatThread.create({
         data: {
           userId,
           noteId: input.noteId,
           title,
-          status: "DONE",
+          status: "LOADING",
+          hasUnread: false,
           lastMessageAt: new Date(),
         },
+        select: { id: true },
       });
-      threadId = thread.id;
-      // Store user message as compiled prompt for transparency
+      threadId = created.id;
       const compiledHtml = sanitizeHtmlContent(
         looksLikeMarkdown(compiledUser)
           ? normalizeMarkdownToHtml(compiledUser)
@@ -238,30 +198,139 @@ export async function POST(event: APIEvent) {
       );
       await prisma.chatMessage.create({
         data: {
-          threadId: thread.id,
+          threadId: created.id,
           role: "user",
           contentHtml: compiledHtml,
         },
       });
-      await prisma.chatMessage.create({
-        data: {
-          threadId: thread.id,
-          role: "assistant",
-          contentHtml: outputHtml || "<p>(no response)</p>",
-        },
+
+      // Kick off background LLM run without blocking response
+      void (async () => {
+        try {
+          const { output, raw } = await callLLM({
+            system: systemUsed,
+            user: compiledUser,
+            model,
+            temperature,
+            top_p,
+            noteId: input.noteId,
+          });
+          const outputHtml =
+            output && output.trim().length
+              ? sanitizeHtmlContent(
+                  looksLikeMarkdown(output)
+                    ? normalizeMarkdownToHtml(output)
+                    : output
+                )
+              : "<p>(no response)</p>";
+          await prisma.chatMessage.create({
+            data: {
+              threadId: created.id,
+              role: "assistant",
+              contentHtml: outputHtml,
+            },
+          });
+          await prisma.chatThread.update({
+            where: { id: created.id },
+            data: { status: "DONE", hasUnread: true, lastMessageAt: new Date() },
+          });
+          await prisma.promptRun.create({
+            data: {
+              promptVersionId: version!.id,
+              model,
+              inputVars: vars as any,
+              compiledPrompt: compiledUser,
+              systemUsed: systemUsed ?? null,
+              noteId: input.noteId ?? null,
+              outputHtml,
+              rawResponse: raw as any,
+              status: output ? "SUCCESS" : "ERROR",
+              error: output ? null : "empty output",
+            },
+            select: { id: true },
+          });
+          console.log(
+            `[api/ai/runPrompt/bg] version=${version!.id} model=${model} ok=${!!output}`
+          );
+        } catch (e) {
+          console.log("[api/ai/runPrompt/bg] error", e);
+          try {
+            await prisma.chatMessage.create({
+              data: {
+                threadId: created.id,
+                role: "assistant",
+                contentHtml:
+                  "<p>There was an error generating a response. Please try again.</p>",
+              },
+            });
+            await prisma.chatThread.update({
+              where: { id: created.id },
+              data: { status: "DONE", hasUnread: true, lastMessageAt: new Date() },
+            });
+            await prisma.promptRun.create({
+              data: {
+                promptVersionId: version!.id,
+                model,
+                inputVars: vars as any,
+                compiledPrompt: compiledUser,
+                systemUsed: systemUsed ?? null,
+                noteId: input.noteId ?? null,
+                outputHtml: null,
+                rawResponse: null,
+                status: "ERROR",
+                error: (e as Error)?.message || "background error",
+              },
+              select: { id: true },
+            });
+          } catch {}
+        }
+      })();
+
+      // Respond immediately so UI can open the chat in pending state
+      return json({
+        threadId,
       });
     }
 
-    console.log(
-      `[api/ai/runPrompt] version=${version.id} model=${model} ok=${!!output}`
-    );
+    // Fallback (no noteId): run synchronously and return full data
+    const { output, raw } = await callLLM({
+      system: systemUsed,
+      user: compiledUser,
+      model,
+      temperature,
+      top_p,
+      noteId: input.noteId,
+    });
+    const outputHtml =
+      output && output.trim().length
+        ? sanitizeHtmlContent(
+            looksLikeMarkdown(output)
+              ? normalizeMarkdownToHtml(output)
+              : output
+          )
+        : null;
+    const run = await prisma.promptRun.create({
+      data: {
+        promptVersionId: version.id,
+        model,
+        inputVars: vars as any,
+        compiledPrompt: compiledUser,
+        systemUsed: systemUsed ?? null,
+        noteId: input.noteId ?? null,
+        outputHtml,
+        rawResponse: raw as any,
+        status: output ? "SUCCESS" : "ERROR",
+        error: output ? null : "empty output",
+      },
+      select: { id: true },
+    });
     return json({
       runId: run.id,
       outputHtml,
       outputText: output,
       compiledPrompt: compiledUser,
       systemPrompt: systemUsed || null,
-      threadId: threadId || null,
+      threadId: null,
     });
   } catch (e) {
     const msg = (e as Error)?.message || "Invalid request";

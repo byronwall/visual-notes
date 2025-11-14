@@ -23,8 +23,7 @@ export async function POST(event: APIEvent) {
     const id = event.params.id!;
     const body = await event.request.json();
     const text = typeof body?.text === "string" ? body.text : "";
-    if (!text.trim())
-      return json({ error: "text required" }, { status: 400 });
+    if (!text.trim()) return json({ error: "text required" }, { status: 400 });
 
     const thread = await prisma.chatThread.findFirst({
       where: { id, userId },
@@ -62,7 +61,12 @@ export async function POST(event: APIEvent) {
         .replace(/<[^>]+>/g, "")
         .trim();
     const transcript = recent
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${toPlain(m.contentHtml)}`)
+      .map(
+        (m) =>
+          `${m.role === "user" ? "User" : "Assistant"}: ${toPlain(
+            m.contentHtml
+          )}`
+      )
       .join("\n\n");
 
     const { output } = await callLLM({
@@ -76,9 +80,7 @@ export async function POST(event: APIEvent) {
     const html =
       output && output.trim().length
         ? sanitizeHtmlContent(
-            looksLikeMarkdown(output)
-              ? normalizeMarkdownToHtml(output)
-              : output
+            looksLikeMarkdown(output) ? normalizeMarkdownToHtml(output) : output
           )
         : "<p>(no response)</p>";
 
@@ -92,7 +94,7 @@ export async function POST(event: APIEvent) {
 
     await prisma.chatThread.update({
       where: { id: thread.id },
-      data: { status: "DONE", lastMessageAt: new Date() },
+      data: { status: "DONE", hasUnread: true, lastMessageAt: new Date() },
     });
 
     return json({ userMessage: userMsg, assistantMessage: assistantMsg });
@@ -101,5 +103,3 @@ export async function POST(event: APIEvent) {
     return json({ error: msg }, { status: 400 });
   }
 }
-
-

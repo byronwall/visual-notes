@@ -302,6 +302,7 @@ model ChatThread {
   noteId        String
   title         String
   status        ChatThreadStatus @default(ACTIVE)
+  hasUnread     Boolean          @default(false)
   lastMessageAt DateTime         @default(now())
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt

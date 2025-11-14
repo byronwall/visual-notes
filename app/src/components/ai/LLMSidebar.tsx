@@ -12,6 +12,7 @@ import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "~/components/TiptapEditor";
 import { createStore } from "solid-js/store";
 import type { Editor } from "@tiptap/core";
+import { useToasts } from "~/components/Toast";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 type ChatMessageRole = "user" | "assistant";
@@ -20,6 +21,7 @@ type ThreadPreview = {
   id: string;
   title: string;
   status: ChatThreadStatus;
+  hasUnread: boolean;
   noteId: string;
   lastMessageAt: string;
   updatedAt: string;
@@ -44,6 +46,7 @@ type ThreadDetail = {
   id: string;
   title: string;
   status: ChatThreadStatus;
+  hasUnread: boolean;
   noteId: string;
   lastMessageAt: string;
   createdAt: string;
@@ -77,10 +80,49 @@ export function useLLMSidebar() {
     selectedId,
     fetchThread
   );
+  const { show: showToast } = useToasts();
+  const [lastKnown, setLastKnown] = createStore<
+    Record<string, { status: ChatThreadStatus; lastMessageAt: string }>
+  >({});
+
+  const hasUnreadAny = () => {
+    const list = threads();
+    if (!list) return false;
+    return list.some((t) => t.hasUnread);
+  };
+  const hasLoadingAny = () => {
+    const list = threads();
+    if (!list) return false;
+    return list.some((t) => t.status === "LOADING");
+  };
+
+  // Adaptive polling with backoff:
+  // - Start at 10s
+  // - If no pending (LOADING) chats, back off by +10s up to 60s
+  // - If a new request comes in, reset to 10s
+  let pollDelayMs = 10000;
+  let pollTimer: number | undefined;
+  let destroyed = false;
+  const maxDelayMs = 60000;
+  const stepMs = 10000;
+
+  const schedulePoll = () => {
+    if (destroyed) return;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = window.setTimeout(runPoll, pollDelayMs);
+  };
+
+  function resetPolling() {
+    pollDelayMs = 10000;
+    console.log("[LLMSidebar] Poll delay reset to 10s");
+    schedulePoll();
+  }
 
   const openSidebar = (threadId?: string) => {
     if (threadId) setSelectedId(threadId);
     setOpen(true);
+    // Opening sidebar often follows a new request; reset polling
+    resetPolling();
   };
   const closeSidebar = () => setOpen(false);
 
@@ -99,8 +141,90 @@ export function useLLMSidebar() {
       setSelectedId(data.item.id);
       await refetchThread();
       setOpen(true);
+      // Reset polling on new request
+      resetPolling();
     }
   };
+
+  const runPoll = async () => {
+    try {
+      const list = await fetchThreads();
+      for (const t of list) {
+        const prev = lastKnown[t.id];
+        if (!prev) {
+          setLastKnown(t.id, {
+            status: t.status,
+            lastMessageAt: t.lastMessageAt,
+          });
+          continue;
+        }
+        const statusChanged = prev.status !== t.status;
+        const lastChanged = prev.lastMessageAt !== t.lastMessageAt;
+        setLastKnown(t.id, {
+          status: t.status,
+          lastMessageAt: t.lastMessageAt,
+        });
+        if (
+          (statusChanged || lastChanged) &&
+          t.status === "DONE" &&
+          t.hasUnread &&
+          !open()
+        ) {
+          console.log("[LLMSidebar] Chat updated", {
+            id: t.id,
+            title: t.title,
+          });
+          showToast({
+            title: "Chat updated",
+            message: t.title,
+            onClick: () => openSidebar(t.id),
+          });
+        }
+      }
+      await refetchThreads();
+      if (selectedId()) {
+        await refetchThread();
+      }
+      const hasPending = list.some((t) => t.status === "LOADING");
+      if (hasPending) {
+        pollDelayMs = 10000;
+      } else {
+        pollDelayMs = Math.min(pollDelayMs + stepMs, maxDelayMs);
+      }
+      console.log(
+        "[LLMSidebar] Next poll in",
+        Math.round(pollDelayMs / 1000),
+        "s"
+      );
+    } catch (e) {
+      console.log("[LLMSidebar] Poll error", e);
+      // On error, try again after current delay without changing it
+    } finally {
+      schedulePoll();
+    }
+  };
+  schedulePoll();
+  onCleanup(() => {
+    destroyed = true;
+    if (pollTimer) clearTimeout(pollTimer);
+  });
+
+  // Mark unread as read when viewing an open thread that has unread
+  createEffect(() => {
+    const th = thread();
+    if (!th) return;
+    if (open() && th.hasUnread) {
+      console.log("[LLMSidebar] Marking thread read", th.id);
+      void apiFetch(`/api/ai/chat/threads/${th.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hasUnread: false }),
+      }).then(() => {
+        void refetchThreads();
+        void refetchThread();
+      });
+    }
+  });
 
   const sendMessage = async (text: string) => {
     const id = selectedId();
@@ -113,6 +237,8 @@ export function useLLMSidebar() {
     });
     const _ = await res.json();
     await Promise.all([refetchThread(), refetchThreads()]);
+    // Reset polling on new message
+    resetPolling();
   };
 
   const saveAssistantEdit = async (msgId: string, contentHtml: string) => {
@@ -138,7 +264,7 @@ export function useLLMSidebar() {
     <LLMSidebarView
       open={open()}
       onClose={() => setOpen(false)}
-      threads={threads() || []}
+      threads={threads.latest || []}
       selectedId={selectedId()}
       onSelect={(id) => setSelectedId(id)}
       thread={thread()}
@@ -153,7 +279,13 @@ export function useLLMSidebar() {
     />
   );
 
-  return { open: openSidebar, close: closeSidebar, view };
+  return {
+    open: openSidebar,
+    close: closeSidebar,
+    view,
+    hasUnreadAny,
+    hasLoadingAny,
+  };
 }
 
 function LLMSidebarView(props: {
@@ -294,6 +426,9 @@ function LLMSidebarView(props: {
                     <div class="flex items-center gap-2">
                       <Show when={t.status === "LOADING"}>
                         <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                      </Show>
+                      <Show when={t.hasUnread}>
+                        <span class="inline-block h-2 w-2 rounded-full bg-blue-600" />
                       </Show>
                       <div class="font-medium truncate">{t.title}</div>
                     </div>

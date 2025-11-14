@@ -1,12 +1,17 @@
 import type { VoidComponent } from "solid-js";
-import { createSignal, onMount } from "solid-js";
+import { Show, createSignal, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
 
 const Navbar: VoidComponent = () => {
   const { authed, logout } = useMagicAuth();
-  const { open: openLLM, view: llmSidebarView } = useLLMSidebar();
+  const {
+    open: openLLM,
+    view: llmSidebarView,
+    hasUnreadAny,
+    hasLoadingAny,
+  } = useLLMSidebar();
   const handleLogout = async () => {
     await logout();
   };
@@ -55,8 +60,21 @@ const Navbar: VoidComponent = () => {
             <a href="/ai" class="hover:underline">
               AI
             </a>
-            <button class="hover:underline" onClick={() => openLLM()}>
-              Chat
+            <button
+              class="hover:underline relative inline-flex items-center gap-1"
+              onClick={() => openLLM()}
+            >
+              <span>Chat</span>
+              {/* Prefer unread over loading */}
+              <span class="relative inline-flex">
+                <span class="sr-only">Chat status</span>
+                <Show when={hasUnreadAny()}>
+                  <span class="ml-1 inline-block h-2 w-2 rounded-full bg-blue-600" />
+                </Show>
+                <Show when={!hasUnreadAny() && hasLoadingAny()}>
+                  <span class="ml-1 inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                </Show>
+              </span>
             </button>
           </div>
         </div>
