@@ -265,23 +265,25 @@ export function useLLMSidebar() {
 
   // Pass accessors to keep the view reactive without remounting on polls
   const view = (
-    <LLMSidebarView
-      open={open}
-      onClose={() => setOpen(false)}
-      threads={() => threads.latest || []}
-      selectedId={selectedId}
-      onSelect={(id) => setSelectedId(id)}
-      thread={() => thread.latest}
-      onRefresh={() => {
-        console.log("[LLMSidebar] Manual refresh clicked");
-        void refetchThreads();
-        void refetchThread();
-      }}
-      onCreateThread={createThread}
-      onSend={sendMessage}
-      onSaveEdit={saveAssistantEdit}
-      onDeleteMessage={deleteMessage}
-    />
+    <Suspense fallback={<div>Loading…</div>}>
+      <LLMSidebarView
+        open={open}
+        onClose={() => setOpen(false)}
+        threads={() => threads.latest || []}
+        selectedId={selectedId}
+        onSelect={(id) => setSelectedId(id)}
+        thread={() => thread.latest}
+        onRefresh={() => {
+          console.log("[LLMSidebar] Manual refresh clicked");
+          void refetchThreads();
+          void refetchThread();
+        }}
+        onCreateThread={createThread}
+        onSend={sendMessage}
+        onSaveEdit={saveAssistantEdit}
+        onDeleteMessage={deleteMessage}
+      />
+    </Suspense>
   );
 
   return {

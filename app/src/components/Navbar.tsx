@@ -1,5 +1,5 @@
 import type { VoidComponent } from "solid-js";
-import { Show, createSignal, onMount } from "solid-js";
+import { Show, Suspense, createSignal, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -66,15 +66,18 @@ const Navbar: VoidComponent = () => {
             >
               <span>Chat</span>
               {/* Prefer unread over loading */}
-              <span class="relative inline-flex">
-                <span class="sr-only">Chat status</span>
-                <Show when={hasUnreadAny()}>
-                  <span class="ml-1 inline-block h-2 w-2 rounded-full bg-blue-600" />
-                </Show>
-                <Show when={!hasUnreadAny() && hasLoadingAny()}>
-                  <span class="ml-1 inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                </Show>
-              </span>
+              <Suspense>
+                {/* suspense needed since hasUnreadAny and hasLoadingAny depend on resources */}
+                <span class="relative inline-flex">
+                  <span class="sr-only">Chat status</span>
+                  <Show when={hasUnreadAny()}>
+                    <span class="ml-1 inline-block h-2 w-2 rounded-full bg-blue-600" />
+                  </Show>
+                  <Show when={!hasUnreadAny() && hasLoadingAny()}>
+                    <span class="ml-1 inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  </Show>
+                </span>
+              </Suspense>
             </button>
           </div>
         </div>
