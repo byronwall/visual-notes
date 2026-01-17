@@ -6,7 +6,11 @@ export type Btn = {
   title: string;
   isActive?: (e: Editor) => boolean;
   run: (ch: Chain) => Chain;
-  class?: string;
+  labelStyle?: {
+    fontWeight?: "regular" | "medium" | "semibold" | "bold";
+    fontStyle?: "normal" | "italic";
+    textDecoration?: "none" | "line-through";
+  };
   label: string;
 };
 
@@ -15,7 +19,7 @@ export const blocks: Btn[] = [
     name: "paragraph",
     title: "Paragraph",
     label: "P",
-    class: "font-bold",
+    labelStyle: { fontWeight: "semibold" },
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
       (ch as unknown as any).setParagraph();
@@ -26,7 +30,7 @@ export const blocks: Btn[] = [
     name: "heading",
     title: "Heading 1",
     label: "H1",
-    class: "font-bold",
+    labelStyle: { fontWeight: "semibold" },
     isActive: (e) => e.isActive("heading", { level: 1 }),
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
@@ -38,7 +42,7 @@ export const blocks: Btn[] = [
     name: "heading",
     title: "Heading 2",
     label: "H2",
-    class: "font-bold",
+    labelStyle: { fontWeight: "semibold" },
     isActive: (e) => e.isActive("heading", { level: 2 }),
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
@@ -53,7 +57,7 @@ export const marks: Btn[] = [
     name: "bold",
     title: "Bold",
     label: "B",
-    class: "font-bold",
+    labelStyle: { fontWeight: "semibold" },
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
       (ch as unknown as any).toggleBold();
@@ -64,7 +68,7 @@ export const marks: Btn[] = [
     name: "italic",
     title: "Italic",
     label: "I",
-    class: "italic",
+    labelStyle: { fontStyle: "italic" },
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
       (ch as unknown as any).toggleItalic();
@@ -75,7 +79,7 @@ export const marks: Btn[] = [
     name: "strike",
     title: "Strike Through",
     label: "S",
-    class: "line-through",
+    labelStyle: { textDecoration: "line-through" },
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
       (ch as unknown as any).toggleStrike();

@@ -2,11 +2,21 @@ import {
   type VoidComponent,
   For,
   Show,
+  Suspense,
   createResource,
-  createSignal,
 } from "solid-js";
-import { A } from "@solidjs/router";
+import { createStore } from "solid-js/store";
+import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
+import { Button } from "~/components/ui/button";
+import * as Checkbox from "~/components/ui/checkbox";
+import { Heading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
+import { Link } from "~/components/ui/link";
+import { Text } from "~/components/ui/text";
+import * as Select from "~/components/ui/select";
+import * as Table from "~/components/ui/table";
+import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 
 type EmbeddingRun = {
   id: string;
@@ -38,265 +48,445 @@ async function triggerEmbeddingRun(
   return (await res.json()) as { runId: string; count: number };
 }
 
+type CodeblockPolicy = "stub" | "keep-first-20-lines" | "full";
+type ChunkerMode = "structure" | "sliding";
+
+type SelectItem = { label: string; value: string };
+
+const CODEBLOCK_ITEMS: SelectItem[] = [
+  { label: "stub", value: "stub" },
+  { label: "keep-first-20-lines", value: "keep-first-20-lines" },
+  { label: "full", value: "full" },
+];
+
+const CHUNKER_MODE_ITEMS: SelectItem[] = [
+  { label: "structure", value: "structure" },
+  { label: "sliding", value: "sliding" },
+];
+
+function parseCodeblockPolicy(v: string): CodeblockPolicy {
+  if (v === "full") return "full";
+  if (v === "keep-first-20-lines") return "keep-first-20-lines";
+  return "stub";
+}
+
+function parseChunkerMode(v: string): ChunkerMode {
+  return v === "sliding" ? "sliding" : "structure";
+}
+
 const EmbeddingsIndex: VoidComponent = () => {
   const [runs, { refetch }] = createResource(listEmbeddingRuns);
-  const [creating, setCreating] = createSignal(false);
-  const [model, setModel] = createSignal("");
-  const [showAdvanced, setShowAdvanced] = createSignal(false);
-  // Preprocess flags
-  const [stripDataUris, setStripDataUris] = createSignal(true);
-  const [mdToPlain, setMdToPlain] = createSignal(true);
-  const [stripBareUrls, setStripBareUrls] = createSignal(true);
-  const [normalizeWs, setNormalizeWs] = createSignal(true);
-  const [keepOutline, setKeepOutline] = createSignal(true);
-  const [codeblockPolicy, setCodeblockPolicy] = createSignal<
-    "stub" | "keep-first-20-lines" | "full"
-  >("stub");
-  // Chunker config
-  const [chunkerMode, setChunkerMode] = createSignal<"structure" | "sliding">(
-    "structure"
-  );
-  const [minTokens, setMinTokens] = createSignal(100);
-  const [maxTokens, setMaxTokens] = createSignal(400);
-  const [winSize, setWinSize] = createSignal(384);
-  const [winOverlap, setWinOverlap] = createSignal(48);
+  const [state, setState] = createStore({
+    creating: false,
+    model: "",
+    showAdvanced: false,
+    // Preprocess flags
+    stripDataUris: true,
+    mdToPlain: true,
+    stripBareUrls: true,
+    normalizeWs: true,
+    keepOutline: true,
+    codeblockPolicy: "stub" as CodeblockPolicy,
+    // Chunker config
+    chunkerMode: "structure" as ChunkerMode,
+    minTokens: 100,
+    maxTokens: 400,
+    winSize: 384,
+    winOverlap: 48,
+  });
+
+  const handleToggleAdvanced = () => {
+    setState("showAdvanced", !state.showAdvanced);
+  };
+
+  const handleCreateRun = async () => {
+    try {
+      setState("creating", true);
+      const params = {
+        PREPROCESS_STRIP_DATA_URIS: state.stripDataUris,
+        PREPROCESS_MARKDOWN_TO_PLAIN: state.mdToPlain,
+        PREPROCESS_STRIP_BARE_URLS: state.stripBareUrls,
+        PREPROCESS_CODEBLOCK_POLICY: state.codeblockPolicy,
+        PREPROCESS_NORMALIZE_WHITESPACE: state.normalizeWs,
+        PREPROCESS_KEEP_OUTLINE: state.keepOutline,
+        CHUNKER_MODE: state.chunkerMode,
+        CHUNK_MIN_MAX_TOKENS:
+          state.chunkerMode === "sliding"
+            ? { size: state.winSize, overlap: state.winOverlap }
+            : { min: state.minTokens, max: state.maxTokens },
+      } as Record<string, unknown>;
+
+      console.log("[EmbeddingsIndex] createRun", {
+        model: state.model || undefined,
+        params,
+      });
+
+      await triggerEmbeddingRun(state.model || undefined, params);
+      await refetch();
+      setState("model", "");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to start embedding run");
+    } finally {
+      setState("creating", false);
+    }
+  };
 
   return (
-    <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-6">
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold">Embeddings</h1>
-          <div class="flex items-center gap-2">
-            <input
-              value={model()}
-              onInput={(e) => setModel(e.currentTarget.value)}
-              placeholder="Model (optional)"
-              class="border border-gray-300 rounded px-2 py-1 text-sm"
-            />
-            <button
-              class="px-2 py-1 rounded border text-sm"
-              onClick={() => setShowAdvanced(!showAdvanced())}
-            >
-              {showAdvanced() ? "Hide Advanced" : "Advanced"}
-            </button>
-            <button
-              class="cta"
-              disabled={creating()}
-              onClick={async () => {
-                try {
-                  setCreating(true);
-                  const params = {
-                    PREPROCESS_STRIP_DATA_URIS: stripDataUris(),
-                    PREPROCESS_MARKDOWN_TO_PLAIN: mdToPlain(),
-                    PREPROCESS_STRIP_BARE_URLS: stripBareUrls(),
-                    PREPROCESS_CODEBLOCK_POLICY: codeblockPolicy(),
-                    PREPROCESS_NORMALIZE_WHITESPACE: normalizeWs(),
-                    PREPROCESS_KEEP_OUTLINE: keepOutline(),
-                    CHUNKER_MODE: chunkerMode(),
-                    CHUNK_MIN_MAX_TOKENS:
-                      chunkerMode() === "sliding"
-                        ? { size: winSize(), overlap: winOverlap() }
-                        : { min: minTokens(), max: maxTokens() },
-                  } as Record<string, unknown>;
-                  await triggerEmbeddingRun(model() || undefined, params);
-                  await refetch();
-                  setModel("");
-                } catch (e) {
-                  console.error(e);
-                  alert("Failed to start embedding run");
-                } finally {
-                  setCreating(false);
-                }
-              }}
-            >
-              {creating() ? "Creating…" : "Create Run"}
-            </button>
-          </div>
-        </div>
+    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
+      <Container py="4" px="4" maxW="1200px">
+        <Stack gap="6">
+          <Flex align="center" justify="space-between" gap="4" flexWrap="wrap">
+            <Heading as="h1" fontSize="2xl">
+              Embeddings
+            </Heading>
 
-        <Show when={showAdvanced()}>
-          <div class="rounded border border-gray-200 p-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <div class="font-medium mb-2">Preprocessing</div>
-              <label class="flex items-center gap-2 mb-1">
-                <input
-                  type="checkbox"
-                  checked={stripDataUris()}
-                  onInput={(e) => setStripDataUris(e.currentTarget.checked)}
-                />{" "}
-                Strip data URIs
-              </label>
-              <label class="flex items-center gap-2 mb-1">
-                <input
-                  type="checkbox"
-                  checked={mdToPlain()}
-                  onInput={(e) => setMdToPlain(e.currentTarget.checked)}
-                />{" "}
-                Markdown → plain
-              </label>
-              <label class="flex items-center gap-2 mb-1">
-                <input
-                  type="checkbox"
-                  checked={stripBareUrls()}
-                  onInput={(e) => setStripBareUrls(e.currentTarget.checked)}
-                />{" "}
-                Strip bare URLs
-              </label>
-              <label class="flex items-center gap-2 mb-1">
-                <input
-                  type="checkbox"
-                  checked={normalizeWs()}
-                  onInput={(e) => setNormalizeWs(e.currentTarget.checked)}
-                />{" "}
-                Normalize whitespace
-              </label>
-              <label class="flex items-center gap-2 mb-3">
-                <input
-                  type="checkbox"
-                  checked={keepOutline()}
-                  onInput={(e) => setKeepOutline(e.currentTarget.checked)}
-                />{" "}
-                Keep outline (H1→H3)
-              </label>
-              <div class="flex items-center gap-2">
-                <span>Code blocks</span>
-                <select
-                  value={codeblockPolicy()}
-                  onChange={(e) =>
-                    setCodeblockPolicy(e.currentTarget.value as any)
-                  }
-                  class="border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="stub">stub</option>
-                  <option value="keep-first-20-lines">
-                    keep-first-20-lines
-                  </option>
-                  <option value="full">full</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <div class="font-medium mb-2">Chunking</div>
-              <div class="flex items-center gap-2 mb-2">
-                <span>Mode</span>
-                <select
-                  value={chunkerMode()}
-                  onChange={(e) => setChunkerMode(e.currentTarget.value as any)}
-                  class="border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="structure">structure</option>
-                  <option value="sliding">sliding</option>
-                </select>
-              </div>
-              <Show when={chunkerMode() === "structure"}>
-                <div class="flex items-center gap-2 mb-2">
-                  <label>Min tokens</label>
-                  <input
-                    type="number"
-                    class="border rounded px-2 py-1 w-24"
-                    value={String(minTokens())}
-                    onInput={(e) =>
-                      setMinTokens(
-                        Math.max(1, Number(e.currentTarget.value) || 0)
-                      )
-                    }
-                  />
-                  <label>Max tokens</label>
-                  <input
-                    type="number"
-                    class="border rounded px-2 py-1 w-24"
-                    value={String(maxTokens())}
-                    onInput={(e) =>
-                      setMaxTokens(
-                        Math.max(
-                          minTokens(),
-                          Number(e.currentTarget.value) || 0
+            <HStack gap="3" flexWrap="wrap">
+              <Input
+                value={state.model}
+                onInput={(e) => setState("model", e.currentTarget.value)}
+                placeholder="Model (optional)"
+              />
+              <Button size="sm" variant="outline" onClick={handleToggleAdvanced}>
+                <Show when={state.showAdvanced} fallback={"Advanced"}>
+                  Hide Advanced
+                </Show>
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                colorPalette="green"
+                loading={state.creating}
+                onClick={handleCreateRun}
+              >
+                Create Run
+              </Button>
+            </HStack>
+          </Flex>
+
+          <Show when={state.showAdvanced}>
+            <Box
+              borderWidth="1px"
+              borderColor="border"
+              borderRadius="l2"
+              p="3"
+            >
+              <Grid
+                gridTemplateColumns={{
+                  base: "1fr",
+                  md: "repeat(2, minmax(0, 1fr))",
+                }}
+                gap="4"
+              >
+                <Stack gap="3">
+                  <Heading as="h2" fontSize="sm">
+                    Preprocessing
+                  </Heading>
+
+                  <HStack gap="2">
+                    <Checkbox.Root
+                      checked={state.stripDataUris}
+                      onCheckedChange={(details) =>
+                        setState("stripDataUris", details.checked === true)
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Root>
+                    <Text textStyle="sm">Strip data URIs</Text>
+                  </HStack>
+
+                  <HStack gap="2">
+                    <Checkbox.Root
+                      checked={state.mdToPlain}
+                      onCheckedChange={(details) =>
+                        setState("mdToPlain", details.checked === true)
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Root>
+                    <Text textStyle="sm">Markdown → plain</Text>
+                  </HStack>
+
+                  <HStack gap="2">
+                    <Checkbox.Root
+                      checked={state.stripBareUrls}
+                      onCheckedChange={(details) =>
+                        setState("stripBareUrls", details.checked === true)
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Root>
+                    <Text textStyle="sm">Strip bare URLs</Text>
+                  </HStack>
+
+                  <HStack gap="2">
+                    <Checkbox.Root
+                      checked={state.normalizeWs}
+                      onCheckedChange={(details) =>
+                        setState("normalizeWs", details.checked === true)
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Root>
+                    <Text textStyle="sm">Normalize whitespace</Text>
+                  </HStack>
+
+                  <HStack gap="2">
+                    <Checkbox.Root
+                      checked={state.keepOutline}
+                      onCheckedChange={(details) =>
+                        setState("keepOutline", details.checked === true)
+                      }
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Root>
+                    <Text textStyle="sm">Keep outline (H1→H3)</Text>
+                  </HStack>
+
+                  <Stack gap="1">
+                    <Text textStyle="sm" fontWeight="medium">
+                      Code blocks
+                    </Text>
+                    <Select.Root<SelectItem>
+                      collection={Select.createListCollection<SelectItem>({
+                        items: CODEBLOCK_ITEMS,
+                      })}
+                      value={[state.codeblockPolicy]}
+                      onValueChange={(details) =>
+                        setState(
+                          "codeblockPolicy",
+                          parseCodeblockPolicy(details.value[0] ?? "")
                         )
-                      )
-                    }
-                  />
-                </div>
-              </Show>
-              <Show when={chunkerMode() === "sliding"}>
-                <div class="flex items-center gap-2 mb-2">
-                  <label>Window size</label>
-                  <input
-                    type="number"
-                    class="border rounded px-2 py-1 w-28"
-                    value={String(winSize())}
-                    onInput={(e) =>
-                      setWinSize(
-                        Math.max(32, Number(e.currentTarget.value) || 0)
-                      )
-                    }
-                  />
-                  <label>Overlap</label>
-                  <input
-                    type="number"
-                    class="border rounded px-2 py-1 w-24"
-                    value={String(winOverlap())}
-                    onInput={(e) =>
-                      setWinOverlap(
-                        Math.max(0, Number(e.currentTarget.value) || 0)
-                      )
-                    }
-                  />
-                </div>
-              </Show>
-            </div>
-          </div>
-        </Show>
+                      }
+                      positioning={{ sameWidth: true }}
+                    >
+                      <Select.Control>
+                        <Select.Trigger>
+                          <Select.ValueText placeholder="Pick policy" />
+                          <Select.Indicator />
+                        </Select.Trigger>
+                      </Select.Control>
+                      <Portal>
+                        <Select.Positioner>
+                          <Select.Content>
+                            <Select.List>
+                              <For each={CODEBLOCK_ITEMS}>
+                                {(item) => (
+                                  <Select.Item item={item}>
+                                    <Select.ItemText>
+                                      {item.label}
+                                    </Select.ItemText>
+                                    <Select.ItemIndicator />
+                                  </Select.Item>
+                                )}
+                              </For>
+                            </Select.List>
+                          </Select.Content>
+                        </Select.Positioner>
+                      </Portal>
+                      <Select.HiddenSelect />
+                    </Select.Root>
+                  </Stack>
+                </Stack>
 
-        <Show when={runs()} fallback={<p>Loading…</p>}>
-          {(items) => (
-            <div class="overflow-hidden rounded border border-gray-200">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="text-left p-2">Run</th>
-                    <th class="text-left p-2">Model</th>
-                    <th class="text-left p-2">Dims</th>
-                    <th class="text-left p-2">Notes</th>
-                    <th class="text-left p-2">Created</th>
-                    <th class="text-right p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={items()}>
-                    {(r) => (
-                      <tr class="border-t border-gray-200 hover:bg-gray-50">
-                        <td class="p-2">
-                          <A
-                            href={`/embeddings/${r.id}`}
-                            class="hover:underline"
-                          >
-                            {r.id.slice(0, 8)}
-                          </A>
-                        </td>
-                        <td class="p-2">{r.model}</td>
-                        <td class="p-2">{r.dims}</td>
-                        <td class="p-2">{r.count}</td>
-                        <td class="p-2">
-                          {new Date(r.createdAt).toLocaleString()}
-                        </td>
-                        <td class="p-2 text-right">
-                          <A
-                            href={`/embeddings/${r.id}`}
-                            class="text-blue-600 hover:underline"
-                          >
-                            View
-                          </A>
-                        </td>
-                      </tr>
-                    )}
-                  </For>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Show>
-      </div>
-    </main>
+                <Stack gap="3">
+                  <Heading as="h2" fontSize="sm">
+                    Chunking
+                  </Heading>
+
+                  <Stack gap="1">
+                    <Text textStyle="sm" fontWeight="medium">
+                      Mode
+                    </Text>
+                    <Select.Root<SelectItem>
+                      collection={Select.createListCollection<SelectItem>({
+                        items: CHUNKER_MODE_ITEMS,
+                      })}
+                      value={[state.chunkerMode]}
+                      onValueChange={(details) =>
+                        setState(
+                          "chunkerMode",
+                          parseChunkerMode(details.value[0] ?? "")
+                        )
+                      }
+                      positioning={{ sameWidth: true }}
+                    >
+                      <Select.Control>
+                        <Select.Trigger>
+                          <Select.ValueText placeholder="Pick mode" />
+                          <Select.Indicator />
+                        </Select.Trigger>
+                      </Select.Control>
+                      <Portal>
+                        <Select.Positioner>
+                          <Select.Content>
+                            <Select.List>
+                              <For each={CHUNKER_MODE_ITEMS}>
+                                {(item) => (
+                                  <Select.Item item={item}>
+                                    <Select.ItemText>
+                                      {item.label}
+                                    </Select.ItemText>
+                                    <Select.ItemIndicator />
+                                  </Select.Item>
+                                )}
+                              </For>
+                            </Select.List>
+                          </Select.Content>
+                        </Select.Positioner>
+                      </Portal>
+                      <Select.HiddenSelect />
+                    </Select.Root>
+                  </Stack>
+
+                  <Show when={state.chunkerMode === "structure"}>
+                    <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="3">
+                      <Stack gap="1">
+                        <Text textStyle="sm" fontWeight="medium">
+                          Min tokens
+                        </Text>
+                        <Input
+                          type="number"
+                          value={String(state.minTokens)}
+                          onInput={(e) =>
+                            setState(
+                              "minTokens",
+                              Math.max(1, Number(e.currentTarget.value) || 0)
+                            )
+                          }
+                        />
+                      </Stack>
+                      <Stack gap="1">
+                        <Text textStyle="sm" fontWeight="medium">
+                          Max tokens
+                        </Text>
+                        <Input
+                          type="number"
+                          value={String(state.maxTokens)}
+                          onInput={(e) =>
+                            setState(
+                              "maxTokens",
+                              Math.max(
+                                state.minTokens,
+                                Number(e.currentTarget.value) || 0
+                              )
+                            )
+                          }
+                        />
+                      </Stack>
+                    </Grid>
+                  </Show>
+
+                  <Show when={state.chunkerMode === "sliding"}>
+                    <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="3">
+                      <Stack gap="1">
+                        <Text textStyle="sm" fontWeight="medium">
+                          Window size
+                        </Text>
+                        <Input
+                          type="number"
+                          value={String(state.winSize)}
+                          onInput={(e) =>
+                            setState(
+                              "winSize",
+                              Math.max(32, Number(e.currentTarget.value) || 0)
+                            )
+                          }
+                        />
+                      </Stack>
+                      <Stack gap="1">
+                        <Text textStyle="sm" fontWeight="medium">
+                          Overlap
+                        </Text>
+                        <Input
+                          type="number"
+                          value={String(state.winOverlap)}
+                          onInput={(e) =>
+                            setState(
+                              "winOverlap",
+                              Math.max(0, Number(e.currentTarget.value) || 0)
+                            )
+                          }
+                        />
+                      </Stack>
+                    </Grid>
+                  </Show>
+                </Stack>
+              </Grid>
+            </Box>
+          </Show>
+
+          <Suspense
+            fallback={
+              <Text textStyle="sm" color="fg.muted">
+                Loading…
+              </Text>
+            }
+          >
+            <Show when={runs()}>
+              {(items) => (
+                <Box
+                  borderWidth="1px"
+                  borderColor="border"
+                  borderRadius="l2"
+                  overflow="hidden"
+                >
+                  <Table.Root>
+                    <Table.Head>
+                      <Table.Row>
+                        <Table.Header textAlign="left">Run</Table.Header>
+                        <Table.Header textAlign="left">Model</Table.Header>
+                        <Table.Header textAlign="left">Dims</Table.Header>
+                        <Table.Header textAlign="left">Notes</Table.Header>
+                        <Table.Header textAlign="left">Created</Table.Header>
+                        <Table.Header textAlign="right">Actions</Table.Header>
+                      </Table.Row>
+                    </Table.Head>
+                    <Table.Body>
+                      <For each={items()}>
+                        {(r) => (
+                          <Table.Row>
+                            <Table.Cell>
+                              <Link href={`/embeddings/${r.id}`}>
+                                {r.id.slice(0, 8)}
+                              </Link>
+                            </Table.Cell>
+                            <Table.Cell>{r.model}</Table.Cell>
+                            <Table.Cell>{r.dims}</Table.Cell>
+                            <Table.Cell>{r.count}</Table.Cell>
+                            <Table.Cell>
+                              {new Date(r.createdAt).toLocaleString()}
+                            </Table.Cell>
+                            <Table.Cell textAlign="right">
+                              <Link href={`/embeddings/${r.id}`}>View</Link>
+                            </Table.Cell>
+                          </Table.Row>
+                        )}
+                      </For>
+                    </Table.Body>
+                  </Table.Root>
+                </Box>
+              )}
+            </Show>
+          </Suspense>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 

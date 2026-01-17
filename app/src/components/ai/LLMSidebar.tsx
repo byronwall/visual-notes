@@ -8,13 +8,23 @@ import {
   onCleanup,
 } from "solid-js";
 import type { Accessor } from "solid-js";
-import SidePanel from "~/components/SidePanel";
 import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "~/components/TiptapEditor";
 import { createStore } from "solid-js/store";
 import type { Editor } from "@tiptap/core";
 import { useToasts } from "~/components/Toast";
 import { isServer } from "solid-js/web";
+import { css } from "styled-system/css";
+import { Box, Flex, HStack, Spacer, Stack } from "styled-system/jsx";
+import { XIcon } from "lucide-solid";
+import { Button } from "~/components/ui/button";
+import * as Drawer from "~/components/ui/drawer";
+import { Input } from "~/components/ui/input";
+import { Link } from "~/components/ui/link";
+import * as ScrollArea from "~/components/ui/scroll-area";
+import { Spinner } from "~/components/ui/spinner";
+import { Text } from "~/components/ui/text";
+import { Textarea } from "~/components/ui/textarea";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 type ChatMessageRole = "user" | "assistant";
@@ -265,7 +275,18 @@ export function useLLMSidebar() {
 
   // Pass accessors to keep the view reactive without remounting on polls
   const view = (
-    <Suspense fallback={<div>Loading…</div>}>
+    <Suspense
+      fallback={
+        <Box p="4">
+          <HStack gap="2" alignItems="center">
+            <Spinner size="sm" color="fg.muted" />
+            <Text fontSize="sm" color="fg.muted">
+              Loading…
+            </Text>
+          </HStack>
+        </Box>
+      }
+    >
       <LLMSidebarView
         open={open}
         onClose={() => setOpen(false)}
@@ -377,234 +398,377 @@ function LLMSidebarView(props: {
     console.log("[LLMSidebar] Initialized message state for thread:", th.id);
   });
 
-  return (
-    <SidePanel
-      open={props.open()}
-      onClose={props.onClose}
-      ariaLabel="LLM Chat Sidebar"
-      class="w-[min(96vw,1000px)]"
-    >
-      <div class="flex h-full">
-        {/* Left column: threads list */}
-        <div class="w-64 shrink-0 border-r border-gray-200 bg-white">
-          <div class="p-3 border-b flex items-center justify-between">
-            <div class="font-semibold">Chats</div>
-            <button
-              class="text-xs text-blue-600 hover:underline"
-              onClick={() => props.onRefresh()}
-            >
-              Refresh
-            </button>
-          </div>
-          <div class="p-3 space-y-2">
-            <div class="space-y-2">
-              <input
-                class="w-full border rounded px-2 py-1"
-                placeholder="Note ID…"
-                value={noteInput()}
-                onInput={(e) =>
-                  setNoteInput((e.currentTarget as HTMLInputElement).value)
-                }
-              />
-              <input
-                class="w-full border rounded px-2 py-1"
-                placeholder="Title (optional)"
-                value={titleInput()}
-                onInput={(e) =>
-                  setTitleInput((e.currentTarget as HTMLInputElement).value)
-                }
-              />
-              <button class="w-full cta" onClick={handleCreate}>
-                New Chat
-              </button>
-            </div>
-          </div>
-          <div class="overflow-y-auto max-h-[calc(100%-160px)]">
-            <Suspense
-              fallback={<div class="p-3 text-sm text-gray-500">Loading…</div>}
-            >
-              <For each={props.threads()}>
-                {(t) => (
-                  <button
-                    class={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
-                      props.selectedId() === t.id ? "bg-blue-50" : ""
-                    }`}
-                    onClick={() => props.onSelect(t.id)}
-                  >
-                    <div class="flex items-center gap-2">
-                      <Show when={t.status === "LOADING"}>
-                        <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                      </Show>
-                      <Show when={t.hasUnread}>
-                        <span class="inline-block h-2 w-2 rounded-full bg-blue-600" />
-                      </Show>
-                      <div class="font-medium truncate">{t.title}</div>
-                    </div>
-                    <a
-                      href={`/docs/${t.noteId}`}
-                      class="text-xs text-blue-600 hover:underline truncate"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {t.noteId}
-                    </a>
-                    <Show when={t.preview}>
-                      {(p) => (
-                        <div
-                          class="mt-1 text-xs text-gray-600 line-clamp-2"
-                          innerHTML={p().contentHtml}
-                        />
-                      )}
-                    </Show>
-                  </button>
-                )}
-              </For>
-            </Suspense>
-          </div>
-        </div>
+  const handleDrawerOpenChange = (details: { open?: boolean }) => {
+    if (details?.open === false) {
+      props.onClose();
+    }
+  };
 
-        {/* Right column: thread view */}
-        <div class="flex-1 flex flex-col bg-white">
-          <div class="p-3 border-b">
-            <Show
-              when={props.thread()}
-              fallback={<div class="text-sm text-gray-500">Select a chat</div>}
+  const handleNoteInput = (e: Event) => {
+    setNoteInput((e.currentTarget as HTMLInputElement).value);
+  };
+
+  const handleTitleInput = (e: Event) => {
+    setTitleInput((e.currentTarget as HTMLInputElement).value);
+  };
+
+  const handleDraftInput = (e: Event) => {
+    setDraft((e.currentTarget as HTMLTextAreaElement).value);
+  };
+
+  const threadPreviewClass = css({
+    mt: "1",
+    fontSize: "xs",
+    color: "fg.muted",
+    lineClamp: "2",
+  });
+
+  const handleSaveMessage = async (msgId: string, fallbackHtml: string) => {
+    const html = messageState[msgId]?.currentHtml ?? fallbackHtml;
+    console.log("[LLMSidebar] Save clicked for message:", msgId);
+    await props.onSaveEdit(msgId, html);
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    await props.onDeleteMessage(msgId);
+  };
+
+  const sendButtonLabel = () => {
+    const phase = sendPhase();
+    if (phase === "sent") return "Sent";
+    if (phase === "error") return "Retry";
+    return "Send";
+  };
+
+  return (
+    <Drawer.Root
+      open={props.open()}
+      onOpenChange={handleDrawerOpenChange}
+      placement="end"
+      size="full"
+    >
+      <Drawer.Backdrop />
+      <Drawer.Positioner>
+        <Drawer.Content w="96vw" maxW="1000px">
+          <Drawer.CloseTrigger aria-label="Close sidebar">
+            <XIcon />
+          </Drawer.CloseTrigger>
+
+          <Flex h="100dvh" minH="0">
+            {/* Left column: threads list */}
+            <Box
+              w="16rem"
+              flexShrink="0"
+              borderRightWidth="1px"
+              borderColor="border"
+              bg="bg.default"
+              display="flex"
+              flexDirection="column"
+              minH="0"
             >
-              {(th) => (
-                <div class="flex items-center justify-between">
-                  <div>
-                    <div class="font-semibold">{th().title}</div>
-                    <div class="text-xs text-gray-500">Note: {th().noteId}</div>
-                  </div>
-                  <div class="text-xs text-gray-500">
-                    <Show when={th().status === "LOADING"}>Loading…</Show>
-                    <Show when={isSending()}>
-                      <span class="inline-flex items-center gap-1 ml-2 text-amber-600">
-                        <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                        Sending…
-                      </span>
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </Show>
-          </div>
-          <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <Suspense
-              fallback={
-                <div class="text-sm text-gray-500">Loading messages…</div>
-              }
-            >
-              <Show when={props.thread()}>
-                {(th) => (
-                  <For each={th().messages}>
-                    {(m) => (
-                      <div class="border rounded p-3">
-                        <div class="text-xs text-gray-500 mb-2">
-                          {m.role === "user" ? "You" : "Assistant"}
-                        </div>
-                        <TiptapEditor
-                          initialHTML={m.contentHtml}
-                          class="w-full"
-                          showToolbar={false}
-                          onEditor={(ed: Editor) => {
-                            console.log(
-                              "[LLMSidebar] Editor ready for message:",
-                              m.id
-                            );
-                            const onUpdate = () => {
-                              const html = ed.getHTML();
-                              const state = messageState[m.id];
-                              const isDirty = state
-                                ? html !== state.initialHtml
-                                : html !== m.contentHtml;
-                              setMessageState(m.id, {
-                                initialHtml:
-                                  state?.initialHtml ?? m.contentHtml,
-                                currentHtml: html,
-                                dirty: isDirty,
-                              });
-                            };
-                            ed.on("update", onUpdate);
-                            // Initialize current state immediately
-                            onUpdate();
-                            onCleanup(() => {
-                              ed.off("update", onUpdate);
-                            });
-                          }}
-                        />
-                        <div class="mt-2 flex items-center justify-between">
-                          <div>
-                            <Show when={messageState[m.id]?.dirty}>
-                              <button
-                                class="text-xs text-blue-600 hover:underline"
-                                onClick={async () => {
-                                  const html =
-                                    messageState[m.id]?.currentHtml ??
-                                    m.contentHtml;
-                                  console.log(
-                                    "[LLMSidebar] Save clicked for message:",
-                                    m.id
-                                  );
-                                  await props.onSaveEdit(m.id, html);
-                                }}
-                              >
-                                Save
-                              </button>
-                            </Show>
-                          </div>
-                          <div>
-                            <button
-                              class="text-xs text-red-600 hover:underline"
-                              onClick={async () => {
-                                await props.onDeleteMessage(m.id);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </For>
-                )}
-              </Show>
-            </Suspense>
-          </div>
-          <div class="border-t p-3">
-            <div class="flex items-end gap-2">
-              <textarea
-                class="flex-1 border rounded px-2 py-2 min-h-[64px]"
-                placeholder="Type a message…"
-                value={draft()}
-                onInput={(e) =>
-                  setDraft((e.currentTarget as HTMLTextAreaElement).value)
-                }
-              />
-              <div class="flex flex-col gap-2">
-                <button
-                  class="cta"
-                  onClick={handleSend}
-                  disabled={isSending() || !draft().trim()}
-                  aria-busy={isSending()}
+              <HStack
+                px="3"
+                py="3"
+                borderBottomWidth="1px"
+                borderColor="border"
+                gap="2"
+                alignItems="center"
+              >
+                <Text fontWeight="semibold">Chats</Text>
+                <Spacer />
+                <Button
+                  size="xs"
+                  variant="plain"
+                  colorPalette="blue"
+                  onClick={props.onRefresh}
                 >
-                  <Show when={sendPhase() === "sending"}>
-                    <span class="inline-flex items-center gap-2">
-                      <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                      Sending…
-                    </span>
-                  </Show>
-                  <Show when={sendPhase() === "sent"}>Sent</Show>
-                  <Show when={sendPhase() === "error"}>Retry</Show>
-                  <Show when={sendPhase() === "idle"}>Send</Show>
-                </button>
-                <button class="secondary" onClick={props.onClose}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </SidePanel>
+                  Refresh
+                </Button>
+              </HStack>
+
+              <Stack
+                p="3"
+                gap="2"
+                borderBottomWidth="1px"
+                borderColor="border"
+              >
+                <Input
+                  size="sm"
+                  placeholder="Note ID…"
+                  value={noteInput()}
+                  onInput={handleNoteInput}
+                />
+                <Input
+                  size="sm"
+                  placeholder="Title (optional)"
+                  value={titleInput()}
+                  onInput={handleTitleInput}
+                />
+                <Button w="full" size="sm" variant="solid" colorPalette="green" onClick={handleCreate}>
+                  New Chat
+                </Button>
+              </Stack>
+
+              <Box flex="1" minH="0">
+                <ScrollArea.Root h="full">
+                  <ScrollArea.Viewport>
+                    <ScrollArea.Content>
+                      <Suspense
+                        fallback={
+                          <Box p="3">
+                            <HStack gap="2" alignItems="center">
+                              <Spinner size="sm" color="fg.muted" />
+                              <Text fontSize="sm" color="fg.muted">
+                                Loading…
+                              </Text>
+                            </HStack>
+                          </Box>
+                        }
+                      >
+                        <Stack gap="1" p="1">
+                          <For each={props.threads()}>
+                            {(t) => {
+                              const selected = () => props.selectedId() === t.id;
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant={selected() ? "subtle" : "plain"}
+                                  colorPalette={selected() ? "blue" : "gray"}
+                                  w="full"
+                                  h="auto"
+                                  py="2"
+                                  px="3"
+                                  display="flex"
+                                  flexDirection="column"
+                                  alignItems="stretch"
+                                  justifyContent="flex-start"
+                                  textAlign="left"
+                                  onClick={() => props.onSelect(t.id)}
+                                >
+                                  <HStack gap="2" alignItems="center">
+                                    <Show when={t.status === "LOADING"}>
+                                      <Spinner size="xs" color="amber.11" />
+                                    </Show>
+                                    <Show when={t.hasUnread}>
+                                      <Box
+                                        boxSize="2"
+                                        borderRadius="full"
+                                        bg="blue.9"
+                                      />
+                                    </Show>
+                                    <Text fontWeight="medium" truncate>
+                                      {t.title}
+                                    </Text>
+                                  </HStack>
+
+                                  <Link
+                                    href={`/docs/${t.noteId}`}
+                                    fontSize="xs"
+                                    color="blue.11"
+                                    truncate
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {t.noteId}
+                                  </Link>
+
+                                  <Show when={t.preview}>
+                                    {(p) => (
+                                      <Box
+                                        class={threadPreviewClass}
+                                        innerHTML={p().contentHtml}
+                                      />
+                                    )}
+                                  </Show>
+                                </Button>
+                              );
+                            }}
+                          </For>
+                        </Stack>
+                      </Suspense>
+                    </ScrollArea.Content>
+                  </ScrollArea.Viewport>
+                  <ScrollArea.Scrollbar orientation="vertical">
+                    <ScrollArea.Thumb />
+                  </ScrollArea.Scrollbar>
+                </ScrollArea.Root>
+              </Box>
+            </Box>
+
+            {/* Right column: thread view */}
+            <Flex flex="1" minH="0" flexDirection="column" bg="bg.default">
+              <Box px="4" py="3" borderBottomWidth="1px" borderColor="border">
+                <Show
+                  when={props.thread()}
+                  fallback={
+                    <Text fontSize="sm" color="fg.muted">
+                      Select a chat
+                    </Text>
+                  }
+                >
+                  {(th) => (
+                    <Flex align="center" justify="space-between" gap="4">
+                      <Box minW="0">
+                        <Text fontWeight="semibold" truncate>
+                          {th().title}
+                        </Text>
+                        <Text fontSize="xs" color="fg.muted" truncate>
+                          Note: {th().noteId}
+                        </Text>
+                      </Box>
+                      <HStack gap="2" alignItems="center" color="fg.muted">
+                        <Show when={th().status === "LOADING"}>
+                          <HStack gap="2" alignItems="center">
+                            <Spinner size="xs" color="amber.11" />
+                            <Text fontSize="xs">Loading…</Text>
+                          </HStack>
+                        </Show>
+                        <Show when={isSending()}>
+                          <HStack gap="2" alignItems="center" color="amber.11">
+                            <Spinner size="xs" color="amber.11" />
+                            <Text fontSize="xs">Sending…</Text>
+                          </HStack>
+                        </Show>
+                      </HStack>
+                    </Flex>
+                  )}
+                </Show>
+              </Box>
+
+              <Box flex="1" minH="0">
+                <ScrollArea.Root h="full">
+                  <ScrollArea.Viewport>
+                    <ScrollArea.Content>
+                      <Box p="4">
+                        <Suspense
+                          fallback={
+                            <HStack gap="2" alignItems="center">
+                              <Spinner size="sm" color="fg.muted" />
+                              <Text fontSize="sm" color="fg.muted">
+                                Loading messages…
+                              </Text>
+                            </HStack>
+                          }
+                        >
+                          <Show when={props.thread()}>
+                            {(th) => (
+                              <Stack gap="4">
+                                <For each={th().messages}>
+                                  {(m) => (
+                                    <Box
+                                      borderWidth="1px"
+                                      borderColor="gray.outline.border"
+                                      borderRadius="l2"
+                                      p="3"
+                                      bg="bg.default"
+                                    >
+                                      <Text fontSize="xs" color="fg.muted" mb="2">
+                                        {m.role === "user" ? "You" : "Assistant"}
+                                      </Text>
+
+                                      <TiptapEditor
+                                        initialHTML={m.contentHtml}
+                                        showToolbar={false}
+                                        onEditor={(ed: Editor) => {
+                                          console.log(
+                                            "[LLMSidebar] Editor ready for message:",
+                                            m.id
+                                          );
+                                          const onUpdate = () => {
+                                            const html = ed.getHTML();
+                                            const state = messageState[m.id];
+                                            const isDirty = state
+                                              ? html !== state.initialHtml
+                                              : html !== m.contentHtml;
+                                            setMessageState(m.id, {
+                                              initialHtml:
+                                                state?.initialHtml ?? m.contentHtml,
+                                              currentHtml: html,
+                                              dirty: isDirty,
+                                            });
+                                          };
+                                          ed.on("update", onUpdate);
+                                          onUpdate();
+                                          onCleanup(() => {
+                                            ed.off("update", onUpdate);
+                                          });
+                                        }}
+                                      />
+
+                                      <HStack
+                                        mt="2"
+                                        alignItems="center"
+                                        justifyContent="space-between"
+                                      >
+                                        <Show when={messageState[m.id]?.dirty}>
+                                          <Button
+                                            size="xs"
+                                            variant="plain"
+                                            colorPalette="blue"
+                                            onClick={() => void handleSaveMessage(m.id, m.contentHtml)}
+                                          >
+                                            Save
+                                          </Button>
+                                        </Show>
+                                        <Button
+                                          size="xs"
+                                          variant="plain"
+                                          colorPalette="red"
+                                          onClick={() => void handleDeleteMessage(m.id)}
+                                        >
+                                          Delete
+                                        </Button>
+                                      </HStack>
+                                    </Box>
+                                  )}
+                                </For>
+                              </Stack>
+                            )}
+                          </Show>
+                        </Suspense>
+                      </Box>
+                    </ScrollArea.Content>
+                  </ScrollArea.Viewport>
+                  <ScrollArea.Scrollbar orientation="vertical">
+                    <ScrollArea.Thumb />
+                  </ScrollArea.Scrollbar>
+                </ScrollArea.Root>
+              </Box>
+
+              <Box borderTopWidth="1px" borderColor="border" p="3">
+                <HStack gap="2" alignItems="flex-end">
+                  <Textarea
+                    flex="1"
+                    minH="64px"
+                    placeholder="Type a message…"
+                    value={draft()}
+                    onInput={handleDraftInput}
+                  />
+                  <Stack gap="2" w="10rem">
+                    <Button
+                      variant="solid"
+                      colorPalette="blue"
+                      onClick={handleSend}
+                      disabled={isSending() || !draft().trim()}
+                      loading={sendPhase() === "sending"}
+                      loadingText={<Text fontSize="sm">Sending…</Text>}
+                      aria-busy={isSending()}
+                    >
+                      {sendButtonLabel()}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      colorPalette="gray"
+                      onClick={props.onClose}
+                    >
+                      Close
+                    </Button>
+                  </Stack>
+                </HStack>
+              </Box>
+            </Flex>
+          </Flex>
+        </Drawer.Content>
+      </Drawer.Positioner>
+    </Drawer.Root>
   );
 }

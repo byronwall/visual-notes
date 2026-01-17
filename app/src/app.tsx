@@ -1,4 +1,5 @@
 // @refresh reload
+import "./panda.css";
 import "./app.css";
 import { MetaProvider, Title } from "@solidjs/meta";
 import { Router } from "@solidjs/router";
@@ -7,7 +8,7 @@ import { Suspense } from "solid-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { SessionProvider } from "@solid-mediakit/auth/client";
 import { clientEnv } from "~/env/client";
-import Navbar from "~/components/Navbar";
+import { Navbar } from "~/components/Navbar";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { createEffect } from "solid-js";

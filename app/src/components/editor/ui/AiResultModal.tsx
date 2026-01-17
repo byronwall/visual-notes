@@ -1,5 +1,10 @@
-import { createSignal, Show } from "solid-js";
-import Modal from "../../Modal";
+import { createSignal } from "solid-js";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import * as Dialog from "~/components/ui/dialog";
+import { css } from "styled-system/css";
+import { XIcon } from "lucide-solid";
 
 export type AiResultOpenArgs = {
 	selectionText: string;
@@ -48,42 +53,112 @@ export function useAiResultModal() {
 	const onCopyOutputHtml = () => copyToClipboard(outputHtml());
 
 	const view = (
-		<Modal open={open()} onClose={onClose}>
-			<div class="p-4 space-y-3">
-				<div class="text-sm font-medium">AI Output</div>
-				<div class="space-y-2">
-					<div class="text-xs text-gray-600">Selection (used as input)</div>
-					<pre class="border rounded p-2 text-xs max-h-40 overflow-auto whitespace-pre-wrap">
-						{selectionText()}
-					</pre>
-					<div class="flex justify-end">
-						<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopySelection}>
-							Copy selection
-						</button>
-					</div>
-				</div>
-				<div class="space-y-2">
-					<div class="text-xs text-gray-600">Output</div>
-					<div class="border rounded p-2 max-h-80 overflow-auto prose" innerHTML={outputHtml()} />
-					<div class="flex gap-2 justify-end">
-						<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopyOutputText}>
-							Copy output (text)
-						</button>
-						<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopyOutputHtml}>
-							Copy output (HTML)
-						</button>
-					</div>
-				</div>
-				<div class="flex justify-end">
-					<button class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50" onClick={onClose}>
-						Close
-					</button>
-				</div>
-			</div>
-		</Modal>
+		<Dialog.Root
+			open={open()}
+			onOpenChange={(details: { open?: boolean }) => {
+				if (details?.open === false) onClose();
+			}}
+		>
+			<Dialog.Backdrop />
+			<Dialog.Positioner>
+				<Dialog.Content
+					class={css({
+						maxW: "900px",
+						"--dialog-base-margin": "24px",
+					})}
+				>
+					<Dialog.Header>
+						<Dialog.Title>AI Output</Dialog.Title>
+					</Dialog.Header>
+
+					<Dialog.CloseTrigger aria-label="Close dialog" onClick={onClose}>
+						<XIcon />
+					</Dialog.CloseTrigger>
+
+					<Dialog.Body>
+						<Stack gap="3">
+							<Stack gap="2">
+								<Text fontSize="xs" color="fg.muted">
+									Selection (used as input)
+								</Text>
+								<Box
+									as="pre"
+									borderWidth="1px"
+									borderColor="gray.outline.border"
+									borderRadius="l2"
+									p="2"
+									fontSize="xs"
+									maxH="10rem"
+									overflow="auto"
+									whiteSpace="pre-wrap"
+								>
+									{selectionText()}
+								</Box>
+								<HStack justifyContent="flex-end">
+									<Button
+										size="xs"
+										variant="outline"
+										colorPalette="gray"
+										onClick={onCopySelection}
+									>
+										Copy selection
+									</Button>
+								</HStack>
+							</Stack>
+
+							<Stack gap="2">
+								<Text fontSize="xs" color="fg.muted">
+									Output
+								</Text>
+								<Box
+									class="prose"
+									borderWidth="1px"
+									borderColor="gray.outline.border"
+									borderRadius="l2"
+									p="2"
+									maxH="20rem"
+									overflow="auto"
+									innerHTML={outputHtml()}
+								/>
+								<HStack gap="2" justifyContent="flex-end">
+									<Button
+										size="xs"
+										variant="outline"
+										colorPalette="gray"
+										onClick={onCopyOutputText}
+									>
+										Copy output (text)
+									</Button>
+									<Button
+										size="xs"
+										variant="outline"
+										colorPalette="gray"
+										onClick={onCopyOutputHtml}
+									>
+										Copy output (HTML)
+									</Button>
+								</HStack>
+							</Stack>
+						</Stack>
+					</Dialog.Body>
+
+					<Dialog.Footer>
+						<HStack justifyContent="flex-end" w="full">
+							<Button
+								size="sm"
+								variant="outline"
+								colorPalette="gray"
+								onClick={onClose}
+							>
+								Close
+							</Button>
+						</HStack>
+					</Dialog.Footer>
+				</Dialog.Content>
+			</Dialog.Positioner>
+		</Dialog.Root>
 	);
 
 	return { open: openModal, view };
 }
-
 

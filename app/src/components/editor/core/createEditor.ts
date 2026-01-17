@@ -11,7 +11,7 @@ export function createEditor(
     element: element()!,
     extensions: buildExtensions(onPrompt),
     editorProps: {
-      attributes: { class: "p-4 focus:outline-none prose max-w-full" },
+      attributes: { class: "prose editor-prose" },
     },
     content: initial,
   })) as unknown as () => Editor | null;
@@ -27,7 +27,7 @@ export function createEditorWithPrompts(
     element: element()!,
     extensions: buildExtensions(onCsvPrompt, onMarkdownPrompt),
     editorProps: {
-      attributes: { class: "p-4 focus:outline-none prose max-w-full" },
+      attributes: { class: "prose editor-prose" },
     },
     content: initial,
   })) as unknown as () => Editor | null;

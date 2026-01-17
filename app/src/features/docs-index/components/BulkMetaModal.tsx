@@ -1,5 +1,9 @@
 import { For, Show, createMemo, createSignal, type VoidComponent } from "solid-js";
 import Modal from "~/components/Modal";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Text } from "~/components/ui/text";
+import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 
 export type BulkMetaAction =
   | { type: "add"; key: string; value: string | number | boolean | null }
@@ -84,120 +88,192 @@ export const BulkMetaModal: VoidComponent<{
 
   return (
     <Modal open={props.open} onClose={handleClose}>
-      <div class="p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-medium">Bulk edit metadata</div>
-          <div class="text-xs text-gray-500">Selected: {props.selectedCount}</div>
-        </div>
+      <Stack p="1rem" gap="0.75rem">
+        <HStack justifyContent="space-between" align="center">
+          <Text fontSize="sm" fontWeight="semibold">
+            Bulk edit metadata
+          </Text>
+          <Text fontSize="xs" color="black.a7">
+            Selected: {props.selectedCount}
+          </Text>
+        </HStack>
 
         <Show when={!!error()}>
-          <div class="text-xs text-red-600">{error()}</div>
+          <Text fontSize="xs" color="red.11">
+            {error()}
+          </Text>
         </Show>
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-          <div>
-            <label class="block text-xs text-gray-600 mb-1">Action</label>
-            <select
-              class="w-full border rounded px-2 py-1 text-sm"
+        <Grid
+          gridTemplateColumns={{
+            base: "1fr",
+            md: "repeat(5, minmax(0, 1fr))",
+          }}
+          gap="0.5rem"
+          alignItems="end"
+        >
+          <Box>
+            <Text fontSize="xs" color="black.a7" mb="0.25rem">
+              Action
+            </Text>
+            <Box
+              as="select"
+              width="100%"
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              px="0.5rem"
+              py="0.25rem"
+              fontSize="sm"
+              bg="white"
               value={draftType()}
-              onChange={(e) => setDraftType((e.currentTarget.value as any) || "add")}
+              onChange={(e) =>
+                setDraftType((e.currentTarget.value as any) || "add")
+              }
             >
               <option value="add">Add key if missing</option>
               <option value="update">Update key value</option>
               <option value="remove">Remove key</option>
-            </select>
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs text-gray-600 mb-1">Key</label>
-            <input
-              class="w-full border rounded px-2 py-1 text-sm"
+            </Box>
+          </Box>
+          <Box gridColumn={{ base: "span 1", md: "span 2" }}>
+            <Text fontSize="xs" color="black.a7" mb="0.25rem">
+              Key
+            </Text>
+            <Input
+              size="sm"
               placeholder="e.g. tag or has_relative_image"
               value={draftKey()}
               onInput={(e) => setDraftKey(e.currentTarget.value)}
             />
-          </div>
+          </Box>
           <Show when={draftType() !== "remove"}>
-            <div>
-              <label class="block text-xs text-gray-600 mb-1">Value type</label>
-              <select
-                class="w-full border rounded px-2 py-1 text-sm"
+            <Box>
+              <Text fontSize="xs" color="black.a7" mb="0.25rem">
+                Value type
+              </Text>
+              <Box
+                as="select"
+                width="100%"
+                borderWidth="1px"
+                borderColor="gray.outline.border"
+                borderRadius="l2"
+                px="0.5rem"
+                py="0.25rem"
+                fontSize="sm"
+                bg="white"
                 value={draftValueType()}
-                onChange={(e) => setDraftValueType((e.currentTarget.value as any) || "string")}
+                onChange={(e) =>
+                  setDraftValueType((e.currentTarget.value as any) || "string")
+                }
               >
                 <option value="string">string</option>
                 <option value="number">number</option>
                 <option value="boolean">boolean (true/false)</option>
                 <option value="null">null</option>
-              </select>
-            </div>
+              </Box>
+            </Box>
             <Show when={draftValueType() !== "null"}>
-              <div>
-                <label class="block text-xs text-gray-600 mb-1">Value</label>
-                <input
-                  class="w-full border rounded px-2 py-1 text-sm"
+              <Box>
+                <Text fontSize="xs" color="black.a7" mb="0.25rem">
+                  Value
+                </Text>
+                <Input
+                  size="sm"
                   placeholder="value"
                   value={draftValueRaw()}
                   onInput={(e) => setDraftValueRaw(e.currentTarget.value)}
                 />
-              </div>
+              </Box>
             </Show>
           </Show>
-          <div>
-            <button
-              class={`w-full px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50`}
+          <Box>
+            <Button
+              width="100%"
+              size="sm"
+              colorPalette="grass"
               disabled={!canAdd() || busy()}
               onClick={handleAddAction}
             >
               Add to list
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Box>
+        </Grid>
 
-        <div class="border-t pt-3">
-          <div class="text-xs font-medium text-gray-700 mb-2">Pending actions</div>
-          <Show when={actions().length > 0} fallback={<p class="text-xs text-gray-500">No actions added.</p>}>
-            <div class="space-y-2">
+        <Box borderTopWidth="1px" borderColor="gray.outline.border" pt="0.75rem">
+          <Text fontSize="xs" fontWeight="semibold" color="black.a7" mb="0.5rem">
+            Pending actions
+          </Text>
+          <Show
+            when={actions().length > 0}
+            fallback={
+              <Text fontSize="xs" color="black.a7">
+                No actions added.
+              </Text>
+            }
+          >
+            <Stack gap="0.5rem">
               <For each={actions()}>
                 {(a, i) => (
-                  <div class="flex items-center justify-between border rounded px-2 py-1 text-sm">
-                    <div class="truncate">
+                  <HStack
+                    justifyContent="space-between"
+                    borderWidth="1px"
+                    borderColor="gray.outline.border"
+                    borderRadius="l2"
+                    px="0.5rem"
+                    py="0.25rem"
+                    fontSize="sm"
+                  >
+                    <Box overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
                       <Show when={a.type === "remove"}>
-                        <span class="font-medium">remove</span> <code class="text-xs">{a.key}</code>
+                        <Text as="span" fontWeight="semibold">
+                          remove
+                        </Text>{" "}
+                        <Text as="code" fontSize="xs">
+                          {a.key}
+                        </Text>
                       </Show>
                       <Show when={a.type !== "remove"}>
-                        <span class="font-medium">{(a as any).type}</span> <code class="text-xs">{a.key}</code> → <code class="text-xs">{String((a as any).value)}</code>
+                        <Text as="span" fontWeight="semibold">
+                          {(a as any).type}
+                        </Text>{" "}
+                        <Text as="code" fontSize="xs">
+                          {a.key}
+                        </Text>{" "}
+                        →{" "}
+                        <Text as="code" fontSize="xs">
+                          {String((a as any).value)}
+                        </Text>
                       </Show>
-                    </div>
-                    <button
-                      class="px-2 py-0.5 text-xs rounded border hover:bg-gray-50"
+                    </Box>
+                    <Button
+                      size="xs"
+                      variant="outline"
                       onClick={makeRemoveAt(i())}
                     >
                       Remove
-                    </button>
-                  </div>
+                    </Button>
+                  </HStack>
                 )}
               </For>
-            </div>
+            </Stack>
           </Show>
-        </div>
+        </Box>
 
-        <div class="flex justify-end gap-2 pt-1">
-          <button class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50" onClick={handleClose}>
+        <HStack justifyContent="flex-end" gap="0.5rem">
+          <Button size="sm" variant="outline" onClick={handleClose}>
             Cancel
-          </button>
-          <button
-            class={`rounded px-3 py-1.5 text-xs text-white ${
-              busy() || actions().length === 0 ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
-            }`}
+          </Button>
+          <Button
+            size="sm"
+            colorPalette="green"
             disabled={busy() || actions().length === 0}
             onClick={handleApply}
           >
             Apply to {props.selectedCount} items
-          </button>
-        </div>
-      </div>
+          </Button>
+        </HStack>
+      </Stack>
     </Modal>
   );
 };
-
-

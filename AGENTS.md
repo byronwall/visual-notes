@@ -1,0 +1,241 @@
+# AGENTS.md - Visual Notes + Base Component System
+
+This file combines the repo-level agent instructions with the SolidJS code
+guidelines from comp_refs.
+
+## Visual Notes Agent Instructions
+
+## Skills
+A skill is a set of local instructions to follow that is stored in a
+`SKILL.md` file. Below is the list of skills that can be used. Each entry
+includes a name, description, and file path so you can open the source for
+full instructions when using a specific skill.
+
+### Available skills
+- skill-creator: Guide for creating effective skills. This skill should be
+  used when users want to create a new skill (or update an existing skill)
+  that extends Codex's capabilities with specialized knowledge, workflows,
+  or tool integrations.
+  (file: /Users/byronwall/.codex/skills/.system/skill-creator/SKILL.md)
+- skill-installer: Install Codex skills into $CODEX_HOME/skills from a
+  curated list or a GitHub repo path. Use when a user asks to list
+  installable skills, install a curated skill, or install a skill from
+  another repo (including private repos).
+  (file: /Users/byronwall/.codex/skills/.system/skill-installer/SKILL.md)
+
+### How to use skills
+- Discovery: The list above is the skills available in this session (name +
+  description + file path). Skill bodies live on disk at the listed paths.
+- Trigger rules: If the user names a skill (with $SkillName or plain text)
+  OR the task clearly matches a skill's description shown above, you must use
+  that skill for that turn. Multiple mentions mean use them all. Do not carry
+  skills across turns unless re-mentioned.
+- Missing/blocked: If a named skill isn't in the list or the path can't be
+  read, say so briefly and continue with the best fallback.
+- How to use a skill (progressive disclosure):
+  1) After deciding to use a skill, open its SKILL.md. Read only enough to
+     follow the workflow.
+  2) If SKILL.md points to extra folders such as references/, load only the
+     specific files needed for the request; don't bulk-load everything.
+  3) If scripts/ exist, prefer running or patching them instead of retyping
+     large code blocks.
+  4) If assets/ or templates exist, reuse them instead of recreating from
+     scratch.
+- Coordination and sequencing:
+  - If multiple skills apply, choose the minimal set that covers the request
+    and state the order you'll use them.
+  - Announce which skill(s) you're using and why (one short line). If you
+    skip an obvious skill, say why.
+- Context hygiene:
+  - Keep context small: summarize long sections instead of pasting them; only
+    load extra files when needed.
+  - Avoid deep reference-chasing: prefer opening only files directly linked
+    from SKILL.md unless you're blocked.
+  - When variants exist (frameworks, providers, domains), pick only the
+    relevant reference file(s) and note that choice.
+- Safety and fallback: If a skill can't be applied cleanly (missing files,
+  unclear instructions), state the issue, pick the next-best approach, and
+  continue.
+
+## SolidJS Code Guidelines (from comp_refs)
+
+This repo prioritizes predictable SolidJS reactivity, clear TypeScript types,
+and maintainable component boundaries.
+
+If a guideline conflicts with existing code patterns, follow this doc for new
+code and refactors unless explicitly told otherwise.
+
+### Goals
+- Keep components easy to reason about.
+  - Prefer local clarity over clever abstractions.
+  - Prefer explicit control-flow components (Show, Switch/Match, Suspense)
+    over JS shortcuts.
+- Keep files small and scannable.
+  - Aim for < 200 LOC per file.
+  - Prefer 1 component per file, unless multiple components are tiny and
+    tightly related.
+
+### File structure and organization
+- One component per file by default.
+  - Exception: a small set of private helper components (icons, tiny
+    subcomponents) that are only used by the parent component.
+- Types live with their consumer.
+  - Props types MUST be defined in the same file as the component.
+  - General-purpose/shared types belong in a common types module.
+- Helpers
+  - If a helper is reusable, move it to a common place (src/utils/*,
+    src/lib/*, etc.).
+  - Component-specific helpers can stay local, but if they grow or become
+    shared, promote them.
+
+### Imports and exports
+- Imports occur at the top of the file.
+  - No lazy/deferred imports.
+  - No inline imports in functions.
+- Prefer named exports over default exports.
+- Type imports:
+  - Good: import { type Foo } from "./foo"
+  - Avoid: typeof import("./foo").Foo
+
+### TypeScript rules
+- Avoid any.
+  - If any is unavoidable, add a comment explaining why.
+- Avoid as any to silence lint/type issues.
+  - If you must, mark it clearly:
+    - TODO:AS_ANY, <reason>
+- Avoid creating "mirror types" that duplicate an object's structure.
+  - Prefer deriving types from existing values/returns when possible.
+  - If blocked by tooling or an inference issue:
+    - TODO:TYPE_MIRROR, <reason>
+- Prefer type over interface.
+  - Use intersection composition where needed:
+    - type Props = BaseProps & { extra: string }
+
+### Debugging
+- Use console.log for debugging.
+- For large code changes/chunks, add a couple logs to clarify:
+  - entry/exit
+  - important branch decisions
+  - key data shape/ids
+- Do not wrap console.log in try/catch.
+
+### Control flow and readability
+- Prefer early returns over deeply nested conditionals.
+- Prefer Solid control-flow components:
+  - Use Show over && for conditional rendering.
+  - Prefer Switch/Match for top-level forks when multiple branches exist.
+
+### Conditional rendering rules
+- Use Show to narrow types safely.
+  - Prefer function children when you want narrowed typing.
+
+Good:
+  <Show when={user()}>{(u) => <UserCard user={u} />}</Show>
+
+Avoid:
+  { user() && <UserCard user={user()!} />; }
+
+### SolidJS reactivity fundamentals
+
+Signals vs stores
+- Single independent value: createSignal
+- Multiple related values: createStore
+
+Derived values: inline thunks vs createMemo
+- Inline thunks are fine for most derived values:
+  - const label = () => props.title ?? "Untitled"
+- Only use createMemo when there's likely a performance hit:
+  - sorting, filtering, heavy mapping, expensive formatting, large lists
+
+Effects
+- Prefer createEffect. Do not use createComputed.
+- Effects should be for side effects, not for pure derivations.
+
+Batching updates
+- Use batch(() => { ... }) when updating multiple signals or multiple store
+  paths in a tight sequence.
+
+### Props handling
+- Do not destructure props (neither in parameters nor inside the body).
+  - Solid props are reactive; destructuring breaks reactivity.
+- Use splitProps when you need "local names".
+- mergeProps is allowed.
+
+### Event handlers and callbacks
+- Inline handlers are OK if short (<= 3 lines).
+- If longer than 3 lines, pull into a named function in parent scope.
+- Avoid preventDefault and stopPropagation unless there is a strong reason.
+
+### Lists: <For> rules
+- Prefer <For> over .map() in JSX.
+- No need to set keyed by default.
+- When creating render functions inside a <For>, all variables must be
+  reactive functions.
+
+### Resources: createResource + Suspense
+- If createResource is involved, ALWAYS use Suspense with a fallback.
+- Avoid using Show as the primary loading gate for resources.
+
+### Error boundaries
+- Every major page/feature "island" MUST be wrapped in an <ErrorBoundary>.
+
+### Global state and Context API
+- Avoid prop drilling beyond 3 levels.
+- Prefer using an exported Provider from a module.
+- Context consumers MUST go through a useX() helper that throws if used
+  outside the Provider.
+
+### DOM refs and component communication
+- For DOM refs:
+  - Use let myRef; and ref={myRef}.
+  - Avoid document.getElementById entirely.
+
+### Mounting, cleanup, and subscriptions
+- When pairing onMount with onCleanup, place onCleanup inside the onMount
+  callback.
+
+### Components and composition
+- Avoid IIFEs for Solid components.
+- SVG icons: put inline SVG into its own component with a good name.
+
+### Error handling
+- Avoid wrapping code in try/catch unless clearly justified or requested.
+
+### Prisma rules (server-side)
+- Only modify the Prisma schema.
+- Always generate migrations via CLI.
+- Never manually author a migration file.
+
+### Thinking and planning conventions
+- When designing new components, consider key edge cases and handle them if
+  simple. If handling is non-trivial, add:
+  - TODO:EDGE_CASE, <describe the case>
+
+### TODO tags (standardized)
+- TODO:AS_ANY, <reason>
+- TODO:TYPE_MIRROR, <reason>
+- TODO:EDGE_CASE, <reason>
+
+### Testing and verification
+- Run pnpm type-check to verify TypeScript types without building.
+- Run pnpm build to verify the build passes after making changes.
+- There are no unit tests currently; verification is done via successful
+  type check, build, and manual testing.
+
+### Quick checklist (before you finish)
+- File is < 200 LOC (or intentionally justified)
+- No props destructuring; used splitProps if needed
+- Used createStore for related state
+- Derived values use thunks; createMemo only when it matters
+- Used batch when updating multiple signals/store paths together
+- Show instead of &&
+- Switch/Match for multi-branch top-level forks
+- <For> render locals are reactive functions
+- createResource is gated by Suspense fallback
+- Major feature islands wrapped in <ErrorBoundary>
+- Context uses exported Provider + exported useX() hook
+- Refs via let ref + ref={ref}; no document.getElementById
+- Cleanup paired with mount is inside onMount
+- No any without a comment; no as any without TODO:AS_ANY
+- Named exports; imports at top; no typeof import(...)
+- Large changes include a few console.log breadcrumbs

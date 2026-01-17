@@ -1,7 +1,14 @@
-import { For, Show, createSignal, Suspense } from "solid-js";
-import Modal from "../../Modal";
+import { For, Show, createSignal } from "solid-js";
 import { apiFetch } from "~/utils/base-url";
 import { ModelSelect } from "~/components/ModelSelect";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { Text } from "~/components/ui/text";
+import { Box, Grid, HStack, Stack } from "styled-system/jsx";
+import * as Dialog from "~/components/ui/dialog";
+import { css } from "styled-system/css";
+import { XIcon } from "lucide-solid";
 
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -184,106 +191,152 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
   };
 
   const view = (
-    <Modal open={open()} onClose={close}>
-      <div class="p-4 space-y-3">
-        <div class="text-sm font-medium">New Prompt via Q&A</div>
+    <Dialog.Root
+      open={open()}
+      onOpenChange={(details: { open?: boolean }) => {
+        if (details?.open === false) close();
+      }}
+    >
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content
+          class={css({
+            maxW: "980px",
+            "--dialog-base-margin": "24px",
+          })}
+        >
+          <Dialog.Header>
+            <Dialog.Title>New Prompt via Q&A</Dialog.Title>
+          </Dialog.Header>
+
+          <Dialog.CloseTrigger aria-label="Close dialog" onClick={close}>
+            <XIcon />
+          </Dialog.CloseTrigger>
+
+          <Dialog.Body>
+            <Stack gap="3">
 
         <Show when={!proposal()}>
-          <div class="space-y-2">
-            <div class="text-xs text-gray-600">
+          <Stack gap="2">
+            <Text fontSize="xs" color="fg.muted">
               I’ll ask 2–4 questions, then propose a complete prompt.
-            </div>
-            <div class="border rounded p-2 max-h-56 overflow-auto space-y-1">
+            </Text>
+            <Stack
+              gap="1"
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              p="2"
+              maxH="14rem"
+              overflow="auto"
+            >
               <For each={transcript()}>
                 {(t) => (
-                  <div class="text-[11px]">
-                    <span class="font-medium">
+                  <Text fontSize="xs">
+                    <Text as="span" fontWeight="medium">
                       {t.role === "assistant" ? "Assistant" : "You"}:
-                    </span>{" "}
-                    <span>{t.content}</span>
-                  </div>
+                    </Text>{" "}
+                    <Text as="span">{t.content}</Text>
+                  </Text>
                 )}
               </For>
               <Show when={currentQuestion()}>
-                <div class="text-[11px]">
-                  <span class="font-medium">Assistant:</span>{" "}
-                  {currentQuestion()}
-                </div>
+                {(q) => (
+                  <Text fontSize="xs">
+                    <Text as="span" fontWeight="medium">
+                      Assistant:
+                    </Text>{" "}
+                    <Text as="span">{q()}</Text>
+                  </Text>
+                )}
               </Show>
-            </div>
+            </Stack>
             <Show when={currentSummary()}>
-              <div class="rounded border p-2 bg-gray-50">
-                <div class="text-[11px] text-gray-600 mb-1">
+              <Box
+                borderWidth="1px"
+                borderColor="gray.outline.border"
+                borderRadius="l2"
+                bg="gray.surface.bg"
+                p="2"
+              >
+                <Text fontSize="xs" color="fg.muted" mb="1">
                   Current summary
-                </div>
-                <div class="text-[12px]">{currentSummary()}</div>
-              </div>
+                </Text>
+                <Text fontSize="sm">{currentSummary()}</Text>
+              </Box>
             </Show>
-            <div class="flex gap-2">
-              <input
-                class="border rounded px-2 py-1 text-sm flex-1"
+            <HStack gap="2">
+              <Input
+                size="sm"
+                flex="1"
                 placeholder="Type your answer…"
                 value={answer()}
                 onInput={(e) => setAnswer((e.target as HTMLInputElement).value)}
               />
-              <button
-                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+              <Button
+                size="sm"
+                variant="outline"
+                colorPalette="gray"
                 disabled={busy()}
                 onClick={onSubmitAnswer}
               >
                 Answer
-              </button>
-              <button
-                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                colorPalette="gray"
                 disabled={busy()}
                 onClick={onGenerateNow}
                 title="Skip to proposal"
               >
                 Generate
-              </button>
-            </div>
-            <div>
-              <button
-                class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                disabled={busy() || transcript().length > 0}
-                onClick={onStart}
-              >
-                Start Q&A
-              </button>
-            </div>
-          </div>
+              </Button>
+            </HStack>
+            <Button
+              size="sm"
+              variant="outline"
+              colorPalette="gray"
+              disabled={busy() || transcript().length > 0}
+              onClick={onStart}
+            >
+              Start Q&A
+            </Button>
+          </Stack>
         </Show>
 
         <Show when={proposal()}>
           {(p) => {
             initFromProposal();
             return (
-              <div class="space-y-2">
-                <div class="text-xs text-gray-600">
+              <Stack gap="2">
+                <Text fontSize="xs" color="fg.muted">
                   Review the proposal and create the prompt.
-                </div>
-                <input
-                  class="border rounded px-2 py-1 text-sm w-full"
+                </Text>
+                <Input
+                  size="sm"
                   placeholder="task (unique)"
                   value={task()}
                   onInput={(e) => setTask((e.target as HTMLInputElement).value)}
                 />
-                <input
-                  class="border rounded px-2 py-1 text-sm w-full"
+                <Input
+                  size="sm"
                   placeholder="description"
                   value={desc()}
                   onInput={(e) => setDesc((e.target as HTMLInputElement).value)}
                 />
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <div class="text-xs text-gray-600 mb-1">Default model</div>
+                <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
+                  <Stack gap="1">
+                    <Text fontSize="xs" color="fg.muted">
+                      Default model
+                    </Text>
                     <ModelSelect
                       value={defModel()}
                       onChange={(v) => setDefModel(v)}
                     />
-                  </div>
-                  <input
-                    class="border rounded px-2 py-1 text-sm w-full"
+                  </Stack>
+                  <Input
+                    size="sm"
                     placeholder="default temp"
                     value={String(defTemp())}
                     onInput={(e) =>
@@ -292,38 +345,47 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
                       )
                     }
                   />
-                </div>
-                <textarea
-                  class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
+                </Grid>
+                <Textarea
+                  size="sm"
+                  h="40"
+                  fontFamily="mono"
                   placeholder="template (Mustache)"
                   value={tmpl()}
                   onInput={(e) =>
                     setTmpl((e.target as HTMLTextAreaElement).value)
                   }
                 />
-                <textarea
-                  class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
+                <Textarea
+                  size="sm"
+                  h="24"
+                  fontFamily="mono"
                   placeholder="system (optional)"
                   value={sys()}
                   onInput={(e) =>
                     setSys((e.target as HTMLTextAreaElement).value)
                   }
                 />
-                <div class="flex justify-end">
-                  <button
-                    class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
+                <HStack justifyContent="flex-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    colorPalette="gray"
                     disabled={creating()}
                     onClick={onCreate}
                   >
                     Create & Activate
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </HStack>
+              </Stack>
             );
           }}
         </Show>
-      </div>
-    </Modal>
+            </Stack>
+          </Dialog.Body>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 
   return { open: openModal, view };

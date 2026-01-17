@@ -1,4 +1,5 @@
 import { createMemo, splitProps } from "solid-js";
+import { Input } from "~/components/ui/input";
 
 export type DateInputProps = {
   id?: string;
@@ -7,7 +8,6 @@ export type DateInputProps = {
   placeholder?: string;
   min?: string;
   max?: string;
-  class?: string;
   "aria-label"?: string;
 };
 
@@ -21,7 +21,6 @@ export function DateInput(props: DateInputProps) {
     "placeholder",
     "min",
     "max",
-    "class",
     "aria-label",
   ]);
 
@@ -33,7 +32,7 @@ export function DateInput(props: DateInputProps) {
   };
 
   return (
-    <input
+    <Input
       id={local.id}
       type="date"
       value={inputValue()}
@@ -41,7 +40,6 @@ export function DateInput(props: DateInputProps) {
       placeholder={local.placeholder}
       min={local.min}
       max={local.max}
-      class={local.class ?? "flex-1 border rounded px-2 py-1 text-sm"}
       aria-label={local["aria-label"]}
       autocomplete="off"
       autocapitalize="none"

@@ -1,9 +1,10 @@
+import { Box } from "styled-system/jsx";
+
 export function Separator() {
   return (
-    <div class="flex items-center" aria-hidden="true">
-      <div class="h-full border-l border-gray-300" />
-    </div>
+    <Box display="flex" alignItems="center" aria-hidden="true">
+      <Box h="full" borderLeftWidth="1px" borderColor="gray.outline.border" />
+    </Box>
   );
 }
-
 

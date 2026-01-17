@@ -4,6 +4,9 @@ import { DocRow } from "./DocRow";
 import { computeFuzzyScore } from "../utils/fuzzy";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { createDocsQueryStore } from "../state/docsQuery";
+import { Text } from "~/components/ui/text";
+import { Spinner } from "~/components/ui/spinner";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 export const ResultsSection = (props: {
   items: any[];
@@ -71,15 +74,15 @@ export const ResultsSection = (props: {
   });
 
   return (
-    <div class="space-y-6 mt-4">
+    <Stack gap="1.5rem" mt="1rem">
       <Show
         when={!isSearching()}
         fallback={
           <>
-            <section>
-              <h2 class="text-sm font-semibold text-gray-600">
+            <Box as="section">
+              <Text fontSize="sm" fontWeight="semibold" color="black.a7">
                 Client results – title match
-              </h2>
+              </Text>
               <For
                 each={groupByUpdatedAt(
                   clientMatches().slice(0, q.clientShown())
@@ -87,11 +90,11 @@ export const ResultsSection = (props: {
               >
                 {(g) => (
                   <Show when={g.items.length}>
-                    <section>
-                      <h3 class="text-xs font-semibold text-gray-500">
+                    <Box as="section">
+                      <Text fontSize="xs" fontWeight="semibold" color="black.a7">
                         {g.label}
-                      </h3>
-                      <ul class="space-y-2 mt-1">
+                      </Text>
+                      <Stack as="ul" gap="0.5rem" mt="0.25rem">
                         <For each={g.items}>
                           {(d) => (
                             <DocRow
@@ -107,8 +110,8 @@ export const ResultsSection = (props: {
                             />
                           )}
                         </For>
-                      </ul>
-                    </section>
+                      </Stack>
+                    </Box>
                   </Show>
                 )}
               </For>
@@ -117,16 +120,21 @@ export const ResultsSection = (props: {
                 total={clientMatches().length}
                 onClick={() => q.showMoreClient(100)}
               />
-            </section>
+            </Box>
 
-            <section>
-              <h2 class="text-sm font-semibold text-gray-600">
+            <Box as="section">
+              <Text fontSize="sm" fontWeight="semibold" color="black.a7">
                 Server results – full text
-              </h2>
+              </Text>
               <Show when={props.serverLoading}>
-                <p class="text-sm text-gray-500 mt-2">Searching…</p>
+                <HStack gap="0.5rem" mt="0.5rem">
+                  <Spinner />
+                  <Text fontSize="sm" color="black.a7">
+                    Searching…
+                  </Text>
+                </HStack>
               </Show>
-              <ul class="space-y-2 mt-2">
+              <Stack as="ul" gap="0.5rem" mt="0.5rem">
                 <For each={props.serverResults.slice(0, q.serverShown())}>
                   {(d) => (
                     <DocRow
@@ -137,24 +145,28 @@ export const ResultsSection = (props: {
                     />
                   )}
                 </For>
-              </ul>
+              </Stack>
               <LoadMoreButton
                 shown={Math.min(q.serverShown(), props.serverResults.length)}
                 total={props.serverResults.length}
                 onClick={() => q.showMoreServer(25)}
               />
-            </section>
+            </Box>
           </>
         }
       >
-        <div class="space-y-6">
-          <div>Total results: {props.items.length}</div>
+        <Stack gap="1.5rem">
+          <Text fontSize="sm" color="black.a7">
+            Total results: {props.items.length}
+          </Text>
           <For each={groupByUpdatedAt(props.items.slice(0, q.clientShown()))}>
             {(g) => (
               <Show when={g.items.length}>
-                <section>
-                  <h2 class="text-sm font-semibold text-gray-600">{g.label}</h2>
-                  <ul class="space-y-2 mt-2">
+                <Box as="section">
+                  <Text fontSize="sm" fontWeight="semibold" color="black.a7">
+                    {g.label}
+                  </Text>
+                  <Stack as="ul" gap="0.5rem" mt="0.5rem">
                     <For each={g.items}>
                       {(d) => (
                         <DocRow
@@ -169,8 +181,8 @@ export const ResultsSection = (props: {
                         />
                       )}
                     </For>
-                  </ul>
-                </section>
+                  </Stack>
+                </Box>
               </Show>
             )}
           </For>
@@ -179,8 +191,8 @@ export const ResultsSection = (props: {
             total={props.items.length}
             onClick={() => q.showMoreClient(100)}
           />
-        </div>
+        </Stack>
       </Show>
-    </div>
+    </Stack>
   );
 };

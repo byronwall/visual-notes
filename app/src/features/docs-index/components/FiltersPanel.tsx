@@ -4,6 +4,12 @@ import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { DateInput } from "~/components/DateInput";
+import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
+import { Input } from "~/components/ui/input";
+import { Text } from "~/components/ui/text";
+import { Box, Grid, HStack, Stack } from "styled-system/jsx";
+import * as Checkbox from "~/components/ui/checkbox";
 
 export const FiltersPanel = (props: {
   q: ReturnType<typeof createDocsQueryStore>;
@@ -38,93 +44,108 @@ export const FiltersPanel = (props: {
   const isCreatedOpen = createMemo(() => showCreated() || !!hasCreated());
   const isUpdatedOpen = createMemo(() => showUpdated() || !!hasUpdated());
 
-  const buttonBase =
-    "text-xs border rounded px-2 py-1 hover:bg-gray-50 transition select-none";
+  const toggleVariant = (active: boolean) => (active ? "subtle" : "outline");
 
   return (
-    <div class="mt-2">
-      <div class="flex flex-wrap items-center gap-2">
-        <button
+    <Stack mt="0.5rem" gap="0.5rem">
+      <HStack gap="0.5rem" flexWrap="wrap">
+        <Button
           type="button"
-          class={`${buttonBase} ${hasPath() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasPath())}
           onClick={() => setShowPath((v) => !v)}
         >
           Path
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class={`${buttonBase} ${hasMeta() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasMeta())}
           onClick={() => setShowMeta((v) => !v)}
         >
           Meta
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class={`${buttonBase} ${hasSource() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasSource())}
           onClick={() => setShowSource((v) => !v)}
         >
           Source
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class={`${buttonBase} ${hasOriginalId() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasOriginalId())}
           onClick={() => setShowOriginalId((v) => !v)}
         >
           Original ID
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class={`${buttonBase} ${hasCreated() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasCreated())}
           onClick={() => setShowCreated((v) => !v)}
         >
           Created
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          class={`${buttonBase} ${hasUpdated() ? "bg-gray-100" : ""}`}
+          size="xs"
+          variant={toggleVariant(!!hasUpdated())}
           onClick={() => setShowUpdated((v) => !v)}
         >
           Updated
-        </button>
-      </div>
+        </Button>
+      </HStack>
 
       <Show when={isPathOpen()}>
-        <div class="mt-2 flex items-start gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Path</span>
-          <div class="flex-1 flex flex-col gap-1">
-            <div
-              class={`${
-                q.blankPathOnly() ? "opacity-50 pointer-events-none" : ""
-              }`}
+        <HStack gap="0.5rem" align="start">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Path
+          </Text>
+          <Stack gap="0.25rem" flex="1">
+            <Box
+              opacity={q.blankPathOnly() ? 0.6 : 1}
+              pointerEvents={q.blankPathOnly() ? "none" : "auto"}
             >
               <PathEditor
                 initialPath={q.pathPrefix()}
                 onChange={(p) => q.setPathPrefix(p)}
               />
-            </div>
-            <label class="flex items-center gap-1 text-xs text-gray-700">
-              <input
-                type="checkbox"
-                checked={q.blankPathOnly()}
-                onChange={(e) => {
-                  const checked = (e.currentTarget as HTMLInputElement).checked;
-                  q.setBlankPathOnly(checked);
-                  if (checked) q.setPathPrefix("");
-                }}
-              />
-              <span>Blank only</span>
-            </label>
-          </div>
-        </div>
+            </Box>
+            <Checkbox.Root
+              checked={q.blankPathOnly()}
+              onCheckedChange={(details) => {
+                const checked = details.checked === true;
+                q.setBlankPathOnly(checked);
+                if (checked) q.setPathPrefix("");
+              }}
+            >
+              <Checkbox.HiddenInput />
+              <HStack gap="0.5rem">
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label>Blank only</Checkbox.Label>
+              </HStack>
+            </Checkbox.Root>
+          </Stack>
+        </HStack>
       </Show>
 
       <Show when={isMetaOpen()}>
-        <div class="mt-2 flex items-start gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Meta</span>
-          <div class="flex-1">
-            <div class="grid grid-cols-2 gap-2">
-              <input
-                class="min-w-0 border rounded px-2 py-1 text-sm"
+        <HStack gap="0.5rem" align="start">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Meta
+          </Text>
+          <Box flex="1">
+            <Grid
+              gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+              gap="0.5rem"
+            >
+              <Input
+                size="sm"
                 placeholder="key (e.g. tag)"
                 value={q.metaKey()}
                 onInput={(e) =>
@@ -135,9 +156,10 @@ export const FiltersPanel = (props: {
                 autocorrect="off"
                 spellcheck={false}
               />
-              <div class="flex items-center gap-2">
-                <input
-                  class="min-w-0 flex-1 border rounded px-2 py-1 text-sm"
+              <HStack gap="0.5rem">
+                <Input
+                  size="sm"
+                  flex="1"
                   placeholder="value"
                   value={q.metaValue()}
                   onInput={(e) =>
@@ -149,8 +171,9 @@ export const FiltersPanel = (props: {
                   spellcheck={false}
                 />
                 <Show when={q.metaKey().trim() || q.metaValue().trim()}>
-                  <button
-                    class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                  <IconButton
+                    size="xs"
+                    variant="plain"
                     onClick={() => {
                       q.setMetaKey("");
                       q.setMetaValue("");
@@ -163,7 +186,8 @@ export const FiltersPanel = (props: {
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
-                      class="h-4 w-4"
+                      width="16"
+                      height="16"
                     >
                       <path
                         fill-rule="evenodd"
@@ -171,11 +195,11 @@ export const FiltersPanel = (props: {
                         clip-rule="evenodd"
                       />
                     </svg>
-                  </button>
+                  </IconButton>
                 </Show>
-              </div>
-            </div>
-            <div class="mt-1">
+              </HStack>
+            </Grid>
+            <Box mt="0.25rem">
               <Suspense fallback={null}>
                 <MetaKeySuggestions onSelect={(key) => q.setMetaKey(key)} />
               </Suspense>
@@ -185,16 +209,26 @@ export const FiltersPanel = (props: {
                   onSelect={(v) => q.setMetaValue(v)}
                 />
               </Suspense>
-            </div>
-          </div>
-        </div>
+            </Box>
+          </Box>
+        </HStack>
       </Show>
 
       <Show when={isSourceOpen()}>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Source</span>
-          <select
-            class="flex-1 border rounded px-2 py-1 text-sm"
+        <HStack gap="0.5rem" align="center">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Source
+          </Text>
+          <Box
+            as="select"
+            flex="1"
+            borderWidth="1px"
+            borderColor="gray.outline.border"
+            borderRadius="l2"
+            px="0.5rem"
+            py="0.25rem"
+            fontSize="sm"
+            bg="white"
             value={q.source()}
             onChange={(e) =>
               q.setSource((e.currentTarget as HTMLSelectElement).value)
@@ -204,10 +238,11 @@ export const FiltersPanel = (props: {
             {props.sources?.map((s) => (
               <option value={s.originalSource}>{s.originalSource}</option>
             ))}
-          </select>
+          </Box>
           <Show when={q.source().trim()}>
-            <button
-              class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            <IconButton
+              size="xs"
+              variant="plain"
               onClick={() => q.setSource("")}
               title="Clear source filter"
               aria-label="Clear source filter"
@@ -217,24 +252,27 @@ export const FiltersPanel = (props: {
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
                 fill="currentColor"
-                class="h-4 w-4"
+                width="16"
+                height="16"
               >
                 <path
                   fill-rule="evenodd"
                   d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+                clip-rule="evenodd"
+              />
+            </svg>
+            </IconButton>
           </Show>
-        </div>
+        </HStack>
       </Show>
 
       <Show when={isOriginalIdOpen()}>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Original ID</span>
-          <input
-            class="flex-1 border rounded px-2 py-1 text-sm"
+        <HStack gap="0.5rem" align="center">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Original ID
+          </Text>
+          <Input
+            size="sm"
             placeholder="contains…"
             value={q.originalContentId()}
             onInput={(e) =>
@@ -248,8 +286,9 @@ export const FiltersPanel = (props: {
             spellcheck={false}
           />
           <Show when={q.originalContentId().trim()}>
-            <button
-              class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            <IconButton
+              size="xs"
+              variant="plain"
               onClick={() => q.setOriginalContentId("")}
               title="Clear original content ID filter"
               aria-label="Clear original content ID filter"
@@ -259,23 +298,26 @@ export const FiltersPanel = (props: {
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
                 fill="currentColor"
-                class="h-4 w-4"
+                width="16"
+                height="16"
               >
                 <path
                   fill-rule="evenodd"
                   d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+                clip-rule="evenodd"
+              />
+            </svg>
+            </IconButton>
           </Show>
-        </div>
+        </HStack>
       </Show>
 
       <Show when={isCreatedOpen()}>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Created</span>
-          <div class="flex items-center gap-2">
+        <HStack gap="0.5rem" align="center">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Created
+          </Text>
+          <HStack gap="0.5rem">
             <DateInput
               value={q.createdFrom() || undefined}
               onChange={(v) => q.setCreatedFrom(v)}
@@ -287,8 +329,9 @@ export const FiltersPanel = (props: {
               aria-label="Created to"
             />
             <Show when={(q.createdFrom() || q.createdTo())?.trim?.()}>
-              <button
-                class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+              <IconButton
+                size="xs"
+                variant="plain"
                 onClick={() => {
                   q.setCreatedFrom(undefined);
                   q.setCreatedTo(undefined);
@@ -299,26 +342,29 @@ export const FiltersPanel = (props: {
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="h-4 w-4"
-                >
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                width="16"
+                height="16"
+              >
                   <path
                     fill-rule="evenodd"
                     d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
                     clip-rule="evenodd"
                   />
                 </svg>
-              </button>
+              </IconButton>
             </Show>
-          </div>
-        </div>
+          </HStack>
+        </HStack>
       </Show>
 
       <Show when={isUpdatedOpen()}>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-xs text-gray-600 w-20 shrink-0">Updated</span>
-          <div class="flex items-center gap-2">
+        <HStack gap="0.5rem" align="center">
+          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
+            Updated
+          </Text>
+          <HStack gap="0.5rem">
             <DateInput
               value={q.updatedFrom() || undefined}
               onChange={(v) => q.setUpdatedFrom(v)}
@@ -330,8 +376,9 @@ export const FiltersPanel = (props: {
               aria-label="Updated to"
             />
             <Show when={(q.updatedFrom() || q.updatedTo())?.trim?.()}>
-              <button
-                class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+              <IconButton
+                size="xs"
+                variant="plain"
                 onClick={() => {
                   q.setUpdatedFrom(undefined);
                   q.setUpdatedTo(undefined);
@@ -342,21 +389,22 @@ export const FiltersPanel = (props: {
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="h-4 w-4"
-                >
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                width="16"
+                height="16"
+              >
                   <path
                     fill-rule="evenodd"
                     d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
                     clip-rule="evenodd"
                   />
                 </svg>
-              </button>
+              </IconButton>
             </Show>
-          </div>
-        </div>
+          </HStack>
+        </HStack>
       </Show>
-    </div>
+    </Stack>
   );
 };

@@ -8,6 +8,9 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 type TocItem = {
   id: string;
@@ -242,72 +245,112 @@ export const TableOfContents: VoidComponent<{
   });
 
   return (
-    <div
-      class={`toc-container fixed right-4 top-24 z-30 select-none ${
-        props.class || ""
-      }`}
+    <Box
+      position="fixed"
+      right="4"
+      top="24"
+      zIndex="30"
+      userSelect="none"
+      class={props.class}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={containerStyle()}
     >
-      <div class="flex items-start gap-3" style={{ height: "100%" }}>
+      <HStack gap="3" alignItems="flex-start" h="100%">
         <Show when={expanded()}>
-          <div
-            class="w-72 rounded-lg border border-gray-200 bg-white shadow-lg"
-            style={{ "max-height": `${maxVh()}vh`, overflow: "auto" }}
+          <Box
+            w="18rem"
+            borderWidth="1px"
+            borderColor="gray.outline.border"
+            bg="bg.default"
+            borderRadius="l2"
+            boxShadow="lg"
+            overflow="auto"
+            style={{ "max-height": `${maxVh()}vh` }}
           >
-            <div class="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700">
-              Table of contents
-            </div>
-            <nav class="p-2">
-              <ul class="flex flex-col" ref={(el) => (listRef = el)}>
+            <Box
+              position="sticky"
+              top="0"
+              zIndex="10"
+              borderBottomWidth="1px"
+              borderColor="gray.outline.border"
+              bg="bg.default"
+              px="4"
+              py="2"
+            >
+              <Text textStyle="sm" fontWeight="semibold" color="fg.muted">
+                Table of contents
+              </Text>
+            </Box>
+            <Box as="nav" p="2">
+              <Stack
+                as="ul"
+                gap="1"
+                ref={(el) => (listRef = el as HTMLUListElement)}
+              >
                 <For each={items()}>
                   {(it, i) => {
                     const handleClick = () => handleItemClick(it);
                     const paddingLeft =
-                      it.level === 1 ? "0" : it.level === 2 ? "12px" : "24px";
+                      it.level === 1
+                        ? "0"
+                        : it.level === 2
+                        ? "0.75rem"
+                        : "1.5rem";
                     const isActive = () => i() === activeIndex();
                     return (
-                      <li data-toc-idx={i()}>
-                        <button
-                          class="w-full text-left px-3 py-1.5 rounded hover:bg-gray-100 focus:outline-none"
-                          style={`padding-left: ${paddingLeft}; color: ${
-                            isActive() ? "#2563eb" : "#374151"
-                          }; font-weight: ${it.level === 1 ? "600" : "500"};`}
+                      <Box as="li" data-toc-idx={i()}>
+                        <Button
+                          type="button"
+                          variant="plain"
+                          size="xs"
+                          colorPalette={isActive() ? "blue" : "gray"}
+                          width="full"
+                          justifyContent="flex-start"
+                          pl={paddingLeft}
+                          pr="3"
+                          py="1.5"
+                          fontWeight={it.level === 1 ? "semibold" : "medium"}
                           onClick={handleClick}
                         >
                           {it.text || it.id}
-                        </button>
-                      </li>
+                        </Button>
+                      </Box>
                     );
                   }}
                 </For>
-              </ul>
-            </nav>
-          </div>
+              </Stack>
+            </Box>
+          </Box>
         </Show>
 
         {/* Collapsed rail */}
-        <div
-          class="flex flex-col items-center gap-1 rounded-md border border-gray-200 bg-white/80 backdrop-blur p-2 shadow"
-          style={{ height: "100%", overflow: "hidden" }}
+        <Stack
+          alignItems="center"
+          gap="1"
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          bg="bg.default"
+          borderRadius="l2"
+          p="2"
+          boxShadow="sm"
+          h="100%"
+          overflow="hidden"
         >
           <For each={items()}>
             {(it, i) => (
-              <div
-                class="w-3 rounded"
-                style={{
-                  height:
-                    it.level === 1 ? "10px" : it.level === 2 ? "8px" : "6px",
-                  background: i() === activeIndex() ? "#111827" : "#e5e7eb",
-                  opacity: i() === activeIndex() ? 1 : 0.9,
-                }}
+              <Box
+                w="3"
+                borderRadius="sm"
+                h={it.level === 1 ? "10px" : it.level === 2 ? "8px" : "6px"}
+                bg={i() === activeIndex() ? "fg.default" : "border"}
+                opacity={i() === activeIndex() ? 1 : 0.9}
               />
             )}
           </For>
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </HStack>
+    </Box>
   );
 };
 

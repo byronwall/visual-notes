@@ -1,6 +1,9 @@
 import { Show, createSignal, type VoidComponent } from "solid-js";
 import Modal from "~/components/Modal";
 import { PathEditor } from "~/components/PathEditor";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 export const BulkPathModal: VoidComponent<{
   open: boolean;
@@ -36,41 +39,43 @@ export const BulkPathModal: VoidComponent<{
 
   return (
     <Modal open={props.open} onClose={handleClose}>
-      <div class="p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-medium">Bulk set path</div>
-          <div class="text-xs text-gray-500">
+      <Stack p="1rem" gap="0.75rem">
+        <HStack justifyContent="space-between" align="center">
+          <Text fontSize="sm" fontWeight="semibold">
+            Bulk set path
+          </Text>
+          <Text fontSize="xs" color="black.a7">
             Selected: {props.selectedCount}
-          </div>
-        </div>
+          </Text>
+        </HStack>
 
         <Show when={!!error()}>
-          <div class="text-xs text-red-600">{error()}</div>
+          <Text fontSize="xs" color="red.11">
+            {error()}
+          </Text>
         </Show>
 
-        <div>
-          <div class="text-xs text-gray-600 mb-1">Path</div>
+        <Box>
+          <Text fontSize="xs" color="black.a7" mb="0.25rem">
+            Path
+          </Text>
           <PathEditor onChange={(p) => setDraftPath(p)} />
-        </div>
+        </Box>
 
-        <div class="flex justify-end gap-2 pt-1">
-          <button
-            class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
-            onClick={handleClose}
-          >
+        <HStack justifyContent="flex-end" gap="0.5rem">
+          <Button size="sm" variant="outline" onClick={handleClose}>
             Cancel
-          </button>
-          <button
-            class={`rounded px-3 py-1.5 text-xs text-white ${
-              busy() ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-            }`}
+          </Button>
+          <Button
+            size="sm"
+            colorPalette="grass"
             disabled={busy()}
             onClick={handleApply}
           >
             Apply to {props.selectedCount} items
-          </button>
-        </div>
-      </div>
+          </Button>
+        </HStack>
+      </Stack>
     </Modal>
   );
 };

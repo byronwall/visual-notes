@@ -1,6 +1,9 @@
 import { For, Show, type Accessor } from "solid-js";
 import { usePopover } from "../hooks/usePopover";
 import type { SourcesResponse } from "../data/docs.service";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, Stack } from "styled-system/jsx";
 
 export const ActionsPopover = (props: {
   sources: Accessor<SourcesResponse | undefined>;
@@ -14,75 +17,107 @@ export const ActionsPopover = (props: {
   const pop = usePopover();
 
   return (
-    <div class="relative">
-      <button
+    <Box position="relative">
+      <Button
         ref={(el) => pop.setAnchor(el as unknown as HTMLElement)}
-        class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+        size="sm"
+        variant="outline"
         onClick={pop.togglePopover}
       >
-        <span>⚙️</span>
-        <span>Actions</span>
-      </button>
+        ⚙️ Actions
+      </Button>
       <Show when={pop.open()}>
-        <div
+        <Box
           ref={(el) => pop.setPopover(el as unknown as HTMLElement)}
-          class="absolute right-0 mt-2 w-80 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3"
+          position="absolute"
+          right="0"
+          mt="0.5rem"
+          width="20rem"
+          bg="white"
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          boxShadow="lg"
+          zIndex="50"
+          p="0.75rem"
         >
-          <div class="space-y-3">
-            <div>
-              <div class="text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">
+          <Stack gap="0.75rem">
+            <Box>
+              <Text
+                fontSize="xs"
+                fontWeight="semibold"
+                textTransform="uppercase"
+                color="black.a7"
+                mb="0.5rem"
+              >
                 Bulk Actions
-              </div>
-              <div class="space-y-2">
-                <button
-                  class="w-full px-3 py-2 rounded bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50 text-left whitespace-nowrap"
+              </Text>
+              <Stack gap="0.5rem">
+                <Button
+                  width="100%"
+                  size="sm"
+                  colorPalette="green"
                   onClick={async () => {
                     await props.onProcessPathRound();
                     pop.closePopover();
                   }}
                 >
                   Process one path round
-                </button>
-                <button
-                  class="w-full px-3 py-2 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50 text-left whitespace-nowrap"
+                </Button>
+                <Button
+                  width="100%"
+                  size="sm"
+                  colorPalette="olive"
                   onClick={async () => {
                     await props.onScanRelativeImages();
                     pop.closePopover();
                   }}
                 >
                   Mark notes with relative images
-                </button>
-                <button
-                  class="w-full px-3 py-2 rounded bg-gray-700 text-white text-sm hover:bg-gray-800 disabled:opacity-50 text-left"
+                </Button>
+                <Button
+                  width="100%"
+                  size="sm"
+                  variant="surface"
                   onClick={async () => {
                     await props.onBulkSetSource();
                     pop.closePopover();
                   }}
                 >
                   Set Source (All)
-                </button>
-                <button
-                  class="w-full px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 text-left whitespace-nowrap"
+                </Button>
+                <Button
+                  width="100%"
+                  size="sm"
+                  colorPalette="grass"
                   onClick={async () => {
                     await props.onCleanupTitles();
                     pop.closePopover();
                   }}
                 >
                   Clean Bad Titles
-                </button>
-              </div>
-            </div>
-            <div class="border-t border-gray-200 pt-3">
-              <div class="text-xs font-medium text-red-700 mb-2 uppercase tracking-wide">
+                </Button>
+              </Stack>
+            </Box>
+            <Box borderTopWidth="1px" borderColor="gray.outline.border" pt="0.75rem">
+              <Text
+                fontSize="xs"
+                fontWeight="semibold"
+                textTransform="uppercase"
+                color="red.11"
+                mb="0.5rem"
+              >
                 ⚠️ Dangerous Actions
-              </div>
-              <div class="space-y-2">
+              </Text>
+              <Stack gap="0.5rem">
                 <Show when={props.sources()}>
                   {(data) => (
                     <For each={data().sources}>
                       {(s) => (
-                        <button
-                          class="w-full px-3 py-2 rounded bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50 text-left whitespace-nowrap"
+                        <Button
+                          width="100%"
+                          size="sm"
+                          colorPalette="olive"
                           onClick={async () => {
                             await props.onDeleteBySource(
                               s.originalSource,
@@ -92,13 +127,15 @@ export const ActionsPopover = (props: {
                           }}
                         >
                           Delete {s.originalSource} ({s.count})
-                        </button>
+                        </Button>
                       )}
                     </For>
                   )}
                 </Show>
-                <button
-                  class="w-full px-3 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50 text-left"
+                <Button
+                  width="100%"
+                  size="sm"
+                  colorPalette="red"
                   onClick={async () => {
                     await props.onDeleteAll();
                     pop.closePopover();
@@ -108,12 +145,12 @@ export const ActionsPopover = (props: {
                   <Show when={props.sources()}>
                     {(d) => <span> ({d().total})</span>}
                   </Show>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+                </Button>
+              </Stack>
+            </Box>
+          </Stack>
+        </Box>
       </Show>
-    </div>
+    </Box>
   );
 };

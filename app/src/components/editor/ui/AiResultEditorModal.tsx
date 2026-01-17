@@ -1,8 +1,14 @@
 import { Show, createMemo, createSignal } from "solid-js";
-import Modal from "../../Modal";
 import TiptapEditor from "../../TiptapEditor";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { Editor } from "@tiptap/core";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import * as Collapsible from "~/components/ui/collapsible";
+import * as Dialog from "~/components/ui/dialog";
+import { css } from "styled-system/css";
+import { XIcon } from "lucide-solid";
 
 export type AiResultEditorOpenArgs = {
 	selectionText: string;
@@ -66,65 +72,168 @@ export function useAiResultEditorModal() {
 	};
 
 	const view = (
-		<Modal open={open()} onClose={onClose}>
-			<div class="p-4 space-y-3">
-				<div class="text-sm font-medium">AI Output (Editable)</div>
-				<details class="border rounded" /* collapsed by default */>
-					<summary class="text-xs cursor-pointer px-2 py-1">Prompt</summary>
-					<div class="p-2 space-y-2">
-						<div>
-							<div class="text-[11px] text-gray-600 mb-1">User prompt (compiled)</div>
-							<pre class="border rounded p-2 text-[11px] max-h-40 overflow-auto whitespace-pre-wrap">
-								{compiledPrompt()}
-							</pre>
-						</div>
-						<Show when={systemPrompt()}>
-							{(sp) => (
-								<div>
-									<div class="text-[11px] text-gray-600 mb-1">System prompt</div>
-									<pre class="border rounded p-2 text-[11px] max-h-28 overflow-auto whitespace-pre-wrap">
-										{sp()}
-									</pre>
-								</div>
-							)}
-						</Show>
-					</div>
-				</details>
-				<details class="border rounded" /* collapsed by default */>
-					<summary class="text-xs cursor-pointer px-2 py-1">Selection (used as input)</summary>
-					<div class="p-2">
-						<pre class="border rounded p-2 text-xs max-h-36 overflow-auto whitespace-pre-wrap">
-							{selectionText()}
-						</pre>
-					</div>
-				</details>
-				<div class="space-y-2">
-					<div class="flex items-center">
-						<div class="text-xs text-gray-600">Response</div>
-						<div class="ml-auto flex gap-2">
-							<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopyMarkdown}>
-								Copy markdown
-							</button>
-							<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopyHtml}>
-								Copy HTML
-							</button>
-							<button class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50" onClick={onCopyText}>
-								Copy raw text
-							</button>
-						</div>
-					</div>
-					<TiptapEditor initialHTML={initialHTML()} onEditor={(ed) => setEditor(ed)} />
-				</div>
-				<div class="flex justify-end">
-					<button class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50" onClick={onClose}>
-						Close
-					</button>
-				</div>
-			</div>
-		</Modal>
+		<Dialog.Root
+			open={open()}
+			onOpenChange={(details: { open?: boolean }) => {
+				if (details?.open === false) onClose();
+			}}
+		>
+			<Dialog.Backdrop />
+			<Dialog.Positioner>
+				<Dialog.Content
+					class={css({
+						maxW: "980px",
+						"--dialog-base-margin": "24px",
+					})}
+				>
+					<Dialog.Header>
+						<Dialog.Title>AI Output (Editable)</Dialog.Title>
+					</Dialog.Header>
+
+					<Dialog.CloseTrigger aria-label="Close dialog" onClick={onClose}>
+						<XIcon />
+					</Dialog.CloseTrigger>
+
+					<Dialog.Body>
+						<Stack gap="3">
+							<Collapsible.Root>
+								<Collapsible.Trigger>
+									<HStack w="full" justifyContent="space-between" gap="2">
+										<Text fontSize="xs" fontWeight="medium">
+											Prompt
+										</Text>
+										<Collapsible.Indicator />
+									</HStack>
+								</Collapsible.Trigger>
+								<Collapsible.Content>
+									<Stack gap="2">
+										<Stack gap="1">
+											<Text fontSize="xs" color="fg.muted">
+												User prompt (compiled)
+											</Text>
+											<Box
+												as="pre"
+												borderWidth="1px"
+												borderColor="gray.outline.border"
+												borderRadius="l2"
+												p="2"
+												fontSize="xs"
+												maxH="10rem"
+												overflow="auto"
+												whiteSpace="pre-wrap"
+											>
+												{compiledPrompt()}
+											</Box>
+										</Stack>
+										<Show when={systemPrompt()}>
+											{(sp) => (
+												<Stack gap="1">
+													<Text fontSize="xs" color="fg.muted">
+														System prompt
+													</Text>
+													<Box
+														as="pre"
+														borderWidth="1px"
+														borderColor="gray.outline.border"
+														borderRadius="l2"
+														p="2"
+														fontSize="xs"
+														maxH="7rem"
+														overflow="auto"
+														whiteSpace="pre-wrap"
+													>
+														{sp()}
+													</Box>
+												</Stack>
+											)}
+										</Show>
+									</Stack>
+								</Collapsible.Content>
+							</Collapsible.Root>
+
+							<Collapsible.Root>
+								<Collapsible.Trigger>
+									<HStack w="full" justifyContent="space-between" gap="2">
+										<Text fontSize="xs" fontWeight="medium">
+											Selection (used as input)
+										</Text>
+										<Collapsible.Indicator />
+									</HStack>
+								</Collapsible.Trigger>
+								<Collapsible.Content>
+									<Box
+										as="pre"
+										borderWidth="1px"
+										borderColor="gray.outline.border"
+										borderRadius="l2"
+										p="2"
+										fontSize="xs"
+										maxH="9rem"
+										overflow="auto"
+										whiteSpace="pre-wrap"
+									>
+										{selectionText()}
+									</Box>
+								</Collapsible.Content>
+							</Collapsible.Root>
+
+							<Stack gap="2">
+								<HStack alignItems="center">
+									<Text fontSize="xs" color="fg.muted">
+										Response
+									</Text>
+									<HStack gap="2" ml="auto">
+										<Button
+											size="xs"
+											variant="outline"
+											colorPalette="gray"
+											onClick={onCopyMarkdown}
+										>
+											Copy markdown
+										</Button>
+										<Button
+											size="xs"
+											variant="outline"
+											colorPalette="gray"
+											onClick={onCopyHtml}
+										>
+											Copy HTML
+										</Button>
+										<Button
+											size="xs"
+											variant="outline"
+											colorPalette="gray"
+											onClick={onCopyText}
+										>
+											Copy raw text
+										</Button>
+									</HStack>
+								</HStack>
+								<TiptapEditor
+									initialHTML={initialHTML()}
+									onEditor={(ed) => setEditor(ed)}
+								/>
+							</Stack>
+						</Stack>
+					</Dialog.Body>
+
+					<Dialog.Footer>
+						<HStack justifyContent="flex-end" w="full">
+							<Button
+								size="sm"
+								variant="outline"
+								colorPalette="gray"
+								onClick={onClose}
+							>
+								Close
+							</Button>
+						</HStack>
+					</Dialog.Footer>
+				</Dialog.Content>
+			</Dialog.Positioner>
+		</Dialog.Root>
 	);
 
 	return { open: openModal, view };
 }
-
 
