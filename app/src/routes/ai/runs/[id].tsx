@@ -12,7 +12,15 @@ import * as Card from "~/components/ui/card";
 import { Heading } from "~/components/ui/heading";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
-import { Box, Container, Flex, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import {
+  Box,
+  Container,
+  Flex,
+  Grid,
+  HStack,
+  Spacer,
+  Stack,
+} from "styled-system/jsx";
 import { styled } from "styled-system/jsx";
 import { link } from "styled-system/recipes";
 
@@ -325,22 +333,44 @@ const RunDetailPage: VoidComponent = () => {
                                 >
                                   <Stack gap="1">
                                     <HStack gap="2">
-                                      <Text as="span" textStyle="sm" color="fg.muted">
+                                      <Text
+                                        as="span"
+                                        textStyle="sm"
+                                        color="fg.muted"
+                                      >
                                         Rating:
                                       </Text>
-                                      <Text as="span" textStyle="sm" color="fg.default">
-                                        {typeof f.rating === "number" ? f.rating : "—"}
+                                      <Text
+                                        as="span"
+                                        textStyle="sm"
+                                        color="fg.default"
+                                      >
+                                        {typeof f.rating === "number"
+                                          ? f.rating
+                                          : "—"}
                                       </Text>
                                     </HStack>
                                     <HStack gap="2" alignItems="flex-start">
-                                      <Text as="span" textStyle="sm" color="fg.muted">
+                                      <Text
+                                        as="span"
+                                        textStyle="sm"
+                                        color="fg.muted"
+                                      >
                                         Comment:
                                       </Text>
-                                      <Text as="span" textStyle="sm" color="fg.default">
+                                      <Text
+                                        as="span"
+                                        textStyle="sm"
+                                        color="fg.default"
+                                      >
                                         {f.comment || "—"}
                                       </Text>
                                     </HStack>
-                                    <Text as="div" textStyle="xs" color="fg.muted">
+                                    <Text
+                                      as="div"
+                                      textStyle="xs"
+                                      color="fg.muted"
+                                    >
                                       {new Date(f.createdAt).toLocaleString()}
                                     </Text>
                                   </Stack>
@@ -363,5 +393,3 @@ const RunDetailPage: VoidComponent = () => {
 };
 
 export default RunDetailPage;
-
-
