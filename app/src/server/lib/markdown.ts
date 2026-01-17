@@ -12,12 +12,35 @@ function stripAiHtmlWrapper(input: string): string {
 
 function removeUtmParamsFromUrl(input: string): string {
   if (!input) return input;
+  // If we ever receive an HTML-escaped URL (e.g. from previously-sanitized HTML),
+  // normalize it before parsing so `URLSearchParams` doesn't treat `amp;foo` as a key.
+  const normalizedInput = input
+    .replaceAll("&amp;", "&")
+    .replaceAll("&#38;", "&")
+    .replaceAll("&#x26;", "&");
+
+  // Some previously-saved content may contain the same absolute URL accidentally
+  // concatenated multiple times (e.g. `https://x?...https://x?...`). Try to recover
+  // a single valid URL instead of failing parsing and preserving the broken string.
+  const secondHttpIdx = normalizedInput.slice(1).search(/https?:\/\//i);
+  if (secondHttpIdx !== -1) {
+    const splitIdx = secondHttpIdx + 1;
+    const first = normalizedInput.slice(0, splitIdx);
+    // If the first chunk is a valid absolute URL, prefer it.
+    if (/^https?:\/\//i.test(first)) {
+      console.log("[removeUtmParamsFromUrl] collapsed concatenated url");
+      return removeUtmParamsFromUrl(first);
+    }
+  }
+
   const isProtocolRelative = /^\/\//.test(input);
   const hasHttpProtocol = /^https?:\/\//i.test(input);
   if (!isProtocolRelative && !hasHttpProtocol) return input;
 
   try {
-    const urlForParse = isProtocolRelative ? `https:${input}` : input;
+    const urlForParse = isProtocolRelative
+      ? `https:${normalizedInput}`
+      : normalizedInput;
     const urlObj = new URL(urlForParse);
 
     const toDelete: string[] = [];
@@ -44,6 +67,43 @@ function removeUtmParamsFromUrl(input: string): string {
     console.log("[removeUtmParamsFromUrl] failed to parse:", input, err);
     return input;
   }
+}
+
+function fixConcatenatedUrlsInText(text: string): string {
+  // Find "word-like" URL runs (up to whitespace or a tag boundary). If a run contains
+  // multiple absolute/protocol-relative URL starts, split and collapse duplicates.
+  const urlRunPattern = /(?:https?:\/\/|\/\/)[^\s<]+/gi;
+  return text.replace(urlRunPattern, (run) => {
+    // Only split on *new* absolute URL starts. Do NOT split on bare `//` or we'll
+    // break normal `https://` into `https:` + `//...`.
+    const parts = run
+      .split(/(?=https?:\/\/)/i)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length <= 1) return removeUtmParamsFromUrl(run);
+
+    const cleaned = parts.map((p) => removeUtmParamsFromUrl(p));
+    const deduped: string[] = [];
+    for (const c of cleaned) {
+      if (deduped.length === 0 || deduped[deduped.length - 1] !== c) {
+        deduped.push(c);
+      }
+    }
+
+    // Most common case: same link repeated many times with no separator → collapse.
+    const allSame = deduped.every((u) => u === deduped[0]);
+    if (allSame) return deduped[0] || run;
+
+    // If they were different URLs but concatenated, at least make them readable.
+    return deduped.join(" ");
+  });
+}
+
+function escapeHtmlText(input: string): string {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 export function looksLikeHtml(input: string): boolean {
@@ -113,21 +173,12 @@ export function getSanitizeOptions(): IOptions {
             target: attribs.target || "_blank",
             rel: attribs.rel || "noopener noreferrer",
           },
-          // Also set the anchor's visible text to the sanitized URL.
-          // Usually link text is the same as the URL; this ensures utm_* params
-          // are stripped from both the href and the displayed text.
-          text: href,
         };
       },
     },
     textFilter: (text: string) => {
-      // Replace any URL-like substrings with UTM-stripped versions
-      const urlLikePattern = /(https?:)?\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+/gi;
-      const out = text.replace(urlLikePattern, (m) =>
-        removeUtmParamsFromUrl(m)
-      );
-
-      return out;
+      // Repair "crazy" concatenated links and strip utm_* params in any URL-like text.
+      return fixConcatenatedUrlsInText(text);
     },
   };
 }
@@ -136,7 +187,23 @@ export function sanitizeHtmlContent(html: string): string {
   const options = getSanitizeOptions();
   const sanitized = sanitizeHtml(String(html), options);
 
-  return sanitized;
+  // Post-pass: In some "crazy link" cases coming from markdown autolinking,
+  // `sanitize-html` correctly fixes the href but leaves anchor text containing
+  // multiple concatenated absolute URLs. Collapse those runs for readability.
+  const fixedAnchors = sanitized.replace(
+    /(<a\b[^>]*>)([^<]*)(<\/a>)/gi,
+    (_m, open: string, text: string, close: string) => {
+      const httpCount = (text.match(/https?:\/\//gi) || []).length;
+      if (httpCount < 2) return `${open}${text}${close}`;
+
+      const fixedText = fixConcatenatedUrlsInText(text);
+      if (fixedText === text) return `${open}${text}${close}`;
+
+      return `${open}${escapeHtmlText(fixedText)}${close}`;
+    }
+  );
+
+  return fixedAnchors;
 }
 
 function markdownToHtml(md: string): string {
