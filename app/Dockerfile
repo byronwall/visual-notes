@@ -10,6 +10,7 @@ WORKDIR /app
 # -------- deps install (cached) --------
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 ENV PRISMA_SKIP_POSTINSTALL=1
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --ignore-scripts
