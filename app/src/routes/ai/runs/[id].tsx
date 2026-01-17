@@ -1,11 +1,20 @@
 import {
   type VoidComponent,
+  For,
   Show,
   Suspense,
   createResource,
 } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
+import { Badge } from "~/components/ui/badge";
+import * as Card from "~/components/ui/card";
+import { Heading } from "~/components/ui/heading";
+import { Spinner } from "~/components/ui/spinner";
+import { Text } from "~/components/ui/text";
+import { Box, Container, Flex, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import { styled } from "styled-system/jsx";
+import { link } from "styled-system/recipes";
 
 type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
 
@@ -41,133 +50,315 @@ async function fetchRun(id: string): Promise<PromptRunFull> {
   return data.item;
 }
 
+const statusColorPalette = (status: RunStatus) => {
+  if (status === "SUCCESS") return "green";
+  if (status === "ERROR") return "red";
+  return "gray";
+};
+
+const RouterLink = styled(A, link);
+
 const RunDetailPage: VoidComponent = () => {
   const params = useParams();
   const [run] = createResource(() => params.id, fetchRun);
 
+  const LoadingInline = (props: { label?: string | undefined }) => {
+    return (
+      <HStack gap="2">
+        <Spinner />
+        <Text textStyle="sm" color="fg.muted">
+          {props.label || "Loading…"}
+        </Text>
+      </HStack>
+    );
+  };
+
   return (
-    <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-6">
-        <div>
-          <A href="/ai" class="text-sm text-blue-600 hover:underline">
-            ← Back to AI Dashboard
-          </A>
-        </div>
-        <Suspense fallback={<div class="text-sm text-gray-500">Loading…</div>}>
-          <Show when={run()}>
-            {(r) => (
-              <div class="space-y-6">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h1 class="text-2xl font-bold">
-                      Run {r().id.slice(0, 8)}
-                    </h1>
-                    <div class="text-sm text-gray-600">
-                      {new Date(r().createdAt).toLocaleString()} ·{" "}
-                      <span>{r().model}</span> ·{" "}
-                      <span
-                        class={
-                          r().status === "SUCCESS"
-                            ? "text-green-700"
-                            : r().status === "ERROR"
-                            ? "text-red-700"
-                            : "text-yellow-700"
-                        }
-                      >
-                        {r().status}
-                      </span>
-                    </div>
-                  </div>
-                  <Show when={r().promptVersion?.Prompt}>
-                    {(p) => (
-                      <A
-                        href={`/ai/prompts/${p().id}`}
-                        class="text-sm text-blue-600 hover:underline"
-                      >
-                        View Prompt: {p().task}
-                      </A>
-                    )}
-                  </Show>
-                </div>
+    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
+      <Container py="6" px="4" maxW="1200px">
+        <Stack gap="6">
+          <Box>
+            <RouterLink href="/ai">← Back to AI Dashboard</RouterLink>
+          </Box>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div class="space-y-4">
-                    <div class="rounded border p-3">
-                      <div class="text-xs text-gray-600">Compiled Prompt</div>
-                      <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{r().compiledPrompt}
-                      </pre>
-                    </div>
-                    <Show when={r().systemUsed}>
-                      {(s) => (
-                        <div class="rounded border p-3">
-                          <div class="text-xs text-gray-600">System</div>
-                          <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{s()}
-                          </pre>
-                        </div>
-                      )}
-                    </Show>
-                    <div class="rounded border p-3">
-                      <div class="text-xs text-gray-600">Input Vars</div>
-                      <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{JSON.stringify(r().inputVars ?? {}, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                  <div class="space-y-4">
-                    <div class="rounded border p-3">
-                      <div class="text-xs text-gray-600">Output (HTML)</div>
-                      <div class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-                        <Show when={r().outputHtml} fallback={<span>—</span>}>
-                          {(h) => <div innerHTML={h()} />}
+          <Suspense fallback={<LoadingInline label="Loading run…" />}>
+            <Show when={run()}>
+              {(runItem) => {
+                const r = () => runItem();
+                const feedbackItems = () => r().HumanFeedback ?? [];
+
+                return (
+                  <Stack gap="6">
+                    <Flex
+                      align="center"
+                      justify="space-between"
+                      gap="3"
+                      flexWrap="wrap"
+                    >
+                      <Stack gap="1">
+                        <Heading as="h1" fontSize="2xl">
+                          Run{" "}
+                          <Text as="span" fontFamily="mono" color="fg.default">
+                            {r().id.slice(0, 8)}
+                          </Text>
+                        </Heading>
+                        <HStack gap="2" flexWrap="wrap" alignItems="center">
+                          <Text textStyle="sm" color="fg.muted">
+                            {new Date(r().createdAt).toLocaleString()} ·{" "}
+                            <Text as="span" color="fg.default">
+                              {r().model}
+                            </Text>
+                          </Text>
+                          <Badge
+                            size="sm"
+                            variant="subtle"
+                            colorPalette={statusColorPalette(r().status)}
+                          >
+                            {r().status}
+                          </Badge>
+                        </HStack>
+                      </Stack>
+
+                      <Show when={r().promptVersion?.Prompt}>
+                        {(p) => (
+                          <RouterLink href={`/ai/prompts/${p().id}`}>
+                            View Prompt:{" "}
+                            <Text as="span" fontWeight="semibold">
+                              {p().task}
+                            </Text>
+                          </RouterLink>
+                        )}
+                      </Show>
+                    </Flex>
+
+                    <Grid
+                      gap="6"
+                      gridTemplateColumns={{
+                        base: "1fr",
+                        lg: "repeat(2, minmax(0, 1fr))",
+                      }}
+                    >
+                      <Stack gap="4">
+                        <Card.Root>
+                          <Card.Header>
+                            <HStack>
+                              <Text textStyle="sm" fontWeight="semibold">
+                                Compiled Prompt
+                              </Text>
+                              <Spacer />
+                            </HStack>
+                          </Card.Header>
+                          <Card.Body>
+                            <Box
+                              as="pre"
+                              fontFamily="mono"
+                              fontSize="xs"
+                              bg="bg.subtle"
+                              borderWidth="1px"
+                              borderColor="border"
+                              borderRadius="l2"
+                              p="3"
+                              whiteSpace="pre-wrap"
+                            >
+                              {r().compiledPrompt}
+                            </Box>
+                          </Card.Body>
+                        </Card.Root>
+
+                        <Show when={r().systemUsed}>
+                          {(s) => (
+                            <Card.Root>
+                              <Card.Header>
+                                <HStack>
+                                  <Text textStyle="sm" fontWeight="semibold">
+                                    System
+                                  </Text>
+                                  <Spacer />
+                                </HStack>
+                              </Card.Header>
+                              <Card.Body>
+                                <Box
+                                  as="pre"
+                                  fontFamily="mono"
+                                  fontSize="xs"
+                                  bg="bg.subtle"
+                                  borderWidth="1px"
+                                  borderColor="border"
+                                  borderRadius="l2"
+                                  p="3"
+                                  whiteSpace="pre-wrap"
+                                >
+                                  {s()}
+                                </Box>
+                              </Card.Body>
+                            </Card.Root>
+                          )}
                         </Show>
-                      </div>
-                    </div>
-                    <div class="rounded border p-3">
-                      <div class="text-xs text-gray-600">Raw Response</div>
-                      <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{JSON.stringify(r().rawResponse ?? {}, null, 2)}
-                      </pre>
-                    </div>
-                    <Show when={r().error}>
-                      {(e) => (
-                        <div class="rounded border p-3 text-sm text-red-700">
-                          Error: {e()}
-                        </div>
-                      )}
-                    </Show>
-                  </div>
-                </div>
 
-                <Show when={Array.isArray(run()?.HumanFeedback) && run()!.HumanFeedback!.length > 0}>
-                  <div class="rounded border p-3">
-                    <div class="text-sm font-semibold mb-2">Human Feedback</div>
-                    <ul class="space-y-2 text-sm">
-                      {run()!.HumanFeedback!.map((f) => (
-                        <li class="border rounded p-2">
-                          <div>
-                            <span class="text-gray-600">Rating:</span>{" "}
-                            {typeof f.rating === "number" ? f.rating : "—"}
-                          </div>
-                          <div>
-                            <span class="text-gray-600">Comment:</span>{" "}
-                            {f.comment || "—"}
-                          </div>
-                          <div class="text-gray-600">
-                            {new Date(f.createdAt).toLocaleString()}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </Show>
-              </div>
-            )}
-          </Show>
-        </Suspense>
-      </div>
-    </main>
+                        <Card.Root>
+                          <Card.Header>
+                            <HStack>
+                              <Text textStyle="sm" fontWeight="semibold">
+                                Input Vars
+                              </Text>
+                              <Spacer />
+                            </HStack>
+                          </Card.Header>
+                          <Card.Body>
+                            <Box
+                              as="pre"
+                              fontFamily="mono"
+                              fontSize="xs"
+                              bg="bg.subtle"
+                              borderWidth="1px"
+                              borderColor="border"
+                              borderRadius="l2"
+                              p="3"
+                              whiteSpace="pre-wrap"
+                            >
+                              {JSON.stringify(r().inputVars ?? {}, null, 2)}
+                            </Box>
+                          </Card.Body>
+                        </Card.Root>
+                      </Stack>
+
+                      <Stack gap="4">
+                        <Card.Root>
+                          <Card.Header>
+                            <HStack>
+                              <Text textStyle="sm" fontWeight="semibold">
+                                Output (HTML)
+                              </Text>
+                              <Spacer />
+                            </HStack>
+                          </Card.Header>
+                          <Card.Body>
+                            <Box
+                              fontSize="xs"
+                              bg="bg.subtle"
+                              borderWidth="1px"
+                              borderColor="border"
+                              borderRadius="l2"
+                              p="3"
+                              whiteSpace="pre-wrap"
+                            >
+                              <Show
+                                when={r().outputHtml}
+                                fallback={<Text as="span">—</Text>}
+                              >
+                                {(h) => <Box innerHTML={h()} />}
+                              </Show>
+                            </Box>
+                          </Card.Body>
+                        </Card.Root>
+
+                        <Card.Root>
+                          <Card.Header>
+                            <HStack>
+                              <Text textStyle="sm" fontWeight="semibold">
+                                Raw Response
+                              </Text>
+                              <Spacer />
+                            </HStack>
+                          </Card.Header>
+                          <Card.Body>
+                            <Box
+                              as="pre"
+                              fontFamily="mono"
+                              fontSize="xs"
+                              bg="bg.subtle"
+                              borderWidth="1px"
+                              borderColor="border"
+                              borderRadius="l2"
+                              p="3"
+                              whiteSpace="pre-wrap"
+                            >
+                              {JSON.stringify(r().rawResponse ?? {}, null, 2)}
+                            </Box>
+                          </Card.Body>
+                        </Card.Root>
+
+                        <Show when={r().error}>
+                          {(e) => (
+                            <Card.Root>
+                              <Card.Header>
+                                <HStack>
+                                  <Text textStyle="sm" fontWeight="semibold">
+                                    Error
+                                  </Text>
+                                  <Spacer />
+                                </HStack>
+                              </Card.Header>
+                              <Card.Body>
+                                <Text as="div" textStyle="sm" color="error">
+                                  {e()}
+                                </Text>
+                              </Card.Body>
+                            </Card.Root>
+                          )}
+                        </Show>
+                      </Stack>
+                    </Grid>
+
+                    <Show when={feedbackItems().length > 0}>
+                      <Card.Root>
+                        <Card.Header>
+                          <HStack>
+                            <Text textStyle="sm" fontWeight="semibold">
+                              Human Feedback
+                            </Text>
+                            <Spacer />
+                            <Text textStyle="xs" color="fg.muted">
+                              {feedbackItems().length}
+                            </Text>
+                          </HStack>
+                        </Card.Header>
+                        <Card.Body>
+                          <Stack gap="3">
+                            <For each={feedbackItems()}>
+                              {(f) => (
+                                <Box
+                                  borderWidth="1px"
+                                  borderColor="border"
+                                  borderRadius="l2"
+                                  p="3"
+                                >
+                                  <Stack gap="1">
+                                    <HStack gap="2">
+                                      <Text as="span" textStyle="sm" color="fg.muted">
+                                        Rating:
+                                      </Text>
+                                      <Text as="span" textStyle="sm" color="fg.default">
+                                        {typeof f.rating === "number" ? f.rating : "—"}
+                                      </Text>
+                                    </HStack>
+                                    <HStack gap="2" alignItems="flex-start">
+                                      <Text as="span" textStyle="sm" color="fg.muted">
+                                        Comment:
+                                      </Text>
+                                      <Text as="span" textStyle="sm" color="fg.default">
+                                        {f.comment || "—"}
+                                      </Text>
+                                    </HStack>
+                                    <Text as="div" textStyle="xs" color="fg.muted">
+                                      {new Date(f.createdAt).toLocaleString()}
+                                    </Text>
+                                  </Stack>
+                                </Box>
+                              )}
+                            </For>
+                          </Stack>
+                        </Card.Body>
+                      </Card.Root>
+                    </Show>
+                  </Stack>
+                );
+              }}
+            </Show>
+          </Suspense>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 
