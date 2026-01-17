@@ -1,3 +1,5 @@
+import { Button } from "~/components/ui/button";
+
 export const LoadMoreButton = (props: {
   shown: number;
   total: number;
@@ -5,15 +7,10 @@ export const LoadMoreButton = (props: {
 }) => {
   if (props.total <= props.shown) return null as unknown as any;
   return (
-    <div class="mt-2">
-      <button
-        class="px-3 py-1.5 rounded bg-gray-100 border hover:bg-gray-200 text-sm"
-        onClick={props.onClick}
-      >
+    <div>
+      <Button variant="outline" size="sm" onClick={props.onClick}>
         Show more ({props.shown} / {props.total})
-      </button>
+      </Button>
     </div>
   );
 };
-
-

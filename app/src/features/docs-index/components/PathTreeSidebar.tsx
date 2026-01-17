@@ -8,6 +8,10 @@ import {
 import type { VoidComponent } from "solid-js";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import type { DocsQueryStore } from "../state/docsQuery";
+import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 type PathCount = { path: string; count: number };
 
@@ -121,49 +125,76 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
     const handleClick = () => handleSelectPrefix(p.node.prefix);
 
     return (
-      <div class="px-2">
-        <div
-          class="flex items-center gap-1 py-1 hover:bg-gray-50 rounded cursor-pointer"
+      <Box px="0.5rem">
+        <HStack
+          gap="0.25rem"
+          py="0.25rem"
+          borderRadius="l2"
+          _hover={{ bg: "gray.surface.bg.hover" }}
           style={{ "padding-left": paddingLeft() }}
         >
-          <button
-            class={`w-5 h-5 flex items-center justify-center text-gray-500 ${
-              hasChildren() ? "" : "opacity-30 pointer-events-none"
-            }`}
+          <IconButton
+            size="xs"
+            variant="plain"
             onClick={handleToggle}
             aria-label={isExpanded(p.node.prefix) ? "Collapse" : "Expand"}
+            disabled={!hasChildren()}
+            opacity={hasChildren() ? 1 : 0.4}
           >
             {isExpanded(p.node.prefix) ? "▾" : "▸"}
-          </button>
-          <button
-            class="flex-1 text-left text-sm truncate"
+          </IconButton>
+          <Button
+            size="xs"
+            variant="plain"
             onClick={handleClick}
             title={p.node.prefix || "(root)"}
+            flex="1"
+            justifyContent="flex-start"
           >
             {p.node.key || "(root)"}
-          </button>
-          <span class="text-xs text-gray-600 tabular-nums">{p.node.count}</span>
-        </div>
+          </Button>
+          <Text fontSize="xs" color="black.a7" fontVariantNumeric="tabular-nums">
+            {p.node.count}
+          </Text>
+        </HStack>
         {hasChildren() && isExpanded(p.node.prefix) && (
-          <div>
+          <Box>
             <For each={[...p.node.children.values()]}>
               {(child) => <NodeRow node={child} depth={p.depth + 1} />}
             </For>
-          </div>
+          </Box>
         )}
-      </div>
+      </Box>
     );
   };
 
   return (
-    <aside class="fixed left-0 top-14 bottom-0 w-64 bg-white border-r border-gray-200 overflow-y-auto z-20">
-      <div class="p-2 border-b border-gray-200">
-        <div class="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+    <Box
+      as="aside"
+      position="fixed"
+      left="0"
+      top="3.5rem"
+      bottom="0"
+      width="16rem"
+      bg="white"
+      borderRightWidth="1px"
+      borderColor="gray.outline.border"
+      overflowY="auto"
+      zIndex="20"
+    >
+      <Box p="0.5rem" borderBottomWidth="1px" borderColor="gray.outline.border">
+        <Text
+          fontSize="xs"
+          fontWeight="semibold"
+          textTransform="uppercase"
+          color="black.a7"
+        >
           Paths
-        </div>
-        <div class="mt-2 flex items-center gap-2">
-          <button
-            class="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50"
+        </Text>
+        <HStack gap="0.5rem" mt="0.5rem" align="center" flexWrap="wrap">
+          <Button
+            size="xs"
+            variant="outline"
             onClick={() => {
               console.log("[PathTreeSidebar] clear prefix");
               props.q.setPathPrefix("");
@@ -172,33 +203,37 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
             }}
           >
             Clear
-          </button>
-          <div class="ml-auto flex items-center gap-2">
-            <button
-              class="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50"
-              onClick={expandAll}
-            >
+          </Button>
+          <HStack gap="0.5rem" ml="auto">
+            <Button size="xs" variant="outline" onClick={expandAll}>
               Expand all
-            </button>
-            <button
-              class="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50"
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
               onClick={() => setExpanded({})}
             >
               Collapse all
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </HStack>
+        </HStack>
+      </Box>
       <Suspense
-        fallback={<div class="p-2 text-sm text-gray-500">Loading paths…</div>}
+        fallback={
+          <Box p="0.5rem">
+            <Text fontSize="sm" color="black.a7">
+              Loading paths…
+            </Text>
+          </Box>
+        }
       >
-        <div class="py-2">
+        <Box py="0.5rem">
           <For each={[...tree().children.values()]}>
             {(child) => <NodeRow node={child} depth={0} />}
           </For>
-        </div>
+        </Box>
       </Suspense>
-    </aside>
+    </Box>
   );
 };
 

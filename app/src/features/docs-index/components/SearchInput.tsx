@@ -1,4 +1,7 @@
 import type { VoidComponent } from "solid-js";
+import { Input } from "~/components/ui/input";
+import { Text } from "~/components/ui/text";
+import { HStack } from "styled-system/jsx";
 
 export const SearchInput: VoidComponent<{
   value: string;
@@ -9,10 +12,14 @@ export const SearchInput: VoidComponent<{
     props.onChange(target.value);
   };
   return (
-    <div class="mt-3 flex items-center gap-2">
-      <span class="text-xs text-gray-600 w-24 shrink-0">Search</span>
-      <input
-        class="flex-1 border rounded px-2 py-1 text-sm"
+    <HStack gap="0.5rem" mt="0.75rem">
+      <Text fontSize="xs" color="black.a7" width="6rem" flexShrink="0">
+        Search
+      </Text>
+      <Input
+        size="sm"
+        flex="1"
+        minW="0"
         placeholder="Filter by title (client) and contents (server)"
         value={props.value}
         onInput={handleChange}
@@ -21,8 +28,6 @@ export const SearchInput: VoidComponent<{
         autocorrect="off"
         spellcheck={false}
       />
-    </div>
+    </HStack>
   );
 };
-
-

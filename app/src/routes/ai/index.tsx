@@ -1,5 +1,6 @@
 import {
   type VoidComponent,
+  type JSX,
   For,
   Show,
   Suspense,
@@ -8,7 +9,19 @@ import {
   createSignal,
 } from "solid-js";
 import { A } from "@solidjs/router";
+import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
+import { Badge } from "~/components/ui/badge";
+import * as Card from "~/components/ui/card";
+import { Heading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
+import * as Select from "~/components/ui/select";
+import { Spinner } from "~/components/ui/spinner";
+import * as Table from "~/components/ui/table";
+import { Text } from "~/components/ui/text";
+import { Box, Container, Flex, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import { styled } from "styled-system/jsx";
+import { link } from "styled-system/recipes";
 
 type Prompt = {
   id: string;
@@ -58,11 +71,35 @@ async function fetchRuns(): Promise<PromptRunItem[]> {
   return data.items || [];
 }
 
+type StatusFilter = "ALL" | RunStatus;
+type StatusOption = { label: string; value: StatusFilter };
+const STATUS_OPTIONS: StatusOption[] = [
+  { label: "All", value: "ALL" },
+  { label: "Success", value: "SUCCESS" },
+  { label: "Error", value: "ERROR" },
+  { label: "Partial", value: "PARTIAL" },
+];
+
+const parseStatusFilter = (value: string): StatusFilter => {
+  if (value === "SUCCESS") return "SUCCESS";
+  if (value === "ERROR") return "ERROR";
+  if (value === "PARTIAL") return "PARTIAL";
+  return "ALL";
+};
+
+const statusColorPalette = (status: RunStatus) => {
+  if (status === "SUCCESS") return "green";
+  if (status === "ERROR") return "red";
+  return "gray";
+};
+
+const RouterLink = styled(A, link);
+
 const AiDashboard: VoidComponent = () => {
   const [prompts] = createResource(fetchPrompts);
   const [runs] = createResource(fetchRuns);
 
-  const [statusFilter, setStatusFilter] = createSignal<"ALL" | RunStatus>("ALL");
+  const [statusFilter, setStatusFilter] = createSignal<StatusFilter>("ALL");
   const [query, setQuery] = createSignal("");
 
   const filteredRuns = createMemo(() => {
@@ -119,249 +156,464 @@ const AiDashboard: VoidComponent = () => {
     return map;
   });
 
+  const handleQueryInput = (e: Event) => {
+    const target = e.currentTarget as HTMLInputElement;
+    setQuery(target.value);
+  };
+
+  const statusCollection = Select.createListCollection<StatusOption>({
+    items: STATUS_OPTIONS,
+  });
+
+  const handleStatusValueChange = (details: Select.ValueChangeDetails<StatusOption>) => {
+    setStatusFilter(parseStatusFilter(details.value?.[0] || "ALL"));
+  };
+
+  const LoadingInline = (props: { label?: string | undefined }) => {
+    return (
+      <HStack gap="2">
+        <Spinner />
+        <Text textStyle="sm" color="fg.muted">
+          {props.label || "Loading…"}
+        </Text>
+      </HStack>
+    );
+  };
+
+  const MetricCard = (props: {
+    label: string;
+    value: string | number | JSX.Element;
+    footer?: JSX.Element | undefined;
+  }) => {
+    return (
+      <Card.Root>
+        <Card.Body>
+          <Stack gap="1">
+            <Text as="div" textStyle="xs" color="fg.muted">
+              {props.label}
+            </Text>
+            <Text as="div" textStyle="2xl" fontWeight="semibold" color="fg.default">
+              {props.value}
+            </Text>
+            <Show when={props.footer}>{(f) => <Box>{f()}</Box>}</Show>
+          </Stack>
+        </Card.Body>
+      </Card.Root>
+    );
+  };
+
   return (
-    <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-6">
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold">AI Dashboard</h1>
-          <div class="flex items-center gap-2">
-            <input
-              class="border border-gray-300 rounded px-2 py-1 text-sm"
-              placeholder="Search runs by id, task, model…"
-              value={query()}
-              onInput={(e) => setQuery(e.currentTarget.value)}
-            />
-            <select
-              class="border border-gray-300 rounded px-2 py-1 text-sm"
-              value={statusFilter()}
-              onChange={(e) => setStatusFilter(e.currentTarget.value as any)}
+    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
+      <Container py="6" px="4" maxW="1200px">
+        <Stack gap="6">
+          <Flex
+            align="center"
+            justify="space-between"
+            gap="3"
+            flexWrap="wrap"
+          >
+            <Heading as="h1" fontSize="2xl">
+              AI Dashboard
+            </Heading>
+            <HStack gap="2" flexWrap="wrap" alignItems="center">
+              <Input
+                size="sm"
+                placeholder="Search runs by id, task, model…"
+                value={query()}
+                onInput={handleQueryInput}
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck={false}
+              />
+              <Select.Root
+                collection={statusCollection}
+                value={[statusFilter()]}
+                onValueChange={handleStatusValueChange}
+                size="sm"
+              >
+                <Select.Control>
+                  <Select.Trigger>
+                    <Select.ValueText placeholder="Status" />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                </Select.Control>
+                <Portal>
+                  <Select.Positioner>
+                    <Select.Content>
+                      <Select.List>
+                        <For each={statusCollection.items}>
+                          {(opt) => (
+                            <Select.Item item={opt}>
+                              <Select.ItemText>{opt.label}</Select.ItemText>
+                              <Select.ItemIndicator />
+                            </Select.Item>
+                          )}
+                        </For>
+                      </Select.List>
+                    </Select.Content>
+                  </Select.Positioner>
+                </Portal>
+                <Select.HiddenSelect />
+              </Select.Root>
+            </HStack>
+          </Flex>
+
+          <Suspense fallback={<LoadingInline />}>
+            <Grid
+              gap="3"
+              gridTemplateColumns={{
+                base: "repeat(2, minmax(0, 1fr))",
+                md: "repeat(4, minmax(0, 1fr))",
+              }}
             >
-              <option value="ALL">All</option>
-              <option value="SUCCESS">Success</option>
-              <option value="ERROR">Error</option>
-              <option value="PARTIAL">Partial</option>
-            </select>
-          </div>
-        </div>
+              <MetricCard label="Prompts" value={metrics().promptCount} />
+              <MetricCard label="Runs (recent)" value={metrics().runCount} />
+              <MetricCard
+                label="Success rate"
+                value={`${metrics().successRate}%`}
+              />
+              <MetricCard
+                label="Top model"
+                value={
+                  <Show
+                    when={metrics().topModel}
+                    fallback={<Text as="span">—</Text>}
+                  >
+                    {(m) => (
+                      <HStack gap="1.5">
+                        <Text as="span" fontWeight="semibold" color="fg.default">
+                          {m()}
+                        </Text>
+                        <Text as="span" textStyle="sm" color="fg.muted">
+                          ({metrics().topModelCount})
+                        </Text>
+                      </HStack>
+                    )}
+                  </Show>
+                }
+              />
+            </Grid>
+          </Suspense>
 
-        <Suspense fallback={<div class="text-sm text-gray-500">Loading…</div>}>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="rounded border p-3">
-              <div class="text-xs text-gray-600">Prompts</div>
-              <div class="text-2xl font-semibold">{metrics().promptCount}</div>
-            </div>
-            <div class="rounded border p-3">
-              <div class="text-xs text-gray-600">Runs (recent)</div>
-              <div class="text-2xl font-semibold">{metrics().runCount}</div>
-            </div>
-            <div class="rounded border p-3">
-              <div class="text-xs text-gray-600">Success rate</div>
-              <div class="text-2xl font-semibold">
-                {metrics().successRate}%
-              </div>
-            </div>
-            <div class="rounded border p-3">
-              <div class="text-xs text-gray-600">Top model</div>
-              <div class="text-sm font-semibold">
-                <Show when={metrics().topModel} fallback={<span>—</span>}>
-                  {(m) => (
-                    <span>
-                      {m()}{" "}
-                      <span class="text-gray-500">
-                        ({metrics().topModelCount})
-                      </span>
-                    </span>
-                  )}
-                </Show>
-              </div>
-            </div>
-          </div>
-        </Suspense>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Prompts</h2>
-            </div>
-            <div class="overflow-hidden rounded border border-gray-200">
-              <Suspense fallback={<div class="p-3 text-sm">Loading…</div>}>
-                <table class="w-full text-sm">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="text-left p-2">Task</th>
-                      <th class="text-left p-2">Active Version</th>
-                      <th class="text-left p-2">Default</th>
-                      <th class="text-right p-2">Runs</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={prompts() || []}>
-                      {(p) => (
-                        <tr class="border-t border-gray-200 hover:bg-gray-50 align-top">
-                          <td class="p-2">
-                            <div class="font-medium">
-                              <A
-                                href={`/ai/prompts/${p.id}`}
-                                class="hover:underline"
-                              >
-                                {p.task}
-                              </A>
-                            </div>
-                            <div class="text-[12px] text-gray-600">
-                              {p.description || "—"}
-                            </div>
-                          </td>
-                          <td class="p-2">
-                            <div class="font-mono text-[12px]">
-                              {p.activeVersion?.id || "—"}
-                            </div>
-                            <Show when={p.activeVersion}>
-                              {(av) => (
-                                <details class="mt-1">
-                                  <summary class="text-xs cursor-pointer">
-                                    Template
-                                  </summary>
-                                  <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{av().template}
-                                  </pre>
-                                </details>
-                              )}
-                            </Show>
-                          </td>
-                          <td class="p-2">
-                            <div>{p.defaultModel}</div>
-                            <div class="text-[12px] text-gray-600">
-                              temp {p.defaultTemp}
-                              <Show when={typeof p.defaultTopP === "number"}>
-                                {(v) => <span> · top_p {String(v())}</span>}
-                              </Show>
-                            </div>
-                          </td>
-                          <td class="p-2 text-right">
-                            {promptIdToRunCount().get(p.id) || 0}
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-              </Suspense>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Recent Runs</h2>
-            </div>
-            <div class="overflow-hidden rounded border border-gray-200">
-              <Suspense fallback={<div class="p-3 text-sm">Loading…</div>}>
-                <table class="w-full text-sm">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="text-left p-2">Run</th>
-                      <th class="text-left p-2">Task</th>
-                      <th class="text-left p-2">Model</th>
-                      <th class="text-left p-2">Status</th>
-                      <th class="text-left p-2">Created</th>
-                      <th class="text-right p-2">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={filteredRuns()}>
-                      {(r) => (
-                        <tr class="border-t border-gray-200 hover:bg-gray-50 align-top">
-                          <td class="p-2 font-mono">
-                            <A
-                              href={`/ai/runs/${r.id}`}
-                              class="hover:underline"
-                            >
-                              {r.id.slice(0, 8)}
-                            </A>
-                          </td>
-                          <td class="p-2">{r.promptTask || "—"}</td>
-                          <td class="p-2">{r.model}</td>
-                          <td class="p-2">
-                            <span
-                              class={
-                                r.status === "SUCCESS"
-                                  ? "text-green-700"
-                                  : r.status === "ERROR"
-                                  ? "text-red-700"
-                                  : "text-yellow-700"
-                              }
-                            >
-                              {r.status}
-                            </span>
-                          </td>
-                          <td class="p-2">
-                            {new Date(r.createdAt).toLocaleString()}
-                          </td>
-                          <td class="p-2 text-right">
-                            <A
-                              href={`/ai/runs/${r.id}`}
-                              class="text-blue-600 hover:underline mr-3"
-                            >
-                              Open
-                            </A>
-                            <details>
-                              <summary class="cursor-pointer text-blue-600">
-                                View
-                              </summary>
-                              <div class="mt-2 space-y-2">
-                                <div>
-                                  <div class="text-xs text-gray-600">
-                                    Compiled Prompt
-                                  </div>
-                                  <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{r.compiledPrompt}
-                                  </pre>
-                                </div>
-                                <Show when={r.systemUsed}>
-                                  {(s) => (
-                                    <div>
-                                      <div class="text-xs text-gray-600">
-                                        System
-                                      </div>
-                                      <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-{s()}
-                                      </pre>
-                                    </div>
-                                  )}
-                                </Show>
-                                <div>
-                                  <div class="text-xs text-gray-600">
-                                    Output (HTML)
-                                  </div>
-                                  <div class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
+          <Grid
+            gap="6"
+            gridTemplateColumns={{
+              base: "1fr",
+              lg: "repeat(2, minmax(0, 1fr))",
+            }}
+          >
+            <Card.Root>
+              <Card.Header>
+                <HStack>
+                  <Heading as="h2" fontSize="lg">
+                    Prompts
+                  </Heading>
+                  <Spacer />
+                </HStack>
+              </Card.Header>
+              <Card.Body>
+                <Box
+                  borderWidth="1px"
+                  borderColor="border"
+                  borderRadius="l2"
+                  overflowX="auto"
+                >
+                  <Suspense fallback={<LoadingInline />}>
+                    <Table.Root variant="surface" interactive>
+                      <Table.Head>
+                        <Table.Row>
+                          <Table.Header>Task</Table.Header>
+                          <Table.Header>Active Version</Table.Header>
+                          <Table.Header>Default</Table.Header>
+                          <Table.Header textAlign="right">Runs</Table.Header>
+                        </Table.Row>
+                      </Table.Head>
+                      <Table.Body>
+                        <For each={prompts() || []}>
+                          {(p) => (
+                            <Table.Row>
+                              <Table.Cell>
+                                <Stack gap="1">
+                                  <Text
+                                    as="div"
+                                    fontWeight="medium"
+                                    color="fg.default"
+                                  >
+                                    <RouterLink href={`/ai/prompts/${p.id}`}>
+                                      {p.task}
+                                    </RouterLink>
+                                  </Text>
+                                  <Text as="div" textStyle="xs" color="fg.muted">
+                                    {p.description || "—"}
+                                  </Text>
+                                </Stack>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Stack gap="1">
+                                  <Text
+                                    as="div"
+                                    fontFamily="mono"
+                                    fontSize="xs"
+                                    color="fg.default"
+                                  >
+                                    {p.activeVersion?.id || "—"}
+                                  </Text>
+                                  <Show when={p.activeVersion}>
+                                    {(av) => (
+                                      <Box as="details">
+                                        <Box
+                                          as="summary"
+                                          cursor="pointer"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          Template
+                                        </Box>
+                                        <Box
+                                          as="pre"
+                                          mt="2"
+                                          p="2"
+                                          fontSize="xs"
+                                          bg="bg.subtle"
+                                          borderWidth="1px"
+                                          borderColor="border"
+                                          borderRadius="l2"
+                                          whiteSpace="pre-wrap"
+                                        >
+                                          {av().template}
+                                        </Box>
+                                      </Box>
+                                    )}
+                                  </Show>
+                                </Stack>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Stack gap="1">
+                                  <Text as="div" color="fg.default">
+                                    {p.defaultModel}
+                                  </Text>
+                                  <Text as="div" textStyle="xs" color="fg.muted">
+                                    temp {p.defaultTemp}
                                     <Show
-                                      when={r.outputHtml}
-                                      fallback={<span>—</span>}
+                                      when={typeof p.defaultTopP === "number"}
                                     >
-                                      {(h) => <div innerHTML={h()} />}
+                                      {(v) => (
+                                        <Text
+                                          as="span"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          {" "}
+                                          · top_p {String(v())}
+                                        </Text>
+                                      )}
                                     </Show>
-                                  </div>
-                                </div>
-                                <Show when={r.error}>
-                                  {(e) => (
-                                    <div class="text-xs text-red-700">
-                                      Error: {e()}
-                                    </div>
-                                  )}
-                                </Show>
-                              </div>
-                            </details>
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
+                                  </Text>
+                                </Stack>
+                              </Table.Cell>
+                              <Table.Cell textAlign="right">
+                                <Text
+                                  as="span"
+                                  fontVariantNumeric="tabular-nums"
+                                >
+                                  {promptIdToRunCount().get(p.id) || 0}
+                                </Text>
+                              </Table.Cell>
+                            </Table.Row>
+                          )}
+                        </For>
+                      </Table.Body>
+                    </Table.Root>
+                  </Suspense>
+                </Box>
+              </Card.Body>
+            </Card.Root>
+
+            <Card.Root>
+              <Card.Header>
+                <HStack>
+                  <Heading as="h2" fontSize="lg">
+                    Recent Runs
+                  </Heading>
+                  <Spacer />
+                </HStack>
+              </Card.Header>
+              <Card.Body>
+                <Box
+                  borderWidth="1px"
+                  borderColor="border"
+                  borderRadius="l2"
+                  overflowX="auto"
+                >
+                  <Suspense fallback={<LoadingInline />}>
+                    <Table.Root variant="surface" interactive>
+                      <Table.Head>
+                        <Table.Row>
+                          <Table.Header>Run</Table.Header>
+                          <Table.Header>Task</Table.Header>
+                          <Table.Header>Model</Table.Header>
+                          <Table.Header>Status</Table.Header>
+                          <Table.Header>Created</Table.Header>
+                          <Table.Header textAlign="right">Details</Table.Header>
+                        </Table.Row>
+                      </Table.Head>
+                      <Table.Body>
+                        <For each={filteredRuns()}>
+                          {(r) => (
+                            <Table.Row>
+                              <Table.Cell>
+                                <Text
+                                  as="div"
+                                  fontFamily="mono"
+                                  color="fg.default"
+                                >
+                                  <RouterLink href={`/ai/runs/${r.id}`}>
+                                    {r.id.slice(0, 8)}
+                                  </RouterLink>
+                                </Text>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Text as="span" color="fg.default">
+                                  {r.promptTask || "—"}
+                                </Text>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Text as="span" color="fg.default">
+                                  {r.model}
+                                </Text>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Badge
+                                  size="sm"
+                                  variant="subtle"
+                                  colorPalette={statusColorPalette(r.status)}
+                                >
+                                  {r.status}
+                                </Badge>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Text as="span" color="fg.default">
+                                  {new Date(r.createdAt).toLocaleString()}
+                                </Text>
+                              </Table.Cell>
+                              <Table.Cell textAlign="right">
+                                <HStack
+                                  gap="3"
+                                  justify="flex-end"
+                                  alignItems="flex-start"
+                                >
+                                  <RouterLink href={`/ai/runs/${r.id}`}>
+                                    Open
+                                  </RouterLink>
+                                  <Box as="details">
+                                    <Box
+                                      as="summary"
+                                      cursor="pointer"
+                                      color="fg.muted"
+                                      textStyle="sm"
+                                    >
+                                      View
+                                    </Box>
+                                    <Stack mt="2" gap="2" minW="24rem">
+                                      <Box>
+                                        <Text
+                                          as="div"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          Compiled Prompt
+                                        </Text>
+                                        <Box
+                                          as="pre"
+                                          mt="1"
+                                          p="2"
+                                          fontSize="xs"
+                                          bg="bg.subtle"
+                                          borderWidth="1px"
+                                          borderColor="border"
+                                          borderRadius="l2"
+                                          whiteSpace="pre-wrap"
+                                        >
+                                          {r.compiledPrompt}
+                                        </Box>
+                                      </Box>
+                                      <Show when={r.systemUsed}>
+                                        {(s) => (
+                                          <Box>
+                                            <Text
+                                              as="div"
+                                              textStyle="xs"
+                                              color="fg.muted"
+                                            >
+                                              System
+                                            </Text>
+                                            <Box
+                                              as="pre"
+                                              mt="1"
+                                              p="2"
+                                              fontSize="xs"
+                                              bg="bg.subtle"
+                                              borderWidth="1px"
+                                              borderColor="border"
+                                              borderRadius="l2"
+                                              whiteSpace="pre-wrap"
+                                            >
+                                              {s()}
+                                            </Box>
+                                          </Box>
+                                        )}
+                                      </Show>
+                                      <Box>
+                                        <Text
+                                          as="div"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          Output (HTML)
+                                        </Text>
+                                        <Box
+                                          mt="1"
+                                          p="2"
+                                          fontSize="xs"
+                                          bg="bg.subtle"
+                                          borderWidth="1px"
+                                          borderColor="border"
+                                          borderRadius="l2"
+                                          whiteSpace="pre-wrap"
+                                        >
+                                          <Show
+                                            when={r.outputHtml}
+                                            fallback={<Text as="span">—</Text>}
+                                          >
+                                            {(h) => <Box innerHTML={h()} />}
+                                          </Show>
+                                        </Box>
+                                      </Box>
+                                      <Show when={r.error}>
+                                        {(e) => (
+                                          <Text as="div" textStyle="xs" color="error">
+                                            Error: {e()}
+                                          </Text>
+                                        )}
+                                      </Show>
+                                    </Stack>
+                                  </Box>
+                                </HStack>
+                              </Table.Cell>
+                            </Table.Row>
+                          )}
+                        </For>
+                      </Table.Body>
+                    </Table.Root>
+                  </Suspense>
+                </Box>
+              </Card.Body>
+            </Card.Root>
+          </Grid>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 

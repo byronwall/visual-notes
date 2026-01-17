@@ -7,6 +7,7 @@ import {
   onMount,
 } from "solid-js";
 import { Portal } from "solid-js/web";
+import { Box } from "styled-system/jsx";
 
 type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
@@ -17,6 +18,7 @@ export const Popover = (props: {
   placement?: Placement;
   offset?: number;
   class?: string;
+  style?: JSX.CSSProperties;
   children: JSX.Element;
 }) => {
   const [position, setPosition] = createSignal<{ top: number; left: number }>({
@@ -87,12 +89,18 @@ export const Popover = (props: {
   return (
     <Show when={props.open}>
       <Portal>
-        <div
+        <Box
           ref={(el) => (popoverEl = el)}
-          class={`fixed z-50 rounded border border-gray-300 bg-white shadow-lg ${
-            props.class || ""
-          }`}
+          class={props.class}
+          position="fixed"
+          zIndex="50"
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          bg="white"
+          boxShadow="lg"
           style={{
+            ...(props.style || {}),
             top: `${position().top}px`,
             left: `${position().left}px`,
             transform: getPlacement().startsWith("top")
@@ -102,7 +110,7 @@ export const Popover = (props: {
           onClick={(e) => e.stopPropagation()}
         >
           {props.children}
-        </div>
+        </Box>
       </Portal>
     </Show>
   );

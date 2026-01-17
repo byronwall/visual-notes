@@ -1,5 +1,6 @@
 import { JSX, Show, createEffect, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
+import { Box } from "styled-system/jsx";
 
 export default function Modal(props: {
   open: boolean;
@@ -40,29 +41,53 @@ export default function Modal(props: {
   return (
     <Show when={props.open}>
       <Portal>
-        <div
-          class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex="50"
+          overflow="hidden"
+          overscrollBehavior="contain"
           role="dialog"
           aria-modal="true"
         >
           {/* Backdrop */}
-          <div
-            class="absolute inset-0 bg-black/0"
+          <Box
+            position="absolute"
+            inset="0"
+            bg="black.a3"
             onClick={() => {
               console.log("[Modal] Backdrop clicked");
               if (shouldCloseOnBackdrop()) props.onClose();
             }}
           />
           {/* Centered content wrapper */}
-          <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <div
-              class={`${props.contentClass || "max-w-2xl w-full"} pointer-events-auto max-h-[90vh] overflow-auto bg-white border border-gray-200 rounded shadow-lg`}
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            p="1rem"
+            pointerEvents="none"
+          >
+            <Box
+              class={props.contentClass}
+              width="100%"
+              maxW={props.contentClass ? undefined : "42rem"}
+              pointerEvents="auto"
+              maxH="90vh"
+              overflow="auto"
+              bg="white"
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              boxShadow="lg"
               onClick={(e) => e.stopPropagation()}
             >
               {props.children}
-            </div>
-          </div>
-        </div>
+            </Box>
+          </Box>
+        </Box>
       </Portal>
     </Show>
   );

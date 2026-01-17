@@ -1,6 +1,9 @@
 import { For, Show, createMemo, createResource } from "solid-js";
 import type { VoidComponent } from "solid-js";
 import { fetchMetaValues } from "~/services/docs.service";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { HStack, Stack } from "styled-system/jsx";
 
 export const MetaValueSuggestions: VoidComponent<{
   keyName: string;
@@ -20,24 +23,34 @@ export const MetaValueSuggestions: VoidComponent<{
 
   return (
     <Show when={props.keyName.trim().length > 0 && topValues().length > 0}>
-      <div class="mt-2">
-        <div class="flex flex-wrap gap-2 justify-start md:justify-end">
+      <Stack mt="0.5rem">
+        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
           <For each={topValues()}>
             {(s) => (
-              <button
-                class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+              <Button
+                size="xs"
+                variant="outline"
                 onClick={() => props.onSelect(s.value)}
                 title={`${s.value} (${s.count})`}
               >
-                <span class="font-medium text-gray-800 truncate max-w-[12rem]">
+                <Text
+                  as="span"
+                  fontWeight="semibold"
+                  maxW="12rem"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                >
                   {s.value}
-                </span>
-                <span class="text-gray-500">{s.count}</span>
-              </button>
+                </Text>
+                <Text as="span" color="black.a7">
+                  {s.count}
+                </Text>
+              </Button>
             )}
           </For>
-        </div>
-      </div>
+        </HStack>
+      </Stack>
     </Show>
   );
 };

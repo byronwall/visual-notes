@@ -11,6 +11,10 @@ import {
 import type { VoidComponent } from "solid-js";
 import { fetchPathSuggestions, updateDocPath } from "~/services/docs.service";
 import { Popover } from "./Popover";
+import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 // TODO: this needs a `disabled` prop to disable the editor
 
@@ -212,10 +216,21 @@ export const PathEditor: VoidComponent<{
   };
 
   return (
-    <div class="flex items-center gap-2">
-      <div class="flex-1 min-w-0" ref={(el) => (anchorRef = el)}>
-        <div
-          class="w-full border rounded px-2 py-1 text-sm flex flex-wrap items-center gap-1 min-h-[32px] cursor-text"
+    <HStack gap="0.5rem" align="center">
+      <Box flex="1" minW="0" ref={(el) => (anchorRef = el)}>
+        <Box
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          px="0.5rem"
+          py="0.25rem"
+          fontSize="sm"
+          display="flex"
+          flexWrap="wrap"
+          alignItems="center"
+          gap="0.25rem"
+          minH="32px"
+          cursor="text"
           onClick={() => {
             const input = document.getElementById(
               "path-editor-input"
@@ -227,28 +242,47 @@ export const PathEditor: VoidComponent<{
           }}
         >
           <Show when={committed().length === 0 && current().length === 0}>
-            <span class="text-gray-400">e.g. work.projects.alpha</span>
+            <Text fontSize="sm" color="black.a6">
+              e.g. work.projects.alpha
+            </Text>
           </Show>
           <For each={committed()}>
             {(seg, i) => (
               <>
-                <span
-                  class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs"
+                <Button
+                  size="xs"
+                  variant="outline"
+                  borderRadius="full"
                   title={seg}
                   onClick={truncateTo(i())}
                 >
-                  <span class="font-medium text-gray-800 truncate max-w-[10rem]">
+                  <Text
+                    as="span"
+                    fontWeight="semibold"
+                    maxW="10rem"
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                  >
                     {seg}
-                  </span>
-                </span>
-                <span class="text-gray-400">.</span>
+                  </Text>
+                </Button>
+                <Text fontSize="sm" color="black.a6">
+                  .
+                </Text>
               </>
             )}
           </For>
 
-          <input
+          <Box
+            as="input"
             id="path-editor-input"
-            class="flex-1 min-w-[8ch] outline-none text-sm"
+            flex="1"
+            minW="8ch"
+            outline="none"
+            fontSize="sm"
+            bg="transparent"
+            border="none"
             value={current()}
             onInput={(e) =>
               setCurrent((e.currentTarget as HTMLInputElement).value)
@@ -263,10 +297,14 @@ export const PathEditor: VoidComponent<{
             autocorrect="off"
             spellcheck={false}
           />
-        </div>
+        </Box>
 
         <Show when={error()}>
-          {(e) => <div class="text-xs text-red-700 mt-1">{e()}</div>}
+          {(e) => (
+            <Text fontSize="xs" color="red.11" mt="0.25rem">
+              {e()}
+            </Text>
+          )}
         </Show>
 
         <Suspense fallback={null}>
@@ -275,60 +313,77 @@ export const PathEditor: VoidComponent<{
             onClose={handleOutsideClose}
             anchorEl={anchorRef}
             placement="bottom-start"
-            class="w-[90%] max-w-md p-3"
+            style={{ width: "90%", maxWidth: "28rem", padding: "0.75rem" }}
           >
-            <div class="text-xs text-gray-600 mb-2">
+            <Text fontSize="xs" color="black.a7" mb="0.5rem">
               <Show
                 when={committed().length === 0}
                 fallback={
-                  <span>
+                  <Text as="span">
                     Next after{" "}
-                    <span class="font-medium">{committed().join(".")}</span>
-                  </span>
+                    <Text as="span" fontWeight="semibold">
+                      {committed().join(".")}
+                    </Text>
+                  </Text>
                 }
               >
-                <span>Popular top-level segments</span>
+                <Text as="span">Popular top-level segments</Text>
               </Show>
-            </div>
-            <div class="text-xs text-gray-500 mb-2">
-              Hit <span class="font-mono">.</span> to nest
-            </div>
-            <div class="flex flex-wrap gap-2">
+            </Text>
+            <Text fontSize="xs" color="black.a7" mb="0.5rem">
+              Hit <Text as="span" fontFamily="mono">.</Text> to nest
+            </Text>
+            <HStack gap="0.5rem" flexWrap="wrap">
               <For each={nextSegmentSuggestions()}>
                 {(s) => (
-                  <button
-                    class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50"
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    borderRadius="full"
                     onClick={() => handleSelectSuggestion(s.seg)}
                     title={`${s.seg} (${s.count})`}
                   >
-                    <span class="font-medium text-gray-800 truncate max-w-[12rem]">
+                    <Text
+                      as="span"
+                      fontWeight="semibold"
+                      maxW="12rem"
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
                       {s.seg}
-                    </span>
-                    <span class="text-gray-500">{s.count}</span>
-                  </button>
+                    </Text>
+                    <Text as="span" color="black.a7">
+                      {s.count}
+                    </Text>
+                  </Button>
                 )}
               </For>
-            </div>
+            </HStack>
             <Show when={nextSegmentSuggestions().length === 0}>
-              <div class="text-xs text-gray-500">No suggestions</div>
+              <Text fontSize="xs" color="black.a7" mt="0.5rem">
+                No suggestions
+              </Text>
             </Show>
           </Popover>
         </Suspense>
-      </div>
+      </Box>
 
       <Show when={props.docId}>
-        <button
-          class={`px-2 py-1 rounded border text-xs ${
-            saving() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
-          }`}
+        <Button
+          size="xs"
+          variant="outline"
+          loading={saving()}
+          loadingText="Saving…"
           onClick={handleSave}
           disabled={saving()}
         >
-          {saving() ? "Saving…" : "Save"}
-        </button>
+          Save
+        </Button>
       </Show>
-      <button
-        class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 shrink-0"
+      <IconButton
+        size="xs"
+        variant="plain"
         onClick={clearAll}
         title="Clear path"
         aria-label="Clear path"
@@ -338,7 +393,8 @@ export const PathEditor: VoidComponent<{
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          class="h-4 w-4"
+          width="16"
+          height="16"
         >
           <path
             fill-rule="evenodd"
@@ -346,7 +402,7 @@ export const PathEditor: VoidComponent<{
             clip-rule="evenodd"
           />
         </svg>
-      </button>
-    </div>
+      </IconButton>
+    </HStack>
   );
 };

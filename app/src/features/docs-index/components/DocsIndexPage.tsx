@@ -28,6 +28,10 @@ import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
 import { updateDocPath } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
+import { Heading } from "~/components/ui/heading";
+import { Spinner } from "~/components/ui/spinner";
+import { Text } from "~/components/ui/text";
+import { Box, Container, Flex, HStack, Stack } from "styled-system/jsx";
 
 // TOOD: refactor all the query param stuff into a helper
 
@@ -421,14 +425,21 @@ const DocsIndexPage = () => {
   };
 
   return (
-    <main class="min-h-screen bg-white">
+    <Box as="main" minH="100vh" bg="white">
       <PathTreeSidebar q={q} />
-      <div class="pl-64">
-        <div class="container mx-auto p-4 space-y-4">
-          <div class="mx-auto max-w-[900px]">
-            <div class="flex items-center justify-between">
-              <h1 class="text-2xl font-bold">Notes</h1>
-              <div class="flex items-center gap-2">
+      <Box pl="16rem">
+        <Container py="1.5rem" px="1rem" maxW="900px">
+          <Stack gap="1rem">
+            <Flex
+              align="center"
+              justify="space-between"
+              gap="0.75rem"
+              flexWrap="wrap"
+            >
+              <Heading as="h1" fontSize="2xl">
+                Notes
+              </Heading>
+              <HStack gap="0.5rem" flexWrap="wrap">
                 <Button
                   size="xs"
                   variant="outline"
@@ -437,34 +448,38 @@ const DocsIndexPage = () => {
                 >
                   Select All ({visibleIds().length})
                 </Button>
-                <button
-                  class="px-2 py-1 rounded bg-gray-200 text-gray-900 text-xs hover:bg-gray-300 disabled:opacity-50"
+                <Button
+                  size="xs"
+                  variant="outline"
                   disabled={selectedIds().size === 0}
                   onClick={handleSelectNone}
                 >
                   None
-                </button>
-                <button
-                  class="px-2 py-1 rounded bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-50"
+                </Button>
+                <Button
+                  size="xs"
+                  colorPalette="red"
                   disabled={selectedVisibleCount() === 0}
                   onClick={handleDeleteSelected}
                 >
                   Delete ({selectedVisibleCount()})
-                </button>
-                <button
-                  class="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:opacity-50"
+                </Button>
+                <Button
+                  size="xs"
+                  variant="subtle"
                   disabled={selectedVisibleCount() === 0}
                   onClick={handleOpenBulkMeta}
                 >
                   Edit Meta
-                </button>
-                <button
-                  class="px-2 py-1 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                </Button>
+                <Button
+                  size="xs"
+                  variant="subtle"
                   disabled={selectedVisibleCount() === 0}
                   onClick={handleOpenBulkPath}
                 >
                   Set Path
-                </button>
+                </Button>
                 <ActionsPopover
                   sources={sources}
                   onBulkSetSource={handleBulkSetSource}
@@ -474,8 +489,8 @@ const DocsIndexPage = () => {
                   onDeleteBySource={handleDeleteBySource}
                   onDeleteAll={handleDeleteAll}
                 />
-              </div>
-            </div>
+              </HStack>
+            </Flex>
 
             <SearchInput
               value={q.searchText()}
@@ -490,7 +505,16 @@ const DocsIndexPage = () => {
               sources={sources()?.sources ?? []}
             />
 
-            <Suspense fallback={<p>Loading…</p>}>
+            <Suspense
+              fallback={
+                <HStack gap="0.5rem">
+                  <Spinner />
+                  <Text textStyle="sm" color="black.a7">
+                    Loading…
+                  </Text>
+                </HStack>
+              }
+            >
               <ResultsSection
                 items={docs() || []}
                 query={q}
@@ -513,10 +537,10 @@ const DocsIndexPage = () => {
               selectedCount={selectedVisibleCount()}
               onApply={handleApplyBulkPath}
             />
-          </div>
-        </div>
-      </div>
-    </main>
+          </Stack>
+        </Container>
+      </Box>
+    </Box>
   );
 };
 
