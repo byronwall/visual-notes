@@ -5,13 +5,20 @@
     "strict": true,
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "jsxImportSource": "solid-js",
     "jsx": "preserve",
-    "types": ["vite/client", "@solidjs/start/env"],
+    "allowJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client", "@solidjs/start/env", "vinxi/types/client"],
     "baseUrl": "./",
     "paths": {
+      "styled-system/*": ["./styled-system/*"],
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src", "styled-system", "panda.config.ts"],
+  "exclude": ["node_modules"]
 }

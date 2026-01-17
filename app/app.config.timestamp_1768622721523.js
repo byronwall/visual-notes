@@ -1,13 +1,13 @@
+// app.config.ts
 import { defineConfig } from "@solidjs/start/config";
 import devtools from "solid-devtools/vite";
 import lucidePreprocess from "vite-plugin-lucide-preprocess";
 import tsconfigPaths from "vite-tsconfig-paths";
-
-export default defineConfig({
+var app_config_default = defineConfig({
   server: {
     experimental: {
-      websocket: true,
-    },
+      websocket: true
+    }
   },
   ssr: true,
   middleware: "./src/middleware.ts",
@@ -17,24 +17,28 @@ export default defineConfig({
       tsconfigPaths(),
       devtools({
         /* features options - all disabled by default */
-        autoname: true, // e.g. enable autoname
+        autoname: true,
+        // e.g. enable autoname
         locator: {
           componentLocation: true,
-          jsxLocation: true,
-        },
-      }),
+          jsxLocation: true
+        }
+      })
     ],
     ssr: {
-      external: ["@prisma/client"],
+      external: ["@prisma/client"]
     },
     optimizeDeps: {
-      include: ["solid-markdown > micromark", "solid-markdown > unified"],
-    },
-  },
+      include: ["solid-markdown > micromark", "solid-markdown > unified"]
+    }
+  }
 }).addRouter({
   name: "ws",
   type: "http",
   handler: "./src/ws/jobs.ts",
   target: "server",
-  base: "/ws/jobs",
+  base: "/ws/jobs"
 });
+export {
+  app_config_default as default
+};

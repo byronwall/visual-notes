@@ -27,6 +27,7 @@ import { PathTreeSidebar } from "./PathTreeSidebar";
 import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
 import { updateDocPath } from "~/services/docs.service";
+import { Button } from "~/components/ui/button";
 
 // TOOD: refactor all the query param stuff into a helper
 
@@ -428,13 +429,14 @@ const DocsIndexPage = () => {
             <div class="flex items-center justify-between">
               <h1 class="text-2xl font-bold">Notes</h1>
               <div class="flex items-center gap-2">
-                <button
-                  class="px-2 py-1 rounded bg-gray-200 text-gray-900 text-xs hover:bg-gray-300 disabled:opacity-50"
+                <Button
+                  size="xs"
+                  variant="outline"
                   disabled={visibleIds().length === 0}
                   onClick={handleSelectAllVisible}
                 >
                   Select All ({visibleIds().length})
-                </button>
+                </Button>
                 <button
                   class="px-2 py-1 rounded bg-gray-200 text-gray-900 text-xs hover:bg-gray-300 disabled:opacity-50"
                   disabled={selectedIds().size === 0}

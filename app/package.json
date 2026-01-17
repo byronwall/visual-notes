@@ -25,6 +25,8 @@
     "solid-devtools": "^0.34.4",
     "typescript": "^5.6.2",
     "vite": "^6.2.2",
+    "vite-plugin-lucide-preprocess": "^1.4.6",
+    "vite-tsconfig-paths": "^6.0.3",
     "vitest": "^2.1.4"
   },
   "dependencies": {
@@ -64,10 +66,15 @@
     "svd-js": "^1.1.1",
     "tailwindcss": "^3.4.7",
     "umap-js": "^1.4.0",
-    "vinxi": "^0.5.3",
+    "vinxi": "^0.5.10",
     "zod": "^3.23.8"
   },
   "engines": {
     "node": ">=16"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "vinxi@0.5.10": "patches/vinxi@0.5.10.patch"
+    }
   }
 }
