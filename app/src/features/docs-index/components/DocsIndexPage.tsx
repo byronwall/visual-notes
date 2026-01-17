@@ -1,5 +1,6 @@
 import { useLocation, useSearchParams } from "@solidjs/router";
 import {
+  Show,
   Suspense,
   createEffect,
   createResource,
@@ -28,6 +29,8 @@ import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
 import { updateDocPath } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
+import { CloseButton } from "~/components/ui/close-button";
+import * as Drawer from "~/components/ui/drawer";
 import { Heading } from "~/components/ui/heading";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
@@ -219,6 +222,8 @@ const DocsIndexPage = () => {
   const [showBulkPath, setShowBulkPath] = createSignal(false);
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
+  const [sidebarOpen, setSidebarOpen] = createSignal(false);
+  const [sidebarVisible, setSidebarVisible] = createSignal(true);
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -424,122 +429,197 @@ const DocsIndexPage = () => {
     alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
   };
 
+  const handleSidebarDrawerChange = (details: { open?: boolean }) => {
+    setSidebarOpen(details.open === true);
+  };
+
+  const handleOpenSidebar = () => setSidebarOpen(true);
+  const handleToggleSidebar = () => setSidebarVisible((prev) => !prev);
+
+  const sidebarToggleLabel = () =>
+    sidebarVisible() ? "Hide Paths" : "Show Paths";
+
   return (
     <Box as="main" minH="100vh" bg="white">
-      <PathTreeSidebar q={q} />
-      <Box pl="16rem">
-        <Container py="1.5rem" px="1rem" maxW="900px">
-          <Stack gap="1rem">
-            <Flex
-              align="center"
-              justify="space-between"
-              gap="0.75rem"
-              flexWrap="wrap"
+      <Drawer.Root
+        open={sidebarOpen()}
+        onOpenChange={handleSidebarDrawerChange}
+        placement="start"
+        size="full"
+      >
+        <Drawer.Backdrop />
+        <Drawer.Positioner>
+          <Drawer.Content w="85vw" maxW="320px">
+            <Drawer.CloseTrigger aria-label="Close paths">
+              <CloseButton />
+            </Drawer.CloseTrigger>
+            <Box h="100dvh" minH="0">
+              <PathTreeSidebar q={q} />
+            </Box>
+          </Drawer.Content>
+        </Drawer.Positioner>
+      </Drawer.Root>
+      <Flex align="stretch" minH="100vh">
+        <Show when={sidebarVisible()}>
+          <>
+            <Box
+              display={{ base: "none", lg: "flex" }}
+              w="16rem"
+              flexShrink="0"
+              bg="white"
+              minH="100vh"
+              borderRightWidth="1px"
+              borderColor="gray.outline.border"
             >
-              <Heading as="h1" fontSize="2xl">
-                Notes
-              </Heading>
-              <HStack gap="0.5rem" flexWrap="wrap">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={visibleIds().length === 0}
-                  onClick={handleSelectAllVisible}
-                >
-                  Select All ({visibleIds().length})
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={selectedIds().size === 0}
-                  onClick={handleSelectNone}
-                >
-                  None
-                </Button>
-                <Button
-                  size="xs"
-                  colorPalette="red"
-                  disabled={selectedVisibleCount() === 0}
-                  onClick={handleDeleteSelected}
-                >
-                  Delete ({selectedVisibleCount()})
-                </Button>
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  disabled={selectedVisibleCount() === 0}
-                  onClick={handleOpenBulkMeta}
-                >
-                  Edit Meta
-                </Button>
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  disabled={selectedVisibleCount() === 0}
-                  onClick={handleOpenBulkPath}
-                >
-                  Set Path
-                </Button>
-                <ActionsPopover
-                  sources={sources}
-                  onBulkSetSource={handleBulkSetSource}
-                  onCleanupTitles={handleCleanupTitles}
-                  onProcessPathRound={handleProcessPathRound}
-                  onScanRelativeImages={handleScanRelativeImages}
-                  onDeleteBySource={handleDeleteBySource}
-                  onDeleteAll={handleDeleteAll}
-                />
-              </HStack>
-            </Flex>
-
-            <SearchInput
-              value={q.searchText()}
-              onChange={(v) => {
-                q.setSearchText(v);
-                q.resetPaging();
-              }}
-            />
-
-            <FiltersPanel
-              q={q as unknown as FiltersPanelStore}
-              sources={sources()?.sources ?? []}
-            />
-
-            <Suspense
-              fallback={
-                <HStack gap="0.5rem">
-                  <Spinner />
-                  <Text textStyle="sm" color="black.a7">
-                    Loading…
-                  </Text>
+              <Box
+                position="sticky"
+                top="3.5rem"
+                h="calc(100vh - 3.5rem)"
+                w="full"
+              >
+                <PathTreeSidebar q={q} />
+              </Box>
+            </Box>
+          </>
+        </Show>
+        <Box flex="1" minW="0">
+          <Container py="1.5rem" px="1rem" maxW="900px">
+            <Stack gap="1rem">
+              <Flex
+                align="center"
+                justify="space-between"
+                gap="0.75rem"
+                flexWrap="wrap"
+              >
+                <Heading as="h1" fontSize="2xl">
+                  Notes
+                </Heading>
+                <HStack gap="0.5rem" flexWrap="wrap">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    display={{ base: "inline-flex", lg: "none" }}
+                    onClick={handleOpenSidebar}
+                  >
+                    Paths
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    display={{ base: "none", lg: "inline-flex" }}
+                    onClick={handleToggleSidebar}
+                  >
+                    {sidebarToggleLabel()}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={visibleIds().length === 0}
+                    onClick={handleSelectAllVisible}
+                  >
+                    Select All ({visibleIds().length})
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={selectedIds().size === 0}
+                    onClick={handleSelectNone}
+                  >
+                    None
+                  </Button>
+                  <Button
+                    size="xs"
+                    colorPalette="red"
+                    disabled={selectedVisibleCount() === 0}
+                    onClick={handleDeleteSelected}
+                  >
+                    Delete ({selectedVisibleCount()})
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    disabled={selectedVisibleCount() === 0}
+                    onClick={handleOpenBulkMeta}
+                  >
+                    Edit Meta
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    disabled={selectedVisibleCount() === 0}
+                    onClick={handleOpenBulkPath}
+                  >
+                    Set Path
+                  </Button>
+                  <ActionsPopover
+                    sources={sources}
+                    onBulkSetSource={handleBulkSetSource}
+                    onCleanupTitles={handleCleanupTitles}
+                    onProcessPathRound={handleProcessPathRound}
+                    onScanRelativeImages={handleScanRelativeImages}
+                    onDeleteBySource={handleDeleteBySource}
+                    onDeleteAll={handleDeleteAll}
+                  />
                 </HStack>
-              }
-            >
-              <ResultsSection
-                items={docs() || []}
-                query={q}
-                serverResults={serverResults() || []}
-                serverLoading={serverLoading}
-                onVisibleIdsChange={setVisibleIds}
-                selectedIds={selectedIds()}
-                onToggleSelect={handleToggleSelect}
+              </Flex>
+
+              <SearchInput
+                value={q.searchText()}
+                onChange={(v) => {
+                  q.setSearchText(v);
+                  q.resetPaging();
+                }}
               />
-            </Suspense>
-            <BulkMetaModal
-              open={showBulkMeta()}
-              onClose={handleCloseBulkMeta}
-              selectedCount={selectedVisibleCount()}
-              onApply={handleApplyBulkMeta}
-            />
-            <BulkPathModal
-              open={showBulkPath()}
-              onClose={handleCloseBulkPath}
-              selectedCount={selectedVisibleCount()}
-              onApply={handleApplyBulkPath}
-            />
-          </Stack>
-        </Container>
-      </Box>
+
+              <FiltersPanel
+                q={q as unknown as FiltersPanelStore}
+                sources={sources()?.sources ?? []}
+              />
+
+              <Suspense
+                fallback={
+                  <HStack gap="0.5rem">
+                    <Spinner />
+                    <Text textStyle="sm" color="black.a7">
+                      Loading…
+                    </Text>
+                  </HStack>
+                }
+              >
+                <ResultsSection
+                  items={docs() || []}
+                  query={q}
+                  serverResults={serverResults() || []}
+                  serverLoading={serverLoading}
+                  onVisibleIdsChange={setVisibleIds}
+                  selectedIds={selectedIds()}
+                  onToggleSelect={handleToggleSelect}
+                />
+              </Suspense>
+              <BulkMetaModal
+                open={showBulkMeta()}
+                onClose={handleCloseBulkMeta}
+                selectedCount={selectedVisibleCount()}
+                onApply={handleApplyBulkMeta}
+              />
+              <BulkPathModal
+                open={showBulkPath()}
+                onClose={handleCloseBulkPath}
+                selectedCount={selectedVisibleCount()}
+                onApply={handleApplyBulkPath}
+              />
+            </Stack>
+          </Container>
+        </Box>
+        <Show when={sidebarVisible()}>
+          <Box
+            display={{ base: "none", lg: "block" }}
+            w="16rem"
+            flexShrink="0"
+            aria-hidden="true"
+          />
+        </Show>
+      </Flex>
     </Box>
   );
 };

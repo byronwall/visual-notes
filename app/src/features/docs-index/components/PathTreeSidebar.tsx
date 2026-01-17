@@ -1,5 +1,6 @@
 import {
   For,
+  Show,
   Suspense,
   createMemo,
   createResource,
@@ -10,8 +11,9 @@ import { fetchPathSuggestions } from "~/services/docs.service";
 import type { DocsQueryStore } from "../state/docsQuery";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
+import * as ScrollArea from "~/components/ui/scroll-area";
 import { Text } from "~/components/ui/text";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { Box, Flex, HStack } from "styled-system/jsx";
 
 type PathCount = { path: string; count: number };
 
@@ -157,31 +159,19 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
             {p.node.count}
           </Text>
         </HStack>
-        {hasChildren() && isExpanded(p.node.prefix) && (
+        <Show when={hasChildren() && isExpanded(p.node.prefix)}>
           <Box>
             <For each={[...p.node.children.values()]}>
               {(child) => <NodeRow node={child} depth={p.depth + 1} />}
             </For>
           </Box>
-        )}
+        </Show>
       </Box>
     );
   };
 
   return (
-    <Box
-      as="aside"
-      position="fixed"
-      left="0"
-      top="3.5rem"
-      bottom="0"
-      width="16rem"
-      bg="white"
-      borderRightWidth="1px"
-      borderColor="gray.outline.border"
-      overflowY="auto"
-      zIndex="20"
-    >
+    <Flex direction="column" h="full" minH="0" bg="white">
       <Box p="0.5rem" borderBottomWidth="1px" borderColor="gray.outline.border">
         <Text
           fontSize="xs"
@@ -218,22 +208,33 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
           </HStack>
         </HStack>
       </Box>
-      <Suspense
-        fallback={
-          <Box p="0.5rem">
-            <Text fontSize="sm" color="black.a7">
-              Loading paths…
-            </Text>
-          </Box>
-        }
-      >
-        <Box py="0.5rem">
-          <For each={[...tree().children.values()]}>
-            {(child) => <NodeRow node={child} depth={0} />}
-          </For>
-        </Box>
-      </Suspense>
-    </Box>
+      <Box flex="1" minH="0">
+        <ScrollArea.Root h="full">
+          <ScrollArea.Viewport>
+            <ScrollArea.Content>
+              <Suspense
+                fallback={
+                  <Box p="0.5rem">
+                    <Text fontSize="sm" color="black.a7">
+                      Loading paths…
+                    </Text>
+                  </Box>
+                }
+              >
+                <Box py="0.5rem">
+                  <For each={[...tree().children.values()]}>
+                    {(child) => <NodeRow node={child} depth={0} />}
+                  </For>
+                </Box>
+              </Suspense>
+            </ScrollArea.Content>
+          </ScrollArea.Viewport>
+          <ScrollArea.Scrollbar orientation="vertical">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+        </ScrollArea.Root>
+      </Box>
+    </Flex>
   );
 };
 
