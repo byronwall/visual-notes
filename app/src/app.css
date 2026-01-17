@@ -353,6 +353,11 @@ input[type="file"] {
   font-size: 15px;
   line-height: 1.6;
 }
+.editor-prose {
+  padding: 1rem;
+  outline: none;
+  max-width: 100%;
+}
 .prose > * {
   margin-top: 0.6rem;
   margin-bottom: 0.6rem;

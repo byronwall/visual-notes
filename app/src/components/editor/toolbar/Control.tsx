@@ -3,7 +3,6 @@ import { createEditorTransaction } from "solid-tiptap";
 import { Toggle } from "./Toggle";
 
 export function Control(props: {
-  class?: string;
   editor: Editor;
   title: string;
   name: string;
@@ -19,7 +18,6 @@ export function Control(props: {
   return (
     <Toggle
       title={props.title}
-      class={props.class}
       pressed={active()}
       onChange={props.onChange}
     >

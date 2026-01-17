@@ -1,19 +1,20 @@
 import { JSX, Show, createEffect, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
+import { Box } from "styled-system/jsx";
 
 type SidePanelProps = {
   open: boolean;
   onClose: () => void;
   children: JSX.Element;
-  /** Optional extra classes to apply to the panel container (e.g., width) */
-  class?: string;
   /** If true, pressing Escape closes the panel (default true) */
   closeOnEsc?: boolean;
   /** ARIA label for the dialog container */
   ariaLabel?: string;
+  /** Optional width override */
+  width?: string;
 };
 
-export default function SidePanel(props: SidePanelProps) {
+export const SidePanel = (props: SidePanelProps) => {
   const shouldCloseOnEsc = () => props.closeOnEsc !== false;
 
   createEffect(() => {
@@ -40,31 +41,55 @@ export default function SidePanel(props: SidePanelProps) {
   return (
     <Show when={props.open}>
       <Portal>
-        <div
-          class="fixed inset-0 z-50 overflow-hidden overscroll-contain"
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex="50"
+          overflow="hidden"
+          overscrollBehavior="contain"
           role="dialog"
           aria-modal="true"
           aria-label={props.ariaLabel || "Side panel"}
         >
-          {/* Backdrop */}
-          <div
-            class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+          <Box
+            position="absolute"
+            inset="0"
+            bg="black.a3"
             onClick={props.onClose}
+            style={{ "backdrop-filter": "blur(6px)" }}
           />
-          {/* Panel shell (layout-only) */}
-          <div
-            class={`absolute inset-y-0 right-0 flex h-full max-h-full w-[min(94vw,560px)] bg-white/98 backdrop-blur shadow-2xl border-l border-gray-200 ${
-              props.class || ""
-            }`}
+          <Box
+            position="absolute"
+            insetY="0"
+            right="0"
+            display="flex"
+            h="full"
+            maxH="full"
+            bg="bg.default"
+            borderLeftWidth="1px"
+            borderColor="border"
+            boxShadow="2xl"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              width: props.width || "min(94vw, 560px)",
+              background: "rgba(255,255,255,0.98)",
+              "backdrop-filter": "blur(10px)",
+            }}
           >
-            {/* Scroll container for consumer content */}
-            <div class="flex h-full w-full flex-col overflow-y-auto overscroll-contain bg-white">
+            <Box
+              display="flex"
+              h="full"
+              w="full"
+              flexDirection="column"
+              overflowY="auto"
+              overscrollBehavior="contain"
+              bg="bg.default"
+            >
               {props.children}
-            </div>
-          </div>
-        </div>
+            </Box>
+          </Box>
+        </Box>
       </Portal>
     </Show>
   );
-}
+};

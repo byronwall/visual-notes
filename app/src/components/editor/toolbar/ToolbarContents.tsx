@@ -6,6 +6,7 @@ import { csvTextToTableJson } from "../csv/csvUtils";
 import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { Box, HStack } from "styled-system/jsx";
 
 export function ToolbarContents(props: { editor: Editor }) {
   let csvInputRef: HTMLInputElement | undefined;
@@ -41,65 +42,68 @@ export function ToolbarContents(props: { editor: Editor }) {
   };
 
   return (
-    <div class="p-2 flex space-x-1">
+    <HStack gap="1" p="2">
       <input
         ref={(el) => (csvInputRef = el)}
         type="file"
         accept=".csv,text/csv"
-        class="hidden"
+        style={{ display: "none" }}
         onChange={onCsvFileChange}
       />
 
-      <div class="flex space-x-1">
+      <HStack gap="1">
         {blocks.map((b) => (
           <Control
             name={b.name}
-            class={b.class}
             editor={props.editor}
             onChange={() => run(b.run)}
             title={b.title}
             isActive={b.isActive}
           >
-            <span class="w-full h-full m-1">{b.label}</span>
+            <Box as="span" w="full" h="full" m="1" {...b.labelStyle}>
+              {b.label}
+            </Box>
           </Control>
         ))}
-      </div>
+      </HStack>
 
       <Separator />
 
-      <div class="flex space-x-1">
+      <HStack gap="1">
         {marks.map((b) => (
           <Control
             name={b.name}
-            class={b.class}
             editor={props.editor}
             onChange={() => run(b.run)}
             title={b.title}
           >
-            {b.label}
+            <Box as="span" {...b.labelStyle}>
+              {b.label}
+            </Box>
           </Control>
         ))}
-      </div>
+      </HStack>
 
       <Separator />
 
-      <div class="flex space-x-1">
+      <HStack gap="1">
         {listsBlocks.map((b) => (
           <Control
             name={b.name}
-            class={b.class}
             editor={props.editor}
             onChange={() => run(b.run)}
             title={b.title}
           >
-            {b.label}
+            <Box as="span" {...b.labelStyle}>
+              {b.label}
+            </Box>
           </Control>
         ))}
-      </div>
+      </HStack>
 
       <Separator />
 
-      <div class="flex space-x-1">
+      <HStack gap="1">
         <Control
           name="table"
           editor={props.editor}
@@ -212,7 +216,7 @@ export function ToolbarContents(props: { editor: Editor }) {
         >
           ⇢MD
         </Control>
-      </div>
-    </div>
+      </HStack>
+    </HStack>
   );
 }

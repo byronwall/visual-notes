@@ -5,12 +5,14 @@ import {
   onMount,
   type VoidComponent,
 } from "solid-js";
+import { Box, HStack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 
 type TitleEditPopoverProps = {
   initialTitle: string;
   onConfirm: (title: string) => void;
   onCancel: () => void;
-  class?: string;
 };
 
 export const TitleEditPopover: VoidComponent<TitleEditPopoverProps> = (
@@ -46,14 +48,14 @@ export const TitleEditPopover: VoidComponent<TitleEditPopoverProps> = (
         inputRef.select();
       } catch {}
     }
-    window.addEventListener("keydown", handleKeyDown as any);
+    window.addEventListener("keydown", handleKeyDown);
   });
 
   onCleanup(() => {
-    window.removeEventListener("keydown", handleKeyDown as any);
+    window.removeEventListener("keydown", handleKeyDown);
   });
 
-  const handleChange = (e: InputEvent) => {
+  const handleChange = (e: Event) => {
     const t = e.target as HTMLInputElement;
     setValue(t.value);
   };
@@ -69,33 +71,38 @@ export const TitleEditPopover: VoidComponent<TitleEditPopoverProps> = (
   };
 
   return (
-    <div
-      class={`absolute -top-3 left-0 z-20 translate-y-[-100%] rounded-md border border-gray-300 bg-white shadow-lg p-2 flex items-center gap-2 ${
-        props.class || ""
-      }`}
+    <Box
+      position="absolute"
+      left="0"
+      zIndex="20"
+      borderRadius="l2"
+      borderWidth="1px"
+      borderColor="border"
+      bg="bg.default"
+      boxShadow="lg"
+      p="2"
+      style={{
+        top: "-0.75rem",
+        transform: "translateY(-100%)",
+      }}
       onClick={(e) => e.stopPropagation()}
     >
-      <input
-        ref={(el) => (inputRef = el)}
-        type="text"
-        value={value()}
-        onInput={handleChange}
-        class="w-64 px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <button
-        type="button"
-        class="px-2 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-        onClick={handleConfirmClick}
-      >
-        Save
-      </button>
-      <button
-        type="button"
-        class="px-2 py-1 text-sm rounded border border-gray-300 hover:bg-gray-100"
-        onClick={handleCancelClick}
-      >
-        Cancel
-      </button>
-    </div>
+      <HStack gap="2">
+        <Input
+          ref={(el) => (inputRef = el)}
+          type="text"
+          value={value()}
+          onInput={handleChange}
+          w="16rem"
+          size="sm"
+        />
+        <Button size="sm" variant="solid" onClick={handleConfirmClick}>
+          Save
+        </Button>
+        <Button size="sm" variant="outline" onClick={handleCancelClick}>
+          Cancel
+        </Button>
+      </HStack>
+    </Box>
   );
 };

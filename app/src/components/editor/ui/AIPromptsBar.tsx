@@ -5,6 +5,9 @@ import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
 import { useAiPromptModal } from "./AiPromptModal";
 import { usePromptsManagerModal } from "./PromptsManagerModal";
 import { emitLLMSidebarOpen } from "~/components/ai/LLMSidebarBus";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { HStack, Spacer } from "styled-system/jsx";
 
 type PromptRecord = {
   id: string;
@@ -122,36 +125,39 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
 
   return (
     <>
-      <div class="flex items-center gap-1 overflow-x-auto">
+      <HStack gap="1" alignItems="center" overflowX="auto">
         <Suspense
-          fallback={<span class="text-xs text-gray-500">Loading prompts…</span>}
+          fallback={
+            <Text fontSize="xs" color="fg.muted">
+              Loading prompts…
+            </Text>
+          }
         >
           <For each={prompts() || []}>
             {(p) => (
-              <button
-                class={`rounded px-2 py-1 border text-xs ${
-                  running() === p.id
-                    ? "opacity-60 cursor-not-allowed"
-                    : "hover:bg-gray-50"
-                }`}
+              <Button
+                size="xs"
+                variant="outline"
+                colorPalette="gray"
                 disabled={running() === p.id}
                 onClick={() => onRun(p)}
                 title={p.description || p.task}
               >
                 {p.task}
-              </button>
+              </Button>
             )}
           </For>
         </Suspense>
-        <div class="ml-auto">
-          <button
-            class="rounded px-2 py-1 border text-xs hover:bg-gray-50"
-            onClick={() => openManager()}
-          >
-            Manage
-          </button>
-        </div>
-      </div>
+        <Spacer />
+        <Button
+          size="xs"
+          variant="outline"
+          colorPalette="gray"
+          onClick={() => openManager()}
+        >
+          Manage
+        </Button>
+      </HStack>
       {aiModalView}
       {managerView}
       {resultEditorView}

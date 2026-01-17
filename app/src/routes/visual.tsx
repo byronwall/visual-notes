@@ -6,9 +6,11 @@ import {
   onCleanup,
   onMount,
   createResource,
+  Suspense,
 } from "solid-js";
-import ControlPanel from "~/components/visual/ControlPanel";
-import VisualCanvas from "~/components/visual/VisualCanvas";
+import { Box } from "styled-system/jsx";
+import { ControlPanel } from "~/components/visual/ControlPanel";
+import { VisualCanvas } from "~/components/visual/VisualCanvas";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { seededPositionFor } from "~/layout/seeded";
@@ -20,7 +22,7 @@ import { fetchDocs as fetchFilteredDocs } from "~/features/docs-index/data/docs.
 import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
-import DocumentSidePanel from "../components/DocumentSidePanel";
+import { DocumentSidePanel } from "~/components/DocumentSidePanel";
 import type { DocItem } from "~/types/notes";
 
 const SPREAD = 1000;
@@ -182,8 +184,10 @@ const VisualRoute: VoidComponent = () => {
   });
 
   return (
-    <main
-      class="bg-white overflow-hidden"
+    <Box
+      as="main"
+      bg="bg.default"
+      overflow="hidden"
       style={{
         position: "fixed",
         left: "0",
@@ -192,24 +196,26 @@ const VisualRoute: VoidComponent = () => {
         bottom: "0",
       }}
     >
-      <VisualCanvas
-        docs={isolatedDocs()}
-        positions={positions}
-        umapIndex={umapIndex}
-        hoveredId={hover.hoveredId}
-        hoveredLabelScreen={hover.hoveredLabelScreen}
-        showHoverLabel={hover.showHoverLabel}
-        viewTransform={viewTransform}
-        navHeight={canvasStore.navHeight}
-        scale={canvasStore.scale}
-        searchQuery={searchQuery}
-        hideNonMatches={hideNonMatches}
-        layoutMode={canvasStore.layoutMode}
-        nestByPath={nestByPath}
-        eventHandlers={panZoomHandlers}
-        onSelectDoc={(id) => setSelectedId(id)}
-        selection={selectionStore}
-      />
+      <Suspense fallback={null}>
+        <VisualCanvas
+          docs={isolatedDocs()}
+          positions={positions}
+          umapIndex={umapIndex}
+          hoveredId={hover.hoveredId}
+          hoveredLabelScreen={hover.hoveredLabelScreen}
+          showHoverLabel={hover.showHoverLabel}
+          viewTransform={viewTransform}
+          navHeight={canvasStore.navHeight}
+          scale={canvasStore.scale}
+          searchQuery={searchQuery}
+          hideNonMatches={hideNonMatches}
+          layoutMode={canvasStore.layoutMode}
+          nestByPath={nestByPath}
+          eventHandlers={panZoomHandlers}
+          onSelectDoc={(id) => setSelectedId(id)}
+          selection={selectionStore}
+        />
+      </Suspense>
       <DocumentSidePanel
         open={!!selectedId()}
         docId={selectedId()}
@@ -220,42 +226,44 @@ const VisualRoute: VoidComponent = () => {
           setSelectedId(undefined);
         }}
       />
-      <ControlPanel
-        docs={isolatedDocs()}
-        positions={positions}
-        mouseWorld={hover.mouseWorld}
-        hoveredId={hover.hoveredId}
-        showHoverLabel={hover.showHoverLabel}
-        navHeight={canvasStore.navHeight}
-        scale={canvasStore.scale}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        hideNonMatches={hideNonMatches}
-        setHideNonMatches={setHideNonMatches}
-        sortMode={sortMode}
-        setSortMode={(m) => setSortMode(m)}
-        nudging={positionsStore.nudging}
-        onNudge={positionsStore.runNudge}
-        onSelectDoc={(id) => setSelectedId(id)}
-        layoutMode={canvasStore.layoutMode}
-        setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
-        clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
-        setClusterUnknownTopCenter={(v) =>
-          canvasStore.setClusterUnknownTopCenter(v)
-        }
-        nestByPath={nestByPath}
-        setNestByPath={setNestByPath}
-        selection={selectionStore}
-        pathPrefix={pathPrefix}
-        setPathPrefix={setPathPrefix}
-        blankPathOnly={blankPathOnly}
-        setBlankPathOnly={setBlankPathOnly}
-        metaKey={metaKey}
-        setMetaKey={setMetaKey}
-        metaValue={metaValue}
-        setMetaValue={setMetaValue}
-      />
-    </main>
+      <Suspense fallback={null}>
+        <ControlPanel
+          docs={isolatedDocs()}
+          positions={positions}
+          mouseWorld={hover.mouseWorld}
+          hoveredId={hover.hoveredId}
+          showHoverLabel={hover.showHoverLabel}
+          navHeight={canvasStore.navHeight}
+          scale={canvasStore.scale}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          hideNonMatches={hideNonMatches}
+          setHideNonMatches={setHideNonMatches}
+          sortMode={sortMode}
+          setSortMode={(m) => setSortMode(m)}
+          nudging={positionsStore.nudging}
+          onNudge={positionsStore.runNudge}
+          onSelectDoc={(id) => setSelectedId(id)}
+          layoutMode={canvasStore.layoutMode}
+          setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
+          clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
+          setClusterUnknownTopCenter={(v) =>
+            canvasStore.setClusterUnknownTopCenter(v)
+          }
+          nestByPath={nestByPath}
+          setNestByPath={setNestByPath}
+          selection={selectionStore}
+          pathPrefix={pathPrefix}
+          setPathPrefix={setPathPrefix}
+          blankPathOnly={blankPathOnly}
+          setBlankPathOnly={setBlankPathOnly}
+          metaKey={metaKey}
+          setMetaKey={setMetaKey}
+          metaValue={metaValue}
+          setMetaValue={setMetaValue}
+        />
+      </Suspense>
+    </Box>
   );
 };
 

@@ -19,6 +19,9 @@ import TiptapEditor from "./TiptapEditor";
 import { PathEditor } from "./PathEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
 import { AIPromptsBar } from "./editor/ui/AIPromptsBar";
+import { Button } from "~/components/ui/button";
+import { Text } from "~/components/ui/text";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -180,64 +183,80 @@ const DocumentEditor: VoidComponent<{
   }
 
   return (
-    <div class={props.class || "w-full"}>
-      <div class="flex items-center gap-2 mb-2">
-        <div class="text-sm font-medium truncate">
+    <Box class={props.class} w="full">
+      <HStack gap="2" alignItems="center" mb="2" flexWrap="wrap">
+        <Text fontSize="sm" fontWeight="medium" truncate>
           <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
             {(d) => <span>{d().title}</span>}
           </Show>
-        </div>
-        <div class="ml-auto flex items-center gap-2 text-xs">
+        </Text>
+        <HStack gap="2" alignItems="center" ml="auto" flexWrap="wrap">
           <Show when={dirty()}>
-            <span class="text-amber-700">Unsaved changes</span>
+            <Text fontSize="xs" color="amber.11">
+              Unsaved changes
+            </Text>
           </Show>
           <Show when={savedAt()}>
             {(t) => (
-              <span class="text-gray-600">
+              <Text fontSize="xs" color="fg.muted">
                 Saved {t().toLocaleTimeString()}
-              </span>
+              </Text>
             )}
           </Show>
-          <button
-            class={`rounded px-3 py-1.5 border text-xs ${
-              saving() ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50"
-            }`}
+          <Button
+            size="xs"
+            variant="outline"
+            colorPalette="gray"
             disabled={saving() || !editor() || (props.docId ? !doc() : false)}
             onClick={onSave}
           >
             {saving() ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </HStack>
+      </HStack>
       <Show when={error()}>
         {(e) => (
-          <div class="mb-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
-            {e()}
-          </div>
+          <Box
+            mb="2"
+            px="2"
+            py="1"
+            borderWidth="1px"
+            borderColor="red.7"
+            bg="red.2"
+            borderRadius="l2"
+          >
+            <Text fontSize="xs" color="red.11">
+              {e()}
+            </Text>
+          </Box>
         )}
       </Show>
       <Show when={isNew()}>
-        <div class="mb-3 space-y-3">
-          <div>
-            <div class="text-xs text-gray-600 mb-1">Path</div>
+        <Stack gap="3" mb="3">
+          <Stack gap="1">
+            <Text fontSize="xs" color="black.a7">
+              Path
+            </Text>
             <PathEditor onChange={(p) => setNewPath(p)} />
-          </div>
-          <div>
-            <div class="text-xs text-gray-600 mb-1">Key/Value metadata</div>
+          </Stack>
+          <Stack gap="1">
+            <Text fontSize="xs" color="black.a7">
+              Key/Value metadata
+            </Text>
             <MetaKeyValueEditor
               onChange={(m) => setNewMeta(m as Record<string, string>)}
             />
-          </div>
-        </div>
+          </Stack>
+        </Stack>
       </Show>
-      <div class="mb-2">
+      <Box mb="2">
         <AIPromptsBar editor={editor()} noteId={props.docId || doc()?.id} />
-      </div>
+      </Box>
       <TiptapEditor
         initialHTML={initialHTML()}
         onEditor={(ed) => setEditor(ed)}
       />
-    </div>
+    </Box>
   );
 };
 

@@ -6,6 +6,13 @@ import {
   type Accessor,
   type VoidComponent,
 } from "solid-js";
+import { Portal } from "solid-js/web";
+import { Box, Flex, Grid, HStack, Stack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
+import * as Checkbox from "~/components/ui/checkbox";
+import { Input } from "~/components/ui/input";
+import * as Select from "~/components/ui/select";
+import { Text } from "~/components/ui/text";
 import { colorFor } from "~/utils/colors";
 import type { DocItem } from "~/types/notes";
 import type { createSelectionStore } from "~/stores/selection.store";
@@ -22,6 +29,22 @@ import {
 
 type Point = { x: number; y: number };
 
+type SortMode = "proximity" | "title" | "date";
+type LayoutMode = "umap" | "grid";
+
+type SelectItem<T extends string> = { label: string; value: T };
+
+const SORT_ITEMS: SelectItem<SortMode>[] = [
+  { label: "Proximity (to mouse)", value: "proximity" },
+  { label: "Title", value: "title" },
+  { label: "Newest", value: "date" },
+];
+
+const LAYOUT_ITEMS: SelectItem<LayoutMode>[] = [
+  { label: "UMAP (raw)", value: "umap" },
+  { label: "Grid (Z-order)", value: "grid" },
+];
+
 export type ControlPanelProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
@@ -34,13 +57,13 @@ export type ControlPanelProps = {
   setSearchQuery: (v: string) => void;
   hideNonMatches: Accessor<boolean>;
   setHideNonMatches: (v: boolean) => void;
-  sortMode: Accessor<"proximity" | "title" | "date">;
-  setSortMode: (m: "proximity" | "title" | "date") => void;
+  sortMode: Accessor<SortMode>;
+  setSortMode: (m: SortMode) => void;
   nudging: Accessor<boolean>;
   onNudge: (iterations?: number) => void;
   onSelectDoc: (id: string) => void;
-  layoutMode: Accessor<"umap" | "grid">;
-  setLayoutMode: (m: "umap" | "grid") => void;
+  layoutMode: Accessor<LayoutMode>;
+  setLayoutMode: (m: LayoutMode) => void;
   clusterUnknownTopCenter: Accessor<boolean>;
   setClusterUnknownTopCenter: (v: boolean) => void;
   nestByPath: Accessor<boolean>;
@@ -84,6 +107,13 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
       filtered.sort((a, b) => d2(a.id) - d2(b.id));
     }
     return filtered;
+  });
+
+  const sortCollection = Select.createListCollection<SelectItem<SortMode>>({
+    items: SORT_ITEMS,
+  });
+  const layoutCollection = Select.createListCollection<SelectItem<LayoutMode>>({
+    items: LAYOUT_ITEMS,
   });
 
   // Selection action state
@@ -141,9 +171,69 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     }
   };
 
+  const handleSearchInput = (ev: Event) => {
+    const target = ev.currentTarget as HTMLInputElement;
+    props.setSearchQuery(target.value);
+  };
+
+  const handlePathChange = (p: string) => props.setPathPrefix(p);
+  const handleBlankToggle = (details: { checked: boolean | "indeterminate" }) => {
+    const checked = details.checked === true;
+    props.setBlankPathOnly(checked);
+    if (checked) props.setPathPrefix("");
+  };
+  const handleMetaKeyInput = (ev: Event) => {
+    const target = ev.currentTarget as HTMLInputElement;
+    props.setMetaKey(target.value);
+  };
+  const handleMetaValueInput = (ev: Event) => {
+    const target = ev.currentTarget as HTMLInputElement;
+    props.setMetaValue(target.value);
+  };
+  const clearMetaFilter = () => {
+    props.setMetaKey("");
+    props.setMetaValue("");
+  };
+
+  const handleSortChange = (details: { value: string[] }) => {
+    const value = details.value[0];
+    if (!value) return;
+    props.setSortMode(value as SortMode);
+  };
+
+  const handleLayoutChange = (details: { value: string[] }) => {
+    const value = details.value[0];
+    if (!value) return;
+    props.setLayoutMode(value as LayoutMode);
+  };
+
+  const handleClusterUnknownChange = (details: {
+    checked: boolean | "indeterminate";
+  }) => {
+    props.setClusterUnknownTopCenter(details.checked === true);
+  };
+
+  const handleNestByPathChange = (details: {
+    checked: boolean | "indeterminate";
+  }) => {
+    props.setNestByPath(details.checked === true);
+  };
+
+  const handleHideNonMatchesChange = (details: {
+    checked: boolean | "indeterminate";
+  }) => {
+    props.setHideNonMatches(details.checked === true);
+  };
+
   return (
-    <div
-      class="fixed z-10 bg-white/95 backdrop-blur border-r border-gray-200 shadow overflow-x-hidden"
+    <Box
+      position="fixed"
+      zIndex="10"
+      borderRightWidth="1px"
+      borderColor="border"
+      boxShadow="md"
+      overflowX="hidden"
+      bg="bg.default"
       style={{
         top: `${props.navHeight()}px`,
         left: "0",
@@ -151,354 +241,406 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
         bottom: "0",
         display: "flex",
         "flex-direction": "column",
+        background: "rgba(255,255,255,0.95)",
+        "backdrop-filter": "blur(10px)",
       }}
     >
-      <div class="p-3 border-b border-gray-200">
-        <div class="text-sm font-medium mb-2">Notes</div>
-        <div class="flex items-center gap-2 mb-2">
-          <input
-            class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+      <Box p="3" borderBottomWidth="1px" borderColor="border">
+        <Text fontSize="sm" fontWeight="medium" mb="2">
+          Notes
+        </Text>
+        <HStack gap="2" mb="2">
+          <Input
+            size="sm"
+            flex="1"
+            minW="0"
             type="search"
             placeholder="Search titles…"
             value={props.searchQuery()}
-            onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
+            onInput={handleSearchInput}
           />
-        </div>
-        {/* Path and Meta Filters */}
-        {(() => {
-          const handlePathChange = (p: string) => props.setPathPrefix(p);
-          const handleBlankToggle = (
-            ev: Event & { currentTarget: HTMLInputElement }
-          ) => {
-            const checked = ev.currentTarget.checked;
-            props.setBlankPathOnly(checked);
-            if (checked) props.setPathPrefix("");
-          };
-          const handleMetaKeyInput = (
-            ev: Event & { currentTarget: HTMLInputElement }
-          ) => {
-            props.setMetaKey(ev.currentTarget.value);
-          };
-          const handleMetaValueInput = (
-            ev: Event & { currentTarget: HTMLInputElement }
-          ) => {
-            props.setMetaValue(ev.currentTarget.value);
-          };
-          const clearMetaFilter = () => {
-            props.setMetaKey("");
-            props.setMetaValue("");
-          };
-          return (
-            <div class="space-y-3 mb-3">
-              <div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-600">Path</span>
-                </div>
-                <div
-                  class={`${
-                    props.blankPathOnly()
-                      ? "opacity-50 pointer-events-none"
-                      : ""
-                  }`}
-                >
-                  <PathEditor
-                    initialPath={props.pathPrefix()}
-                    onChange={handlePathChange}
-                  />
-                </div>
-                <label class="mt-2 flex items-center gap-1 text-xs text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={props.blankPathOnly()}
-                    onChange={handleBlankToggle}
-                  />
-                  <span>Blank only</span>
-                </label>
-              </div>
+        </HStack>
 
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xs text-gray-600">Meta</span>
-                  <button
-                    class="rounded border px-2 py-1 text-xs hover:bg-gray-50"
-                    onClick={clearMetaFilter}
-                    title="Clear meta filter"
-                    type="button"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <input
-                    class="min-w-0 rounded border border-gray-300 px-2 py-1 text-xs"
-                    placeholder="key"
-                    value={props.metaKey()}
-                    onInput={handleMetaKeyInput}
-                  />
-                  <input
-                    class="min-w-0 rounded border border-gray-300 px-2 py-1 text-xs"
-                    placeholder="value"
-                    value={props.metaValue()}
-                    onInput={handleMetaValueInput}
-                  />
-                </div>
-                <div class="mt-2">
-                  <MetaKeySuggestions
-                    onSelect={(k) => props.setMetaKey(k)}
-                    limit={8}
-                  />
-                  <MetaValueSuggestions
-                    keyName={props.metaKey()}
-                    onSelect={(v) => props.setMetaValue(v)}
-                    limit={8}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-        <Show when={(props.selection?.breadcrumbs().length || 0) > 0}>
-          {(() => {
-            const crumbs = props.selection!.breadcrumbs();
-            return (
-              <div class="flex flex-wrap items-center gap-1 mb-2 text-xs">
-                {crumbs.map((c, i) => (
-                  <button
-                    class="px-2 py-1 rounded border hover:bg-gray-50"
-                    onClick={() => props.selection!.popIsolationTo(i)}
-                  >
-                    {c.label || `Level ${i + 1}`} ({c.ids.length})
-                  </button>
-                ))}
-                <button
-                  class="ml-auto px-2 py-1 rounded border hover:bg-gray-50"
-                  onClick={handlePopIso}
-                >
-                  Back
-                </button>
-                <button
-                  class="px-2 py-1 rounded border hover:bg-gray-50"
-                  onClick={handleClearIso}
-                >
-                  Clear
-                </button>
-              </div>
-            );
-          })()}
-        </Show>
-        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700">
-          <label for="sortMode">Sort:</label>
-          <select
-            id="sortMode"
-            class="rounded border border-gray-300 px-2 py-1 text-xs"
-            value={props.sortMode()}
-            onChange={(e) => props.setSortMode(e.currentTarget.value as any)}
-          >
-            <option value="proximity">Proximity (to mouse)</option>
-            <option value="title">Title</option>
-            <option value="date">Newest</option>
-          </select>
-          <label for="layoutMode" class="ml-2">
-            Layout:
-          </label>
-          {(() => {
-            const handleLayoutChange = (
-              e: Event & { currentTarget: HTMLSelectElement }
-            ) => {
-              const value = e.currentTarget.value as "umap" | "grid";
-              props.setLayoutMode(value);
-            };
-            return (
-              <select
-                id="layoutMode"
-                class="rounded border border-gray-300 px-2 py-1 text-xs"
-                value={props.layoutMode()}
-                onChange={handleLayoutChange}
+        <Stack gap="3" mb="3">
+          <Box>
+            <Flex align="center" justify="space-between">
+              <Text fontSize="xs" color="fg.muted">
+                Path
+              </Text>
+            </Flex>
+            <Box
+              opacity={props.blankPathOnly() ? 0.6 : 1}
+              pointerEvents={props.blankPathOnly() ? "none" : "auto"}
+            >
+              <PathEditor
+                initialPath={props.pathPrefix()}
+                onChange={handlePathChange}
+              />
+            </Box>
+            <Checkbox.Root
+              checked={props.blankPathOnly()}
+              onCheckedChange={handleBlankToggle}
+            >
+              <Checkbox.HiddenInput />
+              <HStack gap="1" mt="2">
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label fontSize="xs" color="fg.muted">
+                  Blank only
+                </Checkbox.Label>
+              </HStack>
+            </Checkbox.Root>
+          </Box>
+
+          <Box>
+            <Flex align="center" justify="space-between" mb="1">
+              <Text fontSize="xs" color="fg.muted">
+                Meta
+              </Text>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={clearMetaFilter}
+                title="Clear meta filter"
+                type="button"
               >
-                <option value="umap">UMAP (raw)</option>
-                <option value="grid">Grid (Z-order)</option>
-              </select>
-            );
-          })()}
-          {(() => {
-            const handleClusterUnknownChange = (
-              e: Event & { currentTarget: HTMLInputElement }
-            ) => {
-              props.setClusterUnknownTopCenter(e.currentTarget.checked);
-            };
-            return (
-              <label class="ml-2 inline-flex items-center gap-1 select-none">
-                <input
-                  type="checkbox"
-                  checked={props.clusterUnknownTopCenter()}
-                  onChange={handleClusterUnknownChange}
-                />
-                <span>Cluster unknown at top</span>
-              </label>
-            );
-          })()}
-          <label class="ml-2 inline-flex items-center gap-1 select-none">
-            <input
-              type="checkbox"
-              checked={props.nestByPath()}
-              onChange={(e) => props.setNestByPath(e.currentTarget.checked)}
-            />
-            <span>Nest by path</span>
-          </label>
-          <label class="ml-2 inline-flex items-center gap-1 select-none">
-            <input
-              type="checkbox"
-              checked={props.hideNonMatches()}
-              onChange={(e) => props.setHideNonMatches(e.currentTarget.checked)}
-            />
-            <span>Hide non-matches</span>
-          </label>
-          <button
-            class={`ml-2 rounded px-2 py-1 border text-xs ${
-              props.nudging()
-                ? "opacity-60 cursor-not-allowed"
-                : "hover:bg-gray-50"
-            }`}
+                Clear
+              </Button>
+            </Flex>
+            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="2">
+              <Input
+                size="sm"
+                placeholder="key"
+                value={props.metaKey()}
+                onInput={handleMetaKeyInput}
+              />
+              <Input
+                size="sm"
+                placeholder="value"
+                value={props.metaValue()}
+                onInput={handleMetaValueInput}
+              />
+            </Grid>
+            <Box mt="2">
+              <MetaKeySuggestions
+                onSelect={(k) => props.setMetaKey(k)}
+                limit={8}
+              />
+              <MetaValueSuggestions
+                keyName={props.metaKey()}
+                onSelect={(v) => props.setMetaValue(v)}
+                limit={8}
+              />
+            </Box>
+          </Box>
+        </Stack>
+
+        <Show when={(props.selection?.breadcrumbs().length || 0) > 0}>
+          <HStack gap="1" mb="2" flexWrap="wrap">
+            <For each={props.selection?.breadcrumbs() || []}>
+              {(c, i) => (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => props.selection?.popIsolationTo(i())}
+                >
+                  {c.label || `Level ${i() + 1}`} ({c.ids.length})
+                </Button>
+              )}
+            </For>
+            <Button size="xs" variant="outline" onClick={handlePopIso}>
+              Back
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleClearIso}>
+              Clear
+            </Button>
+          </HStack>
+        </Show>
+
+        <Flex
+          align="center"
+          gap="2"
+          flexWrap="wrap"
+          fontSize="xs"
+          color="fg.muted"
+        >
+          <Text as="label" for="sortMode" fontSize="xs" color="fg.muted">
+            Sort:
+          </Text>
+          <Select.Root<SelectItem<SortMode>>
+            collection={sortCollection}
+            value={[props.sortMode()]}
+            onValueChange={handleSortChange}
+            positioning={{ sameWidth: true }}
+          >
+            <Select.Control>
+              <Select.Trigger id="sortMode" minW="180px">
+                <Select.ValueText placeholder="Sort" />
+                <Select.Indicator />
+              </Select.Trigger>
+            </Select.Control>
+            <Portal>
+              <Select.Positioner>
+                <Select.Content>
+                  <Select.List>
+                    <For each={SORT_ITEMS}>
+                      {(item) => (
+                        <Select.Item item={item}>
+                          <Select.ItemText>{item.label}</Select.ItemText>
+                          <Select.ItemIndicator />
+                        </Select.Item>
+                      )}
+                    </For>
+                  </Select.List>
+                </Select.Content>
+              </Select.Positioner>
+            </Portal>
+            <Select.HiddenSelect />
+          </Select.Root>
+
+          <Text as="label" for="layoutMode" fontSize="xs" color="fg.muted">
+            Layout:
+          </Text>
+          <Select.Root<SelectItem<LayoutMode>>
+            collection={layoutCollection}
+            value={[props.layoutMode()]}
+            onValueChange={handleLayoutChange}
+            positioning={{ sameWidth: true }}
+          >
+            <Select.Control>
+              <Select.Trigger id="layoutMode" minW="180px">
+                <Select.ValueText placeholder="Layout" />
+                <Select.Indicator />
+              </Select.Trigger>
+            </Select.Control>
+            <Portal>
+              <Select.Positioner>
+                <Select.Content>
+                  <Select.List>
+                    <For each={LAYOUT_ITEMS}>
+                      {(item) => (
+                        <Select.Item item={item}>
+                          <Select.ItemText>{item.label}</Select.ItemText>
+                          <Select.ItemIndicator />
+                        </Select.Item>
+                      )}
+                    </For>
+                  </Select.List>
+                </Select.Content>
+              </Select.Positioner>
+            </Portal>
+            <Select.HiddenSelect />
+          </Select.Root>
+
+          <Checkbox.Root
+            checked={props.clusterUnknownTopCenter()}
+            onCheckedChange={handleClusterUnknownChange}
+          >
+            <Checkbox.HiddenInput />
+            <HStack gap="1">
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Label fontSize="xs" color="fg.muted">
+                Cluster unknown at top
+              </Checkbox.Label>
+            </HStack>
+          </Checkbox.Root>
+
+          <Checkbox.Root
+            checked={props.nestByPath()}
+            onCheckedChange={handleNestByPathChange}
+          >
+            <Checkbox.HiddenInput />
+            <HStack gap="1">
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Label fontSize="xs" color="fg.muted">
+                Nest by path
+              </Checkbox.Label>
+            </HStack>
+          </Checkbox.Root>
+
+          <Checkbox.Root
+            checked={props.hideNonMatches()}
+            onCheckedChange={handleHideNonMatchesChange}
+          >
+            <Checkbox.HiddenInput />
+            <HStack gap="1">
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Label fontSize="xs" color="fg.muted">
+                Hide non-matches
+              </Checkbox.Label>
+            </HStack>
+          </Checkbox.Root>
+
+          <Button
+            size="xs"
+            variant="outline"
             disabled={props.nudging()}
             onClick={() => props.onNudge(200)}
             title="Repel overlapping nodes a bit"
           >
             {props.nudging() ? "Nudging…" : "Nudge"}
-          </button>
-          <div class="ml-auto flex items-center gap-2 text-[11px] text-gray-500 basis-full sm:basis-auto justify-end">
-            <span class="whitespace-nowrap">
+          </Button>
+
+          <Flex
+            ml="auto"
+            align="center"
+            gap="2"
+            flexWrap="wrap"
+            justify="flex-end"
+          >
+            <Text fontSize="2xs" color="fg.muted" whiteSpace="nowrap">
               Zoom {props.scale().toFixed(2)}x
-            </span>
-            <span class="text-gray-300">·</span>
-            <span class="whitespace-nowrap">
+            </Text>
+            <Text fontSize="2xs" color="gray.outline.border">
+              ·
+            </Text>
+            <Text fontSize="2xs" color="fg.muted" whiteSpace="nowrap">
               {props.docs?.length || 0} notes
-            </span>
+            </Text>
             <Show when={selectedCount() > 0}>
-              {(() => (
-                <>
-                  <span class="text-gray-300">·</span>
-                  <span class="whitespace-nowrap">
-                    {selectedCount()} selected
-                  </span>
-                </>
-              ))()}
+              <Text fontSize="2xs" color="gray.outline.border">
+                ·
+              </Text>
+              <Text fontSize="2xs" color="fg.muted" whiteSpace="nowrap">
+                {selectedCount()} selected
+              </Text>
             </Show>
-          </div>
-        </div>
+          </Flex>
+        </Flex>
+
         <Show when={selectedCount() > 0}>
-          {(() => (
-            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <button
-                class="rounded px-2 py-1 border hover:bg-gray-50"
-                onClick={handleIsolate}
-                title="Render only the selected items"
-              >
-                Isolate
-              </button>
-              <button
-                class="rounded px-2 py-1 border hover:bg-gray-50"
-                onClick={handleOpenMeta}
-              >
-                Tag (meta)
-              </button>
-              <button
-                class="rounded px-2 py-1 border hover:bg-gray-50"
-                onClick={handleOpenPath}
-              >
-                Bulk Path
-              </button>
-              <button
-                class="rounded px-2 py-1 border hover:bg-gray-50"
-                onClick={handleClearSelection}
-              >
-                Clear Sel
-              </button>
-            </div>
-          ))()}
+          <HStack gap="2" mt="2" flexWrap="wrap">
+            <Button size="xs" variant="outline" onClick={handleIsolate}>
+              Isolate
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleOpenMeta}>
+              Tag (meta)
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleOpenPath}>
+              Bulk Path
+            </Button>
+            <Button size="xs" variant="outline" onClick={handleClearSelection}>
+              Clear Sel
+            </Button>
+          </HStack>
         </Show>
-      </div>
-      <div class="flex-1 overflow-y-auto">
+      </Box>
+
+      <Box flex="1" overflowY="auto">
         <Show
           when={filteredAndSortedDocs().length > 0}
-          fallback={<div class="p-3 text-sm text-gray-500">No notes</div>}
+          fallback={
+            <Box p="3">
+              <Text fontSize="sm" color="fg.muted">
+                No notes
+              </Text>
+            </Box>
+          }
         >
-          <ul>
+          <Box as="ul">
             <For each={filteredAndSortedDocs().slice(0, 200)}>
               {(d) => {
                 const p = createMemo(() => props.positions().get(d.id));
                 const isHover = createMemo(
                   () => props.hoveredId() === d.id && props.showHoverLabel()
                 );
+                const distanceLabel = createMemo(() => {
+                  const m = props.mouseWorld();
+                  const pp = p();
+                  if (!pp) return "";
+                  const dx = pp.x - m.x;
+                  const dy = pp.y - m.y;
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+                  const angle = Math.atan2(-dy, dx);
+                  const arrows = [
+                    "→",
+                    "↗",
+                    "↑",
+                    "↖",
+                    "←",
+                    "↙",
+                    "↓",
+                    "↘",
+                  ];
+                  const idx =
+                    ((Math.round((angle * 8) / (2 * Math.PI)) % 8) + 8) % 8;
+                  const arrow = arrows[idx];
+                  return `${Math.round(dist)}u ${arrow}`;
+                });
                 return (
-                  <li>
-                    <button
-                      class={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-gray-50 ${
-                        isHover() ? "bg-amber-50" : ""
-                      }`}
+                  <Box as="li">
+                    <Box
+                      as="button"
+                      w="full"
+                      textAlign="left"
+                      px="3"
+                      py="2"
+                      display="flex"
+                      alignItems="center"
+                      gap="2"
+                      bg={isHover() ? "gray.surface.bg.hover" : "transparent"}
+                      _hover={{ bg: "gray.surface.bg.hover" }}
                       onClick={() => props.onSelectDoc(d.id)}
                       title={d.title}
                     >
-                      <span
-                        style={{
-                          "flex-shrink": 0,
-                          width: "10px",
-                          height: "10px",
-                          background:
-                            props.layoutMode() === "umap"
-                              ? colorFor(d.path || d.title)
-                              : colorFor(d.title),
-                          display: "inline-block",
-                          "border-radius": "9999px",
-                          border: "1px solid rgba(0,0,0,0.2)",
-                        }}
+                      <Box
+                        flexShrink="0"
+                        boxSize="10px"
+                        borderRadius="full"
+                        bg={
+                          props.layoutMode() === "umap"
+                            ? colorFor(d.path || d.title)
+                            : colorFor(d.title)
+                        }
+                        style={{ border: "1px solid rgba(0,0,0,0.2)" }}
                       />
-                      <span class="truncate text-sm">{d.title}</span>
-                      <span class="ml-auto text-[10px] text-gray-500 flex-shrink-0">
-                        {(() => {
-                          const m = props.mouseWorld();
-                          const pp = p();
-                          if (!pp) return "";
-                          const dx = pp.x - m.x;
-                          const dy = pp.y - m.y;
-                          const dist = Math.sqrt(dx * dx + dy * dy);
-                          const angle = Math.atan2(-dy, dx);
-                          const arrows = [
-                            "→",
-                            "↗",
-                            "↑",
-                            "↖",
-                            "←",
-                            "↙",
-                            "↓",
-                            "↘",
-                          ];
-                          const idx =
-                            ((Math.round((angle * 8) / (2 * Math.PI)) % 8) +
-                              8) %
-                            8;
-                          const arrow = arrows[idx];
-                          return `${Math.round(dist)}u ${arrow}`;
-                        })()}
-                      </span>
-                    </button>
-                  </li>
+                      <Text
+                        fontSize="sm"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        {d.title}
+                      </Text>
+                      <Text
+                        ml="auto"
+                        fontSize="10px"
+                        color="fg.muted"
+                        flexShrink="0"
+                      >
+                        {distanceLabel()}
+                      </Text>
+                    </Box>
+                  </Box>
                 );
               }}
             </For>
-          </ul>
+          </Box>
         </Show>
-      </div>
-      <div class="p-2 border-t border-gray-200 text-[11px] text-gray-600">
-        Drag to pan, wheel to zoom · Left pane sorts by mouse proximity
-      </div>
+      </Box>
+
+      <Box p="2" borderTopWidth="1px" borderColor="border">
+        <Text fontSize="2xs" color="fg.muted">
+          Drag to pan, wheel to zoom · Left pane sorts by mouse proximity
+        </Text>
+      </Box>
 
       <Modal open={showMetaModal()} onClose={handleCloseMeta}>
-        <div class="p-3">
-          <div class="text-sm font-medium mb-2">
+        <Box p="3">
+          <Text fontSize="sm" fontWeight="medium" mb="2">
             Apply metadata to selection
-          </div>
+          </Text>
           <Show when={!!bulkError()}>
-            <div class="text-red-600 text-xs mb-2">{bulkError()}</div>
+            <Text fontSize="xs" color="error" mb="2">
+              {bulkError()}
+            </Text>
           </Show>
           <MetaKeyValueEditor
             onChange={(rec) => {
@@ -506,31 +648,29 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
               void handleApplyMeta(rec);
             }}
           />
-        </div>
+        </Box>
       </Modal>
 
       <Modal open={showPathModal()} onClose={handleClosePath}>
-        <div class="p-3">
-          <div class="text-sm font-medium mb-2">Set path for selection</div>
+        <Box p="3">
+          <Text fontSize="sm" fontWeight="medium" mb="2">
+            Set path for selection
+          </Text>
           <Show when={!!bulkError()}>
-            <div class="text-red-600 text-xs mb-2">{bulkError()}</div>
+            <Text fontSize="xs" color="error" mb="2">
+              {bulkError()}
+            </Text>
           </Show>
-          <div class="mb-3">
+          <Box mb="3">
             <PathEditor onChange={(path) => setBulkPathDraft(path)} />
-          </div>
-          <div class="flex justify-end gap-2">
-            <button
-              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
-              onClick={handleClosePath}
-            >
+          </Box>
+          <Flex justify="flex-end" gap="2">
+            <Button size="xs" variant="outline" onClick={handleClosePath}>
               Cancel
-            </button>
-            <button
-              class={`rounded px-3 py-1.5 border text-xs ${
-                bulkBusy()
-                  ? "opacity-60 cursor-not-allowed"
-                  : "hover:bg-gray-50"
-              }`}
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
               disabled={bulkBusy()}
               onClick={() => {
                 const v = bulkPathDraft().trim();
@@ -539,12 +679,10 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
               }}
             >
               Apply to {selectedCount()} items
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Flex>
+        </Box>
       </Modal>
-    </div>
+    </Box>
   );
 };
-
-export default ControlPanel;

@@ -1,10 +1,16 @@
 import {
   Show,
+  Suspense,
   createResource,
   createSignal,
   type VoidComponent,
 } from "solid-js";
-import SidePanel from "./SidePanel";
+import { Box, Flex, HStack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
+import { Link } from "~/components/ui/link";
+import { Text } from "~/components/ui/text";
+import { SidePanel } from "./SidePanel";
 import { apiFetch } from "~/utils/base-url";
 import DocumentViewer from "./DocumentViewer";
 import { TitleEditPopover } from "./TitleEditPopover";
@@ -26,7 +32,7 @@ async function fetchDoc(id: string): Promise<DocDetail> {
   return (await res.json()) as DocDetail;
 }
 
-const DocumentSidePanel: VoidComponent<{
+export const DocumentSidePanel: VoidComponent<{
   open: boolean;
   docId?: string;
   onClose: (shouldRefetch?: boolean) => void;
@@ -65,112 +71,146 @@ const DocumentSidePanel: VoidComponent<{
       onClose={() => props.onClose(false)}
       ariaLabel="Document details"
     >
-      {/* Header */}
-      <div class="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center gap-2">
-        <div class="min-w-0 relative flex items-center gap-2">
-          <div>
-            <div class="text-sm text-gray-600">Note</div>
-            <div class="font-medium text-gray-900 truncate flex items-center gap-2">
-              <Show when={doc()} fallback={<span>Loading…</span>}>
-                {(d) => {
-                  const firstH1 = () =>
-                    extractFirstHeading({
-                      markdown: d().markdown,
-                      html: d().html,
-                    }) || "";
-                  const showSync = () => firstH1() && firstH1() !== d().title;
-                  const handleSync = async () => {
-                    if (!props.docId) return;
-                    const newTitle = firstH1();
-                    if (!newTitle) return;
-                    try {
-                      console.log("[SidePanel] sync title to H1:", newTitle);
-                    } catch {}
-                    try {
-                      await updateDocTitle(props.docId, newTitle);
-                      await refetch();
-                    } catch (e) {
-                      alert((e as Error).message || "Failed to sync title");
-                    }
-                  };
-                  return (
-                    <>
-                      <span class="truncate max-w-[16rem]" title={d().title}>
-                        {d().title}
-                      </span>
-                      <button
-                        type="button"
-                        class="rounded p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                        aria-label="Edit title"
-                        onClick={handleOpenEdit}
-                      >
-                        ✏️
-                      </button>
-                      <Show when={showSync()}>
-                        <button
-                          type="button"
-                          class="text-xs rounded px-2 py-1 border border-gray-300 hover:bg-gray-100"
-                          onClick={handleSync}
-                          title={`Match H1: ${firstH1()}`}
+      <Box
+        position="sticky"
+        top="0"
+        zIndex="10"
+        borderBottomWidth="1px"
+        borderColor="border"
+        px="4"
+        py="3"
+        bg="bg.default"
+        style={{
+          background: "rgba(255,255,255,0.95)",
+          "backdrop-filter": "blur(10px)",
+        }}
+      >
+        <Flex align="center" gap="2">
+          <Box minW="0" position="relative">
+            <Text fontSize="xs" color="fg.muted">
+              Note
+            </Text>
+            <HStack gap="2" alignItems="center" minW="0">
+              <Suspense
+                fallback={<Text fontSize="sm">Loading…</Text>}
+              >
+                <Show when={doc()}>
+                  {(d) => {
+                    const firstH1 = () =>
+                      extractFirstHeading({
+                        markdown: d().markdown,
+                        html: d().html,
+                      }) || "";
+                    const showSync = () =>
+                      firstH1() && firstH1() !== d().title;
+                    const handleSync = async () => {
+                      if (!props.docId) return;
+                      const newTitle = firstH1();
+                      if (!newTitle) return;
+                      try {
+                        console.log("[SidePanel] sync title to H1:", newTitle);
+                      } catch {}
+                      try {
+                        await updateDocTitle(props.docId, newTitle);
+                        await refetch();
+                      } catch (e) {
+                        alert((e as Error).message || "Failed to sync title");
+                      }
+                    };
+                    return (
+                      <>
+                        <Text
+                          fontSize="sm"
+                          fontWeight="medium"
+                          color="fg.default"
+                          maxW="16rem"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                          title={d().title}
                         >
-                          Match H1
-                        </button>
-                      </Show>
-                      <Show when={editing()}>
-                        <TitleEditPopover
-                          initialTitle={d().title}
-                          onConfirm={handleConfirmEdit}
-                          onCancel={handleCancelEdit}
-                        />
-                      </Show>
-                    </>
-                  );
-                }}
-              </Show>
-            </div>
-          </div>
-        </div>
-        <a
-          class="ml-auto text-xs text-blue-600 hover:underline whitespace-nowrap"
-          href={props.docId ? `/docs/${props.docId}` : "#"}
-          onClick={(e) => {
-            if (!props.docId) e.preventDefault();
-          }}
-        >
-          Open full page
-        </a>
-        <button
-          type="button"
-          class="ml-1 rounded p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
-          aria-label="Close panel"
-          onClick={() => props.onClose(false)}
-        >
-          ✕
-        </button>
-      </div>
+                          {d().title}
+                        </Text>
+                        <IconButton
+                          variant="plain"
+                          size="xs"
+                          aria-label="Edit title"
+                          onClick={handleOpenEdit}
+                          title="Edit title"
+                        >
+                          ✏️
+                        </IconButton>
+                        <Show when={showSync()}>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleSync}
+                            title={`Match H1: ${firstH1()}`}
+                          >
+                            Match H1
+                          </Button>
+                        </Show>
+                        <Show when={editing()}>
+                          <TitleEditPopover
+                            initialTitle={d().title}
+                            onConfirm={handleConfirmEdit}
+                            onCancel={handleCancelEdit}
+                          />
+                        </Show>
+                      </>
+                    );
+                  }}
+                </Show>
+              </Suspense>
+            </HStack>
+          </Box>
+          <Link
+            ml="auto"
+            fontSize="xs"
+            color="blue.9"
+            href={props.docId ? `/docs/${props.docId}` : "#"}
+            onClick={(e) => {
+              if (!props.docId) e.preventDefault();
+            }}
+          >
+            Open full page
+          </Link>
+          <IconButton
+            variant="plain"
+            size="xs"
+            aria-label="Close panel"
+            onClick={() => props.onClose(false)}
+          >
+            ✕
+          </IconButton>
+        </Flex>
+      </Box>
 
-      {/* Content */}
-      <div class="px-4 py-4">
-        <Show
-          when={doc()}
-          keyed
-          fallback={<div class="text-sm text-gray-600">Loading…</div>}
+      <Box px="4" py="4">
+        <Suspense
+          fallback={
+            <Text fontSize="sm" color="fg.muted">
+              Loading…
+            </Text>
+          }
         >
-          {(d) => (
-            <DocumentViewer
-              doc={d}
-              onDeleted={() => {
-                try {
-                  console.log("[DocumentSidePanel] onDeleted → closing panel");
-                } catch {}
-                props.onClose(true);
-              }}
-            />
-          )}
-        </Show>
-      </div>
+          <Show when={doc()} keyed>
+            {(d) => (
+              <DocumentViewer
+                doc={d}
+                onDeleted={() => {
+                  try {
+                    console.log(
+                      "[DocumentSidePanel] onDeleted → closing panel"
+                    );
+                  } catch {}
+                  props.onClose(true);
+                }}
+              />
+            )}
+          </Show>
+        </Suspense>
+      </Box>
     </SidePanel>
   );
 };
-
-export default DocumentSidePanel;

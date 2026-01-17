@@ -391,6 +391,101 @@ The docs index uses semantic-ish tokens currently available:
 If these tokens feel too dark/light in other surfaces, update the theme
 tokens/recipes rather than hardcoding colors in components.
 
+## Additional learnings from Docs Detail + Editor migration
+
+The doc detail surface pulls in the editor, prompt modals, and toolbar, which
+introduce a few special cases that weren’t present in the navbar or docs index.
+
+### H) ProseMirror editor needs a dedicated CSS hook
+
+The Tiptap editor content is not built with Panda primitives, so we can’t rely
+on `p="4"` / `outline="none"` props. Instead:
+
+- Keep the `prose` class for typography.
+- Add a dedicated class like `.editor-prose` in `app/src/app.css` for editor
+  padding/outline/max-width and set it via `editorProps.attributes.class`.
+
+This keeps the editor styles centralized and avoids inline utility strings.
+
+### I) ParkUI Select is preferred, even for “small” dropdowns
+
+We replaced native `<select>` in:
+
+- AI prompt model selector
+- Code block language picker
+- Shared `ModelSelect`
+
+Pattern:
+
+- Build a `createListCollection` from items.
+- Use `Select.Root` + `Select.Control` + `Select.Trigger` + `Select.ValueText`.
+- Wrap menu content in a `Portal`.
+
+### J) Toolbar buttons: remove Tailwind `class` from config
+
+The editor toolbar had Tailwind classes stored in `toolbarConfig`. To migrate:
+
+- Replace `class` with a small `labelStyle` object (e.g. `fontWeight: "semibold"`).
+- Apply styles via Panda props in `ToolbarContents` using `<Box as="span" {...labelStyle}>`.
+
+This avoids Tailwind strings without bloating the toggle component.
+
+### K) Hidden file inputs: prefer inline style over classes
+
+The CSV import input was `class="hidden"`. Use:
+
+```tsx
+<input style={{ display: "none" }} ... />
+```
+
+This keeps the element hidden without introducing utility classes.
+
+## Additional learnings from Chat Sidebar (LLM) migration
+
+Migrating the chat interface (`LLMSidebar`) surfaced a few Ark/ParkUI patterns
+that are easy to get subtly wrong in Solid.
+
+### A) Use `Drawer` instead of custom “side panel” components
+
+The chat “sidebar” is a perfect match for `~/components/ui/drawer`:
+
+- Replace custom overlay/portal/backdrop + scroll locking with `Drawer.Root`.
+- Use `Drawer.Backdrop`, `Drawer.Positioner`, `Drawer.Content`, and
+  `Drawer.CloseTrigger`.
+- Keep the layout inside the drawer composed with Panda primitives
+  (`Flex`, `Box`, `Stack`, `HStack`, `Spacer`) and ParkUI controls.
+
+### B) Ark `ScrollArea` gotcha in Solid: don’t auto-inject `<Thumb />` via `defaultProps`
+
+We hit this runtime error:
+
+- `useScrollAreaScrollbarContext returned undefined`
+
+Root cause: in Solid, using `defaultProps` to inject a `<Thumb />` child inside
+the styled wrapper can create a component instance that isn’t actually within
+the `Scrollbar` provider when it renders (context ends up `undefined`).
+
+Practical rule:
+
+- Don’t “magically” add `<ScrollArea.Thumb />` via wrapper `defaultProps`.
+- Instead, render it explicitly at call sites:
+
+```tsx
+<ScrollArea.Scrollbar orientation="vertical">
+  <ScrollArea.Thumb />
+</ScrollArea.Scrollbar>
+```
+
+This keeps the provider chain correct and avoids fragile wrapper behavior.
+
+### C) Prefer Panda’s `lineClamp` over vendor-prefixed CSS in `css(...)`
+
+If you need “2-line truncate” in a thread preview, don’t reach for
+`WebkitLineClamp`/`WebkitBoxOrient` keys (they may not be typed in
+`SystemStyleObject`). Use Panda’s built-in:
+
+- `lineClamp: "2"`
+
 ## Additional learnings from UMAP + Embeddings migration
 
 These came up when migrating:
@@ -436,3 +531,56 @@ When a page needs a `ResizeObserver` (UMAP detail canvas), the clean pattern is:
 - Create the observer inside `onMount`
 - Return cleanup from `onMount` (disconnect observer)
 - Use `entry.contentRect` for robust sizing (avoids `contentBoxSize` typing and `as any` casts)
+
+## Additional learnings from Visual Canvas migration
+
+The visual canvas surface includes a fixed canvas, a left control panel, and a
+right-side document panel. The migration introduced a few new patterns worth
+reusing.
+
+### M) Wrap resource-driven canvas + controls in `Suspense`
+
+Both the canvas and the control panel depend on resources (docs, UMAP runs).
+Use `Suspense fallback={null}` around those regions instead of gating with
+`Show` so the resource discipline is preserved.
+
+### N) Replace fixed-position shells with Panda `Box` + inline style escape hatches
+
+For overlay shells (`position: fixed` + `backdrop-filter`), use `Box` props
+for layout and add inline `style` only for properties not in Panda tokens
+(`backdrop-filter`, translucent white backgrounds).
+
+Example pattern:
+
+```tsx
+<Box
+  position="fixed"
+  bg="bg.default"
+  borderColor="border"
+  borderRightWidth="1px"
+  style={{ background: "rgba(255,255,255,0.95)", "backdrop-filter": "blur(10px)" }}
+/>
+```
+
+### O) List rows: compute derived label once per row
+
+The control panel list includes a “distance + direction” label. Use a
+`createMemo` inside the `<For>` row scope instead of an IIFE in JSX to keep
+render logic clean and reactive.
+
+### P) Prefer `Select` for layout/sort modes, not native `<select>`
+
+The control panel replaced native selects with ParkUI `Select`:
+
+- Use `createListCollection` for options
+- `value` is always a string array
+- Wrap menu content in `Portal`
+
+This keeps the UI consistent with other migrated surfaces and avoids native
+select styling drift.
+
+### Q) Use `Text as="span"` for inline text in overlays/tooltips
+
+For hover labels and tooltip-like UI, wrap the text in `Text as="span"` inside
+a `Box`. This avoids invalid block nesting and keeps typography consistent with
+theme tokens.

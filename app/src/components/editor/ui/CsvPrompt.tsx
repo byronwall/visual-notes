@@ -1,5 +1,9 @@
 import { createSignal } from "solid-js";
-import Modal from "../../Modal";
+import { Button } from "~/components/ui/button";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import * as Dialog from "~/components/ui/dialog";
+import { css } from "styled-system/css";
+import { XIcon } from "lucide-solid";
 
 export type Choice = "table" | "text" | "cancel";
 
@@ -21,27 +25,74 @@ export function useCsvPrompt() {
     });
 
   const view = (
-    <Modal open={open()} onClose={() => resolver?.("cancel")}>
-      <div class="p-4 space-y-3">
-        <div class="text-sm font-medium">Paste detected as CSV/TSV</div>
-        <div class="text-xs text-gray-600">Choose how to insert the content:</div>
-        <div class="bg-gray-50 border border-gray-200 rounded p-2 max-h-40 overflow-auto text-xs font-mono whitespace-pre">
-          {text().slice(0, 500)}
-          {text().length > 500 ? "…" : ""}
-        </div>
-        <div class="flex justify-end gap-2">
-          <button class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50" onClick={() => resolver?.("text")}>
-            Paste contents directly
-          </button>
-          <button class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50" onClick={() => resolver?.("table")}>
-            Paste as table
-          </button>
-        </div>
-      </div>
-    </Modal>
+    <Dialog.Root
+      open={open()}
+      onOpenChange={(details: { open?: boolean }) => {
+        if (details?.open === false) resolver?.("cancel");
+      }}
+    >
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content
+          class={css({
+            maxW: "720px",
+            "--dialog-base-margin": "24px",
+          })}
+        >
+          <Dialog.Header>
+            <Dialog.Title>Paste detected as CSV/TSV</Dialog.Title>
+            <Dialog.Description>Choose how to insert the content:</Dialog.Description>
+          </Dialog.Header>
+
+          <Dialog.CloseTrigger
+            aria-label="Close dialog"
+            onClick={() => resolver?.("cancel")}
+          >
+            <XIcon />
+          </Dialog.CloseTrigger>
+
+          <Dialog.Body>
+            <Stack gap="3">
+              <Box
+                borderWidth="1px"
+                borderColor="gray.outline.border"
+                bg="gray.surface.bg"
+                borderRadius="l2"
+                p="2"
+                maxH="10rem"
+                overflow="auto"
+                fontSize="xs"
+                fontFamily="mono"
+                whiteSpace="pre"
+              >
+                {text().slice(0, 500)}
+                {text().length > 500 ? "…" : ""}
+              </Box>
+              <HStack gap="2" justifyContent="flex-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorPalette="gray"
+                  onClick={() => resolver?.("text")}
+                >
+                  Paste contents directly
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorPalette="gray"
+                  onClick={() => resolver?.("table")}
+                >
+                  Paste as table
+                </Button>
+              </HStack>
+            </Stack>
+          </Dialog.Body>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 
   return { prompt, view };
 }
-
 

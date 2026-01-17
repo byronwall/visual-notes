@@ -7,6 +7,8 @@ import {
   type VoidComponent,
   type JSX,
 } from "solid-js";
+import { Box } from "styled-system/jsx";
+import { Text } from "~/components/ui/text";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
@@ -48,10 +50,11 @@ const SPREAD = 1000;
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   return (
-    <div
-      class="fixed overflow-hidden bg-white"
+    <Box
+      position="fixed"
+      overflow="hidden"
+      bg="bg.default"
       style={{
-        position: "fixed",
         left: "0",
         right: "0",
         bottom: "0",
@@ -300,8 +303,9 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               const width = Math.abs(r.maxX - r.minX);
               const height = Math.abs(r.maxY - r.minY);
               return (
-                <div
-                  class="absolute pointer-events-none"
+                <Box
+                  position="absolute"
+                  pointerEvents="none"
                   style={{
                     left: `${left}px`,
                     top: `${top}px`,
@@ -338,39 +342,41 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
             {(() => {
               const l = lbl()!;
               return (
-                <div
-                  class="absolute"
+                <Box
+                  position="absolute"
                   style={{
                     left: `${l.x + 12}px`,
                     top: `${l.y - 10}px`,
                     "pointer-events": "none",
                   }}
                 >
-                  <div
+                  <Box
+                    bg="bg.default"
+                    borderWidth="1px"
+                    borderColor="border"
+                    px="2"
+                    py="1"
+                    borderRadius="l2"
+                    boxShadow="md"
+                    maxW="320px"
+                    whiteSpace="nowrap"
+                    textOverflow="ellipsis"
+                    overflow="hidden"
                     style={{
                       background: "rgba(255,255,255,0.98)",
                       border: "1px solid rgba(0,0,0,0.15)",
-                      padding: "4px 8px",
-                      "border-radius": "6px",
-                      "box-shadow": "0 2px 6px rgba(0,0,0,0.08)",
-                      color: "#111",
-                      "font-size": "14px",
-                      "max-width": "320px",
-                      "white-space": "nowrap",
-                      "text-overflow": "ellipsis",
-                      overflow: "hidden",
                     }}
                   >
-                    {l.title}
-                  </div>
-                </div>
+                    <Text as="span" fontSize="sm" color="fg.default">
+                      {l.title}
+                    </Text>
+                  </Box>
+                </Box>
               );
             })()}
           </Show>
         );
       })()}
-    </div>
+    </Box>
   );
 };
-
-export default VisualCanvas;

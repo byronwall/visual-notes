@@ -5,6 +5,10 @@ import DocumentEditor from "./DocumentEditor";
 import { TitleEditPopover } from "./TitleEditPopover";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { updateDocTitle } from "~/services/docs.service";
+import { Button } from "~/components/ui/button";
+import { Heading } from "~/components/ui/heading";
+import { IconButton } from "~/components/ui/icon-button";
+import { Box, HStack, Spacer, Stack } from "styled-system/jsx";
 
 type DocumentData = {
   id: string;
@@ -76,27 +80,33 @@ const DocumentViewer: VoidComponent<{
   });
 
   return (
-    <div class="prose max-w-none">
-      <div class="flex items-center justify-between">
-        <div class="relative flex items-center gap-2">
-          <h2 class="mt-0 m-0">{title()}</h2>
-          <button
+    <Box class="prose" maxW="none">
+      <HStack gap="3" alignItems="center" flexWrap="wrap">
+        <HStack gap="2" alignItems="center" flexWrap="wrap" minW="0">
+          <Heading as="h2" fontSize="xl" m="0">
+            {title()}
+          </Heading>
+          <IconButton
             type="button"
-            class="rounded p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            size="xs"
+            variant="plain"
+            colorPalette="gray"
             aria-label="Edit title"
             onClick={handleOpenEdit}
           >
             ✏️
-          </button>
+          </IconButton>
           <Show when={showSync()}>
-            <button
+            <Button
               type="button"
-              class="text-xs rounded px-2 py-1 border border-gray-300 hover:bg-gray-100"
+              size="xs"
+              variant="outline"
+              colorPalette="gray"
               onClick={handleSync}
               title={`Match H1: ${firstH1()}`}
             >
               Match H1
-            </button>
+            </Button>
           </Show>
           <Show when={editing()}>
             <TitleEditPopover
@@ -105,9 +115,11 @@ const DocumentViewer: VoidComponent<{
               onCancel={handleCancelEdit}
             />
           </Show>
-        </div>
-        <button
-          class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+        </HStack>
+        <Spacer />
+        <Button
+          size="sm"
+          colorPalette="red"
           disabled={busy()}
           onClick={async () => {
             if (!confirm("Delete this note? This cannot be undone.")) return;
@@ -142,12 +154,14 @@ const DocumentViewer: VoidComponent<{
           }}
         >
           Delete Note
-        </button>
-      </div>
-      <DocumentEditor docId={props.doc.id} />
+        </Button>
+      </HStack>
+      <Stack gap="3">
+        <DocumentEditor docId={props.doc.id} />
+      </Stack>
 
       {/* Inline properties moved to page-level top section in docs/[id].tsx */}
-    </div>
+    </Box>
   );
 };
 

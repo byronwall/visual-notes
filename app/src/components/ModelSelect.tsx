@@ -1,5 +1,8 @@
-import { Suspense, createResource } from "solid-js";
+import { For, Suspense, createMemo, createResource } from "solid-js";
+import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
+import * as Select from "~/components/ui/select";
+import { Text } from "~/components/ui/text";
 
 type ModelsResponse = { items: string[] };
 
@@ -12,27 +15,60 @@ async function fetchModels(): Promise<string[]> {
 export function ModelSelect(props: {
 	value?: string;
 	onChange: (value: string) => void;
-	class?: string;
 	placeholderLabel?: string;
 	placeholderValue?: string;
 }) {
 	const [models] = createResource(fetchModels);
+	type SelectItem = { label: string; value: string };
+	const collection = createMemo(() => {
+		const items: SelectItem[] = [];
+		if (props.placeholderLabel !== undefined) {
+			items.push({
+				label: props.placeholderLabel,
+				value: props.placeholderValue ?? "",
+			});
+		}
+		for (const m of models() || []) items.push({ label: m, value: m });
+		return Select.createListCollection<SelectItem>({ items });
+	});
 	return (
-		<Suspense fallback={<div class="text-xs text-gray-500">Loading models…</div>}>
-			<select
-				class={props.class || "border rounded px-2 py-1 text-sm w-full"}
-				value={props.value ?? ""}
-				onChange={(e) => props.onChange((e.target as HTMLSelectElement).value)}
+		<Suspense
+			fallback={
+				<Text fontSize="xs" color="fg.muted">
+					Loading models…
+				</Text>
+			}
+		>
+			<Select.Root
+				collection={collection()}
+				value={[props.value ?? ""]}
+				onValueChange={(details) => props.onChange(details.value[0] || "")}
+				size="sm"
 			>
-				{props.placeholderLabel !== undefined ? (
-					<option value={props.placeholderValue ?? ""}>{props.placeholderLabel}</option>
-				) : null}
-				{(models() || []).map((m) => (
-					<option value={m}>{m}</option>
-				))}
-			</select>
+				<Select.Control>
+					<Select.Trigger>
+						<Select.ValueText placeholder="Select model" />
+						<Select.Indicator />
+					</Select.Trigger>
+				</Select.Control>
+				<Portal>
+					<Select.Positioner>
+						<Select.Content>
+							<Select.List>
+								<For each={collection().items}>
+									{(opt) => (
+										<Select.Item item={opt}>
+											<Select.ItemText>{opt.label}</Select.ItemText>
+											<Select.ItemIndicator />
+										</Select.Item>
+									)}
+								</For>
+							</Select.List>
+						</Select.Content>
+					</Select.Positioner>
+				</Portal>
+				<Select.HiddenSelect />
+			</Select.Root>
 		</Suspense>
 	);
 }
-
-

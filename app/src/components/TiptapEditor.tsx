@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
-import { Show, createEffect, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import type { Component } from "solid-js";
+import { Portal } from "solid-js/web";
 import { createEditor } from "./editor/core/createEditor";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
 import { useCodeBlockOverlay } from "./editor/core/useCodeBlockOverlay";
@@ -8,6 +9,8 @@ import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
 import "highlight.js/styles/github.css";
+import * as Select from "~/components/ui/select";
+import { Box, HStack } from "styled-system/jsx";
 
 const DEFAULT_HTML = `
 <h2>Hi there,</h2>
@@ -81,67 +84,89 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
     () => container()
   );
 
-  const languageOptions = createMemo(() => {
-    return [
-      "text",
-      "plaintext",
-      "bash",
-      "shell",
-      "javascript",
-      "typescript",
-      "json",
-      "yaml",
-      "markdown",
-      "html",
-      "xml",
-      "css",
-      "scss",
-      "python",
-      "java",
-      "c",
-      "cpp",
-      "csharp",
-      "go",
-      "rust",
-      "php",
-      "ruby",
-      "swift",
-      "kotlin",
-      "sql",
-      "dockerfile",
-      "ini",
-      "toml",
-      "diff",
-      "makefile",
-    ];
-  });
+  const languageOptions = createMemo(() => [
+    "text",
+    "plaintext",
+    "bash",
+    "shell",
+    "javascript",
+    "typescript",
+    "json",
+    "yaml",
+    "markdown",
+    "html",
+    "xml",
+    "css",
+    "scss",
+    "python",
+    "java",
+    "c",
+    "cpp",
+    "csharp",
+    "go",
+    "rust",
+    "php",
+    "ruby",
+    "swift",
+    "kotlin",
+    "sql",
+    "dockerfile",
+    "ini",
+    "toml",
+    "diff",
+    "makefile",
+  ]);
+  type LanguageItem = { label: string; value: string };
+  const languageCollection = createMemo(() =>
+    Select.createListCollection<LanguageItem>({
+      items: languageOptions().map((l) => ({ label: l, value: l })),
+    })
+  );
 
   return (
-    <div class={props.class || "w-full"}>
+    <Box class={props.class} w="full">
       <Show when={props.showToolbar !== false}>
-        <div class="mb-2 rounded bg-gray-50 text-gray-800 border border-gray-300">
+        <Box
+          mb="2"
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          bg="gray.surface.bg"
+          color="fg.default"
+        >
           <Show when={stableEditor()}>
             <ToolbarContents editor={stableEditor()!} />
           </Show>
-        </div>
+        </Box>
       </Show>
 
-      <div class="relative rounded border border-gray-300">
-        <div class="min-h-[200px]" ref={setContainer} />
+      <Box position="relative" borderWidth="1px" borderColor="gray.outline.border" borderRadius="l2">
+        <Box minH="200px" ref={setContainer} />
 
         <Show when={stableEditor() && overlay()}>
-          <div
-            class="absolute z-10"
+          <Box
+            position="absolute"
+            zIndex="10"
             style={{ top: `${overlay()!.top}px`, left: `${overlay()!.left}px` }}
           >
-            <div class="flex items-center gap-1 bg-white/95 border border-gray-300 rounded px-2 py-[2px] shadow-sm">
-              <select
-                class="text-xs bg-transparent"
-                value={
-                  stableEditor()?.getAttributes("codeBlock")?.language || "text"
-                }
-                onInput={(e) => {
-                  const lang = (e.currentTarget as HTMLSelectElement).value;
+            <HStack
+              gap="1"
+              alignItems="center"
+              bg="bg.default"
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              px="2"
+              py="1"
+              boxShadow="sm"
+            >
+              <Select.Root
+                collection={languageCollection()}
+                value={[
+                  stableEditor()?.getAttributes("codeBlock")?.language || "text",
+                ]}
+                onValueChange={(details) => {
+                  const lang = details.value[0] || "text";
                   console.log("[codeblock] set language:", lang);
                   stableEditor()
                     ?.chain()
@@ -149,19 +174,40 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
                     .updateAttributes("codeBlock", { language: lang })
                     .run();
                 }}
+                size="xs"
               >
-                {languageOptions().map((l) => (
-                  <option value={l}>{l}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <Select.Control>
+                  <Select.Trigger>
+                    <Select.ValueText placeholder="text" />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                </Select.Control>
+                <Portal>
+                  <Select.Positioner>
+                    <Select.Content>
+                      <Select.List>
+                        <For each={languageCollection().items}>
+                          {(opt) => (
+                            <Select.Item item={opt}>
+                              <Select.ItemText>{opt.label}</Select.ItemText>
+                              <Select.ItemIndicator />
+                            </Select.Item>
+                          )}
+                        </For>
+                      </Select.List>
+                    </Select.Content>
+                  </Select.Positioner>
+                </Portal>
+                <Select.HiddenSelect />
+              </Select.Root>
+            </HStack>
+          </Box>
         </Show>
-      </div>
+      </Box>
 
       {csvPromptView}
       {mdPromptView}
-    </div>
+    </Box>
   );
 };
 

@@ -1,8 +1,15 @@
 import { For, Show, Suspense, createResource, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
-import Modal from "../../Modal";
 import { apiFetch } from "~/utils/base-url";
 import { usePromptDesignerModal } from "./PromptDesignerModal";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { Text } from "~/components/ui/text";
+import { Box, Grid, HStack, Stack } from "styled-system/jsx";
+import * as Dialog from "~/components/ui/dialog";
+import { css } from "styled-system/css";
+import { XIcon } from "lucide-solid";
 
 type Prompt = {
   id: string;
@@ -202,31 +209,58 @@ export function usePromptsManagerModal() {
   };
 
   const view = (
-    <Modal open={open()} onClose={close}>
-      <div class="p-4 space-y-3">
-        <div class="text-sm font-medium">Manage Prompts</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <div class="text-xs font-medium">Create new</div>
+    <Dialog.Root
+      open={open()}
+      onOpenChange={(details: { open?: boolean }) => {
+        if (details?.open === false) close();
+      }}
+    >
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content
+          class={css({
+            maxW: "1100px",
+            "--dialog-base-margin": "24px",
+          })}
+        >
+          <Dialog.Header>
+            <Dialog.Title>Manage Prompts</Dialog.Title>
+          </Dialog.Header>
+
+          <Dialog.CloseTrigger aria-label="Close dialog" onClick={close}>
+            <XIcon />
+          </Dialog.CloseTrigger>
+
+          <Dialog.Body>
+        <Grid
+          gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}
+          gap="4"
+        >
+          <Stack gap="2">
+            <Text fontSize="xs" fontWeight="medium">
+              Create new
+            </Text>
             <DesignerLaunch
               onCreated={() => {
                 void refetch();
               }}
             />
-            <input
-              class="border rounded px-2 py-1 text-sm w-full"
+            <Input
+              size="sm"
               placeholder="task (unique)"
               value={newTask()}
               onInput={(e) => setNewTask((e.target as HTMLInputElement).value)}
             />
-            <input
-              class="border rounded px-2 py-1 text-sm w-full"
+            <Input
+              size="sm"
               placeholder="description"
               value={newDesc()}
               onInput={(e) => setNewDesc((e.target as HTMLInputElement).value)}
             />
-            <textarea
-              class="border rounded px-2 py-1 text-xs w-full h-28 font-mono"
+            <Textarea
+              size="sm"
+              h="28"
+              fontFamily="mono"
               placeholder="template (Mustache)"
               value={newTemplate()}
               onInput={(e) =>
@@ -234,95 +268,131 @@ export function usePromptsManagerModal() {
               }
             />
             <Show when={selectionMissing()}>
-              <div class="text-[11px] text-amber-600 mt-1">
-                Template is missing {"{{selection}}"}. It will be appended
-                automatically when running, but you can insert it now.
-                <div class="mt-1">
-                  <button
-                    class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50"
-                    onClick={onInsertSelectionVar}
-                  >
-                    Insert {"{{selection}}"}
-                  </button>
-                </div>
-              </div>
+              <Stack gap="1" mt="1">
+                <Text fontSize="xs" color="amber.11">
+                  Template is missing {"{{selection}}"}. It will be appended
+                  automatically when running, but you can insert it now.
+                </Text>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  colorPalette="gray"
+                  onClick={onInsertSelectionVar}
+                >
+                  Insert {"{{selection}}"}
+                </Button>
+              </Stack>
             </Show>
-            <textarea
-              class="border rounded px-2 py-1 text-xs w-full h-16 font-mono"
+            <Textarea
+              size="sm"
+              h="16"
+              fontFamily="mono"
               placeholder="system (optional)"
               value={newSystem()}
               onInput={(e) =>
                 setNewSystem((e.target as HTMLTextAreaElement).value)
               }
             />
-            <button
-              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
+            <Button
+              size="sm"
+              variant="outline"
+              colorPalette="gray"
               onClick={onCreatePrompt}
             >
               Create & Activate
-            </button>
-          </div>
-          <div class="space-y-2">
-            <div class="text-xs font-medium">Existing</div>
+            </Button>
+          </Stack>
+          <Stack gap="2">
+            <Text fontSize="xs" fontWeight="medium">
+              Existing
+            </Text>
             <Suspense
-              fallback={<div class="text-xs text-gray-500">Loading…</div>}
+              fallback={
+                <Text fontSize="xs" color="fg.muted">
+                  Loading…
+                </Text>
+              }
             >
-              <div class="space-y-3">
+              <Stack gap="3">
                 <For each={prompts() || []}>
                   {(p) => (
-                    <div class="border rounded p-2">
-                      <div class="text-xs font-semibold">{p.task}</div>
-                      <div class="text-xs text-gray-600">{p.description}</div>
-                      <div class="mt-1 text-xs">
-                        Active version:{" "}
-                        <span class="font-mono">
+                    <Stack
+                      gap="2"
+                      borderWidth="1px"
+                      borderColor="gray.outline.border"
+                      borderRadius="l2"
+                      p="2"
+                    >
+                      <Text fontSize="xs" fontWeight="semibold">
+                        {p.task}
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted">
+                        {p.description}
+                      </Text>
+                      <HStack gap="1">
+                        <Text fontSize="xs" color="fg.muted">
+                          Active version:
+                        </Text>
+                        <Text fontSize="xs" fontFamily="mono">
                           {p.activeVersion?.id || "—"}
-                        </span>
-                      </div>
+                        </Text>
+                      </HStack>
                       <Show when={p.activeVersion}>
                         {(av) => (
-                          <details class="mt-1">
-                            <summary class="text-xs cursor-pointer">
+                          <Box as="details">
+                            <Text as="summary" fontSize="xs" cursor="pointer">
                               Active template
-                            </summary>
-                            <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
+                            </Text>
+                            <Box
+                              as="pre"
+                              mt="2"
+                              borderWidth="1px"
+                              borderColor="gray.outline.border"
+                              borderRadius="l2"
+                              bg="gray.surface.bg"
+                              p="2"
+                              fontSize="xs"
+                              whiteSpace="pre-wrap"
+                            >
                               {av().template}
-                            </pre>
-                          </details>
+                            </Box>
+                          </Box>
                         )}
                       </Show>
-                      <div class="mt-2">
-                        <button
-                          class="rounded px-2 py-1 border text-xs hover:bg-gray-50"
-                          onClick={() =>
-                            onAddVersion(
-                              p.id,
-                              p.activeVersion?.template || "",
-                              p.activeVersion?.system || undefined
-                            )
-                          }
-                        >
-                          Duplicate Active → New Version (Activate)
-                        </button>
-                      </div>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        colorPalette="gray"
+                        onClick={() =>
+                          onAddVersion(
+                            p.id,
+                            p.activeVersion?.template || "",
+                            p.activeVersion?.system || undefined
+                          )
+                        }
+                      >
+                        Duplicate Active → New Version (Activate)
+                      </Button>
                       <Show when={p.activeVersion}>
                         {(av) => (
-                          <details
-                            class="mt-2"
+                          <Box
+                            as="details"
                             onToggle={(e) => {
                               if ((e.target as HTMLDetailsElement).open)
                                 initEditFor(p);
                             }}
                           >
-                            <summary class="text-xs cursor-pointer">
+                            <Text as="summary" fontSize="xs" cursor="pointer">
                               Edit → New Version
-                            </summary>
-                            <div class="mt-2 space-y-2">
-                              <div class="text-[11px] text-gray-600">
+                            </Text>
+                            <Stack gap="2" mt="2">
+                              <Text fontSize="xs" color="fg.muted">
                                 Template
-                              </div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-[11px] w-full h-32 font-mono"
+                              </Text>
+                              <Textarea
+                                size="sm"
+                                h="32"
+                                fontFamily="mono"
                                 value={
                                   byId[p.id]?.editTemplate ||
                                   av().template ||
@@ -336,11 +406,13 @@ export function usePromptsManagerModal() {
                                   )
                                 }
                               />
-                              <div class="text-[11px] text-gray-600">
+                              <Text fontSize="xs" color="fg.muted">
                                 System (optional)
-                              </div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-[11px] w-full h-20 font-mono"
+                              </Text>
+                              <Textarea
+                                size="sm"
+                                h="20"
+                                fontFamily="mono"
                                 value={
                                   byId[p.id]?.editSystem || av().system || ""
                                 }
@@ -352,33 +424,38 @@ export function usePromptsManagerModal() {
                                   )
                                 }
                               />
-                              <div class="flex gap-2">
-                                <button
-                                  class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50 disabled:opacity-60"
+                              <HStack gap="2">
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  colorPalette="gray"
                                   disabled={!!byId[p.id]?.busyEdit}
                                   onClick={() => onSaveNewVersion(p, false)}
                                 >
                                   Save as New Version
-                                </button>
-                                <button
-                                  class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50 disabled:opacity-60"
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  colorPalette="gray"
                                   disabled={!!byId[p.id]?.busyEdit}
                                   onClick={() => onSaveNewVersion(p, true)}
                                 >
                                   Save & Activate
-                                </button>
-                              </div>
-                            </div>
-                          </details>
+                                </Button>
+                              </HStack>
+                            </Stack>
+                          </Box>
                         )}
                       </Show>
-                      <details class="mt-2">
-                        <summary class="text-xs cursor-pointer">
+                      <Box as="details">
+                        <Text as="summary" fontSize="xs" cursor="pointer">
                           Revise with Feedback (LLM)
-                        </summary>
-                        <div class="mt-2 space-y-2">
-                          <textarea
-                            class="border rounded px-2 py-1 text-[11px] w-full h-16"
+                        </Text>
+                        <Stack gap="2" mt="2">
+                          <Textarea
+                            size="sm"
+                            h="16"
                             placeholder="What should be improved?"
                             value={byId[p.id]?.feedback || ""}
                             onInput={(e) =>
@@ -389,24 +466,28 @@ export function usePromptsManagerModal() {
                               )
                             }
                           />
-                          <button
-                            class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50 disabled:opacity-60"
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            colorPalette="gray"
                             disabled={!!byId[p.id]?.busyRevise}
                             onClick={() => onRevise(p)}
                           >
                             Generate Suggestion
-                          </button>
+                          </Button>
                           <Show
                             when={
                               (byId[p.id]?.suggestedTemplate || "").length > 0
                             }
                           >
-                            <div class="mt-2 space-y-2">
-                              <div class="text-[11px] text-gray-600">
+                            <Stack gap="2" mt="2">
+                              <Text fontSize="xs" color="fg.muted">
                                 Suggested Template
-                              </div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-[11px] w-full h-28 font-mono"
+                              </Text>
+                              <Textarea
+                                size="sm"
+                                h="28"
+                                fontFamily="mono"
                                 value={byId[p.id]?.suggestedTemplate || ""}
                                 onInput={(e) =>
                                   setById(
@@ -416,11 +497,13 @@ export function usePromptsManagerModal() {
                                   )
                                 }
                               />
-                              <div class="text-[11px] text-gray-600">
+                              <Text fontSize="xs" color="fg.muted">
                                 Suggested System (optional)
-                              </div>
-                              <textarea
-                                class="border rounded px-2 py-1 text-[11px] w-full h-20 font-mono"
+                              </Text>
+                              <Textarea
+                                size="sm"
+                                h="20"
+                                fontFamily="mono"
                                 value={byId[p.id]?.suggestedSystem || ""}
                                 onInput={(e) =>
                                   setById(
@@ -430,43 +513,54 @@ export function usePromptsManagerModal() {
                                   )
                                 }
                               />
-                              <div class="flex gap-2">
-                                <button
-                                  class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50 disabled:opacity-60"
+                              <HStack gap="2">
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  colorPalette="gray"
                                   disabled={!!byId[p.id]?.busyRevise}
                                   onClick={() => onAcceptSuggestion(p, false)}
                                 >
                                   Accept → New Version
-                                </button>
-                                <button
-                                  class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50 disabled:opacity-60"
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  colorPalette="gray"
                                   disabled={!!byId[p.id]?.busyRevise}
                                   onClick={() => onAcceptSuggestion(p, true)}
                                 >
                                   Accept → New Version & Activate
-                                </button>
-                              </div>
-                            </div>
+                                </Button>
+                              </HStack>
+                            </Stack>
                           </Show>
-                        </div>
-                      </details>
-                    </div>
+                        </Stack>
+                      </Box>
+                    </Stack>
                   )}
                 </For>
-              </div>
+              </Stack>
             </Suspense>
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <button
-            class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50"
-            onClick={close}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </Modal>
+          </Stack>
+        </Grid>
+          </Dialog.Body>
+
+          <Dialog.Footer>
+            <HStack justifyContent="flex-end" w="full">
+              <Button
+                size="sm"
+                variant="outline"
+                colorPalette="gray"
+                onClick={close}
+              >
+                Close
+              </Button>
+            </HStack>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 
   return { open: openModal, view };
@@ -475,20 +569,20 @@ export function usePromptsManagerModal() {
 function DesignerLaunch(props: { onCreated?: () => Promise<void> | void }) {
   const { open, view } = usePromptDesignerModal(props.onCreated);
   const handleOpen = () => {
-    try {
-      console.log("[prompts-manager] open Q&A designer");
-    } catch {}
+    console.log("[prompts-manager] open Q&A designer");
     open();
   };
   return (
-    <div class="mb-2">
-      <button
-        class="rounded px-2 py-1 border text-[11px] hover:bg-gray-50"
+    <Box mb="2">
+      <Button
+        size="xs"
+        variant="outline"
+        colorPalette="gray"
         onClick={handleOpen}
       >
         New via Q&A (LLM)
-      </button>
+      </Button>
       {view}
-    </div>
+    </Box>
   );
 }
