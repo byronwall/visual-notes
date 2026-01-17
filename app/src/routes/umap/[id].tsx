@@ -5,10 +5,17 @@ import {
   createResource,
   createSignal,
   createEffect,
-  onCleanup,
+  onMount,
+  Suspense,
 } from "solid-js";
-import { useParams, useNavigate, A } from "@solidjs/router";
+import { useParams, useNavigate } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
+import { Button } from "~/components/ui/button";
+import { Heading } from "~/components/ui/heading";
+import { Link } from "~/components/ui/link";
+import { Text } from "~/components/ui/text";
+import * as Table from "~/components/ui/table";
+import { Box, Container, Flex, Stack } from "styled-system/jsx";
 
 type Point = { docId: string; x: number; y: number; z?: number | null };
 type RunMeta = {
@@ -23,7 +30,7 @@ type RunMeta = {
 async function fetchRun(id: string): Promise<RunMeta> {
   const res = await apiFetch(`/api/umap/runs/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error("Failed to load run");
-  return (await res.json()) as any;
+  return (await res.json()) as RunMeta;
 }
 
 async function fetchPoints(
@@ -56,22 +63,14 @@ const UmapDetail: VoidComponent = () => {
   let canvasContainerEl: HTMLDivElement | undefined;
   let ro: ResizeObserver | undefined;
 
-  createEffect(() => {
+  onMount(() => {
     if (!canvasContainerEl) return;
     if (typeof window === "undefined") return;
-    // Observe container size to make canvas responsive
-    ro?.disconnect();
+
     ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const box = entry.contentBoxSize?.[0] || entry.contentRect;
-        const w = Math.max(
-          320,
-          Math.floor((box as any).inlineSize || entry.contentRect.width)
-        );
-        const h = Math.max(
-          200,
-          Math.floor((box as any).blockSize || entry.contentRect.height || 0)
-        );
+        const w = Math.max(320, Math.floor(entry.contentRect.width));
+        const h = Math.max(200, Math.floor(entry.contentRect.height || 0));
         // Maintain a 2:1 aspect if height not present
         const height = h > 0 ? h : Math.floor(w / 2);
         setCanvasWidth(w);
@@ -79,10 +78,10 @@ const UmapDetail: VoidComponent = () => {
       }
     });
     ro.observe(canvasContainerEl);
-  });
 
-  onCleanup(() => {
-    ro?.disconnect();
+    return () => {
+      ro?.disconnect();
+    };
   });
 
   createEffect(() => {
@@ -170,162 +169,230 @@ const UmapDetail: VoidComponent = () => {
     }
   });
 
+  const handleDelete = async () => {
+    if (!confirm("Delete this UMAP run?")) return;
+    try {
+      setBusy(true);
+      console.log("[UmapDetail] deleteRun", { id: params.id });
+      await deleteRun(params.id);
+      navigate("/umap");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete run");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-6">
-        <div class="flex items-center justify-between">
-          <div class="space-y-1">
-            <h1 class="text-2xl font-bold">UMAP Run</h1>
-            <Show when={meta()}>
-              {(m) => (
-                <div class="text-sm text-gray-600">
-                  <div>
-                    <span class="font-medium">ID:</span> {m().id}
-                  </div>
-                  <div>
-                    <span class="font-medium">Dims:</span> {m().dims}D
-                  </div>
-                  <div>
-                    <span class="font-medium">Embedding Run:</span>{" "}
-                    <A
-                      href={`/embeddings/${m().embeddingRunId}`}
-                      class="text-blue-600 hover:underline"
-                    >
-                      {m().embeddingRunId.slice(0, 10)}
-                    </A>
-                  </div>
-                  <div>
-                    <span class="font-medium">Created:</span>{" "}
-                    {new Date(m().createdAt).toLocaleString()}
-                  </div>
-                  <div class="mt-2">
-                    <span class="font-medium">Params:</span>
-                    <Show
-                      when={
-                        m().params && Object.keys(m().params || {}).length > 0
-                      }
-                      fallback={<span class="ml-1 text-gray-500">(none)</span>}
-                    >
-                      <div class="mt-1 overflow-hidden rounded border border-gray-200">
-                        <table class="w-full text-xs">
-                          <thead class="bg-gray-50">
-                            <tr>
-                              <th class="text-left p-2">Key</th>
-                              <th class="text-left p-2">Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <For
-                              each={Object.entries(
-                                (m().params as Record<string, unknown>) || {}
-                              )}
-                            >
-                              {([k, v]) => (
-                                <tr class="border-t border-gray-200">
-                                  <td class="p-2 font-mono">{k}</td>
-                                  <td class="p-2">
-                                    {typeof v === "object"
-                                      ? JSON.stringify(v)
-                                      : String(v)}
-                                  </td>
-                                </tr>
-                              )}
-                            </For>
-                          </tbody>
-                        </table>
-                      </div>
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </Show>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              class="px-3 py-1.5 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
-              disabled={busy()}
-              onClick={async () => {
-                if (!confirm("Delete this UMAP run?")) return;
-                try {
-                  setBusy(true);
-                  await deleteRun(params.id);
-                  navigate("/umap");
-                } catch (e) {
-                  console.error(e);
-                  alert("Failed to delete run");
-                } finally {
-                  setBusy(false);
+    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
+      <Container py="4" px="4" maxW="1200px">
+        <Stack gap="6">
+          <Flex align="center" justify="space-between" gap="4" flexWrap="wrap">
+            <Stack gap="1">
+              <Heading as="h1" fontSize="2xl">
+                UMAP Run
+              </Heading>
+              <Suspense
+                fallback={
+                  <Text textStyle="sm" color="fg.muted">
+                    Loading…
+                  </Text>
                 }
-              }}
+              >
+                <Show when={meta()}>
+                  {(m) => (
+                    <Stack gap="1" fontSize="sm" color="fg.muted">
+                      <Box>
+                        <Box as="span" fontWeight="semibold" color="fg.default">
+                          ID:
+                        </Box>{" "}
+                        {m().id}
+                      </Box>
+                      <Box>
+                        <Box as="span" fontWeight="semibold" color="fg.default">
+                          Dims:
+                        </Box>{" "}
+                        {m().dims}D
+                      </Box>
+                      <Box>
+                        <Box as="span" fontWeight="semibold" color="fg.default">
+                          Embedding Run:
+                        </Box>{" "}
+                        <Link href={`/embeddings/${m().embeddingRunId}`}>
+                          {m().embeddingRunId.slice(0, 10)}
+                        </Link>
+                      </Box>
+                      <Box>
+                        <Box as="span" fontWeight="semibold" color="fg.default">
+                          Created:
+                        </Box>{" "}
+                        {new Date(m().createdAt).toLocaleString()}
+                      </Box>
+
+                      <Box pt="2">
+                        <Box
+                          as="span"
+                          fontWeight="semibold"
+                          color="fg.default"
+                        >
+                          Params:
+                        </Box>
+                        <Show
+                          when={m().params && Object.keys(m().params || {}).length > 0}
+                          fallback={
+                            <Box as="span" ml="1" color="fg.subtle">
+                              (none)
+                            </Box>
+                          }
+                        >
+                          <Box
+                            mt="2"
+                            borderWidth="1px"
+                            borderColor="border"
+                            borderRadius="l2"
+                            overflow="hidden"
+                          >
+                            <Table.Root>
+                              <Table.Head>
+                                <Table.Row>
+                                  <Table.Header textAlign="left">
+                                    Key
+                                  </Table.Header>
+                                  <Table.Header textAlign="left">
+                                    Value
+                                  </Table.Header>
+                                </Table.Row>
+                              </Table.Head>
+                              <Table.Body>
+                                <For
+                                  each={Object.entries(
+                                    (m().params as Record<string, unknown>) || {}
+                                  )}
+                                >
+                                  {([k, v]) => (
+                                    <Table.Row>
+                                      <Table.Cell fontFamily="mono" fontSize="xs">
+                                        {k}
+                                      </Table.Cell>
+                                      <Table.Cell fontSize="xs">
+                                        {typeof v === "object"
+                                          ? JSON.stringify(v)
+                                          : String(v)}
+                                      </Table.Cell>
+                                    </Table.Row>
+                                  )}
+                                </For>
+                              </Table.Body>
+                            </Table.Root>
+                          </Box>
+                        </Show>
+                      </Box>
+                    </Stack>
+                  )}
+                </Show>
+              </Suspense>
+            </Stack>
+
+            <Button
+              size="sm"
+              variant="solid"
+              colorPalette="red"
+              loading={busy()}
+              onClick={handleDelete}
             >
               Delete Run
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Flex>
 
-        <Show when={data()} fallback={<p>Loading points…</p>}>
-          {(d) => (
-            <div class="space-y-4">
-              <div class="rounded border border-gray-200">
-                <div class="flex items-center justify-between px-3 py-2">
-                  <div class="text-sm text-gray-600">
-                    {d().points.length} points ({d().dims}D)
-                  </div>
-                </div>
-                <div
-                  ref={(el) => (canvasContainerEl = el)}
-                  class="w-full"
-                  style={{ height: "360px" }}
-                >
-                  <canvas ref={(el) => (canvasEl = el)} />
-                </div>
-              </div>
+          <Suspense
+            fallback={
+              <Text textStyle="sm" color="fg.muted">
+                Loading points…
+              </Text>
+            }
+          >
+            <Show when={data()}>
+              {(d) => (
+                <Stack gap="4">
+                  <Box
+                    borderWidth="1px"
+                    borderColor="border"
+                    borderRadius="l2"
+                    overflow="hidden"
+                  >
+                    <Flex
+                      align="center"
+                      justify="space-between"
+                      px="3"
+                      py="2"
+                    >
+                      <Text textStyle="sm" color="fg.muted">
+                        {d().points.length} points ({d().dims}D)
+                      </Text>
+                      <Button size="xs" variant="outline" onClick={() => refetch()}>
+                        Refresh
+                      </Button>
+                    </Flex>
 
-              <div class="overflow-hidden rounded border border-gray-200">
-                <table class="w-full text-sm">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="text-left p-2">Doc</th>
-                      <th class="text-left p-2">x</th>
-                      <th class="text-left p-2">y</th>
-                      <th class="text-left p-2">z</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <For each={d().points.slice(0, 50)}>
-                      {(p) => (
-                        <tr class="border-t border-gray-200">
-                          <td class="p-2 font-mono text-xs">
-                            <A
-                              href={`/docs/${p.docId}`}
-                              class="text-blue-600 hover:underline"
-                            >
-                              {p.docId.slice(0, 10)}
-                            </A>
-                          </td>
-                          <td class="p-2">{p.x.toFixed(2)}</td>
-                          <td class="p-2">{p.y.toFixed(2)}</td>
-                          <td class="p-2">
-                            {p.z != null ? p.z.toFixed(2) : "-"}
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-                <div class="px-2 py-1 text-xs text-gray-500">
-                  Showing first 50 points.
-                </div>
-              </div>
-            </div>
-          )}
-        </Show>
+                    <Box
+                      ref={(el) => (canvasContainerEl = el)}
+                      w="full"
+                      style={{ height: "360px" }}
+                    >
+                      <canvas ref={(el) => (canvasEl = el)} />
+                    </Box>
+                  </Box>
 
-        <A href="/umap" class="text-blue-600 hover:underline text-sm">
-          ← Back to UMAP
-        </A>
-      </div>
-    </main>
+                  <Box
+                    borderWidth="1px"
+                    borderColor="border"
+                    borderRadius="l2"
+                    overflow="hidden"
+                  >
+                    <Table.Root>
+                      <Table.Head>
+                        <Table.Row>
+                          <Table.Header textAlign="left">Doc</Table.Header>
+                          <Table.Header textAlign="left">x</Table.Header>
+                          <Table.Header textAlign="left">y</Table.Header>
+                          <Table.Header textAlign="left">z</Table.Header>
+                        </Table.Row>
+                      </Table.Head>
+                      <Table.Body>
+                        <For each={d().points.slice(0, 50)}>
+                          {(p) => (
+                            <Table.Row>
+                              <Table.Cell fontFamily="mono" fontSize="xs">
+                                <Link href={`/docs/${p.docId}`}>
+                                  {p.docId.slice(0, 10)}
+                                </Link>
+                              </Table.Cell>
+                              <Table.Cell>{p.x.toFixed(2)}</Table.Cell>
+                              <Table.Cell>{p.y.toFixed(2)}</Table.Cell>
+                              <Table.Cell>
+                                {p.z != null ? p.z.toFixed(2) : "-"}
+                              </Table.Cell>
+                            </Table.Row>
+                          )}
+                        </For>
+                      </Table.Body>
+                    </Table.Root>
+                    <Box px="3" py="2">
+                      <Text textStyle="xs" color="fg.muted">
+                        Showing first 50 points.
+                      </Text>
+                    </Box>
+                  </Box>
+                </Stack>
+              )}
+            </Show>
+          </Suspense>
+
+          <Link href="/umap">← Back to UMAP</Link>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 

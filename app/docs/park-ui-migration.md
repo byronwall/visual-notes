@@ -243,7 +243,11 @@ const collection = Select.createListCollection<Item>({
   ],
 });
 
-<Select.Root collection={collection}>
+<Select.Root
+  collection={collection}
+  value={["all"]} // IMPORTANT: value is an array
+  onValueChange={(details) => console.log(details.value)}
+>
   <Select.Control>
     <Select.Trigger>
       <Select.ValueText placeholder="Pick one" />
@@ -262,6 +266,11 @@ const collection = Select.createListCollection<Item>({
   <Select.HiddenSelect />
 </Select.Root>;
 ```
+
+Additional notes from migrating `src/routes/umap/*` and `src/routes/embeddings/*`:
+
+- **`Select.Root` value shape**: `value` is always a string array (single-select still uses `["value"]`). When reading it back, use `details.value[0] ?? ""`.
+- **Collections and resources**: when your items come from a resource, build a `createListCollection` from the resource output, and render `<Select.Item item={item}>` from that collection’s `items`.
 
 ## Recommended migration workflow (repeatable)
 
@@ -381,3 +390,49 @@ The docs index uses semantic-ish tokens currently available:
 
 If these tokens feel too dark/light in other surfaces, update the theme
 tokens/recipes rather than hardcoding colors in components.
+
+## Additional learnings from UMAP + Embeddings migration
+
+These came up when migrating:
+
+- `app/src/routes/umap/index.tsx`
+- `app/src/routes/umap/[id].tsx`
+- `app/src/routes/embeddings/index.tsx`
+- `app/src/routes/embeddings/[id].tsx`
+
+### H) Prefer a store for “form-y pages” with many related fields
+
+Both UMAP and Embeddings pages had many related inputs/toggles. Migration was a good time to switch from a long stack of signals to a single `createStore` state object.
+
+Why:
+
+- Easier to pass around and reset groups of fields
+- Fewer “signal soup” updates
+- Reads more like a coherent form
+
+### I) Tables: use `~/components/ui/table` + a wrapper `Box` for borders/overflow
+
+The table primitive is just the table slots. For the common “rounded card + clipped header” look:
+
+- Wrap in a `Box` that sets `borderWidth`, `borderColor`, `borderRadius`, and `overflow="hidden"`.
+- Put `Table.Root` inside.
+
+### J) Navigation: prefer `~/components/ui/link` for internal links; use `navigate()` for imperative
+
+- Replace Tailwind-styled `<A>` / `<a>` with `Link` where possible.
+- For “Open” buttons that need to navigate programmatically, prefer `useNavigate()` over `window.location.assign(...)`.
+
+### K) Keep resource discipline: wrap resource-driven regions in `Suspense`
+
+When lists or selects depend on `createResource` (runs lists, embedding runs list):
+
+- Use `<Suspense fallback={...}>` as the loading gate.
+- Inside `Suspense`, use `Show` for the conditional branches.
+
+### L) Canvas/ResizeObserver cleanup pattern
+
+When a page needs a `ResizeObserver` (UMAP detail canvas), the clean pattern is:
+
+- Create the observer inside `onMount`
+- Return cleanup from `onMount` (disconnect observer)
+- Use `entry.contentRect` for robust sizing (avoids `contentBoxSize` typing and `as any` casts)
