@@ -2,7 +2,7 @@
   "name": "visual-notes",
   "scripts": {
     "dev": "pnpm panda codegen && vinxi dev",
-    "build": "vinxi build",
+    "build": "pnpm panda codegen && vinxi build",
     "start": "vinxi start",
     "start-prod": "pnpm prisma migrate deploy && pnpm start",
     "lint": "eslint --fix \"**/*.{ts,tsx,js,jsx}\"",
