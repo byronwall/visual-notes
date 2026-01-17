@@ -1,10 +1,25 @@
+import { ark } from "@ark-ui/solid/factory";
 import type { VoidComponent } from "solid-js";
-import { Show, Suspense, createSignal, onMount } from "solid-js";
+import { Show, Suspense, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
+import { Button } from "~/components/ui/button";
+import { Image } from "~/components/ui/image";
+import { Link } from "~/components/ui/link";
+import {
+  Box,
+  Container,
+  HStack,
+  Spacer,
+  VisuallyHidden,
+  styled,
+} from "styled-system/jsx";
+import { button } from "styled-system/recipes";
 
-const Navbar: VoidComponent = () => {
+const CtaLink = styled(ark.a, button);
+
+export const Navbar: VoidComponent = () => {
   const { authed, logout } = useMagicAuth();
   const {
     open: openLLM,
@@ -12,9 +27,15 @@ const Navbar: VoidComponent = () => {
     hasUnreadAny,
     hasLoadingAny,
   } = useLLMSidebar();
+
+  const handleChatOpen = () => {
+    openLLM();
+  };
+
   const handleLogout = async () => {
     await logout();
   };
+
   onMount(() => {
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {
@@ -27,75 +48,106 @@ const Navbar: VoidComponent = () => {
   });
 
   return (
-    <nav class="w-full border-b border-gray-200 bg-white">
-      <div class="container mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <a
+    <Box as="nav" bg="bg.default" borderBottomWidth="1px" borderColor="border">
+      <Container py="3" px="4" maxW="1200px">
+        <HStack gap="4">
+          <Link
             href="/"
-            class="flex items-center gap-2 text-lg font-semibold tracking-tight"
+            variant="plain"
+            textDecorationLine="none"
+            color="fg.default"
+            _hover={{ textDecorationLine: "none" }}
           >
-            <img
-              src="/favicon-32x32.png"
-              alt=""
-              width="24"
-              height="24"
-              class="rounded"
-            />
-            <span>Visual Notes</span>
-          </a>
-          <div class="flex items-center gap-4 text-sm">
-            <a href="/docs" class="hover:underline">
-              Notes
-            </a>
-            <a href="/docs/new" class="hover:underline">
-              New Note
-            </a>
+            <HStack gap="2">
+              <Image
+                src="/favicon-32x32.png"
+                alt=""
+                boxSize="6"
+                fit="contain"
+                borderRadius="l2"
+              />
+              <Box as="span" fontWeight="semibold" letterSpacing="tight">
+                Visual Notes
+              </Box>
+            </HStack>
+          </Link>
 
-            <a href="/embeddings" class="hover:underline">
+          <HStack gap="3" flexWrap="wrap" color="fg.muted" textStyle="sm">
+            <Link href="/docs" variant="plain">
+              Notes
+            </Link>
+            <Link href="/docs/new" variant="plain">
+              New Note
+            </Link>
+            <Link href="/embeddings" variant="plain">
               Embeddings
-            </a>
-            <a href="/umap" class="hover:underline">
+            </Link>
+            <Link href="/umap" variant="plain">
               UMAP
-            </a>
-            <a href="/ai" class="hover:underline">
+            </Link>
+            <Link href="/ai" variant="plain">
               AI
-            </a>
-            <button
-              class="hover:underline relative inline-flex items-center gap-1"
-              onClick={() => openLLM()}
+            </Link>
+
+            <Button variant="plain" size="sm" onClick={handleChatOpen}>
+              <HStack gap="1.5">
+                <Box as="span">Chat</Box>
+                {/* Prefer unread over loading */}
+                <Suspense fallback={null}>
+                  {/* suspense needed since hasUnreadAny and hasLoadingAny depend on resources */}
+                  <Box as="span" display="inline-flex" alignItems="center">
+                    <VisuallyHidden>Chat status</VisuallyHidden>
+                    <Show when={hasUnreadAny()}>
+                      <Box
+                        as="span"
+                        ml="1"
+                        boxSize="2"
+                        borderRadius="full"
+                        bg="blue.9"
+                      />
+                    </Show>
+                    <Show when={!hasUnreadAny() && hasLoadingAny()}>
+                      <Box
+                        as="span"
+                        ml="1"
+                        boxSize="2"
+                        borderRadius="full"
+                        bg="amber.9"
+                      />
+                    </Show>
+                  </Box>
+                </Suspense>
+              </HStack>
+            </Button>
+          </HStack>
+
+          <Spacer />
+
+          <Show
+            when={authed()}
+            fallback={
+              <CtaLink
+                href="/login"
+                variant="solid"
+                size="sm"
+                colorPalette="green"
+              >
+                Sign in
+              </CtaLink>
+            }
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              colorPalette="red"
+              onClick={handleLogout}
             >
-              <span>Chat</span>
-              {/* Prefer unread over loading */}
-              <Suspense>
-                {/* suspense needed since hasUnreadAny and hasLoadingAny depend on resources */}
-                <span class="relative inline-flex">
-                  <span class="sr-only">Chat status</span>
-                  <Show when={hasUnreadAny()}>
-                    <span class="ml-1 inline-block h-2 w-2 rounded-full bg-blue-600" />
-                  </Show>
-                  <Show when={!hasUnreadAny() && hasLoadingAny()}>
-                    <span class="ml-1 inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                  </Show>
-                </span>
-              </Suspense>
-            </button>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          {authed() ? (
-            <button class="cta" onClick={handleLogout}>
               Sign out
-            </button>
-          ) : (
-            <a class="cta" href="/login">
-              Sign in
-            </a>
-          )}
-        </div>
-      </div>
+            </Button>
+          </Show>
+        </HStack>
+      </Container>
       {llmSidebarView}
-    </nav>
+    </Box>
   );
 };
-
-export default Navbar;
