@@ -144,7 +144,7 @@ const DocumentViewer: VoidComponent<{
                   console.error("[DocumentViewer] onDeleted threw", err);
                 }
               } else {
-                navigate("/docs");
+                navigate("/");
               }
             } catch (e) {
               console.error(e);

@@ -58,12 +58,9 @@ export const Navbar: VoidComponent = () => {
 
   const navItems: NavItem[] = [
     {
-      label: "Notes",
-      href: "/docs",
-      isActive: (path) => {
-        if (path === "/docs/new") return false;
-        return isActiveSection("/docs", path);
-      },
+      label: "Canvas",
+      href: "/canvas",
+      isActive: (path) => isActiveSection("/canvas", path),
     },
     {
       label: "New Note",

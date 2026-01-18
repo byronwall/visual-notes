@@ -1,5 +1,5 @@
-import VisualRoute from "./visual";
+import DocsIndexPage from "~/features/docs-index/components/DocsIndexPage";
 
 export default function Home() {
-  return <VisualRoute />;
+  return <DocsIndexPage />;
 }

@@ -42,10 +42,8 @@ const DocView: VoidComponent = () => {
   );
 
   const handleDeleted = () => {
-    try {
-      console.log("[DocView] onDeleted → navigating to /docs");
-    } catch {}
-    navigate("/docs");
+    console.log("[DocView] onDeleted → navigating to /");
+    navigate("/");
   };
 
   let articleEl: HTMLElement | undefined;
