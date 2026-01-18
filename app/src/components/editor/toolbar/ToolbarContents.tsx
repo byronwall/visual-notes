@@ -6,6 +6,7 @@ import { csvTextToTableJson } from "../csv/csvUtils";
 import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { Tooltip } from "~/components/ui/tooltip";
 import { Box, HStack } from "styled-system/jsx";
 import {
   ClipboardPasteIcon,
@@ -86,15 +87,17 @@ export function ToolbarContents(props: { editor: Editor }) {
 
       <HStack gap="1">
         {blocks.map((b) => (
-          <Control
-            name={b.name}
-            editor={props.editor}
-            onChange={() => run(b.run)}
-            title={b.title}
-            isActive={b.isActive}
-          >
-            {renderControl(b)}
-          </Control>
+          <Tooltip content={b.title} showArrow>
+            <Control
+              name={b.name}
+              editor={props.editor}
+              onChange={() => run(b.run)}
+              title=""
+              isActive={b.isActive}
+            >
+              {renderControl(b)}
+            </Control>
+          </Tooltip>
         ))}
       </HStack>
 
@@ -102,14 +105,16 @@ export function ToolbarContents(props: { editor: Editor }) {
 
       <HStack gap="1">
         {marks.map((b) => (
-          <Control
-            name={b.name}
-            editor={props.editor}
-            onChange={() => run(b.run)}
-            title={b.title}
-          >
-            {renderControl(b)}
-          </Control>
+          <Tooltip content={b.title} showArrow>
+            <Control
+              name={b.name}
+              editor={props.editor}
+              onChange={() => run(b.run)}
+              title=""
+            >
+              {renderControl(b)}
+            </Control>
+          </Tooltip>
         ))}
       </HStack>
 
@@ -117,213 +122,233 @@ export function ToolbarContents(props: { editor: Editor }) {
 
       <HStack gap="1">
         {listsBlocks.map((b) => (
-          <Control
-            name={b.name}
-            editor={props.editor}
-            onChange={() => run(b.run)}
-            title={b.title}
-          >
-            {renderControl(b)}
-          </Control>
+          <Tooltip content={b.title} showArrow>
+            <Control
+              name={b.name}
+              editor={props.editor}
+              onChange={() => run(b.run)}
+              title=""
+            >
+              {renderControl(b)}
+            </Control>
+          </Tooltip>
         ))}
       </HStack>
 
       <Separator />
 
       <HStack gap="1">
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Insert Table"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).insertTable({
-                rows: 3,
-                cols: 3,
-                withHeaderRow: true,
-              });
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+        <Tooltip content="Insert Table" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).insertTable({
+                  rows: 3,
+                  cols: 3,
+                  withHeaderRow: true,
+                });
+                return ch;
+              })
+            }
           >
-            <TableIcon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Import CSV as Table"
-          onChange={() => csvInputRef?.click()}
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <TableIcon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Import CSV as Table" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() => csvInputRef?.click()}
           >
-            <FileSpreadsheetIcon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Add Row"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).addRowAfter();
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <FileSpreadsheetIcon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Add Row" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).addRowAfter();
+                return ch;
+              })
+            }
           >
-            <TableRowsSplitIcon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Add Column"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).addColumnAfter();
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <TableRowsSplitIcon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Add Column" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).addColumnAfter();
+                return ch;
+              })
+            }
           >
-            <TableColumnsSplitIcon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Delete Row"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).deleteRow();
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <TableColumnsSplitIcon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Delete Row" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).deleteRow();
+                return ch;
+              })
+            }
           >
-            <Rows3Icon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Delete Column"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).deleteColumn();
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Rows3Icon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Delete Column" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).deleteColumn();
+                return ch;
+              })
+            }
           >
-            <Columns2Icon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="table"
-          editor={props.editor}
-          title="Delete Table"
-          onChange={() =>
-            run((ch) => {
-              // TODO:AS_ANY, table chain commands come from table extension
-              (ch as unknown as any).deleteTable();
-              return ch;
-            })
-          }
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Columns2Icon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Delete Table" showArrow>
+          <Control
+            name="table"
+            editor={props.editor}
+            title=""
+            onChange={() =>
+              run((ch) => {
+                // TODO:AS_ANY, table chain commands come from table extension
+                (ch as unknown as any).deleteTable();
+                return ch;
+              })
+            }
           >
-            <Trash2Icon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="forceCsvPaste"
-          editor={props.editor}
-          title="Paste Clipboard as Table (CSV/TSV)"
-          onChange={onForceCsvPasteFromClipboard}
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Trash2Icon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Paste Clipboard as Table (CSV/TSV)" showArrow>
+          <Control
+            name="forceCsvPaste"
+            editor={props.editor}
+            title=""
+            onChange={onForceCsvPasteFromClipboard}
           >
-            <ClipboardPasteIcon size={16} />
-          </Box>
-        </Control>
-        <Control
-          name="forceMarkdownPaste"
-          editor={props.editor}
-          title="Paste Clipboard as Markdown"
-          onChange={onForceMarkdownPasteFromClipboard}
-        >
-          <Box
-            as="span"
-            w="full"
-            h="full"
-            display="inline-flex"
-            alignItems="center"
-            justifyContent="center"
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <ClipboardPasteIcon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
+        <Tooltip content="Paste Clipboard as Markdown" showArrow>
+          <Control
+            name="forceMarkdownPaste"
+            editor={props.editor}
+            title=""
+            onChange={onForceMarkdownPasteFromClipboard}
           >
-            <FileCode2Icon size={16} />
-          </Box>
-        </Control>
+            <Box
+              as="span"
+              w="full"
+              h="full"
+              display="inline-flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <FileCode2Icon size={16} />
+            </Box>
+          </Control>
+        </Tooltip>
       </HStack>
     </HStack>
   );
