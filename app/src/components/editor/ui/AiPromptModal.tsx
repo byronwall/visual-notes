@@ -1,4 +1,11 @@
-import { For, Show, createMemo, createResource, createSignal, Suspense } from "solid-js";
+import {
+  For,
+  Show,
+  Suspense,
+  createMemo,
+  createResource,
+  createSignal,
+} from "solid-js";
 import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
 import { css } from "styled-system/css";
@@ -56,6 +63,19 @@ export function useAiPromptModal() {
     return Select.createListCollection<SelectItem>({ items });
   });
 
+  const varsJsonError = createMemo(() => {
+    const raw = varsJson().trim();
+    if (!raw) return undefined;
+    try {
+      JSON.parse(raw);
+      return undefined;
+    } catch (e) {
+      return (e as Error)?.message || "Invalid JSON";
+    }
+  });
+
+  const inputCharCount = createMemo(() => previewText()?.length || 0);
+
   const prompt = (opts: {
     defaultModel?: string;
     previewText: string;
@@ -91,6 +111,7 @@ export function useAiPromptModal() {
   };
 
   const handleRun = () => {
+    if (varsJsonError()) return;
     resolver?.({
       model: model() || defaultModel(),
       varsJson: varsJson(),
@@ -99,215 +120,270 @@ export function useAiPromptModal() {
 
   const view = (
     <Dialog.Root open={open()} onOpenChange={handleOpenChange}>
-      <Dialog.Backdrop />
-      <Dialog.Positioner>
-        <Dialog.Content
-          class={css({
-            maxW: "760px",
-            "--dialog-base-margin": "24px",
-          })}
-        >
-          <Dialog.Header>
-            <Dialog.Title>
-              {promptTask() ? `Run Prompt: ${promptTask()}` : "Run AI Prompt"}
-            </Dialog.Title>
-          </Dialog.Header>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content
+            class={css({
+              maxW: "920px",
+              "--dialog-base-margin": "24px",
+            })}
+          >
+            <Dialog.Header>
+              <Stack gap="1">
+                <Dialog.Title>
+                  {promptTask()
+                    ? `Run Prompt: ${promptTask()}`
+                    : "Run AI Prompt"}
+                </Dialog.Title>
+                <Dialog.Description>
+                  Review settings, optionally add variables, then run on your
+                  current selection (or the whole document if nothing is
+                  selected). The output will open in the AI sidebar.
+                </Dialog.Description>
+              </Stack>
+            </Dialog.Header>
 
-          <Dialog.CloseTrigger aria-label="Close dialog" onClick={handleCancel}>
-            <XIcon />
-          </Dialog.CloseTrigger>
+            <Dialog.CloseTrigger
+              aria-label="Close dialog"
+              onClick={handleCancel}
+            >
+              <XIcon />
+            </Dialog.CloseTrigger>
 
-          <Dialog.Body>
-            <Stack gap="3">
-              <Box
-                display="grid"
-                gridTemplateColumns={{
-                  base: "1fr",
-                  sm: "repeat(2, minmax(0, 1fr))",
-                }}
-                gap="3"
-              >
-                <Stack gap="1">
-                  <Text fontSize="xs" color="fg.muted">
-                    Model
-                  </Text>
-                  <Suspense
-                    fallback={
-                      <Text fontSize="xs" color="fg.muted">
-                        Loading models…
-                      </Text>
-                    }
-                  >
-                    <Select.Root
-                      collection={modelCollection()}
-                      value={[model() || defaultModel() || ""]}
-                      onValueChange={(details) => setModel(details.value[0] || "")}
-                      size="sm"
-                    >
-                      <Select.Control>
-                        <Select.Trigger>
-                          <Select.ValueText placeholder="Default" />
-                          <Select.Indicator />
-                        </Select.Trigger>
-                      </Select.Control>
-                      <Portal>
-                        <Select.Positioner>
-                          <Select.Content>
-                            <Select.List>
-                              <For each={modelCollection().items}>
-                                {(opt) => (
-                                  <Select.Item item={opt}>
-                                    <Select.ItemText>{opt.label}</Select.ItemText>
-                                    <Select.ItemIndicator />
-                                  </Select.Item>
-                                )}
-                              </For>
-                            </Select.List>
-                          </Select.Content>
-                        </Select.Positioner>
-                      </Portal>
-                      <Select.HiddenSelect />
-                    </Select.Root>
-                  </Suspense>
-                </Stack>
-
-                <Stack gap="1">
-                  <Text fontSize="xs" color="fg.muted">
-                    Variables (JSON, optional)
-                  </Text>
-                  <Textarea
-                    size="sm"
-                    h="20"
-                    fontFamily="mono"
-                    placeholder='e.g. {"topic": "Rust", "audience": "beginners"}'
-                    value={varsJson()}
-                    onInput={(e) =>
-                      setVarsJson((e.target as HTMLTextAreaElement).value)
-                    }
-                  />
-                </Stack>
-              </Box>
-
-              <Collapsible.Root>
-                <Collapsible.Trigger>
-                  <HStack w="full" justifyContent="space-between" gap="2">
-                    <Text fontSize="xs" fontWeight="medium">
-                      Prompt details
+            <Dialog.Body>
+              <Stack gap="4">
+                <Box
+                  display="grid"
+                  gridTemplateColumns={{
+                    base: "1fr",
+                    md: "minmax(0, 360px) minmax(0, 1fr)",
+                  }}
+                  gap="4"
+                >
+                  <Stack gap="3">
+                    <Text fontSize="xs" fontWeight="semibold">
+                      Settings
                     </Text>
-                    <Collapsible.Indicator />
-                  </HStack>
-                </Collapsible.Trigger>
-                <Collapsible.Content>
-                  <Stack gap="2">
-                    <Stack gap="1">
-                      <Text fontSize="xs" color="fg.muted">
-                        Task
-                      </Text>
-                      <Box
-                        as="pre"
-                        borderWidth="1px"
-                        borderColor="gray.outline.border"
-                        borderRadius="l2"
-                        p="2"
-                        fontSize="xs"
-                        maxH="4rem"
-                        overflow="auto"
-                        whiteSpace="pre-wrap"
-                      >
-                        {promptTask()}
-                      </Box>
-                    </Stack>
 
                     <Stack gap="1">
                       <Text fontSize="xs" color="fg.muted">
-                        User template
+                        Model
                       </Text>
-                      <Box
-                        as="pre"
-                        borderWidth="1px"
-                        borderColor="gray.outline.border"
-                        borderRadius="l2"
-                        p="2"
-                        fontSize="xs"
-                        maxH="10rem"
-                        overflow="auto"
-                        whiteSpace="pre-wrap"
-                      >
-                        {promptTemplate()}
-                      </Box>
-                    </Stack>
-
-                    <Show when={promptSystem()}>
-                      {(system) => (
-                        <Stack gap="1">
+                      <Text fontSize="xs" color="fg.muted">
+                        Choose a model override for this run.
+                      </Text>
+                      <Suspense
+                        fallback={
                           <Text fontSize="xs" color="fg.muted">
-                            System prompt
+                            Loading models…
                           </Text>
-                          <Box
-                            as="pre"
-                            borderWidth="1px"
-                            borderColor="gray.outline.border"
-                            borderRadius="l2"
-                            p="2"
-                            fontSize="xs"
-                            maxH="7rem"
-                            overflow="auto"
-                            whiteSpace="pre-wrap"
-                          >
-                            {system()}
-                          </Box>
-                        </Stack>
-                      )}
-                    </Show>
+                        }
+                      >
+                        <Select.Root
+                          collection={modelCollection()}
+                          value={[model() || defaultModel() || ""]}
+                          onValueChange={(details) =>
+                            setModel(details.value[0] || "")
+                          }
+                          size="sm"
+                        >
+                          <Select.Control>
+                            <Select.Trigger>
+                              <Select.ValueText placeholder="Default" />
+                              <Select.Indicator />
+                            </Select.Trigger>
+                          </Select.Control>
+
+                          <Select.Positioner>
+                            <Select.Content>
+                              <Select.List>
+                                <For each={modelCollection().items}>
+                                  {(opt) => (
+                                    <Select.Item item={opt}>
+                                      <Select.ItemText>
+                                        {opt.label}
+                                      </Select.ItemText>
+                                      <Select.ItemIndicator />
+                                    </Select.Item>
+                                  )}
+                                </For>
+                              </Select.List>
+                            </Select.Content>
+                          </Select.Positioner>
+
+                          <Select.HiddenSelect />
+                        </Select.Root>
+                      </Suspense>
+                    </Stack>
+
+                    <Stack gap="1">
+                      <Text fontSize="xs" color="fg.muted">
+                        Variables (JSON, optional)
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted">
+                        Used to fill placeholders in the prompt template. Leave
+                        empty to run with defaults.
+                      </Text>
+                      <Textarea
+                        size="sm"
+                        h="24"
+                        fontFamily="mono"
+                        placeholder='e.g. {"topic": "Rust", "audience": "beginners"}'
+                        value={varsJson()}
+                        onInput={(e) =>
+                          setVarsJson((e.target as HTMLTextAreaElement).value)
+                        }
+                      />
+                      <Show when={varsJsonError()}>
+                        {(err) => (
+                          <Text fontSize="xs" color="red.11">
+                            Invalid JSON: {err()}
+                          </Text>
+                        )}
+                      </Show>
+                    </Stack>
                   </Stack>
-                </Collapsible.Content>
-              </Collapsible.Root>
 
-              <Collapsible.Root>
-                <Collapsible.Trigger>
-                  <HStack w="full" justifyContent="space-between" gap="2">
-                    <Text fontSize="xs" fontWeight="medium">
-                      Text to be processed (selection or whole document)
+                  <Stack gap="2">
+                    <HStack justifyContent="space-between" gap="3">
+                      <Text fontSize="xs" fontWeight="semibold">
+                        Input
+                      </Text>
+                      <Text
+                        fontSize="xs"
+                        color="fg.muted"
+                        fontVariantNumeric="tabular-nums"
+                      >
+                        {inputCharCount().toLocaleString()} chars
+                      </Text>
+                    </HStack>
+                    <Text fontSize="xs" color="fg.muted">
+                      This is the text that will be sent to the prompt
+                      (selection if present, otherwise the whole document).
                     </Text>
-                    <Collapsible.Indicator />
-                  </HStack>
-                </Collapsible.Trigger>
-                <Collapsible.Content>
-                  <Box
-                    as="pre"
-                    borderWidth="1px"
-                    borderColor="gray.outline.border"
-                    borderRadius="l2"
-                    p="2"
-                    fontSize="xs"
-                    maxH="10rem"
-                    overflow="auto"
-                    whiteSpace="pre-wrap"
-                  >
-                    {previewText()}
-                  </Box>
-                </Collapsible.Content>
-              </Collapsible.Root>
-            </Stack>
-          </Dialog.Body>
+                    <Box
+                      as="pre"
+                      borderWidth="1px"
+                      borderColor="gray.outline.border"
+                      borderRadius="l2"
+                      p="3"
+                      fontSize="xs"
+                      maxH="18rem"
+                      overflow="auto"
+                      whiteSpace="pre-wrap"
+                    >
+                      {previewText()}
+                    </Box>
+                  </Stack>
+                </Box>
 
-          <Dialog.Footer>
-            <HStack gap="2" justifyContent="flex-end" w="full">
-              <Button
-                size="sm"
-                variant="outline"
-                colorPalette="gray"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" variant="solid" colorPalette="gray" onClick={handleRun}>
-                Run
-              </Button>
-            </HStack>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
+                <Collapsible.Root>
+                  <Collapsible.Trigger>
+                    <HStack w="full" justifyContent="space-between" gap="2">
+                      <Stack gap="0.5">
+                        <Text fontSize="xs" fontWeight="medium">
+                          Prompt details (read-only)
+                        </Text>
+                        <Text fontSize="xs" color="fg.muted">
+                          Helpful when debugging a run.
+                        </Text>
+                      </Stack>
+                      <Collapsible.Indicator />
+                    </HStack>
+                  </Collapsible.Trigger>
+                  <Collapsible.Content>
+                    <Stack gap="2" mt="2">
+                      <Stack gap="1">
+                        <Text fontSize="xs" color="fg.muted">
+                          Task
+                        </Text>
+                        <Box
+                          as="pre"
+                          borderWidth="1px"
+                          borderColor="gray.outline.border"
+                          borderRadius="l2"
+                          p="2"
+                          fontSize="xs"
+                          maxH="4rem"
+                          overflow="auto"
+                          whiteSpace="pre-wrap"
+                        >
+                          {promptTask()}
+                        </Box>
+                      </Stack>
+
+                      <Stack gap="1">
+                        <Text fontSize="xs" color="fg.muted">
+                          User template
+                        </Text>
+                        <Box
+                          as="pre"
+                          borderWidth="1px"
+                          borderColor="gray.outline.border"
+                          borderRadius="l2"
+                          p="2"
+                          fontSize="xs"
+                          maxH="10rem"
+                          overflow="auto"
+                          whiteSpace="pre-wrap"
+                        >
+                          {promptTemplate()}
+                        </Box>
+                      </Stack>
+
+                      <Show when={promptSystem()}>
+                        {(system) => (
+                          <Stack gap="1">
+                            <Text fontSize="xs" color="fg.muted">
+                              System prompt
+                            </Text>
+                            <Box
+                              as="pre"
+                              borderWidth="1px"
+                              borderColor="gray.outline.border"
+                              borderRadius="l2"
+                              p="2"
+                              fontSize="xs"
+                              maxH="7rem"
+                              overflow="auto"
+                              whiteSpace="pre-wrap"
+                            >
+                              {system()}
+                            </Box>
+                          </Stack>
+                        )}
+                      </Show>
+                    </Stack>
+                  </Collapsible.Content>
+                </Collapsible.Root>
+              </Stack>
+            </Dialog.Body>
+
+            <Dialog.Footer>
+              <HStack gap="2" justifyContent="flex-end" w="full">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorPalette="gray"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="solid"
+                  colorPalette="gray"
+                  onClick={handleRun}
+                  disabled={!!varsJsonError()}
+                >
+                  Run
+                </Button>
+              </HStack>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
     </Dialog.Root>
   );
 

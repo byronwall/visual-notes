@@ -7,11 +7,44 @@ import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { Box, HStack } from "styled-system/jsx";
+import {
+  ClipboardPasteIcon,
+  Columns2Icon,
+  FileCode2Icon,
+  FileSpreadsheetIcon,
+  Rows3Icon,
+  TableColumnsSplitIcon,
+  TableIcon,
+  TableRowsSplitIcon,
+  Trash2Icon,
+} from "lucide-solid";
 
 export function ToolbarContents(props: { editor: Editor }) {
   let csvInputRef: HTMLInputElement | undefined;
 
   const run = (fn: Btn["run"]) => exec(props.editor, fn);
+  const renderControl = (b: Btn) => {
+    const Icon = b.icon;
+    if (Icon) {
+      return (
+        <Box
+          as="span"
+          w="full"
+          h="full"
+          display="inline-flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon size={16} />
+        </Box>
+      );
+    }
+    return (
+      <Box as="span" w="full" h="full" m="1" {...b.labelStyle}>
+        {b.label}
+      </Box>
+    );
+  };
 
   const onCsvFileChange = async (e: Event) => {
     const input = e.currentTarget as HTMLInputElement;
@@ -60,9 +93,7 @@ export function ToolbarContents(props: { editor: Editor }) {
             title={b.title}
             isActive={b.isActive}
           >
-            <Box as="span" w="full" h="full" m="1" {...b.labelStyle}>
-              {b.label}
-            </Box>
+            {renderControl(b)}
           </Control>
         ))}
       </HStack>
@@ -77,9 +108,7 @@ export function ToolbarContents(props: { editor: Editor }) {
             onChange={() => run(b.run)}
             title={b.title}
           >
-            <Box as="span" {...b.labelStyle}>
-              {b.label}
-            </Box>
+            {renderControl(b)}
           </Control>
         ))}
       </HStack>
@@ -94,9 +123,7 @@ export function ToolbarContents(props: { editor: Editor }) {
             onChange={() => run(b.run)}
             title={b.title}
           >
-            <Box as="span" {...b.labelStyle}>
-              {b.label}
-            </Box>
+            {renderControl(b)}
           </Control>
         ))}
       </HStack>
@@ -120,7 +147,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          Tbl
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <TableIcon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -128,7 +164,16 @@ export function ToolbarContents(props: { editor: Editor }) {
           title="Import CSV as Table"
           onChange={() => csvInputRef?.click()}
         >
-          CSV
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <FileSpreadsheetIcon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -142,7 +187,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          +R
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <TableRowsSplitIcon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -156,7 +210,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          +C
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <TableColumnsSplitIcon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -170,7 +233,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          -R
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Rows3Icon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -184,7 +256,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          -C
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Columns2Icon size={16} />
+          </Box>
         </Control>
         <Control
           name="table"
@@ -198,7 +279,16 @@ export function ToolbarContents(props: { editor: Editor }) {
             })
           }
         >
-          ×Tbl
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Trash2Icon size={16} />
+          </Box>
         </Control>
         <Control
           name="forceCsvPaste"
@@ -206,7 +296,16 @@ export function ToolbarContents(props: { editor: Editor }) {
           title="Paste Clipboard as Table (CSV/TSV)"
           onChange={onForceCsvPasteFromClipboard}
         >
-          ⇢CSV
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <ClipboardPasteIcon size={16} />
+          </Box>
         </Control>
         <Control
           name="forceMarkdownPaste"
@@ -214,7 +313,16 @@ export function ToolbarContents(props: { editor: Editor }) {
           title="Paste Clipboard as Markdown"
           onChange={onForceMarkdownPasteFromClipboard}
         >
-          ⇢MD
+          <Box
+            as="span"
+            w="full"
+            h="full"
+            display="inline-flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <FileCode2Icon size={16} />
+          </Box>
         </Control>
       </HStack>
     </HStack>

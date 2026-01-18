@@ -128,11 +128,18 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
       <Show when={props.showToolbar !== false}>
         <Box
           mb="2"
+          position="sticky"
+          top="0"
+          zIndex="20"
           borderWidth="1px"
           borderColor="gray.outline.border"
           borderRadius="l2"
           bg="gray.surface.bg"
           color="fg.default"
+          style={{
+            background: "rgba(255,255,255,0.95)",
+            "backdrop-filter": "blur(10px)",
+          }}
         >
           <Show when={stableEditor()}>
             <ToolbarContents editor={stableEditor()!} />

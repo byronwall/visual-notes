@@ -9,6 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
 import { Box, HStack, Spacer, Stack } from "styled-system/jsx";
+import { PencilIcon } from "lucide-solid";
 
 type DocumentData = {
   id: string;
@@ -94,7 +95,7 @@ const DocumentViewer: VoidComponent<{
             aria-label="Edit title"
             onClick={handleOpenEdit}
           >
-            ✏️
+            <PencilIcon size={16} />
           </IconButton>
           <Show when={showSync()}>
             <Button

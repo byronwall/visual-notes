@@ -3,7 +3,8 @@ import { usePopover } from "../hooks/usePopover";
 import type { SourcesResponse } from "../data/docs.service";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
-import { Box, Stack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { AlertTriangleIcon, SettingsIcon } from "lucide-solid";
 
 export const ActionsPopover = (props: {
   sources: Accessor<SourcesResponse | undefined>;
@@ -24,7 +25,10 @@ export const ActionsPopover = (props: {
         variant="outline"
         onClick={pop.togglePopover}
       >
-        ⚙️ Actions
+        <HStack gap="1" alignItems="center">
+          <SettingsIcon size={16} />
+          <Box as="span">Actions</Box>
+        </HStack>
       </Button>
       <Show when={pop.open()}>
         <Box
@@ -106,8 +110,12 @@ export const ActionsPopover = (props: {
                 textTransform="uppercase"
                 color="red.11"
                 mb="0.5rem"
+                display="flex"
+                alignItems="center"
+                gap="2"
               >
-                ⚠️ Dangerous Actions
+                <AlertTriangleIcon size={14} />
+                Dangerous Actions
               </Text>
               <Stack gap="0.5rem">
                 <Show when={props.sources()}>

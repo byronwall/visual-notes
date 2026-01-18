@@ -10,6 +10,7 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
+import { CircleXIcon } from "lucide-solid";
 
 export const FiltersPanel = (props: {
   q: ReturnType<typeof createDocsQueryStore>;
@@ -100,7 +101,7 @@ export const FiltersPanel = (props: {
       </HStack>
 
       <Show when={isPathOpen()}>
-        <HStack gap="0.5rem" align="start">
+        <HStack gap="0.5rem" alignItems="start">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Path
           </Text>
@@ -135,15 +136,12 @@ export const FiltersPanel = (props: {
       </Show>
 
       <Show when={isMetaOpen()}>
-        <HStack gap="0.5rem" align="start">
+        <HStack gap="0.5rem" alignItems="start">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Meta
           </Text>
           <Box flex="1">
-            <Grid
-              gridTemplateColumns="repeat(2, minmax(0, 1fr))"
-              gap="0.5rem"
-            >
+            <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="0.5rem">
               <Input
                 size="sm"
                 placeholder="key (e.g. tag)"
@@ -182,19 +180,7 @@ export const FiltersPanel = (props: {
                     aria-label="Clear meta filters"
                     type="button"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      width="16"
-                      height="16"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
+                    <CircleXIcon />
                   </IconButton>
                 </Show>
               </HStack>
@@ -215,7 +201,7 @@ export const FiltersPanel = (props: {
       </Show>
 
       <Show when={isSourceOpen()}>
-        <HStack gap="0.5rem" align="center">
+        <HStack gap="0.5rem" alignItems="center">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Source
           </Text>
@@ -248,26 +234,14 @@ export const FiltersPanel = (props: {
               aria-label="Clear source filter"
               type="button"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                clip-rule="evenodd"
-              />
-            </svg>
+              <CircleXIcon />
             </IconButton>
           </Show>
         </HStack>
       </Show>
 
       <Show when={isOriginalIdOpen()}>
-        <HStack gap="0.5rem" align="center">
+        <HStack gap="0.5rem" alignItems="center">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Original ID
           </Text>
@@ -294,26 +268,14 @@ export const FiltersPanel = (props: {
               aria-label="Clear original content ID filter"
               type="button"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                clip-rule="evenodd"
-              />
-            </svg>
+              <CircleXIcon />
             </IconButton>
           </Show>
         </HStack>
       </Show>
 
       <Show when={isCreatedOpen()}>
-        <HStack gap="0.5rem" align="center">
+        <HStack gap="0.5rem" alignItems="center">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Created
           </Text>
@@ -340,19 +302,7 @@ export const FiltersPanel = (props: {
                 aria-label="Clear created range"
                 type="button"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                <CircleXIcon />
               </IconButton>
             </Show>
           </HStack>
@@ -360,7 +310,7 @@ export const FiltersPanel = (props: {
       </Show>
 
       <Show when={isUpdatedOpen()}>
-        <HStack gap="0.5rem" align="center">
+        <HStack gap="0.5rem" alignItems="center">
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Updated
           </Text>
@@ -387,19 +337,7 @@ export const FiltersPanel = (props: {
                 aria-label="Clear updated range"
                 type="button"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm2.53-10.53a.75.75 0 0 0-1.06-1.06L10 7.94 8.53 6.41a.75.75 0 1 0-1.06 1.06L8.94 9l-1.47 1.47a.75.75 0 1 0 1.06 1.06L10 10.06l1.47 1.47a.75.75 0 1 0 1.06-1.06L11.06 9l1.47-1.47Z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                <CircleXIcon />
               </IconButton>
             </Show>
           </HStack>

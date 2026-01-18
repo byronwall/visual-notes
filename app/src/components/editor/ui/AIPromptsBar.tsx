@@ -1,9 +1,10 @@
 import type { Editor } from "@tiptap/core";
+import { A } from "@solidjs/router";
 import { For, Suspense, createResource, createSignal } from "solid-js";
+import { css } from "styled-system/css";
 import { apiFetch } from "~/utils/base-url";
 import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
 import { useAiPromptModal } from "./AiPromptModal";
-import { usePromptsManagerModal } from "./PromptsManagerModal";
 import { emitLLMSidebarOpen } from "~/components/ai/LLMSidebarBus";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
@@ -36,8 +37,6 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
   const [prompts] = createResource(fetchPrompts);
   const [running, setRunning] = createSignal<string | null>(null);
   const { prompt: openAiModal, view: aiModalView } = useAiPromptModal();
-  const { open: openManager, view: managerView } = usePromptsManagerModal();
-  const resultEditorView = null;
 
   const onRun = async (p: PromptRecord) => {
     const ed = props.editor;
@@ -92,12 +91,13 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
         noteId: props.noteId,
       };
       // Debug: log final payload lengths
+      const varsSelectionText = vars["selection_text"];
+      const varsHasSelectionText =
+        typeof varsSelectionText === "string" && varsSelectionText.length > 0;
       console.log("[ai] posting /api/ai/runPrompt", {
         selection_text_len: body.selection_text?.length || 0,
         doc_text_len: body.doc_text?.length || 0,
-        vars_has_selection_text:
-          typeof (body.vars as any)?.selection_text === "string" &&
-          (body.vars as any)?.selection_text.length > 0,
+        vars_has_selection_text: varsHasSelectionText,
       });
       const r = await apiFetch("/api/ai/runPrompt", {
         method: "POST",
@@ -149,18 +149,21 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
           </For>
         </Suspense>
         <Spacer />
-        <Button
-          size="xs"
-          variant="outline"
-          colorPalette="gray"
-          onClick={() => openManager()}
+        <A
+          href="/ai"
+          class={css({
+            fontSize: "xs",
+            color: "fg.muted",
+            whiteSpace: "nowrap",
+            textDecoration: "none",
+            _hover: { color: "fg.default", textDecoration: "underline" },
+          })}
+          title="Manage prompts"
         >
-          Manage
-        </Button>
+          Manage prompts
+        </A>
       </HStack>
       {aiModalView}
-      {managerView}
-      {resultEditorView}
     </>
   );
 }
