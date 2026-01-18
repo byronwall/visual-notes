@@ -1,7 +1,8 @@
-import { JSX, splitProps } from "solid-js";
+import { Accessor, JSX, splitProps } from "solid-js";
 import { Portal } from "solid-js/web";
 import * as ArkPopover from "~/components/ui/popover";
-import { WrapWhen } from "./ui/WrapWhen";
+import { WrapWhen } from "./WrapWhen";
+import { PopoverRootProps } from "@ark-ui/solid/popover";
 
 type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
@@ -18,7 +19,7 @@ type PopoverProps = {
   portalRef?: HTMLElement | undefined;
 };
 
-export const Popover = (props: PopoverProps) => {
+export const SimplePopover = (props: PopoverProps) => {
   const [local] = splitProps(props, [
     "open",
     "onClose",
@@ -34,10 +35,10 @@ export const Popover = (props: PopoverProps) => {
 
   const portalled = () => local.portalled ?? true;
 
-  const positioning = () => {
+  const positioning: Accessor<PopoverRootProps["positioning"]> = () => {
     const base = { placement: local.placement ?? "bottom-start" };
     if (typeof local.offset === "number") {
-      return { ...base, offset: local.offset };
+      return { ...base, offset: { mainAxis: local.offset } };
     }
     return base;
   };

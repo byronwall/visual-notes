@@ -76,10 +76,27 @@ code and refactors unless explicitly told otherwise.
     tightly related.
 
 ### UI composition (ParkUI simplification)
-- Prefer `SimpleDialog` and `SimpleSelect` wrappers over raw ParkUI/Ark UI
-  composition when they meet the need.
+- Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
+  wrappers over raw ParkUI/Ark UI composition when they meet the need.
 - Use `skipPortal` on these wrappers when you must render inline; default is
   to render in a Portal.
+- In ParkUI components, the `asChild` prop is a render function, not a
+  boolean.
+
+### Tailwind → Panda conversion (from park-ui-migration)
+- No Tailwind utility strings in migrated components; use Panda props and
+  `styled-system/jsx` layout primitives (`Box`, `Stack`, `HStack`, `Flex`,
+  `Container`, `Spacer`).
+- Replace native controls/ad-hoc elements with `~/components/ui/*` (e.g.
+  `Button`, `Link`, `Input`, `Checkbox`, `Select`, `Drawer`).
+- Convert leftover utility classes to Panda props and prefer semantic tokens
+  (`bg="bg.default"`, `borderColor="border"`, `color="fg.muted"`).
+- Use `HStack` for horizontal layout and remember its prop is `alignItems`
+  (not `align`).
+- For Select: build a `createListCollection`, pass it to `Select.Root`, and
+  treat `value` as `string[]` even for single-select.
+- Keep Solid discipline during migration: `Show` over `&&`, `Suspense` for
+  resources, avoid prop destructuring.
 
 ### File structure and organization
 - One component per file by default.

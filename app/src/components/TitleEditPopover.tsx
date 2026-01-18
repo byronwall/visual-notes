@@ -1,9 +1,8 @@
 import { createEffect, createSignal, type JSX } from "solid-js";
-import { Portal } from "solid-js/web";
 import { Box, HStack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import * as Popover from "~/components/ui/popover";
+import { SimplePopover } from "~/components/ui/simple-popover";
 
 type TitleEditPopoverProps = {
   open: boolean;
@@ -52,41 +51,49 @@ export const TitleEditPopover = (props: TitleEditPopoverProps) => {
     props.onConfirm(v);
   };
 
+  const handleTriggerClick = () => {
+    if (props.open) {
+      props.onCancel();
+      props.onOpenChange(false);
+      return;
+    }
+    props.onOpenChange(true);
+  };
+
   return (
-    <Popover.Root
+    <SimplePopover
       open={props.open}
-      onOpenChange={(details) => {
-        props.onOpenChange(details.open);
-        if (!details.open) props.onCancel();
+      onClose={() => {
+        props.onCancel();
+        props.onOpenChange(false);
       }}
-      positioning={{ placement: "top-start", offset: 8 }}
+      placement="top-start"
+      offset={8}
+      anchor={
+        <Box display="inline-flex" onClick={handleTriggerClick}>
+          {props.trigger}
+        </Box>
+      }
     >
-      <Popover.Trigger>{props.trigger}</Popover.Trigger>
-      <Portal>
-        <Popover.Positioner>
-          <Popover.Content>
-            <Box p="2">
-              <HStack gap="2">
-                <Input
-                  ref={(el) => (inputRef = el)}
-                  type="text"
-                  value={value()}
-                  onInput={handleChange}
-                  onKeyDown={(e) => handleInputKeyDown(e)}
-                  w="16rem"
-                  size="sm"
-                />
-                <Button size="sm" variant="solid" onClick={handleConfirmClick}>
-                  Save
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleCancelClick}>
-                  Cancel
-                </Button>
-              </HStack>
-            </Box>
-          </Popover.Content>
-        </Popover.Positioner>
-      </Portal>
-    </Popover.Root>
+      <Box p="2">
+        <HStack gap="2">
+          <Input
+            ref={(el) => (inputRef = el)}
+            type="text"
+            value={value()}
+            onInput={handleChange}
+            onKeyDown={(e) => handleInputKeyDown(e)}
+            w="16rem"
+            size="sm"
+          />
+          <Button size="sm" variant="solid" onClick={handleConfirmClick}>
+            Save
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCancelClick}>
+            Cancel
+          </Button>
+        </HStack>
+      </Box>
+    </SimplePopover>
   );
 };

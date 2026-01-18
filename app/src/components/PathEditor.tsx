@@ -15,8 +15,7 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { Box, HStack } from "styled-system/jsx";
 import { CircleXIcon } from "lucide-solid";
-import { Portal } from "solid-js/web";
-import * as Popover from "~/components/ui/popover";
+import { SimplePopover } from "~/components/ui/simple-popover";
 
 // TODO: this needs a `disabled` prop to disable the editor
 
@@ -217,17 +216,16 @@ export const PathEditor: VoidComponent<{
   };
 
   return (
-    <HStack gap="0.5rem" align="center">
+    <HStack gap="0.5rem" alignItems="center">
       <Box flex="1" minW="0">
         <Suspense fallback={null}>
-          <Popover.Root
+          <SimplePopover
             open={isOpen()}
-            onOpenChange={(details) => {
-              if (!details.open) handleOutsideClose();
-            }}
-            positioning={{ placement: "bottom-start", offset: 8 }}
-          >
-            <Popover.Anchor>
+            onClose={handleOutsideClose}
+            placement="bottom-start"
+            offset={8}
+            style={{ width: "90%", "max-width": "28rem", padding: "0.75rem" }}
+            anchor={
               <Box
                 borderWidth="1px"
                 borderColor="gray.outline.border"
@@ -308,75 +306,63 @@ export const PathEditor: VoidComponent<{
                   spellcheck={false}
                 />
               </Box>
-            </Popover.Anchor>
-
-            <Portal>
-              <Popover.Positioner>
-                <Popover.Content
-                  style={{
-                    width: "90%",
-                    maxWidth: "28rem",
-                    padding: "0.75rem",
-                  }}
-                >
-                  <Text fontSize="xs" color="black.a7" mb="0.5rem">
-                    <Show
-                      when={committed().length === 0}
-                      fallback={
-                        <Text as="span">
-                          Next after{" "}
-                          <Text as="span" fontWeight="semibold">
-                            {committed().join(".")}
-                          </Text>
-                        </Text>
-                      }
-                    >
-                      <Text as="span">Popular top-level segments</Text>
-                    </Show>
-                  </Text>
-                  <Text fontSize="xs" color="black.a7" mb="0.5rem">
-                    Hit{" "}
-                    <Text as="span" fontFamily="mono">
-                      .
-                    </Text>{" "}
-                    to nest
-                  </Text>
-                  <HStack gap="0.5rem" flexWrap="wrap">
-                    <For each={nextSegmentSuggestions()}>
-                      {(s) => (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          borderRadius="full"
-                          onClick={() => handleSelectSuggestion(s.seg)}
-                          title={`${s.seg} (${s.count})`}
-                        >
-                          <Text
-                            as="span"
-                            fontWeight="semibold"
-                            maxW="12rem"
-                            overflow="hidden"
-                            textOverflow="ellipsis"
-                            whiteSpace="nowrap"
-                          >
-                            {s.seg}
-                          </Text>
-                          <Text as="span" color="black.a7">
-                            {s.count}
-                          </Text>
-                        </Button>
-                      )}
-                    </For>
-                  </HStack>
-                  <Show when={nextSegmentSuggestions().length === 0}>
-                    <Text fontSize="xs" color="black.a7" mt="0.5rem">
-                      No suggestions
+            }
+          >
+            <Text fontSize="xs" color="black.a7" mb="0.5rem">
+              <Show
+                when={committed().length === 0}
+                fallback={
+                  <Text as="span">
+                    Next after{" "}
+                    <Text as="span" fontWeight="semibold">
+                      {committed().join(".")}
                     </Text>
-                  </Show>
-                </Popover.Content>
-              </Popover.Positioner>
-            </Portal>
-          </Popover.Root>
+                  </Text>
+                }
+              >
+                <Text as="span">Popular top-level segments</Text>
+              </Show>
+            </Text>
+            <Text fontSize="xs" color="black.a7" mb="0.5rem">
+              Hit{" "}
+              <Text as="span" fontFamily="mono">
+                .
+              </Text>{" "}
+              to nest
+            </Text>
+            <HStack gap="0.5rem" flexWrap="wrap">
+              <For each={nextSegmentSuggestions()}>
+                {(s) => (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    borderRadius="full"
+                    onClick={() => handleSelectSuggestion(s.seg)}
+                    title={`${s.seg} (${s.count})`}
+                  >
+                    <Text
+                      as="span"
+                      fontWeight="semibold"
+                      maxW="12rem"
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
+                      {s.seg}
+                    </Text>
+                    <Text as="span" color="black.a7">
+                      {s.count}
+                    </Text>
+                  </Button>
+                )}
+              </For>
+            </HStack>
+            <Show when={nextSegmentSuggestions().length === 0}>
+              <Text fontSize="xs" color="black.a7" mt="0.5rem">
+                No suggestions
+              </Text>
+            </Show>
+          </SimplePopover>
         </Suspense>
 
         <Show when={error()}>

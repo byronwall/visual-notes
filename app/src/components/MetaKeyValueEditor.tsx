@@ -14,8 +14,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
-import { Portal } from "solid-js/web";
-import * as Popover from "~/components/ui/popover";
+import { SimplePopover } from "~/components/ui/simple-popover";
 
 type Entry = { key: string; value: string };
 
@@ -127,14 +126,13 @@ export const MetaKeyValueEditor: VoidComponent<{
 
   return (
     <Box>
-      <Popover.Root
+      <SimplePopover
         open={isOpen()}
-        onOpenChange={(details) => {
-          if (!details.open) closePopup();
-        }}
-        positioning={{ placement: "bottom-start", offset: 8 }}
-      >
-        <Popover.Anchor>
+        onClose={closePopup}
+        placement="bottom-start"
+        offset={8}
+        style={{ width: "90%", "max-width": "28rem" }}
+        anchor={
           <HStack gap="2" flexWrap="wrap">
             <For each={entries()}>
               {(e, i) => (
@@ -197,81 +195,75 @@ export const MetaKeyValueEditor: VoidComponent<{
               + Add
             </Button>
           </HStack>
-        </Popover.Anchor>
+        }
+      >
+        <Stack gap="2.5" p="4">
+          <Text fontSize="sm" fontWeight="medium">
+            Edit metadata
+          </Text>
+          <HStack gap="2" alignItems="flex-start">
+            <Stack gap="1">
+              <Input
+                size="sm"
+                w="10rem"
+                placeholder="key"
+                value={editKey()}
+                onInput={(evt) => setEditKey(evt.currentTarget.value)}
+                onKeyDown={handleFieldKeyDown}
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck={false}
+              />
+              <Suspense fallback={null}>
+                <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
+              </Suspense>
+            </Stack>
+            <Text fontSize="sm" color="fg.muted" mt="2">
+              :
+            </Text>
+            <Stack gap="1" flex="1">
+              <Input
+                size="sm"
+                placeholder="value"
+                value={editValue()}
+                onInput={(evt) => setEditValue(evt.currentTarget.value)}
+                onKeyDown={handleFieldKeyDown}
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck={false}
+              />
+              <Suspense fallback={null}>
+                <MetaValueSuggestions
+                  keyName={editKey()}
+                  onSelect={(v) => setEditValue(v)}
+                />
+              </Suspense>
+            </Stack>
+          </HStack>
 
-        <Portal>
-          <Popover.Positioner>
-            <Popover.Content style={{ width: "90%", "max-width": "28rem" }}>
-              <Stack gap="2.5" p="4">
-                <Text fontSize="sm" fontWeight="medium">
-                  Edit metadata
-                </Text>
-                <HStack gap="2" alignItems="flex-start">
-                  <Stack gap="1">
-                    <Input
-                      size="sm"
-                      w="10rem"
-                      placeholder="key"
-                      value={editKey()}
-                      onInput={(evt) => setEditKey(evt.currentTarget.value)}
-                      onKeyDown={handleFieldKeyDown}
-                      autocomplete="off"
-                      autocapitalize="none"
-                      autocorrect="off"
-                      spellcheck={false}
-                    />
-                    <Suspense fallback={null}>
-                      <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
-                    </Suspense>
-                  </Stack>
-                  <Text fontSize="sm" color="fg.muted" mt="2">
-                    :
-                  </Text>
-                  <Stack gap="1" flex="1">
-                    <Input
-                      size="sm"
-                      placeholder="value"
-                      value={editValue()}
-                      onInput={(evt) => setEditValue(evt.currentTarget.value)}
-                      onKeyDown={handleFieldKeyDown}
-                      autocomplete="off"
-                      autocapitalize="none"
-                      autocorrect="off"
-                      spellcheck={false}
-                    />
-                    <Suspense fallback={null}>
-                      <MetaValueSuggestions
-                        keyName={editKey()}
-                        onSelect={(v) => setEditValue(v)}
-                      />
-                    </Suspense>
-                  </Stack>
-                </HStack>
-
-                <HStack gap="2" justifyContent="flex-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    colorPalette="gray"
-                    onClick={closePopup}
-                    type="button"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    type="button"
-                    disabled={busy()}
-                  >
-                    {busy() ? "Saving…" : "Save"}
-                  </Button>
-                </HStack>
-              </Stack>
-            </Popover.Content>
-          </Popover.Positioner>
-        </Portal>
-      </Popover.Root>
+          <HStack gap="2" justifyContent="flex-end">
+            <Button
+              size="sm"
+              variant="outline"
+              colorPalette="gray"
+              onClick={closePopup}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              type="button"
+              disabled={busy()}
+            >
+              {busy() ? "Saving…" : "Save"}
+            </Button>
+          </HStack>
+        </Stack>
+      </SimplePopover>
 
       <Show when={error()}>
         {(e) => (
