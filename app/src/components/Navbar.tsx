@@ -1,6 +1,7 @@
 import { ark } from "@ark-ui/solid/factory";
 import type { VoidComponent } from "solid-js";
-import { Show, Suspense, onMount } from "solid-js";
+import { For, Show, Suspense, onMount } from "solid-js";
+import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -19,14 +20,72 @@ import { button } from "styled-system/recipes";
 
 const CtaLink = styled(ark.a, button);
 
+type NavItem = {
+  label: string;
+  href: string;
+  isActive: (pathname: string) => boolean;
+};
+
 export const Navbar: VoidComponent = () => {
   const { authed, logout } = useMagicAuth();
+  const location = useLocation();
   const {
     open: openLLM,
     view: llmSidebarView,
     hasUnreadAny,
     hasLoadingAny,
   } = useLLMSidebar();
+
+  const pathname = () => location.pathname;
+
+  const isActiveExact = (href: string, path: string) => path === href;
+  const isActiveSection = (href: string, path: string) =>
+    path === href || path.startsWith(`${href}/`);
+
+  const navLinkStyle = (active: boolean) => ({
+    color: active ? "fg.default" : "fg.muted",
+    fontWeight: active ? "semibold" : "normal",
+    textDecorationLine: "none",
+    borderBottomWidth: "2px",
+    borderBottomColor: active ? "fg.default" : "transparent",
+    pb: "1",
+    _hover: {
+      color: "fg.default",
+      borderBottomColor: "fg.default",
+      textDecorationLine: "none",
+    },
+  });
+
+  const navItems: NavItem[] = [
+    {
+      label: "Notes",
+      href: "/docs",
+      isActive: (path) => {
+        if (path === "/docs/new") return false;
+        return isActiveSection("/docs", path);
+      },
+    },
+    {
+      label: "New Note",
+      href: "/docs/new",
+      isActive: (path) => isActiveExact("/docs/new", path),
+    },
+    {
+      label: "Embeddings",
+      href: "/embeddings",
+      isActive: (path) => isActiveSection("/embeddings", path),
+    },
+    {
+      label: "UMAP",
+      href: "/umap",
+      isActive: (path) => isActiveSection("/umap", path),
+    },
+    {
+      label: "AI",
+      href: "/ai",
+      isActive: (path) => isActiveSection("/ai", path),
+    },
+  ];
 
   const handleChatOpen = () => {
     openLLM();
@@ -73,21 +132,18 @@ export const Navbar: VoidComponent = () => {
           </Link>
 
           <HStack gap="3" flexWrap="wrap" color="fg.muted" textStyle="sm">
-            <Link href="/docs" variant="plain">
-              Notes
-            </Link>
-            <Link href="/docs/new" variant="plain">
-              New Note
-            </Link>
-            <Link href="/embeddings" variant="plain">
-              Embeddings
-            </Link>
-            <Link href="/umap" variant="plain">
-              UMAP
-            </Link>
-            <Link href="/ai" variant="plain">
-              AI
-            </Link>
+            <For each={navItems}>
+              {(item) => (
+                <Link
+                  href={item.href}
+                  variant="plain"
+                  aria-current={item.isActive(pathname()) ? "page" : undefined}
+                  {...navLinkStyle(item.isActive(pathname()))}
+                >
+                  {item.label}
+                </Link>
+              )}
+            </For>
 
             <Button variant="plain" size="sm" onClick={handleChatOpen}>
               <HStack gap="1.5">
