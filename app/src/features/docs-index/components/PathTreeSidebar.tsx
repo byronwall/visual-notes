@@ -13,7 +13,15 @@ import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import * as ScrollArea from "~/components/ui/scroll-area";
 import { Text } from "~/components/ui/text";
+import { Tooltip } from "~/components/ui/tooltip";
 import { Box, Flex, HStack } from "styled-system/jsx";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ChevronsRightIcon,
+  ChevronsUpIcon,
+  XIcon,
+} from "lucide-solid";
 
 type PathCount = { path: string; count: number };
 
@@ -143,7 +151,12 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
             disabled={!hasChildren()}
             opacity={hasChildren() ? 1 : 0.4}
           >
-            {isExpanded(p.node.prefix) ? "▾" : "▸"}
+            <Show
+              when={isExpanded(p.node.prefix)}
+              fallback={<ChevronRightIcon size={14} />}
+            >
+              <ChevronDownIcon size={14} />
+            </Show>
           </IconButton>
           <Button
             size="xs"
@@ -155,7 +168,11 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
           >
             {p.node.key || "(root)"}
           </Button>
-          <Text fontSize="xs" color="black.a7" fontVariantNumeric="tabular-nums">
+          <Text
+            fontSize="xs"
+            color="black.a7"
+            fontVariantNumeric="tabular-nums"
+          >
             {p.node.count}
           </Text>
         </HStack>
@@ -181,10 +198,12 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
         >
           Paths
         </Text>
-        <HStack gap="0.5rem" mt="0.5rem" align="center" flexWrap="wrap">
-          <Button
+        <HStack gap="0.5rem" mt="0.5rem" alignItems="center">
+          <IconButton
             size="xs"
             variant="outline"
+            aria-label="Clear path filter"
+            title="Clear path filter"
             onClick={() => {
               console.log("[PathTreeSidebar] clear prefix");
               props.q.setPathPrefix("");
@@ -192,19 +211,29 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
               props.q.resetPaging();
             }}
           >
-            Clear
-          </Button>
+            <XIcon size={14} />
+          </IconButton>
           <HStack gap="0.5rem" ml="auto">
-            <Button size="xs" variant="outline" onClick={expandAll}>
-              Expand all
-            </Button>
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={() => setExpanded({})}
-            >
-              Collapse all
-            </Button>
+            <Tooltip content="Expand all">
+              <IconButton
+                size="xs"
+                variant="outline"
+                aria-label="Expand all"
+                onClick={expandAll}
+              >
+                <ChevronsRightIcon size={14} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip content="Collapse all">
+              <IconButton
+                size="xs"
+                variant="outline"
+                aria-label="Collapse all"
+                onClick={() => setExpanded({})}
+              >
+                <ChevronsUpIcon size={14} />
+              </IconButton>
+            </Tooltip>
           </HStack>
         </HStack>
       </Box>
