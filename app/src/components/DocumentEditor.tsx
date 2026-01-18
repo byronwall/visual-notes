@@ -25,6 +25,13 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
+export type DocumentEditorApi = {
+  save: () => Promise<void>;
+  canSave: () => boolean;
+  saving: () => boolean;
+  dirty: () => boolean;
+};
+
 async function fetchDoc(id: string): Promise<DocData> {
   const res = await apiFetch(`/api/docs/${id}`);
   if (!res.ok) throw new Error("Failed to load doc");
@@ -54,6 +61,9 @@ const DocumentEditor: VoidComponent<{
   initialMarkdown?: string;
   initialHTML?: string;
   onCreated?: (id: string) => void;
+  apiRef?: (api: DocumentEditorApi) => void;
+  showTopBar?: boolean;
+  showAiPromptsBar?: boolean;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -136,6 +146,14 @@ const DocumentEditor: VoidComponent<{
     evt.preventDefault();
   });
 
+  const canSave = () => {
+    if (saving()) return false;
+    if (!editor()) return false;
+    // For an existing doc, block save until the doc resource loads.
+    if (props.docId) return !!doc();
+    return true;
+  };
+
   async function onSave() {
     const ed = editor();
     const d = doc();
@@ -182,38 +200,52 @@ const DocumentEditor: VoidComponent<{
     }
   }
 
+  if (props.apiRef) {
+    props.apiRef({
+      save: onSave,
+      canSave,
+      saving,
+      dirty,
+    });
+  }
+
+  const shouldShowTopBar = () => props.showTopBar !== false;
+  const shouldShowAiPromptsBar = () => props.showAiPromptsBar !== false;
+
   return (
     <Box class={props.class} w="full">
-      <HStack gap="2" alignItems="center" mb="2" flexWrap="wrap">
-        <Text fontSize="sm" fontWeight="medium" truncate>
-          <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
-            {(d) => <span>{d().title}</span>}
-          </Show>
-        </Text>
-        <HStack gap="2" alignItems="center" ml="auto" flexWrap="wrap">
-          <Show when={dirty()}>
-            <Text fontSize="xs" color="amber.11">
-              Unsaved changes
-            </Text>
-          </Show>
-          <Show when={savedAt()}>
-            {(t) => (
-              <Text fontSize="xs" color="fg.muted">
-                Saved {t().toLocaleTimeString()}
+      <Show when={shouldShowTopBar()}>
+        <HStack gap="2" alignItems="center" mb="2" flexWrap="wrap">
+          <Text fontSize="sm" fontWeight="medium" truncate>
+            <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
+              {(d) => <span>{d().title}</span>}
+            </Show>
+          </Text>
+          <HStack gap="2" alignItems="center" ml="auto" flexWrap="wrap">
+            <Show when={dirty()}>
+              <Text fontSize="xs" color="amber.11">
+                Unsaved changes
               </Text>
-            )}
-          </Show>
-          <Button
-            size="xs"
-            variant="outline"
-            colorPalette="gray"
-            disabled={saving() || !editor() || (props.docId ? !doc() : false)}
-            onClick={onSave}
-          >
-            {saving() ? "Saving…" : "Save"}
-          </Button>
+            </Show>
+            <Show when={savedAt()}>
+              {(t) => (
+                <Text fontSize="xs" color="fg.muted">
+                  Saved {t().toLocaleTimeString()}
+                </Text>
+              )}
+            </Show>
+            <Button
+              size="xs"
+              variant="outline"
+              colorPalette="gray"
+              disabled={!canSave()}
+              onClick={onSave}
+            >
+              {saving() ? "Saving…" : "Save"}
+            </Button>
+          </HStack>
         </HStack>
-      </HStack>
+      </Show>
       <Show when={error()}>
         {(e) => (
           <Box
@@ -249,9 +281,11 @@ const DocumentEditor: VoidComponent<{
           </Stack>
         </Stack>
       </Show>
-      <Box mb="2">
-        <AIPromptsBar editor={editor()} noteId={props.docId || doc()?.id} />
-      </Box>
+      <Show when={shouldShowAiPromptsBar()}>
+        <Box mb="2">
+          <AIPromptsBar editor={editor()} noteId={props.docId || doc()?.id} />
+        </Box>
+      </Show>
       <TiptapEditor
         initialHTML={initialHTML()}
         onEditor={(ed) => setEditor(ed)}

@@ -1,10 +1,11 @@
 import { ark } from "@ark-ui/solid/factory";
 import type { VoidComponent } from "solid-js";
-import { For, Show, Suspense, onMount } from "solid-js";
+import { For, Show, Suspense, createSignal, onMount } from "solid-js";
 import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
+import { NewNoteModal } from "~/components/NewNoteModal";
 import { Button } from "~/components/ui/button";
 import { Image } from "~/components/ui/image";
 import { Link } from "~/components/ui/link";
@@ -36,6 +37,8 @@ export const Navbar: VoidComponent = () => {
     hasLoadingAny,
   } = useLLMSidebar();
 
+  const [newNoteOpen, setNewNoteOpen] = createSignal(false);
+
   const pathname = () => location.pathname;
 
   const isActiveExact = (href: string, path: string) => path === href;
@@ -63,11 +66,6 @@ export const Navbar: VoidComponent = () => {
       isActive: (path) => isActiveSection("/canvas", path),
     },
     {
-      label: "New Note",
-      href: "/docs/new",
-      isActive: (path) => isActiveExact("/docs/new", path),
-    },
-    {
       label: "Embeddings",
       href: "/embeddings",
       isActive: (path) => isActiveSection("/embeddings", path),
@@ -86,6 +84,11 @@ export const Navbar: VoidComponent = () => {
 
   const handleChatOpen = () => {
     openLLM();
+  };
+
+  const handleNewNoteOpen = () => {
+    console.log("[navbar] open new note modal");
+    setNewNoteOpen(true);
   };
 
   const handleLogout = async () => {
@@ -141,6 +144,10 @@ export const Navbar: VoidComponent = () => {
                 </Link>
               )}
             </For>
+
+            <Button variant="plain" size="sm" onClick={handleNewNoteOpen}>
+              New Note
+            </Button>
 
             <Button variant="plain" size="sm" onClick={handleChatOpen}>
               <HStack gap="1.5">
@@ -201,6 +208,7 @@ export const Navbar: VoidComponent = () => {
         </HStack>
       </Container>
       {llmSidebarView}
+      <NewNoteModal open={newNoteOpen()} onOpenChange={setNewNoteOpen} />
     </Box>
   );
 };
