@@ -1,7 +1,6 @@
 import type { Editor } from "@tiptap/core";
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import type { Component } from "solid-js";
-import { Portal } from "solid-js/web";
 import { createEditor } from "./editor/core/createEditor";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
 import { useCodeBlockOverlay } from "./editor/core/useCodeBlockOverlay";
@@ -9,7 +8,8 @@ import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
 import "highlight.js/styles/github.css";
-import * as Select from "~/components/ui/select";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { Box, HStack } from "styled-system/jsx";
 
 const DEFAULT_HTML = `
@@ -116,11 +116,8 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
     "diff",
     "makefile",
   ]);
-  type LanguageItem = { label: string; value: string };
-  const languageCollection = createMemo(() =>
-    Select.createListCollection<LanguageItem>({
-      items: languageOptions().map((l) => ({ label: l, value: l })),
-    })
+  const languageItems = createMemo<SimpleSelectItem[]>(() =>
+    languageOptions().map((l) => ({ label: l, value: l }))
   );
 
   return (
@@ -147,7 +144,12 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         </Box>
       </Show>
 
-      <Box position="relative" borderWidth="1px" borderColor="gray.outline.border" borderRadius="l2">
+      <Box
+        position="relative"
+        borderWidth="1px"
+        borderColor="gray.outline.border"
+        borderRadius="l2"
+      >
         <Box minH="200px" ref={setContainer} />
 
         <Show when={stableEditor() && overlay()}>
@@ -167,13 +169,13 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
               py="1"
               boxShadow="sm"
             >
-              <Select.Root
-                collection={languageCollection()}
-                value={[
-                  stableEditor()?.getAttributes("codeBlock")?.language || "text",
-                ]}
-                onValueChange={(details) => {
-                  const lang = details.value[0] || "text";
+              <SimpleSelect
+                items={languageItems()}
+                value={
+                  stableEditor()?.getAttributes("codeBlock")?.language || "text"
+                }
+                onChange={(value) => {
+                  const lang = value || "text";
                   console.log("[codeblock] set language:", lang);
                   stableEditor()
                     ?.chain()
@@ -182,31 +184,8 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
                     .run();
                 }}
                 size="xs"
-              >
-                <Select.Control>
-                  <Select.Trigger>
-                    <Select.ValueText placeholder="text" />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                </Select.Control>
-                <Portal>
-                  <Select.Positioner>
-                    <Select.Content>
-                      <Select.List>
-                        <For each={languageCollection().items}>
-                          {(opt) => (
-                            <Select.Item item={opt}>
-                              <Select.ItemText>{opt.label}</Select.ItemText>
-                              <Select.ItemIndicator />
-                            </Select.Item>
-                          )}
-                        </For>
-                      </Select.List>
-                    </Select.Content>
-                  </Select.Positioner>
-                </Portal>
-                <Select.HiddenSelect />
-              </Select.Root>
+                placeholder="text"
+              />
             </HStack>
           </Box>
         </Show>

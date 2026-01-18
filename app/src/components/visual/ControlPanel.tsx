@@ -6,12 +6,12 @@ import {
   type Accessor,
   type VoidComponent,
 } from "solid-js";
-import { Portal } from "solid-js/web";
 import { Box, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Checkbox from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
-import * as Select from "~/components/ui/select";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
 import { colorFor } from "~/utils/colors";
 import type { DocItem } from "~/types/notes";
@@ -32,7 +32,7 @@ type Point = { x: number; y: number };
 type SortMode = "proximity" | "title" | "date";
 type LayoutMode = "umap" | "grid";
 
-type SelectItem<T extends string> = { label: string; value: T };
+type SelectItem<T extends string> = SimpleSelectItem & { value: T };
 
 const SORT_ITEMS: SelectItem<SortMode>[] = [
   { label: "Proximity (to mouse)", value: "proximity" },
@@ -109,13 +109,6 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     return filtered;
   });
 
-  const sortCollection = Select.createListCollection<SelectItem<SortMode>>({
-    items: SORT_ITEMS,
-  });
-  const layoutCollection = Select.createListCollection<SelectItem<LayoutMode>>({
-    items: LAYOUT_ITEMS,
-  });
-
   // Selection action state
   const selectedCount = createMemo(
     () => props.selection?.selectedIds().size || 0
@@ -177,7 +170,9 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
   };
 
   const handlePathChange = (p: string) => props.setPathPrefix(p);
-  const handleBlankToggle = (details: { checked: boolean | "indeterminate" }) => {
+  const handleBlankToggle = (details: {
+    checked: boolean | "indeterminate";
+  }) => {
     const checked = details.checked === true;
     props.setBlankPathOnly(checked);
     if (checked) props.setPathPrefix("");
@@ -195,14 +190,12 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     props.setMetaValue("");
   };
 
-  const handleSortChange = (details: { value: string[] }) => {
-    const value = details.value[0];
+  const handleSortChange = (value: string) => {
     if (!value) return;
     props.setSortMode(value as SortMode);
   };
 
-  const handleLayoutChange = (details: { value: string[] }) => {
-    const value = details.value[0];
+  const handleLayoutChange = (value: string) => {
     if (!value) return;
     props.setLayoutMode(value as LayoutMode);
   };
@@ -368,70 +361,29 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
           <Text as="label" for="sortMode" fontSize="xs" color="fg.muted">
             Sort:
           </Text>
-          <Select.Root<SelectItem<SortMode>>
-            collection={sortCollection}
-            value={[props.sortMode()]}
-            onValueChange={handleSortChange}
-            positioning={{ sameWidth: true }}
-          >
-            <Select.Control>
-              <Select.Trigger id="sortMode" minW="180px">
-                <Select.ValueText placeholder="Sort" />
-                <Select.Indicator />
-              </Select.Trigger>
-            </Select.Control>
-            <Portal>
-              <Select.Positioner>
-                <Select.Content>
-                  <Select.List>
-                    <For each={SORT_ITEMS}>
-                      {(item) => (
-                        <Select.Item item={item}>
-                          <Select.ItemText>{item.label}</Select.ItemText>
-                          <Select.ItemIndicator />
-                        </Select.Item>
-                      )}
-                    </For>
-                  </Select.List>
-                </Select.Content>
-              </Select.Positioner>
-            </Portal>
-            <Select.HiddenSelect />
-          </Select.Root>
+          <SimpleSelect
+            items={SORT_ITEMS}
+            value={props.sortMode()}
+            onChange={handleSortChange}
+            sameWidth
+            triggerId="sortMode"
+            minW="180px"
+            placeholder="Sort"
+          />
 
           <Text as="label" for="layoutMode" fontSize="xs" color="fg.muted">
             Layout:
           </Text>
-          <Select.Root<SelectItem<LayoutMode>>
-            collection={layoutCollection}
-            value={[props.layoutMode()]}
-            onValueChange={handleLayoutChange}
-            positioning={{ sameWidth: true }}
-          >
-            <Select.Control>
-              <Select.Trigger id="layoutMode" minW="180px">
-                <Select.ValueText placeholder="Layout" />
-                <Select.Indicator />
-              </Select.Trigger>
-            </Select.Control>
-            <Portal>
-              <Select.Positioner>
-                <Select.Content>
-                  <Select.List>
-                    <For each={LAYOUT_ITEMS}>
-                      {(item) => (
-                        <Select.Item item={item}>
-                          <Select.ItemText>{item.label}</Select.ItemText>
-                          <Select.ItemIndicator />
-                        </Select.Item>
-                      )}
-                    </For>
-                  </Select.List>
-                </Select.Content>
-              </Select.Positioner>
-            </Portal>
-            <Select.HiddenSelect />
-          </Select.Root>
+          <SimpleSelect
+            items={LAYOUT_ITEMS}
+            value={props.layoutMode()}
+            onChange={handleLayoutChange}
+            sameWidth
+            triggerId="layoutMode"
+            minW="180px"
+            placeholder="Layout"
+            skipPortal
+          />
 
           <Checkbox.Root
             checked={props.clusterUnknownTopCenter()}
@@ -559,16 +511,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                   const dy = pp.y - m.y;
                   const dist = Math.sqrt(dx * dx + dy * dy);
                   const angle = Math.atan2(-dy, dx);
-                  const arrows = [
-                    "→",
-                    "↗",
-                    "↑",
-                    "↖",
-                    "←",
-                    "↙",
-                    "↓",
-                    "↘",
-                  ];
+                  const arrows = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"];
                   const idx =
                     ((Math.round((angle * 8) / (2 * Math.PI)) % 8) + 8) % 8;
                   const arrow = arrows[idx];

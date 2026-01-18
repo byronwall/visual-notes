@@ -6,9 +6,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
-import * as Dialog from "~/components/ui/dialog";
-import { css } from "styled-system/css";
-import { XIcon } from "lucide-solid";
+import { SimpleDialog } from "~/components/ui/simple-dialog";
 
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -191,31 +189,13 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
   };
 
   const view = (
-    <Dialog.Root
+    <SimpleDialog
       open={open()}
-      onOpenChange={(details: { open?: boolean }) => {
-        if (details?.open === false) close();
-      }}
+      onClose={close}
+      title="New Prompt via Q&A"
+      maxW="980px"
     >
-      <Dialog.Backdrop />
-      <Dialog.Positioner>
-        <Dialog.Content
-          class={css({
-            maxW: "980px",
-            "--dialog-base-margin": "24px",
-          })}
-        >
-          <Dialog.Header>
-            <Dialog.Title>New Prompt via Q&A</Dialog.Title>
-          </Dialog.Header>
-
-          <Dialog.CloseTrigger aria-label="Close dialog" onClick={close}>
-            <XIcon />
-          </Dialog.CloseTrigger>
-
-          <Dialog.Body>
-            <Stack gap="3">
-
+      <Stack gap="3">
         <Show when={!proposal()}>
           <Stack gap="2">
             <Text fontSize="xs" color="fg.muted">
@@ -381,11 +361,8 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
             );
           }}
         </Show>
-            </Stack>
-          </Dialog.Body>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Dialog.Root>
+      </Stack>
+    </SimpleDialog>
   );
 
   return { open: openModal, view };

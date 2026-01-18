@@ -7,9 +7,7 @@ import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
-import * as Dialog from "~/components/ui/dialog";
-import { css } from "styled-system/css";
-import { XIcon } from "lucide-solid";
+import { SimpleDialog } from "~/components/ui/simple-dialog";
 
 type Prompt = {
   id: string;
@@ -209,358 +207,335 @@ export function usePromptsManagerModal() {
   };
 
   const view = (
-    <Dialog.Root
+    <SimpleDialog
       open={open()}
-      onOpenChange={(details: { open?: boolean }) => {
-        if (details?.open === false) close();
-      }}
+      onClose={close}
+      title="Manage Prompts"
+      maxW="1100px"
+      footer={
+        <HStack justifyContent="flex-end" w="full">
+          <Button
+            size="sm"
+            variant="outline"
+            colorPalette="gray"
+            onClick={close}
+          >
+            Close
+          </Button>
+        </HStack>
+      }
     >
-      <Dialog.Backdrop />
-      <Dialog.Positioner>
-        <Dialog.Content
-          class={css({
-            maxW: "1100px",
-            "--dialog-base-margin": "24px",
-          })}
-        >
-          <Dialog.Header>
-            <Dialog.Title>Manage Prompts</Dialog.Title>
-          </Dialog.Header>
-
-          <Dialog.CloseTrigger aria-label="Close dialog" onClick={close}>
-            <XIcon />
-          </Dialog.CloseTrigger>
-
-          <Dialog.Body>
-        <Grid
-          gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}
-          gap="4"
-        >
-          <Stack gap="2">
-            <Text fontSize="xs" fontWeight="medium">
-              Create new
-            </Text>
-            <DesignerLaunch
-              onCreated={() => {
-                void refetch();
-              }}
-            />
-            <Input
-              size="sm"
-              placeholder="task (unique)"
-              value={newTask()}
-              onInput={(e) => setNewTask((e.target as HTMLInputElement).value)}
-            />
-            <Input
-              size="sm"
-              placeholder="description"
-              value={newDesc()}
-              onInput={(e) => setNewDesc((e.target as HTMLInputElement).value)}
-            />
-            <Textarea
-              size="sm"
-              h="28"
-              fontFamily="mono"
-              placeholder="template (Mustache)"
-              value={newTemplate()}
-              onInput={(e) =>
-                setNewTemplate((e.target as HTMLTextAreaElement).value)
-              }
-            />
-            <Show when={selectionMissing()}>
-              <Stack gap="1" mt="1">
-                <Text fontSize="xs" color="amber.11">
-                  Template is missing {"{{selection}}"}. It will be appended
-                  automatically when running, but you can insert it now.
-                </Text>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  colorPalette="gray"
-                  onClick={onInsertSelectionVar}
-                >
-                  Insert {"{{selection}}"}
-                </Button>
-              </Stack>
-            </Show>
-            <Textarea
-              size="sm"
-              h="16"
-              fontFamily="mono"
-              placeholder="system (optional)"
-              value={newSystem()}
-              onInput={(e) =>
-                setNewSystem((e.target as HTMLTextAreaElement).value)
-              }
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              colorPalette="gray"
-              onClick={onCreatePrompt}
-            >
-              Create & Activate
-            </Button>
-          </Stack>
-          <Stack gap="2">
-            <Text fontSize="xs" fontWeight="medium">
-              Existing
-            </Text>
-            <Suspense
-              fallback={
-                <Text fontSize="xs" color="fg.muted">
-                  Loading…
-                </Text>
-              }
-            >
-              <Stack gap="3">
-                <For each={prompts() || []}>
-                  {(p) => (
-                    <Stack
-                      gap="2"
-                      borderWidth="1px"
-                      borderColor="gray.outline.border"
-                      borderRadius="l2"
-                      p="2"
-                    >
-                      <Text fontSize="xs" fontWeight="semibold">
-                        {p.task}
-                      </Text>
-                      <Text fontSize="xs" color="fg.muted">
-                        {p.description}
-                      </Text>
-                      <HStack gap="1">
-                        <Text fontSize="xs" color="fg.muted">
-                          Active version:
-                        </Text>
-                        <Text fontSize="xs" fontFamily="mono">
-                          {p.activeVersion?.id || "—"}
-                        </Text>
-                      </HStack>
-                      <Show when={p.activeVersion}>
-                        {(av) => (
-                          <Box as="details">
-                            <Text as="summary" fontSize="xs" cursor="pointer">
-                              Active template
-                            </Text>
-                            <Box
-                              as="pre"
-                              mt="2"
-                              borderWidth="1px"
-                              borderColor="gray.outline.border"
-                              borderRadius="l2"
-                              bg="gray.surface.bg"
-                              p="2"
-                              fontSize="xs"
-                              whiteSpace="pre-wrap"
-                            >
-                              {av().template}
-                            </Box>
-                          </Box>
-                        )}
-                      </Show>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        colorPalette="gray"
-                        onClick={() =>
-                          onAddVersion(
-                            p.id,
-                            p.activeVersion?.template || "",
-                            p.activeVersion?.system || undefined
-                          )
-                        }
-                      >
-                        Duplicate Active → New Version (Activate)
-                      </Button>
-                      <Show when={p.activeVersion}>
-                        {(av) => (
-                          <Box
-                            as="details"
-                            onToggle={(e) => {
-                              if ((e.target as HTMLDetailsElement).open)
-                                initEditFor(p);
-                            }}
-                          >
-                            <Text as="summary" fontSize="xs" cursor="pointer">
-                              Edit → New Version
-                            </Text>
-                            <Stack gap="2" mt="2">
-                              <Text fontSize="xs" color="fg.muted">
-                                Template
-                              </Text>
-                              <Textarea
-                                size="sm"
-                                h="32"
-                                fontFamily="mono"
-                                value={
-                                  byId[p.id]?.editTemplate ||
-                                  av().template ||
-                                  ""
-                                }
-                                onInput={(e) =>
-                                  setById(
-                                    p.id,
-                                    "editTemplate",
-                                    (e.target as HTMLTextAreaElement).value
-                                  )
-                                }
-                              />
-                              <Text fontSize="xs" color="fg.muted">
-                                System (optional)
-                              </Text>
-                              <Textarea
-                                size="sm"
-                                h="20"
-                                fontFamily="mono"
-                                value={
-                                  byId[p.id]?.editSystem || av().system || ""
-                                }
-                                onInput={(e) =>
-                                  setById(
-                                    p.id,
-                                    "editSystem",
-                                    (e.target as HTMLTextAreaElement).value
-                                  )
-                                }
-                              />
-                              <HStack gap="2">
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  colorPalette="gray"
-                                  disabled={!!byId[p.id]?.busyEdit}
-                                  onClick={() => onSaveNewVersion(p, false)}
-                                >
-                                  Save as New Version
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  colorPalette="gray"
-                                  disabled={!!byId[p.id]?.busyEdit}
-                                  onClick={() => onSaveNewVersion(p, true)}
-                                >
-                                  Save & Activate
-                                </Button>
-                              </HStack>
-                            </Stack>
-                          </Box>
-                        )}
-                      </Show>
-                      <Box as="details">
-                        <Text as="summary" fontSize="xs" cursor="pointer">
-                          Revise with Feedback (LLM)
-                        </Text>
-                        <Stack gap="2" mt="2">
-                          <Textarea
-                            size="sm"
-                            h="16"
-                            placeholder="What should be improved?"
-                            value={byId[p.id]?.feedback || ""}
-                            onInput={(e) =>
-                              setById(
-                                p.id,
-                                "feedback",
-                                (e.target as HTMLTextAreaElement).value
-                              )
-                            }
-                          />
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            colorPalette="gray"
-                            disabled={!!byId[p.id]?.busyRevise}
-                            onClick={() => onRevise(p)}
-                          >
-                            Generate Suggestion
-                          </Button>
-                          <Show
-                            when={
-                              (byId[p.id]?.suggestedTemplate || "").length > 0
-                            }
-                          >
-                            <Stack gap="2" mt="2">
-                              <Text fontSize="xs" color="fg.muted">
-                                Suggested Template
-                              </Text>
-                              <Textarea
-                                size="sm"
-                                h="28"
-                                fontFamily="mono"
-                                value={byId[p.id]?.suggestedTemplate || ""}
-                                onInput={(e) =>
-                                  setById(
-                                    p.id,
-                                    "suggestedTemplate",
-                                    (e.target as HTMLTextAreaElement).value
-                                  )
-                                }
-                              />
-                              <Text fontSize="xs" color="fg.muted">
-                                Suggested System (optional)
-                              </Text>
-                              <Textarea
-                                size="sm"
-                                h="20"
-                                fontFamily="mono"
-                                value={byId[p.id]?.suggestedSystem || ""}
-                                onInput={(e) =>
-                                  setById(
-                                    p.id,
-                                    "suggestedSystem",
-                                    (e.target as HTMLTextAreaElement).value
-                                  )
-                                }
-                              />
-                              <HStack gap="2">
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  colorPalette="gray"
-                                  disabled={!!byId[p.id]?.busyRevise}
-                                  onClick={() => onAcceptSuggestion(p, false)}
-                                >
-                                  Accept → New Version
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  colorPalette="gray"
-                                  disabled={!!byId[p.id]?.busyRevise}
-                                  onClick={() => onAcceptSuggestion(p, true)}
-                                >
-                                  Accept → New Version & Activate
-                                </Button>
-                              </HStack>
-                            </Stack>
-                          </Show>
-                        </Stack>
-                      </Box>
-                    </Stack>
-                  )}
-                </For>
-              </Stack>
-            </Suspense>
-          </Stack>
-        </Grid>
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <HStack justifyContent="flex-end" w="full">
+      <Grid
+        gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}
+        gap="4"
+      >
+        <Stack gap="2">
+          <Text fontSize="xs" fontWeight="medium">
+            Create new
+          </Text>
+          <DesignerLaunch
+            onCreated={() => {
+              void refetch();
+            }}
+          />
+          <Input
+            size="sm"
+            placeholder="task (unique)"
+            value={newTask()}
+            onInput={(e) => setNewTask((e.target as HTMLInputElement).value)}
+          />
+          <Input
+            size="sm"
+            placeholder="description"
+            value={newDesc()}
+            onInput={(e) => setNewDesc((e.target as HTMLInputElement).value)}
+          />
+          <Textarea
+            size="sm"
+            h="28"
+            fontFamily="mono"
+            placeholder="template (Mustache)"
+            value={newTemplate()}
+            onInput={(e) =>
+              setNewTemplate((e.target as HTMLTextAreaElement).value)
+            }
+          />
+          <Show when={selectionMissing()}>
+            <Stack gap="1" mt="1">
+              <Text fontSize="xs" color="amber.11">
+                Template is missing {"{{selection}}"}. It will be appended
+                automatically when running, but you can insert it now.
+              </Text>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
                 colorPalette="gray"
-                onClick={close}
+                onClick={onInsertSelectionVar}
               >
-                Close
+                Insert {"{{selection}}"}
               </Button>
-            </HStack>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Dialog.Root>
+            </Stack>
+          </Show>
+          <Textarea
+            size="sm"
+            h="16"
+            fontFamily="mono"
+            placeholder="system (optional)"
+            value={newSystem()}
+            onInput={(e) =>
+              setNewSystem((e.target as HTMLTextAreaElement).value)
+            }
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            colorPalette="gray"
+            onClick={onCreatePrompt}
+          >
+            Create & Activate
+          </Button>
+        </Stack>
+        <Stack gap="2">
+          <Text fontSize="xs" fontWeight="medium">
+            Existing
+          </Text>
+          <Suspense
+            fallback={
+              <Text fontSize="xs" color="fg.muted">
+                Loading…
+              </Text>
+            }
+          >
+            <Stack gap="3">
+              <For each={prompts() || []}>
+                {(p) => (
+                  <Stack
+                    gap="2"
+                    borderWidth="1px"
+                    borderColor="gray.outline.border"
+                    borderRadius="l2"
+                    p="2"
+                  >
+                    <Text fontSize="xs" fontWeight="semibold">
+                      {p.task}
+                    </Text>
+                    <Text fontSize="xs" color="fg.muted">
+                      {p.description}
+                    </Text>
+                    <HStack gap="1">
+                      <Text fontSize="xs" color="fg.muted">
+                        Active version:
+                      </Text>
+                      <Text fontSize="xs" fontFamily="mono">
+                        {p.activeVersion?.id || "—"}
+                      </Text>
+                    </HStack>
+                    <Show when={p.activeVersion}>
+                      {(av) => (
+                        <Box as="details">
+                          <Text as="summary" fontSize="xs" cursor="pointer">
+                            Active template
+                          </Text>
+                          <Box
+                            as="pre"
+                            mt="2"
+                            borderWidth="1px"
+                            borderColor="gray.outline.border"
+                            borderRadius="l2"
+                            bg="gray.surface.bg"
+                            p="2"
+                            fontSize="xs"
+                            whiteSpace="pre-wrap"
+                          >
+                            {av().template}
+                          </Box>
+                        </Box>
+                      )}
+                    </Show>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorPalette="gray"
+                      onClick={() =>
+                        onAddVersion(
+                          p.id,
+                          p.activeVersion?.template || "",
+                          p.activeVersion?.system || undefined
+                        )
+                      }
+                    >
+                      Duplicate Active → New Version (Activate)
+                    </Button>
+                    <Show when={p.activeVersion}>
+                      {(av) => (
+                        <Box
+                          as="details"
+                          onToggle={(e) => {
+                            if ((e.target as HTMLDetailsElement).open)
+                              initEditFor(p);
+                          }}
+                        >
+                          <Text as="summary" fontSize="xs" cursor="pointer">
+                            Edit → New Version
+                          </Text>
+                          <Stack gap="2" mt="2">
+                            <Text fontSize="xs" color="fg.muted">
+                              Template
+                            </Text>
+                            <Textarea
+                              size="sm"
+                              h="32"
+                              fontFamily="mono"
+                              value={
+                                byId[p.id]?.editTemplate || av().template || ""
+                              }
+                              onInput={(e) =>
+                                setById(
+                                  p.id,
+                                  "editTemplate",
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                            <Text fontSize="xs" color="fg.muted">
+                              System (optional)
+                            </Text>
+                            <Textarea
+                              size="sm"
+                              h="20"
+                              fontFamily="mono"
+                              value={
+                                byId[p.id]?.editSystem || av().system || ""
+                              }
+                              onInput={(e) =>
+                                setById(
+                                  p.id,
+                                  "editSystem",
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                            <HStack gap="2">
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                colorPalette="gray"
+                                disabled={!!byId[p.id]?.busyEdit}
+                                onClick={() => onSaveNewVersion(p, false)}
+                              >
+                                Save as New Version
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                colorPalette="gray"
+                                disabled={!!byId[p.id]?.busyEdit}
+                                onClick={() => onSaveNewVersion(p, true)}
+                              >
+                                Save & Activate
+                              </Button>
+                            </HStack>
+                          </Stack>
+                        </Box>
+                      )}
+                    </Show>
+                    <Box as="details">
+                      <Text as="summary" fontSize="xs" cursor="pointer">
+                        Revise with Feedback (LLM)
+                      </Text>
+                      <Stack gap="2" mt="2">
+                        <Textarea
+                          size="sm"
+                          h="16"
+                          placeholder="What should be improved?"
+                          value={byId[p.id]?.feedback || ""}
+                          onInput={(e) =>
+                            setById(
+                              p.id,
+                              "feedback",
+                              (e.target as HTMLTextAreaElement).value
+                            )
+                          }
+                        />
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorPalette="gray"
+                          disabled={!!byId[p.id]?.busyRevise}
+                          onClick={() => onRevise(p)}
+                        >
+                          Generate Suggestion
+                        </Button>
+                        <Show
+                          when={
+                            (byId[p.id]?.suggestedTemplate || "").length > 0
+                          }
+                        >
+                          <Stack gap="2" mt="2">
+                            <Text fontSize="xs" color="fg.muted">
+                              Suggested Template
+                            </Text>
+                            <Textarea
+                              size="sm"
+                              h="28"
+                              fontFamily="mono"
+                              value={byId[p.id]?.suggestedTemplate || ""}
+                              onInput={(e) =>
+                                setById(
+                                  p.id,
+                                  "suggestedTemplate",
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                            <Text fontSize="xs" color="fg.muted">
+                              Suggested System (optional)
+                            </Text>
+                            <Textarea
+                              size="sm"
+                              h="20"
+                              fontFamily="mono"
+                              value={byId[p.id]?.suggestedSystem || ""}
+                              onInput={(e) =>
+                                setById(
+                                  p.id,
+                                  "suggestedSystem",
+                                  (e.target as HTMLTextAreaElement).value
+                                )
+                              }
+                            />
+                            <HStack gap="2">
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                colorPalette="gray"
+                                disabled={!!byId[p.id]?.busyRevise}
+                                onClick={() => onAcceptSuggestion(p, false)}
+                              >
+                                Accept → New Version
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                colorPalette="gray"
+                                disabled={!!byId[p.id]?.busyRevise}
+                                onClick={() => onAcceptSuggestion(p, true)}
+                              >
+                                Accept → New Version & Activate
+                              </Button>
+                            </HStack>
+                          </Stack>
+                        </Show>
+                      </Stack>
+                    </Box>
+                  </Stack>
+                )}
+              </For>
+            </Stack>
+          </Suspense>
+        </Stack>
+      </Grid>
+    </SimpleDialog>
   );
 
   return { open: openModal, view };

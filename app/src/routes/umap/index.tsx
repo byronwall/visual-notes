@@ -6,13 +6,13 @@ import {
   createResource,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
-import * as Select from "~/components/ui/select";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 
@@ -55,7 +55,7 @@ async function triggerUmapRun(
   return (await res.json()) as { runId: string };
 }
 
-type SelectItem = { label: string; value: string };
+type SelectItem = SimpleSelectItem;
 
 const DIMS_ITEMS: SelectItem[] = [
   { label: "2D", value: "2" },
@@ -175,16 +175,11 @@ const UmapIndex: VoidComponent = () => {
     }));
   };
 
-  const embeddingSelectCollection = () => {
-    const items: SelectItem[] =
-      embeddingRuns()?.map((r) => ({
-        label: r.id.slice(0, 10),
-        value: r.id,
-      })) ?? [];
-    return Select.createListCollection<SelectItem>({ items });
-  };
-
-  const embeddingSelectItems = () => embeddingSelectCollection().items;
+  const embeddingSelectItems = () =>
+    embeddingRuns()?.map((r) => ({
+      label: r.id.slice(0, 10),
+      value: r.id,
+    })) ?? [];
 
   const handleCreateRun = async () => {
     if (!state.selectedEmbedding) return;
@@ -251,76 +246,25 @@ const UmapIndex: VoidComponent = () => {
 
             <Suspense fallback={null}>
               <HStack gap="3" flexWrap="wrap">
-                <Select.Root<SelectItem>
-                  collection={embeddingSelectCollection()}
-                  value={state.selectedEmbedding ? [state.selectedEmbedding] : []}
-                  onValueChange={(details) =>
-                    setState("selectedEmbedding", details.value[0] ?? "")
-                  }
-                  positioning={{ sameWidth: true }}
-                >
-                  <Select.Control>
-                    <Select.Trigger minW="260px">
-                      <Select.ValueText placeholder="Select embedding run…" />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Portal>
-                    <Select.Positioner>
-                      <Select.Content>
-                        <Select.List>
-                          <For each={embeddingSelectItems()}>
-                            {(item) => (
-                              <Select.Item item={item}>
-                                <Select.ItemText>{item.label}</Select.ItemText>
-                                <Select.ItemIndicator />
-                              </Select.Item>
-                            )}
-                          </For>
-                        </Select.List>
-                      </Select.Content>
-                    </Select.Positioner>
-                  </Portal>
-                  <Select.HiddenSelect />
-                </Select.Root>
+                <SimpleSelect
+                  items={embeddingSelectItems()}
+                  value={state.selectedEmbedding ?? ""}
+                  onChange={(value) => setState("selectedEmbedding", value)}
+                  sameWidth
+                  minW="260px"
+                  placeholder="Select embedding run…"
+                />
 
-                <Select.Root<SelectItem>
-                  collection={Select.createListCollection<SelectItem>({
-                    items: DIMS_ITEMS,
-                  })}
-                  value={[String(state.dims)]}
-                  onValueChange={(details) =>
-                    setState(
-                      "dims",
-                      details.value[0] === "3" ? 3 : (2 as 2 | 3)
-                    )
+                <SimpleSelect
+                  items={DIMS_ITEMS}
+                  value={String(state.dims)}
+                  onChange={(value) =>
+                    setState("dims", value === "3" ? 3 : (2 as 2 | 3))
                   }
-                  positioning={{ sameWidth: true }}
-                >
-                  <Select.Control>
-                    <Select.Trigger w="96px">
-                      <Select.ValueText placeholder="Dims" />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                  </Select.Control>
-                  <Portal>
-                    <Select.Positioner>
-                      <Select.Content>
-                        <Select.List>
-                          <For each={DIMS_ITEMS}>
-                            {(item) => (
-                              <Select.Item item={item}>
-                                <Select.ItemText>{item.label}</Select.ItemText>
-                                <Select.ItemIndicator />
-                              </Select.Item>
-                            )}
-                          </For>
-                        </Select.List>
-                      </Select.Content>
-                    </Select.Positioner>
-                  </Portal>
-                  <Select.HiddenSelect />
-                </Select.Root>
+                  sameWidth
+                  minW="96px"
+                  placeholder="Dims"
+                />
 
                 <Button
                   size="sm"
@@ -380,7 +324,9 @@ const UmapIndex: VoidComponent = () => {
                     max="200"
                     value={state.nNeighbors}
                     placeholder="15"
-                    onInput={(e) => setState("nNeighbors", e.currentTarget.value)}
+                    onInput={(e) =>
+                      setState("nNeighbors", e.currentTarget.value)
+                    }
                   />
                 </Stack>
 
@@ -403,42 +349,13 @@ const UmapIndex: VoidComponent = () => {
                   <Box as="label" fontSize="xs" color="fg.muted">
                     metric
                   </Box>
-                  <Select.Root<SelectItem>
-                    collection={Select.createListCollection<SelectItem>({
-                      items: METRIC_ITEMS,
-                    })}
-                    value={[state.metric]}
-                    onValueChange={(details) =>
-                      setState("metric", parseMetric(details.value[0] ?? ""))
-                    }
-                    positioning={{ sameWidth: true }}
-                  >
-                    <Select.Control>
-                      <Select.Trigger>
-                        <Select.ValueText placeholder="metric" />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                    </Select.Control>
-                    <Portal>
-                      <Select.Positioner>
-                        <Select.Content>
-                          <Select.List>
-                            <For each={METRIC_ITEMS}>
-                              {(item) => (
-                                <Select.Item item={item}>
-                                  <Select.ItemText>
-                                    {item.label}
-                                  </Select.ItemText>
-                                  <Select.ItemIndicator />
-                                </Select.Item>
-                              )}
-                            </For>
-                          </Select.List>
-                        </Select.Content>
-                      </Select.Positioner>
-                    </Portal>
-                    <Select.HiddenSelect />
-                  </Select.Root>
+                  <SimpleSelect
+                    items={METRIC_ITEMS}
+                    value={state.metric}
+                    onChange={(value) => setState("metric", parseMetric(value))}
+                    sameWidth
+                    placeholder="metric"
+                  />
                 </Stack>
 
                 <Stack gap="1">
@@ -551,42 +468,13 @@ const UmapIndex: VoidComponent = () => {
                   <Box as="label" fontSize="xs" color="fg.muted">
                     init
                   </Box>
-                  <Select.Root<SelectItem>
-                    collection={Select.createListCollection<SelectItem>({
-                      items: INIT_ITEMS,
-                    })}
-                    value={[state.init]}
-                    onValueChange={(details) =>
-                      setState("init", parseInit(details.value[0] ?? ""))
-                    }
-                    positioning={{ sameWidth: true }}
-                  >
-                    <Select.Control>
-                      <Select.Trigger>
-                        <Select.ValueText placeholder="init" />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                    </Select.Control>
-                    <Portal>
-                      <Select.Positioner>
-                        <Select.Content>
-                          <Select.List>
-                            <For each={INIT_ITEMS}>
-                              {(item) => (
-                                <Select.Item item={item}>
-                                  <Select.ItemText>
-                                    {item.label}
-                                  </Select.ItemText>
-                                  <Select.ItemIndicator />
-                                </Select.Item>
-                              )}
-                            </For>
-                          </Select.List>
-                        </Select.Content>
-                      </Select.Positioner>
-                    </Portal>
-                    <Select.HiddenSelect />
-                  </Select.Root>
+                  <SimpleSelect
+                    items={INIT_ITEMS}
+                    value={state.init}
+                    onChange={(value) => setState("init", parseInit(value))}
+                    sameWidth
+                    placeholder="init"
+                  />
                 </Stack>
               </Grid>
             </Stack>

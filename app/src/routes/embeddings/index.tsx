@@ -6,7 +6,6 @@ import {
   createResource,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
 import { Button } from "~/components/ui/button";
 import * as Checkbox from "~/components/ui/checkbox";
@@ -14,7 +13,8 @@ import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
-import * as Select from "~/components/ui/select";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 
@@ -51,7 +51,7 @@ async function triggerEmbeddingRun(
 type CodeblockPolicy = "stub" | "keep-first-20-lines" | "full";
 type ChunkerMode = "structure" | "sliding";
 
-type SelectItem = { label: string; value: string };
+type SelectItem = SimpleSelectItem;
 
 const CODEBLOCK_ITEMS: SelectItem[] = [
   { label: "stub", value: "stub" },
@@ -147,7 +147,11 @@ const EmbeddingsIndex: VoidComponent = () => {
                 onInput={(e) => setState("model", e.currentTarget.value)}
                 placeholder="Model (optional)"
               />
-              <Button size="sm" variant="outline" onClick={handleToggleAdvanced}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleToggleAdvanced}
+              >
                 <Show when={state.showAdvanced} fallback={"Advanced"}>
                   Hide Advanced
                 </Show>
@@ -165,12 +169,7 @@ const EmbeddingsIndex: VoidComponent = () => {
           </Flex>
 
           <Show when={state.showAdvanced}>
-            <Box
-              borderWidth="1px"
-              borderColor="border"
-              borderRadius="l2"
-              p="3"
-            >
+            <Box borderWidth="1px" borderColor="border" borderRadius="l2" p="3">
               <Grid
                 gridTemplateColumns={{
                   base: "1fr",
@@ -262,45 +261,15 @@ const EmbeddingsIndex: VoidComponent = () => {
                     <Text textStyle="sm" fontWeight="medium">
                       Code blocks
                     </Text>
-                    <Select.Root<SelectItem>
-                      collection={Select.createListCollection<SelectItem>({
-                        items: CODEBLOCK_ITEMS,
-                      })}
-                      value={[state.codeblockPolicy]}
-                      onValueChange={(details) =>
-                        setState(
-                          "codeblockPolicy",
-                          parseCodeblockPolicy(details.value[0] ?? "")
-                        )
+                    <SimpleSelect
+                      items={CODEBLOCK_ITEMS}
+                      value={state.codeblockPolicy}
+                      onChange={(value) =>
+                        setState("codeblockPolicy", parseCodeblockPolicy(value))
                       }
-                      positioning={{ sameWidth: true }}
-                    >
-                      <Select.Control>
-                        <Select.Trigger>
-                          <Select.ValueText placeholder="Pick policy" />
-                          <Select.Indicator />
-                        </Select.Trigger>
-                      </Select.Control>
-                      <Portal>
-                        <Select.Positioner>
-                          <Select.Content>
-                            <Select.List>
-                              <For each={CODEBLOCK_ITEMS}>
-                                {(item) => (
-                                  <Select.Item item={item}>
-                                    <Select.ItemText>
-                                      {item.label}
-                                    </Select.ItemText>
-                                    <Select.ItemIndicator />
-                                  </Select.Item>
-                                )}
-                              </For>
-                            </Select.List>
-                          </Select.Content>
-                        </Select.Positioner>
-                      </Portal>
-                      <Select.HiddenSelect />
-                    </Select.Root>
+                      sameWidth
+                      placeholder="Pick policy"
+                    />
                   </Stack>
                 </Stack>
 
@@ -313,49 +282,22 @@ const EmbeddingsIndex: VoidComponent = () => {
                     <Text textStyle="sm" fontWeight="medium">
                       Mode
                     </Text>
-                    <Select.Root<SelectItem>
-                      collection={Select.createListCollection<SelectItem>({
-                        items: CHUNKER_MODE_ITEMS,
-                      })}
-                      value={[state.chunkerMode]}
-                      onValueChange={(details) =>
-                        setState(
-                          "chunkerMode",
-                          parseChunkerMode(details.value[0] ?? "")
-                        )
+                    <SimpleSelect
+                      items={CHUNKER_MODE_ITEMS}
+                      value={state.chunkerMode}
+                      onChange={(value) =>
+                        setState("chunkerMode", parseChunkerMode(value))
                       }
-                      positioning={{ sameWidth: true }}
-                    >
-                      <Select.Control>
-                        <Select.Trigger>
-                          <Select.ValueText placeholder="Pick mode" />
-                          <Select.Indicator />
-                        </Select.Trigger>
-                      </Select.Control>
-                      <Portal>
-                        <Select.Positioner>
-                          <Select.Content>
-                            <Select.List>
-                              <For each={CHUNKER_MODE_ITEMS}>
-                                {(item) => (
-                                  <Select.Item item={item}>
-                                    <Select.ItemText>
-                                      {item.label}
-                                    </Select.ItemText>
-                                    <Select.ItemIndicator />
-                                  </Select.Item>
-                                )}
-                              </For>
-                            </Select.List>
-                          </Select.Content>
-                        </Select.Positioner>
-                      </Portal>
-                      <Select.HiddenSelect />
-                    </Select.Root>
+                      sameWidth
+                      placeholder="Pick mode"
+                    />
                   </Stack>
 
                   <Show when={state.chunkerMode === "structure"}>
-                    <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="3">
+                    <Grid
+                      gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                      gap="3"
+                    >
                       <Stack gap="1">
                         <Text textStyle="sm" fontWeight="medium">
                           Min tokens
@@ -393,7 +335,10 @@ const EmbeddingsIndex: VoidComponent = () => {
                   </Show>
 
                   <Show when={state.chunkerMode === "sliding"}>
-                    <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="3">
+                    <Grid
+                      gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                      gap="3"
+                    >
                       <Stack gap="1">
                         <Text textStyle="sm" fontWeight="medium">
                           Window size

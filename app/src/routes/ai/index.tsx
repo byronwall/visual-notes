@@ -9,17 +9,24 @@ import {
   createSignal,
 } from "solid-js";
 import { A } from "@solidjs/router";
-import { Portal } from "solid-js/web";
 import { apiFetch } from "~/utils/base-url";
 import { Badge } from "~/components/ui/badge";
 import * as Card from "~/components/ui/card";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
-import * as Select from "~/components/ui/select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { Spinner } from "~/components/ui/spinner";
 import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
-import { Box, Container, Flex, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import {
+  Box,
+  Container,
+  Flex,
+  Grid,
+  HStack,
+  Spacer,
+  Stack,
+} from "styled-system/jsx";
 import { styled } from "styled-system/jsx";
 import { link } from "styled-system/recipes";
 
@@ -161,12 +168,8 @@ const AiDashboard: VoidComponent = () => {
     setQuery(target.value);
   };
 
-  const statusCollection = Select.createListCollection<StatusOption>({
-    items: STATUS_OPTIONS,
-  });
-
-  const handleStatusValueChange = (details: Select.ValueChangeDetails<StatusOption>) => {
-    setStatusFilter(parseStatusFilter(details.value?.[0] || "ALL"));
+  const handleStatusValueChange = (value: string) => {
+    setStatusFilter(parseStatusFilter(value || "ALL"));
   };
 
   const LoadingInline = (props: { label?: string | undefined }) => {
@@ -192,7 +195,12 @@ const AiDashboard: VoidComponent = () => {
             <Text as="div" textStyle="xs" color="fg.muted">
               {props.label}
             </Text>
-            <Text as="div" textStyle="2xl" fontWeight="semibold" color="fg.default">
+            <Text
+              as="div"
+              textStyle="2xl"
+              fontWeight="semibold"
+              color="fg.default"
+            >
               {props.value}
             </Text>
             <Show when={props.footer}>{(f) => <Box>{f()}</Box>}</Show>
@@ -206,12 +214,7 @@ const AiDashboard: VoidComponent = () => {
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Container py="6" px="4" maxW="1200px">
         <Stack gap="6">
-          <Flex
-            align="center"
-            justify="space-between"
-            gap="3"
-            flexWrap="wrap"
-          >
+          <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
             <Heading as="h1" fontSize="2xl">
               AI Dashboard
             </Heading>
@@ -226,36 +229,13 @@ const AiDashboard: VoidComponent = () => {
                 autocorrect="off"
                 spellcheck={false}
               />
-              <Select.Root
-                collection={statusCollection}
-                value={[statusFilter()]}
-                onValueChange={handleStatusValueChange}
+              <SimpleSelect
+                items={STATUS_OPTIONS}
+                value={statusFilter()}
+                onChange={handleStatusValueChange}
                 size="sm"
-              >
-                <Select.Control>
-                  <Select.Trigger>
-                    <Select.ValueText placeholder="Status" />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                </Select.Control>
-                <Portal>
-                  <Select.Positioner>
-                    <Select.Content>
-                      <Select.List>
-                        <For each={statusCollection.items}>
-                          {(opt) => (
-                            <Select.Item item={opt}>
-                              <Select.ItemText>{opt.label}</Select.ItemText>
-                              <Select.ItemIndicator />
-                            </Select.Item>
-                          )}
-                        </For>
-                      </Select.List>
-                    </Select.Content>
-                  </Select.Positioner>
-                </Portal>
-                <Select.HiddenSelect />
-              </Select.Root>
+                placeholder="Status"
+              />
             </HStack>
           </Flex>
 
@@ -282,7 +262,11 @@ const AiDashboard: VoidComponent = () => {
                   >
                     {(m) => (
                       <HStack gap="1.5">
-                        <Text as="span" fontWeight="semibold" color="fg.default">
+                        <Text
+                          as="span"
+                          fontWeight="semibold"
+                          color="fg.default"
+                        >
                           {m()}
                         </Text>
                         <Text as="span" textStyle="sm" color="fg.muted">
@@ -344,7 +328,11 @@ const AiDashboard: VoidComponent = () => {
                                       {p.task}
                                     </RouterLink>
                                   </Text>
-                                  <Text as="div" textStyle="xs" color="fg.muted">
+                                  <Text
+                                    as="div"
+                                    textStyle="xs"
+                                    color="fg.muted"
+                                  >
                                     {p.description || "—"}
                                   </Text>
                                 </Stack>
@@ -393,7 +381,11 @@ const AiDashboard: VoidComponent = () => {
                                   <Text as="div" color="fg.default">
                                     {p.defaultModel}
                                   </Text>
-                                  <Text as="div" textStyle="xs" color="fg.muted">
+                                  <Text
+                                    as="div"
+                                    textStyle="xs"
+                                    color="fg.muted"
+                                  >
                                     temp {p.defaultTemp}
                                     <Show
                                       when={typeof p.defaultTopP === "number"}
@@ -592,7 +584,11 @@ const AiDashboard: VoidComponent = () => {
                                       </Box>
                                       <Show when={r.error}>
                                         {(e) => (
-                                          <Text as="div" textStyle="xs" color="error">
+                                          <Text
+                                            as="div"
+                                            textStyle="xs"
+                                            color="error"
+                                          >
                                             Error: {e()}
                                           </Text>
                                         )}
@@ -618,5 +614,3 @@ const AiDashboard: VoidComponent = () => {
 };
 
 export default AiDashboard;
-
-
