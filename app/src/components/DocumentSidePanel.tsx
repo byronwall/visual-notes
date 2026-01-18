@@ -43,21 +43,13 @@ export const DocumentSidePanel: VoidComponent<{
   );
   const [editing, setEditing] = createSignal(false);
 
-  const handleOpenEdit = () => {
-    try {
-      console.log("[SidePanel] open title edit for doc:", props.docId);
-    } catch {}
-    setEditing(true);
-  };
   const handleCancelEdit = () => setEditing(false);
   const handleConfirmEdit = async (newTitle: string) => {
     if (!props.docId) return;
     try {
       await updateDocTitle(props.docId, newTitle);
       await refetch();
-      try {
-        console.log("[SidePanel] title updated → refetched");
-      } catch {}
+      console.log("[SidePanel] title updated → refetched");
     } catch (e) {
       alert((e as Error).message || "Failed to update title");
     } finally {
@@ -131,15 +123,30 @@ export const DocumentSidePanel: VoidComponent<{
                         >
                           {d().title}
                         </Text>
-                        <IconButton
-                          variant="plain"
-                          size="xs"
-                          aria-label="Edit title"
-                          onClick={handleOpenEdit}
-                          title="Edit title"
-                        >
-                          ✏️
-                        </IconButton>
+                        <TitleEditPopover
+                          open={editing()}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              console.log(
+                                "[DocumentSidePanel] open title edit"
+                              );
+                            }
+                            setEditing(open);
+                          }}
+                          initialTitle={d().title}
+                          onConfirm={handleConfirmEdit}
+                          onCancel={handleCancelEdit}
+                          trigger={
+                            <IconButton
+                              variant="plain"
+                              size="xs"
+                              aria-label="Edit title"
+                              title="Edit title"
+                            >
+                              ✏️
+                            </IconButton>
+                          }
+                        />
                         <Show when={showSync()}>
                           <Button
                             size="xs"
@@ -149,13 +156,6 @@ export const DocumentSidePanel: VoidComponent<{
                           >
                             Match H1
                           </Button>
-                        </Show>
-                        <Show when={editing()}>
-                          <TitleEditPopover
-                            initialTitle={d().title}
-                            onConfirm={handleConfirmEdit}
-                            onCancel={handleCancelEdit}
-                          />
                         </Show>
                       </>
                     );

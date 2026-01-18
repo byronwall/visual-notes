@@ -75,6 +75,12 @@ code and refactors unless explicitly told otherwise.
   - Prefer 1 component per file, unless multiple components are tiny and
     tightly related.
 
+### UI composition (ParkUI simplification)
+- Prefer `SimpleDialog` and `SimpleSelect` wrappers over raw ParkUI/Ark UI
+  composition when they meet the need.
+- Use `skipPortal` on these wrappers when you must render inline; default is
+  to render in a Portal.
+
 ### File structure and organization
 - One component per file by default.
   - Exception: a small set of private helper components (icons, tiny

@@ -10,12 +10,13 @@ import {
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
 import { fetchPathSuggestions, updateDocPath } from "~/services/docs.service";
-import { Popover } from "./Popover";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { Box, HStack } from "styled-system/jsx";
 import { CircleXIcon } from "lucide-solid";
+import { Portal } from "solid-js/web";
+import * as Popover from "~/components/ui/popover";
 
 // TODO: this needs a `disabled` prop to disable the editor
 
@@ -27,7 +28,6 @@ export const PathEditor: VoidComponent<{
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isOpen, setIsOpen] = createSignal(false);
-  let anchorRef: HTMLDivElement | undefined;
 
   // Load all existing paths with counts once
   const [pathCounts] = createResource(fetchPathSuggestions);
@@ -218,87 +218,166 @@ export const PathEditor: VoidComponent<{
 
   return (
     <HStack gap="0.5rem" align="center">
-      <Box flex="1" minW="0" ref={(el) => (anchorRef = el)}>
-        <Box
-          borderWidth="1px"
-          borderColor="gray.outline.border"
-          borderRadius="l2"
-          px="0.5rem"
-          py="0.25rem"
-          fontSize="sm"
-          display="flex"
-          flexWrap="wrap"
-          alignItems="center"
-          gap="0.25rem"
-          minH="32px"
-          cursor="text"
-          onClick={() => {
-            const input = document.getElementById(
-              "path-editor-input"
-            ) as HTMLInputElement | null;
-            if (input) {
-              input.focus();
-              setIsOpen(true);
-            }
-          }}
-        >
-          <Show when={committed().length === 0 && current().length === 0}>
-            <Text fontSize="sm" color="black.a6">
-              e.g. work.projects.alpha
-            </Text>
-          </Show>
-          <For each={committed()}>
-            {(seg, i) => (
-              <>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  borderRadius="full"
-                  title={seg}
-                  onClick={truncateTo(i())}
-                >
-                  <Text
-                    as="span"
-                    fontWeight="semibold"
-                    maxW="10rem"
-                    overflow="hidden"
-                    textOverflow="ellipsis"
-                    whiteSpace="nowrap"
-                  >
-                    {seg}
-                  </Text>
-                </Button>
-                <Text fontSize="sm" color="black.a6">
-                  .
-                </Text>
-              </>
-            )}
-          </For>
-
-          <Box
-            as="input"
-            id="path-editor-input"
-            flex="1"
-            minW="8ch"
-            outline="none"
-            fontSize="sm"
-            bg="transparent"
-            border="none"
-            value={current()}
-            onInput={(e) =>
-              setCurrent((e.currentTarget as HTMLInputElement).value)
-            }
-            onFocus={handleFocusInput}
-            onKeyDown={(e) => {
-              handleKeyDown(e as unknown as KeyboardEvent);
-              handleBackspace(e as unknown as KeyboardEvent);
+      <Box flex="1" minW="0">
+        <Suspense fallback={null}>
+          <Popover.Root
+            open={isOpen()}
+            onOpenChange={(details) => {
+              if (!details.open) handleOutsideClose();
             }}
-            autocomplete="off"
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck={false}
-          />
-        </Box>
+            positioning={{ placement: "bottom-start", offset: 8 }}
+          >
+            <Popover.Anchor>
+              <Box
+                borderWidth="1px"
+                borderColor="gray.outline.border"
+                borderRadius="l2"
+                px="0.5rem"
+                py="0.25rem"
+                fontSize="sm"
+                display="flex"
+                flexWrap="wrap"
+                alignItems="center"
+                gap="0.25rem"
+                minH="32px"
+                cursor="text"
+                onClick={() => {
+                  const input = document.getElementById(
+                    "path-editor-input"
+                  ) as HTMLInputElement | null;
+                  if (input) {
+                    input.focus();
+                    setIsOpen(true);
+                  }
+                }}
+              >
+                <Show when={committed().length === 0 && current().length === 0}>
+                  <Text fontSize="sm" color="black.a6">
+                    e.g. work.projects.alpha
+                  </Text>
+                </Show>
+                <For each={committed()}>
+                  {(seg, i) => (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        borderRadius="full"
+                        title={seg}
+                        onClick={truncateTo(i())}
+                      >
+                        <Text
+                          as="span"
+                          fontWeight="semibold"
+                          maxW="10rem"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                        >
+                          {seg}
+                        </Text>
+                      </Button>
+                      <Text fontSize="sm" color="black.a6">
+                        .
+                      </Text>
+                    </>
+                  )}
+                </For>
+
+                <Box
+                  as="input"
+                  id="path-editor-input"
+                  flex="1"
+                  minW="8ch"
+                  outline="none"
+                  fontSize="sm"
+                  bg="transparent"
+                  border="none"
+                  value={current()}
+                  onInput={(e) =>
+                    setCurrent((e.currentTarget as HTMLInputElement).value)
+                  }
+                  onFocus={handleFocusInput}
+                  onKeyDown={(e) => {
+                    handleKeyDown(e as unknown as KeyboardEvent);
+                    handleBackspace(e as unknown as KeyboardEvent);
+                  }}
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck={false}
+                />
+              </Box>
+            </Popover.Anchor>
+
+            <Portal>
+              <Popover.Positioner>
+                <Popover.Content
+                  style={{
+                    width: "90%",
+                    maxWidth: "28rem",
+                    padding: "0.75rem",
+                  }}
+                >
+                  <Text fontSize="xs" color="black.a7" mb="0.5rem">
+                    <Show
+                      when={committed().length === 0}
+                      fallback={
+                        <Text as="span">
+                          Next after{" "}
+                          <Text as="span" fontWeight="semibold">
+                            {committed().join(".")}
+                          </Text>
+                        </Text>
+                      }
+                    >
+                      <Text as="span">Popular top-level segments</Text>
+                    </Show>
+                  </Text>
+                  <Text fontSize="xs" color="black.a7" mb="0.5rem">
+                    Hit{" "}
+                    <Text as="span" fontFamily="mono">
+                      .
+                    </Text>{" "}
+                    to nest
+                  </Text>
+                  <HStack gap="0.5rem" flexWrap="wrap">
+                    <For each={nextSegmentSuggestions()}>
+                      {(s) => (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          borderRadius="full"
+                          onClick={() => handleSelectSuggestion(s.seg)}
+                          title={`${s.seg} (${s.count})`}
+                        >
+                          <Text
+                            as="span"
+                            fontWeight="semibold"
+                            maxW="12rem"
+                            overflow="hidden"
+                            textOverflow="ellipsis"
+                            whiteSpace="nowrap"
+                          >
+                            {s.seg}
+                          </Text>
+                          <Text as="span" color="black.a7">
+                            {s.count}
+                          </Text>
+                        </Button>
+                      )}
+                    </For>
+                  </HStack>
+                  <Show when={nextSegmentSuggestions().length === 0}>
+                    <Text fontSize="xs" color="black.a7" mt="0.5rem">
+                      No suggestions
+                    </Text>
+                  </Show>
+                </Popover.Content>
+              </Popover.Positioner>
+            </Portal>
+          </Popover.Root>
+        </Suspense>
 
         <Show when={error()}>
           {(e) => (
@@ -307,67 +386,6 @@ export const PathEditor: VoidComponent<{
             </Text>
           )}
         </Show>
-
-        <Suspense fallback={null}>
-          <Popover
-            open={isOpen()}
-            onClose={handleOutsideClose}
-            anchorEl={anchorRef}
-            placement="bottom-start"
-            style={{ width: "90%", maxWidth: "28rem", padding: "0.75rem" }}
-          >
-            <Text fontSize="xs" color="black.a7" mb="0.5rem">
-              <Show
-                when={committed().length === 0}
-                fallback={
-                  <Text as="span">
-                    Next after{" "}
-                    <Text as="span" fontWeight="semibold">
-                      {committed().join(".")}
-                    </Text>
-                  </Text>
-                }
-              >
-                <Text as="span">Popular top-level segments</Text>
-              </Show>
-            </Text>
-            <Text fontSize="xs" color="black.a7" mb="0.5rem">
-              Hit <Text as="span" fontFamily="mono">.</Text> to nest
-            </Text>
-            <HStack gap="0.5rem" flexWrap="wrap">
-              <For each={nextSegmentSuggestions()}>
-                {(s) => (
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    borderRadius="full"
-                    onClick={() => handleSelectSuggestion(s.seg)}
-                    title={`${s.seg} (${s.count})`}
-                  >
-                    <Text
-                      as="span"
-                      fontWeight="semibold"
-                      maxW="12rem"
-                      overflow="hidden"
-                      textOverflow="ellipsis"
-                      whiteSpace="nowrap"
-                    >
-                      {s.seg}
-                    </Text>
-                    <Text as="span" color="black.a7">
-                      {s.count}
-                    </Text>
-                  </Button>
-                )}
-              </For>
-            </HStack>
-            <Show when={nextSegmentSuggestions().length === 0}>
-              <Text fontSize="xs" color="black.a7" mt="0.5rem">
-                No suggestions
-              </Text>
-            </Show>
-          </Popover>
-        </Suspense>
       </Box>
 
       <Show when={props.docId}>

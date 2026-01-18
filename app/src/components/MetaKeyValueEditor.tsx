@@ -10,11 +10,12 @@ import type { VoidComponent } from "solid-js";
 import { updateDocMeta, type MetaRecord } from "~/services/docs.service";
 import { MetaKeySuggestions } from "./MetaKeySuggestions";
 import { MetaValueSuggestions } from "./MetaValueSuggestions";
-import { Popover } from "./Popover";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
+import { Portal } from "solid-js/web";
+import * as Popover from "~/components/ui/popover";
 
 type Entry = { key: string; value: string };
 
@@ -33,7 +34,6 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [editingIndex, setEditingIndex] = createSignal<number | null>(null);
   const [editKey, setEditKey] = createSignal("");
   const [editValue, setEditValue] = createSignal("");
-  let anchorRef: HTMLDivElement | undefined;
 
   // suggestions now handled in child components
 
@@ -127,68 +127,151 @@ export const MetaKeyValueEditor: VoidComponent<{
 
   return (
     <Box>
-      <HStack gap="2" flexWrap="wrap" ref={(el) => (anchorRef = el)}>
-        <For each={entries()}>
-          {(e, i) => (
-            <Box
-              as="button"
-              type="button"
-              display="inline-flex"
-              alignItems="center"
-              gap="2"
-              borderWidth="1px"
-              borderColor="gray.outline.border"
-              bg="bg.default"
-              px="2"
-              py="1"
-              fontSize="xs"
+      <Popover.Root
+        open={isOpen()}
+        onOpenChange={(details) => {
+          if (!details.open) closePopup();
+        }}
+        positioning={{ placement: "bottom-start", offset: 8 }}
+      >
+        <Popover.Anchor>
+          <HStack gap="2" flexWrap="wrap">
+            <For each={entries()}>
+              {(e, i) => (
+                <Box
+                  as="button"
+                  type="button"
+                  display="inline-flex"
+                  alignItems="center"
+                  gap="2"
+                  borderWidth="1px"
+                  borderColor="gray.outline.border"
+                  bg="bg.default"
+                  px="2"
+                  py="1"
+                  fontSize="xs"
+                  borderRadius="full"
+                  _hover={{ bg: "gray.surface.bg.hover" }}
+                  title={`${e.key}: ${e.value}`}
+                  onClick={makeOpenForEdit(i())}
+                >
+                  <Text as="span" fontSize="xs" fontWeight="medium" truncate>
+                    {e.key}
+                  </Text>
+                  <Text as="span" fontSize="xs" color="fg.muted">
+                    :
+                  </Text>
+                  <Text as="span" fontSize="xs" truncate>
+                    {e.value}
+                  </Text>
+                  <Box
+                    as="span"
+                    display="inline-flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    borderWidth="1px"
+                    borderColor="gray.outline.border"
+                    borderRadius="full"
+                    px="1"
+                    ml="1"
+                    fontSize="xs"
+                    color="fg.muted"
+                    _hover={{ bg: "gray.surface.bg.hover" }}
+                    onClick={makeRemoveHandler(i())}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </Box>
+                </Box>
+              )}
+            </For>
+            <Button
+              size="xs"
+              variant="outline"
+              colorPalette="gray"
               borderRadius="full"
-              _hover={{ bg: "gray.surface.bg.hover" }}
-              title={`${e.key}: ${e.value}`}
-              onClick={makeOpenForEdit(i())}
+              onClick={openForNew}
+              aria-label="Add metadata"
+              title="Add metadata"
             >
-              <Text as="span" fontSize="xs" fontWeight="medium" truncate>
-                {e.key}
-              </Text>
-              <Text as="span" fontSize="xs" color="fg.muted">
-                :
-              </Text>
-              <Text as="span" fontSize="xs" truncate>
-                {e.value}
-              </Text>
-              <Box
-                as="span"
-                display="inline-flex"
-                alignItems="center"
-                justifyContent="center"
-                borderWidth="1px"
-                borderColor="gray.outline.border"
-                borderRadius="full"
-                px="1"
-                ml="1"
-                fontSize="xs"
-                color="fg.muted"
-                _hover={{ bg: "gray.surface.bg.hover" }}
-                onClick={makeRemoveHandler(i())}
-                aria-label="Remove"
-              >
-                ×
-              </Box>
-            </Box>
-          )}
-        </For>
-        <Button
-          size="xs"
-          variant="outline"
-          colorPalette="gray"
-          borderRadius="full"
-          onClick={openForNew}
-          aria-label="Add metadata"
-          title="Add metadata"
-        >
-          + Add
-        </Button>
-      </HStack>
+              + Add
+            </Button>
+          </HStack>
+        </Popover.Anchor>
+
+        <Portal>
+          <Popover.Positioner>
+            <Popover.Content style={{ width: "90%", "max-width": "28rem" }}>
+              <Stack gap="2.5" p="4">
+                <Text fontSize="sm" fontWeight="medium">
+                  Edit metadata
+                </Text>
+                <HStack gap="2" alignItems="flex-start">
+                  <Stack gap="1">
+                    <Input
+                      size="sm"
+                      w="10rem"
+                      placeholder="key"
+                      value={editKey()}
+                      onInput={(evt) => setEditKey(evt.currentTarget.value)}
+                      onKeyDown={handleFieldKeyDown}
+                      autocomplete="off"
+                      autocapitalize="none"
+                      autocorrect="off"
+                      spellcheck={false}
+                    />
+                    <Suspense fallback={null}>
+                      <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
+                    </Suspense>
+                  </Stack>
+                  <Text fontSize="sm" color="fg.muted" mt="2">
+                    :
+                  </Text>
+                  <Stack gap="1" flex="1">
+                    <Input
+                      size="sm"
+                      placeholder="value"
+                      value={editValue()}
+                      onInput={(evt) => setEditValue(evt.currentTarget.value)}
+                      onKeyDown={handleFieldKeyDown}
+                      autocomplete="off"
+                      autocapitalize="none"
+                      autocorrect="off"
+                      spellcheck={false}
+                    />
+                    <Suspense fallback={null}>
+                      <MetaValueSuggestions
+                        keyName={editKey()}
+                        onSelect={(v) => setEditValue(v)}
+                      />
+                    </Suspense>
+                  </Stack>
+                </HStack>
+
+                <HStack gap="2" justifyContent="flex-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    colorPalette="gray"
+                    onClick={closePopup}
+                    type="button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    type="button"
+                    disabled={busy()}
+                  >
+                    {busy() ? "Saving…" : "Save"}
+                  </Button>
+                </HStack>
+              </Stack>
+            </Popover.Content>
+          </Popover.Positioner>
+        </Portal>
+      </Popover.Root>
 
       <Show when={error()}>
         {(e) => (
@@ -197,81 +280,6 @@ export const MetaKeyValueEditor: VoidComponent<{
           </Text>
         )}
       </Show>
-
-      <Popover
-        open={isOpen()}
-        onClose={closePopup}
-        anchorEl={anchorRef}
-        placement="bottom-start"
-        style={{ width: "90%", "max-width": "28rem" }}
-      >
-        <Stack gap="2.5" p="4">
-          <Text fontSize="sm" fontWeight="medium">
-            Edit metadata
-          </Text>
-          <HStack gap="2" alignItems="flex-start">
-            <Stack gap="1">
-              <Input
-                size="sm"
-                w="10rem"
-                placeholder="key"
-                value={editKey()}
-                onInput={(evt) => setEditKey(evt.currentTarget.value)}
-                onKeyDown={handleFieldKeyDown}
-                autocomplete="off"
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck={false}
-              />
-              <Suspense fallback={null}>
-                <MetaKeySuggestions onSelect={(k) => setEditKey(k)} />
-              </Suspense>
-            </Stack>
-            <Text fontSize="sm" color="fg.muted" mt="2">
-              :
-            </Text>
-            <Stack gap="1" flex="1">
-              <Input
-                size="sm"
-                placeholder="value"
-                value={editValue()}
-                onInput={(evt) => setEditValue(evt.currentTarget.value)}
-                onKeyDown={handleFieldKeyDown}
-                autocomplete="off"
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck={false}
-              />
-              <Suspense fallback={null}>
-                <MetaValueSuggestions
-                  keyName={editKey()}
-                  onSelect={(v) => setEditValue(v)}
-                />
-              </Suspense>
-            </Stack>
-          </HStack>
-
-          <HStack gap="2" justifyContent="flex-end">
-            <Button
-              size="sm"
-              variant="outline"
-              colorPalette="gray"
-              onClick={closePopup}
-              type="button"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              type="button"
-              disabled={busy()}
-            >
-              {busy() ? "Saving…" : "Save"}
-            </Button>
-          </HStack>
-        </Stack>
-      </Popover>
     </Box>
   );
 };

@@ -41,20 +41,12 @@ const DocumentViewer: VoidComponent<{
     }) || "";
   const showSync = () => firstH1() && firstH1() !== title();
 
-  const handleOpenEdit = () => {
-    try {
-      console.log("[DocumentViewer] open title edit for doc:", props.doc.id);
-    } catch {}
-    setEditing(true);
-  };
   const handleCancelEdit = () => setEditing(false);
   const handleConfirmEdit = async (newTitle: string) => {
     try {
       await updateDocTitle(props.doc.id, newTitle);
       setTitle(newTitle);
-      try {
-        console.log("[DocumentViewer] title updated:", newTitle);
-      } catch {}
+      console.log("[DocumentViewer] title updated:", newTitle);
     } catch (e) {
       alert((e as Error).message || "Failed to update title");
     } finally {
@@ -87,16 +79,32 @@ const DocumentViewer: VoidComponent<{
           <Heading as="h2" fontSize="xl" m="0">
             {title()}
           </Heading>
-          <IconButton
-            type="button"
-            size="xs"
-            variant="plain"
-            colorPalette="gray"
-            aria-label="Edit title"
-            onClick={handleOpenEdit}
-          >
-            <PencilIcon size={16} />
-          </IconButton>
+          <TitleEditPopover
+            open={editing()}
+            onOpenChange={(open) => {
+              if (open) {
+                console.log(
+                  "[DocumentViewer] open title edit for doc:",
+                  props.doc.id
+                );
+              }
+              setEditing(open);
+            }}
+            initialTitle={title()}
+            onConfirm={handleConfirmEdit}
+            onCancel={handleCancelEdit}
+            trigger={
+              <IconButton
+                type="button"
+                size="xs"
+                variant="plain"
+                colorPalette="gray"
+                aria-label="Edit title"
+              >
+                <PencilIcon size={16} />
+              </IconButton>
+            }
+          />
           <Show when={showSync()}>
             <Button
               type="button"
@@ -108,13 +116,6 @@ const DocumentViewer: VoidComponent<{
             >
               Match H1
             </Button>
-          </Show>
-          <Show when={editing()}>
-            <TitleEditPopover
-              initialTitle={title()}
-              onConfirm={handleConfirmEdit}
-              onCancel={handleCancelEdit}
-            />
           </Show>
         </HStack>
         <Spacer />
