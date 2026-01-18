@@ -11,6 +11,7 @@ export type NewNoteModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   skipPortal?: boolean;
+  initialTitle?: string;
 };
 
 export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
@@ -44,6 +45,9 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
 
   const canSave = () => editorApi()?.canSave() ?? false;
   const isSaving = () => editorApi()?.saving() ?? false;
+
+  const initialTitle = () => props.initialTitle?.trim() || "Untitled note";
+  const initialMarkdown = () => `# ${initialTitle()}\n\nStart writing...`;
 
   return (
     <SimpleDialog
@@ -81,8 +85,8 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
           <DocumentEditor
             showTopBar={false}
             showAiPromptsBar={false}
-            initialTitle="Untitled note"
-            initialMarkdown={"# Untitled\n\nStart writing..."}
+            initialTitle={initialTitle()}
+            initialMarkdown={initialMarkdown()}
             onCreated={handleCreated}
             apiRef={(api) => setEditorApi(api)}
           />

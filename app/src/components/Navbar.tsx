@@ -5,6 +5,7 @@ import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
+import { CommandKMenu } from "~/components/CommandKMenu";
 import { NewNoteModal } from "~/components/NewNoteModal";
 import { Button } from "~/components/ui/button";
 import { Image } from "~/components/ui/image";
@@ -38,6 +39,10 @@ export const Navbar: VoidComponent = () => {
   } = useLLMSidebar();
 
   const [newNoteOpen, setNewNoteOpen] = createSignal(false);
+  const [newNoteInitialTitle, setNewNoteInitialTitle] = createSignal<
+    string | undefined
+  >(undefined);
+  const [cmdkOpen, setCmdkOpen] = createSignal(false);
 
   const pathname = () => location.pathname;
 
@@ -88,6 +93,17 @@ export const Navbar: VoidComponent = () => {
 
   const handleNewNoteOpen = () => {
     console.log("[navbar] open new note modal");
+    setNewNoteInitialTitle(undefined);
+    setNewNoteOpen(true);
+  };
+
+  const handleNewNoteOpenChange = (open: boolean) => {
+    setNewNoteOpen(open);
+    if (open === false) setNewNoteInitialTitle(undefined);
+  };
+
+  const handleCreateNewNoteFromCmdk = (initialTitle: string | undefined) => {
+    setNewNoteInitialTitle(initialTitle);
     setNewNoteOpen(true);
   };
 
@@ -101,8 +117,19 @@ export const Navbar: VoidComponent = () => {
         openLLM(e.threadId);
       }
     });
+    const onWindowKeyDown = (ev: KeyboardEvent) => {
+      if (ev.repeat) return;
+      if (ev.metaKey !== true) return;
+      if (ev.altKey || ev.ctrlKey) return;
+      if (ev.key.toLowerCase() !== "k") return;
+      ev.preventDefault();
+      console.log("[navbar] cmd+k");
+      setCmdkOpen((prev) => !prev);
+    };
+    window.addEventListener("keydown", onWindowKeyDown);
     return () => {
       off();
+      window.removeEventListener("keydown", onWindowKeyDown);
     };
   });
 
@@ -208,7 +235,16 @@ export const Navbar: VoidComponent = () => {
         </HStack>
       </Container>
       {llmSidebarView}
-      <NewNoteModal open={newNoteOpen()} onOpenChange={setNewNoteOpen} />
+      <CommandKMenu
+        open={cmdkOpen()}
+        onOpenChange={setCmdkOpen}
+        onCreateNewNote={handleCreateNewNoteFromCmdk}
+      />
+      <NewNoteModal
+        open={newNoteOpen()}
+        onOpenChange={handleNewNoteOpenChange}
+        initialTitle={newNoteInitialTitle()}
+      />
     </Box>
   );
 };
