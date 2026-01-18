@@ -1,16 +1,29 @@
 import {
   type VoidComponent,
+  ErrorBoundary,
   For,
   Show,
   Suspense,
+  createEffect,
   createResource,
   createSignal,
-  createEffect,
   onMount,
 } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 import { ModelSelect } from "~/components/ModelSelect";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import * as Card from "~/components/ui/card";
+import { Heading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
+import { Spinner } from "~/components/ui/spinner";
+import * as Table from "~/components/ui/table";
+import { Text } from "~/components/ui/text";
+import { Textarea } from "~/components/ui/textarea";
+import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
+import { styled } from "styled-system/jsx";
+import { link } from "styled-system/recipes";
 
 type PromptVersion = {
   id: string;
@@ -56,7 +69,34 @@ async function fetchRunsForPrompt(promptId: string) {
   return json.items || [];
 }
 
-const PromptDetailPage: VoidComponent = () => {
+const formatOverrides = (version: {
+  modelOverride?: string | null;
+  tempOverride?: number | null;
+  topPOverride?: number | null;
+}) => {
+  if (
+    !version.modelOverride &&
+    typeof version.tempOverride !== "number" &&
+    typeof version.topPOverride !== "number"
+  ) {
+    return "none";
+  }
+  return `${version.modelOverride || "model—"} · temp ${
+    typeof version.tempOverride === "number" ? version.tempOverride : "—"
+  } · top_p ${
+    typeof version.topPOverride === "number" ? version.topPOverride : "—"
+  }`;
+};
+
+const statusColorPalette = (status: "SUCCESS" | "ERROR" | "PARTIAL") => {
+  if (status === "SUCCESS") return "green";
+  if (status === "ERROR") return "red";
+  return "gray";
+};
+
+const RouterLink = styled(A, link);
+
+export const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
   const [prompt, { refetch: refetchPrompt }] = createResource(
     () => params.id,
@@ -211,393 +251,647 @@ const PromptDetailPage: VoidComponent = () => {
     }
   };
 
+  const handleCreateDraft = () => {
+    handleCreateVersion(false);
+  };
+
+  const handleCreateAndActivate = () => {
+    handleCreateVersion(true);
+  };
+
+  const handleAcceptDraft = () => {
+    handleAcceptSuggestion(false);
+  };
+
+  const handleAcceptAndActivate = () => {
+    handleAcceptSuggestion(true);
+  };
+
+  const handleDefTempInput = (e: Event) => {
+    const target = e.currentTarget as HTMLInputElement;
+    setDefTemp(target.value || "");
+  };
+
+  const handleDefTopPInput = (e: Event) => {
+    const target = e.currentTarget as HTMLInputElement;
+    setDefTopP(target.value || "");
+  };
+
+  const handleEditTemplateInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setEditTemplate(target.value);
+  };
+
+  const handleEditSystemInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setEditSystem(target.value);
+  };
+
+  const handleFeedbackInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setFeedback(target.value);
+  };
+
+  const handleSuggestedTemplateInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setSuggestedTemplate(target.value);
+  };
+
+  const handleSuggestedSystemInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setSuggestedSystem(target.value);
+  };
+
+  const LoadingInline = (props: { label?: string | undefined }) => {
+    return (
+      <HStack gap="2">
+        <Spinner />
+        <Text textStyle="sm" color="fg.muted">
+          {props.label || "Loading…"}
+        </Text>
+      </HStack>
+    );
+  };
+
   return (
-    <main class="min-h-screen bg-white">
-      <div class="container mx-auto p-4 space-y-6">
-        <div>
-          <A href="/ai" class="text-sm text-blue-600 hover:underline">
+    <Box as="main" minH="screen" bg="bg.default">
+      <Container py="6" px={{ base: "4", md: "6" }}>
+        <Stack gap="6">
+          <RouterLink href="/ai" textStyle="sm">
             ← Back to AI Dashboard
-          </A>
-        </div>
+          </RouterLink>
 
-        <Suspense fallback={<div class="text-sm text-gray-500">Loading…</div>}>
-          <Show when={prompt()}>
-            {(p) => (
-              <div class="space-y-6">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h1 class="text-2xl font-bold">{p().task}</h1>
-                    <div class="text-sm text-gray-600">
-                      {p().description || "—"}
-                    </div>
-                  </div>
-                </div>
+          <ErrorBoundary
+            fallback={(err, reset) => (
+              <Card.Root>
+                <Card.Header>
+                  <Heading as="h2" fontSize="lg">
+                    Prompt unavailable
+                  </Heading>
+                </Card.Header>
+                <Card.Body>
+                  <Stack gap="3">
+                    <Text textStyle="sm" color="fg.muted">
+                      Something went wrong while loading this prompt.
+                    </Text>
+                    <Text textStyle="xs" color="fg.muted">
+                      {err?.message || "Unknown error"}
+                    </Text>
+                    <Button size="sm" variant="outline" onClick={reset}>
+                      Try again
+                    </Button>
+                  </Stack>
+                </Card.Body>
+              </Card.Root>
+            )}
+          >
+            <Suspense fallback={<LoadingInline label="Loading prompt…" />}>
+              <Show when={prompt()}>
+                {(p) => (
+                  <Stack gap="6">
+                    <Flex
+                      align="center"
+                      justify="space-between"
+                      gap="3"
+                      flexWrap="wrap"
+                    >
+                      <Stack gap="1">
+                        <Heading as="h1" fontSize="2xl">
+                          {p().task}
+                        </Heading>
+                        <Text textStyle="sm" color="fg.muted">
+                          {p().description || "—"}
+                        </Text>
+                      </Stack>
+                    </Flex>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div class="lg:col-span-2 space-y-4">
-                    <div class="rounded border p-3">
-                      <div class="text-xs text-gray-600">Defaults</div>
-                      <div class="text-sm">
-                        Model:{" "}
-                        <span class="font-medium">{p().defaultModel}</span>
-                      </div>
-                      <div class="text-sm">
-                        Temp: <span class="font-medium">{p().defaultTemp}</span>{" "}
-                        <Show when={typeof p().defaultTopP === "number"}>
-                          {(v) => (
-                            <span>
-                              · TopP:{" "}
-                              <span class="font-medium">{String(v())}</span>
-                            </span>
-                          )}
-                        </Show>
-                      </div>
-                    </div>
+                    <Grid
+                      gap="6"
+                      gridTemplateColumns={{
+                        base: "1fr",
+                        lg: "minmax(0, 2fr) minmax(0, 1fr)",
+                      }}
+                    >
+                      <Stack gap="4">
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Defaults
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Stack gap="2">
+                              <Text as="div" textStyle="sm" color="fg.default">
+                                <Text as="span" color="fg.muted">
+                                  Model:
+                                </Text>
+                                <Text as="span" fontWeight="medium">
+                                  {p().defaultModel}
+                                </Text>
+                              </Text>
+                              <Text as="div" textStyle="sm" color="fg.default">
+                                <Text as="span" color="fg.muted">
+                                  Temp:
+                                </Text>
+                                <Text as="span" fontWeight="medium">
+                                  {p().defaultTemp}
+                                </Text>
+                                <Show when={typeof p().defaultTopP === "number"}>
+                                  {(v) => (
+                                    <Text as="span" color="fg.muted">
+                                      {" "}· TopP:{" "}
+                                      <Text as="span" fontWeight="medium">
+                                        {String(v())}
+                                      </Text>
+                                    </Text>
+                                  )}
+                                </Show>
+                              </Text>
+                            </Stack>
+                          </Card.Body>
+                        </Card.Root>
 
-                    <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">Defaults</div>
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div>
-                          <div class="text-xs text-gray-600 mb-1">Model</div>
-                          <ModelSelect
-                            value={defModel()}
-                            onChange={(v) => setDefModel(v)}
-                          />
-                        </div>
-                        <div>
-                          <div class="text-xs text-gray-600 mb-1">Temp</div>
-                          <input
-                            class="border rounded px-2 py-1 text-sm w-full"
-                            value={defTemp()}
-                            onInput={(e) =>
-                              setDefTemp(
-                                (e.target as HTMLInputElement).value || ""
-                              )
-                            }
-                          />
-                        </div>
-                        <div>
-                          <div class="text-xs text-gray-600 mb-1">TopP</div>
-                          <input
-                            class="border rounded px-2 py-1 text-sm w-full"
-                            placeholder="optional"
-                            value={defTopP()}
-                            onInput={(e) =>
-                              setDefTopP(
-                                (e.target as HTMLInputElement).value || ""
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div class="mt-2">
-                        <button
-                          class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                          disabled={savingDefaults()}
-                          onClick={saveDefaults}
-                        >
-                          Save Defaults
-                        </button>
-                      </div>
-                    </div>
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Edit defaults
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Grid
+                              gap="3"
+                              gridTemplateColumns={{
+                                base: "1fr",
+                                md: "repeat(3, minmax(0, 1fr))",
+                              }}
+                            >
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Model
+                                </Text>
+                                <ModelSelect
+                                  value={defModel()}
+                                  onChange={(v) => setDefModel(v)}
+                                />
+                              </Stack>
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Temp
+                                </Text>
+                                <Input
+                                  value={defTemp()}
+                                  onInput={handleDefTempInput}
+                                  size="sm"
+                                />
+                              </Stack>
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  TopP
+                                </Text>
+                                <Input
+                                  value={defTopP()}
+                                  onInput={handleDefTopPInput}
+                                  placeholder="optional"
+                                  size="sm"
+                                />
+                              </Stack>
+                            </Grid>
+                            <HStack mt="3" gap="2" flexWrap="wrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                loading={savingDefaults()}
+                                onClick={saveDefaults}
+                              >
+                                Save Defaults
+                              </Button>
+                            </HStack>
+                          </Card.Body>
+                        </Card.Root>
 
-                    <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">
-                        Active Version
-                      </div>
-                      <Show
-                        when={p().activeVersion}
-                        fallback={<div class="text-sm">—</div>}
-                      >
-                        {(av) => (
-                          <div class="space-y-2">
-                            <div class="text-sm font-mono">{av().id}</div>
-                            <div class="text-xs text-gray-600">
-                              Overrides:{" "}
-                              {av().modelOverride ||
-                              av().tempOverride ||
-                              av().topPOverride
-                                ? `${av().modelOverride || "model—"} · temp ${
-                                    typeof av().tempOverride === "number"
-                                      ? av().tempOverride
-                                      : "—"
-                                  } · top_p ${
-                                    typeof av().topPOverride === "number"
-                                      ? av().topPOverride
-                                      : "—"
-                                  }`
-                                : "none"}
-                            </div>
-                            <details>
-                              <summary class="text-xs cursor-pointer">
-                                Template
-                              </summary>
-                              <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-                                {av().template}
-                              </pre>
-                            </details>
-                            <Show when={av().system}>
-                              {(s) => (
-                                <details>
-                                  <summary class="text-xs cursor-pointer">
-                                    System
-                                  </summary>
-                                  <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-                                    {s()}
-                                  </pre>
-                                </details>
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Active Version
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Show
+                              when={p().activeVersion}
+                              fallback={
+                                <Text textStyle="sm" color="fg.muted">
+                                  —
+                                </Text>
+                              }
+                            >
+                              {(av) => (
+                                <Stack gap="2">
+                                  <Text
+                                    fontFamily="mono"
+                                    textStyle="sm"
+                                    color="fg.default"
+                                  >
+                                    {av().id}
+                                  </Text>
+                                  <Text textStyle="xs" color="fg.muted">
+                                    Overrides: {formatOverrides(av())}
+                                  </Text>
+                                  <Box as="details">
+                                    <Box
+                                      as="summary"
+                                      cursor="pointer"
+                                      textStyle="xs"
+                                      color="fg.muted"
+                                    >
+                                      Template
+                                    </Box>
+                                    <Box
+                                      as="pre"
+                                      mt="2"
+                                      p="2"
+                                      borderWidth="1px"
+                                      borderColor="border"
+                                      borderRadius="l2"
+                                      bg="gray.surface.bg.hover"
+                                      fontSize="xs"
+                                      fontFamily="mono"
+                                      whiteSpace="pre-wrap"
+                                    >
+                                      {av().template}
+                                    </Box>
+                                  </Box>
+                                  <Show when={av().system}>
+                                    {(s) => (
+                                      <Box as="details">
+                                        <Box
+                                          as="summary"
+                                          cursor="pointer"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          System
+                                        </Box>
+                                        <Box
+                                          as="pre"
+                                          mt="2"
+                                          p="2"
+                                          borderWidth="1px"
+                                          borderColor="border"
+                                          borderRadius="l2"
+                                          bg="gray.surface.bg.hover"
+                                          fontSize="xs"
+                                          fontFamily="mono"
+                                          whiteSpace="pre-wrap"
+                                        >
+                                          {s()}
+                                        </Box>
+                                      </Box>
+                                    )}
+                                  </Show>
+                                </Stack>
                               )}
                             </Show>
-                          </div>
-                        )}
-                      </Show>
-                    </div>
+                          </Card.Body>
+                        </Card.Root>
 
-                    <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">
-                        Edit → New Version
-                      </div>
-                      <Show when={p().activeVersion}>
-                        <>
-                          <div class="space-y-2">
-                            <div class="text-xs text-gray-600">
-                              Template (Mustache)
-                            </div>
-                            <textarea
-                              class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
-                              value={editTemplate()}
-                              onInput={(e) =>
-                                setEditTemplate(
-                                  (e.target as HTMLTextAreaElement).value
-                                )
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Edit → New Version
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Show
+                              when={p().activeVersion}
+                              fallback={
+                                <Text textStyle="sm" color="fg.muted">
+                                  No active version yet.
+                                </Text>
                               }
-                            />
-                          </div>
-                          <div class="mt-2 space-y-2">
-                            <div class="text-xs text-gray-600">
-                              System (optional)
-                            </div>
-                            <textarea
-                              class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
-                              value={editSystem()}
-                              onInput={(e) =>
-                                setEditSystem(
-                                  (e.target as HTMLTextAreaElement).value
-                                )
-                              }
-                            />
-                          </div>
-                          <div class="mt-3 flex gap-2">
-                            <button
-                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                              disabled={editBusy()}
-                              onClick={() => handleCreateVersion(false)}
                             >
-                              Save as New Version
-                            </button>
-                            <button
-                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                              disabled={editBusy()}
-                              onClick={() => handleCreateVersion(true)}
-                            >
-                              Save & Activate
-                            </button>
-                          </div>
-                        </>
-                      </Show>
-                    </div>
+                              <Stack gap="3">
+                                <Stack gap="1">
+                                  <Text textStyle="xs" color="fg.muted">
+                                    Template (Mustache)
+                                  </Text>
+                                  <Textarea
+                                    value={editTemplate()}
+                                    onInput={handleEditTemplateInput}
+                                    size="sm"
+                                    minH="10rem"
+                                    fontFamily="mono"
+                                  />
+                                </Stack>
+                                <Stack gap="1">
+                                  <Text textStyle="xs" color="fg.muted">
+                                    System (optional)
+                                  </Text>
+                                  <Textarea
+                                    value={editSystem()}
+                                    onInput={handleEditSystemInput}
+                                    size="sm"
+                                    minH="6rem"
+                                    fontFamily="mono"
+                                  />
+                                </Stack>
+                                <HStack gap="2" flexWrap="wrap">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    loading={editBusy()}
+                                    onClick={handleCreateDraft}
+                                  >
+                                    Save as New Version
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="solid"
+                                    colorPalette="green"
+                                    loading={editBusy()}
+                                    onClick={handleCreateAndActivate}
+                                  >
+                                    Save & Activate
+                                  </Button>
+                                </HStack>
+                              </Stack>
+                            </Show>
+                          </Card.Body>
+                        </Card.Root>
 
-                    <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">
-                        Revise with Feedback (LLM)
-                      </div>
-                      <div class="space-y-2">
-                        <div class="text-xs text-gray-600">Feedback</div>
-                        <textarea
-                          class="border rounded px-2 py-1 text-xs w-full h-24"
-                          placeholder="Describe what to improve. E.g., 'Make headings consistent, add examples, keep {{selection}} intact.'"
-                          value={feedback()}
-                          onInput={(e) =>
-                            setFeedback((e.target as HTMLTextAreaElement).value)
-                          }
-                        />
-                        <div>
-                          <button
-                            class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                            disabled={reviseBusy()}
-                            onClick={handleRevise}
-                          >
-                            Generate Suggestion
-                          </button>
-                        </div>
-                      </div>
-                      <Show when={suggestedTemplate().length > 0}>
-                        <div class="mt-3 space-y-2">
-                          <div class="text-xs text-gray-600">
-                            Suggested Template
-                          </div>
-                          <textarea
-                            class="border rounded px-2 py-1 text-xs w-full h-40 font-mono"
-                            value={suggestedTemplate()}
-                            onInput={(e) =>
-                              setSuggestedTemplate(
-                                (e.target as HTMLTextAreaElement).value
-                              )
-                            }
-                          />
-                          <div class="text-xs text-gray-600">
-                            Suggested System (optional)
-                          </div>
-                          <textarea
-                            class="border rounded px-2 py-1 text-xs w-full h-24 font-mono"
-                            value={suggestedSystem()}
-                            onInput={(e) =>
-                              setSuggestedSystem(
-                                (e.target as HTMLTextAreaElement).value
-                              )
-                            }
-                          />
-                          <div class="flex gap-2">
-                            <button
-                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                              disabled={reviseBusy()}
-                              onClick={() => handleAcceptSuggestion(false)}
-                            >
-                              Accept → New Version
-                            </button>
-                            <button
-                              class="rounded px-3 py-1.5 border text-xs hover:bg-gray-50 disabled:opacity-60"
-                              disabled={reviseBusy()}
-                              onClick={() => handleAcceptSuggestion(true)}
-                            >
-                              Accept → New Version & Activate
-                            </button>
-                          </div>
-                        </div>
-                      </Show>
-                    </div>
-
-                    <div class="rounded border p-3">
-                      <div class="text-sm font-semibold mb-2">All Versions</div>
-                      <div class="space-y-3">
-                        <For each={p().versions}>
-                          {(v) => (
-                            <div class="border rounded p-2">
-                              <div class="flex items-center justify-between">
-                                <div>
-                                  <div class="text-sm font-mono">{v.id}</div>
-                                  <div class="text-[12px] text-gray-600">
-                                    {new Date(v.createdAt).toLocaleString()}
-                                  </div>
-                                </div>
-                              </div>
-                              <div class="mt-2 text-xs text-gray-700">
-                                Overrides:{" "}
-                                {v.modelOverride ||
-                                v.tempOverride ||
-                                v.topPOverride
-                                  ? `${v.modelOverride || "model—"} · temp ${
-                                      typeof v.tempOverride === "number"
-                                        ? v.tempOverride
-                                        : "—"
-                                    } · top_p ${
-                                      typeof v.topPOverride === "number"
-                                        ? v.topPOverride
-                                        : "—"
-                                    }`
-                                  : "none"}
-                              </div>
-                              <details class="mt-2">
-                                <summary class="text-xs cursor-pointer">
-                                  Template
-                                </summary>
-                                <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-                                  {v.template}
-                                </pre>
-                              </details>
-                              <Show when={v.system}>
-                                {(s) => (
-                                  <details class="mt-2">
-                                    <summary class="text-xs cursor-pointer">
-                                      System
-                                    </summary>
-                                    <pre class="text-[11px] bg-gray-50 border rounded p-2 whitespace-pre-wrap">
-                                      {s()}
-                                    </pre>
-                                  </details>
-                                )}
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Revise with Feedback (LLM)
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Stack gap="3">
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Feedback
+                                </Text>
+                                <Textarea
+                                  value={feedback()}
+                                  onInput={handleFeedbackInput}
+                                  placeholder="Describe what to improve. E.g., 'Make headings consistent, add examples, keep {{selection}} intact.'"
+                                  size="sm"
+                                  minH="6rem"
+                                />
+                              </Stack>
+                              <HStack gap="2" flexWrap="wrap">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  loading={reviseBusy()}
+                                  onClick={handleRevise}
+                                >
+                                  Generate Suggestion
+                                </Button>
+                              </HStack>
+                              <Show when={suggestedTemplate().length > 0}>
+                                <Stack gap="3">
+                                  <Stack gap="1">
+                                    <Text textStyle="xs" color="fg.muted">
+                                      Suggested Template
+                                    </Text>
+                                    <Textarea
+                                      value={suggestedTemplate()}
+                                      onInput={handleSuggestedTemplateInput}
+                                      size="sm"
+                                      minH="10rem"
+                                      fontFamily="mono"
+                                    />
+                                  </Stack>
+                                  <Stack gap="1">
+                                    <Text textStyle="xs" color="fg.muted">
+                                      Suggested System (optional)
+                                    </Text>
+                                    <Textarea
+                                      value={suggestedSystem()}
+                                      onInput={handleSuggestedSystemInput}
+                                      size="sm"
+                                      minH="6rem"
+                                      fontFamily="mono"
+                                    />
+                                  </Stack>
+                                  <HStack gap="2" flexWrap="wrap">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      loading={reviseBusy()}
+                                      onClick={handleAcceptDraft}
+                                    >
+                                      Accept → New Version
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="solid"
+                                      colorPalette="green"
+                                      loading={reviseBusy()}
+                                      onClick={handleAcceptAndActivate}
+                                    >
+                                      Accept → New Version & Activate
+                                    </Button>
+                                  </HStack>
+                                </Stack>
                               </Show>
-                            </div>
-                          )}
-                        </For>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="space-y-3">
-                    <div class="text-sm font-semibold">Recent Runs</div>
-                    <Suspense
-                      fallback={
-                        <div class="text-sm text-gray-500">Loading runs…</div>
-                      }
-                    >
-                      <div class="overflow-hidden rounded border border-gray-200">
-                        <table class="w-full text-sm">
-                          <thead class="bg-gray-50">
-                            <tr>
-                              <th class="text-left p-2">Run</th>
-                              <th class="text-left p-2">Model</th>
-                              <th class="text-left p-2">Status</th>
-                              <th class="text-left p-2">Created</th>
-                              <th class="text-right p-2">View</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <For each={runs() || []}>
-                              {(r) => (
-                                <tr class="border-t border-gray-200 hover:bg-gray-50">
-                                  <td class="p-2 font-mono">
-                                    {r.id.slice(0, 8)}
-                                  </td>
-                                  <td class="p-2">{r.model}</td>
-                                  <td class="p-2">
-                                    <span
-                                      class={
-                                        r.status === "SUCCESS"
-                                          ? "text-green-700"
-                                          : r.status === "ERROR"
-                                          ? "text-red-700"
-                                          : "text-yellow-700"
-                                      }
-                                    >
-                                      {r.status}
-                                    </span>
-                                  </td>
-                                  <td class="p-2">
-                                    {new Date(r.createdAt).toLocaleString()}
-                                  </td>
-                                  <td class="p-2 text-right">
-                                    <A
-                                      href={`/ai/runs/${r.id}`}
-                                      class="text-blue-600 hover:underline"
-                                    >
-                                      View
-                                    </A>
-                                  </td>
-                                </tr>
-                              )}
-                            </For>
-                          </tbody>
-                        </table>
-                      </div>
-                    </Suspense>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Show>
-        </Suspense>
-      </div>
-    </main>
+                            </Stack>
+                          </Card.Body>
+                        </Card.Root>
+
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              All Versions
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Stack gap="3">
+                              <For each={p().versions}>
+                                {(v) => (
+                                  <Box
+                                    borderWidth="1px"
+                                    borderColor="border"
+                                    borderRadius="l2"
+                                    p="3"
+                                  >
+                                    <Stack gap="2">
+                                      <Stack gap="0.5">
+                                        <Text
+                                          fontFamily="mono"
+                                          textStyle="sm"
+                                          color="fg.default"
+                                        >
+                                          {v.id}
+                                        </Text>
+                                        <Text textStyle="xs" color="fg.muted">
+                                          {new Date(v.createdAt).toLocaleString()}
+                                        </Text>
+                                      </Stack>
+                                      <Text textStyle="xs" color="fg.muted">
+                                        Overrides: {formatOverrides(v)}
+                                      </Text>
+                                      <Box as="details">
+                                        <Box
+                                          as="summary"
+                                          cursor="pointer"
+                                          textStyle="xs"
+                                          color="fg.muted"
+                                        >
+                                          Template
+                                        </Box>
+                                        <Box
+                                          as="pre"
+                                          mt="2"
+                                          p="2"
+                                          borderWidth="1px"
+                                          borderColor="border"
+                                          borderRadius="l2"
+                                          bg="gray.surface.bg.hover"
+                                          fontSize="xs"
+                                          fontFamily="mono"
+                                          whiteSpace="pre-wrap"
+                                        >
+                                          {v.template}
+                                        </Box>
+                                      </Box>
+                                      <Show when={v.system}>
+                                        {(s) => (
+                                          <Box as="details">
+                                            <Box
+                                              as="summary"
+                                              cursor="pointer"
+                                              textStyle="xs"
+                                              color="fg.muted"
+                                            >
+                                              System
+                                            </Box>
+                                            <Box
+                                              as="pre"
+                                              mt="2"
+                                              p="2"
+                                              borderWidth="1px"
+                                              borderColor="border"
+                                              borderRadius="l2"
+                                              bg="gray.surface.bg.hover"
+                                              fontSize="xs"
+                                              fontFamily="mono"
+                                              whiteSpace="pre-wrap"
+                                            >
+                                              {s()}
+                                            </Box>
+                                          </Box>
+                                        )}
+                                      </Show>
+                                    </Stack>
+                                  </Box>
+                                )}
+                              </For>
+                            </Stack>
+                          </Card.Body>
+                        </Card.Root>
+                      </Stack>
+
+                      <Stack gap="3">
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Recent Runs
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Suspense
+                              fallback={<LoadingInline label="Loading runs…" />}
+                            >
+                              <Show
+                                when={(runs() || []).length > 0}
+                                fallback={
+                                  <Text textStyle="sm" color="fg.muted">
+                                    No runs yet.
+                                  </Text>
+                                }
+                              >
+                                <Box
+                                  borderWidth="1px"
+                                  borderColor="border"
+                                  borderRadius="l2"
+                                  overflowX="auto"
+                                >
+                                  <Table.Root variant="surface" interactive>
+                                    <Table.Head>
+                                      <Table.Row>
+                                        <Table.Header>Run</Table.Header>
+                                        <Table.Header>Model</Table.Header>
+                                        <Table.Header>Status</Table.Header>
+                                        <Table.Header>Created</Table.Header>
+                                        <Table.Header textAlign="right">
+                                          View
+                                        </Table.Header>
+                                      </Table.Row>
+                                    </Table.Head>
+                                    <Table.Body>
+                                      <For each={runs() || []}>
+                                        {(r) => (
+                                          <Table.Row>
+                                            <Table.Cell>
+                                              <Text
+                                                as="div"
+                                                fontFamily="mono"
+                                                color="fg.default"
+                                              >
+                                                {r.id.slice(0, 8)}
+                                              </Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                              <Text as="span" color="fg.default">
+                                                {r.model}
+                                              </Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                              <Badge
+                                                size="sm"
+                                                variant="subtle"
+                                                colorPalette={statusColorPalette(
+                                                  r.status
+                                                )}
+                                              >
+                                                {r.status}
+                                              </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                              <Text as="span" color="fg.default">
+                                                {new Date(
+                                                  r.createdAt
+                                                ).toLocaleString()}
+                                              </Text>
+                                            </Table.Cell>
+                                            <Table.Cell textAlign="right">
+                                              <RouterLink
+                                                href={`/ai/runs/${r.id}`}
+                                              >
+                                                View
+                                              </RouterLink>
+                                            </Table.Cell>
+                                          </Table.Row>
+                                        )}
+                                      </For>
+                                    </Table.Body>
+                                  </Table.Root>
+                                </Box>
+                              </Show>
+                            </Suspense>
+                          </Card.Body>
+                        </Card.Root>
+                      </Stack>
+                    </Grid>
+                  </Stack>
+                )}
+              </Show>
+            </Suspense>
+          </ErrorBoundary>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 
