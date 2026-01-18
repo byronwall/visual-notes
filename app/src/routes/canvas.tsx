@@ -3,12 +3,14 @@ import {
   createEffect,
   createSignal,
   createMemo,
+  Show,
   onCleanup,
   onMount,
   createResource,
   Suspense,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
+import { Text } from "~/components/ui/text";
 import { ControlPanel } from "~/components/visual/ControlPanel";
 import { VisualCanvas } from "~/components/visual/VisualCanvas";
 import { createHoverDerivations } from "~/hooks/useHover";
@@ -60,6 +62,7 @@ const CanvasRoute: VoidComponent = () => {
 
   // Stores
   const canvasStore = createCanvasStore();
+  const [isMounted, setIsMounted] = createSignal(false);
   const [viewportW, setViewportW] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
   // Search/filter state used by layout and UI
@@ -120,6 +123,7 @@ const CanvasRoute: VoidComponent = () => {
   }
 
   onMount(() => {
+    setIsMounted(true);
     measureNav();
     // Center the origin initially under navbar
     const vw = window.innerWidth;
@@ -196,73 +200,90 @@ const CanvasRoute: VoidComponent = () => {
         bottom: "0",
       }}
     >
-      <Suspense fallback={null}>
-        <VisualCanvas
-          docs={isolatedDocs()}
-          positions={positions}
-          umapIndex={umapIndex}
-          hoveredId={hover.hoveredId}
-          hoveredLabelScreen={hover.hoveredLabelScreen}
-          showHoverLabel={hover.showHoverLabel}
-          viewTransform={viewTransform}
-          navHeight={canvasStore.navHeight}
-          scale={canvasStore.scale}
-          searchQuery={searchQuery}
-          hideNonMatches={hideNonMatches}
-          layoutMode={canvasStore.layoutMode}
-          nestByPath={nestByPath}
-          eventHandlers={panZoomHandlers}
-          onSelectDoc={(id) => setSelectedId(id)}
-          selection={selectionStore}
+      <Show
+        when={isMounted()}
+        fallback={
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text fontSize="sm" color="fg.muted">
+              Loading canvas…
+            </Text>
+          </Box>
+        }
+      >
+        <Suspense fallback={null}>
+          <VisualCanvas
+            docs={isolatedDocs()}
+            positions={positions}
+            umapIndex={umapIndex}
+            hoveredId={hover.hoveredId}
+            hoveredLabelScreen={hover.hoveredLabelScreen}
+            showHoverLabel={hover.showHoverLabel}
+            viewTransform={viewTransform}
+            navHeight={canvasStore.navHeight}
+            scale={canvasStore.scale}
+            searchQuery={searchQuery}
+            hideNonMatches={hideNonMatches}
+            layoutMode={canvasStore.layoutMode}
+            nestByPath={nestByPath}
+            eventHandlers={panZoomHandlers}
+            onSelectDoc={(id) => setSelectedId(id)}
+            selection={selectionStore}
+          />
+        </Suspense>
+        <DocumentSidePanel
+          open={!!selectedId()}
+          docId={selectedId()}
+          onClose={(shouldRefetch) => {
+            if (shouldRefetch) {
+              refetchDocs();
+            }
+            setSelectedId(undefined);
+          }}
         />
-      </Suspense>
-      <DocumentSidePanel
-        open={!!selectedId()}
-        docId={selectedId()}
-        onClose={(shouldRefetch) => {
-          if (shouldRefetch) {
-            refetchDocs();
-          }
-          setSelectedId(undefined);
-        }}
-      />
-      <Suspense fallback={null}>
-        <ControlPanel
-          docs={isolatedDocs()}
-          positions={positions}
-          mouseWorld={hover.mouseWorld}
-          hoveredId={hover.hoveredId}
-          showHoverLabel={hover.showHoverLabel}
-          navHeight={canvasStore.navHeight}
-          scale={canvasStore.scale}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          hideNonMatches={hideNonMatches}
-          setHideNonMatches={setHideNonMatches}
-          sortMode={sortMode}
-          setSortMode={(m) => setSortMode(m)}
-          nudging={positionsStore.nudging}
-          onNudge={positionsStore.runNudge}
-          onSelectDoc={(id) => setSelectedId(id)}
-          layoutMode={canvasStore.layoutMode}
-          setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
-          clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
-          setClusterUnknownTopCenter={(v) =>
-            canvasStore.setClusterUnknownTopCenter(v)
-          }
-          nestByPath={nestByPath}
-          setNestByPath={setNestByPath}
-          selection={selectionStore}
-          pathPrefix={pathPrefix}
-          setPathPrefix={setPathPrefix}
-          blankPathOnly={blankPathOnly}
-          setBlankPathOnly={setBlankPathOnly}
-          metaKey={metaKey}
-          setMetaKey={setMetaKey}
-          metaValue={metaValue}
-          setMetaValue={setMetaValue}
-        />
-      </Suspense>
+        <Suspense fallback={null}>
+          <ControlPanel
+            docs={isolatedDocs()}
+            positions={positions}
+            mouseWorld={hover.mouseWorld}
+            hoveredId={hover.hoveredId}
+            showHoverLabel={hover.showHoverLabel}
+            navHeight={canvasStore.navHeight}
+            scale={canvasStore.scale}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            hideNonMatches={hideNonMatches}
+            setHideNonMatches={setHideNonMatches}
+            sortMode={sortMode}
+            setSortMode={(m) => setSortMode(m)}
+            nudging={positionsStore.nudging}
+            onNudge={positionsStore.runNudge}
+            onSelectDoc={(id) => setSelectedId(id)}
+            layoutMode={canvasStore.layoutMode}
+            setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
+            clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
+            setClusterUnknownTopCenter={(v) =>
+              canvasStore.setClusterUnknownTopCenter(v)
+            }
+            nestByPath={nestByPath}
+            setNestByPath={setNestByPath}
+            selection={selectionStore}
+            pathPrefix={pathPrefix}
+            setPathPrefix={setPathPrefix}
+            blankPathOnly={blankPathOnly}
+            setBlankPathOnly={setBlankPathOnly}
+            metaKey={metaKey}
+            setMetaKey={setMetaKey}
+            metaValue={metaValue}
+            setMetaValue={setMetaValue}
+          />
+        </Suspense>
+      </Show>
     </Box>
   );
 };
