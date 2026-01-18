@@ -1,24 +1,61 @@
 # ParkUI + PandaCSS migration guide (from Tailwind)
 
-This guide documents the concrete changes made to migrate the app navbar and
-docs index experience from Tailwind utility classes to **ParkUI-style
-components** (Ark UI + Panda recipes) and **PandaCSS** (`styled-system`) props.
-Follow the same patterns for other pages/components.
+This guide documents the concrete patterns used to migrate the app navbar and docs index experience from Tailwind utility classes to **ParkUI-style components** (Ark UI + Panda recipes) and **PandaCSS** (`styled-system`) props. Apply the same patterns to other pages/components.
 
 ## Goals and constraints
 
 - **No Tailwind utility strings** in migrated components.
-- **Prefer existing `~/components/ui/*` primitives** (they already wrap Ark UI
-  with Panda recipes).
-- **Use Panda layout primitives** from `styled-system/jsx` (`Box`, `HStack`,
-  `Container`, etc.) instead of `div` + class strings.
-- **Solid guidelines**:
+- **Prefer existing `~/components/ui/*` primitives** (they wrap Ark UI + Panda recipes).
+- **Use Panda layout primitives** from `styled-system/jsx` (`Box`, `HStack`, `Container`, etc.) instead of `div` + class strings.
+- **Solid guidelines**
+
   - Prefer `Show` over `&&`
   - If a value depends on resources, gate with `Suspense` fallback
   - Avoid inline handlers when they’re more than trivial (name the function)
   - Prefer named exports for new/updated components
 
-## What changed in `Navbar` (step-by-step)
+---
+
+## Core migration pattern (repeatable workflow)
+
+Use this workflow for each component/surface:
+
+1. **Identify structure**
+
+   - Layout groups (header/content/footer), main regions, and key alignment rules.
+
+2. **Replace structural wrappers first**
+
+   - Swap `div + class` → `styled-system/jsx` primitives:
+
+     - `Container`, `Box`, `Stack`, `HStack`, `VStack`, `Flex`, `Spacer`
+
+3. **Swap interactive controls**
+
+   - Replace native elements / ad-hoc styled ones with `~/components/ui/*`:
+
+     - `Button`, `Link`, `Input`, `Checkbox`, `Drawer`, `Select`, etc.
+
+4. **Replace “special classes” and one-off patterns**
+
+   - If you had “semantic” Tailwind classes like `cta`, migrate them to:
+
+     - an existing recipe variant, or
+     - a small wrapper using `styled(...)` + the shared recipe
+
+5. **Convert remaining utilities to Panda props**
+
+   - Prefer semantic tokens (`bg.*`, `fg.*`, `border`) over hardcoded values.
+
+6. **Preserve Solid correctness**
+
+   - `Show` for conditional UI
+   - `Suspense` for resource-driven regions
+   - avoid prop destructuring
+
+---
+
+## Navbar migration (concrete changes)
 
 ### 1) Replace Tailwind `class="..."` with Panda layout + style props
 
@@ -32,7 +69,7 @@ Follow the same patterns for other pages/components.
 </nav>
 ```
 
-**After (Panda patterns + semantic tokens):**
+**After (Panda primitives + semantic tokens):**
 
 ```tsx
 <Box as="nav" bg="bg.default" borderBottomWidth="1px" borderColor="border">
@@ -48,21 +85,14 @@ Follow the same patterns for other pages/components.
 
 Notes:
 
-- `bg="bg.default"` and `borderColor="border"` use **semantic tokens** defined
-  in `app/panda.config.ts`. This makes the component theme-aware and avoids
-  hardcoded colors like `bg-white` / `border-gray-200`.
-- Layout moved from “utility soup” to **composable primitives**:
+- **Semantic tokens** (`bg="bg.default"`, `borderColor="border"`) come from `app/panda.config.ts`, keeping components theme-aware.
+- **Composable layout primitives**
+
   - `HStack` replaces `flex items-center ...`
   - `Spacer` replaces `justify-between`
   - `Container` replaces `container mx-auto ...`
 
-### 2) Use `~/components/ui/*` instead of raw `<a>` / `<button>`
-
-The repo already has ParkUI-style primitives built on Panda recipes:
-
-- `~/components/ui/button` → `Button`
-- `~/components/ui/link` → `Link`
-- `~/components/ui/image` → `Image`
+### 2) Prefer `~/components/ui/*` over raw `<a>` / `<button>`
 
 Replace:
 
@@ -71,21 +101,17 @@ Replace:
 
 Why:
 
-- You get consistent focus rings, hover states, spacing, typography, etc.
-- Variants (e.g. `variant="plain"`, `variant="outline"`, `variant="solid"`)
-  are centralized in recipes under `app/src/theme/recipes/*`.
+- Centralized hover/focus/spacing/typography behavior via recipes in `app/src/theme/recipes/*`.
+- Consistent variants (`plain`, `outline`, `solid`) and sizing.
 
 ### 3) Replace ad-hoc `cta` classes with recipe-driven buttons/links
 
-The navbar previously used `class="cta"` for sign in/out actions.
-
-Migration approach:
+If the navbar used `class="cta"` for auth actions:
 
 - Use `Button` for button semantics.
-- For “button-looking links” (e.g. sign-in is a link), create a small local
-  wrapper using the **same `button` recipe**.
+- For “button-looking links”, create a local wrapper using the **same `button` recipe**.
 
-Example pattern:
+Pattern:
 
 ```tsx
 import { ark } from "@ark-ui/solid/factory";
@@ -95,7 +121,7 @@ import { button } from "styled-system/recipes";
 const CtaLink = styled(ark.a, button);
 ```
 
-Then:
+Usage:
 
 ```tsx
 <Show
@@ -112,20 +138,18 @@ Then:
 </Show>
 ```
 
-Why this works well:
+Why:
 
-- You get the **exact same styling system** for anchors and buttons.
-- You keep correct semantics: navigation uses `<a>`, actions use `<button>`.
+- Anchor and button share the same styling system.
+- Semantics stay correct (navigation uses `<a>`, actions use `<button>`).
 
-### 4) Fix `img` rendering: prefer `Image` over `Box as="img"`
+### 4) Images: prefer `Image` over `Box as="img"`
 
-Attempting to do:
+This fails because `BoxProps` don’t include `src`:
 
 ```tsx
 <Box as="img" src="..." />
 ```
-
-…fails because `BoxProps` don’t include `src`.
 
 Use `~/components/ui/image`:
 
@@ -139,16 +163,14 @@ Use `~/components/ui/image`:
 />
 ```
 
-This keeps the sizing stable and avoids unexpected intrinsic sizing.
+### 5) Keep Solid resource discipline (`Suspense` + `Show`)
 
-### 5) Keep Solid’s resource discipline (`Suspense` + `Show`)
+If regions depend on resources (e.g. `hasUnreadAny()` / `hasLoadingAny()`):
 
-In the navbar, `hasUnreadAny()` and `hasLoadingAny()` depend on resources, so:
+- Wrap indicator areas in `Suspense fallback={null}`
+- Use `Show` for conditional UI
 
-- Wrap the indicator region in `Suspense fallback={null}`
-- Use `Show` to render the dots
-
-This pattern stays the same during migration; only styling changes.
+Migration should only change styling/layout, not reactivity discipline.
 
 ### 6) Avoid inline handlers when non-trivial
 
@@ -168,23 +190,21 @@ const handleChatOpen = () => {
 <Button onClick={handleChatOpen}>Chat</Button>;
 ```
 
-This matches the repo guidance and makes future behavior changes easier.
+### 7) Prefer named exports; update imports
 
-### 7) Prefer named exports; update imports at call sites
-
-Changed:
+Change:
 
 - `export default Navbar` → `export const Navbar = ...`
 
-Then updated usage:
+Update imports:
 
 ```tsx
 import { Navbar } from "~/components/Navbar";
 ```
 
-This aligns with the “prefer named exports” guidance.
+---
 
-## Practical Tailwind → Panda mapping cheatsheet
+## Tailwind → Panda mapping cheatsheet
 
 Use this as a starting point when migrating other components.
 
@@ -195,8 +215,7 @@ Use this as a starting point when migrating other components.
   - `justify-between` → `<HStack> ... <Spacer /> ... </HStack>`
   - `gap-2` → `gap="2"`
   - `p-4` → `p="4"` (or `px="4"` / `py="3"`)
-
-Note: `HStack` uses **`alignItems`**, not `align`. (`Flex` supports `align`.)
+  - Note: `HStack` uses `alignItems`, not `align`. (`Flex` supports `align`.)
 
 - **Sizing**
 
@@ -207,7 +226,7 @@ Note: `HStack` uses **`alignItems`**, not `align`. (`Flex` supports `align`.)
 - **Borders + radius**
 
   - `border-b` → `borderBottomWidth="1px"`
-  - `rounded` / `rounded-md` → `borderRadius="l2"` (use your semantic radii)
+  - `rounded` / `rounded-md` → `borderRadius="l2"` (use semantic radii)
 
 - **Color**
 
@@ -216,26 +235,31 @@ Note: `HStack` uses **`alignItems`**, not `align`. (`Flex` supports `align`.)
   - `border-gray-200` → `borderColor="border"`
 
 - **Typography**
+
   - `text-sm` → `textStyle="sm"`
   - `font-semibold` → `fontWeight="semibold"`
   - `tracking-tight` → `letterSpacing="tight"`
 
-## Ark `Select` wrapper gotcha (type-level)
+---
 
-While migrating the AI dashboard (`app/src/routes/ai/index.tsx`), we attempted
-to use the `~/components/ui/select` wrapper (Ark UI Select + Panda recipe).
-Ark Select does **not** use an `items` prop on `Select.Root`; it requires a
-`collection` created by `createListCollection`.
+## Ark/ParkUI Select wrapper gotcha (type-level)
 
-Practical guidance:
+When migrating places like `app/src/routes/ai/index.tsx`:
 
-- Create a collection and pass it to `Select.Root`:
+- Ark Select does **not** accept `items` on `Select.Root`.
+- It requires a `collection` created by `createListCollection`.
+
+Guidance:
+
+- Build a collection and pass it to `Select.Root`.
+- `value` is always a string array (even for single-select).
 
 ```tsx
 import * as Select from "~/components/ui/select";
 import { Portal } from "solid-js/web";
 
 type Item = { label: string; value: string };
+
 const collection = Select.createListCollection<Item>({
   items: [
     { label: "All", value: "all" },
@@ -254,6 +278,7 @@ const collection = Select.createListCollection<Item>({
       <Select.Indicator />
     </Select.Trigger>
   </Select.Control>
+
   <Portal>
     <Select.Positioner>
       <Select.Content>
@@ -263,54 +288,69 @@ const collection = Select.createListCollection<Item>({
       </Select.Content>
     </Select.Positioner>
   </Portal>
+
   <Select.HiddenSelect />
 </Select.Root>;
 ```
 
-Additional notes from migrating `src/routes/umap/*` and `src/routes/embeddings/*`:
+Additional notes (from `src/routes/umap/*` and `src/routes/embeddings/*`):
 
-- **`Select.Root` value shape**: `value` is always a string array (single-select still uses `["value"]`). When reading it back, use `details.value[0] ?? ""`.
-- **Collections and resources**: when your items come from a resource, build a `createListCollection` from the resource output, and render `<Select.Item item={item}>` from that collection’s `items`.
+- **Value shape:** always `string[]`. Read with `details.value[0] ?? ""`.
+- **Collections and resources:** if items come from a resource:
 
-## Recommended migration workflow (repeatable)
+  - create the collection from resource output
+  - render `<Select.Item item={item}>` from the collection’s `items`
 
-1. **Identify structure** (what are the key layout groups? header/content/footer?)
-2. **Replace structural divs** with `styled-system/jsx` primitives first:
-   `Container`, `Box`, `Stack`, `HStack`, `VStack`, `Flex`, `Spacer`.
-3. **Replace controls** with `~/components/ui/*`:
-   `Button`, `Link`, form controls, menus, etc.
-4. **Replace “special classes”** (e.g. `cta`) with a recipe-based approach:
-   either choose an existing primitive variant or create a small local wrapper
-   with `styled(...)` + a recipe.
-5. **Convert remaining utility styles** to Panda props:
-   - prefer semantic tokens (`bg.*`, `fg.*`, `border`) over hardcoded colors
-6. **Keep Solid correctness**:
-   - `Show` for conditional UI
-   - `Suspense` for anything involving resources
-   - avoid prop destructuring
+---
 
-## Migration checklist (use for each component)
+## Component-by-component checklist
 
-- Inventory UI pieces: layout groups, controls, and popovers/modals
-- Replace layout wrappers with `Box`/`Stack`/`HStack`/`Flex`/`Container`
-- Swap controls to `~/components/ui/*` primitives (`Button`, `Input`, `Checkbox`, etc.)
-- Convert remaining Tailwind classes to Panda props (favor semantic tokens)
-- Verify text sizing/weight with `Text`/`Heading` props
-- Check hover/focus states and spacing density match pre-migration
+Use this checklist for each migrated component:
 
-## Additional learnings from Docs Index migration
+- Inventory UI pieces
 
-The docs index surface includes filter panels, list rows, popovers, modals,
-and a nested path sidebar. These introduced a few new patterns and gotchas.
+  - layout groups
+  - controls
+  - popovers/modals/drawers
 
-### A) Prefer ParkUI inputs/checkboxes over native elements
+- Replace layout wrappers with Panda primitives
 
-In the docs index, migrating filters and rows required replacing:
+  - `Box`/`Stack`/`HStack`/`Flex`/`Container`
 
-- native `<input>` for search and text fields → `~/components/ui/input`
-- native checkbox inputs → `~/components/ui/checkbox` (Ark checkbox + recipe)
+- Swap controls to `~/components/ui/*`
 
-Example pattern used in rows:
+  - `Button`, `Input`, `Checkbox`, `Select`, `Drawer`, etc.
+
+- Convert remaining Tailwind to Panda props
+
+  - prefer semantic tokens
+
+- Verify typography and density
+
+  - `Text`/`Heading` props, spacing rhythm
+
+- Check interaction states
+
+  - hover, focus, disabled, spacing
+
+---
+
+# Surface-specific learnings
+
+These sections capture patterns discovered during real migrations. Keep them as reference when you hit similar UI types.
+
+## Docs Index migration
+
+The docs index includes filters, rows, popovers, modals, and a nested path sidebar.
+
+### DI-1) Prefer ParkUI inputs/checkboxes over native elements
+
+Replace:
+
+- native `<input>` → `~/components/ui/input`
+- native checkbox → `~/components/ui/checkbox`
+
+Row pattern:
 
 ```tsx
 <Checkbox.Root
@@ -326,51 +366,41 @@ Example pattern used in rows:
 
 Why:
 
-- This keeps visual consistency and focus rings.
-- `Checkbox.HiddenInput` preserves proper form semantics.
+- Consistent focus rings and visuals.
+- `HiddenInput` preserves form semantics.
 
-### B) Use layout primitives for list density and alignment
-
-Doc rows and results sections were migrated to `Stack`, `HStack`, and `Flex`
-to control vertical rhythm without Tailwind `space-y-*` classes.
+### DI-2) Use layout primitives for list density and alignment
 
 Examples:
 
 - `space-y-6` → `<Stack gap="1.5rem">`
 - `flex items-center justify-between` → `<Flex align="center" justify="space-between">`
-- `flex-wrap` → `flexWrap="wrap"` (note: use `flexWrap`, not `wrap`)
+- `flex-wrap` → `flexWrap="wrap"` (use `flexWrap`, not `wrap`)
 
-### C) Use Text/Heading components + explicit font props
+### DI-3) Text/Heading usage: be explicit if recipes don’t support variants
 
-The current `text` recipe has no variants, so the safe pattern is:
+If the current `text` recipe has no variants, use explicit props:
 
 - `fontSize="sm"`, `fontWeight="semibold"`, `color="black.a7"` on `Text`
-- `fontSize="2xl"` on `Heading` for titles
+- `fontSize="2xl"` on `Heading`
 
 Avoid relying on `textStyle` unless recipes are updated.
 
-### D) “Inline class” cleanup often cascades
+### DI-4) Removing inline classes can cascade into shared primitives
 
-In docs index, removing Tailwind classes in “leaf” components required
-touching supporting primitives:
+Removing Tailwind from leaf components may require updating shared pieces:
 
-- `PathEditor` used a Tailwind popover and chip layout → migrated to
-  `Button`, `Text`, `HStack`, and updated `Popover` to accept `style`.
-- `Modal` was still Tailwind-based → migrated to `Box` layout with
-  semantic borders and backdrop.
+- `PathEditor` (popover + chip layout) → migrate to `Button`, `Text`, `HStack`, and update `Popover` to accept `style`.
+- `Modal` still Tailwind-based → migrate to `Box` layout with semantic borders/backdrop.
 
-Expect to update shared primitives as you migrate a surface.
+### DI-5) Avoid `Box as="select"` unless a typed wrapper exists
 
-### E) Avoid `Box as="select"` unless typed wrapper exists
+Prefer Ark/ParkUI `Select` for styling + keyboard/menu UX.
+`Box as="select"` can hit typing gaps for native props.
 
-If you need a dropdown, prefer Ark `Select` (see the section above) so you get
-consistent styling + keyboard/menu UX. `Box as="select"` can be tempting, but
-it’s easy to run into typing gaps for native form props (`value`, `onChange`,
-etc.) depending on the element and wrapper type.
+### DI-6) Use ParkUI buttons for small action chips
 
-### F) Prefer ParkUI buttons for small action chips
-
-Meta chips, path filters, and suggestion pills were all standardized to:
+Standardize chips/pills to:
 
 ```tsx
 <Button size="xs" variant="outline">
@@ -378,97 +408,88 @@ Meta chips, path filters, and suggestion pills were all standardized to:
 </Button>
 ```
 
-This keeps spacing and hover states consistent with the rest of the UI.
+### DI-7) Notes on color tokens used in migration
 
-### G) Notes on color tokens used in migration
-
-The docs index uses semantic-ish tokens currently available:
+Tokens used:
 
 - `color="black.a7"` for muted text
 - `borderColor="gray.outline.border"` for subtle borders
-- `bg="gray.surface.bg.hover"` for list item hover
+- `bg="gray.surface.bg.hover"` for list hover
 
-If these tokens feel too dark/light in other surfaces, update the theme
-tokens/recipes rather than hardcoding colors in components.
+If they feel off in other surfaces, adjust theme tokens/recipes rather than hardcoding.
 
-## Additional learnings from Docs Detail + Editor migration
+---
 
-The doc detail surface pulls in the editor, prompt modals, and toolbar, which
-introduce a few special cases that weren’t present in the navbar or docs index.
+## Docs Detail + Editor migration
 
-### H) ProseMirror editor needs a dedicated CSS hook
+The doc detail surface includes the editor, prompt modals, and toolbar.
 
-The Tiptap editor content is not built with Panda primitives, so we can’t rely
-on `p="4"` / `outline="none"` props. Instead:
+### DE-1) ProseMirror editor needs a dedicated CSS hook
 
-- Keep the `prose` class for typography.
-- Add a dedicated class like `.editor-prose` in `app/src/app.css` for editor
-  padding/outline/max-width and set it via `editorProps.attributes.class`.
-
-This keeps the editor styles centralized and avoids inline utility strings.
-
-### I) ParkUI Select is preferred, even for “small” dropdowns
-
-We replaced native `<select>` in:
-
-- AI prompt model selector
-- Code block language picker
-- Shared `ModelSelect`
+Tiptap content isn’t composed from Panda primitives.
 
 Pattern:
 
-- Build a `createListCollection` from items.
-- Use `Select.Root` + `Select.Control` + `Select.Trigger` + `Select.ValueText`.
-- Wrap menu content in a `Portal`.
+- Keep the `prose` class.
+- Add a class like `.editor-prose` in `app/src/app.css` for padding/outline/max-width.
+- Apply it via `editorProps.attributes.class`.
 
-### J) Toolbar buttons: remove Tailwind `class` from config
+This centralizes editor styling and avoids inline utility strings.
 
-The editor toolbar had Tailwind classes stored in `toolbarConfig`. To migrate:
+### DE-2) Prefer ParkUI Select even for “small” dropdowns
 
-- Replace `class` with a small `labelStyle` object (e.g. `fontWeight: "semibold"`).
-- Apply styles via Panda props in `ToolbarContents` using `<Box as="span" {...labelStyle}>`.
+Used for:
 
-This avoids Tailwind strings without bloating the toggle component.
+- prompt model selector
+- code block language picker
+- shared `ModelSelect`
 
-### K) Hidden file inputs: prefer inline style over classes
+Pattern:
 
-The CSV import input was `class="hidden"`. Use:
+- `createListCollection`
+- `Select.Root` + `Select.Control` + `Select.Trigger` + `Select.ValueText`
+- menu content inside `Portal`
+
+### DE-3) Toolbar buttons: remove Tailwind strings from config
+
+If `toolbarConfig` stored Tailwind classes:
+
+- Replace `class` with a small `labelStyle` object (e.g. `{ fontWeight: "semibold" }`)
+- Apply via Panda props: `<Box as="span" {...labelStyle}>`
+
+### DE-4) Hidden file inputs: use inline style instead of Tailwind
+
+If you had `class="hidden"`:
 
 ```tsx
 <input style={{ display: "none" }} ... />
 ```
 
-This keeps the element hidden without introducing utility classes.
+---
 
-## Additional learnings from Chat Sidebar (LLM) migration
+## Chat Sidebar (LLM) migration
 
-Migrating the chat interface (`LLMSidebar`) surfaced a few Ark/ParkUI patterns
-that are easy to get subtly wrong in Solid.
+Migrating `LLMSidebar` surfaced Ark/ParkUI patterns that are easy to get subtly wrong in Solid.
 
-### A) Use `Drawer` instead of custom “side panel” components
+### CS-1) Use `Drawer` instead of custom side panel shells
 
-The chat “sidebar” is a perfect match for `~/components/ui/drawer`:
+Replace custom overlay/portal/backdrop/scroll locking with `~/components/ui/drawer`:
 
-- Replace custom overlay/portal/backdrop + scroll locking with `Drawer.Root`.
-- Use `Drawer.Backdrop`, `Drawer.Positioner`, `Drawer.Content`, and
-  `Drawer.CloseTrigger`.
-- Keep the layout inside the drawer composed with Panda primitives
-  (`Flex`, `Box`, `Stack`, `HStack`, `Spacer`) and ParkUI controls.
+- `Drawer.Root`
+- `Drawer.Backdrop`, `Drawer.Positioner`, `Drawer.Content`, `Drawer.CloseTrigger`
 
-### B) Ark `ScrollArea` gotcha in Solid: don’t auto-inject `<Thumb />` via `defaultProps`
+Compose inner layout with Panda primitives + ParkUI controls.
 
-We hit this runtime error:
+### CS-2) Ark `ScrollArea` gotcha in Solid: don’t inject `<Thumb />` via `defaultProps`
+
+Runtime error encountered:
 
 - `useScrollAreaScrollbarContext returned undefined`
 
-Root cause: in Solid, using `defaultProps` to inject a `<Thumb />` child inside
-the styled wrapper can create a component instance that isn’t actually within
-the `Scrollbar` provider when it renders (context ends up `undefined`).
-
-Practical rule:
+Rule:
 
 - Don’t “magically” add `<ScrollArea.Thumb />` via wrapper `defaultProps`.
-- Instead, render it explicitly at call sites:
+- Render explicitly at call sites:
 
 ```tsx
 <ScrollArea.Scrollbar orientation="vertical">
@@ -476,81 +497,85 @@ Practical rule:
 </ScrollArea.Scrollbar>
 ```
 
-This keeps the provider chain correct and avoids fragile wrapper behavior.
+### CS-3) Prefer Panda’s `lineClamp` over vendor-prefixed CSS in `css(...)`
 
-### C) Prefer Panda’s `lineClamp` over vendor-prefixed CSS in `css(...)`
+For 2-line truncation:
 
-If you need “2-line truncate” in a thread preview, don’t reach for
-`WebkitLineClamp`/`WebkitBoxOrient` keys (they may not be typed in
-`SystemStyleObject`). Use Panda’s built-in:
+- use `lineClamp: "2"`
+- avoid `WebkitLineClamp` / `WebkitBoxOrient` keys (may not be typed)
 
-- `lineClamp: "2"`
+---
 
-## Additional learnings from UMAP + Embeddings migration
+## UMAP + Embeddings migration
 
-These came up when migrating:
+Migrated routes:
 
 - `app/src/routes/umap/index.tsx`
 - `app/src/routes/umap/[id].tsx`
 - `app/src/routes/embeddings/index.tsx`
 - `app/src/routes/embeddings/[id].tsx`
 
-### H) Prefer a store for “form-y pages” with many related fields
+### UE-1) Prefer a store for form-heavy pages
 
-Both UMAP and Embeddings pages had many related inputs/toggles. Migration was a good time to switch from a long stack of signals to a single `createStore` state object.
+When many related inputs/toggles exist:
+
+- switch from many signals → one `createStore` state object
 
 Why:
 
-- Easier to pass around and reset groups of fields
-- Fewer “signal soup” updates
-- Reads more like a coherent form
+- simpler resets and passing state
+- fewer signals
+- clearer “form state” shape
 
-### I) Tables: use `~/components/ui/table` + a wrapper `Box` for borders/overflow
+### UE-2) Tables: use `~/components/ui/table` plus a wrapper Box for borders/overflow
 
-The table primitive is just the table slots. For the common “rounded card + clipped header” look:
+Pattern:
 
-- Wrap in a `Box` that sets `borderWidth`, `borderColor`, `borderRadius`, and `overflow="hidden"`.
-- Put `Table.Root` inside.
+- Wrap in `Box` that sets:
 
-### J) Navigation: prefer `~/components/ui/link` for internal links; use `navigate()` for imperative
+  - `borderWidth`, `borderColor`, `borderRadius`, `overflow="hidden"`
+
+- Put `Table.Root` inside
+
+### UE-3) Navigation: prefer `Link` for declarative, `navigate()` for imperative
 
 - Replace Tailwind-styled `<A>` / `<a>` with `Link` where possible.
-- For “Open” buttons that need to navigate programmatically, prefer `useNavigate()` over `window.location.assign(...)`.
+- For imperative flows, prefer `useNavigate()` over `window.location.assign(...)`.
 
-### K) Keep resource discipline: wrap resource-driven regions in `Suspense`
+### UE-4) Resource discipline: wrap resource-driven regions in `Suspense`
 
-When lists or selects depend on `createResource` (runs lists, embedding runs list):
+Lists/selects driven by `createResource`:
 
-- Use `<Suspense fallback={...}>` as the loading gate.
-- Inside `Suspense`, use `Show` for the conditional branches.
+- gate with `<Suspense fallback={...}>`
+- inside, use `Show` for branch rendering
 
-### L) Canvas/ResizeObserver cleanup pattern
+### UE-5) Canvas/ResizeObserver cleanup pattern
 
-When a page needs a `ResizeObserver` (UMAP detail canvas), the clean pattern is:
+When using `ResizeObserver` (UMAP detail canvas):
 
-- Create the observer inside `onMount`
-- Return cleanup from `onMount` (disconnect observer)
-- Use `entry.contentRect` for robust sizing (avoids `contentBoxSize` typing and `as any` casts)
+- create observer inside `onMount`
+- return cleanup from `onMount` (disconnect)
+- use `entry.contentRect` for sizing (avoids typing trouble and `as any`)
 
-## Additional learnings from Visual Canvas migration
+---
 
-The visual canvas surface includes a fixed canvas, a left control panel, and a
-right-side document panel. The migration introduced a few new patterns worth
-reusing.
+## Visual Canvas migration
 
-### M) Wrap resource-driven canvas + controls in `Suspense`
+Includes fixed canvas + left controls + right document panel.
 
-Both the canvas and the control panel depend on resources (docs, UMAP runs).
-Use `Suspense fallback={null}` around those regions instead of gating with
-`Show` so the resource discipline is preserved.
+### VC-1) Wrap resource-driven canvas + controls in `Suspense`
 
-### N) Replace fixed-position shells with Panda `Box` + inline style escape hatches
+If canvas and controls depend on resources (docs, runs):
 
-For overlay shells (`position: fixed` + `backdrop-filter`), use `Box` props
-for layout and add inline `style` only for properties not in Panda tokens
-(`backdrop-filter`, translucent white backgrounds).
+- use `Suspense fallback={null}` around those regions
+- prefer this over gating with `Show` alone
 
-Example pattern:
+### VC-2) Fixed-position shells: Panda `Box` plus inline style escape hatches
+
+For `position: fixed` + backdrop blur:
+
+- use Panda props for layout
+- inline `style` only for things not covered well by tokens (e.g. `backdrop-filter`)
 
 ```tsx
 <Box
@@ -558,29 +583,29 @@ Example pattern:
   bg="bg.default"
   borderColor="border"
   borderRightWidth="1px"
-  style={{ background: "rgba(255,255,255,0.95)", "backdrop-filter": "blur(10px)" }}
+  style={{
+    background: "rgba(255,255,255,0.95)",
+    "backdrop-filter": "blur(10px)",
+  }}
 />
 ```
 
-### O) List rows: compute derived label once per row
+### VC-3) List rows: compute derived label once per row
 
-The control panel list includes a “distance + direction” label. Use a
-`createMemo` inside the `<For>` row scope instead of an IIFE in JSX to keep
-render logic clean and reactive.
+For “distance + direction” labels:
 
-### P) Prefer `Select` for layout/sort modes, not native `<select>`
+- use a `createMemo` inside each `<For>` row scope
+- avoid IIFEs inside JSX
 
-The control panel replaced native selects with ParkUI `Select`:
+### VC-4) Prefer `Select` for modes/sorts (avoid native `<select>` drift)
 
-- Use `createListCollection` for options
-- `value` is always a string array
-- Wrap menu content in `Portal`
+- `createListCollection`
+- `value` is always `string[]`
+- menu content in `Portal`
 
-This keeps the UI consistent with other migrated surfaces and avoids native
-select styling drift.
+### VC-5) Inline overlay text: use `Text as="span"`
 
-### Q) Use `Text as="span"` for inline text in overlays/tooltips
+For tooltip-like labels:
 
-For hover labels and tooltip-like UI, wrap the text in `Text as="span"` inside
-a `Box`. This avoids invalid block nesting and keeps typography consistent with
-theme tokens.
+- wrap inline text with `Text as="span"` inside a `Box`
+- avoids invalid block nesting and keeps typography consistent
