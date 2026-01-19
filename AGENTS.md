@@ -90,6 +90,9 @@ code and refactors unless explicitly told otherwise.
 - When creating derived comps, be sure to import the ParkUI things with their ORIGINAL names. If not, the CSS breaks.
   - Good: import \* as Popover from "./popover";
   - Bad: import { Root } from "./popover";
+- When creating a derived component, add the name to the recipe in the `jsx` key.
+  - Good: jsx: ["Popover", "MyDerivedComponent"],
+  - Bad: jsx: ["MyDerivedComponent"],
 - When importing ParkUI components, use a barrel import if there are multiple things to import.
   - Good: import \* as Popover from "./popover";
   - Bad: import { Root, Anchor, Positioner, Content } from "./popover";

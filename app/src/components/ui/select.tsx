@@ -1,16 +1,14 @@
 import { ark } from "@ark-ui/solid/factory";
 import {
   Select,
-  createListCollection,
   useSelectItemContext,
   type SelectRootProps,
   type SelectRootProviderProps,
-  type ListCollection,
 } from "@ark-ui/solid/select";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-solid";
 import { Show, type JSX } from "solid-js";
 import { createStyleContext } from "styled-system/jsx";
-import { type SelectVariantProps, select } from "styled-system/recipes";
+import { select, type SelectVariantProps } from "styled-system/recipes";
 import type { HTMLStyledProps } from "styled-system/types";
 
 const { withProvider, withContext } = createStyleContext(select);

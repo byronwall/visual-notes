@@ -136,19 +136,15 @@ export const MetaKeyValueEditor: VoidComponent<{
           <HStack gap="2" flexWrap="wrap">
             <For each={entries()}>
               {(e, i) => (
-                <Box
-                  as="button"
-                  type="button"
-                  display="inline-flex"
-                  alignItems="center"
-                  gap="2"
-                  borderWidth="1px"
-                  borderColor="gray.outline.border"
-                  bg="bg.default"
+                <Button
+                  size="xs"
+                  variant="outline"
+                  colorPalette="gray"
+                  borderRadius="full"
                   px="2"
                   py="1"
                   fontSize="xs"
-                  borderRadius="full"
+                  bg="bg.default"
                   _hover={{ bg: "gray.surface.bg.hover" }}
                   title={`${e.key}: ${e.value}`}
                   onClick={makeOpenForEdit(i())}
@@ -180,7 +176,7 @@ export const MetaKeyValueEditor: VoidComponent<{
                   >
                     ×
                   </Box>
-                </Box>
+                </Button>
               )}
             </For>
             <Button

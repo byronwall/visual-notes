@@ -301,7 +301,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 Clear
               </Button>
             </Flex>
-            <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap="2">
+            <Grid gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
               <Input
                 size="sm"
                 placeholder="key"
@@ -519,14 +519,14 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 });
                 return (
                   <Box as="li">
-                    <Box
-                      as="button"
+                    <Button
+                      variant="plain"
+                      colorPalette="gray"
                       w="full"
+                      justifyContent="flex-start"
                       textAlign="left"
                       px="3"
                       py="2"
-                      display="flex"
-                      alignItems="center"
                       gap="2"
                       bg={isHover() ? "gray.surface.bg.hover" : "transparent"}
                       _hover={{ bg: "gray.surface.bg.hover" }}
@@ -560,7 +560,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                       >
                         {distanceLabel()}
                       </Text>
-                    </Box>
+                    </Button>
                   </Box>
                 );
               }}

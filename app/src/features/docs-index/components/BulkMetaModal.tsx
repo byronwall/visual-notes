@@ -1,7 +1,15 @@
-import { For, Show, createMemo, createSignal, type VoidComponent } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  type VoidComponent,
+} from "solid-js";
 import Modal from "~/components/Modal";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 
@@ -9,6 +17,19 @@ export type BulkMetaAction =
   | { type: "add"; key: string; value: string | number | boolean | null }
   | { type: "update"; key: string; value: string | number | boolean | null }
   | { type: "remove"; key: string };
+
+const actionItems: SimpleSelectItem[] = [
+  { label: "Add key if missing", value: "add" },
+  { label: "Update key value", value: "update" },
+  { label: "Remove key", value: "remove" },
+];
+
+const valueTypeItems: SimpleSelectItem[] = [
+  { label: "string", value: "string" },
+  { label: "number", value: "number" },
+  { label: "boolean (true/false)", value: "boolean" },
+  { label: "null", value: "null" },
+];
 
 export const BulkMetaModal: VoidComponent<{
   open: boolean;
@@ -20,9 +41,13 @@ export const BulkMetaModal: VoidComponent<{
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [actions, setActions] = createSignal<BulkMetaAction[]>([]);
 
-  const [draftType, setDraftType] = createSignal<"add" | "update" | "remove">("add");
+  const [draftType, setDraftType] = createSignal<"add" | "update" | "remove">(
+    "add"
+  );
   const [draftKey, setDraftKey] = createSignal("");
-  const [draftValueType, setDraftValueType] = createSignal<"string" | "number" | "boolean" | "null">("string");
+  const [draftValueType, setDraftValueType] = createSignal<
+    "string" | "number" | "boolean" | "null"
+  >("string");
   const [draftValueRaw, setDraftValueRaw] = createSignal("");
 
   const canAdd = createMemo(() => {
@@ -54,7 +79,10 @@ export const BulkMetaModal: VoidComponent<{
       setActions((prev) => [...prev, { type: "remove", key: k }]);
     } else {
       const v = parseDraftValue();
-      setActions((prev) => [...prev, { type: t, key: k, value: v } as BulkMetaAction]);
+      setActions((prev) => [
+        ...prev,
+        { type: t, key: k, value: v } as BulkMetaAction,
+      ]);
     }
     setDraftKey("");
     setDraftValueRaw("");
@@ -62,6 +90,27 @@ export const BulkMetaModal: VoidComponent<{
 
   const makeRemoveAt = (i: number) => () => {
     setActions((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const handleDraftTypeChange = (value: string) => {
+    if (value === "add" || value === "update" || value === "remove") {
+      setDraftType(value);
+      return;
+    }
+    setDraftType("add");
+  };
+
+  const handleDraftValueTypeChange = (value: string) => {
+    if (
+      value === "string" ||
+      value === "number" ||
+      value === "boolean" ||
+      value === "null"
+    ) {
+      setDraftValueType(value);
+      return;
+    }
+    setDraftValueType("string");
   };
 
   const handleApply = async () => {
@@ -89,7 +138,7 @@ export const BulkMetaModal: VoidComponent<{
   return (
     <Modal open={props.open} onClose={handleClose}>
       <Stack p="1rem" gap="0.75rem">
-        <HStack justifyContent="space-between" align="center">
+        <HStack justifyContent="space-between" alignItems="center">
           <Text fontSize="sm" fontWeight="semibold">
             Bulk edit metadata
           </Text>
@@ -116,25 +165,13 @@ export const BulkMetaModal: VoidComponent<{
             <Text fontSize="xs" color="black.a7" mb="0.25rem">
               Action
             </Text>
-            <Box
-              as="select"
-              width="100%"
-              borderWidth="1px"
-              borderColor="gray.outline.border"
-              borderRadius="l2"
-              px="0.5rem"
-              py="0.25rem"
-              fontSize="sm"
-              bg="white"
+            <SimpleSelect
+              items={actionItems}
               value={draftType()}
-              onChange={(e) =>
-                setDraftType((e.currentTarget.value as any) || "add")
-              }
-            >
-              <option value="add">Add key if missing</option>
-              <option value="update">Update key value</option>
-              <option value="remove">Remove key</option>
-            </Box>
+              onChange={handleDraftTypeChange}
+              size="sm"
+              sameWidth
+            />
           </Box>
           <Box gridColumn={{ base: "span 1", md: "span 2" }}>
             <Text fontSize="xs" color="black.a7" mb="0.25rem">
@@ -152,26 +189,13 @@ export const BulkMetaModal: VoidComponent<{
               <Text fontSize="xs" color="black.a7" mb="0.25rem">
                 Value type
               </Text>
-              <Box
-                as="select"
-                width="100%"
-                borderWidth="1px"
-                borderColor="gray.outline.border"
-                borderRadius="l2"
-                px="0.5rem"
-                py="0.25rem"
-                fontSize="sm"
-                bg="white"
+              <SimpleSelect
+                items={valueTypeItems}
                 value={draftValueType()}
-                onChange={(e) =>
-                  setDraftValueType((e.currentTarget.value as any) || "string")
-                }
-              >
-                <option value="string">string</option>
-                <option value="number">number</option>
-                <option value="boolean">boolean (true/false)</option>
-                <option value="null">null</option>
-              </Box>
+                onChange={handleDraftValueTypeChange}
+                size="sm"
+                sameWidth
+              />
             </Box>
             <Show when={draftValueType() !== "null"}>
               <Box>
@@ -200,8 +224,17 @@ export const BulkMetaModal: VoidComponent<{
           </Box>
         </Grid>
 
-        <Box borderTopWidth="1px" borderColor="gray.outline.border" pt="0.75rem">
-          <Text fontSize="xs" fontWeight="semibold" color="black.a7" mb="0.5rem">
+        <Box
+          borderTopWidth="1px"
+          borderColor="gray.outline.border"
+          pt="0.75rem"
+        >
+          <Text
+            fontSize="xs"
+            fontWeight="semibold"
+            color="black.a7"
+            mb="0.5rem"
+          >
             Pending actions
           </Text>
           <Show
@@ -224,7 +257,11 @@ export const BulkMetaModal: VoidComponent<{
                     py="0.25rem"
                     fontSize="sm"
                   >
-                    <Box overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                    <Box
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
                       <Show when={a.type === "remove"}>
                         <Text as="span" fontWeight="semibold">
                           remove

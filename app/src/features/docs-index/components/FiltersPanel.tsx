@@ -7,6 +7,8 @@ import { DateInput } from "~/components/DateInput";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
@@ -46,6 +48,13 @@ export const FiltersPanel = (props: {
   const isUpdatedOpen = createMemo(() => showUpdated() || !!hasUpdated());
 
   const toggleVariant = (active: boolean) => (active ? "subtle" : "outline");
+  const sourceItems = createMemo<SimpleSelectItem[]>(() => [
+    { label: "All", value: "" },
+    ...(props.sources ?? []).map((s) => ({
+      label: s.originalSource,
+      value: s.originalSource,
+    })),
+  ]);
 
   return (
     <Stack mt="0.5rem" gap="0.5rem">
@@ -205,25 +214,14 @@ export const FiltersPanel = (props: {
           <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
             Source
           </Text>
-          <Box
-            as="select"
-            flex="1"
-            borderWidth="1px"
-            borderColor="gray.outline.border"
-            borderRadius="l2"
-            px="0.5rem"
-            py="0.25rem"
-            fontSize="sm"
-            bg="white"
-            value={q.source()}
-            onChange={(e) =>
-              q.setSource((e.currentTarget as HTMLSelectElement).value)
-            }
-          >
-            <option value="">All</option>
-            {props.sources?.map((s) => (
-              <option value={s.originalSource}>{s.originalSource}</option>
-            ))}
+          <Box flex="1">
+            <SimpleSelect
+              items={sourceItems()}
+              value={q.source()}
+              onChange={(value) => q.setSource(value)}
+              size="sm"
+              sameWidth
+            />
           </Box>
           <Show when={q.source().trim()}>
             <IconButton

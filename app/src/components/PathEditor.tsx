@@ -12,6 +12,7 @@ import type { VoidComponent } from "solid-js";
 import { fetchPathSuggestions, updateDocPath } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
+import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack } from "styled-system/jsx";
 import { CircleXIcon } from "lucide-solid";
@@ -282,19 +283,15 @@ export const PathEditor: VoidComponent<{
                   )}
                 </For>
 
-                <Box
-                  as="input"
+                <Input
                   id="path-editor-input"
+                  variant="flushed"
+                  size="xs"
                   flex="1"
                   minW="8ch"
-                  outline="none"
-                  fontSize="sm"
                   bg="transparent"
-                  border="none"
                   value={current()}
-                  onInput={(e) =>
-                    setCurrent((e.currentTarget as HTMLInputElement).value)
-                  }
+                  onInput={(e) => setCurrent(e.currentTarget.value)}
                   onFocus={handleFocusInput}
                   onKeyDown={(e) => {
                     handleKeyDown(e as unknown as KeyboardEvent);

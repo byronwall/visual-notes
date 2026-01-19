@@ -73,4 +73,5 @@ export const popover = defineSlotRecipe({
       borderInlineStartWidth: "0.5px",
     },
   },
+  jsx: ["Popover", "SimplePopover"],
 });
