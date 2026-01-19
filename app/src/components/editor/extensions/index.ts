@@ -1,6 +1,7 @@
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Highlight from "@tiptap/extension-highlight";
+import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -9,6 +10,7 @@ import { CustomCode } from "./CustomCode";
 import { CustomCodeBlock } from "./CustomCodeBlock";
 import { CsvPaste } from "./CsvPaste";
 import { MarkdownPaste } from "./MarkdownPaste";
+import { createEmojiSuggestion } from "./emojiSuggestion";
 
 export function buildExtensions(
   csvPrompt: (
@@ -24,6 +26,11 @@ export function buildExtensions(
     StarterKit.configure({ codeBlock: false, code: false }),
     Highlight.configure({}),
     Image.configure({ allowBase64: true }),
+    Emoji.configure({
+      emojis: gitHubEmojis,
+      enableEmoticons: true,
+      suggestion: createEmojiSuggestion(gitHubEmojis),
+    }),
     CustomCode,
     CustomCodeBlock,
     Table.configure({

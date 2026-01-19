@@ -43,6 +43,7 @@
     "@tiptap/core": "^3.7.2",
     "@tiptap/extension-code": "^3.7.2",
     "@tiptap/extension-code-block-lowlight": "^3.8.0",
+    "@tiptap/extension-emoji": "^3.7.2",
     "@tiptap/extension-highlight": "^3.7.2",
     "@tiptap/extension-image": "^3.7.2",
     "@tiptap/extension-table": "^3.9.0",
@@ -50,6 +51,7 @@
     "@tiptap/extension-table-header": "^3.9.0",
     "@tiptap/extension-table-row": "^3.9.0",
     "@tiptap/starter-kit": "^3.7.2",
+    "@tiptap/suggestion": "^3.7.2",
     "@types/sanitize-html": "^2.16.0",
     "autoprefixer": "^10.4.19",
     "bcryptjs": "^3.0.2",
@@ -66,6 +68,7 @@
     "solid-tiptap": "^0.8.0",
     "svd-js": "^1.1.1",
     "tailwindcss": "^3.4.7",
+    "tippy.js": "^6.3.7",
     "umap-js": "^1.4.0",
     "vinxi": "^0.5.10",
     "zod": "^3.23.8"

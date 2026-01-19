@@ -8,6 +8,7 @@ import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
 import "highlight.js/styles/github.css";
+import "tippy.js/dist/tippy.css";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Box, HStack } from "styled-system/jsx";
