@@ -5,6 +5,7 @@ import {
   CodeIcon,
   Heading1Icon,
   Heading2Icon,
+  HighlighterIcon,
   ItalicIcon,
   ListIcon,
   ListOrderedIcon,
@@ -104,6 +105,17 @@ export const marks: Btn[] = [
     run: (ch) => {
       // TODO:AS_ANY, chain commands are augmented by extensions at runtime
       (ch as unknown as any).toggleStrike();
+      return ch;
+    },
+  },
+  {
+    name: "highlight",
+    title: "Highlight",
+    label: "HL",
+    icon: HighlighterIcon,
+    run: (ch) => {
+      // TODO:AS_ANY, chain commands are augmented by extensions at runtime
+      (ch as unknown as any).toggleHighlight();
       return ch;
     },
   },

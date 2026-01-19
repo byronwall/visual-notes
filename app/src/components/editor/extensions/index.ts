@@ -1,5 +1,6 @@
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import Highlight from "@tiptap/extension-highlight";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -21,6 +22,7 @@ export function buildExtensions(
 ) {
   return [
     StarterKit.configure({ codeBlock: false, code: false }),
+    Highlight.configure({}),
     Image.configure({ allowBase64: true }),
     CustomCode,
     CustomCodeBlock,
