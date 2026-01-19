@@ -9,12 +9,13 @@ import {
   createSignal,
   onMount,
 } from "solid-js";
-import { useParams, A } from "@solidjs/router";
+import { useNavigate, useParams, A } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
 import { ModelSelect } from "~/components/ModelSelect";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
@@ -98,6 +99,7 @@ const RouterLink = styled(A, link);
 
 export const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
+  const navigate = useNavigate();
   const [prompt, { refetch: refetchPrompt }] = createResource(
     () => params.id,
     fetchPrompt
@@ -109,6 +111,13 @@ export const PromptDetailPage: VoidComponent = () => {
   const [editSystem, setEditSystem] = createSignal<string>("");
   const [editBusy, setEditBusy] = createSignal(false);
   const [editInited, setEditInited] = createSignal(false);
+
+  // Prompt meta edit state
+  const [metaTask, setMetaTask] = createSignal("");
+  const [metaDesc, setMetaDesc] = createSignal("");
+  const [metaBusy, setMetaBusy] = createSignal(false);
+  const [metaError, setMetaError] = createSignal("");
+  const [metaInited, setMetaInited] = createSignal(false);
 
   // Defaults edit state
   const [defModel, setDefModel] = createSignal<string>("");
@@ -122,6 +131,9 @@ export const PromptDetailPage: VoidComponent = () => {
   const [suggestedTemplate, setSuggestedTemplate] = createSignal<string>("");
   const [suggestedSystem, setSuggestedSystem] = createSignal<string>("");
 
+  const [deleteOpen, setDeleteOpen] = createSignal(false);
+  const [deleteBusy, setDeleteBusy] = createSignal(false);
+
   onMount(() => {
     createEffect(() => {
       const p = prompt();
@@ -132,6 +144,11 @@ export const PromptDetailPage: VoidComponent = () => {
       setDefTopP(
         typeof p.defaultTopP === "number" ? String(p.defaultTopP) : ""
       );
+      if (!metaInited()) {
+        setMetaTask(p.task || "");
+        setMetaDesc(p.description || "");
+        setMetaInited(true);
+      }
       if (!p.activeVersion || editInited()) return;
       setEditTemplate(p.activeVersion.template || "");
       setEditSystem(p.activeVersion.system || "");
@@ -139,6 +156,36 @@ export const PromptDetailPage: VoidComponent = () => {
       console.log("[ai-prompt-detail] init edit from active version");
     });
   });
+
+  const saveMeta = async () => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    const task = metaTask().trim();
+    if (!task) {
+      setMetaError("Name is required.");
+      return;
+    }
+    setMetaBusy(true);
+    setMetaError("");
+    try {
+      const res = await apiFetch(`/api/prompts/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task,
+          description: metaDesc().trim().length ? metaDesc().trim() : null,
+        }),
+      });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))) as { error?: string };
+        setMetaError(msg?.error || "Failed to update prompt.");
+        return;
+      }
+      await refetchPrompt();
+    } finally {
+      setMetaBusy(false);
+    }
+  };
 
   const saveDefaults = async () => {
     if (!prompt()) return;
@@ -166,6 +213,29 @@ export const PromptDetailPage: VoidComponent = () => {
     } finally {
       setSavingDefaults(false);
     }
+  };
+
+  const handleDeletePrompt = async () => {
+    if (!prompt()) return;
+    const id = prompt()!.id;
+    setDeleteBusy(true);
+    try {
+      const res = await apiFetch(`/api/prompts/${id}`, { method: "DELETE" });
+      console.log("[ai-prompt-detail] delete status", res.status);
+      navigate("/ai");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const handleMetaTaskInput = (e: Event) => {
+    const target = e.currentTarget as HTMLInputElement;
+    setMetaTask(target.value || "");
+  };
+
+  const handleMetaDescInput = (e: Event) => {
+    const target = e.currentTarget as HTMLTextAreaElement;
+    setMetaDesc(target.value || "");
   };
 
   const handleCreateVersion = async (activate: boolean) => {
@@ -363,6 +433,16 @@ export const PromptDetailPage: VoidComponent = () => {
                           {p().description || "—"}
                         </Text>
                       </Stack>
+                      <HStack gap="2" flexWrap="wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorPalette="red"
+                          onClick={() => setDeleteOpen(true)}
+                        >
+                          Delete Prompt
+                        </Button>
+                      </HStack>
                     </Flex>
 
                     <Grid
@@ -373,6 +453,56 @@ export const PromptDetailPage: VoidComponent = () => {
                       }}
                     >
                       <Stack gap="4">
+                        <Card.Root>
+                          <Card.Header>
+                            <Heading as="h2" fontSize="lg">
+                              Prompt details
+                            </Heading>
+                          </Card.Header>
+                          <Card.Body>
+                            <Stack gap="3">
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Name
+                                </Text>
+                                <Input
+                                  value={metaTask()}
+                                  onInput={handleMetaTaskInput}
+                                  size="sm"
+                                />
+                              </Stack>
+                              <Stack gap="1">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Description
+                                </Text>
+                                <Textarea
+                                  value={metaDesc()}
+                                  onInput={handleMetaDescInput}
+                                  size="sm"
+                                  minH="6rem"
+                                />
+                              </Stack>
+                              <HStack gap="2" flexWrap="wrap">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  loading={metaBusy()}
+                                  onClick={saveMeta}
+                                >
+                                  Save Details
+                                </Button>
+                              </HStack>
+                              <Show when={metaError()}>
+                                {(err) => (
+                                  <Text textStyle="xs" color="error">
+                                    {err()}
+                                  </Text>
+                                )}
+                              </Show>
+                            </Stack>
+                          </Card.Body>
+                        </Card.Root>
+
                         <Card.Root>
                           <Card.Header>
                             <Heading as="h2" fontSize="lg">
@@ -396,10 +526,13 @@ export const PromptDetailPage: VoidComponent = () => {
                                 <Text as="span" fontWeight="medium">
                                   {p().defaultTemp}
                                 </Text>
-                                <Show when={typeof p().defaultTopP === "number"}>
+                                <Show
+                                  when={typeof p().defaultTopP === "number"}
+                                >
                                   {(v) => (
                                     <Text as="span" color="fg.muted">
-                                      {" "}· TopP:{" "}
+                                      {" "}
+                                      · TopP:{" "}
                                       <Text as="span" fontWeight="medium">
                                         {String(v())}
                                       </Text>
@@ -557,7 +690,7 @@ export const PromptDetailPage: VoidComponent = () => {
                         <Card.Root>
                           <Card.Header>
                             <Heading as="h2" fontSize="lg">
-                              Edit → New Version
+                              Create New Version
                             </Heading>
                           </Card.Header>
                           <Card.Body>
@@ -570,6 +703,10 @@ export const PromptDetailPage: VoidComponent = () => {
                               }
                             >
                               <Stack gap="3">
+                                <Text textStyle="xs" color="fg.muted">
+                                  Versions are immutable. Editing creates a new
+                                  version instead of changing the active one.
+                                </Text>
                                 <Stack gap="1">
                                   <Text textStyle="xs" color="fg.muted">
                                     Template (Mustache)
@@ -621,11 +758,15 @@ export const PromptDetailPage: VoidComponent = () => {
                         <Card.Root>
                           <Card.Header>
                             <Heading as="h2" fontSize="lg">
-                              Revise with Feedback (LLM)
+                              Generate Revision (Creates New Version)
                             </Heading>
                           </Card.Header>
                           <Card.Body>
                             <Stack gap="3">
+                              <Text textStyle="xs" color="fg.muted">
+                                This will suggest a draft you can review before
+                                saving as a new version.
+                              </Text>
                               <Stack gap="1">
                                 <Text textStyle="xs" color="fg.muted">
                                   Feedback
@@ -725,7 +866,9 @@ export const PromptDetailPage: VoidComponent = () => {
                                           {v.id}
                                         </Text>
                                         <Text textStyle="xs" color="fg.muted">
-                                          {new Date(v.createdAt).toLocaleString()}
+                                          {new Date(
+                                            v.createdAt
+                                          ).toLocaleString()}
                                         </Text>
                                       </Stack>
                                       <Text textStyle="xs" color="fg.muted">
@@ -843,7 +986,10 @@ export const PromptDetailPage: VoidComponent = () => {
                                               </Text>
                                             </Table.Cell>
                                             <Table.Cell>
-                                              <Text as="span" color="fg.default">
+                                              <Text
+                                                as="span"
+                                                color="fg.default"
+                                              >
                                                 {r.model}
                                               </Text>
                                             </Table.Cell>
@@ -859,7 +1005,10 @@ export const PromptDetailPage: VoidComponent = () => {
                                               </Badge>
                                             </Table.Cell>
                                             <Table.Cell>
-                                              <Text as="span" color="fg.default">
+                                              <Text
+                                                as="span"
+                                                color="fg.default"
+                                              >
                                                 {new Date(
                                                   r.createdAt
                                                 ).toLocaleString()}
@@ -891,6 +1040,19 @@ export const PromptDetailPage: VoidComponent = () => {
           </ErrorBoundary>
         </Stack>
       </Container>
+
+      <ConfirmDialog
+        open={deleteOpen()}
+        onOpenChange={setDeleteOpen}
+        title="Delete prompt"
+        description={`Delete "${prompt()?.task || "this prompt"}" and all of its versions and runs?`}
+        confirmLabel={deleteBusy() ? "Deleting…" : "Delete prompt"}
+        onConfirm={() => void handleDeletePrompt()}
+      >
+        <Text textStyle="sm" color="fg.muted">
+          This action cannot be undone.
+        </Text>
+      </ConfirmDialog>
     </Box>
   );
 };
