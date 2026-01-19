@@ -25,11 +25,7 @@ export const ActionsPopover = (props: {
       offset={8}
       style={{ width: "20rem", padding: "0.75rem" }}
       anchor={
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setOpen((v) => !v)}
-        >
+        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
           <HStack gap="1" alignItems="center">
             <SettingsIcon size={16} />
             <Box as="span">Actions</Box>
@@ -123,10 +119,7 @@ export const ActionsPopover = (props: {
                       size="sm"
                       colorPalette="olive"
                       onClick={async () => {
-                        await props.onDeleteBySource(
-                          s.originalSource,
-                          s.count
-                        );
+                        await props.onDeleteBySource(s.originalSource, s.count);
                         setOpen(false);
                       }}
                     >

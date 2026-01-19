@@ -1,8 +1,8 @@
 import { Accessor, JSX, splitProps } from "solid-js";
 import { Portal } from "solid-js/web";
-import * as ArkPopover from "~/components/ui/popover";
 import { WrapWhen } from "./WrapWhen";
-import { PopoverRootProps } from "@ark-ui/solid/popover";
+import * as Popover from "./popover";
+import { PopoverRootProps } from "@ark-ui/solid";
 
 type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
@@ -44,7 +44,7 @@ export const SimplePopover = (props: PopoverProps) => {
   };
 
   return (
-    <ArkPopover.Root
+    <Popover.Root
       open={local.open}
       onOpenChange={(details) => {
         if (!details.open) {
@@ -54,14 +54,12 @@ export const SimplePopover = (props: PopoverProps) => {
       }}
       positioning={positioning()}
     >
-      <ArkPopover.Anchor>{local.anchor}</ArkPopover.Anchor>
+      <Popover.Anchor>{local.anchor}</Popover.Anchor>
       <WrapWhen when={portalled()} component={Portal}>
-        <ArkPopover.Positioner>
-          <ArkPopover.Content class={local.class} style={local.style}>
-            {local.children}
-          </ArkPopover.Content>
-        </ArkPopover.Positioner>
+        <Popover.Positioner>
+          <Popover.Content>{local.children}</Popover.Content>
+        </Popover.Positioner>
       </WrapWhen>
-    </ArkPopover.Root>
+    </Popover.Root>
   );
 };
