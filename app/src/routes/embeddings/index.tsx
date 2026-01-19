@@ -257,20 +257,16 @@ const EmbeddingsIndex: VoidComponent = () => {
                     <Text textStyle="sm">Keep outline (H1→H3)</Text>
                   </HStack>
 
-                  <Stack gap="1">
-                    <Text textStyle="sm" fontWeight="medium">
-                      Code blocks
-                    </Text>
-                    <SimpleSelect
-                      items={CODEBLOCK_ITEMS}
-                      value={state.codeblockPolicy}
-                      onChange={(value) =>
-                        setState("codeblockPolicy", parseCodeblockPolicy(value))
-                      }
-                      sameWidth
-                      placeholder="Pick policy"
-                    />
-                  </Stack>
+                  <SimpleSelect
+                    items={CODEBLOCK_ITEMS}
+                    value={state.codeblockPolicy}
+                    onChange={(value) =>
+                      setState("codeblockPolicy", parseCodeblockPolicy(value))
+                    }
+                    label="Code blocks"
+                    sameWidth
+                    placeholder="Pick policy"
+                  />
                 </Stack>
 
                 <Stack gap="3">
@@ -278,20 +274,16 @@ const EmbeddingsIndex: VoidComponent = () => {
                     Chunking
                   </Heading>
 
-                  <Stack gap="1">
-                    <Text textStyle="sm" fontWeight="medium">
-                      Mode
-                    </Text>
-                    <SimpleSelect
-                      items={CHUNKER_MODE_ITEMS}
-                      value={state.chunkerMode}
-                      onChange={(value) =>
-                        setState("chunkerMode", parseChunkerMode(value))
-                      }
-                      sameWidth
-                      placeholder="Pick mode"
-                    />
-                  </Stack>
+                  <SimpleSelect
+                    items={CHUNKER_MODE_ITEMS}
+                    value={state.chunkerMode}
+                    onChange={(value) =>
+                      setState("chunkerMode", parseChunkerMode(value))
+                    }
+                    label="Mode"
+                    sameWidth
+                    placeholder="Pick mode"
+                  />
 
                   <Show when={state.chunkerMode === "structure"}>
                     <Grid

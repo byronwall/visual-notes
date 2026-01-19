@@ -211,14 +211,19 @@ export const FiltersPanel = (props: {
 
       <Show when={isSourceOpen()}>
         <HStack gap="0.5rem" alignItems="center">
-          <Text fontSize="xs" color="black.a7" width="5rem" flexShrink="0">
-            Source
-          </Text>
           <Box flex="1">
             <SimpleSelect
               items={sourceItems()}
               value={q.source()}
               onChange={(value) => q.setSource(value)}
+              label="Source"
+              labelPlacement="inline"
+              labelProps={{
+                fontSize: "xs",
+                color: "black.a7",
+                width: "5rem",
+                flexShrink: "0",
+              }}
               size="sm"
               sameWidth
             />

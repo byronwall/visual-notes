@@ -162,13 +162,16 @@ export const BulkMetaModal: VoidComponent<{
           alignItems="end"
         >
           <Box>
-            <Text fontSize="xs" color="black.a7" mb="0.25rem">
-              Action
-            </Text>
             <SimpleSelect
               items={actionItems}
               value={draftType()}
               onChange={handleDraftTypeChange}
+              label="Action"
+              labelProps={{
+                fontSize: "xs",
+                color: "black.a7",
+                fontWeight: "normal",
+              }}
               size="sm"
               sameWidth
             />
@@ -186,13 +189,16 @@ export const BulkMetaModal: VoidComponent<{
           </Box>
           <Show when={draftType() !== "remove"}>
             <Box>
-              <Text fontSize="xs" color="black.a7" mb="0.25rem">
-                Value type
-              </Text>
               <SimpleSelect
                 items={valueTypeItems}
                 value={draftValueType()}
                 onChange={handleDraftValueTypeChange}
+                label="Value type"
+                labelProps={{
+                  fontSize: "xs",
+                  color: "black.a7",
+                  fontWeight: "normal",
+                }}
                 size="sm"
                 sameWidth
               />

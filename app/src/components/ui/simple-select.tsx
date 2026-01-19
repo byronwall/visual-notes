@@ -1,6 +1,7 @@
-import { Accessor, For, createMemo } from "solid-js";
-import { Portal } from "solid-js/web";
+import { Accessor, For, Show, createMemo, type ComponentProps } from "solid-js";
 import type { SelectRootProps } from "@ark-ui/solid/select";
+import { Portal } from "solid-js/web";
+import { HStack } from "styled-system/jsx";
 import * as Select from "~/components/ui/select";
 import { WrapWhen } from "./WrapWhen";
 
@@ -15,6 +16,9 @@ type SimpleSelectProps = {
   value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  label?: string;
+  labelPlacement?: "stacked" | "inline";
+  labelProps?: Omit<ComponentProps<typeof Select.Label>, "children">;
   size?: "xs" | "sm" | "md" | "lg";
   minW?: string;
   triggerId?: string;
@@ -36,6 +40,18 @@ export function SimpleSelect(props: SimpleSelectProps) {
     return { placement: "bottom-start" };
   };
 
+  const inlineLabel = () =>
+    props.labelPlacement === "inline" ? props.label : undefined;
+
+  const renderControl = () => (
+    <Select.Control>
+      <Select.Trigger id={props.triggerId} minW={props.minW}>
+        <Select.ValueText placeholder={props.placeholder} />
+        <Select.Indicator />
+      </Select.Trigger>
+    </Select.Control>
+  );
+
   return (
     <Select.Root
       collection={collection()}
@@ -44,12 +60,26 @@ export function SimpleSelect(props: SimpleSelectProps) {
       size={props.size}
       positioning={positioning()}
     >
-      <Select.Control>
-        <Select.Trigger id={props.triggerId} minW={props.minW}>
-          <Select.ValueText placeholder={props.placeholder} />
-          <Select.Indicator />
-        </Select.Trigger>
-      </Select.Control>
+      <Show
+        when={inlineLabel()}
+        fallback={
+          <>
+            <Show when={props.label}>
+              {(label) => (
+                <Select.Label {...props.labelProps}>{label()}</Select.Label>
+              )}
+            </Show>
+            {renderControl()}
+          </>
+        }
+      >
+        {(label) => (
+          <HStack gap="2" alignItems="center">
+            <Select.Label {...props.labelProps}>{label()}</Select.Label>
+            {renderControl()}
+          </HStack>
+        )}
+      </Show>
       <WrapWhen when={props.skipPortal !== true} component={Portal}>
         <Select.Positioner>
           <Select.Content>

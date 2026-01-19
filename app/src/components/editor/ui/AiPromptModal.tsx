@@ -152,12 +152,6 @@ export function useAiPromptModal() {
             </Text>
 
             <Stack gap="1">
-              <Text fontSize="xs" color="fg.muted">
-                Model
-              </Text>
-              <Text fontSize="xs" color="fg.muted">
-                Choose a model override for this run.
-              </Text>
               <Suspense
                 fallback={
                   <Text fontSize="xs" color="fg.muted">
@@ -169,11 +163,16 @@ export function useAiPromptModal() {
                   items={modelItems()}
                   value={model() || defaultModel() || ""}
                   onChange={(value) => setModel(value)}
+                  label="Model"
+                  labelProps={{ fontSize: "xs", color: "fg.muted" }}
                   size="sm"
                   placeholder="Default"
                   skipPortal
                 />
               </Suspense>
+              <Text fontSize="xs" color="fg.muted">
+                Choose a model override for this run.
+              </Text>
             </Stack>
 
             <Stack gap="1">

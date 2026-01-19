@@ -346,13 +346,12 @@ const UmapIndex: VoidComponent = () => {
                 </Stack>
 
                 <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    metric
-                  </Box>
                   <SimpleSelect
                     items={METRIC_ITEMS}
                     value={state.metric}
                     onChange={(value) => setState("metric", parseMetric(value))}
+                    label="metric"
+                    labelProps={{ fontSize: "xs", color: "fg.muted" }}
                     sameWidth
                     placeholder="metric"
                   />
@@ -465,13 +464,12 @@ const UmapIndex: VoidComponent = () => {
                 </Stack>
 
                 <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    init
-                  </Box>
                   <SimpleSelect
                     items={INIT_ITEMS}
                     value={state.init}
                     onChange={(value) => setState("init", parseInit(value))}
+                    label="init"
+                    labelProps={{ fontSize: "xs", color: "fg.muted" }}
                     sameWidth
                     placeholder="init"
                   />

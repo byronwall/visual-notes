@@ -358,26 +358,34 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
           fontSize="xs"
           color="fg.muted"
         >
-          <Text as="label" for="sortMode" fontSize="xs" color="fg.muted">
-            Sort:
-          </Text>
           <SimpleSelect
             items={SORT_ITEMS}
             value={props.sortMode()}
             onChange={handleSortChange}
+            label="Sort:"
+            labelPlacement="inline"
+            labelProps={{
+              fontSize: "xs",
+              color: "fg.muted",
+              fontWeight: "normal",
+            }}
             sameWidth
             triggerId="sortMode"
             minW="180px"
             placeholder="Sort"
           />
 
-          <Text as="label" for="layoutMode" fontSize="xs" color="fg.muted">
-            Layout:
-          </Text>
           <SimpleSelect
             items={LAYOUT_ITEMS}
             value={props.layoutMode()}
             onChange={handleLayoutChange}
+            label="Layout:"
+            labelPlacement="inline"
+            labelProps={{
+              fontSize: "xs",
+              color: "fg.muted",
+              fontWeight: "normal",
+            }}
             sameWidth
             triggerId="layoutMode"
             minW="180px"
