@@ -149,6 +149,36 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         borderWidth="1px"
         borderColor="gray.outline.border"
         borderRadius="l2"
+        css={{
+          "& .ProseMirror table": {
+            width: "100%",
+            borderCollapse: "collapse",
+            borderSpacing: 0,
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderColor: "border",
+          },
+          "& .ProseMirror th, & .ProseMirror td": {
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderColor: "border",
+            px: "3",
+            py: "2",
+            verticalAlign: "top",
+            bg: "bg.default",
+            color: "fg.default",
+          },
+          "& .ProseMirror th": {
+            bg: "gray.surface.bg",
+            fontWeight: "semibold",
+          },
+          "& .ProseMirror tbody tr:nth-of-type(odd) td": {
+            bg: "bg.default",
+          },
+          "& .ProseMirror tbody tr:nth-of-type(even) td": {
+            bg: "gray.surface.bg.hover",
+          },
+        }}
       >
         <Box minH="200px" ref={setContainer} />
 
