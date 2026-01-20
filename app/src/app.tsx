@@ -4,11 +4,11 @@ import "./panda.css";
 import { MetaProvider, Title } from "@solidjs/meta";
 import { Router } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { Suspense } from "solid-js";
+import { children, Show, Suspense } from "solid-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { SessionProvider } from "@solid-mediakit/auth/client";
 import { clientEnv } from "~/env/client";
-import { Navbar } from "~/components/Navbar";
+import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { createEffect } from "solid-js";
@@ -65,10 +65,12 @@ const AuthGate = (props: { children: any }) => {
   if (!authed() && location.pathname !== "/login") {
     return null;
   }
+
   return (
     <>
-      {authed() ? <Navbar /> : null}
-      {props.children}
+      <Show when={authed()} fallback={null}>
+        <AppSidebarLayout>{props.children}</AppSidebarLayout>
+      </Show>
     </>
   );
 };

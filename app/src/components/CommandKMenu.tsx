@@ -10,9 +10,10 @@ import {
   createResource,
   createSignal,
   onCleanup,
+  splitProps,
   type VoidComponent,
 } from "solid-js";
-import { Box, Stack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import { useAbortableFetch } from "~/features/docs-index/hooks/useAbortableFetch";
 import {
@@ -21,6 +22,7 @@ import {
 } from "~/features/docs-index/data/docs.service";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Spinner } from "~/components/ui/spinner";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Text } from "~/components/ui/text";
 
@@ -46,6 +48,99 @@ type CommandItem =
       snippet?: string | null;
       run: () => void;
     };
+
+type HighlightedTextProps = {
+  text: string;
+  query: string;
+};
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const highlightedTextWrapClass = css({
+  display: "inline",
+});
+
+const highlightMarkClass = css({
+  display: "inline",
+  borderRadius: "sm",
+  px: "0.5",
+  bg: "yellow.3",
+  color: "black",
+});
+
+const NewNoteIcon: VoidComponent<{ size?: number }> = (props) => {
+  const size = () => props.size ?? 16;
+  return (
+    <svg
+      width={size()}
+      height={size()}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      class={css({ color: "fg.muted", flexShrink: "0" })}
+    >
+      <path
+        d="M12 6v12M6 12h12"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+      />
+    </svg>
+  );
+};
+
+const HighlightedText: VoidComponent<HighlightedTextProps> = (props) => {
+  const [local] = splitProps(props, ["text", "query"]);
+
+  const qTokens = () =>
+    local.query
+      .trim()
+      .split(/\s+/g)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 2)
+      .slice(0, 6);
+
+  const parts = createMemo(() => {
+    const text = local.text;
+    const tokens = qTokens();
+    if (!text.length) return [{ kind: "text" as const, value: "" }];
+    if (tokens.length === 0) return [{ kind: "text" as const, value: text }];
+
+    const re = new RegExp(`(${tokens.map(escapeRegExp).join("|")})`, "gi");
+    const out: Array<{ kind: "text" | "match"; value: string }> = [];
+    let lastIdx = 0;
+
+    for (const m of text.matchAll(re)) {
+      const idx = m.index ?? 0;
+      const raw = m[0] ?? "";
+      if (!raw) continue;
+      if (idx > lastIdx) out.push({ kind: "text", value: text.slice(lastIdx, idx) });
+      out.push({ kind: "match", value: text.slice(idx, idx + raw.length) });
+      lastIdx = idx + raw.length;
+    }
+
+    if (lastIdx < text.length) out.push({ kind: "text", value: text.slice(lastIdx) });
+    if (out.length === 0) return [{ kind: "text" as const, value: text }];
+    return out;
+  });
+
+  return (
+    <Box as="span" class={highlightedTextWrapClass}>
+      <For each={parts()}>
+        {(p) => (
+          <Show
+            when={p.kind === "match"}
+            fallback={<Box as="span">{p.value}</Box>}
+          >
+            <Box as="mark" class={highlightMarkClass}>
+              {p.value}
+            </Box>
+          </Show>
+        )}
+      </For>
+    </Box>
+  );
+};
 
 export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const navigate = useNavigate();
@@ -127,7 +222,8 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       },
     ];
 
-    const hits = (results() || []) as ServerSearchItem[];
+    // Use `latest` to avoid Suspense re-triggering (UI flashing) on each query change.
+    const hits = (results.latest || []) as ServerSearchItem[];
     const mapped: CommandItem[] = hits.slice(0, 10).map((d) => ({
       kind: "doc",
       key: d.id,
@@ -207,6 +303,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     return raw.replace(/\s+/g, " ");
   };
 
+  const resultsPanelHeight = "55vh";
+  const hitsLatest = () => (results.latest || []) as ServerSearchItem[];
+
   return (
     <SimpleDialog
       open={props.open}
@@ -217,44 +316,59 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     >
       <Stack gap="0.75rem" w="full" minW="0">
         <Box w="full" minW="0">
-          <Input
-            ref={inputEl}
-            size="sm"
-            placeholder="Type to search… (2+ characters)"
-            value={query()}
-            onInput={(e) =>
-              setQuery((e.currentTarget as HTMLInputElement).value)
-            }
-            onKeyDown={(e) => handleInputKeyDown(e as unknown as KeyboardEvent)}
-            autocomplete="off"
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck={false}
-          />
-          <Show when={qTrim().length > 0 && !isSearchingEnabled()}>
-            <Text fontSize="xs" color="black.a7" mt="0.25rem">
-              Keep typing to search (needs 2+ characters).
-            </Text>
-          </Show>
-          <Show when={isSearching()}>
-            <Text fontSize="xs" color="black.a7" mt="0.25rem">
-              Searching…
-            </Text>
-          </Show>
+          <HStack gap="2" alignItems="center">
+            <Box flex="1" minW="0">
+              <Input
+                ref={inputEl}
+                size="sm"
+                placeholder="Type to search… (2+ characters)"
+                value={query()}
+                onInput={(e) =>
+                  setQuery((e.currentTarget as HTMLInputElement).value)
+                }
+                onKeyDown={(e) =>
+                  handleInputKeyDown(e as unknown as KeyboardEvent)
+                }
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck={false}
+              />
+            </Box>
+
+            {/* reserve space to avoid layout shift */}
+            <Box w="20px" display="inline-flex" justifyContent="flex-end">
+              <Show when={isSearching()}>
+                <Spinner size="xs" color="fg.muted" />
+              </Show>
+            </Box>
+          </HStack>
         </Box>
 
         <Suspense
           fallback={
-            <Text fontSize="sm" color="black.a7">
-              Loading…
-            </Text>
+            <Box
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              h={resultsPanelHeight}
+              overflowY="auto"
+              w="full"
+              minW="0"
+            >
+              <Box px="0.75rem" py="0.6rem">
+                <Text fontSize="sm" color="black.a7">
+                  Loading…
+                </Text>
+              </Box>
+            </Box>
           }
         >
           <Box
             borderWidth="1px"
             borderColor="gray.outline.border"
             borderRadius="l2"
-            maxH="55vh"
+            h={resultsPanelHeight}
             overflowY="auto"
             w="full"
             minW="0"
@@ -284,12 +398,24 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   >
                     <Switch>
                       <Match when={it.kind === "action"}>
-                        <Text fontSize="sm" fontWeight="semibold" truncate>
-                          {
-                            (it as Extract<CommandItem, { kind: "action" }>)
-                              .label
-                          }
-                        </Text>
+                        <HStack gap="2" alignItems="center" minW="0">
+                          <Show
+                            when={
+                              (it as Extract<CommandItem, { kind: "action" }>)
+                                .key === "new-note"
+                            }
+                          >
+                            <NewNoteIcon />
+                          </Show>
+                          <Box minW="0" flex="1">
+                            <Text fontSize="sm" fontWeight="semibold" truncate>
+                              {
+                                (it as Extract<CommandItem, { kind: "action" }>)
+                                  .label
+                              }
+                            </Text>
+                          </Box>
+                        </HStack>
                         <Show
                           when={
                             (it as Extract<CommandItem, { kind: "action" }>)
@@ -303,7 +429,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                       </Match>
                       <Match when={it.kind === "doc"}>
                         <Text fontSize="sm" fontWeight="semibold" truncate>
-                          {(it as Extract<CommandItem, { kind: "doc" }>).title}
+                          <HighlightedText
+                            text={(it as Extract<CommandItem, { kind: "doc" }>).title}
+                            query={qTrim()}
+                          />
                         </Text>
                         <Show
                           when={
@@ -311,7 +440,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                           }
                         >
                           {(path) => (
-                            <Box class={secondaryRowClass}>{path()}</Box>
+                            <Box class={secondaryRowClass}>
+                              <HighlightedText text={path()} query={qTrim()} />
+                            </Box>
                           )}
                         </Show>
                         <Show
@@ -321,7 +452,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                           )}
                         >
                           {(snippet) => (
-                            <Box class={snippetClass}>{snippet()}</Box>
+                            <Box class={snippetClass}>
+                              <HighlightedText text={snippet()} query={qTrim()} />
+                            </Box>
                           )}
                         </Show>
                       </Match>
@@ -331,13 +464,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
               </For>
 
               <Show
-                when={isSearchingEnabled() && (results() || []).length === 0}
+                when={
+                  isSearchingEnabled() &&
+                  debouncedQuery().length > 0 &&
+                  !results.loading &&
+                  hitsLatest().length === 0
+                }
               >
                 <Box px="0.75rem" py="0.6rem">
                   <Text fontSize="sm" color="black.a7">
-                    <Show when={results.loading} fallback={<>No results.</>}>
-                      Searching…
-                    </Show>
+                    No results.
                   </Text>
                 </Box>
               </Show>
