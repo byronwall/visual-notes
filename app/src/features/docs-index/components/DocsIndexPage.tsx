@@ -1,6 +1,5 @@
 import { useLocation, useSearchParams } from "@solidjs/router";
 import {
-  Show,
   Suspense,
   createEffect,
   createResource,
@@ -24,13 +23,10 @@ import { ActionsPopover } from "./ActionsPopover";
 import { FiltersPanel } from "./FiltersPanel";
 import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
-import { PathTreeSidebar } from "./PathTreeSidebar";
 import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
 import { updateDocPath } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
-import { CloseButton } from "~/components/ui/close-button";
-import * as Drawer from "~/components/ui/drawer";
 import { Heading } from "~/components/ui/heading";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
@@ -222,8 +218,6 @@ const DocsIndexPage = () => {
   const [showBulkPath, setShowBulkPath] = createSignal(false);
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
-  const [sidebarOpen, setSidebarOpen] = createSignal(false);
-  const [sidebarVisible, setSidebarVisible] = createSignal(true);
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -429,59 +423,9 @@ const DocsIndexPage = () => {
     alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
   };
 
-  const handleSidebarDrawerChange = (details: { open?: boolean }) => {
-    setSidebarOpen(details.open === true);
-  };
-
-  const handleOpenSidebar = () => setSidebarOpen(true);
-  const handleToggleSidebar = () => setSidebarVisible((prev) => !prev);
-
-  const sidebarToggleLabel = () =>
-    sidebarVisible() ? "Hide Paths" : "Show Paths";
-
   return (
     <Box as="main" minH="100vh" bg="white">
-      <Drawer.Root
-        open={sidebarOpen()}
-        onOpenChange={handleSidebarDrawerChange}
-        placement="start"
-        size="full"
-      >
-        <Drawer.Backdrop />
-        <Drawer.Positioner>
-          <Drawer.Content w="85vw" maxW="320px">
-            <Drawer.CloseTrigger aria-label="Close paths">
-              <CloseButton />
-            </Drawer.CloseTrigger>
-            <Box h="100dvh" minH="0">
-              <PathTreeSidebar q={q} />
-            </Box>
-          </Drawer.Content>
-        </Drawer.Positioner>
-      </Drawer.Root>
       <Flex align="stretch" minH="100vh">
-        <Show when={sidebarVisible()}>
-          <>
-            <Box
-              display={{ base: "none", lg: "flex" }}
-              w="16rem"
-              flexShrink="0"
-              bg="white"
-              minH="100vh"
-              borderRightWidth="1px"
-              borderColor="gray.outline.border"
-            >
-              <Box
-                position="sticky"
-                top="3.5rem"
-                h="calc(100vh - 3.5rem)"
-                w="full"
-              >
-                <PathTreeSidebar q={q} />
-              </Box>
-            </Box>
-          </>
-        </Show>
         <Box flex="1" minW="0">
           <Container py="1.5rem" px="1rem" maxW="900px">
             <Stack gap="1rem">
@@ -495,22 +439,6 @@ const DocsIndexPage = () => {
                   Notes
                 </Heading>
                 <HStack gap="0.5rem" flexWrap="wrap">
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    display={{ base: "inline-flex", lg: "none" }}
-                    onClick={handleOpenSidebar}
-                  >
-                    Paths
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    display={{ base: "none", lg: "inline-flex" }}
-                    onClick={handleToggleSidebar}
-                  >
-                    {sidebarToggleLabel()}
-                  </Button>
                   <Button
                     size="xs"
                     variant="outline"
@@ -611,14 +539,6 @@ const DocsIndexPage = () => {
             </Stack>
           </Container>
         </Box>
-        <Show when={sidebarVisible()}>
-          <Box
-            display={{ base: "none", lg: "block" }}
-            w="16rem"
-            flexShrink="0"
-            aria-hidden="true"
-          />
-        </Show>
       </Flex>
     </Box>
   );
