@@ -21,7 +21,10 @@ type AppSidebarMobileProps = {
 export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
   return (
     <Box display={{ base: "block", md: "none" }} minH="100vh">
-      <Drawer.Root open={props.open} onOpenChange={props.onOpenChange}>
+      <Drawer.Root
+        open={props.open}
+        onOpenChange={(details) => props.onOpenChange(details.open)}
+      >
         <Drawer.Backdrop />
         <Drawer.Positioner>
           <Drawer.Content
