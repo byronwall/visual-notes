@@ -1,14 +1,17 @@
 import type { Editor } from "@tiptap/core";
-import { A } from "@solidjs/router";
-import { For, Suspense, createResource, createSignal } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { For, Show, Suspense, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { apiFetch } from "~/utils/base-url";
 import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
 import { useAiPromptModal } from "./AiPromptModal";
 import { emitLLMSidebarOpen } from "~/components/ai/LLMSidebarBus";
-import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
-import { HStack, Spacer } from "styled-system/jsx";
+import * as Menu from "~/components/ui/menu";
+import { IconButton } from "~/components/ui/icon-button";
+import { Tooltip } from "~/components/ui/tooltip";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { SparklesIcon } from "lucide-solid";
 
 type PromptRecord = {
   id: string;
@@ -33,7 +36,8 @@ async function fetchPrompts(): Promise<PromptRecord[]> {
   return data.items || [];
 }
 
-export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
+export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
+  const navigate = useNavigate();
   const [prompts] = createResource(fetchPrompts);
   const [running, setRunning] = createSignal<string | null>(null);
   const { prompt: openAiModal, view: aiModalView } = useAiPromptModal();
@@ -125,44 +129,98 @@ export function AIPromptsBar(props: { editor?: Editor; noteId?: string }) {
 
   return (
     <>
-      <HStack gap="1" alignItems="center" overflowX="auto">
-        <Suspense
-          fallback={
-            <Text fontSize="xs" color="fg.muted">
-              Loading prompts…
-            </Text>
-          }
-        >
-          <For each={prompts() || []}>
-            {(p) => (
-              <Button
+      <Menu.Root size="sm">
+        <Tooltip content="AI prompts" showArrow>
+          <Menu.Trigger
+            asChild={(triggerProps) => (
+              <IconButton
+                {...triggerProps}
                 size="xs"
-                variant="outline"
+                variant="subtle"
                 colorPalette="gray"
-                disabled={running() === p.id}
-                onClick={() => onRun(p)}
-                title={p.description || p.task}
+                minW="6"
+                h="6"
+                aria-label="AI prompts"
               >
-                {p.task}
-              </Button>
+                <SparklesIcon size={16} />
+              </IconButton>
             )}
-          </For>
-        </Suspense>
-        <Spacer />
-        <A
-          href="/ai"
-          class={css({
-            fontSize: "xs",
-            color: "fg.muted",
-            whiteSpace: "nowrap",
-            textDecoration: "none",
-            _hover: { color: "fg.default", textDecoration: "underline" },
-          })}
-          title="Manage prompts"
-        >
-          Manage prompts
-        </A>
-      </HStack>
+          />
+        </Tooltip>
+        <Menu.Positioner>
+          <Menu.Content class={css({ minW: "240px", maxW: "320px" })}>
+            <Suspense
+              fallback={
+                <Menu.Item disabled value="loading">
+                  <Text fontSize="sm" color="fg.muted">
+                    Loading prompts…
+                  </Text>
+                </Menu.Item>
+              }
+            >
+              <Show
+                when={(prompts() || []).length > 0}
+                fallback={
+                  <Menu.Item disabled value="empty">
+                    <Text fontSize="sm" color="fg.muted">
+                      No prompts yet
+                    </Text>
+                  </Menu.Item>
+                }
+              >
+                <For each={prompts() || []}>
+                  {(p) => (
+                    <Menu.Item
+                      value={p.id}
+                      disabled={running() === p.id}
+                      onSelect={() => void onRun(p)}
+                    >
+                      <Stack gap="0.5" maxW="18rem">
+                        <HStack gap="2" alignItems="center">
+                          <Box
+                            w="1.25rem"
+                            h="1.25rem"
+                            display="inline-flex"
+                            alignItems="center"
+                            justifyContent="center"
+                            color="fg.muted"
+                          >
+                            <SparklesIcon size={14} />
+                          </Box>
+                          <Text fontSize="sm" fontWeight="medium" truncate>
+                            {running() === p.id ? `Running ${p.task}…` : p.task}
+                          </Text>
+                        </HStack>
+                        <Show when={p.description}>
+                          {(desc) => (
+                            <Text
+                              fontSize="xs"
+                              color="fg.muted"
+                              class={css({
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              })}
+                            >
+                              {desc()}
+                            </Text>
+                          )}
+                        </Show>
+                      </Stack>
+                    </Menu.Item>
+                  )}
+                </For>
+              </Show>
+            </Suspense>
+            <Menu.Separator />
+            <Menu.Item value="manage-prompts" onSelect={() => navigate("/ai")}>
+              <Text fontSize="sm" color="fg.muted">
+                Manage prompts
+              </Text>
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Positioner>
+      </Menu.Root>
       {aiModalView}
     </>
   );

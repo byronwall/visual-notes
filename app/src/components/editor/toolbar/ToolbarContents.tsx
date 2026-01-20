@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core";
+import { Show } from "solid-js";
 import { Control } from "./Control";
 import { blocks, marks, listsBlocks, type Btn } from "./toolbarConfig";
 import { exec } from "../core/exec";
@@ -7,6 +8,7 @@ import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { Tooltip } from "~/components/ui/tooltip";
+import { AIPromptsMenu } from "../ui/AIPromptsMenu";
 import { Box, HStack } from "styled-system/jsx";
 import {
   ClipboardPasteIcon,
@@ -20,7 +22,11 @@ import {
   Trash2Icon,
 } from "lucide-solid";
 
-export function ToolbarContents(props: { editor: Editor }) {
+export function ToolbarContents(props: {
+  editor: Editor;
+  noteId?: string;
+  showAiPromptsMenu?: boolean;
+}) {
   let csvInputRef: HTMLInputElement | undefined;
 
   const run = (fn: Btn["run"]) => exec(props.editor, fn);
@@ -350,6 +356,10 @@ export function ToolbarContents(props: { editor: Editor }) {
           </Control>
         </Tooltip>
       </HStack>
+      <Show when={props.showAiPromptsMenu}>
+        <Separator />
+        <AIPromptsMenu editor={props.editor} noteId={props.noteId} />
+      </Show>
     </HStack>
   );
 }

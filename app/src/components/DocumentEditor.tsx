@@ -18,8 +18,8 @@ import { apiFetch } from "~/utils/base-url";
 import TiptapEditor from "./TiptapEditor";
 import { PathEditor } from "./PathEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
-import { AIPromptsBar } from "./editor/ui/AIPromptsBar";
 import { Button } from "~/components/ui/button";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 
@@ -64,12 +64,18 @@ const DocumentEditor: VoidComponent<{
   apiRef?: (api: DocumentEditorApi) => void;
   showTopBar?: boolean;
   showAiPromptsBar?: boolean;
+  showTitleInTopBar?: boolean;
+  showSaveButtonInTopBar?: boolean;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [savedAt, setSavedAt] = createSignal<Date | undefined>(undefined);
   const [dirty, setDirty] = createSignal(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = createSignal(false);
+  const [pendingRetry, setPendingRetry] = createSignal<(() => void) | null>(
+    null
+  );
 
   const [doc, { refetch }] = createResource(() => props.docId, fetchDoc);
   const [newPath, setNewPath] = createSignal<string>("");
@@ -143,7 +149,11 @@ const DocumentEditor: VoidComponent<{
   // Block client-side route navigation when dirty
   useBeforeLeave((evt) => {
     if (!dirty()) return;
+    if (leaveDialogOpen()) return;
+    if (evt.defaultPrevented) return;
     evt.preventDefault();
+    setPendingRetry(() => () => evt.retry(true));
+    setLeaveDialogOpen(true);
   });
 
   const canSave = () => {
@@ -211,22 +221,33 @@ const DocumentEditor: VoidComponent<{
 
   const shouldShowTopBar = () => props.showTopBar !== false;
   const shouldShowAiPromptsBar = () => props.showAiPromptsBar !== false;
+  const shouldShowTitleInTopBar = () => props.showTitleInTopBar !== false;
+  const shouldShowSaveButtonInTopBar = () =>
+    props.showSaveButtonInTopBar !== false;
+
+  const handleLeaveConfirm = () => {
+    const retry = pendingRetry();
+    setPendingRetry(null);
+    if (retry) retry();
+  };
+
+  const handleLeaveOpenChange = (open: boolean) => {
+    setLeaveDialogOpen(open);
+    if (!open) setPendingRetry(null);
+  };
 
   return (
     <Box class={props.class} w="full">
       <Show when={shouldShowTopBar()}>
         <HStack gap="2" alignItems="center" mb="2" flexWrap="wrap">
-          <Text fontSize="sm" fontWeight="medium" truncate>
-            <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
-              {(d) => <span>{d().title}</span>}
-            </Show>
-          </Text>
+          <Show when={shouldShowTitleInTopBar()}>
+            <Text fontSize="sm" fontWeight="medium" truncate>
+              <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
+                {(d) => <span>{d().title}</span>}
+              </Show>
+            </Text>
+          </Show>
           <HStack gap="2" alignItems="center" ml="auto" flexWrap="wrap">
-            <Show when={dirty()}>
-              <Text fontSize="xs" color="amber.11">
-                Unsaved changes
-              </Text>
-            </Show>
             <Show when={savedAt()}>
               {(t) => (
                 <Text fontSize="xs" color="fg.muted">
@@ -234,15 +255,17 @@ const DocumentEditor: VoidComponent<{
                 </Text>
               )}
             </Show>
-            <Button
-              size="xs"
-              variant="outline"
-              colorPalette="gray"
-              disabled={!canSave()}
-              onClick={onSave}
-            >
-              {saving() ? "Saving…" : "Save"}
-            </Button>
+            <Show when={shouldShowSaveButtonInTopBar()}>
+              <Button
+                size="xs"
+                variant="outline"
+                colorPalette="gray"
+                disabled={!canSave()}
+                onClick={onSave}
+              >
+                {saving() ? "Saving…" : dirty() ? "Save*" : "Save"}
+              </Button>
+            </Show>
           </HStack>
         </HStack>
       </Show>
@@ -281,14 +304,20 @@ const DocumentEditor: VoidComponent<{
           </Stack>
         </Stack>
       </Show>
-      <Show when={shouldShowAiPromptsBar()}>
-        <Box mb="2">
-          <AIPromptsBar editor={editor()} noteId={props.docId || doc()?.id} />
-        </Box>
-      </Show>
       <TiptapEditor
         initialHTML={initialHTML()}
         onEditor={(ed) => setEditor(ed)}
+        noteId={props.docId || doc()?.id}
+        showAiPromptsMenu={shouldShowAiPromptsBar()}
+      />
+      <ConfirmDialog
+        open={leaveDialogOpen()}
+        onOpenChange={handleLeaveOpenChange}
+        title="Leave without saving?"
+        description="You have unsaved changes. If you leave now, they will be lost."
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        onConfirm={handleLeaveConfirm}
       />
     </Box>
   );

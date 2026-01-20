@@ -24,6 +24,9 @@ type TiptapEditorProps = {
   onEditor?: (editor: Editor) => void;
   /** Show formatting toolbar. Defaults to true. */
   showToolbar?: boolean;
+  /** Show AI prompts menu in the toolbar. Defaults to false. */
+  showAiPromptsMenu?: boolean;
+  noteId?: string;
 };
 
 const TiptapEditor: Component<TiptapEditorProps> = (props) => {
@@ -140,7 +143,11 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
           }}
         >
           <Show when={stableEditor()}>
-            <ToolbarContents editor={stableEditor()!} />
+            <ToolbarContents
+              editor={stableEditor()!}
+              noteId={props.noteId}
+              showAiPromptsMenu={props.showAiPromptsMenu}
+            />
           </Show>
         </Box>
       </Show>

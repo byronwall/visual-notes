@@ -1,15 +1,23 @@
-import { type VoidComponent, Show, createEffect, createSignal } from "solid-js";
+import {
+  type VoidComponent,
+  Show,
+  createEffect,
+  createSignal,
+} from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { apiFetch } from "~/utils/base-url";
-import DocumentEditor from "./DocumentEditor";
+import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { TitleEditPopover } from "./TitleEditPopover";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { updateDocTitle } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
-import { Box, HStack, Spacer, Stack } from "styled-system/jsx";
-import { PencilIcon } from "lucide-solid";
+import { Text } from "~/components/ui/text";
+import { PathEditor } from "./PathEditor";
+import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
+import { Box, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import { PencilIcon, Trash2Icon } from "lucide-solid";
 
 type DocumentData = {
   id: string;
@@ -33,6 +41,9 @@ const DocumentViewer: VoidComponent<{
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [editing, setEditing] = createSignal(false);
+  const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
+    undefined
+  );
   const [title, setTitle] = createSignal(props.doc.title);
   const firstH1 = () =>
     extractFirstHeading({
@@ -76,7 +87,7 @@ const DocumentViewer: VoidComponent<{
     <Box class="prose" maxW="none">
       <HStack gap="3" alignItems="center" flexWrap="wrap">
         <HStack gap="2" alignItems="center" flexWrap="wrap" minW="0">
-          <Heading as="h2" fontSize="xl" m="0">
+          <Heading as="h1" fontSize="2xl" m="0">
             {title()}
           </Heading>
           <TitleEditPopover
@@ -119,47 +130,104 @@ const DocumentViewer: VoidComponent<{
           </Show>
         </HStack>
         <Spacer />
-        <Button
-          size="sm"
-          colorPalette="red"
-          disabled={busy()}
-          onClick={async () => {
-            if (!confirm("Delete this note? This cannot be undone.")) return;
-            try {
-              setBusy(true);
-              console.log("[DocumentViewer] deleting docId=", props.doc?.id);
-              const res = await apiFetch(`/api/docs/${props.doc.id}`, {
-                method: "DELETE",
-              });
-              if (!res.ok) {
-                const msg =
-                  (await res.json().catch(() => ({})))?.error ||
-                  "Failed to delete note";
-                throw new Error(msg);
-              }
-              console.log("[DocumentViewer] deleted docId=", props.doc?.id);
-              if (props.onDeleted) {
-                try {
-                  props.onDeleted();
-                } catch (err) {
-                  console.error("[DocumentViewer] onDeleted threw", err);
+        <HStack gap="2" alignItems="center">
+          <Button
+            size="sm"
+            variant="outline"
+            colorPalette="gray"
+            disabled={!editorApi()?.canSave() || busy()}
+            onClick={() => void editorApi()?.save()}
+          >
+            {editorApi()?.saving()
+              ? "Saving…"
+              : editorApi()?.dirty()
+              ? "Save*"
+              : "Save"}
+          </Button>
+          <IconButton
+            size="sm"
+            variant="subtle"
+            colorPalette="red"
+            aria-label="Delete note"
+            disabled={busy()}
+            onClick={async () => {
+              if (!confirm("Delete this note? This cannot be undone.")) return;
+              try {
+                setBusy(true);
+                console.log("[DocumentViewer] deleting docId=", props.doc?.id);
+                const res = await apiFetch(`/api/docs/${props.doc.id}`, {
+                  method: "DELETE",
+                });
+                if (!res.ok) {
+                  const msg =
+                    (await res.json().catch(() => ({})))?.error ||
+                    "Failed to delete note";
+                  throw new Error(msg);
                 }
-              } else {
-                navigate("/");
+                console.log("[DocumentViewer] deleted docId=", props.doc?.id);
+                if (props.onDeleted) {
+                  try {
+                    props.onDeleted();
+                  } catch (err) {
+                    console.error("[DocumentViewer] onDeleted threw", err);
+                  }
+                } else {
+                  navigate("/");
+                }
+              } catch (e) {
+                console.error(e);
+                alert((e as Error).message || "Failed to delete note");
+              } finally {
+                setBusy(false);
               }
-            } catch (e) {
-              console.error(e);
-              alert((e as Error).message || "Failed to delete note");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Delete Note
-        </Button>
+            }}
+          >
+            <Trash2Icon size={16} />
+          </IconButton>
+        </HStack>
       </HStack>
       <Stack gap="3">
-        <DocumentEditor docId={props.doc.id} />
+        <Box
+          borderWidth="1px"
+          borderStyle="dashed"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          p="2.5"
+          bg="gray.surface.bg"
+        >
+          <Grid
+            gridTemplateColumns={{
+              base: "1fr",
+              md: "repeat(2, minmax(0, 1fr))",
+            }}
+            gap="2.5"
+          >
+            <Stack gap="1.5">
+              <Text fontSize="xs" color="fg.muted">
+                Path
+              </Text>
+              <PathEditor
+                docId={props.doc.id}
+                initialPath={props.doc.path || undefined}
+              />
+            </Stack>
+            <Stack gap="1.5">
+              <Text fontSize="xs" color="fg.muted">
+                Key/Value metadata
+              </Text>
+              <MetaKeyValueEditor
+                docId={props.doc.id}
+                initialMeta={props.doc.meta as any}
+              />
+            </Stack>
+          </Grid>
+        </Box>
+        <DocumentEditor
+          docId={props.doc.id}
+          showTitleInTopBar={false}
+          showSaveButtonInTopBar={false}
+          apiRef={(api) => setEditorApi(api)}
+        />
       </Stack>
 
       {/* Inline properties moved to page-level top section in docs/[id].tsx */}
