@@ -25,17 +25,23 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
 
   return (
     <Box display={{ base: "none", md: "block" }}>
-      <Box minH="100vh" bg="bg.default" w="full">
+      <Box
+        display="flex"
+        minH="100vh"
+        bg="bg.default"
+        w="full"
+        alignItems="stretch"
+      >
         <Box
-          position="fixed"
-          top="0"
-          left="0"
-          zIndex="40"
           w={sidebarWidth()}
-          h="100vh"
+          position="sticky"
+          top="0"
+          alignSelf="flex-start"
           maxH="100vh"
+          h="100vh"
           bg="bg.subtle"
-          overflow="hidden"
+          overflowY="auto"
+          overflowX="hidden"
           borderRightWidth="1px"
           borderColor="border"
           onMouseEnter={props.onSidebarMouseEnter}
@@ -54,7 +60,7 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
             authed={props.authed}
           />
         </Box>
-        <Box minW="0" minH="100vh" bg="bg.default" ml={sidebarWidth()}>
+        <Box minW="0" minH="100vh" bg="bg.default" flex="1">
           {props.children}
         </Box>
       </Box>

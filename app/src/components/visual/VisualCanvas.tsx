@@ -51,7 +51,7 @@ const SPREAD = 1000;
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   return (
     <Box
-      position="fixed"
+      position="absolute"
       overflow="hidden"
       bg="bg.default"
       style={{
@@ -262,10 +262,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                 isSelected()
                                   ? "#1D4ED8"
                                   : isHovered()
-                                  ? "#111"
-                                  : dimmed()
-                                  ? "#00000010"
-                                  : "#00000020"
+                                    ? "#111"
+                                    : dimmed()
+                                      ? "#00000010"
+                                      : "#00000020"
                               }
                               stroke-width={
                                 isSelected() ? 3 : isHovered() ? 2 : 1

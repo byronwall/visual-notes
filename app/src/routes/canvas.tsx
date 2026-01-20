@@ -111,10 +111,10 @@ const CanvasRoute: VoidComponent = () => {
   });
 
   function measureNav() {
-    const nav = document.querySelector("nav");
+    const nav = document.querySelector("main nav");
     const h = nav
       ? Math.round((nav as HTMLElement).getBoundingClientRect().height)
-      : 56;
+      : 0;
     canvasStore.setNavHeight(h);
   }
 
@@ -192,13 +192,10 @@ const CanvasRoute: VoidComponent = () => {
       as="main"
       bg="bg.default"
       overflow="hidden"
-      style={{
-        position: "fixed",
-        left: "0",
-        right: "0",
-        top: `${canvasStore.navHeight()}px`,
-        bottom: "0",
-      }}
+      position="relative"
+      minH="100vh"
+      h="100vh"
+      w="full"
     >
       <Show
         when={isMounted()}

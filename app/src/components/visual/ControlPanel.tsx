@@ -220,7 +220,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
 
   return (
     <Box
-      position="fixed"
+      position="absolute"
       zIndex="10"
       borderRightWidth="1px"
       borderColor="border"
