@@ -1,7 +1,14 @@
 import { useNavigate } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
+import { Box, Container, Stack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
+import * as Card from "~/components/ui/card";
+import * as Field from "~/components/ui/field";
+import { Heading } from "~/components/ui/heading";
+import { Input } from "~/components/ui/input";
+import { Text } from "~/components/ui/text";
 
 const LoginPage: VoidComponent = () => {
   const [password, setPassword] = createSignal("");
@@ -10,6 +17,12 @@ const LoginPage: VoidComponent = () => {
 
   const { refresh } = useMagicAuth();
   const navigate = useNavigate();
+
+  const handlePasswordInput = (
+    e: InputEvent & { currentTarget: HTMLInputElement }
+  ) => {
+    setPassword(e.currentTarget.value);
+  };
 
   const onSubmit = async (e: Event) => {
     e.preventDefault();
@@ -38,34 +51,56 @@ const LoginPage: VoidComponent = () => {
   };
 
   return (
-    <div class="w-full flex justify-center mt-16">
-      <form
-        class="w-full max-w-sm border rounded-md p-4 bg-white"
-        onSubmit={onSubmit}
-      >
-        <h1 class="text-lg font-semibold mb-3">Enter Password</h1>
-        <div class="mb-3">
-          <label class="block text-sm mb-1" for="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            class="w-full border rounded px-3 py-2"
-            value={password()}
-            onInput={(e) =>
-              setPassword((e.currentTarget as HTMLInputElement).value)
-            }
-            autocomplete="current-password"
-            required
-          />
-        </div>
-        {error() && <div class="text-red-600 text-sm mb-2">{error()}</div>}
-        <button type="submit" class="cta w-full" disabled={submitting()}>
-          {submitting() ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
-    </div>
+    <Box as="main" minH="100vh" bg="bg.default">
+      <Container py="4rem" px="1rem" maxW="420px">
+        <Card.Root>
+          <Card.Header>
+            <Stack gap="0.25rem">
+              <Heading as="h1" fontSize="lg" m="0">
+                Sign in
+              </Heading>
+              <Text fontSize="sm" color="fg.muted" m="0">
+                Enter the password to continue.
+              </Text>
+            </Stack>
+          </Card.Header>
+          <Card.Body>
+            <Box as="form" onSubmit={onSubmit}>
+              <Stack gap="0.75rem">
+                <Field.Root invalid={Boolean(error())} required>
+                  <Field.Label>Password</Field.Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password()}
+                    onInput={handlePasswordInput}
+                    autocomplete="current-password"
+                    required
+                  />
+                </Field.Root>
+
+                <Show when={error()}>
+                  {(msg) => (
+                    <Text fontSize="xs" color="red.11" m="0">
+                      {msg()}
+                    </Text>
+                  )}
+                </Show>
+
+                <Button
+                  type="submit"
+                  w="full"
+                  loading={submitting()}
+                  loadingText="Signing in..."
+                >
+                  Sign in
+                </Button>
+              </Stack>
+            </Box>
+          </Card.Body>
+        </Card.Root>
+      </Container>
+    </Box>
   );
 };
 

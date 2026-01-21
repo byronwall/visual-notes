@@ -4,14 +4,13 @@ import "./panda.css";
 import { MetaProvider, Title } from "@solidjs/meta";
 import { Router } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { children, Show, Suspense } from "solid-js";
+import { Match, Suspense, Switch, createEffect, type JSX } from "solid-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { SessionProvider } from "@solid-mediakit/auth/client";
 import { clientEnv } from "~/env/client";
 import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { createEffect } from "solid-js";
 import { ToastProvider, ToastViewport } from "~/components/Toast";
 
 export default function App() {
@@ -43,10 +42,12 @@ export default function App() {
   );
 }
 
-const AuthGate = (props: { children: any }) => {
+const AuthGate = (props: { children: JSX.Element }) => {
   const { authed, loading } = useMagicAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isLoginRoute = () => location.pathname === "/login";
 
   createEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,16 +62,15 @@ const AuthGate = (props: { children: any }) => {
     }
   });
 
-  // Hide navbar and content flash when not authed
-  if (!authed() && location.pathname !== "/login") {
-    return null;
-  }
-
   return (
-    <>
-      <Show when={authed()} fallback={null}>
+    <Switch fallback={null}>
+      {/* Always allow the login page to render when unauthenticated. */}
+      <Match when={isLoginRoute()}>{props.children}</Match>
+
+      {/* Hide navbar and content flash when not authed (non-login pages) */}
+      <Match when={authed()}>
         <AppSidebarLayout>{props.children}</AppSidebarLayout>
-      </Show>
-    </>
+      </Match>
+    </Switch>
   );
 };
