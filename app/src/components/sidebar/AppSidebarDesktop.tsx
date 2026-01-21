@@ -12,6 +12,7 @@ type AppSidebarDesktopProps = {
   onClose: () => void;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
+  onSearchOpen: () => void;
   onLogout: () => void;
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
@@ -54,6 +55,7 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
             onClose={props.onClose}
             onChatOpen={props.onChatOpen}
             onNewNoteOpen={props.onNewNoteOpen}
+            onSearchOpen={props.onSearchOpen}
             onLogout={props.onLogout}
             hasUnreadAny={props.hasUnreadAny}
             hasLoadingAny={props.hasLoadingAny}

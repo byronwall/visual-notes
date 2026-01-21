@@ -45,6 +45,11 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     setNewNoteOpen(true);
   };
 
+  const handleSearchOpen = () => {
+    console.log("[sidebar] open search");
+    setCmdkOpen(true);
+  };
+
   const handleNewNoteOpenChange = (open: boolean) => {
     setNewNoteOpen(open);
     if (open === false) setNewNoteInitialTitle(undefined);
@@ -98,6 +103,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
           onClose={() => setCollapsed(true)}
           onChatOpen={handleChatOpen}
           onNewNoteOpen={handleNewNoteOpen}
+          onSearchOpen={handleSearchOpen}
           onLogout={handleLogout}
           hasUnreadAny={hasUnreadAny}
           hasLoadingAny={hasLoadingAny}
@@ -112,6 +118,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
           onToggleCollapse={handleCollapseToggle}
           onChatOpen={handleChatOpen}
           onNewNoteOpen={handleNewNoteOpen}
+          onSearchOpen={handleSearchOpen}
           onLogout={handleLogout}
           hasUnreadAny={hasUnreadAny}
           hasLoadingAny={hasLoadingAny}

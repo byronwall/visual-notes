@@ -16,6 +16,7 @@ export type AppSidebarContentProps = {
   onClose: () => void;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
+  onSearchOpen: () => void;
   onLogout: () => void;
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
@@ -106,6 +107,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
         expanded={props.expanded}
         onChatOpen={props.onChatOpen}
         onNewNoteOpen={props.onNewNoteOpen}
+        onSearchOpen={props.onSearchOpen}
         hasUnreadAny={props.hasUnreadAny}
         hasLoadingAny={props.hasLoadingAny}
       />

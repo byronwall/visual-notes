@@ -1,6 +1,6 @@
 import type { Accessor } from "solid-js";
 import { Show, Suspense } from "solid-js";
-import { BotMessageSquareIcon, FilePlusIcon } from "lucide-solid";
+import { BotMessageSquareIcon, FilePlusIcon, SearchIcon } from "lucide-solid";
 import { Button } from "~/components/ui/button";
 import { Box, HStack, Stack, VisuallyHidden } from "styled-system/jsx";
 
@@ -8,6 +8,7 @@ type AppSidebarActionsProps = {
   expanded: boolean;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
+  onSearchOpen: () => void;
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
 };
@@ -38,13 +39,35 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         size="sm"
         w="full"
         justifyContent={props.expanded ? "flex-start" : "center"}
+        onClick={props.onSearchOpen}
+        title="Search"
+        color="fg.muted"
+        _hover={{ bg: "bg.muted", color: "fg.default" }}
+      >
+        <SearchIcon size={18} strokeWidth={1.8} aria-hidden="true" />
+        <Show when={props.expanded}>
+          <Box as="span">Search</Box>
+        </Show>
+        <Show when={!props.expanded}>
+          <VisuallyHidden>Search</VisuallyHidden>
+        </Show>
+      </Button>
+      <Button
+        variant="plain"
+        size="sm"
+        w="full"
+        justifyContent={props.expanded ? "flex-start" : "center"}
         onClick={props.onChatOpen}
         title="Chat"
         color="fg.muted"
         _hover={{ bg: "bg.muted", color: "fg.default" }}
       >
         <HStack gap="2" alignItems="center">
-          <BotMessageSquareIcon size={18} strokeWidth={1.8} aria-hidden="true" />
+          <BotMessageSquareIcon
+            size={18}
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
           <Show when={props.expanded}>
             <Box as="span">Chat</Box>
           </Show>
