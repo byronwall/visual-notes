@@ -23,9 +23,10 @@ export const ImagePreviewModal: VoidComponent<{
     w: 0,
     h: 0,
   });
-  const [viewportSize, setViewportSize] = createSignal<{ w: number; h: number }>(
-    { w: 0, h: 0 }
-  );
+  const [viewportSize, setViewportSize] = createSignal<{
+    w: number;
+    h: number;
+  }>({ w: 0, h: 0 });
   const [dragging, setDragging] = createSignal(false);
 
   let viewportEl: HTMLDivElement | undefined;
@@ -201,7 +202,7 @@ export const ImagePreviewModal: VoidComponent<{
             viewportEl = el;
           }}
           position="relative"
-          height="70vh"
+          height="90vh"
           bg="gray.surface.bg"
           borderWidth="1px"
           borderColor="gray.outline.border"
@@ -242,4 +243,3 @@ export const ImagePreviewModal: VoidComponent<{
     </Modal>
   );
 };
-
