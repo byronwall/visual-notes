@@ -79,6 +79,23 @@ code and refactors unless explicitly told otherwise.
   - Prefer 1 component per file, unless multiple components are tiny and
     tightly related.
 
+### General UI patterns
+
+- Highlight matches in search results.
+
+  - Users should be able to visually scan why an item matched without rereading the whole row/card.
+  - Highlight both the main text and secondary fields that participate in matching (title/body/tags/etc.) and keep the highlight styling consistent across the app.
+  - Prefer safe text segmentation (rendering plain text with highlighted spans) over injecting HTML.
+
+- Maintain a stable (often fixed) height for dynamic lists and streaming/async content.
+  - Avoid layout shift when new items arrive, results load, or panels expand; reserve space up-front with a fixed height or a min-height + skeleton/loading row strategy.
+  - Prefer scrollable regions (`overflow: auto`) for results panes so the surrounding layout stays anchored and the user's cursor/scroll position doesn't jump.
+  - When inserting items at the top (e.g. newest-first), consider scroll anchoring so content doesn't “push down” unexpectedly. If that’s non-trivial, add `TODO:EDGE_CASE, scroll anchoring when prepending items`.
+  - Exceptions (use judgment; default is still “avoid shift”):
+    - When the element is effectively the only thing on the page (no adjacent content to disturb), a natural expanding height is often fine.
+    - When there’s no surrounding modal/dialog/panel layout that would be pushed/reflowed by the content (i.e. expansion won’t cause secondary UI to jump).
+    - When it’s known that the shift is expected and non-jarring (e.g. a single results page that replaces a loading state in-place), prefer simplicity over over-constraining the layout.
+
 ### UI composition (ParkUI simplification)
 
 - Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
