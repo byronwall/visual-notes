@@ -1,6 +1,6 @@
 import { ark } from '@ark-ui/solid/factory'
 import { Slider, useSliderContext } from '@ark-ui/solid/slider'
-import { type ComponentProps, For, type JSX, Show, splitProps } from 'solid-js'
+import { type ComponentProps, For, type JSX, Match, Show, splitProps, Switch } from 'solid-js'
 import { createStyleContext } from 'styled-system/jsx'
 import { slider } from 'styled-system/recipes'
 
@@ -31,25 +31,30 @@ export interface MarksProps extends MarkerGroupProps {
 
 export const Marks = (props: MarksProps) => {
   const [local, rest] = splitProps(props, ['marks'])
-  if (!local.marks?.length) return null
+  const marks = () => local.marks ?? []
+  const hasMarks = () => marks().length > 0
 
   return (
-    <MarkerGroup {...rest}>
-      <For each={local.marks}>
-        {(mark) => {
-          const value = typeof mark === 'number' ? mark : mark.value
-          const label = typeof mark === 'number' ? undefined : mark.label
-          return (
-            <Marker value={value}>
-              <MarkerIndicator />
-              <Show when={label != null}>
-                <span>{label}</span>
-              </Show>
-            </Marker>
-          )
-        }}
-      </For>
-    </MarkerGroup>
+    <Switch fallback={null}>
+      <Match when={hasMarks()}>
+        <MarkerGroup {...rest}>
+          <For each={marks()}>
+            {(mark) => {
+              const value = typeof mark === 'number' ? mark : mark.value
+              const label = typeof mark === 'number' ? undefined : mark.label
+              return (
+                <Marker value={value}>
+                  <MarkerIndicator />
+                  <Show when={label != null}>
+                    <span>{label}</span>
+                  </Show>
+                </Marker>
+              )
+            }}
+          </For>
+        </MarkerGroup>
+      </Match>
+    </Switch>
   )
 }
 

@@ -1,5 +1,6 @@
 import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 
@@ -18,11 +19,17 @@ const inputSchema = z.object({
 
 type Action = z.infer<typeof actionSchema>;
 
+type MetaValue = Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+
 function applyActionsToMeta(
-  current: Record<string, unknown> | null | undefined,
+  current: Prisma.JsonValue | null | undefined,
   actions: Action[]
-): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...(current || {}) };
+): Record<string, MetaValue> {
+  const base: Record<string, MetaValue> =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, MetaValue>)
+      : {};
+  const next: Record<string, MetaValue> = { ...base };
   for (const a of actions) {
     const key = a.key;
     if (a.type === "remove") {
@@ -30,11 +37,12 @@ function applyActionsToMeta(
       continue;
     }
     if (a.type === "add") {
-      if (!(key in next)) next[key] = (a as any).value;
+      if (!(key in next))
+        next[key] = a.value === null ? Prisma.JsonNull : a.value;
       continue;
     }
     if (a.type === "update") {
-      next[key] = (a as any).value;
+      next[key] = a.value === null ? Prisma.JsonNull : a.value;
       continue;
     }
   }
@@ -62,10 +70,10 @@ export async function POST(event: APIEvent) {
     });
 
     // Map for quick lookup
-    const byId = new Map<string, Record<string, unknown> | null>();
-    for (const r of rows) byId.set(r.id, (r.meta as Record<string, unknown> | null) || null);
+    const byId = new Map<string, Prisma.JsonValue | null>();
+    for (const r of rows) byId.set(r.id, r.meta ?? null);
 
-    const updates: { id: string; next: Record<string, unknown> }[] = [];
+    const updates: { id: string; next: Record<string, MetaValue> }[] = [];
     for (const id of uniqueIds) {
       const current = byId.get(id) ?? null;
       const next = applyActionsToMeta(current, actions);
@@ -82,7 +90,10 @@ export async function POST(event: APIEvent) {
       try {
         await prisma.$transaction(
           chunk.map((u) =>
-            prisma.doc.update({ where: { id: u.id }, data: { meta: u.next } })
+            prisma.doc.update({
+              where: { id: u.id },
+              data: { meta: u.next as unknown as Prisma.InputJsonValue },
+            })
           )
         );
         updated += chunk.length;
@@ -92,7 +103,10 @@ export async function POST(event: APIEvent) {
         } catch {}
         for (const u of chunk) {
           try {
-            await prisma.doc.update({ where: { id: u.id }, data: { meta: u.next } });
+            await prisma.doc.update({
+              where: { id: u.id },
+              data: { meta: u.next as unknown as Prisma.InputJsonValue },
+            });
             updated++;
           } catch (_e) {
             // skip failed item

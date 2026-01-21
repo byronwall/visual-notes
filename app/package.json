@@ -10,11 +10,13 @@
     "test": "vitest run",
     "push": "prisma db push",
     "postinstall": "prisma generate",
-    "knip": "pnpm dlx knip"
+    "knip": "pnpm dlx knip",
+    "type-check": "tsc --noEmit && echo 'Type check passed'"
   },
   "type": "module",
   "devDependencies": {
     "@pandacss/dev": "^1.7.2",
+    "@types/hast": "^3.0.4",
     "@types/mustache": "^4.2.6",
     "@types/node": "^20.11.26",
     "@typescript-eslint/eslint-plugin": "^7.6.0",

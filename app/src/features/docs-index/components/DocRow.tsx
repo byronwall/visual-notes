@@ -1,4 +1,3 @@
-import { A } from "@solidjs/router";
 import { formatRelativeTime } from "../utils/time";
 import { renderHighlighted } from "../utils/highlight";
 import { MetaChips } from "./MetaChips";
@@ -7,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { Box, Flex, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
+import { A } from "@solidjs/router";
 
 export const DocRow = (props: {
   id: string;
@@ -50,7 +50,10 @@ export const DocRow = (props: {
             </Checkbox.Control>
           </Checkbox.Root>
           <Stack gap="0.15rem" minW="0">
-            <Box as={A} href={`/docs/${props.id}`} minW="0">
+            <A
+              href={`/docs/${props.id}`}
+              style={{ display: "block", "min-width": "0" }}
+            >
               <Show when={props.query}>
                 {(query) => (
                   <Text
@@ -74,7 +77,7 @@ export const DocRow = (props: {
                   {props.title}
                 </Text>
               </Show>
-            </Box>
+            </A>
           </Stack>
         </HStack>
         <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">

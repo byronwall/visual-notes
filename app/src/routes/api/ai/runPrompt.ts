@@ -1,5 +1,6 @@
 import { json } from "@solidjs/router";
 import type { APIEvent } from "@solidjs/start/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import {
@@ -276,7 +277,7 @@ export async function POST(event: APIEvent) {
                 systemUsed: systemUsed ?? null,
                 noteId: input.noteId ?? null,
                 outputHtml: null,
-                rawResponse: null,
+                rawResponse: Prisma.JsonNull,
                 status: "ERROR",
                 error: (e as Error)?.message || "background error",
               },

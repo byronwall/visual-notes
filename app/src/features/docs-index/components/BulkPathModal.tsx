@@ -40,7 +40,7 @@ export const BulkPathModal: VoidComponent<{
   return (
     <Modal open={props.open} onClose={handleClose}>
       <Stack p="1rem" gap="0.75rem">
-        <HStack justifyContent="space-between" align="center">
+        <HStack justifyContent="space-between" alignItems="center">
           <Text fontSize="sm" fontWeight="semibold">
             Bulk set path
           </Text>
