@@ -29,7 +29,6 @@ export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
         <Drawer.Backdrop />
         <Drawer.Positioner>
           <Drawer.Content
-            bg="bg.subtle"
             borderColor="border"
             borderWidth="1px"
             w="75vw"
