@@ -1,13 +1,13 @@
 import type { JSX } from "solid-js";
 import { For, Show } from "solid-js";
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import {
   LayoutGridIcon,
   MapIcon,
   NetworkIcon,
   SparklesIcon,
 } from "lucide-solid";
-import { Link } from "~/components/ui/link";
+import { Button } from "~/components/ui/button";
 import { Box, Stack, VisuallyHidden } from "styled-system/jsx";
 
 type NavItem = {
@@ -24,6 +24,7 @@ type AppSidebarNavProps = {
 export const AppSidebarNav = (props: AppSidebarNavProps) => {
   const location = useLocation();
   const pathname = () => location.pathname;
+  const navigate = useNavigate();
 
   const isActiveSection = (href: string, path: string) =>
     path === href || path.startsWith(`${href}/`);
@@ -55,15 +56,13 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
     },
   ];
 
-  const navLinkStyle = (active: boolean) => ({
+  const navButtonStyle = (active: boolean) => ({
     bg: active ? "bg.muted" : "transparent",
     color: active ? "fg.default" : "fg.muted",
     borderRadius: "l2",
-    textDecorationLine: "none",
     _hover: {
       bg: "bg.muted",
       color: "fg.default",
-      textDecorationLine: "none",
     },
   });
 
@@ -71,17 +70,19 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
     <Stack gap="1">
       <For each={navItems}>
         {(item) => (
-          <Link
-            href={item.href}
+          <Button
             variant="plain"
+            size="sm"
             aria-current={item.isActive(pathname()) ? "page" : undefined}
+            onClick={() => navigate(item.href)}
             px={props.expanded ? "3" : "2"}
             py="2"
+            w="full"
             display="flex"
             alignItems="center"
             justifyContent={props.expanded ? "flex-start" : "center"}
             gap={props.expanded ? "2" : "0"}
-            {...navLinkStyle(item.isActive(pathname()))}
+            {...navButtonStyle(item.isActive(pathname()))}
             title={item.label}
           >
             <item.icon size={18} strokeWidth={1.8} aria-hidden="true" />
@@ -91,7 +92,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
             <Show when={!props.expanded}>
               <VisuallyHidden>{item.label}</VisuallyHidden>
             </Show>
-          </Link>
+          </Button>
         )}
       </For>
     </Stack>

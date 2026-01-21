@@ -42,7 +42,14 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
           variant="plain"
           textDecorationLine="none"
           color="fg.default"
-          _hover={{ textDecorationLine: "none" }}
+          borderRadius="l2"
+          px="2"
+          py="1"
+          _hover={{
+            textDecorationLine: "none",
+            bg: "bg.muted",
+            color: "fg.default",
+          }}
           title="Visual Notes"
         >
           <HStack gap="2" alignItems="center">

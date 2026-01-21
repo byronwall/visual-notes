@@ -22,6 +22,8 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         justifyContent={props.expanded ? "flex-start" : "center"}
         onClick={props.onNewNoteOpen}
         title="New Note"
+        color="fg.muted"
+        _hover={{ bg: "bg.muted", color: "fg.default" }}
       >
         <FilePlusIcon size={18} strokeWidth={1.8} aria-hidden="true" />
         <Show when={props.expanded}>
@@ -38,6 +40,8 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         justifyContent={props.expanded ? "flex-start" : "center"}
         onClick={props.onChatOpen}
         title="Chat"
+        color="fg.muted"
+        _hover={{ bg: "bg.muted", color: "fg.default" }}
       >
         <HStack gap="2" alignItems="center">
           <BotMessageSquareIcon size={18} strokeWidth={1.8} aria-hidden="true" />
