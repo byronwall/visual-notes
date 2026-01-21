@@ -13,6 +13,7 @@ This guide documents the concrete patterns used to migrate the app navbar and do
   - If a value depends on resources, gate with `Suspense` fallback
   - Avoid inline handlers when they’re more than trivial (name the function)
   - Prefer named exports for new/updated components
+  - **Color palettes**: if you need a color token that isn’t available yet, install it via Park UI (e.g. `npx @park-ui/cli add teal`).
 
 ---
 
