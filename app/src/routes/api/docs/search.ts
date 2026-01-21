@@ -24,9 +24,7 @@ export async function GET(event: APIEvent) {
 
   if (!q) return json({ items: [] });
 
-  const where: any = {
-    text: { contains: q, mode: "insensitive" as const },
-  };
+  const docFilters: Record<string, unknown> = {};
   if (
     pathPrefix ||
     pathBlankOnlyParam ||
@@ -37,23 +35,22 @@ export async function GET(event: APIEvent) {
     updatedFromParam ||
     updatedToParam
   ) {
-    where.doc = {};
-    if (pathPrefix) where.doc.path = { startsWith: pathPrefix };
+    if (pathPrefix) docFilters.path = { startsWith: pathPrefix };
     if (
       pathBlankOnlyParam &&
       (pathBlankOnlyParam === "1" ||
         pathBlankOnlyParam.toLowerCase() === "true")
     ) {
-      (where.doc as any).path = null;
+      docFilters.path = null;
     }
     if (metaKey && metaValue !== undefined) {
-      where.doc.meta = { path: [metaKey], equals: metaValue } as any;
+      docFilters.meta = { path: [metaKey], equals: metaValue } as any;
     } else if (metaKey && metaValue === undefined) {
-      where.doc.meta = { path: [metaKey], not: null } as any;
+      docFilters.meta = { path: [metaKey], not: null } as any;
     }
-    if (source) (where.doc as any).originalSource = source;
+    if (source) docFilters.originalSource = source;
     if (originalContentId)
-      (where.doc as any).originalContentId = {
+      docFilters.originalContentId = {
         contains: originalContentId,
         mode: "insensitive",
       } as any;
@@ -67,7 +64,7 @@ export async function GET(event: APIEvent) {
         const d = new Date(createdToParam);
         if (!isNaN(d.getTime())) range.lte = d;
       }
-      if (Object.keys(range).length) (where.doc as any).createdAt = range;
+      if (Object.keys(range).length) docFilters.createdAt = range;
     }
     if (updatedFromParam || updatedToParam) {
       const range: any = {};
@@ -79,13 +76,35 @@ export async function GET(event: APIEvent) {
         const d = new Date(updatedToParam);
         if (!isNaN(d.getTime())) range.lte = d;
       }
-      if (Object.keys(range).length) (where.doc as any).updatedAt = range;
+      if (Object.keys(range).length) docFilters.updatedAt = range;
     }
   }
 
+  const docWhere: Record<string, unknown> = {};
+  if (Object.keys(docFilters).length) {
+    Object.assign(docWhere, docFilters);
+  }
+
+  const titleDocs = await prisma.doc.findMany({
+    where: {
+      ...docWhere,
+      title: { contains: q, mode: "insensitive" as const },
+    },
+    select: {
+      id: true,
+      title: true,
+      updatedAt: true,
+      path: true,
+    },
+    take,
+  });
+
   // Fetch more sections than needed then de-dupe to docs
   const sections = await prisma.docSection.findMany({
-    where,
+    where: {
+      text: { contains: q, mode: "insensitive" as const },
+      ...(Object.keys(docWhere).length ? { doc: docWhere } : {}),
+    },
     select: {
       id: true,
       text: true,
@@ -112,7 +131,19 @@ export async function GET(event: APIEvent) {
       snippet?: string;
     }
   >();
+  for (const d of titleDocs) {
+    hitsMap.set(d.id, {
+      id: d.id,
+      title: d.title,
+      updatedAt: d.updatedAt.toISOString(),
+      path: d.path,
+      snippet: undefined,
+    });
+    if (hitsMap.size >= take) break;
+  }
+
   for (const s of sections) {
+    if (hitsMap.size >= take) break;
     const d = s.doc;
     if (!d) continue;
     if (!hitsMap.has(d.id)) {
