@@ -87,6 +87,10 @@ code and refactors unless explicitly told otherwise.
   - Highlight both the main text and secondary fields that participate in matching (title/body/tags/etc.) and keep the highlight styling consistent across the app.
   - Prefer safe text segmentation (rendering plain text with highlighted spans) over injecting HTML.
 
+- Icons as buttons
+
+  - If an icon is meant to behave like a button (clickable action), always wrap it with `IconButton` (don’t attach click handlers directly to the icon).
+
 - Maintain a stable (often fixed) height for dynamic lists and streaming/async content.
   - Avoid layout shift when new items arrive, results load, or panels expand; reserve space up-front with a fixed height or a min-height + skeleton/loading row strategy.
   - Prefer scrollable regions (`overflow: auto`) for results panes so the surrounding layout stays anchored and the user's cursor/scroll position doesn't jump.
