@@ -1,4 +1,4 @@
-import { useLocation, useSearchParams } from "@solidjs/router";
+import { useSearchParams } from "@solidjs/router";
 import {
   Suspense,
   createEffect,
@@ -40,13 +40,27 @@ const DocsIndexPage = () => {
     blankPathOnly: () => boolean;
     setBlankPathOnly: (v: boolean) => void;
   };
-  const location = useLocation();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   let initializedFromUrl = false;
   let lastSearchSnapshot = "";
   let isFirstUrlSync = true;
   // We avoid echo loops by comparing nextSearch to location.search; a separate
   // suppression flag is unnecessary and can swallow the first user change.
+  const MANAGED_KEYS = [
+    "q",
+    "pathPrefix",
+    "pathBlankOnly",
+    "metaKey",
+    "metaValue",
+    "source",
+    "originalContentId",
+    "createdFrom",
+    "createdTo",
+    "updatedFrom",
+    "updatedTo",
+    "clientShown",
+    "serverShown",
+  ];
 
   const parseParamsIntoStore = (sp: URLSearchParams) => {
     const qp = (key: string) => sp.get(key) || "";
@@ -107,15 +121,31 @@ const DocsIndexPage = () => {
     }
   };
 
+  const readParam = (key: string) => {
+    const value = searchParams[key];
+    return typeof value === "string" ? value : "";
+  };
+
+  const buildManagedSearch = () => {
+    const params = new URLSearchParams();
+    for (const key of MANAGED_KEYS) {
+      const value = readParam(key);
+      if (value) params.set(key, value);
+    }
+    return params;
+  };
+
   // Initialize from URL and keep store in sync when URL changes (e.g., back/forward)
   createEffect(() => {
-    const currentSearch = location.search || "";
+    const currentParams = buildManagedSearch();
+    const currentSearch = currentParams.toString()
+      ? `?${currentParams.toString()}`
+      : "";
     if (isFirstUrlSync || currentSearch !== lastSearchSnapshot) {
       lastSearchSnapshot = currentSearch;
       isFirstUrlSync = false;
-      const sp = new URLSearchParams(currentSearch);
       console.log("[DocsIndex] Sync from URL", currentSearch);
-      parseParamsIntoStore(sp);
+      parseParamsIntoStore(currentParams);
       initializedFromUrl = true;
     }
   });
@@ -146,7 +176,7 @@ const DocsIndexPage = () => {
     const nextSearch = params.toString() ? `?${params.toString()}` : "";
     console.log("[DocsIndex] Compute URL from store", {
       nextSearch,
-      currentSearch: location.search || "",
+      currentSearch: lastSearchSnapshot,
       searchText: q.searchText(),
       pathPrefix: q.pathPrefix(),
       metaKey: q.metaKey(),
@@ -157,27 +187,13 @@ const DocsIndexPage = () => {
       updatedFrom: q.updatedFrom(),
       updatedTo: q.updatedTo(),
     });
-    if (nextSearch !== (location.search || "")) {
+    if (nextSearch !== lastSearchSnapshot) {
       console.log("[DocsIndex] Sync to URL", nextSearch);
       // Explicitly clear all managed keys so removed ones (like q) are deleted
-      const MANAGED_KEYS = [
-        "q",
-        "pathPrefix",
-        "pathBlankOnly",
-        "metaKey",
-        "metaValue",
-        "source",
-        "originalContentId",
-        "createdFrom",
-        "createdTo",
-        "updatedFrom",
-        "updatedTo",
-        "clientShown",
-        "serverShown",
-      ];
       const obj: Record<string, string | undefined> = {};
       for (const k of MANAGED_KEYS) obj[k] = undefined;
       for (const [k, v] of params.entries()) obj[k] = v;
+      lastSearchSnapshot = nextSearch;
       setSearchParams(obj, { replace: true });
     }
   });
