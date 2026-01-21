@@ -8,6 +8,7 @@ import { Image } from "~/components/ui/image";
 import { Link } from "~/components/ui/link";
 import { AppSidebarActions } from "./AppSidebarActions";
 import { AppSidebarFooter } from "./AppSidebarFooter";
+import { AppSidebarRecentDocs } from "./AppSidebarRecentDocs";
 
 export type AppSidebarContentProps = {
   expanded: boolean;
@@ -23,6 +24,10 @@ export type AppSidebarContentProps = {
   authed: Accessor<boolean>;
 };
 
+const AppSidebarSeparator = () => {
+  return <Box borderTopWidth="1px" borderColor="border" mx="2" my="1" />;
+};
+
 export const AppSidebarContent = (props: AppSidebarContentProps) => {
   return (
     <Box
@@ -35,7 +40,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
       overflowX="hidden"
       px="2"
       py="3"
-      gap="3"
+      gap="1"
     >
       <HStack gap="2" px="2" alignItems="center">
         <Link
@@ -103,6 +108,8 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
 
       <AppSidebarNav expanded={props.expanded} />
 
+      <AppSidebarSeparator />
+
       <AppSidebarActions
         expanded={props.expanded}
         onChatOpen={props.onChatOpen}
@@ -111,6 +118,10 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
         hasUnreadAny={props.hasUnreadAny}
         hasLoadingAny={props.hasLoadingAny}
       />
+
+      <AppSidebarSeparator />
+
+      <AppSidebarRecentDocs expanded={props.expanded} />
 
       <Spacer />
 
