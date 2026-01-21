@@ -82,7 +82,7 @@ export function ToolbarContents(props: {
   };
 
   return (
-    <HStack gap="1" p="2">
+    <HStack gap="1" p="2" flexWrap="wrap" rowGap="1">
       <input
         ref={(el) => (csvInputRef = el)}
         type="file"
@@ -91,7 +91,7 @@ export function ToolbarContents(props: {
         onChange={onCsvFileChange}
       />
 
-      <HStack gap="1">
+      <HStack gap="1" flexWrap="wrap" rowGap="1">
         {blocks.map((b) => (
           <Tooltip content={b.title} showArrow>
             <Control
@@ -109,7 +109,7 @@ export function ToolbarContents(props: {
 
       <Separator />
 
-      <HStack gap="1">
+      <HStack gap="1" flexWrap="wrap" rowGap="1">
         {marks.map((b) => (
           <Tooltip content={b.title} showArrow>
             <Control
@@ -126,7 +126,7 @@ export function ToolbarContents(props: {
 
       <Separator />
 
-      <HStack gap="1">
+      <HStack gap="1" flexWrap="wrap" rowGap="1">
         {listsBlocks.map((b) => (
           <Tooltip content={b.title} showArrow>
             <Control
@@ -143,7 +143,7 @@ export function ToolbarContents(props: {
 
       <Separator />
 
-      <HStack gap="1">
+      <HStack gap="1" flexWrap="wrap" rowGap="1">
         <Tooltip content="Insert Table" showArrow>
           <Control
             name="table"
