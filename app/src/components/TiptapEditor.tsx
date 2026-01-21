@@ -158,6 +158,15 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         borderColor="gray.outline.border"
         borderRadius="l2"
         css={{
+          // ProseMirror adds this class to the currently selected node.
+          // Add a clear selection ring for images without shifting layout.
+          "& .ProseMirror img.ProseMirror-selectednode": {
+            outlineWidth: "2px",
+            outlineStyle: "solid",
+            outlineColor: "blue.9",
+            outlineOffset: "2px",
+            borderRadius: "l2",
+          },
           "& .ProseMirror table": {
             width: "100%",
             borderCollapse: "collapse",
