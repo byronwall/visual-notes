@@ -86,6 +86,7 @@ code and refactors unless explicitly told otherwise.
   - Users should be able to visually scan why an item matched without rereading the whole row/card.
   - Highlight both the main text and secondary fields that participate in matching (title/body/tags/etc.) and keep the highlight styling consistent across the app.
   - Prefer safe text segmentation (rendering plain text with highlighted spans) over injecting HTML.
+  - Prefer the shared helper `renderHighlighted` from `app/src/features/docs-index/utils/highlight.tsx` for search-result highlighting so styling stays consistent across the app.
 
 - Icons as buttons
 

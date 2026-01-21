@@ -1,3 +1,4 @@
+import { amber } from "~/theme/colors/amber";
 import { green } from "~/theme/colors/green";
 import { red } from "~/theme/colors/red";
 import { olive } from "~/theme/colors/olive";
@@ -120,6 +121,7 @@ export default defineConfig({
           gray: olive,
           red: red,
           green: green,
+          amber: amber
         },
 
         shadows: shadows,

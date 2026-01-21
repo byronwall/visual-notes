@@ -1,4 +1,5 @@
 import { For } from "solid-js";
+import { css } from "styled-system/css";
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9,12 +10,18 @@ export function renderHighlighted(text: string, query: string) {
   if (!q) return text;
   const pattern = new RegExp(`(${escapeRegExp(q)})`, "ig");
   const parts = text.split(pattern);
+  const markClass = css({
+    bg: "amber.3",
+    color: "black",
+    borderRadius: "sm",
+    px: "0.5",
+  });
   return (
     <>
       <For each={parts}>
         {(part, i) =>
           pattern.test(part) ? (
-            <mark class="bg-yellow-200 px-0.5" data-idx={i()}>
+            <mark class={markClass} data-idx={i()}>
               {part}
             </mark>
           ) : (
@@ -25,5 +32,3 @@ export function renderHighlighted(text: string, query: string) {
     </>
   );
 }
-
-

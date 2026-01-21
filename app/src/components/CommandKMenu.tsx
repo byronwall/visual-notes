@@ -10,21 +10,21 @@ import {
   createResource,
   createSignal,
   onCleanup,
-  splitProps,
   type VoidComponent,
 } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
 import { css } from "styled-system/css";
-import { useAbortableFetch } from "~/features/docs-index/hooks/useAbortableFetch";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { SimpleDialog } from "~/components/ui/simple-dialog";
+import { Spinner } from "~/components/ui/spinner";
+import { Text } from "~/components/ui/text";
 import {
   searchDocs,
   type ServerSearchItem,
 } from "~/features/docs-index/data/docs.service";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Spinner } from "~/components/ui/spinner";
-import { SimpleDialog } from "~/components/ui/simple-dialog";
-import { Text } from "~/components/ui/text";
+import { useAbortableFetch } from "~/features/docs-index/hooks/useAbortableFetch";
+import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 
 type CommandKMenuProps = {
   open: boolean;
@@ -49,25 +49,6 @@ type CommandItem =
       run: () => void;
     };
 
-type HighlightedTextProps = {
-  text: string;
-  query: string;
-};
-
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const highlightedTextWrapClass = css({
-  display: "inline",
-});
-
-const highlightMarkClass = css({
-  display: "inline",
-  borderRadius: "sm",
-  px: "0.5",
-  bg: "yellow.3",
-  color: "black",
-});
-
 const NewNoteIcon: VoidComponent<{ size?: number }> = (props) => {
   const size = () => props.size ?? 16;
   return (
@@ -86,59 +67,6 @@ const NewNoteIcon: VoidComponent<{ size?: number }> = (props) => {
         stroke-linecap="round"
       />
     </svg>
-  );
-};
-
-const HighlightedText: VoidComponent<HighlightedTextProps> = (props) => {
-  const [local] = splitProps(props, ["text", "query"]);
-
-  const qTokens = () =>
-    local.query
-      .trim()
-      .split(/\s+/g)
-      .map((t) => t.trim())
-      .filter((t) => t.length >= 2)
-      .slice(0, 6);
-
-  const parts = createMemo(() => {
-    const text = local.text;
-    const tokens = qTokens();
-    if (!text.length) return [{ kind: "text" as const, value: "" }];
-    if (tokens.length === 0) return [{ kind: "text" as const, value: text }];
-
-    const re = new RegExp(`(${tokens.map(escapeRegExp).join("|")})`, "gi");
-    const out: Array<{ kind: "text" | "match"; value: string }> = [];
-    let lastIdx = 0;
-
-    for (const m of text.matchAll(re)) {
-      const idx = m.index ?? 0;
-      const raw = m[0] ?? "";
-      if (!raw) continue;
-      if (idx > lastIdx) out.push({ kind: "text", value: text.slice(lastIdx, idx) });
-      out.push({ kind: "match", value: text.slice(idx, idx + raw.length) });
-      lastIdx = idx + raw.length;
-    }
-
-    if (lastIdx < text.length) out.push({ kind: "text", value: text.slice(lastIdx) });
-    if (out.length === 0) return [{ kind: "text" as const, value: text }];
-    return out;
-  });
-
-  return (
-    <Box as="span" class={highlightedTextWrapClass}>
-      <For each={parts()}>
-        {(p) => (
-          <Show
-            when={p.kind === "match"}
-            fallback={<Box as="span">{p.value}</Box>}
-          >
-            <Box as="mark" class={highlightMarkClass}>
-              {p.value}
-            </Box>
-          </Show>
-        )}
-      </For>
-    </Box>
   );
 };
 
@@ -429,10 +357,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                       </Match>
                       <Match when={it.kind === "doc"}>
                         <Text fontSize="sm" fontWeight="semibold" truncate>
-                          <HighlightedText
-                            text={(it as Extract<CommandItem, { kind: "doc" }>).title}
-                            query={qTrim()}
-                          />
+                          {renderHighlighted(
+                            (it as Extract<CommandItem, { kind: "doc" }>).title,
+                            qTrim()
+                          )}
                         </Text>
                         <Show
                           when={
@@ -441,7 +369,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         >
                           {(path) => (
                             <Box class={secondaryRowClass}>
-                              <HighlightedText text={path()} query={qTrim()} />
+                              {renderHighlighted(path(), qTrim())}
                             </Box>
                           )}
                         </Show>
@@ -453,7 +381,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         >
                           {(snippet) => (
                             <Box class={snippetClass}>
-                              <HighlightedText text={snippet()} query={qTrim()} />
+                              {renderHighlighted(snippet(), qTrim())}
                             </Box>
                           )}
                         </Show>

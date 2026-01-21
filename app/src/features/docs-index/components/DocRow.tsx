@@ -58,7 +58,7 @@ export const DocRow = (props: {
                 {(query) => (
                   <Text
                     fontSize="sm"
-                    color="black.a7"
+                    fontWeight="medium"
                     overflow="hidden"
                     textOverflow="ellipsis"
                     whiteSpace="nowrap"
