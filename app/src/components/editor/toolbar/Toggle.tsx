@@ -12,7 +12,8 @@ export function Toggle(props: {
       type="button"
       title={props.title}
       size="xs"
-      variant="subtle"
+      // Transparent by default; show background only when active (data-state="on")
+      variant="plain"
       colorPalette="gray"
       data-state={props.pressed ? "on" : "off"}
       minW="6"
