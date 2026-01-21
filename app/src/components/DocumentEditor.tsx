@@ -77,7 +77,7 @@ const DocumentEditor: VoidComponent<{
     null
   );
 
-  const [doc, { refetch }] = createResource(() => props.docId, fetchDoc);
+  const [doc, { mutate }] = createResource(() => props.docId, fetchDoc);
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<Record<string, string>>({});
 
@@ -126,6 +126,7 @@ const DocumentEditor: VoidComponent<{
         (isMac && e.metaKey && e.key.toLowerCase() === "s") ||
         (!isMac && e.ctrlKey && e.key.toLowerCase() === "s");
       if (isSave) {
+        if (!isEditorFocused(e.target)) return;
         e.preventDefault();
         void onSave();
       }
@@ -164,10 +165,50 @@ const DocumentEditor: VoidComponent<{
     return true;
   };
 
+  const clampSelection = (pos: number, max: number) =>
+    Math.max(0, Math.min(pos, max));
+
+  const restoreSelection = (
+    ed: Editor,
+    snapshot: { from: number; to: number; wasFocused: boolean } | null
+  ) => {
+    if (!snapshot) return;
+    const max = ed.state.doc.content.size;
+    const from = clampSelection(snapshot.from, max);
+    const to = clampSelection(snapshot.to, max);
+    ed.commands.setTextSelection({ from, to });
+    if (snapshot.wasFocused) ed.commands.focus();
+  };
+
+  const isEditorFocused = (target?: EventTarget | null) => {
+    const ed = editor();
+    if (!ed) return false;
+    const view = (
+      ed as {
+        view?: { dom?: HTMLElement; hasFocus?: () => boolean };
+      }
+    ).view;
+    const dom = view?.dom;
+    if (target && dom && target instanceof Node && dom.contains(target))
+      return true;
+    if (view?.hasFocus?.()) return true;
+    if (dom && typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active && dom.contains(active)) return true;
+    }
+    return false;
+  };
+
   async function onSave() {
+    if (saving()) return;
     const ed = editor();
     const d = doc();
     if (!ed) return;
+    const selectionSnapshot = {
+      from: ed.state.selection.from,
+      to: ed.state.selection.to,
+      wasFocused: ed.view.hasFocus(),
+    };
     setSaving(true);
     setError(undefined);
     try {
@@ -201,11 +242,12 @@ const DocumentEditor: VoidComponent<{
         await saveDoc(d!.id, { html });
         setSavedAt(new Date());
         setDirty(false);
-        await refetch();
+        mutate((current) => (current ? { ...current, html } : current));
       }
     } catch (e) {
       setError((e as Error).message || "Failed to save");
     } finally {
+      queueMicrotask(() => restoreSelection(ed, selectionSnapshot));
       setSaving(false);
     }
   }
@@ -248,13 +290,6 @@ const DocumentEditor: VoidComponent<{
             </Text>
           </Show>
           <HStack gap="2" alignItems="center" ml="auto" flexWrap="wrap">
-            <Show when={savedAt()}>
-              {(t) => (
-                <Text fontSize="xs" color="fg.muted">
-                  Saved {t().toLocaleTimeString()}
-                </Text>
-              )}
-            </Show>
             <Show when={shouldShowSaveButtonInTopBar()}>
               <Button
                 size="xs"

@@ -1,23 +1,18 @@
-import {
-  type VoidComponent,
-  Show,
-  createEffect,
-  createSignal,
-} from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { apiFetch } from "~/utils/base-url";
-import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
-import { TitleEditPopover } from "./TitleEditPopover";
-import { extractFirstHeading } from "~/utils/extractHeading";
-import { updateDocTitle } from "~/services/docs.service";
+import { PencilIcon, Trash2Icon } from "lucide-solid";
+import { type VoidComponent, Show, createEffect, createSignal } from "solid-js";
+import { Box, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
-import { PathEditor } from "./PathEditor";
+import { updateDocTitle } from "~/services/docs.service";
+import { apiFetch } from "~/utils/base-url";
+import { extractFirstHeading } from "~/utils/extractHeading";
+import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
-import { Box, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
-import { PencilIcon, Trash2Icon } from "lucide-solid";
+import { PathEditor } from "./PathEditor";
+import { TitleEditPopover } from "./TitleEditPopover";
 
 type DocumentData = {
   id: string;
@@ -141,8 +136,8 @@ const DocumentViewer: VoidComponent<{
             {editorApi()?.saving()
               ? "Saving…"
               : editorApi()?.dirty()
-              ? "Save*"
-              : "Save"}
+                ? "Save*"
+                : "Save"}
           </Button>
           <IconButton
             size="sm"
