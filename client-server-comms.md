@@ -22,12 +22,72 @@ SSR-friendly and avoids ad-hoc fetch in UI components.
 5. Remove the now-unused API route (if nothing else depends on it).
 6. Verify behavior (type-check/build; manual click-through if needed).
 
+## Routes to convert (current app usage)
+
+Queries (GET)
+
+- /api/magic-session
+- /api/embeddings/runs
+- /api/embeddings/runs/[id]
+- /api/embeddings/runs/docs/[docId]/sections
+- /api/umap/runs
+- /api/umap/points
+- /api/umap/runs/[id]
+- /api/docs
+- /api/docs/[id]
+- /api/docs/search
+- /api/docs/sources
+- /api/docs/paths
+- /api/docs/meta/keys
+- /api/docs/meta/values
+- /api/docs/inventory
+- /api/ai/runs
+- /api/ai/runs/[id]
+- /api/ai/models
+- /api/ai/chat/threads
+- /api/ai/chat/threads/[id]
+- /api/prompts
+- /api/prompts/[id]
+
+Actions (POST/PUT/PATCH/DELETE)
+
+- /api/magic-login
+- /api/logout
+- /api/auth/register
+- /api/embeddings/runs (POST)
+- /api/embeddings/runs/[id] (POST/PATCH/DELETE)
+- /api/umap/runs (POST)
+- /api/umap/runs/[id] (PATCH/DELETE)
+- /api/docs (POST/DELETE)
+- /api/docs/[id] (PUT/DELETE)
+- /api/docs/source (POST/DELETE)
+- /api/docs/path-round (POST)
+- /api/docs/bulk-delete (POST)
+- /api/docs/bulk-meta (POST)
+- /api/docs/scan-relative-images (POST)
+- /api/ai/runPrompt (POST)
+- /api/ai/promptDesigner (POST)
+- /api/ai/chat/threads (POST)
+- /api/ai/chat/threads/[id] (PATCH)
+- /api/ai/chat/threads/[id]/messages (POST)
+- /api/ai/chat/messages/[id] (PATCH/DELETE)
+- /api/prompts (POST)
+- /api/prompts/[id] (PUT/DELETE)
+- /api/prompts/[id]/activate (POST)
+- /api/prompts/[id]/versions (POST)
+- /api/prompts/[id]/revise (POST)
+
+Notes
+
+- /api/auth/[...solidauth] is the SolidAuth handler and should remain a route.
+
 ## Detailed checklist
 
 - Server module
   - Create a file near the feature, e.g. app/src/features/<feature>/data/\*.ts
   - Import prisma (or other server deps) directly in the module.
-  - Export named functions using query() and action().
+- Export named functions using query() and action().
+  - In action() and query() bodies, include "use server" as the first statement.
   - Keep types in the same file.
 - UI module
   - Read:
@@ -44,10 +104,10 @@ SSR-friendly and avoids ad-hoc fetch in UI components.
 ## Example pattern
 
 - Read
-  - server module: export const getThing = query(async (id: string) => { ... }, "thing");
+  - server module: export const getThing = query(async (id: string) => { "use server"; ... }, "thing");
   - UI module: const thing = createAsync(() => getThing(id()));
 - Write
-  - server module: export const saveThing = action(async (payload) => { ... }, "save-thing");
+  - server module: export const saveThing = action(async (payload) => { "use server"; ... }, "save-thing");
   - UI module: const runSave = useAction(saveThing); await runSave(payload);
 
 ## Common pitfalls

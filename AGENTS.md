@@ -272,6 +272,7 @@ import { query, createAsync } from "@solidjs/router";
 
 // server-side fetcher; args must be JSON-serializable
 export const getThing = query(async (id: string) => {
+  "use server";
   // ... load data (db/service/etc) ...
   return { id };
 }, "thing");
@@ -287,6 +288,7 @@ import { action } from "@solidjs/router";
 
 export const saveThing = action(
   async (payload: { id: string; name: string }) => {
+    "use server";
     // ... write to db/service ...
     return { ok: true };
   },
