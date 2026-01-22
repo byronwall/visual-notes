@@ -1,4 +1,4 @@
-import { useSearchParams } from "@solidjs/router";
+import { useAction, useSearchParams } from "@solidjs/router";
 import {
   Suspense,
   createEffect,
@@ -17,6 +17,7 @@ import {
   scanRelativeImages,
   bulkUpdateMeta,
 } from "../data/docs.service";
+import { cleanupTitles, cleanupTitlesDryRun } from "../data/docs-cleanup";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { ActionsPopover } from "./ActionsPopover";
@@ -234,6 +235,7 @@ const DocsIndexPage = () => {
   const [showBulkPath, setShowBulkPath] = createSignal(false);
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
+  const runCleanupTitles = useAction(cleanupTitles);
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -284,12 +286,8 @@ const DocsIndexPage = () => {
   };
 
   const handleCleanupTitles = async () => {
-    // preserve existing route behavior
-    const pre = await fetch("/api/docs/cleanup-titles?dryRun=1", {
-      method: "POST",
-    });
-    const preJson = (await pre.json().catch(() => ({}))) as any;
-    const count = Number(preJson?.candidates || 0);
+    const pre = await cleanupTitlesDryRun();
+    const count = Number(pre.candidates || 0);
     if (!count) {
       alert("No titles to clean.");
       return;
@@ -300,8 +298,7 @@ const DocsIndexPage = () => {
       )
     )
       return;
-    const res = await fetch("/api/docs/cleanup-titles", { method: "POST" });
-    await res.json().catch(() => ({}));
+    await runCleanupTitles();
     await Promise.all([refetch(), refetchSources()]);
   };
 
