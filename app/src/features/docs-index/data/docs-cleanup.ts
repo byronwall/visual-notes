@@ -42,6 +42,7 @@ async function buildCandidates(): Promise<{
 
 export const cleanupTitlesDryRun = query(
   async (): Promise<CleanupTitlesDryRunResult> => {
+    "use server";
     const { total, candidates } = await buildCandidates();
     console.log("[docs.cleanup] dryRun candidates=", candidates.length);
     return { dryRun: true, total, candidates: candidates.length };
@@ -49,51 +50,44 @@ export const cleanupTitlesDryRun = query(
   "docs-cleanup-titles-dry-run"
 );
 
-export const cleanupTitles = action(
-  async (): Promise<CleanupTitlesResult> => {
-    const { total, candidates } = await buildCandidates();
+export const cleanupTitles = action(async (): Promise<CleanupTitlesResult> => {
+  "use server";
+  const { total, candidates } = await buildCandidates();
 
-    if (candidates.length === 0) {
-      return { ok: true, updated: 0, failed: 0, total };
-    }
+  if (candidates.length === 0) {
+    return { ok: true, updated: 0, failed: 0, total };
+  }
 
-    const chunkSize = 100;
-    let updated = 0;
-    let failed = 0;
+  const chunkSize = 100;
+  let updated = 0;
+  let failed = 0;
 
-    for (let i = 0; i < candidates.length; i += chunkSize) {
-      const chunk = candidates.slice(i, i + chunkSize);
-      try {
-        await prisma.$transaction(
-          chunk.map((c) =>
-            prisma.doc.update({ where: { id: c.id }, data: { title: c.title } })
-          )
-        );
-        updated += chunk.length;
-      } catch (e) {
-        console.error("[docs.cleanup] chunk failed, retrying individually", e);
-        for (const c of chunk) {
-          try {
-            await prisma.doc.update({
-              where: { id: c.id },
-              data: { title: c.title },
-            });
-            updated++;
-          } catch (_e) {
-            failed++;
-          }
+  for (let i = 0; i < candidates.length; i += chunkSize) {
+    const chunk = candidates.slice(i, i + chunkSize);
+    try {
+      await prisma.$transaction(
+        chunk.map((c) =>
+          prisma.doc.update({ where: { id: c.id }, data: { title: c.title } })
+        )
+      );
+      updated += chunk.length;
+    } catch (e) {
+      console.error("[docs.cleanup] chunk failed, retrying individually", e);
+      for (const c of chunk) {
+        try {
+          await prisma.doc.update({
+            where: { id: c.id },
+            data: { title: c.title },
+          });
+          updated++;
+        } catch (_e) {
+          failed++;
         }
       }
     }
+  }
 
-    console.log(
-      "[docs.cleanup] completed updated=",
-      updated,
-      "failed=",
-      failed
-    );
+  console.log("[docs.cleanup] completed updated=", updated, "failed=", failed);
 
-    return { ok: true, updated, failed, total };
-  },
-  "docs-cleanup-titles"
-);
+  return { ok: true, updated, failed, total };
+}, "docs-cleanup-titles");
