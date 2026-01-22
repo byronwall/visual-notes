@@ -1,8 +1,12 @@
-import { useAction, useSearchParams } from "@solidjs/router";
+import {
+  createAsync,
+  revalidate,
+  useAction,
+  useSearchParams,
+} from "@solidjs/router";
 import {
   Suspense,
   createEffect,
-  createResource,
   createSignal,
   createMemo,
 } from "solid-js";
@@ -26,7 +30,7 @@ import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
 import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
-import { updateDocPath } from "~/services/docs.service";
+import { updateDoc } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Spinner } from "~/components/ui/spinner";
@@ -199,35 +203,23 @@ const DocsIndexPage = () => {
     }
   });
 
-  const [docs, { refetch }] = createResource(
-    () => ({
-      p: q.pathPrefix(),
-      b: q.blankPathOnly(),
-      k: q.metaKey(),
-      v: q.metaValue(),
-      s: q.source(),
-      ocid: q.originalContentId(),
-      cFrom: q.createdFrom(),
-      cTo: q.createdTo(),
-      uFrom: q.updatedFrom(),
-      uTo: q.updatedTo(),
-    }),
-    (s) =>
-      fetchDocs({
-        pathPrefix: s.p || undefined,
-        pathBlankOnly: s.b || undefined,
-        metaKey: s.k || undefined,
-        metaValue: s.v || undefined,
-        source: s.s || undefined,
-        originalContentId: s.ocid || undefined,
-        createdFrom: s.cFrom || undefined,
-        createdTo: s.cTo || undefined,
-        updatedFrom: s.uFrom || undefined,
-        updatedTo: s.uTo || undefined,
-      })
-  );
+  const docsQueryArgs = () => ({
+    pathPrefix: q.pathPrefix() || undefined,
+    pathBlankOnly: q.blankPathOnly() || undefined,
+    metaKey: q.metaKey() || undefined,
+    metaValue: q.metaValue() || undefined,
+    source: q.source() || undefined,
+    originalContentId: q.originalContentId() || undefined,
+    createdFrom: q.createdFrom() || undefined,
+    createdTo: q.createdTo() || undefined,
+    updatedFrom: q.updatedFrom() || undefined,
+    updatedTo: q.updatedTo() || undefined,
+  });
 
-  const [sources, { refetch: refetchSources }] = createResource(fetchSources);
+  const docs = createAsync(() => fetchDocs(docsQueryArgs()));
+  const sources = createAsync(() => fetchSources());
+  const refreshDocs = () => revalidate(fetchDocs.keyFor(docsQueryArgs()));
+  const refreshSources = () => revalidate(fetchSources.key);
 
   const [visibleIds, setVisibleIds] = createSignal<string[]>([]);
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
@@ -236,6 +228,14 @@ const DocsIndexPage = () => {
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
   const runCleanupTitles = useAction(cleanupTitles);
+  const runUpdateDoc = useAction(updateDoc);
+  const runBulkSetSource = useAction(bulkSetSource);
+  const runDeleteBySource = useAction(deleteBySource);
+  const runDeleteAllDocs = useAction(deleteAllDocs);
+  const runProcessPathRound = useAction(processPathRound);
+  const runScanRelativeImages = useAction(scanRelativeImages);
+  const runBulkDeleteDocs = useAction(bulkDeleteDocs);
+  const runBulkUpdateMeta = useAction(bulkUpdateMeta);
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -281,8 +281,8 @@ const DocsIndexPage = () => {
   const handleBulkSetSource = async () => {
     const value = prompt("Enter source to set on all notes (originalSource):");
     if (!value) return;
-    await bulkSetSource(value);
-    await refetch();
+    await runBulkSetSource(value);
+    await refreshDocs();
   };
 
   const handleCleanupTitles = async () => {
@@ -299,7 +299,7 @@ const DocsIndexPage = () => {
     )
       return;
     await runCleanupTitles();
-    await Promise.all([refetch(), refetchSources()]);
+    await Promise.all([refreshDocs(), refreshSources()]);
   };
 
   const handleDeleteBySource = async (source: string, count: number) => {
@@ -309,16 +309,16 @@ const DocsIndexPage = () => {
       )
     )
       return;
-    await deleteBySource(source);
-    await Promise.all([refetch(), refetchSources()]);
+    await runDeleteBySource(source);
+    await Promise.all([refreshDocs(), refreshSources()]);
   };
 
   const handleProcessPathRound = async () => {
-    const res = await processPathRound();
+    const res = await runProcessPathRound();
     try {
       console.log("[DocsIndex] path round", res);
     } catch {}
-    await Promise.all([refetch(), refetchSources()]);
+    await Promise.all([refreshDocs(), refreshSources()]);
     alert(
       `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`
     );
@@ -327,8 +327,8 @@ const DocsIndexPage = () => {
   const handleDeleteAll = async () => {
     const total = sources()?.total ?? 0;
     if (!confirm(`Delete ALL notes (${total})? This cannot be undone.`)) return;
-    await deleteAllDocs();
-    await Promise.all([refetch(), refetchSources()]);
+    await runDeleteAllDocs();
+    await Promise.all([refreshDocs(), refreshSources()]);
   };
 
   const handleDeleteSelected = async () => {
@@ -341,14 +341,14 @@ const DocsIndexPage = () => {
     if (!confirm(`Delete the ${count} selected notes? This cannot be undone.`))
       return;
     console.log("[DocsIndex] bulk delete selected ids count=", count);
-    await bulkDeleteDocs(ids);
+    await runBulkDeleteDocs(ids);
     // Remove deleted ids from selection
     setSelectedIds((prev) => {
       const s = new Set(prev);
       for (const id of ids) s.delete(id);
       return s;
     });
-    await Promise.all([refetch(), refetchSources()]);
+    await Promise.all([refreshDocs(), refreshSources()]);
   };
 
   const handleOpenBulkMeta = () => setShowBulkMeta(true);
@@ -384,8 +384,8 @@ const DocsIndexPage = () => {
     setBulkError(undefined);
     try {
       console.log("[DocsIndex] bulk meta ids count=", count, actions);
-      await bulkUpdateMeta(ids, actions as any);
-      await refetch();
+      await runBulkUpdateMeta(ids, actions as any);
+      await refreshDocs();
       setShowBulkMeta(false);
     } catch (e) {
       setBulkError((e as Error).message || "Failed to apply metadata");
@@ -405,8 +405,8 @@ const DocsIndexPage = () => {
     setBulkError(undefined);
     try {
       console.log("[DocsIndex] bulk set path ids count=", count, { path });
-      await Promise.all(ids.map((id) => updateDocPath(id, path)));
-      await refetch();
+    await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
+      await refreshDocs();
       setShowBulkPath(false);
     } catch (e) {
       setBulkError((e as Error).message || "Failed to update paths");
@@ -416,7 +416,7 @@ const DocsIndexPage = () => {
   };
 
   const handleScanRelativeImages = async () => {
-    const pre = await scanRelativeImages({ dryRun: true });
+    const pre = await runScanRelativeImages({ dryRun: true });
     const count = Number(pre.matches || 0);
     if (!count) {
       alert("No notes found with relative image links.");
@@ -428,11 +428,11 @@ const DocsIndexPage = () => {
       )
     )
       return;
-    const res = await scanRelativeImages({});
+    const res = await runScanRelativeImages({});
     try {
       console.log("[DocsIndex] scan-relative-images", res);
     } catch {}
-    await Promise.all([refetch(), refetchSources()]);
+    await Promise.all([refreshDocs(), refreshSources()]);
     alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
   };
 

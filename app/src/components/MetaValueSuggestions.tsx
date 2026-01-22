@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createResource } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
+import { createAsync } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
 import { fetchMetaValues } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
@@ -10,10 +11,10 @@ export const MetaValueSuggestions: VoidComponent<{
   onSelect: (value: string) => void;
   limit?: number;
 }> = (props) => {
-  const [valueSuggestions] = createResource(
-    () => props.keyName,
-    fetchMetaValues
-  );
+  const valueSuggestions = createAsync(() => {
+    if (!props.keyName.trim()) return Promise.resolve([]);
+    return fetchMetaValues(props.keyName);
+  });
   const topValues = createMemo(() =>
     (Array.isArray(valueSuggestions())
       ? (valueSuggestions() as { value: string; count: number }[])

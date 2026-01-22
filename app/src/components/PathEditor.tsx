@@ -4,12 +4,12 @@ import {
   Suspense,
   createEffect,
   createMemo,
-  createResource,
   createSignal,
   onCleanup,
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
-import { fetchPathSuggestions, updateDocPath } from "~/services/docs.service";
+import { createAsync, useAction } from "@solidjs/router";
+import { fetchPathSuggestions, updateDoc } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
@@ -28,9 +28,10 @@ export const PathEditor: VoidComponent<{
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isOpen, setIsOpen] = createSignal(false);
+  const runUpdateDoc = useAction(updateDoc);
 
   // Load all existing paths with counts once
-  const [pathCounts] = createResource(fetchPathSuggestions);
+  const pathCounts = createAsync(() => fetchPathSuggestions());
 
   // Internal representation: committed segments + current editable segment
   const splitInitial = () => {
@@ -174,7 +175,7 @@ export const PathEditor: VoidComponent<{
     setSaving(true);
     setError(undefined);
     try {
-      await updateDocPath(props.docId, finalPath);
+      await runUpdateDoc({ id: props.docId, path: finalPath });
     } catch (e) {
       setError((e as Error).message || "Failed to save path");
     } finally {

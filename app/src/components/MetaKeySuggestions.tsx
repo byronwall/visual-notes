@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createResource } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
+import { createAsync } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
 import { fetchMetaKeys } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
@@ -9,7 +10,7 @@ export const MetaKeySuggestions: VoidComponent<{
   onSelect: (key: string) => void;
   limit?: number;
 }> = (props) => {
-  const [keySuggestions] = createResource(fetchMetaKeys);
+  const keySuggestions = createAsync(() => fetchMetaKeys());
   const topKeys = createMemo(() =>
     (Array.isArray(keySuggestions())
       ? (keySuggestions() as { key: string; count: number }[])

@@ -7,7 +7,8 @@ import {
   onCleanup,
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
-import { updateDocMeta, type MetaRecord } from "~/services/docs.service";
+import { useAction } from "@solidjs/router";
+import { updateDoc, type MetaRecord } from "~/services/docs.service";
 import { MetaKeySuggestions } from "./MetaKeySuggestions";
 import { MetaValueSuggestions } from "./MetaValueSuggestions";
 import { Button } from "~/components/ui/button";
@@ -33,6 +34,7 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [editingIndex, setEditingIndex] = createSignal<number | null>(null);
   const [editKey, setEditKey] = createSignal("");
   const [editValue, setEditValue] = createSignal("");
+  const runUpdateDoc = useAction(updateDoc);
 
   // suggestions now handled in child components
 
@@ -67,7 +69,7 @@ export const MetaKeyValueEditor: VoidComponent<{
           record[k] = value;
         }
         console.log("[MetaEditor] persist", record);
-        await updateDocMeta(props.docId, record);
+        await runUpdateDoc({ id: props.docId, meta: record });
       } catch (e) {
         setError((e as Error).message || "Failed to save metadata");
       } finally {

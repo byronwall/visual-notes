@@ -6,6 +6,7 @@ import {
   type Accessor,
   type VoidComponent,
 } from "solid-js";
+import { useAction } from "@solidjs/router";
 import { Box, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Checkbox from "~/components/ui/checkbox";
@@ -22,8 +23,7 @@ import { PathEditor } from "~/components/PathEditor";
 import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 import {
-  updateDocMeta,
-  updateDocPath,
+  updateDoc,
   type MetaRecord,
 } from "~/services/docs.service";
 
@@ -118,6 +118,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
   const [bulkBusy, setBulkBusy] = createSignal(false);
   const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
   const [bulkPathDraft, setBulkPathDraft] = createSignal("");
+  const runUpdateDoc = useAction(updateDoc);
 
   const handleIsolate = () => props.selection?.isolateSelection();
   const handleClearSelection = () => props.selection?.clearSelection();
@@ -137,7 +138,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     setBulkError(undefined);
     try {
       console.log("[panel] bulk meta apply", { count: ids.length, record });
-      await Promise.all(ids.map((id) => updateDocMeta(id, record)));
+      await Promise.all(ids.map((id) => runUpdateDoc({ id, meta: record })));
     } catch (e) {
       setBulkError((e as Error).message || "Failed to apply metadata");
     } finally {
@@ -155,7 +156,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     setBulkError(undefined);
     try {
       console.log("[panel] bulk path apply", { count: ids.length, path });
-      await Promise.all(ids.map((id) => updateDocPath(id, path)));
+      await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
     } catch (e) {
       setBulkError((e as Error).message || "Failed to update paths");
     } finally {

@@ -1,4 +1,5 @@
-import { createResource, For, Show, Suspense } from "solid-js";
+import { For, Show, Suspense } from "solid-js";
+import { createAsync } from "@solidjs/router";
 import { Box, Stack } from "styled-system/jsx";
 import { Link } from "~/components/ui/link";
 import { fetchDocs } from "~/features/docs-index/data/docs.service";
@@ -18,7 +19,7 @@ const clipTitle = (title: string) => {
 };
 
 export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
-  const [items] = createResource(() => fetchDocs({ take: 5 }));
+  const items = createAsync(() => fetchDocs({ take: 5 }));
 
   return (
     <Show when={props.expanded}>

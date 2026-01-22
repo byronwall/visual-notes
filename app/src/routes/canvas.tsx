@@ -52,9 +52,9 @@ const CanvasRoute: VoidComponent = () => {
         metaValue: s.v || undefined,
       })
   );
-  const [umapRun] = useUmapRunResource();
+  const umapRun = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
-  const [umapPoints] = useUmapPointsResource(() => umapRun()?.id);
+  const umapPoints = useUmapPointsResource(() => umapRun()?.id);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );

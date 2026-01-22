@@ -81,13 +81,40 @@ Notes
 
 - /api/auth/[...solidauth] is the SolidAuth handler and should remain a route.
 
+## Completed conversions (app callers)
+
+Queries (GET)
+
+- /api/docs
+- /api/docs/[id]
+- /api/docs/search
+- /api/docs/sources
+- /api/docs/paths
+- /api/docs/meta/keys
+- /api/docs/meta/values
+
+Actions (POST/PUT/PATCH/DELETE)
+
+- /api/docs (POST/DELETE)
+- /api/docs/[id] (PUT/DELETE)
+- /api/docs/source (POST/DELETE)
+- /api/docs/path-round (POST)
+- /api/docs/bulk-delete (POST)
+- /api/docs/bulk-meta (POST)
+- /api/docs/scan-relative-images (POST)
+- /api/docs/cleanup-titles (POST) -- route removed; now query/action only
+
+Notes
+
+- Some HTTP routes remain to support external clients (e.g. CLI ingest/inventory).
+
 ## Detailed checklist
 
 - Server module
   - Create a file near the feature, e.g. app/src/features/<feature>/data/\*.ts
   - Import prisma (or other server deps) directly in the module.
 - Export named functions using query() and action().
-  - In action() and query() bodies, include "use server" as the first statement.
+  - In action() bodies, include "use server" as the first statement.
   - Keep types in the same file.
 - UI module
   - Read:
@@ -104,7 +131,7 @@ Notes
 ## Example pattern
 
 - Read
-  - server module: export const getThing = query(async (id: string) => { "use server"; ... }, "thing");
+  - server module: export const getThing = query(async (id: string) => { ... }, "thing");
   - UI module: const thing = createAsync(() => getThing(id()));
 - Write
   - server module: export const saveThing = action(async (payload) => { "use server"; ... }, "save-thing");

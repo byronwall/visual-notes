@@ -23,7 +23,6 @@ import {
   searchDocs,
   type ServerSearchItem,
 } from "~/features/docs-index/data/docs.service";
-import { useAbortableFetch } from "~/features/docs-index/hooks/useAbortableFetch";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 
 type CommandKMenuProps = {
@@ -80,8 +79,6 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const qTrim = () => query().trim();
   const qForSearch = () => (qTrim().length >= 2 ? qTrim() : "");
 
-  const { withAbort, abort } = useAbortableFetch();
-
   const snippetClass = css({
     fontSize: "xs",
     color: "black.a7",
@@ -104,7 +101,6 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
     if (!q) {
       setDebouncedQuery("");
-      abort();
       return;
     }
 
@@ -119,7 +115,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
   const [results] = createResource(debouncedQuery, (q) => {
     if (!q) return Promise.resolve([] as ServerSearchItem[]);
-    return withAbort((signal) => searchDocs({ q, take: 25, signal }));
+    return searchDocs({ q, take: 25 });
   });
 
   const close = () => {
@@ -206,7 +202,6 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     if (!props.open) {
       setQuery("");
       setSelectedIndex(0);
-      abort();
       return;
     }
     setSelectedIndex(0);

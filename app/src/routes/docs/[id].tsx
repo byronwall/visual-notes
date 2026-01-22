@@ -6,7 +6,7 @@ import {
   Suspense,
   createResource,
 } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { fetchDoc } from "~/services/docs.service";
 import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
 import { Text } from "~/components/ui/text";
@@ -25,18 +25,14 @@ type DocDetail = {
   updatedAt: string;
 };
 
-async function fetchDoc(id: string) {
-  const res = await apiFetch(`/api/docs/${id}`);
-  if (!res.ok) throw new Error("Failed to load doc");
-  return (await res.json()) as DocDetail;
-}
+const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 
 const DocView: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
   const [doc] = createResource(
     () => params.id,
-    (id) => fetchDoc(id!)
+    (id) => fetchDocDetail(id!)
   );
 
   const handleDeleted = () => {

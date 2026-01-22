@@ -1,4 +1,4 @@
-import { useNavigate } from "@solidjs/router";
+import { useAction, useNavigate } from "@solidjs/router";
 import { PencilIcon, Trash2Icon } from "lucide-solid";
 import { type VoidComponent, Show, createEffect, createSignal } from "solid-js";
 import { Box, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
@@ -6,8 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
-import { updateDocTitle } from "~/services/docs.service";
-import { apiFetch } from "~/utils/base-url";
+import { deleteDoc, updateDoc } from "~/services/docs.service";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
@@ -40,6 +39,8 @@ const DocumentViewer: VoidComponent<{
     undefined
   );
   const [title, setTitle] = createSignal(props.doc.title);
+  const runUpdateDoc = useAction(updateDoc);
+  const runDeleteDoc = useAction(deleteDoc);
   const firstH1 = () =>
     extractFirstHeading({
       markdown: props.doc.markdown,
@@ -50,7 +51,7 @@ const DocumentViewer: VoidComponent<{
   const handleCancelEdit = () => setEditing(false);
   const handleConfirmEdit = async (newTitle: string) => {
     try {
-      await updateDocTitle(props.doc.id, newTitle);
+      await runUpdateDoc({ id: props.doc.id, title: newTitle });
       setTitle(newTitle);
       console.log("[DocumentViewer] title updated:", newTitle);
     } catch (e) {
@@ -63,7 +64,7 @@ const DocumentViewer: VoidComponent<{
     const newTitle = firstH1();
     if (!newTitle) return;
     try {
-      await updateDocTitle(props.doc.id, newTitle);
+      await runUpdateDoc({ id: props.doc.id, title: newTitle });
       setTitle(newTitle);
     } catch (e) {
       alert((e as Error).message || "Failed to sync title");
@@ -150,15 +151,7 @@ const DocumentViewer: VoidComponent<{
               try {
                 setBusy(true);
                 console.log("[DocumentViewer] deleting docId=", props.doc?.id);
-                const res = await apiFetch(`/api/docs/${props.doc.id}`, {
-                  method: "DELETE",
-                });
-                if (!res.ok) {
-                  const msg =
-                    (await res.json().catch(() => ({})))?.error ||
-                    "Failed to delete note";
-                  throw new Error(msg);
-                }
+                await runDeleteDoc(props.doc.id);
                 console.log("[DocumentViewer] deleted docId=", props.doc?.id);
                 if (props.onDeleted) {
                   try {

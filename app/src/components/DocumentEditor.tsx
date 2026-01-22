@@ -8,13 +8,13 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import { useBeforeLeave } from "@solidjs/router";
+import { useAction, useBeforeLeave } from "@solidjs/router";
 import { extractFirstH1FromHtml } from "~/utils/extractHeading";
 import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
-import { apiFetch } from "~/utils/base-url";
+import { createDoc, fetchDoc, updateDoc } from "~/services/docs.service";
 import TiptapEditor from "./TiptapEditor";
 import { PathEditor } from "./PathEditor";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
@@ -32,27 +32,7 @@ export type DocumentEditorApi = {
   dirty: () => boolean;
 };
 
-async function fetchDoc(id: string): Promise<DocData> {
-  const res = await apiFetch(`/api/docs/${id}`);
-  if (!res.ok) throw new Error("Failed to load doc");
-  return (await res.json()) as DocData;
-}
-
-async function saveDoc(
-  id: string,
-  input: { title?: string; markdown?: string; html?: string }
-) {
-  const res = await apiFetch(`/api/docs/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const msg = (await res.json().catch(() => ({}))) as any;
-    throw new Error(msg?.error || "Failed to save");
-  }
-  return res.json();
-}
+const fetchDocData = (id: string) => fetchDoc(id) as Promise<DocData>;
 
 const DocumentEditor: VoidComponent<{
   docId?: string;
@@ -77,9 +57,11 @@ const DocumentEditor: VoidComponent<{
     null
   );
 
-  const [doc, { mutate }] = createResource(() => props.docId, fetchDoc);
+  const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<Record<string, string>>({});
+  const runCreateDoc = useAction(createDoc);
+  const runUpdateDoc = useAction(updateDoc);
 
   const isNew = createMemo(() => !props.docId);
 
@@ -219,27 +201,20 @@ const DocumentEditor: VoidComponent<{
         const detected = extractFirstH1FromHtml(html);
         if (detected && detected.trim().length > 0) title = detected.trim();
         console.log("[editor.save] creating new doc with title:", title);
-        const res = await apiFetch(`/api/docs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            html,
-            path: newPath() || undefined,
-            meta: newMeta(),
-          }),
+        const json = await runCreateDoc({
+          title,
+          html,
+          path: newPath() || undefined,
+          meta: newMeta(),
         });
-        const json = (await res.json().catch(() => ({}))) as any;
-        console.log("[editor.save] create response", res.status, json);
-        if (!res.ok || !json?.id) {
-          throw new Error(json?.error || "Failed to create note");
-        }
+        console.log("[editor.save] create response", json);
+        if (!json?.id) throw new Error("Failed to create note");
         setSavedAt(new Date());
         setDirty(false);
         if (props.onCreated) props.onCreated(String(json.id));
       } else {
         // Update existing
-        await saveDoc(d!.id, { html });
+        await runUpdateDoc({ id: d!.id, html });
         setSavedAt(new Date());
         setDirty(false);
         mutate((current) => (current ? { ...current, html } : current));

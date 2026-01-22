@@ -3,10 +3,10 @@ import {
   Show,
   Suspense,
   createMemo,
-  createResource,
   createSignal,
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
+import { createAsync } from "@solidjs/router";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import type { DocsQueryStore } from "../state/docsQuery";
 import { Button } from "~/components/ui/button";
@@ -85,7 +85,7 @@ function sortChildren(node: TreeNode): void {
 export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
   props
 ) => {
-  const [pathCounts] = createResource(fetchPathSuggestions);
+  const pathCounts = createAsync(() => fetchPathSuggestions());
   const [expanded, setExpanded] = createSignal<Record<string, boolean>>({});
 
   const tree = createMemo(() => {

@@ -1,25 +1,24 @@
-import { createResource, type Accessor } from "solid-js";
+import type { Accessor } from "solid-js";
+import { createAsync } from "@solidjs/router";
+import { fetchDocs } from "~/services/docs.service";
 import {
-  fetchDocs,
   fetchLatestUmapRun,
   fetchUmapPoints,
-} from "~/services/docs.service";
+} from "~/services/umap.service";
 import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
 
 export function useDocsResource() {
-  return createResource<DocItem[]>(fetchDocs);
+  return createAsync(() => fetchDocs());
 }
 
 export function useUmapRunResource() {
-  return createResource<UmapRun | undefined>(fetchLatestUmapRun);
+  return createAsync(() => fetchLatestUmapRun());
 }
 
 export function useUmapPointsResource(runId: Accessor<string | undefined>) {
-  return createResource<UmapPoint[], string | undefined>(
-    runId,
-    async (id: string | undefined) => {
-      if (!id) return [] as UmapPoint[];
-      return fetchUmapPoints(id);
-    }
-  );
+  return createAsync(() => {
+    const id = runId();
+    if (!id) return Promise.resolve([] as UmapPoint[]);
+    return fetchUmapPoints(id);
+  });
 }

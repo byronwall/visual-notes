@@ -5,17 +5,17 @@ import {
   createSignal,
   type VoidComponent,
 } from "solid-js";
+import { useAction } from "@solidjs/router";
 import { Box, Flex, HStack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
-import { apiFetch } from "~/utils/base-url";
 import DocumentViewer from "./DocumentViewer";
 import { TitleEditPopover } from "./TitleEditPopover";
 import { extractFirstHeading } from "~/utils/extractHeading";
-import { updateDocTitle } from "~/services/docs.service";
+import { fetchDoc, updateDoc } from "~/services/docs.service";
 
 type DocDetail = {
   id: string;
@@ -26,11 +26,7 @@ type DocDetail = {
   updatedAt?: string;
 };
 
-async function fetchDoc(id: string): Promise<DocDetail> {
-  const res = await apiFetch(`/api/docs/${id}`);
-  if (!res.ok) throw new Error("Failed to load doc");
-  return (await res.json()) as DocDetail;
-}
+const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 
 export const DocumentSidePanel: VoidComponent<{
   open: boolean;
@@ -39,15 +35,16 @@ export const DocumentSidePanel: VoidComponent<{
 }> = (props) => {
   const [doc, { refetch }] = createResource(
     () => props.docId,
-    (id) => fetchDoc(id)
+    (id) => fetchDocDetail(id)
   );
   const [editing, setEditing] = createSignal(false);
+  const runUpdateDoc = useAction(updateDoc);
 
   const handleCancelEdit = () => setEditing(false);
   const handleConfirmEdit = async (newTitle: string) => {
     if (!props.docId) return;
     try {
-      await updateDocTitle(props.docId, newTitle);
+      await runUpdateDoc({ id: props.docId, title: newTitle });
       await refetch();
       console.log("[SidePanel] title updated → refetched");
     } catch (e) {
@@ -103,7 +100,7 @@ export const DocumentSidePanel: VoidComponent<{
                         console.log("[SidePanel] sync title to H1:", newTitle);
                       } catch {}
                       try {
-                        await updateDocTitle(props.docId, newTitle);
+                        await runUpdateDoc({ id: props.docId, title: newTitle });
                         await refetch();
                       } catch (e) {
                         alert((e as Error).message || "Failed to sync title");
