@@ -3,10 +3,8 @@ import {
   For,
   Show,
   Suspense,
-  createResource,
 } from "solid-js";
-import { useParams, A } from "@solidjs/router";
-import { apiFetch } from "~/utils/base-url";
+import { A, createAsync, useParams } from "@solidjs/router";
 import { Badge } from "~/components/ui/badge";
 import * as Card from "~/components/ui/card";
 import { Heading } from "~/components/ui/heading";
@@ -23,6 +21,7 @@ import {
 } from "styled-system/jsx";
 import { styled } from "styled-system/jsx";
 import { link } from "styled-system/recipes";
+import { fetchPromptRun } from "~/services/ai/ai-runs.queries";
 
 type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
 
@@ -51,13 +50,6 @@ type PromptRunFull = {
   }>;
 };
 
-async function fetchRun(id: string): Promise<PromptRunFull> {
-  const res = await apiFetch(`/api/ai/runs/${id}`);
-  const data = (await res.json()) as { item: PromptRunFull };
-  console.log("[ai-run] loaded", id);
-  return data.item;
-}
-
 const statusColorPalette = (status: RunStatus) => {
   if (status === "SUCCESS") return "green";
   if (status === "ERROR") return "red";
@@ -68,7 +60,10 @@ const RouterLink = styled(A, link);
 
 const RunDetailPage: VoidComponent = () => {
   const params = useParams();
-  const [run] = createResource(() => params.id, fetchRun);
+  const run = createAsync(() => {
+    if (!params.id) return Promise.resolve<PromptRunFull | null>(null);
+    return fetchPromptRun(params.id) as Promise<PromptRunFull | null>;
+  });
 
   const LoadingInline = (props: { label?: string | undefined }) => {
     return (

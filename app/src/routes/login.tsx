@@ -1,7 +1,8 @@
-import { useNavigate } from "@solidjs/router";
+import { useAction, useNavigate } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
 import { createSignal, Show } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
+import { magicLogin } from "~/services/auth/magic-auth.actions";
 import { Box, Container, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
@@ -17,6 +18,7 @@ const LoginPage: VoidComponent = () => {
 
   const { refresh } = useMagicAuth();
   const navigate = useNavigate();
+  const runLogin = useAction(magicLogin);
 
   const handlePasswordInput = (
     e: InputEvent & { currentTarget: HTMLInputElement }
@@ -30,21 +32,11 @@ const LoginPage: VoidComponent = () => {
     setSubmitting(true);
     console.log("Submitting magic login");
     try {
-      const res = await fetch("/api/magic-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ password: password() }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error || "Login failed");
-        return;
-      }
+      await runLogin({ password: password() });
       await refresh();
       navigate("/", { replace: true });
     } catch (err) {
-      setError((err as Error)?.message || "Network error");
+      setError((err as Error)?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }

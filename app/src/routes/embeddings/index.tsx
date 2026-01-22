@@ -3,10 +3,9 @@ import {
   For,
   Show,
   Suspense,
-  createResource,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction } from "@solidjs/router";
 import { Button } from "~/components/ui/button";
 import * as Checkbox from "~/components/ui/checkbox";
 import { Heading } from "~/components/ui/heading";
@@ -17,6 +16,8 @@ import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
+import { fetchEmbeddingRuns } from "~/services/embeddings/embeddings.queries";
+import { createEmbeddingRun } from "~/services/embeddings/embeddings.actions";
 
 type EmbeddingRun = {
   id: string;
@@ -26,27 +27,6 @@ type EmbeddingRun = {
   createdAt: string;
   count: number;
 };
-
-async function listEmbeddingRuns(): Promise<EmbeddingRun[]> {
-  const res = await apiFetch("/api/embeddings/runs");
-  if (!res.ok) throw new Error("Failed to load embedding runs");
-  const json = (await res.json()) as { runs: EmbeddingRun[] };
-  return json.runs || [];
-}
-
-async function triggerEmbeddingRun(
-  model?: string,
-  params?: Record<string, unknown>
-) {
-  const res = await apiFetch("/api/embeddings/runs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, params }),
-  });
-  if (!res.ok)
-    throw new Error((await res.json()).error || "Failed to create run");
-  return (await res.json()) as { runId: string; count: number };
-}
 
 type CodeblockPolicy = "stub" | "keep-first-20-lines" | "full";
 type ChunkerMode = "structure" | "sliding";
@@ -75,7 +55,8 @@ function parseChunkerMode(v: string): ChunkerMode {
 }
 
 const EmbeddingsIndex: VoidComponent = () => {
-  const [runs, { refetch }] = createResource(listEmbeddingRuns);
+  const runs = createAsync((): Promise<EmbeddingRun[]> => fetchEmbeddingRuns());
+  const runCreateEmbedding = useAction(createEmbeddingRun);
   const [state, setState] = createStore({
     creating: false,
     model: "",
@@ -121,8 +102,11 @@ const EmbeddingsIndex: VoidComponent = () => {
         params,
       });
 
-      await triggerEmbeddingRun(state.model || undefined, params);
-      await refetch();
+      await runCreateEmbedding({
+        model: state.model || undefined,
+        params,
+      });
+      await revalidate(fetchEmbeddingRuns.key);
       setState("model", "");
     } catch (e) {
       console.error(e);

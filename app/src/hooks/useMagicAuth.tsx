@@ -1,6 +1,7 @@
 import { createContext, useContext, type ParentComponent } from "solid-js";
-import { createResource } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction } from "@solidjs/router";
+import { fetchMagicSession } from "~/services/auth/magic-auth.queries";
+import { magicLogout } from "~/services/auth/magic-auth.actions";
 
 type MagicAuthValue = {
   authed: () => boolean;
@@ -11,40 +12,25 @@ type MagicAuthValue = {
 
 const MagicAuthContext = createContext<MagicAuthValue>();
 
-async function fetchSession(): Promise<boolean> {
-  try {
-    const isServer = typeof window === "undefined";
-    console.log("[magic-auth] fetchSession", { isServer });
-    const res = await apiFetch("/api/magic-session", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { authed?: boolean };
-    return Boolean(data?.authed);
-  } catch {
-    return false;
-  }
-}
-
 export const MagicAuthProvider: ParentComponent = (props) => {
-  const [authed, { refetch }] = createResource(fetchSession);
+  const session = createAsync(() => fetchMagicSession());
+  const runLogout = useAction(magicLogout);
 
   const refresh = async () => {
     console.log("[magic-auth] refresh");
-    await refetch();
+    await revalidate(fetchMagicSession.key);
   };
 
   const logout = async () => {
     console.log("[magic-auth] logout");
-    await fetch("/api/logout", { method: "POST", credentials: "include" });
+    await runLogout();
     await refresh();
     if (typeof window !== "undefined") window.location.href = "/login";
   };
 
   const value: MagicAuthValue = {
-    authed: () => Boolean(authed()) === true,
-    loading: () => Boolean((authed as any).loading) === true,
+    authed: () => Boolean(session()?.authed) === true,
+    loading: () => session() === undefined,
     refresh,
     logout,
   };

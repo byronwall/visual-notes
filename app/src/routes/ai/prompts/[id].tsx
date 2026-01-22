@@ -5,12 +5,10 @@ import {
   Show,
   Suspense,
   createEffect,
-  createResource,
   createSignal,
   onMount,
 } from "solid-js";
-import { useNavigate, useParams, A } from "@solidjs/router";
-import { apiFetch } from "~/utils/base-url";
+import { A, createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
 import { ModelSelect } from "~/components/ModelSelect";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -25,6 +23,14 @@ import { Textarea } from "~/components/ui/textarea";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import { styled } from "styled-system/jsx";
 import { link } from "styled-system/recipes";
+import { fetchPrompt } from "~/services/prompts/prompts.queries";
+import { fetchPromptRuns, type PromptRunItem } from "~/services/ai/ai-runs.queries";
+import {
+  createPromptVersion,
+  deletePrompt,
+  revisePrompt,
+  updatePrompt,
+} from "~/services/prompts/prompts.actions";
 
 type PromptVersion = {
   id: string;
@@ -33,7 +39,7 @@ type PromptVersion = {
   modelOverride?: string | null;
   tempOverride?: number | null;
   topPOverride?: number | null;
-  createdAt: string;
+  createdAt?: string;
 };
 
 type PromptFull = {
@@ -46,29 +52,6 @@ type PromptFull = {
   activeVersion?: PromptVersion | null;
   versions: PromptVersion[];
 };
-
-async function fetchPrompt(id: string): Promise<PromptFull> {
-  const res = await apiFetch(`/api/prompts/${id}`);
-  const data = (await res.json()) as { item: PromptFull };
-  console.log("[ai-prompt] loaded", id);
-  return data.item;
-}
-
-async function fetchRunsForPrompt(promptId: string) {
-  const res = await apiFetch(
-    `/api/ai/runs?promptId=${encodeURIComponent(promptId)}`
-  );
-  const json = (await res.json()) as {
-    items: Array<{
-      id: string;
-      model: string;
-      status: "SUCCESS" | "ERROR" | "PARTIAL";
-      createdAt: string;
-      versionId?: string | null;
-    }>;
-  };
-  return json.items || [];
-}
 
 const formatOverrides = (version: {
   modelOverride?: string | null;
@@ -100,11 +83,23 @@ const RouterLink = styled(A, link);
 export const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [prompt, { refetch: refetchPrompt }] = createResource(
-    () => params.id,
-    fetchPrompt
-  );
-  const [runs] = createResource(() => params.id, fetchRunsForPrompt);
+  const prompt = createAsync(() => {
+    if (!params.id) return Promise.resolve<PromptFull | null>(null);
+    return fetchPrompt(params.id) as Promise<PromptFull | null>;
+  });
+  const runs = createAsync(() => {
+    if (!params.id) return Promise.resolve([] as PromptRunItem[]);
+    return fetchPromptRuns({ promptId: params.id });
+  });
+  const runUpdatePrompt = useAction(updatePrompt);
+  const runDeletePrompt = useAction(deletePrompt);
+  const runCreateVersion = useAction(createPromptVersion);
+  const runRevise = useAction(revisePrompt);
+
+  const refreshPrompt = async () => {
+    if (!params.id) return;
+    await revalidate(fetchPrompt.keyFor(params.id));
+  };
 
   // Edit → Create New Version state
   const [editTemplate, setEditTemplate] = createSignal<string>("");
@@ -168,20 +163,14 @@ export const PromptDetailPage: VoidComponent = () => {
     setMetaBusy(true);
     setMetaError("");
     try {
-      const res = await apiFetch(`/api/prompts/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          description: metaDesc().trim().length ? metaDesc().trim() : null,
-        }),
+      await runUpdatePrompt({
+        id,
+        task,
+        description: metaDesc().trim().length ? metaDesc().trim() : null,
       });
-      if (!res.ok) {
-        const msg = (await res.json().catch(() => ({}))) as { error?: string };
-        setMetaError(msg?.error || "Failed to update prompt.");
-        return;
-      }
-      await refetchPrompt();
+      await refreshPrompt();
+    } catch (err) {
+      setMetaError((err as Error)?.message || "Failed to update prompt.");
     } finally {
       setMetaBusy(false);
     }
@@ -203,13 +192,9 @@ export const PromptDetailPage: VoidComponent = () => {
     if (defTopP().trim().length === 0) payload.defaultTopP = null;
     setSavingDefaults(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      console.log("[ai-prompt-detail] save defaults status", res.status);
-      await refetchPrompt();
+      await runUpdatePrompt({ id, ...payload });
+      console.log("[ai-prompt-detail] save defaults ok");
+      await refreshPrompt();
     } finally {
       setSavingDefaults(false);
     }
@@ -220,8 +205,8 @@ export const PromptDetailPage: VoidComponent = () => {
     const id = prompt()!.id;
     setDeleteBusy(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}`, { method: "DELETE" });
-      console.log("[ai-prompt-detail] delete status", res.status);
+      await runDeletePrompt({ id });
+      console.log("[ai-prompt-detail] delete ok");
       navigate("/ai");
     } finally {
       setDeleteBusy(false);
@@ -246,18 +231,15 @@ export const PromptDetailPage: VoidComponent = () => {
     if (!template) return;
     setEditBusy(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          template,
-          system: system || undefined,
-          activate,
-        }),
+      await runCreateVersion({
+        promptId: id,
+        template,
+        system: system || undefined,
+        activate,
       });
-      console.log("[ai-prompt-detail] create version status", res.status);
+      console.log("[ai-prompt-detail] create version ok");
       // Refresh prompt data
-      await refetchPrompt();
+      await refreshPrompt();
     } finally {
       setEditBusy(false);
     }
@@ -270,22 +252,8 @@ export const PromptDetailPage: VoidComponent = () => {
     if (!fb) return;
     setReviseBusy(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}/revise`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback: fb }),
-      });
-      const data = (await res.json()) as {
-        suggestion?: { template: string; system?: string | null };
-        error?: string;
-      };
-      if (data?.error || !data?.suggestion) {
-        console.log(
-          "[ai-prompt-detail] revise error:",
-          data?.error || "unknown"
-        );
-        return;
-      }
+      const data = await runRevise({ promptId: id, feedback: fb });
+      if (!data?.suggestion) return;
       setSuggestedTemplate(data.suggestion.template || "");
       setSuggestedSystem(data.suggestion.system || "");
       console.log("[ai-prompt-detail] got suggestion");
@@ -302,17 +270,14 @@ export const PromptDetailPage: VoidComponent = () => {
     if (!template) return;
     setReviseBusy(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          template,
-          system: system || undefined,
-          activate,
-        }),
+      await runCreateVersion({
+        promptId: id,
+        template,
+        system: system || undefined,
+        activate,
       });
-      console.log("[ai-prompt-detail] accept suggestion status", res.status);
-      await refetchPrompt();
+      console.log("[ai-prompt-detail] accept suggestion ok");
+      await refreshPrompt();
       setSuggestedTemplate("");
       setSuggestedSystem("");
       setFeedback("");
@@ -866,9 +831,9 @@ export const PromptDetailPage: VoidComponent = () => {
                                           {v.id}
                                         </Text>
                                         <Text textStyle="xs" color="fg.muted">
-                                          {new Date(
-                                            v.createdAt
-                                          ).toLocaleString()}
+                                          {v.createdAt
+                                            ? new Date(v.createdAt).toLocaleString()
+                                            : "—"}
                                         </Text>
                                       </Stack>
                                       <Text textStyle="xs" color="fg.muted">

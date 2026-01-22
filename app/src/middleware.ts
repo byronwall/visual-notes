@@ -12,11 +12,18 @@ function isAssetPath(pathname: string): boolean {
   return /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|map)$/.test(pathname);
 }
 
-function isAllowedUnauthed(pathname: string): boolean {
+function isAllowedUnauthed(request: Request): boolean {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
   if (pathname === "/login") return true;
-  if (pathname === "/api/magic-login") return true;
-  if (pathname === "/api/logout") return true;
-  if (pathname === "/api/magic-session") return true;
+  // Allow action calls initiated from the login page
+  if (pathname.startsWith("/_server")) {
+    const referer = request.headers.get("referer");
+    if (referer) {
+      const refPath = new URL(referer).pathname;
+      if (refPath === "/login") return true;
+    }
+  }
   // Keep legacy auth endpoints reachable (not used by the app now)
   if (pathname.startsWith("/api/auth")) return true;
   return isAssetPath(pathname);
@@ -28,7 +35,7 @@ export default createMiddleware({
       const url = new URL(event.request.url);
       const pathname = url.pathname;
 
-      if (isAllowedUnauthed(pathname)) return;
+      if (isAllowedUnauthed(event.request)) return;
 
       const authed = isRequestAuthenticated(event.request);
       if (authed) return;

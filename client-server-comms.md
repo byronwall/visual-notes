@@ -24,6 +24,15 @@ SSR-friendly and avoids ad-hoc fetch in UI components.
 
 ## Routes to convert (current app usage)
 
+None. All app callers now use query()/action().
+
+Notes
+
+- HTTP routes still kept for external clients: /api/docs and /api/docs/inventory.
+- /api/auth/[...solidauth] and /api/auth/register remain as HTTP routes.
+
+## Completed conversions (app callers)
+
 Queries (GET)
 
 - /api/magic-session
@@ -40,7 +49,6 @@ Queries (GET)
 - /api/docs/paths
 - /api/docs/meta/keys
 - /api/docs/meta/values
-- /api/docs/inventory
 - /api/ai/runs
 - /api/ai/runs/[id]
 - /api/ai/models
@@ -53,7 +61,6 @@ Actions (POST/PUT/PATCH/DELETE)
 
 - /api/magic-login
 - /api/logout
-- /api/auth/register
 - /api/embeddings/runs (POST)
 - /api/embeddings/runs/[id] (POST/PATCH/DELETE)
 - /api/umap/runs (POST)
@@ -76,32 +83,6 @@ Actions (POST/PUT/PATCH/DELETE)
 - /api/prompts/[id]/activate (POST)
 - /api/prompts/[id]/versions (POST)
 - /api/prompts/[id]/revise (POST)
-
-Notes
-
-- /api/auth/[...solidauth] is the SolidAuth handler and should remain a route.
-
-## Completed conversions (app callers)
-
-Queries (GET)
-
-- /api/docs
-- /api/docs/[id]
-- /api/docs/search
-- /api/docs/sources
-- /api/docs/paths
-- /api/docs/meta/keys
-- /api/docs/meta/values
-
-Actions (POST/PUT/PATCH/DELETE)
-
-- /api/docs (POST/DELETE)
-- /api/docs/[id] (PUT/DELETE)
-- /api/docs/source (POST/DELETE)
-- /api/docs/path-round (POST)
-- /api/docs/bulk-delete (POST)
-- /api/docs/bulk-meta (POST)
-- /api/docs/scan-relative-images (POST)
 - /api/docs/cleanup-titles (POST) -- route removed; now query/action only
 
 Notes

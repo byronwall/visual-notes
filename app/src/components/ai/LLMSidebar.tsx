@@ -3,12 +3,11 @@ import {
   Show,
   Suspense,
   createEffect,
-  createResource,
   createSignal,
   onCleanup,
 } from "solid-js";
 import type { Accessor } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction } from "@solidjs/router";
 import TiptapEditor from "~/components/TiptapEditor";
 import { createStore } from "solid-js/store";
 import type { Editor } from "@tiptap/core";
@@ -25,77 +24,57 @@ import * as ScrollArea from "~/components/ui/scroll-area";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
 import { Textarea } from "~/components/ui/textarea";
+import {
+  fetchChatThread,
+  fetchChatThreads,
+  type ChatThreadDetail,
+  type ChatThreadPreview,
+  type ChatMessageRole,
+} from "~/services/ai/ai-chat.queries";
+import {
+  createChatThread,
+  deleteChatMessage,
+  sendChatMessage,
+  updateChatMessage,
+  updateChatThread,
+} from "~/services/ai/ai-chat.actions";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
-type ChatMessageRole = "user" | "assistant";
 
-type ThreadPreview = {
-  id: string;
-  title: string;
-  status: ChatThreadStatus;
-  hasUnread: boolean;
-  noteId: string;
-  lastMessageAt: string;
-  updatedAt: string;
-  preview: {
-    id: string;
-    role: ChatMessageRole;
-    contentHtml: string;
-    createdAt: string;
-  } | null;
-};
-type ThreadsResponse = { items: ThreadPreview[] };
+type ThreadPreview = ChatThreadPreview;
 
-type ChatMessage = {
-  id: string;
-  role: ChatMessageRole;
-  contentHtml: string;
-  isEdited: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-type ThreadDetail = {
-  id: string;
-  title: string;
-  status: ChatThreadStatus;
-  hasUnread: boolean;
-  noteId: string;
-  lastMessageAt: string;
-  createdAt: string;
-  updatedAt: string;
-  messages: ChatMessage[];
-};
-
-async function fetchThreads(): Promise<ThreadPreview[]> {
-  const res = await apiFetch("/api/ai/chat/threads");
-  const data = (await res.json()) as ThreadsResponse;
-  return data.items || [];
-}
-
-async function fetchThread(
-  id: string | undefined
-): Promise<ThreadDetail | undefined> {
-  if (!id) return undefined;
-  const res = await apiFetch(`/api/ai/chat/threads/${id}`);
-  const data = (await res.json()) as { item?: ThreadDetail; error?: string };
-  if (data?.error) return undefined;
-  return data.item!;
-}
+type ThreadDetail = ChatThreadDetail;
 
 export function useLLMSidebar() {
   const [open, setOpen] = createSignal(false);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
-  const [threads, { refetch: refetchThreads }] = createResource(fetchThreads);
-  const [thread, { refetch: refetchThread }] = createResource(
-    selectedId,
-    fetchThread
-  );
+  const threads = createAsync(() => fetchChatThreads());
+  const thread = createAsync(() => {
+    const id = selectedId();
+    if (!id) return Promise.resolve<ThreadDetail | null>(null);
+    return fetchChatThread(id) as Promise<ThreadDetail | null>;
+  });
+  const runCreateThread = useAction(createChatThread);
+  const runUpdateThread = useAction(updateChatThread);
+  const runSendMessage = useAction(sendChatMessage);
+  const runUpdateMessage = useAction(updateChatMessage);
+  const runDeleteMessage = useAction(deleteChatMessage);
   const { show: showToast } = useToasts();
   const [lastKnown, setLastKnown] = createStore<
     Record<string, { status: ChatThreadStatus; lastMessageAt: string }>
   >({});
+
+  const refreshThreads = async () => {
+    await revalidate(fetchChatThreads.key);
+  };
+
+  const refreshThread = async () => {
+    const id = selectedId();
+    if (!id) return;
+    await revalidate(fetchChatThread.keyFor(id));
+  };
 
   const hasUnreadAny = () => {
     const list = threads();
@@ -140,28 +119,19 @@ export function useLLMSidebar() {
   const closeSidebar = () => setOpen(false);
 
   const createThread = async (noteId: string, title?: string) => {
-    const res = await apiFetch("/api/ai/chat/threads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ noteId, title }),
-    });
-    const data = (await res.json()) as {
-      item?: { id: string };
-      error?: string;
-    };
+    const data = await runCreateThread({ noteId, title });
     if (data?.item?.id) {
-      await refetchThreads();
+      await refreshThreads();
       setSelectedId(data.item.id);
-      await refetchThread();
+      await refreshThread();
       setOpen(true);
-      // Reset polling on new request
       resetPolling();
     }
   };
 
   const runPoll = async () => {
     try {
-      const list = await fetchThreads();
+      const list = await fetchChatThreads();
       for (const t of list) {
         const prev = lastKnown[t.id];
         if (!prev) {
@@ -194,9 +164,9 @@ export function useLLMSidebar() {
           });
         }
       }
-      await refetchThreads();
+      await refreshThreads();
       if (selectedId()) {
-        await refetchThread();
+        await refreshThread();
       }
       const hasPending = list.some((t) => t.status === "LOADING");
       if (hasPending) {
@@ -228,13 +198,9 @@ export function useLLMSidebar() {
     if (!th) return;
     if (open() && th.hasUnread) {
       console.log("[LLMSidebar] Marking thread read", th.id);
-      void apiFetch(`/api/ai/chat/threads/${th.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hasUnread: false }),
-      }).then(() => {
-        void refetchThreads();
-        void refetchThread();
+      void runUpdateThread({ id: th.id, hasUnread: false }).then(() => {
+        void refreshThreads();
+        void refreshThread();
       });
     }
   });
@@ -243,34 +209,21 @@ export function useLLMSidebar() {
     const id = selectedId();
     if (!id || !text.trim()) return;
     // Optimistic: mark loading state by refetching thread after POST returns
-    const res = await apiFetch(`/api/ai/chat/threads/${id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    const _ = await res.json();
-    await Promise.all([refetchThread(), refetchThreads()]);
+    await runSendMessage({ threadId: id, text });
+    await Promise.all([refreshThread(), refreshThreads()]);
     // Reset polling on new message
     resetPolling();
   };
 
   const saveAssistantEdit = async (msgId: string, contentHtml: string) => {
-    const res = await apiFetch(`/api/ai/chat/messages/${msgId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contentHtml }),
-    });
-    const _ = await res.json();
-    await refetchThread();
+    await runUpdateMessage({ id: msgId, contentHtml });
+    await refreshThread();
   };
 
   const deleteMessage = async (msgId: string) => {
     console.log("[LLMSidebar] Deleting message:", msgId);
-    const res = await apiFetch(`/api/ai/chat/messages/${msgId}`, {
-      method: "DELETE",
-    });
-    const _ = await res.json();
-    await Promise.all([refetchThread(), refetchThreads()]);
+    await runDeleteMessage({ id: msgId });
+    await Promise.all([refreshThread(), refreshThreads()]);
   };
 
   // Pass accessors to keep the view reactive without remounting on polls
@@ -290,14 +243,14 @@ export function useLLMSidebar() {
       <LLMSidebarView
         open={open}
         onClose={() => setOpen(false)}
-        threads={() => threads.latest || []}
+        threads={() => threads() || []}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
-        thread={() => thread.latest}
+        thread={() => thread() || undefined}
         onRefresh={() => {
           console.log("[LLMSidebar] Manual refresh clicked");
-          void refetchThreads();
-          void refetchThread();
+          void refreshThreads();
+          void refreshThread();
         }}
         onCreateThread={createThread}
         onSend={sendMessage}

@@ -2,10 +2,9 @@ import {
   Show,
   Suspense,
   createMemo,
-  createResource,
   createSignal,
 } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync } from "@solidjs/router";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Textarea } from "~/components/ui/textarea";
@@ -14,14 +13,7 @@ import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import * as Collapsible from "~/components/ui/collapsible";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
-
-type ModelsResponse = { items: string[] };
-
-async function fetchModels(): Promise<string[]> {
-  const res = await apiFetch("/api/ai/models");
-  const data = (await res.json()) as ModelsResponse;
-  return data.items || [];
-}
+import { fetchAiModels } from "~/services/ai/ai-models.queries";
 
 export type AiRunPayload = {
   model?: string;
@@ -41,7 +33,7 @@ export function useAiPromptModal() {
   const [promptSystem, setPromptSystem] = createSignal<string | undefined>();
   const [promptTemplate, setPromptTemplate] = createSignal<string>("");
 
-  const [models] = createResource(fetchModels);
+  const models = createAsync(() => fetchAiModels());
   let resolver: ((p: AiRunPayload | "cancel") => void) | undefined;
 
   const modelItems = createMemo<SimpleSelectItem[]>(() => {
@@ -52,7 +44,7 @@ export function useAiPromptModal() {
     } else {
       items.push({ label: "Default", value: "" });
     }
-    for (const m of models() || []) {
+    for (const m of models()?.items || []) {
       if (m === defaultValue) continue;
       items.push({ label: m, value: m });
     }

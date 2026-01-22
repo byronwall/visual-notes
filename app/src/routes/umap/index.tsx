@@ -3,10 +3,9 @@ import {
   For,
   Show,
   Suspense,
-  createResource,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction } from "@solidjs/router";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
@@ -15,6 +14,9 @@ import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
+import { fetchEmbeddingRuns } from "~/services/embeddings/embeddings.queries";
+import { fetchUmapRuns } from "~/services/umap/umap.queries";
+import { createUmapRun } from "~/services/umap/umap.actions";
 
 type UmapRun = {
   id: string;
@@ -25,35 +27,6 @@ type UmapRun = {
 };
 
 type EmbeddingRun = { id: string };
-
-async function listUmapRuns(): Promise<UmapRun[]> {
-  const res = await apiFetch("/api/umap/runs");
-  if (!res.ok) throw new Error("Failed to load UMAP runs");
-  const json = (await res.json()) as { runs: UmapRun[] };
-  return json.runs || [];
-}
-
-async function listEmbeddingRuns(): Promise<EmbeddingRun[]> {
-  const res = await apiFetch("/api/embeddings/runs");
-  if (!res.ok) throw new Error("Failed to load embedding runs");
-  const json = (await res.json()) as { runs: EmbeddingRun[] };
-  return json.runs || [];
-}
-
-async function triggerUmapRun(
-  embeddingRunId: string,
-  dims: 2 | 3,
-  params?: Record<string, unknown>
-) {
-  const res = await apiFetch(`/api/umap/runs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ embeddingRunId, dims, params }),
-  });
-  if (!res.ok)
-    throw new Error((await res.json()).error || "Failed to create UMAP run");
-  return (await res.json()) as { runId: string };
-}
 
 type SelectItem = SimpleSelectItem;
 
@@ -101,8 +74,11 @@ function parseIntOrUndefined(v: string): number | undefined {
 }
 
 const UmapIndex: VoidComponent = () => {
-  const [runs, { refetch }] = createResource(listUmapRuns);
-  const [embeddingRuns] = createResource(listEmbeddingRuns);
+  const runs = createAsync((): Promise<UmapRun[]> => fetchUmapRuns());
+  const embeddingRuns = createAsync((): Promise<EmbeddingRun[]> =>
+    fetchEmbeddingRuns()
+  );
+  const runCreateUmap = useAction(createUmapRun);
   const [state, setState] = createStore({
     creating: false,
     selectedEmbedding: "",
@@ -225,8 +201,12 @@ const UmapIndex: VoidComponent = () => {
         params,
       });
 
-      await triggerUmapRun(state.selectedEmbedding, state.dims, params);
-      await refetch();
+      await runCreateUmap({
+        embeddingRunId: state.selectedEmbedding,
+        dims: state.dims,
+        params,
+      });
+      await revalidate(fetchUmapRuns.key);
     } catch (e) {
       console.error(e);
       alert("Failed to start UMAP run");

@@ -1,6 +1,6 @@
-import { For, Show, Suspense, createResource, createSignal } from "solid-js";
+import { For, Show, Suspense, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction } from "@solidjs/router";
 import { usePromptDesignerModal } from "./PromptDesignerModal";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -8,6 +8,8 @@ import { Textarea } from "~/components/ui/textarea";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
+import { fetchPrompts } from "~/services/prompts/prompts.queries";
+import { createPromptVersion, createPrompt, revisePrompt } from "~/services/prompts/prompts.actions";
 
 type Prompt = {
   id: string;
@@ -22,17 +24,16 @@ type Prompt = {
     system?: string | null;
   } | null;
 };
-type PromptsResponse = { items: Prompt[] };
-
-async function fetchPrompts(): Promise<Prompt[]> {
-  const res = await apiFetch("/api/prompts");
-  const data = (await res.json()) as PromptsResponse;
-  return data.items || [];
-}
-
 export function usePromptsManagerModal() {
   const [open, setOpen] = createSignal(false);
-  const [prompts, { refetch }] = createResource(fetchPrompts);
+  const prompts = createAsync(() => fetchPrompts());
+  const runCreatePrompt = useAction(createPrompt);
+  const runCreateVersion = useAction(createPromptVersion);
+  const runRevise = useAction(revisePrompt);
+
+  const refreshPrompts = async () => {
+    await revalidate(fetchPrompts.key);
+  };
 
   const [newTask, setNewTask] = createSignal("");
   const [newDesc, setNewDesc] = createSignal("");
@@ -75,19 +76,15 @@ export function usePromptsManagerModal() {
     const task = newTask().trim();
     const template = newTemplate().trim();
     if (!task || !template) return;
-    const res = await apiFetch("/api/prompts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        task,
-        description: newDesc() || undefined,
-        template,
-        system: newSystem() || undefined,
-        activate: true,
-      }),
+    await runCreatePrompt({
+      task,
+      description: newDesc() || undefined,
+      template,
+      system: newSystem() || undefined,
+      activate: true,
     });
-    console.log("[prompts-manager] create status", res.status);
-    await refetch();
+    console.log("[prompts-manager] create ok");
+    await refreshPrompts();
     setNewTask("");
     setNewDesc("");
     setNewTemplate("");
@@ -99,17 +96,14 @@ export function usePromptsManagerModal() {
     template: string,
     system?: string
   ) => {
-    const res = await apiFetch(`/api/prompts/${id}/versions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        template,
-        system: system || undefined,
-        activate: true,
-      }),
+    await runCreateVersion({
+      promptId: id,
+      template,
+      system: system || undefined,
+      activate: true,
     });
-    console.log("[prompts-manager] add version status", res.status);
-    await refetch();
+    console.log("[prompts-manager] add version ok");
+    await refreshPrompts();
   };
 
   const initEditFor = (p: Prompt) => {
@@ -136,17 +130,14 @@ export function usePromptsManagerModal() {
     if (!template) return;
     setById(p.id, "busyEdit", true);
     try {
-      const res = await apiFetch(`/api/prompts/${p.id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          template,
-          system: system || undefined,
-          activate,
-        }),
+      await runCreateVersion({
+        promptId: p.id,
+        template,
+        system: system || undefined,
+        activate,
       });
-      console.log("[prompts-manager] save new version status", res.status);
-      await refetch();
+      console.log("[prompts-manager] save new version ok");
+      await refreshPrompts();
     } finally {
       setById(p.id, "busyEdit", false);
     }
@@ -157,19 +148,8 @@ export function usePromptsManagerModal() {
     if (!fb) return;
     setById(p.id, "busyRevise", true);
     try {
-      const res = await apiFetch(`/api/prompts/${p.id}/revise`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback: fb }),
-      });
-      const data = (await res.json()) as {
-        suggestion?: { template: string; system?: string | null };
-        error?: string;
-      };
-      if (!data?.suggestion) {
-        console.log("[prompts-manager] revise error", data?.error || "unknown");
-        return;
-      }
+      const data = await runRevise({ promptId: p.id, feedback: fb });
+      if (!data?.suggestion) return;
       setById(p.id, "suggestedTemplate", data.suggestion.template || "");
       setById(p.id, "suggestedSystem", data.suggestion.system || "");
       console.log("[prompts-manager] got suggestion for", p.id);
@@ -184,17 +164,14 @@ export function usePromptsManagerModal() {
     if (!template) return;
     setById(p.id, "busyRevise", true);
     try {
-      const res = await apiFetch(`/api/prompts/${p.id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          template,
-          system: system || undefined,
-          activate,
-        }),
+      await runCreateVersion({
+        promptId: p.id,
+        template,
+        system: system || undefined,
+        activate,
       });
-      console.log("[prompts-manager] accept suggestion status", res.status);
-      await refetch();
+      console.log("[prompts-manager] accept suggestion ok");
+      await refreshPrompts();
       setById(p.id, {
         ...byId[p.id],
         feedback: "",
@@ -235,7 +212,7 @@ export function usePromptsManagerModal() {
           </Text>
           <DesignerLaunch
             onCreated={() => {
-              void refetch();
+              void refreshPrompts();
             }}
           />
           <Input

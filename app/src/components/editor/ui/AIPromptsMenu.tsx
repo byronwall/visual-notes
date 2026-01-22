@@ -1,8 +1,7 @@
 import type { Editor } from "@tiptap/core";
-import { useNavigate } from "@solidjs/router";
-import { For, Show, Suspense, createResource, createSignal } from "solid-js";
+import { useAction, useNavigate, createAsync } from "@solidjs/router";
+import { For, Show, Suspense, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import { apiFetch } from "~/utils/base-url";
 import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
 import { useAiPromptModal } from "./AiPromptModal";
 import { emitLLMSidebarOpen } from "~/components/ai/LLMSidebarBus";
@@ -12,6 +11,8 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Tooltip } from "~/components/ui/tooltip";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { SparklesIcon } from "lucide-solid";
+import { fetchPrompts } from "~/services/prompts/prompts.queries";
+import { runPrompt } from "~/services/ai/ai-run-prompt.actions";
 
 type PromptRecord = {
   id: string;
@@ -28,19 +29,12 @@ type PromptRecord = {
   } | null;
 };
 
-type PromptsResponse = { items: PromptRecord[] };
-
-async function fetchPrompts(): Promise<PromptRecord[]> {
-  const res = await apiFetch("/api/prompts");
-  const data = (await res.json()) as PromptsResponse;
-  return data.items || [];
-}
-
 export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
   const navigate = useNavigate();
-  const [prompts] = createResource(fetchPrompts);
+  const prompts = createAsync(() => fetchPrompts());
   const [running, setRunning] = createSignal<string | null>(null);
   const { prompt: openAiModal, view: aiModalView } = useAiPromptModal();
+  const runPromptAction = useAction(runPrompt);
 
   const onRun = async (p: PromptRecord) => {
     const ed = props.editor;
@@ -98,30 +92,17 @@ export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
       const varsSelectionText = vars["selection_text"];
       const varsHasSelectionText =
         typeof varsSelectionText === "string" && varsSelectionText.length > 0;
-      console.log("[ai] posting /api/ai/runPrompt", {
+      console.log("[ai] running prompt action", {
         selection_text_len: body.selection_text?.length || 0,
         doc_text_len: body.doc_text?.length || 0,
         vars_has_selection_text: varsHasSelectionText,
       });
-      const r = await apiFetch("/api/ai/runPrompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await r.json()) as {
-        outputHtml?: string | null;
-        outputText?: string | null;
-        compiledPrompt?: string | null;
-        systemPrompt?: string | null;
-        threadId?: string | null;
-        error?: string;
-      };
-      if (data?.error) {
-        console.log("[ai] run error:", data.error);
-        return;
-      }
-      // Open the chat sidebar and select the created thread
-      emitLLMSidebarOpen(data.threadId || undefined);
+      const data = await runPromptAction(body);
+      emitLLMSidebarOpen(
+        "threadId" in data ? data.threadId || undefined : undefined
+      );
+    } catch (e) {
+      console.log("[ai] run error:", e);
     } finally {
       setRunning(null);
     }

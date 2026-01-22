@@ -5,11 +5,9 @@ import {
   Show,
   Suspense,
   createMemo,
-  createResource,
   createSignal,
 } from "solid-js";
-import { A } from "@solidjs/router";
-import { apiFetch } from "~/utils/base-url";
+import { A, createAsync, revalidate, useAction } from "@solidjs/router";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
@@ -34,6 +32,9 @@ import {
 import { css } from "styled-system/css";
 import { styled } from "styled-system/jsx";
 import { link } from "styled-system/recipes";
+import { fetchPrompts } from "~/services/prompts/prompts.queries";
+import { fetchPromptRuns } from "~/services/ai/ai-runs.queries";
+import { deletePrompt, updatePrompt } from "~/services/prompts/prompts.actions";
 
 type Prompt = {
   id: string;
@@ -48,7 +49,6 @@ type Prompt = {
     system?: string | null;
   } | null;
 };
-type PromptsResponse = { items: Prompt[] };
 
 type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
 type PromptRunItem = {
@@ -67,21 +67,6 @@ type PromptRunItem = {
   promptTask?: string | null;
   versionId?: string | null;
 };
-type RunsResponse = { items: PromptRunItem[] };
-
-async function fetchPrompts(): Promise<Prompt[]> {
-  const res = await apiFetch("/api/prompts");
-  const data = (await res.json()) as PromptsResponse;
-  console.log("[ai-dashboard] prompts loaded", data.items?.length || 0);
-  return data.items || [];
-}
-
-async function fetchRuns(): Promise<PromptRunItem[]> {
-  const res = await apiFetch("/api/ai/runs?limit=100");
-  const data = (await res.json()) as RunsResponse;
-  console.log("[ai-dashboard] runs loaded", data.items?.length || 0);
-  return data.items || [];
-}
 
 type StatusFilter = "ALL" | RunStatus;
 type StatusOption = { label: string; value: StatusFilter };
@@ -111,8 +96,16 @@ const promptDescClass = css({
 });
 
 const AiDashboard: VoidComponent = () => {
-  const [prompts, { refetch: refetchPrompts }] = createResource(fetchPrompts);
-  const [runs] = createResource(fetchRuns);
+  const prompts = createAsync(() => fetchPrompts());
+  const runs = createAsync((): Promise<PromptRunItem[]> =>
+    fetchPromptRuns({ limit: 100 })
+  );
+  const runUpdatePrompt = useAction(updatePrompt);
+  const runDeletePrompt = useAction(deletePrompt);
+
+  const refreshPrompts = async () => {
+    await revalidate(fetchPrompts.key);
+  };
 
   const [statusFilter, setStatusFilter] = createSignal<StatusFilter>("ALL");
   const [query, setQuery] = createSignal("");
@@ -225,21 +218,15 @@ const AiDashboard: VoidComponent = () => {
     setEditBusy(true);
     setEditError("");
     try {
-      const res = await apiFetch(`/api/prompts/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          description: editDesc().trim().length ? editDesc().trim() : null,
-        }),
+      await runUpdatePrompt({
+        id,
+        task,
+        description: editDesc().trim().length ? editDesc().trim() : null,
       });
-      if (!res.ok) {
-        const msg = (await res.json().catch(() => ({}))) as { error?: string };
-        setEditError(msg?.error || "Failed to save prompt.");
-        return;
-      }
-      await refetchPrompts();
+      await refreshPrompts();
       setEditOpen(false);
+    } catch (err) {
+      setEditError((err as Error)?.message || "Failed to save prompt.");
     } finally {
       setEditBusy(false);
     }
@@ -256,11 +243,9 @@ const AiDashboard: VoidComponent = () => {
     if (!id) return;
     setDeleteBusy(true);
     try {
-      const res = await apiFetch(`/api/prompts/${id}`, {
-        method: "DELETE",
-      });
-      console.log("[ai-dashboard] delete prompt status", res.status);
-      await refetchPrompts();
+      await runDeletePrompt({ id });
+      console.log("[ai-dashboard] delete prompt ok");
+      await refreshPrompts();
       setDeleteOpen(false);
     } finally {
       setDeleteBusy(false);

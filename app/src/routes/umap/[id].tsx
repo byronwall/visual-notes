@@ -2,22 +2,26 @@ import {
   type VoidComponent,
   For,
   Show,
-  createResource,
   createSignal,
   createEffect,
   onMount,
   Suspense,
 } from "solid-js";
-import { useParams, useNavigate } from "@solidjs/router";
-import { apiFetch } from "~/utils/base-url";
+import { createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Stack } from "styled-system/jsx";
+import {
+  fetchUmapPointsForRun,
+  fetchUmapRun,
+} from "~/services/umap/umap.queries";
+import { deleteUmapRun } from "~/services/umap/umap.actions";
 
 type Point = { docId: string; x: number; y: number; z?: number | null };
+type PointsData = { runId: string; dims: number; points: Point[] };
 type RunMeta = {
   id: string;
   dims: number;
@@ -27,35 +31,22 @@ type RunMeta = {
   count?: number;
 };
 
-async function fetchRun(id: string): Promise<RunMeta> {
-  const res = await apiFetch(`/api/umap/runs/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error("Failed to load run");
-  return (await res.json()) as RunMeta;
-}
-
-async function fetchPoints(
-  id: string
-): Promise<{ points: Point[]; dims: number }> {
-  const res = await apiFetch(
-    `/api/umap/points?runId=${encodeURIComponent(id)}`
-  );
-  if (!res.ok) throw new Error("Failed to load points");
-  const json = (await res.json()) as { points: Point[]; dims: number };
-  return json;
-}
-
-async function deleteRun(id: string) {
-  const res = await apiFetch(`/api/umap/runs/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete run");
-}
-
 const UmapDetail: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [meta] = createResource(() => params.id, fetchRun);
-  const [data, { refetch }] = createResource(() => params.id, fetchPoints);
+  const meta = createAsync(() => {
+    if (!params.id) return Promise.resolve<RunMeta | null>(null);
+    return fetchUmapRun(params.id) as Promise<RunMeta | null>;
+  });
+  const data = createAsync(() => {
+    if (!params.id) return Promise.resolve<PointsData | null>(null);
+    return fetchUmapPointsForRun(params.id) as Promise<PointsData | null>;
+  });
+  const runDelete = useAction(deleteUmapRun);
+  const refreshPoints = () => {
+    if (!params.id) return;
+    void revalidate(fetchUmapPointsForRun.keyFor(params.id));
+  };
   const [busy, setBusy] = createSignal(false);
   const [canvasWidth, setCanvasWidth] = createSignal(800);
   const [canvasHeight, setCanvasHeight] = createSignal(420);
@@ -174,7 +165,7 @@ const UmapDetail: VoidComponent = () => {
     try {
       setBusy(true);
       console.log("[UmapDetail] deleteRun", { id: params.id });
-      await deleteRun(params.id);
+      await runDelete({ id: params.id });
       navigate("/umap");
     } catch (e) {
       console.error(e);
@@ -330,7 +321,7 @@ const UmapDetail: VoidComponent = () => {
                       <Text textStyle="sm" color="fg.muted">
                         {d().points.length} points ({d().dims}D)
                       </Text>
-                      <Button size="xs" variant="outline" onClick={() => refetch()}>
+                      <Button size="xs" variant="outline" onClick={refreshPoints}>
                         Refresh
                       </Button>
                     </Flex>

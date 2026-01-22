@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { useAction } from "@solidjs/router";
 import { ModelSelect } from "~/components/ModelSelect";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -7,6 +7,8 @@ import { Textarea } from "~/components/ui/textarea";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
+import { runPromptDesigner } from "~/services/ai/ai-prompt-designer.actions";
+import { createPrompt } from "~/services/prompts/prompts.actions";
 
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -22,6 +24,8 @@ type Proposal = {
 export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
   const [open, setOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
+  const runDesigner = useAction(runPromptDesigner);
+  const runCreatePrompt = useAction(createPrompt);
   const [transcript, setTranscript] = createSignal<Turn[]>([]);
   const [currentQuestion, setCurrentQuestion] = createSignal<string>("");
   const [currentSummary, setCurrentSummary] = createSignal<string>("");
@@ -45,39 +49,29 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
   const askNext = async () => {
     setBusy(true);
     try {
-      const res = await apiFetch("/api/ai/promptDesigner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: transcript(), mode: "qa" }),
+      const data = await runDesigner({
+        transcript: transcript(),
+        mode: "qa",
       });
-      const data = (await res.json()) as {
-        question?: string;
-        summary?: string;
-        questions?: string[]; // legacy fallback
-        proposal?: Proposal; // legacy fallback
-        error?: string;
-      };
-      if (data?.error) {
-        console.log("[prompt-designer] error:", data.error);
-        return;
-      }
-      // New shape: question + summary each turn
       if (
-        typeof data?.question === "string" &&
-        typeof data?.summary === "string"
+        "question" in data &&
+        typeof data.question === "string" &&
+        "summary" in data &&
+        typeof data.summary === "string"
       ) {
         setTranscript((t) => [
           ...t,
-          { role: "assistant", content: data.question! },
+          { role: "assistant", content: data.question },
         ]);
-        setCurrentQuestion(data.question!);
-        setCurrentSummary(data.summary!);
+        setCurrentQuestion(data.question);
+        setCurrentSummary(data.summary);
         console.log("[prompt-designer] question:", data.question);
         console.log("[prompt-designer] summary:", data.summary);
         return;
       }
       // Fallback to legacy: questions[]
-      const qs = data?.questions || [];
+      const legacy = data as { questions?: string[] };
+      const qs = legacy?.questions || [];
       if (qs.length > 0) {
         setTranscript((t) => [...t, { role: "assistant", content: qs[0] }]);
         setCurrentQuestion(qs[0]);
@@ -91,6 +85,8 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
       setTranscript((t) => [...t, { role: "assistant", content: fallback }]);
       setCurrentQuestion(fallback);
       setCurrentSummary("We need a brief description of your goal and output.");
+    } catch (e) {
+      console.log("[prompt-designer] error", e);
     } finally {
       setBusy(false);
     }
@@ -118,25 +114,18 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
     }
     setBusy(true);
     try {
-      const res = await apiFetch("/api/ai/promptDesigner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: transcript(), mode: "generate" }),
+      const data = await runDesigner({
+        transcript: transcript(),
+        mode: "generate",
       });
-      const data = (await res.json()) as {
-        proposal?: Proposal;
-        error?: string;
-      };
-      if (data?.error) {
-        console.log("[prompt-designer] generate error:", data.error);
-        return;
-      }
-      if (data?.proposal) {
+      if ("proposal" in data && data.proposal) {
         setProposal(data.proposal);
         console.log("[prompt-designer] received proposal");
         return;
       }
       console.log("[prompt-designer] no proposal returned");
+    } catch (e) {
+      console.log("[prompt-designer] generate error", e);
     } finally {
       setBusy(false);
     }
@@ -167,20 +156,16 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
     if (!finalTask || !template) return;
     setCreating(true);
     try {
-      const res = await apiFetch("/api/prompts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task: finalTask,
-          description: desc().trim() || undefined,
-          defaultModel: defModel().trim() || "gpt-4o-mini",
-          defaultTemp: defTemp(),
-          template,
-          system: sys().trim() || undefined,
-          activate: true,
-        }),
+      await runCreatePrompt({
+        task: finalTask,
+        description: desc().trim() || undefined,
+        defaultModel: defModel().trim() || "gpt-4o-mini",
+        defaultTemp: defTemp(),
+        template,
+        system: sys().trim() || undefined,
+        activate: true,
       });
-      console.log("[prompt-designer] create status", res.status);
+      console.log("[prompt-designer] create ok");
       if (onCreated) await onCreated();
       setOpen(false);
     } finally {

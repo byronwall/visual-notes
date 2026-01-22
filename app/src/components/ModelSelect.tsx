@@ -1,16 +1,9 @@
-import { Suspense, createMemo, createResource } from "solid-js";
-import { apiFetch } from "~/utils/base-url";
+import { Suspense, createMemo } from "solid-js";
+import { createAsync } from "@solidjs/router";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
-
-type ModelsResponse = { items: string[] };
-
-async function fetchModels(): Promise<string[]> {
-  const res = await apiFetch("/api/ai/models");
-  const data = (await res.json()) as ModelsResponse;
-  return data.items || [];
-}
+import { fetchAiModels } from "~/services/ai/ai-models.queries";
 
 export function ModelSelect(props: {
   value?: string;
@@ -18,7 +11,7 @@ export function ModelSelect(props: {
   placeholderLabel?: string;
   placeholderValue?: string;
 }) {
-  const [models] = createResource(fetchModels);
+  const models = createAsync(() => fetchAiModels());
   const items = createMemo<SimpleSelectItem[]>(() => {
     const list: SimpleSelectItem[] = [];
     if (props.placeholderLabel !== undefined) {
@@ -27,7 +20,7 @@ export function ModelSelect(props: {
         value: props.placeholderValue ?? "",
       });
     }
-    for (const m of models() || []) list.push({ label: m, value: m });
+    for (const m of models()?.items || []) list.push({ label: m, value: m });
     return list;
   });
   return (

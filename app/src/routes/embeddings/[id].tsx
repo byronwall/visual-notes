@@ -3,12 +3,10 @@ import {
   For,
   Show,
   Suspense,
-  createResource,
   createSignal,
 } from "solid-js";
-import { useParams, useNavigate } from "@solidjs/router";
+import { createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
 import { createStore } from "solid-js/store";
-import { apiFetch } from "~/utils/base-url";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Heading } from "~/components/ui/heading";
@@ -16,6 +14,9 @@ import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
+import { fetchDocSections, fetchEmbeddingRun } from "~/services/embeddings/embeddings.queries";
+import { deleteEmbeddingRun, processEmbeddingRun } from "~/services/embeddings/embeddings.actions";
+import { createUmapRun } from "~/services/umap/umap.actions";
 
 type EmbeddingRun = {
   id: string;
@@ -36,58 +37,6 @@ type EmbeddingRun = {
 
 const DOCS_LIMIT = 50;
 
-async function fetchEmbeddingRun(key: {
-  id: string;
-  offset: number;
-}): Promise<EmbeddingRun> {
-  const res = await apiFetch(
-    `/api/embeddings/runs/${encodeURIComponent(
-      key.id
-    )}?include=docs&limit=${DOCS_LIMIT}&offset=${key.offset}`
-  );
-  if (!res.ok) throw new Error("Failed to load run");
-  return (await res.json()) as EmbeddingRun;
-}
-
-async function deleteEmbeddingRun(id: string) {
-  const res = await apiFetch(`/api/embeddings/runs/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete run");
-}
-
-async function triggerUmapRun(embeddingRunId: string, dims: 2 | 3) {
-  const res = await apiFetch(`/api/umap/runs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ embeddingRunId, dims }),
-  });
-  if (!res.ok)
-    throw new Error((await res.json()).error || "Failed to create UMAP run");
-  return (await res.json()) as { runId: string };
-}
-
-async function processMore(id: string, limit: number) {
-  const res = await apiFetch(`/api/embeddings/runs/${encodeURIComponent(id)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ limit }),
-  });
-  if (!res.ok)
-    throw new Error((await res.json()).error || "Failed to process more");
-  return (await res.json()) as { added: number; remaining: number };
-}
-
-async function processChanged(id: string, limit: number) {
-  const res = await apiFetch(`/api/embeddings/runs/${encodeURIComponent(id)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ limit, mode: "changed" }),
-  });
-  if (!res.ok)
-    throw new Error((await res.json()).error || "Failed to process changed");
-  return (await res.json()) as { added: number; remaining: number };
-}
 
 type SectionItem = {
   id: string;
@@ -102,10 +51,18 @@ const EmbeddingDetail: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
   const [docsOffset, setDocsOffset] = createSignal(0);
-  const [run, { refetch }] = createResource(
-    () => ({ id: params.id, offset: docsOffset() }),
-    fetchEmbeddingRun
-  );
+  const run = createAsync(() => {
+    if (!params.id) return Promise.resolve<EmbeddingRun | null>(null);
+    return fetchEmbeddingRun({
+      id: params.id,
+      includeDocs: true,
+      limit: DOCS_LIMIT,
+      offset: docsOffset(),
+    }) as Promise<EmbeddingRun | null>;
+  });
+  const runDeleteEmbedding = useAction(deleteEmbeddingRun);
+  const runCreateUmap = useAction(createUmapRun);
+  const runProcessEmbedding = useAction(processEmbeddingRun);
   const [busy, setBusy] = createSignal(false);
   const [state, setState] = createStore({
     dims: 2 as 2 | 3,
@@ -134,7 +91,7 @@ const EmbeddingDetail: VoidComponent = () => {
     try {
       setBusy(true);
       console.log("[EmbeddingDetail] deleteRun", { id: params.id });
-      await deleteEmbeddingRun(params.id);
+      await runDeleteEmbedding({ id: params.id });
       navigate("/embeddings");
     } catch (e) {
       console.error(e);
@@ -151,7 +108,10 @@ const EmbeddingDetail: VoidComponent = () => {
         embeddingRunId: params.id,
         dims: state.dims,
       });
-      const r = await triggerUmapRun(params.id, state.dims);
+      const r = await runCreateUmap({
+        embeddingRunId: params.id,
+        dims: state.dims,
+      });
       navigate(`/umap/${r.runId}`);
     } catch (e) {
       console.error(e);
@@ -168,8 +128,15 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      await processMore(params.id, state.batchSize);
-      await refetch();
+      await runProcessEmbedding({ id: params.id, limit: state.batchSize });
+      await revalidate(
+        fetchEmbeddingRun.keyFor({
+          id: params.id,
+          includeDocs: true,
+          limit: DOCS_LIMIT,
+          offset: docsOffset(),
+        })
+      );
     } catch (e) {
       console.error(e);
       alert("Failed to process more notes");
@@ -185,8 +152,19 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      await processChanged(params.id, state.batchSize);
-      await refetch();
+      await runProcessEmbedding({
+        id: params.id,
+        limit: state.batchSize,
+        mode: "changed",
+      });
+      await revalidate(
+        fetchEmbeddingRun.keyFor({
+          id: params.id,
+          includeDocs: true,
+          limit: DOCS_LIMIT,
+          offset: docsOffset(),
+        })
+      );
     } catch (e) {
       console.error(e);
       alert("Failed to process changed notes");
@@ -208,17 +186,8 @@ const EmbeddingDetail: VoidComponent = () => {
     setState("sections", []);
     try {
       console.log("[EmbeddingDetail] loadSections", { docId, runId: params.id });
-      const res = await apiFetch(
-        `/api/embeddings/runs/docs/${encodeURIComponent(
-          docId
-        )}/sections?runId=${encodeURIComponent(params.id)}`
-      );
-      if (!res.ok) {
-        alert("Failed to load sections");
-        return;
-      }
-      const json = (await res.json()) as { items: SectionItem[] };
-      setState("sections", json.items || []);
+      const items = await fetchDocSections({ docId, runId: params.id });
+      setState("sections", items || []);
     } catch (e) {
       console.error(e);
       alert("Failed to load sections");
