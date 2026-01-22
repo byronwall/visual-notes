@@ -137,6 +137,14 @@ Notes
   - server module: export const saveThing = action(async (payload) => { "use server"; ... }, "save-thing");
   - UI module: const runSave = useAction(saveThing); await runSave(payload);
 
+## Learnings from this conversion
+
+- Query functions (from `query()`) work best with `createAsync()` in UI, not `createResource()`.
+- When using `createAsync()` for list data, re-fetch with `revalidate(query.keyFor(args))` instead of `refetch`.
+- Remove AbortSignal plumbing tied to `fetch` (e.g., `useAbortableFetch`) when calls move to `query()` since queries manage their own caching.
+- Prefer small, scoped data modules (types, queries, actions) to keep files <200 LOC and make conversions easier.
+- Keep server-side types local to the module and export only the client-facing types.
+
 ## Common pitfalls
 
 - Using fetch() in UI for app data (prefer query/action).
