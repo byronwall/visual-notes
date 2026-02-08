@@ -39,19 +39,43 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   onPathChange?: (path: string) => void;
   onMetaChange?: (meta: MetaRecord) => void;
 }> = (props) => {
-  const [pathDraft, setPathDraft] = createSignal((props.initialPath || "").trim());
+  const initialPathValue = () => (props.initialPath || "").trim();
+  let prevIncomingPath = initialPathValue();
+  const [pathDraft, setPathDraft] = createSignal(initialPathValue());
+  let lastSyncedPath = initialPathValue();
   const [metaDraft, setMetaDraft] = createSignal<MetaRecord>(
     normalizeMetaRecord(props.initialMeta)
   );
+  let prevIncomingMeta = JSON.stringify(normalizeMetaRecord(props.initialMeta));
+  let lastSyncedMeta = JSON.stringify(normalizeMetaRecord(props.initialMeta));
   const [pathPopoverOpen, setPathPopoverOpen] = createSignal(false);
   const [metaPopoverOpen, setMetaPopoverOpen] = createSignal(false);
 
   createEffect(() => {
-    setPathDraft((props.initialPath || "").trim());
+    const incomingPath = initialPathValue();
+    console.log("[DocProps] path-sync-check", {
+      incomingPath,
+      prevIncomingPath,
+      lastSyncedPath,
+      localDraft: pathDraft(),
+    });
+    if (incomingPath === prevIncomingPath) return;
+    console.log("[DocProps] path-sync-apply", {
+      from: prevIncomingPath,
+      to: incomingPath,
+    });
+    prevIncomingPath = incomingPath;
+    lastSyncedPath = incomingPath;
+    setPathDraft(incomingPath);
   });
 
   createEffect(() => {
-    setMetaDraft(normalizeMetaRecord(props.initialMeta));
+    const incomingMeta = normalizeMetaRecord(props.initialMeta);
+    const incomingSerialized = JSON.stringify(incomingMeta);
+    if (incomingSerialized === prevIncomingMeta) return;
+    prevIncomingMeta = incomingSerialized;
+    lastSyncedMeta = incomingSerialized;
+    setMetaDraft(incomingMeta);
   });
 
   const pathSummary = () => {
@@ -72,12 +96,19 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   };
 
   const handlePathChange = (nextPath: string) => {
+    console.log("[DocProps] handlePathChange", {
+      nextPath,
+      prevDraft: pathDraft(),
+      prevLastSyncedPath: lastSyncedPath,
+    });
     setPathDraft(nextPath);
+    lastSyncedPath = nextPath;
     if (props.onPathChange) props.onPathChange(nextPath);
   };
 
   const handleMetaChange = (nextMeta: MetaRecord) => {
     setMetaDraft(nextMeta);
+    lastSyncedMeta = JSON.stringify(nextMeta);
     if (props.onMetaChange) props.onMetaChange(nextMeta);
   };
 

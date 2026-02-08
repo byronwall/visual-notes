@@ -2,10 +2,10 @@ import {
   For,
   Show,
   Suspense,
+  batch,
   createEffect,
   createMemo,
   createSignal,
-  onCleanup,
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
 import { createAsync, useAction } from "@solidjs/router";
@@ -14,9 +14,8 @@ import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
-import { Box, HStack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
 import { CircleXIcon } from "lucide-solid";
-import { SimplePopover } from "~/components/ui/simple-popover";
 
 // TODO: this needs a `disabled` prop to disable the editor
 
@@ -25,9 +24,10 @@ export const PathEditor: VoidComponent<{
   initialPath?: string;
   onChange?: (path: string) => void;
 }> = (props) => {
+  let inputRef: HTMLInputElement | undefined;
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
-  const [isOpen, setIsOpen] = createSignal(false);
+  const [isFocused, setIsFocused] = createSignal(false);
   const runUpdateDoc = useAction(updateDoc);
 
   // Load all existing paths with counts once
@@ -49,6 +49,7 @@ export const PathEditor: VoidComponent<{
     splitInitial().committed
   );
   const [current, setCurrent] = createSignal<string>(splitInitial().current);
+  let lastAppliedInitialPath = (props.initialPath || "").trim();
 
   const joinedPath = createMemo(() => {
     const parts = [...committed()];
@@ -60,24 +61,46 @@ export const PathEditor: VoidComponent<{
   // Important: do NOT depend on joinedPath() here, or typing will be reset
   createEffect(() => {
     const incoming = (props.initialPath || "").trim();
+    console.log("[PathEditor] sync-check", {
+      incoming,
+      lastAppliedInitialPath,
+    });
+    if (incoming === lastAppliedInitialPath) return;
+    console.log("[PathEditor] sync-apply", {
+      from: lastAppliedInitialPath,
+      to: incoming,
+    });
+    lastAppliedInitialPath = incoming;
     if (!incoming) {
-      setCommitted([]);
-      setCurrent("");
+      batch(() => {
+        setCommitted([]);
+        setCurrent("");
+      });
       return;
     }
     const tokens = incoming.split(".").filter((t) => t.length > 0);
     if (tokens.length <= 1) {
-      setCommitted([]);
-      setCurrent(tokens[0] || "");
+      batch(() => {
+        setCommitted([]);
+        setCurrent(tokens[0] || "");
+      });
     } else {
-      setCommitted(tokens.slice(0, -1));
-      setCurrent(tokens[tokens.length - 1] || "");
+      batch(() => {
+        setCommitted(tokens.slice(0, -1));
+        setCurrent(tokens[tokens.length - 1] || "");
+      });
     }
   });
 
   createEffect(() => {
     const value = joinedPath();
-    console.log(`[PathEditor] path=${value}`);
+    console.log("[PathEditor] path-change", {
+      value,
+      committed: committed(),
+      current: current(),
+      propInitialPath: (props.initialPath || "").trim(),
+      lastAppliedInitialPath,
+    });
     if (props.onChange) props.onChange(value);
   });
 
@@ -119,27 +142,22 @@ export const PathEditor: VoidComponent<{
     return list;
   });
 
-  const handleFocusInput = () => {
-    setIsOpen(true);
-  };
-
-  const handleOutsideClose = () => {
-    setIsOpen(false);
-  };
-
   const commitCurrentSegment = () => {
     const value = current().trim();
     if (!value) return;
-    setCommitted((prev) => [...prev, value]);
-    setCurrent("");
+    batch(() => {
+      setCommitted((prev) => [...prev, value]);
+      setCurrent("");
+    });
   };
 
   const handleSelectSuggestion = (seg: string) => {
     console.log("[PathEditor] select seg", seg);
-    setCurrent(seg);
-    // Immediately commit chosen segment to move to the next level
-    commitCurrentSegment();
-    setIsOpen(true);
+    batch(() => {
+      setCommitted((prev) => [...prev, seg]);
+      setCurrent("");
+    });
+    if (inputRef) inputRef.focus();
   };
 
   const handleBackspace = (ev: KeyboardEvent) => {
@@ -149,22 +167,28 @@ export const PathEditor: VoidComponent<{
     if (prev.length === 0) return;
     const next = prev.slice(0, -1);
     const last = prev[prev.length - 1] || "";
-    setCommitted(next);
-    setCurrent(last);
+    batch(() => {
+      setCommitted(next);
+      setCurrent(last);
+    });
   };
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === ".") {
       ev.preventDefault();
       commitCurrentSegment();
-      setIsOpen(true);
       return;
     }
     if (ev.key === "Enter") {
       ev.preventDefault();
       // finalize current segment
       commitCurrentSegment();
-      setIsOpen(false);
+      if (inputRef) inputRef.blur();
+      return;
+    }
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      if (inputRef) inputRef.blur();
       return;
     }
   };
@@ -183,22 +207,15 @@ export const PathEditor: VoidComponent<{
     }
   };
 
-  const onWindowKeyDown = (ev: KeyboardEvent) => {
-    if (!isOpen()) return;
-    if (ev.key === "Escape") setIsOpen(false);
-  };
-  createEffect(() => {
-    window.addEventListener("keydown", onWindowKeyDown);
-    onCleanup(() => window.removeEventListener("keydown", onWindowKeyDown));
-  });
-
   const truncateTo = (index: number) => () => {
     const parts = committed();
     if (index < 0 || index >= parts.length) return;
     const next = parts.slice(0, index + 1);
-    setCommitted(next);
-    setCurrent("");
-    setIsOpen(true);
+    batch(() => {
+      setCommitted(next);
+      setCurrent("");
+    });
+    if (inputRef) inputRef.focus();
   };
 
   const clearAll = async () => {
@@ -211,189 +228,205 @@ export const PathEditor: VoidComponent<{
       if (!confirmed) return;
     }
     console.log("[PathEditor] clear -> saving empty path");
-    setCommitted([]);
-    setCurrent("");
-    setIsOpen(false);
+    batch(() => {
+      setCommitted([]);
+      setCurrent("");
+      setIsFocused(false);
+    });
     await handleSave();
   };
 
-  return (
-    <HStack gap="0.5rem" alignItems="center">
-      <Box flex="1" minW="0">
-        <Suspense fallback={null}>
-          <SimplePopover
-            open={isOpen()}
-            onClose={handleOutsideClose}
-            placement="bottom-start"
-            offset={8}
-            style={{ width: "90%", "max-width": "28rem", padding: "0.75rem" }}
-            anchor={
-              <Box
-                borderWidth="1px"
-                borderColor="gray.outline.border"
-                borderRadius="l2"
-                px="0.5rem"
-                py="0.25rem"
-                fontSize="sm"
-                display="flex"
-                flexWrap="wrap"
-                alignItems="center"
-                gap="0.25rem"
-                minH="32px"
-                cursor="text"
-                onClick={() => {
-                  const input = document.getElementById(
-                    "path-editor-input"
-                  ) as HTMLInputElement | null;
-                  if (input) {
-                    input.focus();
-                    setIsOpen(true);
-                  }
-                }}
-              >
-                <Show when={committed().length === 0 && current().length === 0}>
-                  <Text fontSize="sm" color="black.a6">
-                    e.g. work.projects.alpha
-                  </Text>
-                </Show>
-                <For each={committed()}>
-                  {(seg, i) => (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        borderRadius="full"
-                        title={seg}
-                        onClick={truncateTo(i())}
-                      >
-                        <Text
-                          as="span"
-                          fontWeight="semibold"
-                          maxW="10rem"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                          whiteSpace="nowrap"
-                        >
-                          {seg}
-                        </Text>
-                      </Button>
-                      <Text fontSize="sm" color="black.a6">
-                        .
-                      </Text>
-                    </>
-                  )}
-                </For>
+  const handleEditorFocusOut = (ev: FocusEvent) => {
+    const next = ev.relatedTarget;
+    const currentTarget = ev.currentTarget as HTMLElement | null;
+    if (next instanceof Node && currentTarget?.contains(next)) return;
+    setIsFocused(false);
+  };
 
-                <Input
-                  id="path-editor-input"
-                  variant="flushed"
-                  size="xs"
-                  flex="1"
-                  minW="8ch"
-                  bg="transparent"
-                  value={current()}
-                  onInput={(e) => setCurrent(e.currentTarget.value)}
-                  onFocus={handleFocusInput}
-                  onKeyDown={(e) => {
-                    handleKeyDown(e as unknown as KeyboardEvent);
-                    handleBackspace(e as unknown as KeyboardEvent);
-                  }}
-                  autocomplete="off"
-                  autocapitalize="none"
-                  autocorrect="off"
-                  spellcheck={false}
-                />
-              </Box>
-            }
+  const showSuggestions = createMemo(() => {
+    if (!isFocused()) return false;
+    return true;
+  });
+
+  return (
+    <Stack gap="2">
+      <Suspense fallback={null}>
+        <Stack
+          gap="2"
+          onFocusIn={() => setIsFocused(true)}
+          onFocusOut={handleEditorFocusOut}
+        >
+          <Box
+            borderWidth="1px"
+            borderColor="gray.outline.border"
+            borderRadius="l2"
+            px="0.75rem"
+            py="0.5rem"
+            fontSize="sm"
+            display="flex"
+            flexWrap="wrap"
+            alignItems="center"
+            gap="0.25rem"
+            minH="40px"
+            cursor="text"
+            onClick={() => {
+              if (inputRef) inputRef.focus();
+            }}
           >
-            <Text fontSize="xs" color="black.a7" mb="0.5rem">
-              <Show
-                when={committed().length === 0}
-                fallback={
-                  <Text as="span">
-                    Next after{" "}
-                    <Text as="span" fontWeight="semibold">
-                      {committed().join(".")}
-                    </Text>
-                  </Text>
-                }
-              >
-                <Text as="span">Popular top-level segments</Text>
-              </Show>
-            </Text>
-            <Text fontSize="xs" color="black.a7" mb="0.5rem">
-              Hit{" "}
-              <Text as="span" fontFamily="mono">
-                .
-              </Text>{" "}
-              to nest
-            </Text>
-            <HStack gap="0.5rem" flexWrap="wrap">
-              <For each={nextSegmentSuggestions()}>
-                {(s) => (
+            <Show when={committed().length === 0 && current().length === 0}>
+              <Text fontSize="sm" color="fg.subtle">
+                e.g. work.projects.alpha
+              </Text>
+            </Show>
+            <For each={committed()}>
+              {(seg, i) => (
+                <>
                   <Button
                     size="xs"
                     variant="outline"
                     borderRadius="full"
-                    onClick={() => handleSelectSuggestion(s.seg)}
-                    title={`${s.seg} (${s.count})`}
+                    title={seg}
+                    onClick={truncateTo(i())}
                   >
                     <Text
                       as="span"
                       fontWeight="semibold"
-                      maxW="12rem"
+                      maxW="10rem"
                       overflow="hidden"
                       textOverflow="ellipsis"
                       whiteSpace="nowrap"
                     >
-                      {s.seg}
-                    </Text>
-                    <Text as="span" color="black.a7">
-                      {s.count}
+                      {seg}
                     </Text>
                   </Button>
-                )}
-              </For>
-            </HStack>
-            <Show when={nextSegmentSuggestions().length === 0}>
-              <Text fontSize="xs" color="black.a7" mt="0.5rem">
-                No suggestions
+                  <Text fontSize="sm" color="fg.subtle">
+                    .
+                  </Text>
+                </>
+              )}
+            </For>
+
+            <Input
+              ref={inputRef}
+              variant="flushed"
+              size="xs"
+              flex="1"
+              minW="10ch"
+              bg="transparent"
+              value={current()}
+              onInput={(e) => setCurrent(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                handleKeyDown(e as unknown as KeyboardEvent);
+                handleBackspace(e as unknown as KeyboardEvent);
+              }}
+              autocomplete="off"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck={false}
+            />
+          </Box>
+
+          <Show when={showSuggestions()}>
+            <Box
+              borderWidth="1px"
+              borderColor="gray.outline.border"
+              borderRadius="l2"
+              p="2.5"
+              bg="bg.default"
+            >
+              <Text fontSize="xs" color="fg.muted" mb="0.5rem">
+                <Show
+                  when={committed().length === 0}
+                  fallback={
+                    <Text as="span">
+                      Next after{" "}
+                      <Text as="span" fontWeight="semibold">
+                        {committed().join(".")}
+                      </Text>
+                    </Text>
+                  }
+                >
+                  <Text as="span">Popular top-level segments</Text>
+                </Show>
               </Text>
-            </Show>
-          </SimplePopover>
-        </Suspense>
+              <Text fontSize="xs" color="fg.muted" mb="1.5">
+                Hit{" "}
+                <Text as="span" fontFamily="mono">
+                  .
+                </Text>{" "}
+                to nest
+              </Text>
+              <Box maxH="12rem" overflowY="auto">
+                <HStack gap="0.5rem" flexWrap="wrap" alignItems="flex-start">
+                  <For each={nextSegmentSuggestions()}>
+                    {(s) => (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        borderRadius="full"
+                        onClick={() => handleSelectSuggestion(s.seg)}
+                        title={`${s.seg} (${s.count})`}
+                      >
+                        <Text
+                          as="span"
+                          fontWeight="semibold"
+                          maxW="12rem"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                        >
+                          {s.seg}
+                        </Text>
+                        <Text as="span" color="fg.muted">
+                          {s.count}
+                        </Text>
+                      </Button>
+                    )}
+                  </For>
+                </HStack>
+              </Box>
+              <Show when={nextSegmentSuggestions().length === 0}>
+                <Text fontSize="xs" color="fg.muted" mt="0.5rem">
+                  No suggestions
+                </Text>
+              </Show>
+            </Box>
+          </Show>
+        </Stack>
+      </Suspense>
 
-        <Show when={error()}>
-          {(e) => (
-            <Text fontSize="xs" color="red.11" mt="0.25rem">
-              {e()}
-            </Text>
-          )}
-        </Show>
-      </Box>
-
-      <Show when={props.docId}>
-        <Button
+      <HStack justifyContent="flex-end" gap="1.5" alignItems="center">
+        <IconButton
           size="xs"
-          variant="outline"
-          loading={saving()}
-          loadingText="Saving…"
-          onClick={handleSave}
-          disabled={saving()}
+          variant="plain"
+          onClick={clearAll}
+          title="Clear path"
+          aria-label="Clear path"
+          type="button"
         >
-          Save
-        </Button>
+          <CircleXIcon />
+        </IconButton>
+        <Show when={props.docId}>
+          <Button
+            size="xs"
+            variant="outline"
+            loading={saving()}
+            loadingText="Saving…"
+            onClick={handleSave}
+            disabled={saving()}
+          >
+            Save
+          </Button>
+        </Show>
+      </HStack>
+
+      <Show when={error()}>
+        {(e) => (
+          <Text fontSize="xs" color="red.11">
+            {e()}
+          </Text>
+        )}
       </Show>
-      <IconButton
-        size="xs"
-        variant="plain"
-        onClick={clearAll}
-        title="Clear path"
-        aria-label="Clear path"
-        type="button"
-      >
-        <CircleXIcon />
-      </IconButton>
-    </HStack>
+    </Stack>
   );
 };
