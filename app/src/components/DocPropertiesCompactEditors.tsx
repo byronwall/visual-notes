@@ -1,4 +1,10 @@
 import { type VoidComponent, createEffect, createMemo, createSignal } from "solid-js";
+import {
+  normalizeMetaRecord,
+  serializeMetaRecord,
+  summarizeMeta,
+  summarizePath,
+} from "~/components/doc-properties/meta-draft";
 import { HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { SimplePopover } from "~/components/ui/simple-popover";
@@ -6,44 +12,6 @@ import { Text } from "~/components/ui/text";
 import { type MetaRecord } from "~/services/docs.service";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
 import { PathEditor } from "./PathEditor";
-
-const normalizeMetaRecord = (
-  input: Record<string, unknown> | null | undefined
-): MetaRecord => {
-  if (!input || typeof input !== "object") return {};
-
-  const out: MetaRecord = {};
-  for (const [key, rawValue] of Object.entries(input)) {
-    if (typeof rawValue === "string") {
-      out[key] = rawValue;
-      continue;
-    }
-    if (typeof rawValue === "number") {
-      out[key] = rawValue;
-      continue;
-    }
-    if (typeof rawValue === "boolean") {
-      out[key] = rawValue;
-      continue;
-    }
-    if (rawValue === null) {
-      out[key] = null;
-    }
-  }
-  return out;
-};
-
-const summarizePath = (path: string) => (path.trim().length > 0 ? path : "Unfiled");
-
-const summarizeMeta = (meta: MetaRecord) => {
-  const entries = Object.entries(meta).filter(([key]) => key.trim().length > 0);
-  if (entries.length === 0) return "No details";
-
-  const first = entries[0];
-  const firstText = `${first?.[0] || ""}: ${String(first?.[1] || "")}`;
-  if (entries.length === 1) return firstText;
-  return `${firstText} +${entries.length - 1}`;
-};
 
 export const DocPropertiesCompactEditors: VoidComponent<{
   docId?: string;
@@ -56,7 +24,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   const initialMetaValue = () => normalizeMetaRecord(props.initialMeta);
 
   let prevIncomingPath = initialPathValue();
-  let prevIncomingMeta = JSON.stringify(initialMetaValue());
+  let prevIncomingMeta = serializeMetaRecord(initialMetaValue());
 
   const [pathDraft, setPathDraft] = createSignal(initialPathValue());
   const [metaDraft, setMetaDraft] = createSignal<MetaRecord>(initialMetaValue());
@@ -72,7 +40,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
 
   createEffect(() => {
     const incoming = initialMetaValue();
-    const serialized = JSON.stringify(incoming);
+    const serialized = serializeMetaRecord(incoming);
     if (serialized === prevIncomingMeta) return;
     prevIncomingMeta = serialized;
     setMetaDraft(incoming);
@@ -85,8 +53,8 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   };
 
   const handleMetaChange = (nextMeta: MetaRecord) => {
-    const serialized = JSON.stringify(nextMeta);
-    if (serialized === JSON.stringify(metaDraft())) return;
+    const serialized = serializeMetaRecord(nextMeta);
+    if (serialized === serializeMetaRecord(metaDraft())) return;
     setMetaDraft(nextMeta);
     if (props.onMetaChange) props.onMetaChange(nextMeta);
   };

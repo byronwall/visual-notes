@@ -4,72 +4,22 @@ import { createAsync, useAction } from "@solidjs/router";
 import { CircleXIcon } from "lucide-solid";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import {
+  appendSegment,
+  buildNextSegmentSuggestions,
+  clearPathDraft,
+  commitCurrentSegment,
+  parsePathDraft,
+  popSegmentIntoCurrent,
+  serializePathDraft,
+  setCurrentSegment,
+  truncatePathDraft,
+  type PathDraft,
+} from "~/components/doc-properties/path-draft";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { fetchPathSuggestions, updateDoc } from "~/services/docs.service";
-
-type PathCount = { path: string; count: number };
-type PathDraft = { committed: string[]; current: string };
-
-const parsePath = (raw?: string): PathDraft => {
-  const incoming = (raw || "").trim();
-  if (!incoming) return { committed: [], current: "" };
-
-  const tokens = incoming.split(".").filter((token) => token.length > 0);
-  if (tokens.length <= 1) {
-    return { committed: [], current: tokens[0] || "" };
-  }
-
-  return {
-    committed: tokens.slice(0, -1),
-    current: tokens[tokens.length - 1] || "",
-  };
-};
-
-const serializePath = (draft: PathDraft) => {
-  const parts = [...draft.committed];
-  if (draft.current.length > 0) parts.push(draft.current);
-  return parts.join(".");
-};
-
-const buildNextSegmentSuggestions = (
-  items: PathCount[],
-  committed: string[],
-  current: string
-) => {
-  if (!Array.isArray(items) || items.length === 0) {
-    return [] as { seg: string; count: number }[];
-  }
-
-  const typed = current.trim();
-  const counts = new Map<string, number>();
-
-  if (committed.length === 0) {
-    for (const item of items) {
-      const tokens = item.path.split(".");
-      const segment = tokens[0] || "";
-      if (!segment) continue;
-      if (typed && !segment.startsWith(typed)) continue;
-      counts.set(segment, (counts.get(segment) || 0) + item.count);
-    }
-  } else {
-    const base = `${committed.join(".")}.`;
-    for (const item of items) {
-      if (!item.path.startsWith(base)) continue;
-      const tokens = item.path.split(".");
-      const segment = tokens[committed.length] || "";
-      if (!segment) continue;
-      if (typed && !segment.startsWith(typed)) continue;
-      counts.set(segment, (counts.get(segment) || 0) + item.count);
-    }
-  }
-
-  return Array.from(counts.entries())
-    .map(([seg, count]) => ({ seg, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12);
-};
 
 export const PathEditor: VoidComponent<{
   docId?: string;
@@ -79,7 +29,7 @@ export const PathEditor: VoidComponent<{
   let inputRef: HTMLInputElement | undefined;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
 
-  const [draft, setDraft] = createSignal<PathDraft>(parsePath(props.initialPath));
+  const [draft, setDraft] = createSignal<PathDraft>(parsePathDraft(props.initialPath));
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isFocused, setIsFocused] = createSignal(false);
@@ -91,11 +41,11 @@ export const PathEditor: VoidComponent<{
     const incoming = (props.initialPath || "").trim();
     if (incoming === lastAppliedInitialPath) return;
     lastAppliedInitialPath = incoming;
-    setDraft(parsePath(incoming));
+    setDraft(parsePathDraft(incoming));
   });
 
   createEffect(() => {
-    const value = serializePath(draft());
+    const value = serializePathDraft(draft());
     if (props.onChange) props.onChange(value);
   });
 
@@ -103,46 +53,26 @@ export const PathEditor: VoidComponent<{
     buildNextSegmentSuggestions(pathCounts() || [], draft().committed, draft().current)
   );
 
-  const commitCurrentSegment = () => {
-    const currentValue = draft().current.trim();
-    if (!currentValue) return;
-
-    setDraft((prev) => ({
-      committed: [...prev.committed, currentValue],
-      current: "",
-    }));
-  };
-
   const handleSelectSuggestion = (segment: string) => {
-    setDraft((prev) => ({
-      committed: [...prev.committed, segment],
-      current: "",
-    }));
+    setDraft((prev) => appendSegment(prev, segment));
     if (inputRef) inputRef.focus();
   };
 
   const handleBackspace = (ev: KeyboardEvent) => {
     if (ev.key !== "Backspace") return;
-
-    const state = draft();
-    if (state.current.length > 0) return;
-    if (state.committed.length === 0) return;
-
-    const nextCommitted = state.committed.slice(0, -1);
-    const lastSegment = state.committed[state.committed.length - 1] || "";
-    setDraft({ committed: nextCommitted, current: lastSegment });
+    setDraft((prev) => popSegmentIntoCurrent(prev));
   };
 
   const handleKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === ".") {
       ev.preventDefault();
-      commitCurrentSegment();
+      setDraft((prev) => commitCurrentSegment(prev));
       return;
     }
 
     if (ev.key === "Enter") {
       ev.preventDefault();
-      commitCurrentSegment();
+      setDraft((prev) => commitCurrentSegment(prev));
       if (inputRef) inputRef.blur();
       return;
     }
@@ -156,7 +86,7 @@ export const PathEditor: VoidComponent<{
   const handleSave = async () => {
     if (!props.docId) return;
 
-    const finalPath = serializePath(draft()).trim();
+    const finalPath = serializePathDraft(draft()).trim();
     setSaving(true);
     setError(undefined);
     try {
@@ -169,9 +99,7 @@ export const PathEditor: VoidComponent<{
   };
 
   const truncateTo = (index: number) => () => {
-    const state = draft();
-    if (index < 0 || index >= state.committed.length) return;
-    setDraft({ committed: state.committed.slice(0, index + 1), current: "" });
+    setDraft((prev) => truncatePathDraft(prev, index));
     if (inputRef) inputRef.focus();
   };
 
@@ -183,7 +111,7 @@ export const PathEditor: VoidComponent<{
       if (!confirmed) return;
     }
 
-    setDraft({ committed: [], current: "" });
+    setDraft(clearPathDraft());
     setIsFocused(false);
     await handleSave();
   };
@@ -263,7 +191,7 @@ export const PathEditor: VoidComponent<{
               bg="transparent"
               value={draft().current}
               onInput={(e) =>
-                setDraft((prev) => ({ ...prev, current: e.currentTarget.value }))
+                setDraft((prev) => setCurrentSegment(prev, e.currentTarget.value))
               }
               onKeyDown={(e) => {
                 handleKeyDown(e as unknown as KeyboardEvent);

@@ -3,33 +3,28 @@ import type { VoidComponent } from "solid-js";
 import { useAction } from "@solidjs/router";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import {
+  entriesFromMeta,
+  recordFromEntries,
+  removeEntryAt,
+  serializeMetaRecord,
+  upsertEntry,
+  type MetaEntry,
+} from "~/components/doc-properties/meta-draft";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { updateDoc, type MetaRecord } from "~/services/docs.service";
 import { MetaKeySuggestions } from "./MetaKeySuggestions";
 import { MetaValueSuggestions } from "./MetaValueSuggestions";
 
-type Entry = { key: string; value: string };
-
-const entriesFromMeta = (meta?: MetaRecord | null): Entry[] =>
-  Object.entries(meta || {}).map(([key, value]) => ({ key, value: String(value) }));
-
-const recordFromEntries = (entries: Entry[]): MetaRecord => {
-  const record: MetaRecord = {};
-  for (const entry of entries) {
-    const key = entry.key.trim();
-    if (!key) continue;
-    record[key] = entry.value;
-  }
-  return record;
-};
-
 export const MetaKeyValueEditor: VoidComponent<{
   docId?: string;
   initialMeta?: MetaRecord | null;
   onChange?: (meta: MetaRecord) => void;
 }> = (props) => {
-  const [entries, setEntries] = createSignal<Entry[]>(entriesFromMeta(props.initialMeta));
+  const [entries, setEntries] = createSignal<MetaEntry[]>(
+    entriesFromMeta(props.initialMeta)
+  );
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [editingIndex, setEditingIndex] = createSignal<number | null>(null);
@@ -38,16 +33,16 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [editValue, setEditValue] = createSignal("");
   const runUpdateDoc = useAction(updateDoc);
 
-  let prevIncomingMeta = JSON.stringify(props.initialMeta || {});
+  let prevIncomingMeta = serializeMetaRecord(props.initialMeta || {});
 
   createEffect(() => {
-    const incomingSerialized = JSON.stringify(props.initialMeta || {});
+    const incomingSerialized = serializeMetaRecord(props.initialMeta || {});
     if (incomingSerialized === prevIncomingMeta) return;
     prevIncomingMeta = incomingSerialized;
     setEntries(entriesFromMeta(props.initialMeta));
   });
 
-  const persistIfNeeded = async (nextEntries: Entry[]) => {
+  const persistIfNeeded = async (nextEntries: MetaEntry[]) => {
     const record = recordFromEntries(nextEntries);
 
     if (props.docId) {
@@ -93,15 +88,8 @@ export const MetaKeyValueEditor: VoidComponent<{
     const key = editKey().trim();
     if (!key || busy()) return;
 
-    const next = entries().slice();
-    const nextEntry: Entry = { key, value: editValue() };
-    const index = editingIndex();
-
-    if (index === null) {
-      next.push(nextEntry);
-    } else {
-      next[index] = nextEntry;
-    }
+    const nextEntry: MetaEntry = { key, value: editValue() };
+    const next = upsertEntry(entries(), editingIndex(), nextEntry);
 
     setEntries(next);
     await persistIfNeeded(next);
@@ -109,8 +97,7 @@ export const MetaKeyValueEditor: VoidComponent<{
   };
 
   const removeAt = (index: number) => async () => {
-    const next = entries().slice();
-    next.splice(index, 1);
+    const next = removeEntryAt(entries(), index);
     setEntries(next);
     await persistIfNeeded(next);
   };
