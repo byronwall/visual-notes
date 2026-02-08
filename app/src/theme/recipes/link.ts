@@ -4,6 +4,7 @@ export const link = defineRecipe({
   className: 'link',
   base: {
     alignItems: 'center',
+    backgroundColor: 'transparent',
     borderRadius: 'l1',
     cursor: 'pointer',
     display: 'inline-flex',
@@ -15,7 +16,7 @@ export const link = defineRecipe({
     textDecorationThickness: '0.1em',
     textUnderlineOffset: '0.125em',
     transitionDuration: 'normal',
-    transitionProperty: 'text-decoration-color',
+    transitionProperty: 'text-decoration-color, background-color, color',
     _icon: {
       boxSize: '1em',
     },
@@ -28,12 +29,14 @@ export const link = defineRecipe({
       underline: {
         textDecorationColor: 'colorPalette.surface.fg/60',
         _hover: {
+          backgroundColor: 'amber.4',
           textDecorationColor: 'colorPalette.surface.fg',
         },
       },
       plain: {
         textDecorationColor: 'transparent',
         _hover: {
+          backgroundColor: 'amber.4',
           textDecorationColor: 'colorPalette.surface.fg',
         },
       },
