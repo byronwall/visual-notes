@@ -1,7 +1,7 @@
 import { PanelLeftCloseIcon, PanelLeftOpenIcon, XIcon } from "lucide-solid";
 import type { Accessor } from "solid-js";
 import { Show } from "solid-js";
-import { Box, HStack, Spacer, VisuallyHidden } from "styled-system/jsx";
+import { Box, HStack, VisuallyHidden } from "styled-system/jsx";
 import { AppSidebarNav } from "./AppSidebarNav";
 import { IconButton } from "~/components/ui/icon-button";
 import { Image } from "~/components/ui/image";
@@ -36,7 +36,8 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
       flexDirection="column"
       h="100%"
       maxH="100vh"
-      overflowY="auto"
+      minH="0"
+      overflowY="hidden"
       overflowX="hidden"
       px="2"
       py="3"
@@ -76,7 +77,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
             </Show>
           </HStack>
         </Link>
-        <Spacer />
+        <Box flex="1" />
         <Show when={props.mode === "desktop"}>
           <IconButton
             variant="plain"
@@ -121,9 +122,9 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
 
       <AppSidebarSeparator />
 
-      <AppSidebarRecentDocs expanded={props.expanded} />
-
-      <Spacer />
+      <Box flex="1" minH="0">
+        <AppSidebarRecentDocs expanded={props.expanded} />
+      </Box>
 
       <AppSidebarFooter
         expanded={props.expanded}

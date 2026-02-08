@@ -19,11 +19,11 @@ const clipTitle = (title: string) => {
 };
 
 export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
-  const items = createAsync(() => fetchDocs({ take: 5 }));
+  const items = createAsync(() => fetchDocs({ take: 10 }));
 
   return (
     <Show when={props.expanded}>
-      <Box>
+      <Box display="flex" flexDirection="column" minH="0" h="100%">
         <Box
           px="3"
           fontSize="xs"
@@ -35,7 +35,7 @@ export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
         </Box>
         <Suspense
           fallback={
-            <Stack gap="1" minH="140px" mt="1">
+            <Stack gap="1" mt="1" flex="1" minH="0" overflowY="auto">
               <For each={PLACEHOLDER_ROWS}>
                 {() => (
                   <Box
@@ -58,7 +58,7 @@ export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
               </Box>
             }
           >
-            <Stack gap="1" minH="140px" mt="1">
+            <Stack gap="1" mt="1" flex="1" minH="0" overflowY="auto">
               <For each={items()}>
                 {(item) => {
                   const href = () => `/docs/${item.id}`;
