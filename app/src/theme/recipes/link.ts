@@ -4,8 +4,9 @@ export const link = defineRecipe({
   className: 'link',
   base: {
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'gray.a3',
     borderRadius: 'l1',
+    color: 'gray.11',
     cursor: 'pointer',
     display: 'inline-flex',
     focusVisibleRing: 'outside',
@@ -30,6 +31,7 @@ export const link = defineRecipe({
         textDecorationColor: 'colorPalette.surface.fg/60',
         _hover: {
           backgroundColor: 'amber.4',
+          color: 'gray.12',
           textDecorationColor: 'colorPalette.surface.fg',
         },
       },
@@ -37,6 +39,7 @@ export const link = defineRecipe({
         textDecorationColor: 'transparent',
         _hover: {
           backgroundColor: 'amber.4',
+          color: 'gray.12',
           textDecorationColor: 'colorPalette.surface.fg',
         },
       },
