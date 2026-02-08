@@ -21,7 +21,7 @@ import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
 import { Button } from "~/components/ui/button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Text } from "~/components/ui/text";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -297,22 +297,38 @@ const DocumentEditor: VoidComponent<{
         )}
       </Show>
       <Show when={isNew()}>
-        <Stack gap="3" mb="3">
-          <Stack gap="1">
-            <Text fontSize="xs" color="black.a7">
-              Path
-            </Text>
-            <PathEditor onChange={(p) => setNewPath(p)} />
-          </Stack>
-          <Stack gap="1">
-            <Text fontSize="xs" color="black.a7">
-              Key/Value metadata
-            </Text>
-            <MetaKeyValueEditor
-              onChange={(m) => setNewMeta(m as Record<string, string>)}
-            />
-          </Stack>
-        </Stack>
+        <Box
+          mb="3"
+          borderWidth="1px"
+          borderStyle="dashed"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          p="2.5"
+          bg="gray.surface.bg"
+        >
+          <Grid
+            gridTemplateColumns={{
+              base: "1fr",
+              md: "repeat(2, minmax(0, 1fr))",
+            }}
+            gap="2.5"
+          >
+            <Stack gap="1.5">
+              <Text fontSize="xs" color="fg.muted">
+                Path
+              </Text>
+              <PathEditor onChange={(p) => setNewPath(p)} />
+            </Stack>
+            <Stack gap="1.5">
+              <Text fontSize="xs" color="fg.muted">
+                Key/Value metadata
+              </Text>
+              <MetaKeyValueEditor
+                onChange={(m) => setNewMeta(m as Record<string, string>)}
+              />
+            </Stack>
+          </Grid>
+        </Box>
       </Show>
       <TiptapEditor
         initialHTML={initialHTML()}

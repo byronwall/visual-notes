@@ -3,10 +3,11 @@ import { renderHighlighted } from "../utils/highlight";
 import { MetaChips } from "./MetaChips";
 import { Show } from "solid-js";
 import { Button } from "~/components/ui/button";
+import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
 import { Text } from "~/components/ui/text";
 import { Box, Flex, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
-import { A } from "@solidjs/router";
+import { css } from "styled-system/css";
 
 export const DocRow = (props: {
   id: string;
@@ -20,7 +21,20 @@ export const DocRow = (props: {
   onFilterMeta?: (k: string, v: string) => void;
   selected?: boolean;
   onToggleSelect?: (id: string, next: boolean) => void;
+  previewDoc?: {
+    markdown?: string | null;
+    html?: string | null;
+    path?: string | null;
+    meta?: Record<string, unknown> | null;
+  } | null;
 }) => {
+  const titleLinkClass = css({
+    display: "block",
+    minWidth: "0",
+    color: "inherit",
+    textDecorationLine: "none",
+  });
+
   const handleToggle = (next: boolean) => {
     try {
       console.log("[DocRow] toggle select id=", props.id, "next=", next);
@@ -50,9 +64,15 @@ export const DocRow = (props: {
             </Checkbox.Control>
           </Checkbox.Root>
           <Stack gap="0.15rem" minW="0">
-            <A
+            <DocHoverPreviewLink
               href={`/docs/${props.id}`}
-              style={{ display: "block", "min-width": "0" }}
+              title={props.title}
+              updatedAt={props.updatedAt}
+              path={props.path}
+              meta={props.meta}
+              snippet={props.snippet}
+              previewDoc={props.previewDoc}
+              triggerClass={titleLinkClass}
             >
               <Show when={props.query}>
                 {(query) => (
@@ -77,7 +97,7 @@ export const DocRow = (props: {
                   {props.title}
                 </Text>
               </Show>
-            </A>
+            </DocHoverPreviewLink>
           </Stack>
         </HStack>
         <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">

@@ -125,6 +125,15 @@ code and refactors unless explicitly told otherwise.
     - When there’s no surrounding modal/dialog/panel layout that would be pushed/reflowed by the content (i.e. expansion won’t cause secondary UI to jump).
     - When it’s known that the shift is expected and non-jarring (e.g. a single results page that replaces a loading state in-place), prefer simplicity over over-constraining the layout.
 
+- Hover overlays in scrollable sidebars/lists (HoverCard/Tooltip/Popover).
+  - Use `Trigger` with `asChild` render function and pass a native DOM element (`a`/`button`) so the floating layer has a stable anchor ref.
+  - In scrolled/sticky layouts, prefer explicit positioning options (for example `placement: "right-start"` plus `strategy: "fixed"`) to avoid top-of-page fallback flashes.
+  - Avoid mutating reactive state in `onOpenChange` that changes the hovered row tree while positioning is being computed.
+  - If hover content needs extra data, prefetch lightweight preview data for the visible list instead of fetching on-hover; this keeps anchor measurement stable and prevents flicker.
+  - Use shared text-preview helpers from `app/src/features/docs-index/utils/doc-preview.ts` (`clipDocTitle`, `buildDocPreviewText`, `countMetaKeys`, `normalizePreviewText`) instead of duplicating markdown/html strip logic in UI components.
+  - Reuse `DocHoverPreviewLink` at `app/src/components/docs/DocHoverPreviewLink.tsx` for note/story hover previews instead of rebuilding HoverCard markup per list.
+  - Reuse `useDocPreviewMap` at `app/src/features/docs-index/hooks/useDocPreviewMap.ts` to prefetch visible note details for hover cards.
+
 ### UI composition (ParkUI simplification)
 
 - Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
@@ -369,10 +378,10 @@ export const saveThing = action(
 
 ### Testing and verification
 
-- Run pnpm type-check to verify TypeScript types without building.
-- Run pnpm build to verify the build passes after making changes.
+- Run pnpm type-check to verify TypeScript types after making changes.
+- Do not run pnpm build for routine change verification; type-check is sufficient.
 - There are no unit tests currently; verification is done via successful
-  type check, build, and manual testing.
+  type check and manual testing.
 
 ### Quick checklist (before you finish)
 

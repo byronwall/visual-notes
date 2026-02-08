@@ -1,25 +1,38 @@
 import { For, Show, Suspense } from "solid-js";
 import { createAsync } from "@solidjs/router";
 import { Box, Stack } from "styled-system/jsx";
-import { Link } from "~/components/ui/link";
+import { css } from "styled-system/css";
 import { fetchDocs } from "~/features/docs-index/data/docs.service";
+import { clipDocTitle } from "~/features/docs-index/utils/doc-preview";
+import { useDocPreviewMap } from "~/features/docs-index/hooks/useDocPreviewMap";
+import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
 
 type AppSidebarRecentDocsProps = {
   expanded: boolean;
 };
 
 const PLACEHOLDER_ROWS = [0, 1, 2, 3, 4];
-const MAX_TITLE_LEN = 32;
-
-const clipTitle = (title: string) => {
-  const trimmed = title.trim();
-  if (!trimmed) return "Untitled";
-  if (trimmed.length <= MAX_TITLE_LEN) return trimmed;
-  return `${trimmed.slice(0, MAX_TITLE_LEN - 3)}...`;
-};
+const recentDocLinkClass = css({
+  px: "3",
+  py: "1.5",
+  borderRadius: "l2",
+  color: "fg.muted",
+  display: "block",
+  w: "full",
+  textAlign: "left",
+  textDecorationLine: "none",
+  _hover: {
+    bg: "bg.muted",
+    color: "fg.default",
+    textDecorationLine: "none",
+  },
+});
 
 export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
   const items = createAsync(() => fetchDocs({ take: 10 }));
+  const previewDocsById = useDocPreviewMap(() =>
+    (items() || []).map((item) => item.id)
+  );
 
   return (
     <Show when={props.expanded}>
@@ -62,30 +75,32 @@ export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
               <For each={items()}>
                 {(item) => {
                   const href = () => `/docs/${item.id}`;
-                  const title = () => clipTitle(item.title || "Untitled");
+                  const title = () => clipDocTitle(item.title || "Untitled");
+                  const previewDoc = () => previewDocsById().get(item.id) || null;
 
                   return (
-                    <Link
-                      href={href()}
-                      variant="plain"
-                      px="3"
-                      py="1.5"
-                      borderRadius="l2"
-                      color="fg.muted"
-                      _hover={{ bg: "bg.muted", color: "fg.default" }}
-                      title={item.title || "Untitled"}
-                    >
-                      <Box
-                        as="span"
-                        fontSize="sm"
-                        whiteSpace="nowrap"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        display="block"
+                    <Box w="full">
+                      <DocHoverPreviewLink
+                        href={href()}
+                        title={item.title || "Untitled"}
+                        updatedAt={item.updatedAt}
+                        path={item.path}
+                        meta={item.meta}
+                        previewDoc={previewDoc()}
+                        triggerClass={recentDocLinkClass}
                       >
-                        {title()}
-                      </Box>
-                    </Link>
+                        <Box
+                          as="span"
+                          fontSize="sm"
+                          whiteSpace="nowrap"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          display="block"
+                        >
+                          {title()}
+                        </Box>
+                      </DocHoverPreviewLink>
+                    </Box>
                   );
                 }}
               </For>

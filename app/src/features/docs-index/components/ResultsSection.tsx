@@ -4,6 +4,7 @@ import { DocRow } from "./DocRow";
 import { computeFuzzyScore } from "../utils/fuzzy";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { createDocsQueryStore } from "../state/docsQuery";
+import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
 import { Text } from "~/components/ui/text";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -66,6 +67,7 @@ export const ResultsSection = (props: {
         .map((x) => x.id);
     }
   });
+  const previewDocsById = useDocPreviewMap(visibleIds);
 
   createEffect(() => {
     try {
@@ -100,6 +102,7 @@ export const ResultsSection = (props: {
                             <DocRow
                               {...d}
                               query={q.searchText()}
+                              previewDoc={previewDocsById().get(d.id) || null}
                               onFilterPath={(p) => q.setPathPrefix(p)}
                               onFilterMeta={(k, v) => {
                                 q.setMetaKey(k);
@@ -140,6 +143,7 @@ export const ResultsSection = (props: {
                     <DocRow
                       {...d}
                       query={q.searchText()}
+                      previewDoc={previewDocsById().get(d.id) || null}
                       selected={props.selectedIds?.has(d.id)}
                       onToggleSelect={props.onToggleSelect}
                     />
@@ -171,6 +175,7 @@ export const ResultsSection = (props: {
                       {(d) => (
                         <DocRow
                           {...d}
+                          previewDoc={previewDocsById().get(d.id) || null}
                           onFilterPath={(p) => q.setPathPrefix(p)}
                           onFilterMeta={(k, v) => {
                             q.setMetaKey(k);

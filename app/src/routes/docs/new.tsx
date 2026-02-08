@@ -14,7 +14,7 @@ export const NewDocRoute: VoidComponent = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container py="4" px="4">
+      <Container pt="4" pb={{ base: "24", md: "32" }} px="4">
         <Box mx="auto" maxW="900px">
           <Stack gap="3">
             <Heading as="h1" fontSize="2xl" m="0">

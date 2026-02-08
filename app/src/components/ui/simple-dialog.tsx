@@ -38,6 +38,10 @@ export function SimpleDialog(props: SimpleDialogProps) {
       css({
         maxW,
         "--dialog-base-margin": "24px",
+        maxH: "calc(100vh - (var(--dialog-base-margin) * 2))",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
       })
     );
     if (props.contentClass) classes.push(props.contentClass);
@@ -79,7 +83,15 @@ export function SimpleDialog(props: SimpleDialogProps) {
                 </IconButton>
               </Dialog.CloseTrigger>
             </Show>
-            <Dialog.Body>{props.children}</Dialog.Body>
+            <Dialog.Body
+              class={css({
+                flex: "1",
+                minH: "0",
+                overflowY: "auto",
+              })}
+            >
+              {props.children}
+            </Dialog.Body>
             <Show when={props.footer}>
               {(footer) => <Dialog.Footer>{footer()}</Dialog.Footer>}
             </Show>
