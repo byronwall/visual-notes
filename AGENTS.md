@@ -151,6 +151,9 @@ code and refactors unless explicitly told otherwise.
 - When importing ParkUI components, use a barrel import if there are multiple things to import.
   - Good: import \* as Popover from "./popover";
   - Bad: import { Root, Anchor, Positioner, Content } from "./popover";
+- Avoid nested popovers for a single interaction flow unless there is a strong UX reason.
+  - Prefer one overlay layer and render extra controls as inline sections inside that layer.
+  - If nesting is intentional, add a short comment explaining why.
 
 ### Tailwind → Panda conversion (from park-ui-migration)
 
@@ -215,6 +218,7 @@ code and refactors unless explicitly told otherwise.
   - important branch decisions
   - key data shape/ids
 - Do not wrap console.log in try/catch.
+- Remove temporary debug logs before finishing unless the user explicitly asks to keep them.
 
 ### Control flow and readability
 
@@ -258,6 +262,14 @@ Batching updates
 
 - Use batch(() => { ... }) when updating multiple signals or multiple store
   paths in a tight sequence.
+  - If multiple fields represent one user-visible value, update them atomically.
+  - Avoid intermediate transient states that can fire effects/callbacks with invalid values.
+
+Prop sync (external props ↔ local draft state)
+
+- For local draft state initialized from props, sync only when the incoming prop actually changes.
+- Compare against a previous incoming-prop snapshot (non-reactive local variable), not mutable draft state.
+- In parent/child feedback loops (`value` + `onChange`), guard no-op updates to avoid ping-pong resets.
 
 ### Props handling
 
