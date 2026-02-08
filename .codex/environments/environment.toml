@@ -3,9 +3,9 @@ version = 1
 name = "visual-notes"
 
 [setup]
-script = "cd app && pnpm run dev"
+script = ""
 
 [[actions]]
 name = "Run"
-icon = "tool"
+icon = "run"
 command = "cd app && pnpm dev"

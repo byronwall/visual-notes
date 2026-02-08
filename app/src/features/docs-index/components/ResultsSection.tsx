@@ -4,7 +4,6 @@ import { DocRow } from "./DocRow";
 import { computeFuzzyScore } from "../utils/fuzzy";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { createDocsQueryStore } from "../state/docsQuery";
-import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
 import { Text } from "~/components/ui/text";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -12,6 +11,7 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 export const ResultsSection = (props: {
   items: any[];
   query: ReturnType<typeof createDocsQueryStore>;
+  nowMs?: number;
   serverResults: any[];
   serverLoading: boolean;
   onVisibleIdsChange?: (ids: string[]) => void;
@@ -19,6 +19,7 @@ export const ResultsSection = (props: {
   onToggleSelect?: (id: string, next: boolean) => void;
 }) => {
   const q = props.query;
+  const nowMs = () => props.nowMs ?? Date.now();
 
   const clientMatches = createMemo(() => {
     const qtext = q.searchText().trim().toLowerCase();
@@ -44,7 +45,8 @@ export const ResultsSection = (props: {
   const visibleIds = createMemo(() => {
     if (isSearching()) {
       const clientIds = groupByUpdatedAt(
-        clientMatches().slice(0, q.clientShown())
+        clientMatches().slice(0, q.clientShown()),
+        nowMs()
       )
         .flatMap((g) => g.items)
         .map((x) => x.id);
@@ -62,13 +64,11 @@ export const ResultsSection = (props: {
       }
       return out;
     } else {
-      return groupByUpdatedAt(props.items.slice(0, q.clientShown()))
+      return groupByUpdatedAt(props.items.slice(0, q.clientShown()), nowMs())
         .flatMap((g) => g.items)
         .map((x) => x.id);
     }
   });
-  const previewDocsById = useDocPreviewMap(visibleIds);
-
   createEffect(() => {
     try {
       if (props.onVisibleIdsChange) props.onVisibleIdsChange(visibleIds());
@@ -87,7 +87,8 @@ export const ResultsSection = (props: {
               </Text>
               <For
                 each={groupByUpdatedAt(
-                  clientMatches().slice(0, q.clientShown())
+                  clientMatches().slice(0, q.clientShown()),
+                  nowMs()
                 )}
               >
                 {(g) => (
@@ -102,7 +103,7 @@ export const ResultsSection = (props: {
                             <DocRow
                               {...d}
                               query={q.searchText()}
-                              previewDoc={previewDocsById().get(d.id) || null}
+                              previewDoc={null}
                               onFilterPath={(p) => q.setPathPrefix(p)}
                               onFilterMeta={(k, v) => {
                                 q.setMetaKey(k);
@@ -143,7 +144,7 @@ export const ResultsSection = (props: {
                     <DocRow
                       {...d}
                       query={q.searchText()}
-                      previewDoc={previewDocsById().get(d.id) || null}
+                      previewDoc={null}
                       selected={props.selectedIds?.has(d.id)}
                       onToggleSelect={props.onToggleSelect}
                     />
@@ -163,7 +164,7 @@ export const ResultsSection = (props: {
           <Text fontSize="sm" color="black.a7">
             Total results: {props.items.length}
           </Text>
-          <For each={groupByUpdatedAt(props.items.slice(0, q.clientShown()))}>
+          <For each={groupByUpdatedAt(props.items.slice(0, q.clientShown()), nowMs())}>
             {(g) => (
               <Show when={g.items.length}>
                 <Box as="section">
@@ -175,7 +176,7 @@ export const ResultsSection = (props: {
                       {(d) => (
                         <DocRow
                           {...d}
-                          previewDoc={previewDocsById().get(d.id) || null}
+                          previewDoc={null}
                           onFilterPath={(p) => q.setPathPrefix(p)}
                           onFilterMeta={(k, v) => {
                             q.setMetaKey(k);

@@ -1,9 +1,12 @@
-import { Show, type JSX } from "solid-js";
+import { Show, createSignal, onMount, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Box, Stack } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import * as HoverCard from "~/components/ui/hover-card";
-import { formatRelativeTime } from "~/features/docs-index/utils/time";
+import {
+  formatAbsoluteTime,
+  formatRelativeTime,
+} from "~/features/docs-index/utils/time";
 import {
   buildDocPreviewText,
   countMetaKeys,
@@ -34,6 +37,12 @@ const contentLinkClass = css({
 });
 
 export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
+  const [mounted, setMounted] = createSignal(false);
+
+  onMount(() => {
+    setMounted(true);
+  });
+
   const previewText = () => {
     const doc = props.previewDoc;
     if (doc) return buildDocPreviewText(doc.markdown, doc.html);
@@ -44,6 +53,14 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
 
   const path = () => props.previewDoc?.path ?? props.path;
   const metaCount = () => countMetaKeys(props.previewDoc?.meta ?? props.meta);
+
+  if (!mounted()) {
+    return (
+      <a href={props.href} class={props.triggerClass}>
+        {props.children}
+      </a>
+    );
+  }
 
   return (
     <HoverCard.Root
@@ -73,7 +90,7 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
                 <Stack gap="0.5">
                   <Box fontSize="xs" color="fg.muted">
                     Updated {formatRelativeTime(props.updatedAt)} (
-                    {new Date(props.updatedAt).toLocaleString()})
+                    {formatAbsoluteTime(props.updatedAt)})
                   </Box>
                   <Show when={path()}>
                     {(value) => (

@@ -7,7 +7,7 @@ export type {
   SourcesResponse,
 } from "./docs.types";
 
-export { fetchDocs } from "./docs.queries.list";
+export { fetchDocs, fetchDocsServerNow } from "./docs.queries.list";
 export { searchDocs } from "./docs.queries.search";
 export { fetchSources } from "./docs.queries.sources";
 

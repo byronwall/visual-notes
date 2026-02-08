@@ -1,4 +1,4 @@
-import { formatRelativeTime } from "../utils/time";
+import { formatAbsoluteTime, formatRelativeTime } from "../utils/time";
 import { renderHighlighted } from "../utils/highlight";
 import { MetaChips } from "./MetaChips";
 import { Show } from "solid-js";
@@ -118,7 +118,7 @@ export const DocRow = (props: {
           <Text
             fontSize="sm"
             color="black.a7"
-            title={`Updated ${new Date(props.updatedAt).toLocaleString()}`}
+            title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
           >
             {formatRelativeTime(props.updatedAt)}
           </Text>

@@ -9,8 +9,8 @@ export type DocListItem = {
   meta?: Record<string, unknown> | null;
 };
 
-export function groupByUpdatedAt(items: DocListItem[]) {
-  const now = Date.now();
+export function groupByUpdatedAt(items: DocListItem[], nowMs: number = Date.now()) {
+  const now = nowMs;
 
   const buckets: Record<string, DocListItem[]> = {
     hour: [],
@@ -41,5 +41,4 @@ export function groupByUpdatedAt(items: DocListItem[]) {
     { label: "Older", items: buckets.older },
   ];
 }
-
 

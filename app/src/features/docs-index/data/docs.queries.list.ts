@@ -66,3 +66,8 @@ export const fetchDocs = query(
   },
   "docs-index-list"
 );
+
+export const fetchDocsServerNow = query(async (): Promise<number> => {
+  "use server";
+  return Date.now();
+}, "docs-index-server-now");

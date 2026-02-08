@@ -5,6 +5,7 @@ import {
   useSearchParams,
 } from "@solidjs/router";
 import {
+  ErrorBoundary,
   Suspense,
   createEffect,
   createSignal,
@@ -16,6 +17,7 @@ import {
   deleteAllDocs,
   deleteBySource,
   fetchDocs,
+  fetchDocsServerNow,
   fetchSources,
   processPathRound,
   scanRelativeImages,
@@ -217,6 +219,7 @@ const DocsIndexPage = () => {
   });
 
   const docs = createAsync(() => fetchDocs(docsQueryArgs()));
+  const docsServerNow = createAsync(() => fetchDocsServerNow());
   const sources = createAsync(() => fetchSources());
   const refreshDocs = () => revalidate(fetchDocs.keyFor(docsQueryArgs()));
   const refreshSources = () => revalidate(fetchSources.key);
@@ -517,26 +520,39 @@ const DocsIndexPage = () => {
                 sources={sources()?.sources ?? []}
               />
 
-              <Suspense
-                fallback={
-                  <HStack gap="0.5rem">
-                    <Spinner />
-                    <Text textStyle="sm" color="black.a7">
-                      Loading…
+              <ErrorBoundary
+                fallback={(err) => {
+                  console.error("[DocsIndex] ResultsSection crashed", err);
+                  return (
+                    <Text textStyle="sm" color="red.700">
+                      Notes list crashed. Check console for
+                      `[DocsIndex] ResultsSection crashed`.
                     </Text>
-                  </HStack>
-                }
+                  );
+                }}
               >
-                <ResultsSection
-                  items={docs() || []}
-                  query={q}
-                  serverResults={serverResults() || []}
-                  serverLoading={serverLoading}
-                  onVisibleIdsChange={setVisibleIds}
-                  selectedIds={selectedIds()}
-                  onToggleSelect={handleToggleSelect}
-                />
-              </Suspense>
+                <Suspense
+                  fallback={
+                    <HStack gap="0.5rem">
+                      <Spinner />
+                      <Text textStyle="sm" color="black.a7">
+                        Loading…
+                      </Text>
+                    </HStack>
+                  }
+                >
+                  <ResultsSection
+                    items={docs() || []}
+                    query={q}
+                    nowMs={docsServerNow()}
+                    serverResults={serverResults() || []}
+                    serverLoading={serverLoading}
+                    onVisibleIdsChange={setVisibleIds}
+                    selectedIds={selectedIds()}
+                    onToggleSelect={handleToggleSelect}
+                  />
+                </Suspense>
+              </ErrorBoundary>
               <BulkMetaModal
                 open={showBulkMeta()}
                 onClose={handleCloseBulkMeta}
