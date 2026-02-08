@@ -21,7 +21,7 @@ export const MetaKeySuggestions: VoidComponent<{
   return (
     <Stack mt="0.5rem">
       <Show when={topKeys().length > 0}>
-        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
+        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-start">
           <For each={topKeys()}>
             {(s) => (
               <Button
@@ -41,7 +41,7 @@ export const MetaKeySuggestions: VoidComponent<{
                 >
                   {s.key}
                 </Text>
-                <Text as="span" color="black.a7">
+                <Text as="span" color="fg.muted">
                   {s.count}
                 </Text>
               </Button>

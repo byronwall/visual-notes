@@ -25,7 +25,7 @@ export const MetaValueSuggestions: VoidComponent<{
   return (
     <Show when={props.keyName.trim().length > 0 && topValues().length > 0}>
       <Stack mt="0.5rem">
-        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
+        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-start">
           <For each={topValues()}>
             {(s) => (
               <Button
@@ -44,7 +44,7 @@ export const MetaValueSuggestions: VoidComponent<{
                 >
                   {s.value}
                 </Text>
-                <Text as="span" color="black.a7">
+                <Text as="span" color="fg.muted">
                   {s.count}
                 </Text>
               </Button>
