@@ -1,4 +1,4 @@
-import { type VoidComponent, createEffect, createSignal } from "solid-js";
+import { type VoidComponent, createEffect, createMemo, createSignal } from "solid-js";
 import { HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { SimplePopover } from "~/components/ui/simple-popover";
@@ -11,25 +11,38 @@ const normalizeMetaRecord = (
   input: Record<string, unknown> | null | undefined
 ): MetaRecord => {
   if (!input || typeof input !== "object") return {};
-  const next: MetaRecord = {};
+
+  const out: MetaRecord = {};
   for (const [key, rawValue] of Object.entries(input)) {
     if (typeof rawValue === "string") {
-      next[key] = rawValue;
+      out[key] = rawValue;
       continue;
     }
     if (typeof rawValue === "number") {
-      next[key] = rawValue;
+      out[key] = rawValue;
       continue;
     }
     if (typeof rawValue === "boolean") {
-      next[key] = rawValue;
+      out[key] = rawValue;
       continue;
     }
     if (rawValue === null) {
-      next[key] = null;
+      out[key] = null;
     }
   }
-  return next;
+  return out;
+};
+
+const summarizePath = (path: string) => (path.trim().length > 0 ? path : "Unfiled");
+
+const summarizeMeta = (meta: MetaRecord) => {
+  const entries = Object.entries(meta).filter(([key]) => key.trim().length > 0);
+  if (entries.length === 0) return "No details";
+
+  const first = entries[0];
+  const firstText = `${first?.[0] || ""}: ${String(first?.[1] || "")}`;
+  if (entries.length === 1) return firstText;
+  return `${firstText} +${entries.length - 1}`;
 };
 
 export const DocPropertiesCompactEditors: VoidComponent<{
@@ -40,77 +53,46 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   onMetaChange?: (meta: MetaRecord) => void;
 }> = (props) => {
   const initialPathValue = () => (props.initialPath || "").trim();
+  const initialMetaValue = () => normalizeMetaRecord(props.initialMeta);
+
   let prevIncomingPath = initialPathValue();
+  let prevIncomingMeta = JSON.stringify(initialMetaValue());
+
   const [pathDraft, setPathDraft] = createSignal(initialPathValue());
-  let lastSyncedPath = initialPathValue();
-  const [metaDraft, setMetaDraft] = createSignal<MetaRecord>(
-    normalizeMetaRecord(props.initialMeta)
-  );
-  let prevIncomingMeta = JSON.stringify(normalizeMetaRecord(props.initialMeta));
-  let lastSyncedMeta = JSON.stringify(normalizeMetaRecord(props.initialMeta));
+  const [metaDraft, setMetaDraft] = createSignal<MetaRecord>(initialMetaValue());
   const [pathPopoverOpen, setPathPopoverOpen] = createSignal(false);
   const [metaPopoverOpen, setMetaPopoverOpen] = createSignal(false);
 
   createEffect(() => {
-    const incomingPath = initialPathValue();
-    console.log("[DocProps] path-sync-check", {
-      incomingPath,
-      prevIncomingPath,
-      lastSyncedPath,
-      localDraft: pathDraft(),
-    });
-    if (incomingPath === prevIncomingPath) return;
-    console.log("[DocProps] path-sync-apply", {
-      from: prevIncomingPath,
-      to: incomingPath,
-    });
-    prevIncomingPath = incomingPath;
-    lastSyncedPath = incomingPath;
-    setPathDraft(incomingPath);
+    const incoming = initialPathValue();
+    if (incoming === prevIncomingPath) return;
+    prevIncomingPath = incoming;
+    setPathDraft(incoming);
   });
 
   createEffect(() => {
-    const incomingMeta = normalizeMetaRecord(props.initialMeta);
-    const incomingSerialized = JSON.stringify(incomingMeta);
-    if (incomingSerialized === prevIncomingMeta) return;
-    prevIncomingMeta = incomingSerialized;
-    lastSyncedMeta = incomingSerialized;
-    setMetaDraft(incomingMeta);
+    const incoming = initialMetaValue();
+    const serialized = JSON.stringify(incoming);
+    if (serialized === prevIncomingMeta) return;
+    prevIncomingMeta = serialized;
+    setMetaDraft(incoming);
   });
 
-  const pathSummary = () => {
-    const value = pathDraft().trim();
-    if (value.length > 0) return value;
-    return "Unfiled";
-  };
-
-  const metaSummary = () => {
-    const entries = Object.entries(metaDraft()).filter(
-      ([key]) => key.trim().length > 0
-    );
-    if (entries.length === 0) return "No details";
-    const first = entries[0];
-    const firstText = `${first?.[0] || ""}: ${String(first?.[1] || "")}`;
-    if (entries.length === 1) return firstText;
-    return `${firstText} +${entries.length - 1}`;
-  };
-
   const handlePathChange = (nextPath: string) => {
-    console.log("[DocProps] handlePathChange", {
-      nextPath,
-      prevDraft: pathDraft(),
-      prevLastSyncedPath: lastSyncedPath,
-    });
+    if (nextPath === pathDraft()) return;
     setPathDraft(nextPath);
-    lastSyncedPath = nextPath;
     if (props.onPathChange) props.onPathChange(nextPath);
   };
 
   const handleMetaChange = (nextMeta: MetaRecord) => {
+    const serialized = JSON.stringify(nextMeta);
+    if (serialized === JSON.stringify(metaDraft())) return;
     setMetaDraft(nextMeta);
-    lastSyncedMeta = JSON.stringify(nextMeta);
     if (props.onMetaChange) props.onMetaChange(nextMeta);
   };
+
+  const pathSummary = createMemo(() => summarizePath(pathDraft()));
+  const metaSummary = createMemo(() => summarizeMeta(metaDraft()));
 
   return (
     <HStack gap="2" alignItems="center" flexWrap="wrap">
