@@ -14,14 +14,18 @@ import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
-import { createDoc, fetchDoc, updateDoc } from "~/services/docs.service";
+import {
+  createDoc,
+  fetchDoc,
+  type MetaRecord,
+  updateDoc,
+} from "~/services/docs.service";
 import TiptapEditor from "./TiptapEditor";
-import { PathEditor } from "./PathEditor";
-import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
+import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import { Button } from "~/components/ui/button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Text } from "~/components/ui/text";
-import { Box, Grid, HStack, Stack } from "styled-system/jsx";
+import { Box, HStack } from "styled-system/jsx";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -59,7 +63,7 @@ const DocumentEditor: VoidComponent<{
 
   const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
-  const [newMeta, setNewMeta] = createSignal<Record<string, string>>({});
+  const [newMeta, setNewMeta] = createSignal<MetaRecord>({});
   const runCreateDoc = useAction(createDoc);
   const runUpdateDoc = useAction(updateDoc);
 
@@ -297,37 +301,13 @@ const DocumentEditor: VoidComponent<{
         )}
       </Show>
       <Show when={isNew()}>
-        <Box
-          mb="3"
-          borderWidth="1px"
-          borderStyle="dashed"
-          borderColor="gray.outline.border"
-          borderRadius="l2"
-          p="2.5"
-          bg="gray.surface.bg"
-        >
-          <Grid
-            gridTemplateColumns={{
-              base: "1fr",
-              md: "repeat(2, minmax(0, 1fr))",
-            }}
-            gap="2.5"
-          >
-            <Stack gap="1.5">
-              <Text fontSize="xs" color="fg.muted">
-                Path
-              </Text>
-              <PathEditor onChange={(p) => setNewPath(p)} />
-            </Stack>
-            <Stack gap="1.5">
-              <Text fontSize="xs" color="fg.muted">
-                Key/Value metadata
-              </Text>
-              <MetaKeyValueEditor
-                onChange={(m) => setNewMeta(m as Record<string, string>)}
-              />
-            </Stack>
-          </Grid>
+        <Box mb="3">
+          <DocPropertiesCompactEditors
+            initialPath={newPath()}
+            initialMeta={newMeta()}
+            onPathChange={(nextPath) => setNewPath(nextPath)}
+            onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+          />
         </Box>
       </Show>
       <TiptapEditor

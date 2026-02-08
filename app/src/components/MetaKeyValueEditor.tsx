@@ -58,30 +58,26 @@ export const MetaKeyValueEditor: VoidComponent<{
   const closePopup = () => setIsOpen(false);
 
   const persistIfNeeded = async (next: Entry[]) => {
+    const record: MetaRecord = {};
+    for (const { key, value } of next) {
+      const k = key.trim();
+      if (!k) continue;
+      record[k] = value;
+    }
+
     if (props.docId) {
       setBusy(true);
       setError(undefined);
       try {
-        const record: MetaRecord = {};
-        for (const { key, value } of next) {
-          const k = key.trim();
-          if (!k) continue;
-          record[k] = value;
-        }
         console.log("[MetaEditor] persist", record);
         await runUpdateDoc({ id: props.docId, meta: record });
+        if (props.onChange) props.onChange(record);
       } catch (e) {
         setError((e as Error).message || "Failed to save metadata");
       } finally {
         setBusy(false);
       }
     } else if (props.onChange) {
-      const record: MetaRecord = {};
-      for (const { key, value } of next) {
-        const k = key.trim();
-        if (!k) continue;
-        record[k] = value;
-      }
       props.onChange(record);
     }
   };

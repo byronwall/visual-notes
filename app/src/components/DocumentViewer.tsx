@@ -1,16 +1,15 @@
 import { useAction, useNavigate } from "@solidjs/router";
 import { PencilIcon, Trash2Icon } from "lucide-solid";
 import { type VoidComponent, Show, createEffect, createSignal } from "solid-js";
-import { Box, Grid, HStack, Spacer, Stack } from "styled-system/jsx";
+import { Box, HStack, Spacer, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { deleteDoc, updateDoc } from "~/services/docs.service";
 import { extractFirstHeading } from "~/utils/extractHeading";
+import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
-import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
-import { PathEditor } from "./PathEditor";
 import { TitleEditPopover } from "./TitleEditPopover";
 
 type DocumentData = {
@@ -175,41 +174,11 @@ const DocumentViewer: VoidComponent<{
         </HStack>
       </HStack>
       <Stack gap="3">
-        <Box
-          borderWidth="1px"
-          borderStyle="dashed"
-          borderColor="gray.outline.border"
-          borderRadius="l2"
-          p="2.5"
-          bg="gray.surface.bg"
-        >
-          <Grid
-            gridTemplateColumns={{
-              base: "1fr",
-              md: "repeat(2, minmax(0, 1fr))",
-            }}
-            gap="2.5"
-          >
-            <Stack gap="1.5">
-              <Text fontSize="xs" color="fg.muted">
-                Path
-              </Text>
-              <PathEditor
-                docId={props.doc.id}
-                initialPath={props.doc.path || undefined}
-              />
-            </Stack>
-            <Stack gap="1.5">
-              <Text fontSize="xs" color="fg.muted">
-                Key/Value metadata
-              </Text>
-              <MetaKeyValueEditor
-                docId={props.doc.id}
-                initialMeta={props.doc.meta as any}
-              />
-            </Stack>
-          </Grid>
-        </Box>
+        <DocPropertiesCompactEditors
+          docId={props.doc.id}
+          initialPath={props.doc.path}
+          initialMeta={props.doc.meta}
+        />
         <DocumentEditor
           docId={props.doc.id}
           showTitleInTopBar={false}
