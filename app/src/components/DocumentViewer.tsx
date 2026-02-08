@@ -47,6 +47,14 @@ const DocumentViewer: VoidComponent<{
     }) || "";
   const showSync = () => firstH1() && firstH1() !== title();
 
+  // Keep local title state aligned when client-side navigation swaps docs.
+  createEffect(() => {
+    const nextDocId = props.doc.id;
+    const nextTitle = props.doc.title;
+    void nextDocId;
+    setTitle((prev) => (prev === nextTitle ? prev : nextTitle));
+  });
+
   const handleCancelEdit = () => setEditing(false);
   const handleConfirmEdit = async (newTitle: string) => {
     try {
