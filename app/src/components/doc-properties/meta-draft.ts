@@ -75,8 +75,7 @@ export const summarizeMeta = (meta: MetaRecord) => {
   const entries = Object.entries(meta).filter(([key]) => key.trim().length > 0);
   if (entries.length === 0) return "No details";
 
-  const first = entries[0];
-  const firstText = `${first?.[0] || ""}: ${String(first?.[1] || "")}`;
-  if (entries.length === 1) return firstText;
-  return `${firstText} +${entries.length - 1}`;
+  return entries
+    .map(([key, value]) => `${key}: ${String(value)}`)
+    .join(" · ");
 };
