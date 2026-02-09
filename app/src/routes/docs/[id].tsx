@@ -97,7 +97,7 @@ const DocView: VoidComponent = () => {
               ) as HTMLElement | null;
               return pm || root;
             }}
-            maxVh={60}
+            maxVh={72}
           />
         </Box>
       </Container>

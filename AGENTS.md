@@ -134,6 +134,29 @@ code and refactors unless explicitly told otherwise.
   - Reuse `DocHoverPreviewLink` at `app/src/components/docs/DocHoverPreviewLink.tsx` for note/story hover previews instead of rebuilding HoverCard markup per list.
   - Reuse `useDocPreviewMap` at `app/src/features/docs-index/hooks/useDocPreviewMap.ts` to prefetch visible note details for hover cards.
 
+- TOC/minimap overlays (document-edge navigation rails).
+  - Anchor to the document edge (measured content root), not fixed viewport offsets.
+  - Define interaction mode explicitly:
+    - Expanded by default only when full panel fits right gutter.
+    - Otherwise show rail-only and expand on hover.
+    - Hide rail while expanded panel is visible.
+  - For percent-based marker placement, use inline style (`style={{ top: "37.5%" }}`) instead of tokenized utility props that may not emit valid classes.
+  - For nested heading indentation, apply indent on a wrapper element (`li` margin/width), not only on `Button` paddings (component recipes can override paddings).
+  - Mutation observation for heading text must include `characterData: true` in addition to `childList/subtree` so live heading edits update TOC labels.
+  - Avoid layout thrash:
+    - Do not run periodic `refreshLayout` work on fixed intervals when nothing changed.
+    - Do not use synthetic ticks/signals solely to force recomputation.
+    - Trigger recalculation from real events only (root bind changes, resize, mutation debounce).
+  - Collapsed rail markers must remain visually detectable:
+    - Use explicit pixel sizes or inline styles for width/height when utility class generation is unreliable.
+    - Ensure inactive markers still meet a minimum contrast/opacity threshold.
+  - Verification checklist for TOC changes (manual):
+    - Add/edit heading text and confirm TOC label updates while typing.
+    - Confirm h2/h3/h4 indentation is visible in expanded panel.
+    - Confirm collapsed markers are visible and level-differentiated.
+    - Confirm panel never clips off-screen at narrow and wide widths.
+    - Confirm no continuous DOM/style churn while idle (DevTools should not spam updates).
+
 ### UI composition (ParkUI simplification)
 
 - Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
