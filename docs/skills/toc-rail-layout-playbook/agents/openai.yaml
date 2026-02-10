@@ -1,0 +1,4 @@
+interface:
+  display_name: "TOC Rail Debug"
+  short_description: "Fix TOC rail layout and marker bugs quickly"
+  default_prompt: "Diagnose and fix TOC rail layout issues (marker mapping, visible range bounds, and expand/collapse placement) using the playbook."

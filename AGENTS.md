@@ -48,6 +48,12 @@ full instructions when using a specific skill.
   installable skills, install a curated skill, or install a skill from
   another repo (including private repos).
   (file: /Users/byronwall/.codex/skills/.system/skill-installer/SKILL.md)
+- toc-rail-layout-playbook: Diagnose and fix TOC/minimap rail bugs quickly
+  (marker spacing, heading mapping, visible range bounds, expand/collapse
+  placement, and reactivity churn). Use when TOC markers or panel placement
+  look wrong, especially after editor content changes or responsive layout
+  shifts.
+  (file: /Users/byronwall/Projects/visual-notes/docs/skills/toc-rail-layout-playbook/SKILL.md)
 
 ### How to use skills
 
