@@ -45,7 +45,11 @@ export const Tooltip = (props: TooltipProps) => {
   return (
     <Show when={!local.disabled} fallback={local.children}>
       <Root {...rootProps}>
-        <Trigger>{local.children}</Trigger>
+        <Trigger
+          asChild={(triggerProps) => (
+            <span {...triggerProps}>{local.children}</span>
+          )}
+        />
         <Show
           when={portalled()}
           fallback={

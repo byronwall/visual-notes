@@ -47,6 +47,9 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-db}:${DB_PORT:-5432}/${DB_NAME:-visual_notes}?schema=public
     ports:
       - "${APP_PORT:-3000}"
+    volumes:
+      - app-data:/app/data
 
 volumes:
   db-data:
+  app-data:

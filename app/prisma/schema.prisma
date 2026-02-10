@@ -172,6 +172,8 @@ model Doc {
   path              String?
   // Arbitrary single-level key/value pairs from client (stored as JSONB)
   meta              Json?
+  // Backup snapshot captured before inline data-image migration rewrites.
+  inlineImageMigrationBackup Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

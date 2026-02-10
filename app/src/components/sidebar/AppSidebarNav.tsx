@@ -5,6 +5,7 @@ import {
   LayoutGridIcon,
   MapIcon,
   NetworkIcon,
+  ShieldIcon,
   SparklesIcon,
 } from "lucide-solid";
 import { Button } from "~/components/ui/button";
@@ -53,6 +54,12 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
       href: "/ai",
       icon: SparklesIcon,
       isActive: (path) => isActiveSection("/ai", path),
+    },
+    {
+      label: "Admin",
+      href: "/admin/migrations",
+      icon: ShieldIcon,
+      isActive: (path) => isActiveSection("/admin", path),
     },
   ];
 

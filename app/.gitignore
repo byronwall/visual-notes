@@ -5,6 +5,7 @@ dist
 .vercel
 .netlify
 netlify
+data
 
 # dependencies
 /node_modules
