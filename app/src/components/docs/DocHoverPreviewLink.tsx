@@ -54,81 +54,82 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
   const path = () => props.previewDoc?.path ?? props.path;
   const metaCount = () => countMetaKeys(props.previewDoc?.meta ?? props.meta);
 
-  if (!mounted()) {
-    return (
-      <a href={props.href} class={props.triggerClass}>
-        {props.children}
-      </a>
-    );
-  }
-
   return (
-    <HoverCard.Root
-      openDelay={100}
-      closeDelay={100}
-      positioning={{
-        placement: "right-start",
-        offset: { mainAxis: 8 },
-        strategy: "fixed",
-      }}
+    <Show
+      when={mounted()}
+      fallback={
+        <a href={props.href} class={props.triggerClass}>
+          {props.children}
+        </a>
+      }
     >
-      <HoverCard.Trigger
-        asChild={(triggerProps) => (
-          <a {...triggerProps} href={props.href} class={props.triggerClass}>
-            {props.children}
-          </a>
-        )}
-      />
-      <Portal>
-        <HoverCard.Positioner>
-          <HoverCard.Content maxW="320px">
-            <a href={props.href} class={contentLinkClass}>
-              <Stack gap="2">
-                <Box fontSize="sm" fontWeight="semibold" color="fg.default">
-                  {props.title}
-                </Box>
-                <Stack gap="0.5">
-                  <Box fontSize="xs" color="fg.muted">
-                    Updated {formatRelativeTime(props.updatedAt)} (
-                    {formatAbsoluteTime(props.updatedAt)})
-                  </Box>
-                  <Show when={path()}>
-                    {(value) => (
-                      <Box
-                        fontSize="xs"
-                        color="fg.muted"
-                        whiteSpace="nowrap"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                      >
-                        Path {value()}
-                      </Box>
-                    )}
-                  </Show>
-                  <Show when={metaCount() > 0}>
-                    <Box fontSize="xs" color="fg.muted">
-                      Meta keys {metaCount()}
-                    </Box>
-                  </Show>
-                </Stack>
-                <Box borderTopWidth="1px" borderColor="border" />
-                <Box
-                  fontSize="xs"
-                  color="fg.default"
-                  style={{
-                    display: "-webkit-box",
-                    "-webkit-line-clamp": "2",
-                    "-webkit-box-orient": "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {previewText()}
-                </Box>
-              </Stack>
+      <HoverCard.Root
+        openDelay={100}
+        closeDelay={100}
+        positioning={{
+          placement: "right-start",
+          offset: { mainAxis: 8 },
+          strategy: "fixed",
+        }}
+      >
+        <HoverCard.Trigger
+          asChild={(triggerProps) => (
+            <a {...triggerProps} href={props.href} class={props.triggerClass}>
+              {props.children}
             </a>
-          </HoverCard.Content>
-        </HoverCard.Positioner>
-      </Portal>
-    </HoverCard.Root>
+          )}
+        />
+        <Portal>
+          <HoverCard.Positioner>
+            <HoverCard.Content maxW="320px">
+              <a href={props.href} class={contentLinkClass}>
+                <Stack gap="2">
+                  <Box fontSize="sm" fontWeight="semibold" color="fg.default">
+                    {props.title}
+                  </Box>
+                  <Stack gap="0.5">
+                    <Box fontSize="xs" color="fg.muted">
+                      Updated {formatRelativeTime(props.updatedAt)} (
+                      {formatAbsoluteTime(props.updatedAt)})
+                    </Box>
+                    <Show when={path()}>
+                      {(value) => (
+                        <Box
+                          fontSize="xs"
+                          color="fg.muted"
+                          whiteSpace="nowrap"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                        >
+                          Path {value()}
+                        </Box>
+                      )}
+                    </Show>
+                    <Show when={metaCount() > 0}>
+                      <Box fontSize="xs" color="fg.muted">
+                        Meta keys {metaCount()}
+                      </Box>
+                    </Show>
+                  </Stack>
+                  <Box borderTopWidth="1px" borderColor="border" />
+                  <Box
+                    fontSize="xs"
+                    color="fg.default"
+                    style={{
+                      display: "-webkit-box",
+                      "-webkit-line-clamp": "2",
+                      "-webkit-box-orient": "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {previewText()}
+                  </Box>
+                </Stack>
+              </a>
+            </HoverCard.Content>
+          </HoverCard.Positioner>
+        </Portal>
+      </HoverCard.Root>
+    </Show>
   );
 };

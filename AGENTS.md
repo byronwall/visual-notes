@@ -260,6 +260,11 @@ code and refactors unless explicitly told otherwise.
 
 - Use Show to narrow types safely.
   - Prefer function children when you want narrowed typing.
+- Do not use top-level signal-gated early returns for render branching (for
+  example `if (!mounted()) return <A />`) when the branch must update later.
+  - Reason: top-level render code is not reactive by default, so this can lock
+    the component into the fallback branch.
+  - Prefer reactive control flow: `<Show when={mounted()} fallback={<A />}>...</Show>`.
 
 Good:
 <Show when={user()}>{(u) => <UserCard user={u} />}</Show>
