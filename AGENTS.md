@@ -59,6 +59,12 @@ full instructions when using a specific skill.
   composability. Use when extracting shared components, reducing wrapper
   depth, or fixing overflow/layout issues caused by unconstrained descendants.
   (file: /Users/byronwall/Projects/visual-notes/docs/skills/component-structure-minimal-dom/SKILL.md)
+- tiptap-nodeview-migration-playbook: Convert TipTap plugin/overlay-based
+  editor customizations to SolidJS NodeViews in this repo using the local
+  nodeview renderer utilities (no external package). Use when replacing
+  custom ProseMirror DOM hooks, floating overlays, or ad-hoc addNodeView
+  implementations with Solid components.
+  (file: /Users/byronwall/Projects/visual-notes/docs/skills/tiptap-nodeview-migration-playbook/SKILL.md)
 
 ### How to use skills
 

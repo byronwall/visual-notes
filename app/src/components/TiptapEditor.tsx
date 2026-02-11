@@ -3,15 +3,12 @@ import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import type { Component } from "solid-js";
 import { createEditor } from "./editor/core/createEditor";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
-import { useCodeBlockOverlay } from "./editor/core/useCodeBlockOverlay";
 import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
 import "highlight.js/styles/github.css";
 import "tippy.js/dist/tippy.css";
-import type { SimpleSelectItem } from "~/components/ui/simple-select";
-import { SimpleSelect } from "~/components/ui/simple-select";
-import { Box, HStack } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
 
 const DEFAULT_HTML = `
 <h2>Hi there,</h2>
@@ -82,48 +79,6 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
     lastAppliedFromProps = next;
   });
 
-  // Code block overlay
-  const overlay = useCodeBlockOverlay(
-    () => editor() ?? null,
-    () => container()
-  );
-
-  const languageOptions = createMemo(() => [
-    "text",
-    "plaintext",
-    "bash",
-    "shell",
-    "javascript",
-    "typescript",
-    "json",
-    "yaml",
-    "markdown",
-    "html",
-    "xml",
-    "css",
-    "scss",
-    "python",
-    "java",
-    "c",
-    "cpp",
-    "csharp",
-    "go",
-    "rust",
-    "php",
-    "ruby",
-    "swift",
-    "kotlin",
-    "sql",
-    "dockerfile",
-    "ini",
-    "toml",
-    "diff",
-    "makefile",
-  ]);
-  const languageItems = createMemo<SimpleSelectItem[]>(() =>
-    languageOptions().map((l) => ({ label: l, value: l }))
-  );
-
   return (
     <Box class={props.class} w="full">
       <Show when={props.showToolbar !== false}>
@@ -167,6 +122,13 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
             outlineOffset: "2px",
             borderRadius: "l2",
           },
+          "& .ProseMirror .ProseMirror-selectednode img.vn-image": {
+            outlineWidth: "2px",
+            outlineStyle: "solid",
+            outlineColor: "blue.9",
+            outlineOffset: "2px",
+            borderRadius: "l2",
+          },
           "& .ProseMirror table": {
             width: "100%",
             borderCollapse: "collapse",
@@ -195,47 +157,16 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
           "& .ProseMirror tbody tr:nth-of-type(even) td": {
             bg: "gray.surface.bg.hover",
           },
+          "& .ProseMirror pre.vn-codeblock": {
+            position: "relative",
+          },
+          "& .ProseMirror .vn-codeblock-content": {
+            display: "block",
+            paddingTop: "6",
+          },
         }}
       >
         <Box minH="200px" ref={setContainer} />
-
-        <Show when={stableEditor() && overlay()}>
-          <Box
-            position="absolute"
-            zIndex="10"
-            style={{ top: `${overlay()!.top}px`, left: `${overlay()!.left}px` }}
-          >
-            <HStack
-              gap="1"
-              alignItems="center"
-              bg="bg.default"
-              borderWidth="1px"
-              borderColor="gray.outline.border"
-              borderRadius="l2"
-              px="2"
-              py="1"
-              boxShadow="sm"
-            >
-              <SimpleSelect
-                items={languageItems()}
-                value={
-                  stableEditor()?.getAttributes("codeBlock")?.language || "text"
-                }
-                onChange={(value) => {
-                  const lang = value || "text";
-                  console.log("[codeblock] set language:", lang);
-                  stableEditor()
-                    ?.chain()
-                    .focus()
-                    .updateAttributes("codeBlock", { language: lang })
-                    .run();
-                }}
-                size="xs"
-                placeholder="text"
-              />
-            </HStack>
-          </Box>
-        </Show>
       </Box>
 
       {csvPromptView}

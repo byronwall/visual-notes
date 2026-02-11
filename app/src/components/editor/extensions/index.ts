@@ -2,12 +2,12 @@ import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table-row";
-import { TableHeader } from "@tiptap/extension-table-header";
-import { TableCell } from "@tiptap/extension-table-cell";
 import { CustomCode } from "./CustomCode";
 import { CustomCodeBlock } from "./CustomCodeBlock";
 import { CustomImage } from "./CustomImage";
+import { CustomTableRow } from "./CustomTableRow";
+import { CustomTableHeader } from "./CustomTableHeader";
+import { CustomTableCell } from "./CustomTableCell";
 import { CsvPaste } from "./CsvPaste";
 import { MarkdownPaste } from "./MarkdownPaste";
 import { createEmojiSuggestion } from "./emojiSuggestion";
@@ -38,9 +38,9 @@ export function buildExtensions(
       lastColumnResizable: true,
       allowTableNodeSelection: true,
     }),
-    TableRow,
-    TableHeader,
-    TableCell,
+    CustomTableRow,
+    CustomTableHeader,
+    CustomTableCell,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here
     MarkdownPaste.configure({}),

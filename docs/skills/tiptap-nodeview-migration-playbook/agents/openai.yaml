@@ -1,0 +1,4 @@
+interface:
+  display_name: "TipTap NodeView Migration"
+  short_description: "Convert TipTap custom behavior to local Solid NodeViews"
+  default_prompt: "Migrate this TipTap customization to a Solid NodeView using the repo's local nodeview renderer utilities and preserve behavior parity."
