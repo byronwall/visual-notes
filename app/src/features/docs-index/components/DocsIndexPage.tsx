@@ -7,6 +7,7 @@ import {
 import {
   ErrorBoundary,
   Suspense,
+  batch,
   createEffect,
   createSignal,
   createMemo,
@@ -50,7 +51,10 @@ const DocsIndexPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   let initializedFromUrl = false;
   let lastSearchSnapshot = "";
+  let lastStoreSearchSnapshot = "";
   let isFirstUrlSync = true;
+  let syncingFromUrl = false;
+  let syncingToUrl = false;
   // We avoid echo loops by comparing nextSearch to location.search; a separate
   // suppression flag is unnecessary and can swallow the first user change.
   const MANAGED_KEYS = [
@@ -95,37 +99,32 @@ const DocsIndexPage = () => {
       serverShown: num("serverShown", 25),
     };
 
-    // Apply only when changes are detected to avoid loops
-    if (q.searchText() !== next.searchText) q.setSearchText(next.searchText);
-    if (q.pathPrefix() !== next.pathPrefix) q.setPathPrefix(next.pathPrefix);
-    if (q.blankPathOnly() !== next.blankPathOnly)
-      q.setBlankPathOnly(next.blankPathOnly);
-    if (q.metaKey() !== next.metaKey) q.setMetaKey(next.metaKey);
-    if (q.metaValue() !== next.metaValue) q.setMetaValue(next.metaValue);
-    if (q.source() !== next.source) q.setSource(next.source);
-    if (q.originalContentId() !== next.originalContentId)
-      q.setOriginalContentId(next.originalContentId);
-    if (q.createdFrom() !== next.createdFrom)
-      q.setCreatedFrom(next.createdFrom || undefined);
-    if (q.createdTo() !== next.createdTo)
-      q.setCreatedTo(next.createdTo || undefined);
-    if (q.updatedFrom() !== next.updatedFrom)
-      q.setUpdatedFrom(next.updatedFrom || undefined);
-    if (q.updatedTo() !== next.updatedTo)
-      q.setUpdatedTo(next.updatedTo || undefined);
-    // Handle load counts with reset + incremental add (no direct setter available across app)
+    // Handle load counts directly to avoid multi-step reactive churn.
     const desiredClient = Math.max(100, next.clientShown);
     const desiredServer = Math.max(25, next.serverShown);
-    let didReset = false;
-    if (q.clientShown() !== desiredClient) {
-      q.resetPaging();
-      didReset = true;
-      if (desiredClient > 100) q.showMoreClient(desiredClient - 100);
-    }
-    if (q.serverShown() !== desiredServer) {
-      if (!didReset) q.resetPaging();
-      if (desiredServer > 25) q.showMoreServer(desiredServer - 25);
-    }
+
+    batch(() => {
+      // Apply only when changes are detected to avoid loops.
+      if (q.searchText() !== next.searchText) q.setSearchText(next.searchText);
+      if (q.pathPrefix() !== next.pathPrefix) q.setPathPrefix(next.pathPrefix);
+      if (q.blankPathOnly() !== next.blankPathOnly)
+        q.setBlankPathOnly(next.blankPathOnly);
+      if (q.metaKey() !== next.metaKey) q.setMetaKey(next.metaKey);
+      if (q.metaValue() !== next.metaValue) q.setMetaValue(next.metaValue);
+      if (q.source() !== next.source) q.setSource(next.source);
+      if (q.originalContentId() !== next.originalContentId)
+        q.setOriginalContentId(next.originalContentId);
+      if (q.createdFrom() !== next.createdFrom)
+        q.setCreatedFrom(next.createdFrom || undefined);
+      if (q.createdTo() !== next.createdTo)
+        q.setCreatedTo(next.createdTo || undefined);
+      if (q.updatedFrom() !== next.updatedFrom)
+        q.setUpdatedFrom(next.updatedFrom || undefined);
+      if (q.updatedTo() !== next.updatedTo)
+        q.setUpdatedTo(next.updatedTo || undefined);
+      if (q.clientShown() !== desiredClient) q.setClientShown(desiredClient);
+      if (q.serverShown() !== desiredServer) q.setServerShown(desiredServer);
+    });
   };
 
   const readParam = (key: string) => {
@@ -144,15 +143,26 @@ const DocsIndexPage = () => {
 
   // Initialize from URL and keep store in sync when URL changes (e.g., back/forward)
   createEffect(() => {
+    if (syncingToUrl) {
+      syncingToUrl = false;
+      return;
+    }
     const currentParams = buildManagedSearch();
     const currentSearch = currentParams.toString()
       ? `?${currentParams.toString()}`
       : "";
+    // Guard against re-entering URL->store sync when URL and store are already aligned.
     if (isFirstUrlSync || currentSearch !== lastSearchSnapshot) {
       lastSearchSnapshot = currentSearch;
       isFirstUrlSync = false;
       console.log("[DocsIndex] Sync from URL", currentSearch);
-      parseParamsIntoStore(currentParams);
+      syncingFromUrl = true;
+      try {
+        parseParamsIntoStore(currentParams);
+      } finally {
+        syncingFromUrl = false;
+      }
+      lastStoreSearchSnapshot = currentSearch;
       initializedFromUrl = true;
     }
   });
@@ -160,6 +170,7 @@ const DocsIndexPage = () => {
   // Push store changes into URL (replace to avoid noisy history during typing)
   createEffect(() => {
     if (!initializedFromUrl) return; // wait until initial URL -> store sync
+    if (syncingFromUrl) return;
     const params = new URLSearchParams();
     if (q.searchText().trim()) params.set("q", q.searchText().trim());
     if (q.pathPrefix().trim()) params.set("pathPrefix", q.pathPrefix().trim());
@@ -181,6 +192,7 @@ const DocsIndexPage = () => {
       params.set("serverShown", String(q.serverShown()));
 
     const nextSearch = params.toString() ? `?${params.toString()}` : "";
+    if (nextSearch === lastStoreSearchSnapshot) return;
     console.log("[DocsIndex] Compute URL from store", {
       nextSearch,
       currentSearch: lastSearchSnapshot,
@@ -201,6 +213,8 @@ const DocsIndexPage = () => {
       for (const k of MANAGED_KEYS) obj[k] = undefined;
       for (const [k, v] of params.entries()) obj[k] = v;
       lastSearchSnapshot = nextSearch;
+      lastStoreSearchSnapshot = nextSearch;
+      syncingToUrl = true;
       setSearchParams(obj, { replace: true });
     }
   });
@@ -278,7 +292,8 @@ const DocsIndexPage = () => {
       createdTo: q.createdTo() || undefined,
       updatedFrom: q.updatedFrom() || undefined,
       updatedTo: q.updatedTo() || undefined,
-    })
+    }),
+    () => Math.max(50, Math.min(200, q.serverShown() + 50)),
   );
 
   const handleBulkSetSource = async () => {
@@ -297,7 +312,7 @@ const DocsIndexPage = () => {
     }
     if (
       !confirm(
-        `Clean bad titles for ${count} notes? This will remove long hex-like blocks.`
+        `Clean bad titles for ${count} notes? This will remove long hex-like blocks.`,
       )
     )
       return;
@@ -308,7 +323,7 @@ const DocsIndexPage = () => {
   const handleDeleteBySource = async (source: string, count: number) => {
     if (
       !confirm(
-        `Delete all notes for "${source}" (${count})? This cannot be undone.`
+        `Delete all notes for "${source}" (${count})? This cannot be undone.`,
       )
     )
       return;
@@ -323,7 +338,7 @@ const DocsIndexPage = () => {
     } catch {}
     await Promise.all([refreshDocs(), refreshSources()]);
     alert(
-      `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`
+      `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`,
     );
   };
 
@@ -371,7 +386,7 @@ const DocsIndexPage = () => {
       type: "add" | "update" | "remove";
       key: string;
       value?: unknown;
-    }[]
+    }[],
   ) => {
     const ids = visibleIds().filter((id) => selectedIds().has(id));
     const count = ids.length;
@@ -408,7 +423,7 @@ const DocsIndexPage = () => {
     setBulkError(undefined);
     try {
       console.log("[DocsIndex] bulk set path ids count=", count, { path });
-    await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
+      await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
       await refreshDocs();
       setShowBulkPath(false);
     } catch (e) {
@@ -427,7 +442,7 @@ const DocsIndexPage = () => {
     }
     if (
       !confirm(
-        `Mark ${count} notes with meta has_relative_image=true? This updates note metadata.`
+        `Mark ${count} notes with meta has_relative_image=true? This updates note metadata.`,
       )
     )
       return;
@@ -525,8 +540,8 @@ const DocsIndexPage = () => {
                   console.error("[DocsIndex] ResultsSection crashed", err);
                   return (
                     <Text textStyle="sm" color="red.700">
-                      Notes list crashed. Check console for
-                      `[DocsIndex] ResultsSection crashed`.
+                      Notes list crashed. Check console for `[DocsIndex]
+                      ResultsSection crashed`.
                     </Text>
                   );
                 }}
@@ -546,7 +561,7 @@ const DocsIndexPage = () => {
                     query={q}
                     nowMs={docsServerNow()}
                     serverResults={serverResults() || []}
-                    serverLoading={serverLoading}
+                    serverLoading={serverLoading()}
                     onVisibleIdsChange={setVisibleIds}
                     selectedIds={selectedIds()}
                     onToggleSelect={handleToggleSelect}

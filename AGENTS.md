@@ -28,6 +28,10 @@ guidelines from comp_refs.
 - Routes are routes
   - Do not create reusable UI under `app/src/routes/`.
   - Keep route modules focused on routing + data + page composition; move reusable UI to `app/src/components/` (or `~/components/*`).
+- End-of-session cleanup (optional, before commit)
+  - Command: `cd app && pnpm run fix:unstaged`
+  - Use at the end of a series of edits to auto-run ESLint fix + Prettier on unstaged files under `app/`.
+  - Optional: skip when you do not want automatic formatting/content changes yet.
 
 ## Skills
 
@@ -425,6 +429,13 @@ export const saveThing = action(
 
 - Avoid IIFEs for Solid components.
 - SVG icons: put inline SVG into its own component with a good name.
+- Responsive layout shells must mount route/page children exactly once.
+  - Do not render the same `children` in both desktop and mobile wrappers at
+    the same time and rely on CSS (`display: none`) to hide one branch.
+  - Hidden branches still mount and run effects/resources, which can cause
+    duplicate requests and state divergence.
+  - Prefer a single reactive branch (`Show`/`Switch`) that mounts desktop OR
+    mobile content, not both.
 - Use the minimum number of DOM elements needed for the behavior.
   - Avoid wrapper-on-wrapper composition when one structural primitive can
     carry the layout/style semantics.

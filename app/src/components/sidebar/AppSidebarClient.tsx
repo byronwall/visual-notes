@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { createSignal, onMount } from "solid-js";
+import { Show, createSignal, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -32,6 +32,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     string | undefined
   >(undefined);
   const [mobileOpen, setMobileOpen] = createSignal(false);
+  const [isMobileView, setIsMobileView] = createSignal(false);
 
   const isExpanded = () => !collapsed();
 
@@ -69,6 +70,10 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   };
 
   onMount(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => setIsMobileView(media.matches);
+    syncViewport();
+
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {
         openLLM(e.threadId);
@@ -84,48 +89,55 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       setCmdkOpen((prev) => !prev);
     };
     window.addEventListener("keydown", onWindowKeyDown);
+    media.addEventListener("change", syncViewport);
     return () => {
       off();
       window.removeEventListener("keydown", onWindowKeyDown);
+      media.removeEventListener("change", syncViewport);
     };
   });
 
   return (
     <>
       <Box minH="100vh" bg="bg.default">
-        <AppSidebarDesktop
-          expanded={isExpanded()}
-          collapsedWidth={COLLAPSED_WIDTH}
-          expandedWidth={EXPANDED_WIDTH}
-          onSidebarMouseEnter={() => {}}
-          onSidebarMouseLeave={() => {}}
-          onToggleCollapse={handleCollapseToggle}
-          onClose={() => setCollapsed(true)}
-          onChatOpen={handleChatOpen}
-          onNewNoteOpen={handleNewNoteOpen}
-          onSearchOpen={handleSearchOpen}
-          onLogout={handleLogout}
-          hasUnreadAny={hasUnreadAny}
-          hasLoadingAny={hasLoadingAny}
-          authed={authed}
+        <Show
+          when={isMobileView()}
+          fallback={
+            <AppSidebarDesktop
+              expanded={isExpanded()}
+              collapsedWidth={COLLAPSED_WIDTH}
+              expandedWidth={EXPANDED_WIDTH}
+              onSidebarMouseEnter={() => {}}
+              onSidebarMouseLeave={() => {}}
+              onToggleCollapse={handleCollapseToggle}
+              onClose={() => setCollapsed(true)}
+              onChatOpen={handleChatOpen}
+              onNewNoteOpen={handleNewNoteOpen}
+              onSearchOpen={handleSearchOpen}
+              onLogout={handleLogout}
+              hasUnreadAny={hasUnreadAny}
+              hasLoadingAny={hasLoadingAny}
+              authed={authed}
+            >
+              {props.children}
+            </AppSidebarDesktop>
+          }
         >
-          {props.children}
-        </AppSidebarDesktop>
-
-        <AppSidebarMobile
-          open={mobileOpen()}
-          onOpenChange={setMobileOpen}
-          onToggleCollapse={handleCollapseToggle}
-          onChatOpen={handleChatOpen}
-          onNewNoteOpen={handleNewNoteOpen}
-          onSearchOpen={handleSearchOpen}
-          onLogout={handleLogout}
-          hasUnreadAny={hasUnreadAny}
-          hasLoadingAny={hasLoadingAny}
-          authed={authed}
-        >
-          {props.children}
-        </AppSidebarMobile>
+          <AppSidebarMobile
+            open={mobileOpen()}
+            onOpenChange={setMobileOpen}
+            onToggleCollapse={handleCollapseToggle}
+            onChatOpen={handleChatOpen}
+            onNewNoteOpen={handleNewNoteOpen}
+            onSearchOpen={handleSearchOpen}
+            onLogout={handleLogout}
+            hasUnreadAny={hasUnreadAny}
+            hasLoadingAny={hasLoadingAny}
+            authed={authed}
+          >
+            {props.children}
+          </AppSidebarMobile>
+        </Show>
       </Box>
 
       {llmSidebarView}

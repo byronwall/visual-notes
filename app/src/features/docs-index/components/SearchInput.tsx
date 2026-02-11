@@ -20,7 +20,7 @@ export const SearchInput: VoidComponent<{
         size="sm"
         flex="1"
         minW="0"
-        placeholder="Filter by title (client) and contents (server)"
+        placeholder="Search title, path, and note content"
         value={props.value}
         onInput={handleChange}
         autocomplete="off"

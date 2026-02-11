@@ -53,10 +53,12 @@ export const DocRow = (props: {
       _hover={{ bg: "gray.surface.bg.hover" }}
     >
       <Flex align="center" justify="space-between" gap="0.75rem">
-        <HStack gap="0.5rem" minW="0">
+        <HStack gap="0.5rem" minW="0" alignItems="flex-start">
           <Checkbox.Root
             checked={!!props.selected}
-            onCheckedChange={(details) => handleToggle(details.checked === true)}
+            onCheckedChange={(details) =>
+              handleToggle(details.checked === true)
+            }
           >
             <Checkbox.HiddenInput />
             <Checkbox.Control>
@@ -98,6 +100,15 @@ export const DocRow = (props: {
                 </Text>
               </Show>
             </DocHoverPreviewLink>
+            <Show when={props.snippet}>
+              {(snippet) => (
+                <Text fontSize="xs" color="black.a7" lineClamp="2">
+                  <Show when={props.query} fallback={snippet()}>
+                    {(query) => renderHighlighted(snippet(), query())}
+                  </Show>
+                </Text>
+              )}
+            </Show>
           </Stack>
         </HStack>
         <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
@@ -110,7 +121,9 @@ export const DocRow = (props: {
                 onClick={() => props.onFilterPath?.(path())}
                 title={`Filter by path: ${path()}`}
               >
-                {path()}
+                <Show when={props.query} fallback={path()}>
+                  {(query) => renderHighlighted(path(), query())}
+                </Show>
               </Button>
             )}
           </Show>

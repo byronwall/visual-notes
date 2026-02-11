@@ -6,6 +6,7 @@
     "start": "vinxi start",
     "start-prod": "pnpm prisma migrate deploy && pnpm start",
     "lint": "eslint --fix \"**/*.{ts,tsx,js,jsx}\"",
+    "fix:unstaged": "sh -c 'app_files=$(git diff --name-only --diff-filter=ACMR | grep \"^app/\" | sed \"s#^app/##\"); if [ -z \"$app_files\" ]; then echo \"No unstaged files under app/.\"; exit 0; fi; eslint_files=$(printf \"%s\\n\" \"$app_files\" | grep -E \"\\\\.(ts|tsx|js|jsx)$\" || true); if [ -n \"$eslint_files\" ]; then printf \"%s\\n\" \"$eslint_files\" | xargs pnpm exec eslint --fix; fi; printf \"%s\\n\" \"$app_files\" | xargs pnpm exec prettier --write --ignore-unknown'",
     "panda": "panda codegen",
     "test": "vitest run",
     "push": "prisma db push",

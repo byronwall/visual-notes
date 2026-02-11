@@ -8,6 +8,7 @@ function escapeRegExp(input: string): string {
 export function renderHighlighted(text: string, query: string) {
   const q = query.trim();
   if (!q) return text;
+  const qLower = q.toLowerCase();
   const pattern = new RegExp(`(${escapeRegExp(q)})`, "ig");
   const parts = text.split(pattern);
   const markClass = css({
@@ -20,7 +21,7 @@ export function renderHighlighted(text: string, query: string) {
     <>
       <For each={parts}>
         {(part, i) =>
-          pattern.test(part) ? (
+          part.toLowerCase() === qLower ? (
             <mark class={markClass} data-idx={i()}>
               {part}
             </mark>
