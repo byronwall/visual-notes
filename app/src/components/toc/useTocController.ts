@@ -54,6 +54,7 @@ export function useTocController(options: UseTocControllerOptions) {
   const showExpandedPanel = createMemo(
     () => showExpandedByDefault() || isHoverExpanded()
   );
+  const hasItems = createMemo(() => items().length > 0);
 
   const minHeadingLevel = createMemo(() => {
     const levels = items().map((item) => item.level);
@@ -120,9 +121,10 @@ export function useTocController(options: UseTocControllerOptions) {
   let observer: MutationObserver | undefined;
   let recollectTimer: number | undefined;
   let rootPollTimer: number | undefined;
-  let positionTimer: number | undefined;
   let scrollHandler: (() => void) | undefined;
   let resizeHandler: (() => void) | undefined;
+  let focusHandler: (() => void) | undefined;
+  let visibilityHandler: (() => void) | undefined;
   let wasExpanded = false;
 
   function resolveHeadingEl(item: TocItem): HTMLElement | null {
@@ -159,7 +161,9 @@ export function useTocController(options: UseTocControllerOptions) {
     setViewportHeightPx(window.innerHeight);
 
     if (!root) {
-      resetLayoutState();
+      if (!hasItems()) {
+        resetLayoutState();
+      }
       return;
     }
 
@@ -271,8 +275,14 @@ export function useTocController(options: UseTocControllerOptions) {
     if (recollectTimer) window.clearTimeout(recollectTimer);
     recollectTimer = window.setTimeout(() => {
       const root = options.getRootEl();
-      bindRoot(root);
-      collectHeadings(root);
+      if (root) {
+        bindRoot(root);
+        collectHeadings(root);
+      } else if (!observedRoot) {
+        bindRoot(null);
+      } else {
+        collectHeadings(observedRoot);
+      }
       refreshLayoutMode();
       recomputeTocPositions();
     }, 250);
@@ -349,12 +359,14 @@ export function useTocController(options: UseTocControllerOptions) {
     recomputeTocPositions();
 
     rootPollTimer = window.setInterval(() => {
-      bindRoot(options.getRootEl());
+      const root = options.getRootEl();
+      if (!root) return;
+      bindRoot(root);
+      if (rootPollTimer) {
+        window.clearInterval(rootPollTimer);
+        rootPollTimer = undefined;
+      }
     }, 300);
-
-    positionTimer = window.setInterval(() => {
-      recomputeTocPositions();
-    }, 700);
 
     scrollHandler = () => recomputeTocPositions();
     resizeHandler = () => {
@@ -362,17 +374,35 @@ export function useTocController(options: UseTocControllerOptions) {
       refreshLayoutMode();
       recomputeTocPositions();
     };
+    focusHandler = () => {
+      window.requestAnimationFrame(() => {
+        bindRoot(options.getRootEl());
+        scheduleRecollect();
+      });
+    };
+    visibilityHandler = () => {
+      if (document.hidden) return;
+      window.requestAnimationFrame(() => {
+        bindRoot(options.getRootEl());
+        scheduleRecollect();
+      });
+    };
 
     window.addEventListener("scroll", scrollHandler, { passive: true });
     window.addEventListener("resize", resizeHandler);
+    window.addEventListener("focus", focusHandler);
+    document.addEventListener("visibilitychange", visibilityHandler);
 
     onCleanup(() => {
       if (recollectTimer) window.clearTimeout(recollectTimer);
       if (rootPollTimer) window.clearInterval(rootPollTimer);
-      if (positionTimer) window.clearInterval(positionTimer);
       if (observer) observer.disconnect();
       if (scrollHandler) window.removeEventListener("scroll", scrollHandler);
       if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (focusHandler) window.removeEventListener("focus", focusHandler);
+      if (visibilityHandler) {
+        document.removeEventListener("visibilitychange", visibilityHandler);
+      }
     });
   });
 
@@ -444,5 +474,6 @@ export function useTocController(options: UseTocControllerOptions) {
     visibleMarkerBounds,
     visibleStartIndex,
     markers,
+    hasItems,
   };
 }
