@@ -1,9 +1,9 @@
 import { For, Show, Suspense, createEffect, createMemo, createSignal } from "solid-js";
 import type { VoidComponent } from "solid-js";
 import { createAsync, useAction } from "@solidjs/router";
-import { CircleXIcon } from "lucide-solid";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import { ClearButton } from "~/components/ui/clear-button";
 import {
   appendSegment,
   buildNextSegmentSuggestions,
@@ -16,7 +16,6 @@ import {
   truncatePathDraft,
   type PathDraft,
 } from "~/components/doc-properties/path-draft";
-import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { fetchPathSuggestions, updateDoc } from "~/services/docs.service";
@@ -272,16 +271,7 @@ export const PathEditor: VoidComponent<{
       </Suspense>
 
       <HStack justifyContent="flex-end" gap="1.5" alignItems="center">
-        <IconButton
-          size="xs"
-          variant="plain"
-          onClick={clearAll}
-          title="Clear path"
-          aria-label="Clear path"
-          type="button"
-        >
-          <CircleXIcon />
-        </IconButton>
+        <ClearButton onClick={clearAll} label="Clear path" />
 
         <Show when={props.docId}>
           <Button

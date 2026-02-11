@@ -10,6 +10,7 @@ import { createAsync } from "@solidjs/router";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import type { DocsQueryStore } from "../state/docsQuery";
 import { Button } from "~/components/ui/button";
+import { ClearButton } from "~/components/ui/clear-button";
 import { IconButton } from "~/components/ui/icon-button";
 import * as ScrollArea from "~/components/ui/scroll-area";
 import { Text } from "~/components/ui/text";
@@ -199,11 +200,9 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
           Paths
         </Text>
         <HStack gap="0.5rem" mt="0.5rem" alignItems="center">
-          <IconButton
-            size="xs"
+          <ClearButton
             variant="outline"
-            aria-label="Clear path filter"
-            title="Clear path filter"
+            label="Clear path filter"
             onClick={() => {
               console.log("[PathTreeSidebar] clear prefix");
               props.q.setPathPrefix("");
@@ -212,7 +211,7 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
             }}
           >
             <XIcon size={14} />
-          </IconButton>
+          </ClearButton>
           <HStack gap="0.5rem" ml="auto">
             <Tooltip content="Expand all">
               <IconButton

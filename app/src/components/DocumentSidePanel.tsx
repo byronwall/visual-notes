@@ -8,6 +8,7 @@ import {
 import { useAction } from "@solidjs/router";
 import { Box, Flex, HStack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import { CloseButton } from "~/components/ui/close-button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
@@ -172,14 +173,12 @@ export const DocumentSidePanel: VoidComponent<{
           >
             Open full page
           </Link>
-          <IconButton
-            variant="plain"
+          <CloseButton
             size="xs"
             aria-label="Close panel"
+            title="Close panel"
             onClick={() => props.onClose(false)}
-          >
-            ✕
-          </IconButton>
+          />
         </Flex>
       </Box>
 

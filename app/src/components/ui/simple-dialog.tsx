@@ -1,10 +1,9 @@
 import { Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { XIcon } from "lucide-solid";
 import { css } from "styled-system/css";
 import * as Dialog from "~/components/ui/dialog";
 import { WrapWhen } from "./WrapWhen";
-import { IconButton } from "./icon-button";
+import { CloseButton } from "./close-button";
 
 type SimpleDialogProps = {
   open: boolean;
@@ -78,9 +77,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
               <Dialog.CloseTrigger
                 aria-label={props.closeLabel ?? "Close dialog"}
               >
-                <IconButton variant="plain" colorPalette="gray">
-                  <XIcon />
-                </IconButton>
+                <CloseButton />
               </Dialog.CloseTrigger>
             </Show>
             <Dialog.Body

@@ -5,14 +5,13 @@ import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { DateInput } from "~/components/DateInput";
 import { Button } from "~/components/ui/button";
-import { IconButton } from "~/components/ui/icon-button";
+import { ClearButton } from "~/components/ui/clear-button";
 import { Input } from "~/components/ui/input";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
-import { CircleXIcon } from "lucide-solid";
 
 export const FiltersPanel = (props: {
   q: ReturnType<typeof createDocsQueryStore>;
@@ -178,19 +177,13 @@ export const FiltersPanel = (props: {
                   spellcheck={false}
                 />
                 <Show when={q.metaKey().trim() || q.metaValue().trim()}>
-                  <IconButton
-                    size="xs"
-                    variant="plain"
+                  <ClearButton
                     onClick={() => {
                       q.setMetaKey("");
                       q.setMetaValue("");
                     }}
-                    title="Clear meta filters"
-                    aria-label="Clear meta filters"
-                    type="button"
-                  >
-                    <CircleXIcon />
-                  </IconButton>
+                    label="Clear meta filters"
+                  />
                 </Show>
               </HStack>
             </Grid>
@@ -229,16 +222,10 @@ export const FiltersPanel = (props: {
             />
           </Box>
           <Show when={q.source().trim()}>
-            <IconButton
-              size="xs"
-              variant="plain"
+            <ClearButton
               onClick={() => q.setSource("")}
-              title="Clear source filter"
-              aria-label="Clear source filter"
-              type="button"
-            >
-              <CircleXIcon />
-            </IconButton>
+              label="Clear source filter"
+            />
           </Show>
         </HStack>
       </Show>
@@ -263,16 +250,10 @@ export const FiltersPanel = (props: {
             spellcheck={false}
           />
           <Show when={q.originalContentId().trim()}>
-            <IconButton
-              size="xs"
-              variant="plain"
+            <ClearButton
               onClick={() => q.setOriginalContentId("")}
-              title="Clear original content ID filter"
-              aria-label="Clear original content ID filter"
-              type="button"
-            >
-              <CircleXIcon />
-            </IconButton>
+              label="Clear original content ID filter"
+            />
           </Show>
         </HStack>
       </Show>
@@ -294,19 +275,13 @@ export const FiltersPanel = (props: {
               aria-label="Created to"
             />
             <Show when={(q.createdFrom() || q.createdTo())?.trim?.()}>
-              <IconButton
-                size="xs"
-                variant="plain"
+              <ClearButton
                 onClick={() => {
                   q.setCreatedFrom(undefined);
                   q.setCreatedTo(undefined);
                 }}
-                title="Clear created range"
-                aria-label="Clear created range"
-                type="button"
-              >
-                <CircleXIcon />
-              </IconButton>
+                label="Clear created range"
+              />
             </Show>
           </HStack>
         </HStack>
@@ -329,19 +304,13 @@ export const FiltersPanel = (props: {
               aria-label="Updated to"
             />
             <Show when={(q.updatedFrom() || q.updatedTo())?.trim?.()}>
-              <IconButton
-                size="xs"
-                variant="plain"
+              <ClearButton
                 onClick={() => {
                   q.setUpdatedFrom(undefined);
                   q.setUpdatedTo(undefined);
                 }}
-                title="Clear updated range"
-                aria-label="Clear updated range"
-                type="button"
-              >
-                <CircleXIcon />
-              </IconButton>
+                label="Clear updated range"
+              />
             </Show>
           </HStack>
         </HStack>

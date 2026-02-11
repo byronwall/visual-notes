@@ -1,8 +1,9 @@
-import { PanelLeftCloseIcon, PanelLeftOpenIcon, XIcon } from "lucide-solid";
+import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-solid";
 import type { Accessor } from "solid-js";
 import { Show } from "solid-js";
 import { Box, HStack, VisuallyHidden } from "styled-system/jsx";
 import { AppSidebarNav } from "./AppSidebarNav";
+import { CloseButton } from "~/components/ui/close-button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Image } from "~/components/ui/image";
 import { Link } from "~/components/ui/link";
@@ -95,15 +96,12 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
           </IconButton>
         </Show>
         <Show when={props.mode === "mobile"}>
-          <IconButton
-            variant="plain"
+          <CloseButton
             size="xs"
             aria-label="Close sidebar"
             title="Close sidebar"
             onClick={props.onClose}
-          >
-            <XIcon size={16} />
-          </IconButton>
+          />
         </Show>
       </HStack>
 

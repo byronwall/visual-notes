@@ -54,6 +54,11 @@ full instructions when using a specific skill.
   look wrong, especially after editor content changes or responsive layout
   shifts.
   (file: /Users/byronwall/Projects/visual-notes/docs/skills/toc-rail-layout-playbook/SKILL.md)
+- component-structure-minimal-dom: Build and refactor UI components with the
+  least necessary DOM nodes while preserving clarity, accessibility, and
+  composability. Use when extracting shared components, reducing wrapper
+  depth, or fixing overflow/layout issues caused by unconstrained descendants.
+  (file: /Users/byronwall/Projects/visual-notes/docs/skills/component-structure-minimal-dom/SKILL.md)
 
 ### How to use skills
 
@@ -110,6 +115,22 @@ code and refactors unless explicitly told otherwise.
     tightly related.
 
 ### General UI patterns
+
+- Reuse shared prompt/modal helpers for consistency.
+
+  - For two-choice paste/import prompts with text previews, prefer
+    `usePasteChoicePrompt` from `app/src/components/editor/ui/usePasteChoicePrompt.tsx`
+    instead of duplicating modal state/resolver/button wiring.
+  - Keep prompt actions in `SimpleDialog` footer when they must remain visible.
+  - Constrain preview containers with an outer frame (`w="full"`, `maxW="100%"`,
+    `overflow="hidden"`) and put scroll behavior on an inner viewport only.
+
+- Reuse shared clear/close action wrappers.
+
+  - Prefer `ClearButton` from `app/src/components/ui/clear-button.tsx` for
+    clear-filter/clear-input icon actions.
+  - Prefer `CloseButton` from `app/src/components/ui/close-button.tsx` for
+    close actions instead of bespoke `IconButton + X` compositions.
 
 - Highlight matches in search results.
 
@@ -398,6 +419,15 @@ export const saveThing = action(
 
 - Avoid IIFEs for Solid components.
 - SVG icons: put inline SVG into its own component with a good name.
+- Use the minimum number of DOM elements needed for the behavior.
+  - Avoid wrapper-on-wrapper composition when one structural primitive can
+    carry the layout/style semantics.
+  - Prefer structural primitives (`Box`, `Stack`, `HStack`, `Flex`) as the
+    composition backbone, and keep each layer purposeful.
+  - When overflow is needed, explicitly separate:
+    - constraint container (size/bounds)
+    - scroll container (overflow)
+    - content container (intrinsic width/height)
 
 ### Error handling
 
