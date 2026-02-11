@@ -63,8 +63,11 @@ export const SidePanel = (props: SidePanelProps) => {
             insetY="0"
             right="0"
             display="flex"
+            flexDirection="column"
             h="full"
             maxH="full"
+            overflowY="auto"
+            overscrollBehavior="contain"
             bg="bg.default"
             borderLeftWidth="1px"
             borderColor="border"
@@ -76,17 +79,7 @@ export const SidePanel = (props: SidePanelProps) => {
               "backdrop-filter": "blur(10px)",
             }}
           >
-            <Box
-              display="flex"
-              h="full"
-              w="full"
-              flexDirection="column"
-              overflowY="auto"
-              overscrollBehavior="contain"
-              bg="bg.default"
-            >
-              {props.children}
-            </Box>
+            {props.children}
           </Box>
         </Box>
       </Portal>

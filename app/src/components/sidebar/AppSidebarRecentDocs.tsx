@@ -79,28 +79,26 @@ export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
                   const previewDoc = () => previewDocsById().get(item.id) || null;
 
                   return (
-                    <Box w="full">
-                      <DocHoverPreviewLink
-                        href={href()}
-                        title={item.title || "Untitled"}
-                        updatedAt={item.updatedAt}
-                        path={item.path}
-                        meta={item.meta}
-                        previewDoc={previewDoc()}
-                        triggerClass={recentDocLinkClass}
+                    <DocHoverPreviewLink
+                      href={href()}
+                      title={item.title || "Untitled"}
+                      updatedAt={item.updatedAt}
+                      path={item.path}
+                      meta={item.meta}
+                      previewDoc={previewDoc()}
+                      triggerClass={recentDocLinkClass}
+                    >
+                      <Box
+                        as="span"
+                        fontSize="sm"
+                        whiteSpace="nowrap"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        display="block"
                       >
-                        <Box
-                          as="span"
-                          fontSize="sm"
-                          whiteSpace="nowrap"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                          display="block"
-                        >
-                          {title()}
-                        </Box>
-                      </DocHoverPreviewLink>
-                    </Box>
+                        {title()}
+                      </Box>
+                    </DocHoverPreviewLink>
                   );
                 }}
               </For>

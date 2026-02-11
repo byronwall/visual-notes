@@ -238,35 +238,29 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       maxW="720px"
     >
       <Stack gap="0.75rem" w="full" minW="0">
-        <Box w="full" minW="0">
-          <HStack gap="2" alignItems="center">
-            <Box flex="1" minW="0">
-              <Input
-                ref={inputEl}
-                size="sm"
-                placeholder="Type to search… (2+ characters)"
-                value={query()}
-                onInput={(e) =>
-                  setQuery((e.currentTarget as HTMLInputElement).value)
-                }
-                onKeyDown={(e) =>
-                  handleInputKeyDown(e as unknown as KeyboardEvent)
-                }
-                autocomplete="off"
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck={false}
-              />
-            </Box>
+        <HStack gap="2" alignItems="center" w="full" minW="0">
+          <Input
+            ref={inputEl}
+            size="sm"
+            flex="1"
+            minW="0"
+            placeholder="Type to search… (2+ characters)"
+            value={query()}
+            onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
+            onKeyDown={(e) => handleInputKeyDown(e as unknown as KeyboardEvent)}
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck={false}
+          />
 
-            {/* reserve space to avoid layout shift */}
-            <Box w="20px" display="inline-flex" justifyContent="flex-end">
-              <Show when={isSearching()}>
-                <Spinner size="xs" color="fg.muted" />
-              </Show>
-            </Box>
-          </HStack>
-        </Box>
+          {/* reserve space to avoid layout shift */}
+          <Box w="20px" display="inline-flex" justifyContent="flex-end">
+            <Show when={isSearching()}>
+              <Spinner size="xs" color="fg.muted" />
+            </Show>
+          </Box>
+        </HStack>
 
         <Suspense
           fallback={
@@ -330,14 +324,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                           >
                             <NewNoteIcon />
                           </Show>
-                          <Box minW="0" flex="1">
-                            <Text fontSize="sm" fontWeight="semibold" truncate>
-                              {
-                                (it as Extract<CommandItem, { kind: "action" }>)
-                                  .label
-                              }
-                            </Text>
-                          </Box>
+                          <Text fontSize="sm" fontWeight="semibold" truncate minW="0" flex="1">
+                            {(it as Extract<CommandItem, { kind: "action" }>).label}
+                          </Text>
                         </HStack>
                         <Show
                           when={
