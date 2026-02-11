@@ -343,7 +343,7 @@ const MigrationPanel: VoidComponent = () => {
 
       <Box borderWidth="1px" borderColor="gray.outline.border" borderRadius="l3" p="4">
         <Heading as="h2" fontSize="lg" mb="3">
-          Recent Backups
+          Recent Backups (30 Most Recent Docs)
         </Heading>
         <Suspense fallback={<Text color="fg.muted">Loading backup list…</Text>}>
           <Show when={status()?.recentBackups?.length} fallback={<Text color="fg.muted">No backup rows yet.</Text>}>
@@ -410,7 +410,7 @@ const MigrationPanel: VoidComponent = () => {
 
       <Box borderWidth="1px" borderColor="gray.outline.border" borderRadius="l3" p="4">
         <Heading as="h2" fontSize="lg" mb="3">
-          Images On Disk
+          Images On Disk (10 Biggest Files)
         </Heading>
         <Suspense fallback={<Text color="fg.muted">Loading image storage inventory…</Text>}>
           <Show when={status()}>
@@ -434,6 +434,9 @@ const MigrationPanel: VoidComponent = () => {
                   when={s().imageStorage.files.length > 0}
                   fallback={<Text color="fg.muted">No image files found.</Text>}
                 >
+                  <Text textStyle="xs" color="fg.muted">
+                    Showing the {s().imageStorage.files.length} largest files by size.
+                  </Text>
                   <Table.Root>
                     <Table.Head>
                       <Table.Row>
