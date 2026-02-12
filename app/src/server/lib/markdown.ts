@@ -28,7 +28,6 @@ function removeUtmParamsFromUrl(input: string): string {
     const first = normalizedInput.slice(0, splitIdx);
     // If the first chunk is a valid absolute URL, prefer it.
     if (/^https?:\/\//i.test(first)) {
-      console.log("[removeUtmParamsFromUrl] collapsed concatenated url");
       return removeUtmParamsFromUrl(first);
     }
   }
@@ -48,23 +47,12 @@ function removeUtmParamsFromUrl(input: string): string {
       if (/^utm_/i.test(k)) toDelete.push(k);
     });
 
-    if (toDelete.length) {
-      console.log("[removeUtmParamsFromUrl] stripping:", toDelete);
-    }
-
     toDelete.forEach((k) => urlObj.searchParams.delete(k));
 
     const out = urlObj.toString();
     const finalOut = isProtocolRelative ? out.replace(/^https?:/, "") : out;
-    if (finalOut !== input) {
-      console.log("[removeUtmParamsFromUrl] cleaned:", {
-        before: input,
-        after: finalOut,
-      });
-    }
     return finalOut;
   } catch (err) {
-    console.log("[removeUtmParamsFromUrl] failed to parse:", input, err);
     return input;
   }
 }
@@ -219,29 +207,7 @@ export function normalizeMarkdownToHtml(raw: string | undefined): string {
   let s = stripAiHtmlWrapper(raw);
   // Keep fenced code blocks intact for proper rendering/highlighting
 
-  try {
-    const hasFences = /^```/m.test(s);
-    const sample = s.slice(0, 200);
-    console.log(
-      "[markdown.normalize] input len:%d fenced:%s sample:%s",
-      s.length,
-      hasFences,
-      sample
-    );
-  } catch {}
-
   const out = markdownToHtml(s).trim();
-
-  try {
-    const hasPre = /<pre\b[^>]*>\s*<code\b/i.test(out);
-    const outSample = out.slice(0, 200);
-    console.log(
-      "[markdown.normalize] output len:%d preCode:%s sample:%s",
-      out.length,
-      hasPre,
-      outSample
-    );
-  } catch {}
 
   return out;
 }

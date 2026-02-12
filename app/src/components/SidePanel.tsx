@@ -31,10 +31,8 @@ export const SidePanel = (props: SidePanelProps) => {
     if (!props.open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    console.log("[SidePanel] Body scroll locked");
     onCleanup(() => {
       document.body.style.overflow = previousOverflow;
-      console.log("[SidePanel] Body scroll unlocked");
     });
   });
 

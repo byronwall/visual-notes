@@ -28,7 +28,6 @@ export function useAiResultEditorModal() {
 
   const openModal = (args: AiResultEditorOpenArgs) =>
     new Promise<void>((resolve) => {
-      console.log("[ai-result-editor-modal] open");
       setSelectionText(args.selectionText || "");
       setOutputMarkdown(args.outputMarkdown || "");
       setCompiledPrompt(args.compiledPrompt || "");
@@ -49,13 +48,7 @@ export function useAiResultEditorModal() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log("[ai-result-editor-modal] copied");
-    } catch (e) {
-      console.log(
-        "[ai-result-editor-modal] copy failed",
-        (e as Error)?.message
-      );
-    }
+    } catch {}
   };
 
   const onCopyMarkdown = () => copyToClipboard(outputMarkdown() || "");

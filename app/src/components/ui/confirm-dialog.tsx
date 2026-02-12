@@ -19,13 +19,11 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   const cancelLabel = () => props.cancelLabel ?? "Cancel";
 
   const handleConfirm = () => {
-    console.log("ConfirmDialog:handleConfirm");
     props.onConfirm();
     props.onOpenChange(false);
   };
 
   const handleCancel = () => {
-    console.log("ConfirmDialog:handleCancel");
     props.onOpenChange(false);
   };
 

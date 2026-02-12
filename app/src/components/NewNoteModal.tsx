@@ -26,18 +26,15 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
   };
 
   const handleCancel = () => {
-    console.log("[new-note-modal] cancel");
     setEditorApi(undefined);
     props.onOpenChange(false);
   };
 
   const handleSave = () => {
-    console.log("[new-note-modal] save");
     void editorApi()?.save();
   };
 
   const handleCreated = (id: string) => {
-    console.log("[new-note-modal] created id", id);
     setEditorApi(undefined);
     props.onOpenChange(false);
     navigate(`/docs/${id}`);

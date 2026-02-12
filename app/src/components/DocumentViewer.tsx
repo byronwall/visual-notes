@@ -29,10 +29,6 @@ const DocumentViewer: VoidComponent<{
   doc: DocumentData;
   onDeleted?: () => void;
 }> = (props) => {
-  try {
-    console.log("[DocumentViewer] render docId=", props.doc?.id);
-  } catch {}
-
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
@@ -73,7 +69,6 @@ const DocumentViewer: VoidComponent<{
     try {
       await runUpdateDoc({ id: props.doc.id, title: newTitle });
       setTitle(newTitle);
-      console.log("[DocumentViewer] title updated:", newTitle);
     } catch (e) {
       alert((e as Error).message || "Failed to update title");
     } finally {
@@ -94,9 +89,7 @@ const DocumentViewer: VoidComponent<{
   const handleDeleteConfirm = async () => {
     try {
       setBusy(true);
-      console.log("[DocumentViewer] deleting docId=", props.doc?.id);
       await runDeleteDoc(props.doc.id);
-      console.log("[DocumentViewer] deleted docId=", props.doc?.id);
       if (props.onDeleted) {
         try {
           props.onDeleted();
@@ -131,15 +124,7 @@ const DocumentViewer: VoidComponent<{
           </Heading>
           <TitleEditPopover
             open={editing()}
-            onOpenChange={(open) => {
-              if (open) {
-                console.log(
-                  "[DocumentViewer] open title edit for doc:",
-                  props.doc.id,
-                );
-              }
-              setEditing(open);
-            }}
+            onOpenChange={setEditing}
             initialTitle={title()}
             onConfirm={handleConfirmEdit}
             onCancel={handleCancelEdit}

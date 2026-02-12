@@ -37,9 +37,6 @@ export const DocRow = (props: {
   });
 
   const handleToggle = (next: boolean) => {
-    try {
-      console.log("[DocRow] toggle select id=", props.id, "next=", next);
-    } catch {}
     props.onToggleSelect?.(props.id, next);
   };
   return (

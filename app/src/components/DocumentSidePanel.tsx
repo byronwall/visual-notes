@@ -47,7 +47,6 @@ export const DocumentSidePanel: VoidComponent<{
     try {
       await runUpdateDoc({ id: props.docId, title: newTitle });
       await refetch();
-      console.log("[SidePanel] title updated → refetched");
     } catch (e) {
       alert((e as Error).message || "Failed to update title");
     } finally {
@@ -98,9 +97,6 @@ export const DocumentSidePanel: VoidComponent<{
                       const newTitle = firstH1();
                       if (!newTitle) return;
                       try {
-                        console.log("[SidePanel] sync title to H1:", newTitle);
-                      } catch {}
-                      try {
                         await runUpdateDoc({ id: props.docId, title: newTitle });
                         await refetch();
                       } catch (e) {
@@ -123,14 +119,7 @@ export const DocumentSidePanel: VoidComponent<{
                         </Text>
                         <TitleEditPopover
                           open={editing()}
-                          onOpenChange={(open) => {
-                            if (open) {
-                              console.log(
-                                "[DocumentSidePanel] open title edit"
-                              );
-                            }
-                            setEditing(open);
-                          }}
+                          onOpenChange={setEditing}
                           initialTitle={d().title}
                           onConfirm={handleConfirmEdit}
                           onCancel={handleCancelEdit}
@@ -194,14 +183,7 @@ export const DocumentSidePanel: VoidComponent<{
             {(d) => (
               <DocumentViewer
                 doc={d}
-                onDeleted={() => {
-                  try {
-                    console.log(
-                      "[DocumentSidePanel] onDeleted → closing panel"
-                    );
-                  } catch {}
-                  props.onClose(true);
-                }}
+                onDeleted={() => props.onClose(true)}
               />
             )}
           </Show>

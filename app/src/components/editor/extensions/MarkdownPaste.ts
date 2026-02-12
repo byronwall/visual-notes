@@ -22,8 +22,6 @@ export const MarkdownPaste = Extension.create<{
     const ask = this.options.onPrompt ?? getMarkdownPrompt();
 
     const handleText = (text: string, source: Source) => {
-      console.log(`[markdown] ${source} detected, len:`, text.length);
-
       if (!ask) {
         const html = normalizeMarkdownToHtml(text);
         editor.chain().focus().insertContent(html).run();
@@ -34,7 +32,6 @@ export const MarkdownPaste = Extension.create<{
         if (choice === "cancel") return;
         if (choice === "formatted") {
           const html = normalizeMarkdownToHtml(text);
-          console.log("[markdown] inserting formatted HTML");
           editor.chain().focus().insertContent(html).run();
         } else {
           insertContentOrText(editor, null, text);

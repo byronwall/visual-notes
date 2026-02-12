@@ -180,7 +180,6 @@ const DocsIndexPage = () => {
     if (isFirstUrlSync || currentSearch !== lastSearchSnapshot) {
       lastSearchSnapshot = currentSearch;
       isFirstUrlSync = false;
-      console.log("[DocsIndex] Sync from URL", currentSearch);
       syncingFromUrl = true;
       try {
         parseParamsIntoStore(currentParams);
@@ -221,21 +220,7 @@ const DocsIndexPage = () => {
 
     const nextSearch = params.toString() ? `?${params.toString()}` : "";
     if (nextSearch === lastStoreSearchSnapshot) return;
-    console.log("[DocsIndex] Compute URL from store", {
-      nextSearch,
-      currentSearch: lastSearchSnapshot,
-      searchText: q.searchText(),
-      pathPrefix: q.pathPrefix(),
-      metaKey: q.metaKey(),
-      metaValue: q.metaValue(),
-      source: q.source(),
-      createdFrom: q.createdFrom(),
-      createdTo: q.createdTo(),
-      updatedFrom: q.updatedFrom(),
-      updatedTo: q.updatedTo(),
-    });
     if (nextSearch !== lastSearchSnapshot) {
-      console.log("[DocsIndex] Sync to URL", nextSearch);
       // Explicitly clear all managed keys so removed ones (like q) are deleted
       const obj: Record<string, string | undefined> = {};
       for (const k of MANAGED_KEYS) obj[k] = undefined;
@@ -310,12 +295,10 @@ const DocsIndexPage = () => {
   const handleSelectAllVisible = () => {
     const ids = visibleIds();
     if (!ids.length) return;
-    console.log("[DocsIndex] select all visible count=", ids.length);
     setSelectedIds(new Set(ids));
   };
   const handleSelectNone = () => {
     if (selectedIds().size === 0) return;
-    console.log("[DocsIndex] select none");
     setSelectedIds(new Set<string>());
   };
 
@@ -395,9 +378,6 @@ const DocsIndexPage = () => {
 
   const handleProcessPathRound = async () => {
     const res = await runProcessPathRound();
-    try {
-      console.log("[DocsIndex] path round", res);
-    } catch {}
     await Promise.all([refreshDocs(), refreshSources()]);
     alert(
       `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`,
@@ -420,7 +400,6 @@ const DocsIndexPage = () => {
     }
     if (!confirm(`Delete the ${count} selected notes? This cannot be undone.`))
       return;
-    console.log("[DocsIndex] bulk delete selected ids count=", count);
     await runBulkDeleteDocs(ids);
     // Remove deleted ids from selection
     setSelectedIds((prev) => {
@@ -463,7 +442,6 @@ const DocsIndexPage = () => {
     setBulkBusy(true);
     setBulkError(undefined);
     try {
-      console.log("[DocsIndex] bulk meta ids count=", count, actions);
       await runBulkUpdateMeta(ids, actions as any);
       await refreshDocs();
       setShowBulkMeta(false);
@@ -484,7 +462,6 @@ const DocsIndexPage = () => {
     setBulkBusy(true);
     setBulkError(undefined);
     try {
-      console.log("[DocsIndex] bulk set path ids count=", count, { path });
       await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
       await refreshDocs();
       setShowBulkPath(false);
@@ -509,9 +486,6 @@ const DocsIndexPage = () => {
     )
       return;
     const res = await runScanRelativeImages({});
-    try {
-      console.log("[DocsIndex] scan-relative-images", res);
-    } catch {}
     await Promise.all([refreshDocs(), refreshSources()]);
     alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
   };

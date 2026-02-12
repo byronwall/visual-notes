@@ -57,7 +57,6 @@ export function ToolbarContents(props: {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files && input.files[0];
     if (!file) return;
-    console.log("[csv] importing file:", file.name);
     const text = await file.text();
     insertContentOrText(props.editor, csvTextToTableJson(text), text);
     input.value = "";
@@ -65,17 +64,12 @@ export function ToolbarContents(props: {
 
   const onForceCsvPasteFromClipboard = async () => {
     const text = await navigator.clipboard.readText();
-    console.log("[csv] force paste from clipboard, len:", text?.length ?? 0);
     if (!text) return;
     insertContentOrText(props.editor, csvTextToTableJson(text), text);
   };
 
   const onForceMarkdownPasteFromClipboard = async () => {
     const text = await navigator.clipboard.readText();
-    console.log(
-      "[markdown] force paste from clipboard, len:",
-      text?.length ?? 0
-    );
     if (!text) return;
     const html = normalizeMarkdownToHtml(text);
     props.editor.chain().focus().insertContent(html).run();

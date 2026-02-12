@@ -68,16 +68,6 @@ export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
       const finalSelectionText = selectionOrDocText;
       const sanitizedSelectionText = stripDataUrlsFromText(finalSelectionText);
 
-      // Debug: log gathered context and vars prior to sending
-      console.log("[ai] run body preview:", {
-        promptId: p.id,
-        model: resp.model,
-        hasSelection: hasNonEmptySelection,
-        selectionTextLen: finalSelectionText.length,
-        docTextLen: ctx.docText.length,
-        hasVarsSelectionText: false,
-      });
-
       const body = {
         promptId: p.id,
         model: resp.model,
@@ -88,21 +78,11 @@ export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
         doc_html: ctx.docHtml,
         noteId: props.noteId,
       };
-      // Debug: log final payload lengths
-      const varsSelectionText = vars["selection_text"];
-      const varsHasSelectionText =
-        typeof varsSelectionText === "string" && varsSelectionText.length > 0;
-      console.log("[ai] running prompt action", {
-        selection_text_len: body.selection_text?.length || 0,
-        doc_text_len: body.doc_text?.length || 0,
-        vars_has_selection_text: varsHasSelectionText,
-      });
       const data = await runPromptAction(body);
       emitLLMSidebarOpen(
         "threadId" in data ? data.threadId || undefined : undefined
       );
-    } catch (e) {
-      console.log("[ai] run error:", e);
+    } catch {
     } finally {
       setRunning(null);
     }

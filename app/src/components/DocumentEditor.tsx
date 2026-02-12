@@ -97,7 +97,6 @@ const DocumentEditor: VoidComponent<{
     }
     if (props.initialHTML) return props.initialHTML;
 
-    console.log("[editor.initialHTML] initialMarkdown:", props.initialMarkdown);
     const html = normalizeMarkdownToHtml(
       props.initialMarkdown || "# Untitled\n\nStart writing..."
     );
@@ -221,14 +220,12 @@ const DocumentEditor: VoidComponent<{
         if (!title) {
           title = "Untitled note";
         }
-        console.log("[editor.save] creating new doc with title:", title);
         const json = await runCreateDoc({
           title,
           html,
           path: newPath() || undefined,
           meta: newMeta(),
         });
-        console.log("[editor.save] create response", json);
         if (!json?.id) throw new Error("Failed to create note");
         setSavedAt(new Date());
         setDirty(false);

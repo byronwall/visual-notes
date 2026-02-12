@@ -48,7 +48,6 @@ export const SimplePopover = (props: PopoverProps) => {
       open={local.open}
       onOpenChange={(details) => {
         if (!details.open) {
-          console.log("[Popover] close");
           local.onClose();
         }
       }}

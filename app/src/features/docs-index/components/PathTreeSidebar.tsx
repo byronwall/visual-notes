@@ -91,9 +91,6 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
 
   const tree = createMemo(() => {
     const items = (pathCounts() || []) as PathCount[];
-    try {
-      console.log(`[PathTreeSidebar] loaded ${items.length} paths`);
-    } catch {}
     const t = buildTree(items);
     sortChildren(t);
     return t;
@@ -116,14 +113,10 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
       for (const c of n.children.values()) visit(c);
     };
     visit(t);
-    console.log(
-      `[PathTreeSidebar] expand all: ${Object.keys(out).length} nodes`
-    );
     setExpanded(out);
   };
 
   const handleSelectPrefix = (prefix: string) => {
-    console.log(`[PathTreeSidebar] select prefix="${prefix}"`);
     props.q.setBlankPathOnly(false);
     props.q.setPathPrefix(prefix);
     props.q.resetPaging();
@@ -204,7 +197,6 @@ export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
             variant="outline"
             label="Clear path filter"
             onClick={() => {
-              console.log("[PathTreeSidebar] clear prefix");
               props.q.setPathPrefix("");
               props.q.setBlankPathOnly(false);
               props.q.resetPaging();

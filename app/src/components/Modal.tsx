@@ -31,10 +31,8 @@ export default function Modal(props: {
     if (!props.open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    console.log("[Modal] Body scroll locked");
     onCleanup(() => {
       document.body.style.overflow = previousOverflow;
-      console.log("[Modal] Body scroll unlocked");
     });
   });
 
@@ -56,7 +54,6 @@ export default function Modal(props: {
             inset="0"
             bg="black.a3"
             onClick={() => {
-              console.log("[Modal] Backdrop clicked");
               if (shouldCloseOnBackdrop()) props.onClose();
             }}
           />

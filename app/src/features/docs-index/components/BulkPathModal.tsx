@@ -20,7 +20,6 @@ export const BulkPathModal: VoidComponent<{
     setBusy(true);
     setError(undefined);
     try {
-      console.log("[BulkPathModal] applying path:", draftPath());
       await props.onApply(draftPath());
       props.onClose();
       setDraftPath("");

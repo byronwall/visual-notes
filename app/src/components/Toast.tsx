@@ -82,10 +82,6 @@ export function ToastViewport() {
             class="text-left rounded shadow-md border border-gray-200 bg-white p-3 hover:bg-gray-50 cursor-pointer"
             onClick={() => {
               if (t.onClick) {
-                console.log("[Toast] Clicked toast", {
-                  id: t.id,
-                  title: t.title,
-                });
                 t.onClick();
               }
               dismiss(t.id);

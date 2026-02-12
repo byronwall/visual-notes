@@ -305,13 +305,14 @@ code and refactors unless explicitly told otherwise.
 
 ### Debugging
 
-- Use console.log for debugging.
-- For large code changes/chunks, add a couple logs to clarify:
-  - entry/exit
-  - important branch decisions
-  - key data shape/ids
-- Do not wrap console.log in try/catch.
-- Remove temporary debug logs before finishing unless the user explicitly asks to keep them.
+- Default to no `console.log` in shipped UI code.
+- Keep logs only in critical paths where they provide durable signal:
+  - important data-flow boundaries (for example request/response handoffs)
+  - important branch decisions that are hard to infer from state
+  - unexpected/failure conditions where `console.error`/`console.warn` is appropriate
+- Avoid noisy logs in render paths, mount/unmount hooks, repetitive UI events, polling ticks, and modal open/close handlers.
+- If temporary `console.log` statements are added for debugging, remove them before finishing unless the user explicitly asks to keep them.
+- Do not wrap `console.log` in try/catch.
 
 ### Control flow and readability
 
@@ -526,4 +527,4 @@ export const saveThing = action(
 - Cleanup paired with mount is inside onMount
 - No any without a comment; no as any without TODO:AS_ANY
 - Named exports; imports at top; no typeof import(...)
-- Large changes include a few console.log breadcrumbs
+- Logging is sparse and limited to critical data-flow/branch points (or errors/warnings)

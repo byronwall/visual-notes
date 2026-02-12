@@ -4,7 +4,6 @@ export function parseDelimited(
   text: string,
   delimiterHint?: "," | "\t"
 ): string[][] {
-  console.log("[csv] parseDelimited inputLen:", text.length);
   const trimmed = text.replace(/\r\n?/g, "\n");
   const hasTab = /\t/.test(trimmed);
   const hasComma = /,/.test(trimmed);
@@ -51,7 +50,6 @@ export function parseDelimited(
     const last = rows[rows.length - 1];
     if (last.every((c) => c === "")) rows.pop();
   }
-  console.log("[csv] rows:", rows.length);
   return rows;
 }
 
@@ -103,15 +101,6 @@ function analyzeConsistency(text: string, delim: Delim) {
   }
   const allowed = totalRows < 10 ? 1 : Math.floor(totalRows * 0.1);
   const ok = mismatches <= allowed;
-  console.log("[csv] analyzeConsistency", {
-    delim,
-    totalRows,
-    nonEmptyRows,
-    modeCols,
-    mismatches,
-    allowed,
-    ok,
-  });
   return { ok, delim, totalRows, nonEmptyRows, modeCols, mismatches };
 }
 
@@ -163,6 +152,5 @@ export function csvTextToTableJson(text: string): JSONContent {
   });
 
   const table: JSONContent = { type: "table", content: body };
-  console.log("[csv] table json cols:", numCols, "rows:", rows.length);
   return table;
 }

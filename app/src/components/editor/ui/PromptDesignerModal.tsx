@@ -65,8 +65,6 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
         ]);
         setCurrentQuestion(data.question);
         setCurrentSummary(data.summary);
-        console.log("[prompt-designer] question:", data.question);
-        console.log("[prompt-designer] summary:", data.summary);
         return;
       }
       // Fallback to legacy: questions[]
@@ -76,7 +74,6 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
         setTranscript((t) => [...t, { role: "assistant", content: qs[0] }]);
         setCurrentQuestion(qs[0]);
         setCurrentSummary("Clarifying next step to define the prompt.");
-        console.log("[prompt-designer] question (legacy):", qs[0]);
         return;
       }
       // If neither shape matches, inject a generic prompt
@@ -85,8 +82,7 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
       setTranscript((t) => [...t, { role: "assistant", content: fallback }]);
       setCurrentQuestion(fallback);
       setCurrentSummary("We need a brief description of your goal and output.");
-    } catch (e) {
-      console.log("[prompt-designer] error", e);
+    } catch {
     } finally {
       setBusy(false);
     }
@@ -120,12 +116,9 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
       });
       if ("proposal" in data && data.proposal) {
         setProposal(data.proposal);
-        console.log("[prompt-designer] received proposal");
         return;
       }
-      console.log("[prompt-designer] no proposal returned");
-    } catch (e) {
-      console.log("[prompt-designer] generate error", e);
+    } catch {
     } finally {
       setBusy(false);
     }
@@ -165,7 +158,6 @@ export function usePromptDesignerModal(onCreated?: () => Promise<void> | void) {
         system: sys().trim() || undefined,
         activate: true,
       });
-      console.log("[prompt-designer] create ok");
       if (onCreated) await onCreated();
       setOpen(false);
     } finally {

@@ -149,7 +149,6 @@ export function createEmojiSuggestion(emojis: readonly EmojiItem[]) {
         if (props.event.key === "Enter" || props.event.key === "Tab") {
           const picked = items[selectedIndex];
           if (!picked) return false;
-          console.log("[emoji] pick:", picked.shortcodes?.[0] ?? picked.name);
           lastProps.command(picked);
           return true;
         }
@@ -179,10 +178,6 @@ export function createEmojiSuggestion(emojis: readonly EmojiItem[]) {
           const pick = (idx: number) => {
             const picked = lastProps?.items[idx];
             if (!picked || !lastProps) return;
-            console.log(
-              "[emoji] pick (pointer):",
-              picked.shortcodes?.[0] ?? picked.name
-            );
             lastProps.command(picked);
           };
 

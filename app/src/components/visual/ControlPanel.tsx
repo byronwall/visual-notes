@@ -137,7 +137,6 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     setBulkBusy(true);
     setBulkError(undefined);
     try {
-      console.log("[panel] bulk meta apply", { count: ids.length, record });
       await Promise.all(ids.map((id) => runUpdateDoc({ id, meta: record })));
     } catch (e) {
       setBulkError((e as Error).message || "Failed to apply metadata");
@@ -155,7 +154,6 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
     setBulkBusy(true);
     setBulkError(undefined);
     try {
-      console.log("[panel] bulk path apply", { count: ids.length, path });
       await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
     } catch (e) {
       setBulkError((e as Error).message || "Failed to update paths");

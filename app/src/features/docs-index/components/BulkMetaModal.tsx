@@ -118,7 +118,6 @@ export const BulkMetaModal: VoidComponent<{
     setBusy(true);
     setError(undefined);
     try {
-      console.log("[BulkMetaModal] applying actions:", actions());
       await props.onApply(actions());
       setActions([]);
       props.onClose();

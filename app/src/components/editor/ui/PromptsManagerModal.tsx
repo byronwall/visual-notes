@@ -69,7 +69,6 @@ export function usePromptsManagerModal() {
     const needsGap = !t.endsWith("\n");
     const appended = `${t}${needsGap ? "\n\n" : ""}{{selection}}`;
     setNewTemplate(appended);
-    console.log("[prompts-manager] inserted {{selection}}");
   };
 
   const onCreatePrompt = async () => {
@@ -83,7 +82,6 @@ export function usePromptsManagerModal() {
       system: newSystem() || undefined,
       activate: true,
     });
-    console.log("[prompts-manager] create ok");
     await refreshPrompts();
     setNewTask("");
     setNewDesc("");
@@ -102,7 +100,6 @@ export function usePromptsManagerModal() {
       system: system || undefined,
       activate: true,
     });
-    console.log("[prompts-manager] add version ok");
     await refreshPrompts();
   };
 
@@ -120,7 +117,6 @@ export function usePromptsManagerModal() {
       suggestedTemplate: "",
       suggestedSystem: "",
     });
-    console.log("[prompts-manager] init edit for", p.id);
   };
 
   const onSaveNewVersion = async (p: Prompt, activate: boolean) => {
@@ -136,7 +132,6 @@ export function usePromptsManagerModal() {
         system: system || undefined,
         activate,
       });
-      console.log("[prompts-manager] save new version ok");
       await refreshPrompts();
     } finally {
       setById(p.id, "busyEdit", false);
@@ -152,7 +147,6 @@ export function usePromptsManagerModal() {
       if (!data?.suggestion) return;
       setById(p.id, "suggestedTemplate", data.suggestion.template || "");
       setById(p.id, "suggestedSystem", data.suggestion.system || "");
-      console.log("[prompts-manager] got suggestion for", p.id);
     } finally {
       setById(p.id, "busyRevise", false);
     }
@@ -170,7 +164,6 @@ export function usePromptsManagerModal() {
         system: system || undefined,
         activate,
       });
-      console.log("[prompts-manager] accept suggestion ok");
       await refreshPrompts();
       setById(p.id, {
         ...byId[p.id],
@@ -521,7 +514,6 @@ export function usePromptsManagerModal() {
 function DesignerLaunch(props: { onCreated?: () => Promise<void> | void }) {
   const { open, view } = usePromptDesignerModal(props.onCreated);
   const handleOpen = () => {
-    console.log("[prompts-manager] open Q&A designer");
     open();
   };
   return (

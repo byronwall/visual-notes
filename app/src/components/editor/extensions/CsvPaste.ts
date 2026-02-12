@@ -18,7 +18,6 @@ export const CsvPaste = Extension.create<{
     const ask = this.options.onPrompt;
 
     const handleText = (text: string, source: Source) => {
-      console.log(`[csv] ${source} detected, len:`, text.length);
       if (!ask) {
         insertContentOrText(editor, csvTextToTableJson(text), text);
         return true;
@@ -35,7 +34,6 @@ export const CsvPaste = Extension.create<{
     };
 
     const handleFile = (file: File, source: Source) => {
-      console.log("[csv] file detected:", file.name);
       file.text().then((text) => handleText(text, source));
       return true;
     };

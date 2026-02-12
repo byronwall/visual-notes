@@ -32,11 +32,9 @@ export function usePasteChoicePrompt<TChoice extends string>(
 
   const prompt = (input: string): Promise<TChoice> =>
     new Promise((resolve) => {
-      console.log(`[${props.logPrefix}] open prompt len:`, input.length);
       setText(input);
       setOpen(true);
       resolver = (choice) => {
-        console.log(`[${props.logPrefix}] prompt resolved:`, choice);
         setOpen(false);
         resolve(choice);
       };

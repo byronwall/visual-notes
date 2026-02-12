@@ -19,12 +19,6 @@ export function getSelectionContext(editor: Editor): SelectionContext {
     : null;
   const docHtml = stripImagesFromHtml(editor.getHTML());
   const docText = state.doc.textBetween(0, state.doc.content.size, "\n");
-  console.log(
-    "[selection] hasSelection:",
-    hasSelection,
-    "selLen:",
-    selectionText.length
-  );
   return {
     hasSelection,
     selectionText,

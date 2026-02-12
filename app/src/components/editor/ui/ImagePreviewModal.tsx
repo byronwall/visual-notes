@@ -134,7 +134,6 @@ export const ImagePreviewModal: VoidComponent<{
   const handleImageLoad = (e: Event) => {
     const img = e.currentTarget as HTMLImageElement;
     setNaturalSize({ w: img.naturalWidth || 0, h: img.naturalHeight || 0 });
-    console.log("[image-preview] loaded:", img.naturalWidth, img.naturalHeight);
     if (!props.open) return;
     queueMicrotask(() => fitToViewport());
   };
@@ -161,7 +160,6 @@ export const ImagePreviewModal: VoidComponent<{
   // When opened (or when the src changes while open), fit image to viewport.
   createEffect(() => {
     if (!props.open) return;
-    console.log("[image-preview] open:", props.src);
     queueMicrotask(() => fitToViewport());
   });
 

@@ -103,11 +103,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   });
                   out.push(...arr);
                 }
-                try {
-                  console.log(
-                    `[visual-canvas] nestByPath ordering applied: groups=${groups.length}`
-                  );
-                } catch {}
                 return out;
               });
 
@@ -116,13 +111,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 if (props.layoutMode() !== "umap") return 10;
                 const alpha = 1.2; // shrink against zoom: r_world = base / s^alpha
                 const rWorld = 10 / Math.pow(s, alpha);
-                try {
-                  console.log(
-                    `[visual-canvas] circle radius (world)=${rWorld.toFixed(
-                      2
-                    )} at scale=${s.toFixed(2)}`
-                  );
-                } catch {}
                 // clamp to 2-12
                 return Math.max(1, Math.min(10, rWorld));
               });

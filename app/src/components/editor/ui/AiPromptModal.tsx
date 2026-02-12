@@ -70,10 +70,6 @@ export function useAiPromptModal() {
     details?: { task: string; system?: string | null; template: string };
   }) =>
     new Promise<AiRunPayload | "cancel">((resolve) => {
-      console.log(
-        "[ai-modal] open with preview length:",
-        opts.previewText?.length || 0
-      );
       setDefaultModel(opts.defaultModel);
       setModel(opts.defaultModel || "");
       setVarsJson("");

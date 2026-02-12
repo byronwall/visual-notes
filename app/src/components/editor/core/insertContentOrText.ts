@@ -11,10 +11,8 @@ export function insertContentOrText(
     dispatch: (tr: any) => void;
   };
   if (json) {
-    console.log("[insert] inserting json content");
     editor.chain().focus().insertContent(json).run();
     return;
   }
-  console.log("[insert] inserting plain text len:", text.length);
   view.dispatch(view.state.tr.insertText(text));
 }

@@ -75,7 +75,6 @@ function CustomCodeBlockNodeView() {
           value={language()}
           onChange={(event) => {
             const nextLanguage = event.currentTarget.value || "text";
-            console.log("[codeblock] set language:", nextLanguage);
             state().updateAttributes({ language: nextLanguage });
           }}
           class={css({
@@ -102,7 +101,6 @@ function CustomCodeBlockNodeView() {
 
 export const CustomCodeBlock = CodeBlockLowlight.extend({
   addAttributes() {
-    console.log("[CustomCodeBlock] addAttributes");
     // TODO:AS_ANY, extend base attrs; parent() is not well-typed in Tiptap's API
     const parent = (this as any).parent?.() ?? {};
     return {

@@ -106,7 +106,6 @@ export function useLLMSidebar() {
 
   function resetPolling() {
     pollDelayMs = 10000;
-    console.log("[LLMSidebar] Poll delay reset to 10s");
     schedulePoll();
   }
 
@@ -153,10 +152,6 @@ export function useLLMSidebar() {
           t.hasUnread &&
           !open()
         ) {
-          console.log("[LLMSidebar] Chat updated", {
-            id: t.id,
-            title: t.title,
-          });
           showToast({
             title: "Chat updated",
             message: t.title,
@@ -174,13 +169,7 @@ export function useLLMSidebar() {
       } else {
         pollDelayMs = Math.min(pollDelayMs + stepMs, maxDelayMs);
       }
-      console.log(
-        "[LLMSidebar] Next poll in",
-        Math.round(pollDelayMs / 1000),
-        "s"
-      );
     } catch (e) {
-      console.log("[LLMSidebar] Poll error", e);
       // On error, try again after current delay without changing it
     } finally {
       schedulePoll();
@@ -197,7 +186,6 @@ export function useLLMSidebar() {
     const th = thread();
     if (!th) return;
     if (open() && th.hasUnread) {
-      console.log("[LLMSidebar] Marking thread read", th.id);
       void runUpdateThread({ id: th.id, hasUnread: false }).then(() => {
         void refreshThreads();
         void refreshThread();
@@ -221,7 +209,6 @@ export function useLLMSidebar() {
   };
 
   const deleteMessage = async (msgId: string) => {
-    console.log("[LLMSidebar] Deleting message:", msgId);
     await runDeleteMessage({ id: msgId });
     await Promise.all([refreshThread(), refreshThreads()]);
   };
@@ -248,7 +235,6 @@ export function useLLMSidebar() {
         onSelect={(id) => setSelectedId(id)}
         thread={() => thread() || undefined}
         onRefresh={() => {
-          console.log("[LLMSidebar] Manual refresh clicked");
           void refreshThreads();
           void refreshThread();
         }}
@@ -310,7 +296,6 @@ function LLMSidebarView(props: {
   const handleSend = async () => {
     const txt = draft().trim();
     if (!txt || isSending()) return;
-    console.log("[LLMSidebar] Sending message");
     setIsSending(true);
     setSendPhase("sending");
     try {
@@ -321,8 +306,6 @@ function LLMSidebarView(props: {
         setSendPhase("idle");
       }, 1200);
     } catch (e) {
-      console.log("[LLMSidebar] Send failed", e);
-
       setSendPhase("error");
       setTimeout(() => {
         setSendPhase("idle");
@@ -348,7 +331,6 @@ function LLMSidebarView(props: {
       };
     }
     setMessageState(next);
-    console.log("[LLMSidebar] Initialized message state for thread:", th.id);
   });
 
   const handleDrawerOpenChange = (details: { open?: boolean }) => {
@@ -378,7 +360,6 @@ function LLMSidebarView(props: {
 
   const handleSaveMessage = async (msgId: string, fallbackHtml: string) => {
     const html = messageState[msgId]?.currentHtml ?? fallbackHtml;
-    console.log("[LLMSidebar] Save clicked for message:", msgId);
     await props.onSaveEdit(msgId, html);
   };
 
@@ -622,10 +603,6 @@ function LLMSidebarView(props: {
                                         initialHTML={m.contentHtml}
                                         showToolbar={false}
                                         onEditor={(ed: Editor) => {
-                                          console.log(
-                                            "[LLMSidebar] Editor ready for message:",
-                                            m.id
-                                          );
                                           const onUpdate = () => {
                                             const html = ed.getHTML();
                                             const state = messageState[m.id];

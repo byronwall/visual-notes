@@ -18,7 +18,6 @@ export function useAiResultModal() {
 
   const openModal = (args: AiResultOpenArgs) =>
     new Promise<void>((resolve) => {
-      console.log("[ai-result-modal] open");
       setSelectionText(args.selectionText || "");
       setOutputHtml(args.outputHtml || "");
       setOpen(true);
@@ -33,10 +32,7 @@ export function useAiResultModal() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log("[ai-result-modal] copied");
-    } catch (e) {
-      console.log("[ai-result-modal] copy failed", (e as Error)?.message);
-    }
+    } catch {}
   };
 
   const onCopySelection = () => copyToClipboard(selectionText());

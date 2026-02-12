@@ -22,7 +22,6 @@ function CustomImageNodeView() {
   const onDblClick = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    console.log("[image] open preview:", src());
     openImagePreview({ src: src(), alt: alt(), title: title() });
   };
 

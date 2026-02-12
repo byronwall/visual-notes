@@ -41,13 +41,11 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   };
 
   const handleNewNoteOpen = () => {
-    console.log("[sidebar] open new note modal");
     setNewNoteInitialTitle(undefined);
     setNewNoteOpen(true);
   };
 
   const handleSearchOpen = () => {
-    console.log("[sidebar] open search");
     setCmdkOpen(true);
   };
 
@@ -85,7 +83,6 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       if (ev.altKey || ev.ctrlKey) return;
       if (ev.key.toLowerCase() !== "k") return;
       ev.preventDefault();
-      console.log("[sidebar] cmd+k");
       setCmdkOpen((prev) => !prev);
     };
     window.addEventListener("keydown", onWindowKeyDown);
