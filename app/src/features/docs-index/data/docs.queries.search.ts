@@ -98,7 +98,12 @@ export const searchDocs = query(
     });
     const afterSectionsMs = Date.now();
 
-    type RankedHit = { item: ServerSearchItem; score: number };
+    type RankedHit = {
+      item: ServerSearchItem;
+      score: number;
+      tokenHits: Set<string>;
+      hasExactTerm: boolean;
+    };
     const hitsMap = new Map<string, RankedHit>();
 
     for (const d of titlePathDocs) {
@@ -116,7 +121,12 @@ export const searchDocs = query(
         termLower,
         terms,
       });
-      hitsMap.set(d.id, { item, score });
+      hitsMap.set(d.id, {
+        item,
+        score,
+        tokenHits: collectTokenHits(`${d.title ?? ""} ${d.path ?? ""}`, terms),
+        hasExactTerm: includesNormalized(d.title ?? "", termLower),
+      });
     }
 
     for (const s of sections) {
@@ -129,6 +139,7 @@ export const searchDocs = query(
       const snippet = buildSnippet(text, termLower, terms);
       const existing = hitsMap.get(d.id);
       if (!existing) {
+        const textTokenHits = collectTokenHits(text, terms);
         hitsMap.set(d.id, {
           item: {
             id: d.id,
@@ -145,12 +156,23 @@ export const searchDocs = query(
               termLower,
               terms,
             }) + sectionScore,
+          tokenHits: new Set([
+            ...collectTokenHits(`${d.title ?? ""} ${d.path ?? ""}`, terms),
+            ...textTokenHits,
+          ]),
+          hasExactTerm:
+            includesNormalized(d.title ?? "", termLower) ||
+            includesNormalized(text, termLower),
         });
         continue;
       }
 
       if (snippet && !existing.item.snippet) existing.item.snippet = snippet;
       existing.score += sectionScore;
+      mergeTokenHits(existing.tokenHits, collectTokenHits(text, terms));
+      if (!existing.hasExactTerm && includesNormalized(text, termLower)) {
+        existing.hasExactTerm = true;
+      }
       hitsMap.set(d.id, existing);
     }
 
@@ -173,6 +195,11 @@ export const searchDocs = query(
     const W_TEXT = 0.9;
 
     const items = Array.from(hitsMap.values())
+      .filter((entry) => {
+        if (terms.length <= 1) return true;
+        if (entry.hasExactTerm) return true;
+        return entry.tokenHits.size >= terms.length;
+      })
       .map((entry) => {
         const snapshot = snapshotByDocId.get(entry.item.id);
         const viewsBoost = Math.min(140, Math.log1p(snapshot?.views30d ?? 0) * 28);
@@ -337,4 +364,32 @@ function buildSnippet(
   const prefix = start > 0 ? "..." : "";
   const suffix = end < text.length ? "..." : "";
   return prefix + text.slice(start, end) + suffix;
+}
+
+function includesNormalized(text: string, needleLower: string): boolean {
+  if (!text || !needleLower) return false;
+  const normalizedText = normalizeForContains(text);
+  const normalizedNeedle = normalizeForContains(needleLower);
+  return normalizedText.includes(normalizedNeedle);
+}
+
+function normalizeForContains(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collectTokenHits(text: string, terms: string[]): Set<string> {
+  const normalized = normalizeForContains(text);
+  const hits = new Set<string>();
+  for (const token of terms) {
+    if (normalized.includes(token)) hits.add(token);
+  }
+  return hits;
+}
+
+function mergeTokenHits(base: Set<string>, incoming: Set<string>): void {
+  for (const token of incoming) base.add(token);
 }

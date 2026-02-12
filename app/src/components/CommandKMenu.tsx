@@ -2,6 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import {
   For,
   Match,
+  onMount,
   Show,
   Suspense,
   Switch,
@@ -19,11 +20,16 @@ import { Input } from "~/components/ui/input";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
+import type { SimpleSelectItem } from "~/components/ui/simple-select";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import {
+  fetchDocs,
   searchDocs,
+  type DocListItem,
   type ServerSearchItem,
 } from "~/features/docs-index/data/docs.service";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
+import { ActivityIcon, ArrowUpDownIcon } from "lucide-solid";
 
 type CommandKMenuProps = {
   open: boolean;
@@ -74,7 +80,18 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const [query, setQuery] = createSignal("");
   const [selectedIndex, setSelectedIndex] = createSignal(0);
   const [debouncedQuery, setDebouncedQuery] = createSignal("");
+  const [selectsReady, setSelectsReady] = createSignal(false);
+  const [sortMode, setSortMode] = createSignal<
+    "relevance" | "recent_activity" | "most_viewed_30d" | "most_edited_30d"
+  >("relevance");
+  const [activityClass, setActivityClass] = createSignal<
+    "" | "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD"
+  >("");
   let inputEl: HTMLInputElement | undefined;
+
+  onMount(() => {
+    setSelectsReady(true);
+  });
 
   const qTrim = () => query().trim();
   const qForSearch = () => (qTrim().length >= 2 ? qTrim() : "");
@@ -113,9 +130,34 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     });
   });
 
-  const [results] = createResource(debouncedQuery, (q) => {
-    if (!q) return Promise.resolve([] as ServerSearchItem[]);
-    return searchDocs({ q, take: 25 });
+  const searchParams = createMemo(() => ({
+    q: debouncedQuery(),
+    sortMode: sortMode(),
+    activityClass: activityClass(),
+  }));
+
+  const [results] = createResource(searchParams, async (params) => {
+    if (params.q) {
+      return searchDocs({
+        q: params.q,
+        take: 25,
+        sortMode: params.sortMode,
+        activityClass: params.activityClass || undefined,
+      });
+    }
+
+    // Empty-state feed: show likely next docs to open, activity-aware.
+    const emptySortMode =
+      params.sortMode === "relevance" ? "recent_activity" : params.sortMode;
+    const docs = await fetchDocs({
+      take: 25,
+      sortMode: emptySortMode,
+      activityClass: params.activityClass || undefined,
+    });
+    return docs.map((doc: DocListItem): ServerSearchItem => ({
+      ...doc,
+      snippet: undefined,
+    }));
   });
 
   const close = () => {
@@ -124,13 +166,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
   const handleCreateNewNote = () => {
     const title = qTrim();
-    console.log("[cmdk] new note", { title });
     close();
     props.onCreateNewNote(title.length > 0 ? title : undefined);
   };
 
   const handleOpenDoc = (id: string) => {
-    console.log("[cmdk] open doc", id);
     close();
     navigate(`/docs/${id}`);
   };
@@ -202,6 +242,8 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     if (!props.open) {
       setQuery("");
       setSelectedIndex(0);
+      setSortMode("relevance");
+      setActivityClass("");
       return;
     }
     setSelectedIndex(0);
@@ -216,9 +258,22 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   const isSearchingEnabled = () => qTrim().length >= 2;
-  const isSearching = () => isSearchingEnabled() && results.loading;
+  const isSearching = () => results.loading;
 
   const rowBg = (active: boolean) => (active ? "black.a2" : "transparent");
+  const sortModeItems: SimpleSelectItem[] = [
+    { label: "Relevance", value: "relevance" },
+    { label: "Recent activity", value: "recent_activity" },
+    { label: "Most viewed (30d)", value: "most_viewed_30d" },
+    { label: "Most edited (30d)", value: "most_edited_30d" },
+  ];
+  const activityClassItems: SimpleSelectItem[] = [
+    { label: "All activity", value: "" },
+    { label: "Read-heavy", value: "READ_HEAVY" },
+    { label: "Edit-heavy", value: "EDIT_HEAVY" },
+    { label: "Balanced", value: "BALANCED" },
+    { label: "Cold", value: "COLD" },
+  ];
 
   const formatSnippet = (s: string | null | undefined) => {
     const raw = (s ?? "").trim();
@@ -233,11 +288,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     <SimpleDialog
       open={props.open}
       onOpenChange={props.onOpenChange}
-      title="Command"
-      description="Create a note or search your notes"
       maxW="720px"
     >
-      <Stack gap="0.75rem" w="full" minW="0">
+      <Stack gap="0.5rem" w="full" minW="0">
         <HStack gap="2" alignItems="center" w="full" minW="0">
           <Input
             ref={inputEl}
@@ -254,12 +307,69 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             spellcheck={false}
           />
 
-          {/* reserve space to avoid layout shift */}
-          <Box w="20px" display="inline-flex" justifyContent="flex-end">
+          <HStack gap="2" alignItems="center" flexShrink="0" ml="auto">
             <Show when={isSearching()}>
               <Spinner size="xs" color="fg.muted" />
             </Show>
-          </Box>
+            <Show
+              when={selectsReady()}
+              fallback={
+                <HStack gap="2" alignItems="center" flexShrink="0">
+                  <Text fontSize="xs" color="black.a7" whiteSpace="nowrap">
+                    {sortModeItems.find((item) => item.value === sortMode())
+                      ?.label ?? "Relevance"}
+                  </Text>
+                  <Text fontSize="xs" color="black.a7" whiteSpace="nowrap">
+                    {activityClassItems.find(
+                      (item) => item.value === activityClass(),
+                    )?.label ?? "All activity"}
+                  </Text>
+                </HStack>
+              }
+            >
+              <HStack gap="2" alignItems="center" flexShrink="0">
+                <HStack gap="1" alignItems="center">
+                  <ArrowUpDownIcon size={14} />
+                  <SimpleSelect
+                    items={sortModeItems}
+                    value={sortMode()}
+                    onChange={(value) =>
+                      setSortMode(
+                        value as
+                          | "relevance"
+                          | "recent_activity"
+                          | "most_viewed_30d"
+                          | "most_edited_30d",
+                      )
+                    }
+                    size="sm"
+                    sameWidth
+                    skipPortal
+                  />
+                </HStack>
+                <HStack gap="1" alignItems="center">
+                  <ActivityIcon size={14} />
+                  <SimpleSelect
+                    items={activityClassItems}
+                    value={activityClass()}
+                    onChange={(value) =>
+                      setActivityClass(
+                        value as
+                          | ""
+                          | "READ_HEAVY"
+                          | "EDIT_HEAVY"
+                          | "BALANCED"
+                          | "COLD",
+                      )
+                    }
+                    size="sm"
+                    sameWidth
+                    skipPortal
+                  />
+                </HStack>
+              </HStack>
+            </Show>
+          </HStack>
         </HStack>
 
         <Suspense
