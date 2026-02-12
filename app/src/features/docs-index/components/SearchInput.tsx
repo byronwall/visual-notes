@@ -1,7 +1,7 @@
 import type { VoidComponent } from "solid-js";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
-import { HStack } from "styled-system/jsx";
+import { HStack, Stack } from "styled-system/jsx";
 
 export const SearchInput: VoidComponent<{
   value: string;
@@ -12,15 +12,20 @@ export const SearchInput: VoidComponent<{
     props.onChange(target.value);
   };
   return (
-    <HStack gap="0.5rem" mt="0.75rem">
-      <Text fontSize="xs" color="black.a7" width="6rem" flexShrink="0">
-        Search
-      </Text>
+    <Stack gap="1">
+      <HStack justify="space-between" alignItems="center">
+        <Text fontSize="xs" color="black.a7" fontWeight="medium">
+          Search
+        </Text>
+        <Text fontSize="xs" color="black.a7">
+          Title, path, and note content
+        </Text>
+      </HStack>
       <Input
         size="sm"
-        flex="1"
+        w="full"
         minW="0"
-        placeholder="Search title, path, and note content"
+        placeholder="Search notes..."
         value={props.value}
         onInput={handleChange}
         autocomplete="off"
@@ -28,6 +33,6 @@ export const SearchInput: VoidComponent<{
         autocorrect="off"
         spellcheck={false}
       />
-    </HStack>
+    </Stack>
   );
 };

@@ -2,6 +2,7 @@ import { action } from "@solidjs/router";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import { logActionEvent } from "~/server/events/action-events";
 import type { BulkMetaAction } from "./docs.types";
 
 const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -70,15 +71,29 @@ function applyActionsToMeta(
 
 export const deleteAllDocs = action(async () => {
   "use server";
+  const count = await prisma.doc.count();
   await prisma.$transaction([prisma.doc.deleteMany({})]);
+  await logActionEvent({
+    eventType: "doc.bulk_delete",
+    entityType: "doc",
+    payload: { scope: "all", deletedCount: count },
+  });
   return { ok: true };
 }, "docs-delete-all");
 
 export const deleteBySource = action(async (source: string) => {
   "use server";
   if (!source) throw new Error("Missing originalSource");
-  console.log("[docs.source.delete] deleting docs for source:%s", source);
   const result = await prisma.doc.deleteMany({ where: { originalSource: source } });
+  await logActionEvent({
+    eventType: "doc.bulk_delete",
+    entityType: "doc",
+    payload: {
+      scope: "source",
+      source,
+      deletedCount: result.count,
+    },
+  });
   return { ok: true, deletedCount: result.count };
 }, "docs-delete-by-source");
 
@@ -88,6 +103,15 @@ export const bulkSetSource = action(async (value: string) => {
   const result = await prisma.doc.updateMany({
     data: { originalSource: input.originalSource },
   });
+  await logActionEvent({
+    eventType: "doc.bulk_update_meta",
+    entityType: "doc",
+    payload: {
+      scope: "set_source",
+      source: input.originalSource,
+      updatedCount: result.count,
+    },
+  });
   return { ok: true, updatedCount: result.count };
 }, "docs-set-source");
 
@@ -95,13 +119,17 @@ export const bulkDeleteDocs = action(async (ids: string[]) => {
   "use server";
   const parsed = bulkDeleteSchema.parse({ ids });
   const uniqueIds = Array.from(new Set(parsed.ids));
-  console.log(
-    "[docs.bulk-delete] deleting count=%d first=%s",
-    uniqueIds.length,
-    uniqueIds[0] || ""
-  );
   const result = await prisma.doc.deleteMany({
     where: { id: { in: uniqueIds } },
+  });
+  await logActionEvent({
+    eventType: "doc.bulk_delete",
+    entityType: "doc",
+    payload: {
+      scope: "selection",
+      requestedCount: uniqueIds.length,
+      deletedCount: result.count,
+    },
   });
   return { ok: true, deletedCount: result.count };
 }, "docs-bulk-delete");
@@ -111,12 +139,6 @@ export const bulkUpdateMeta = action(
     "use server";
     const parsed = bulkMetaSchema.parse({ ids, actions });
     const uniqueIds = Array.from(new Set(parsed.ids));
-    console.log(
-      "[docs.bulk-meta] starting ids=%d actions=%d",
-      uniqueIds.length,
-      parsed.actions.length
-    );
-
     if (uniqueIds.length === 0) return { ok: true, updated: 0 };
 
     const rows = await prisma.doc.findMany({
@@ -151,9 +173,7 @@ export const bulkUpdateMeta = action(
         );
         updated += chunk.length;
       } catch (e) {
-        try {
-          console.error("[docs.bulk-meta] chunk failed, retrying individually", e);
-        } catch {}
+        console.error("[docs.bulk-meta] chunk failed, retrying individually", e);
         for (const u of chunk) {
           try {
             await prisma.doc.update({
@@ -168,7 +188,16 @@ export const bulkUpdateMeta = action(
       }
     }
 
-    console.log("[docs.bulk-meta] completed updated=%d", updated);
+    await logActionEvent({
+      eventType: "doc.bulk_update_meta",
+      entityType: "doc",
+      payload: {
+        scope: "selection",
+        requestedCount: uniqueIds.length,
+        updatedCount: updated,
+        actions: parsed.actions.map((action) => action.type),
+      },
+    });
     return { ok: true, updated };
   },
   "docs-bulk-meta"

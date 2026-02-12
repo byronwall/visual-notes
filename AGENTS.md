@@ -220,8 +220,19 @@ code and refactors unless explicitly told otherwise.
 
 - Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
   wrappers over raw ParkUI/Ark UI composition when they meet the need.
+- For menu-like overlays with a title/description and consistent spacing,
+  prefer `PanelPopover` (`app/src/components/ui/panel-popover.tsx`) over
+  ad-hoc popover body markup.
 - Use `skipPortal` on these wrappers when you must render inline; default is
   to render in a Portal.
+- When creating/updating UI wrappers, ensure public wrapper props are forwarded
+  to the effective rendered slot.
+  - Example: `style`/`class` passed to a popover wrapper must reach
+    `Popover.Content`, not only the wrapper component.
+- For SSR-sensitive overlay controls (Select/Popover in route-critical areas),
+  keep SSR and first client render DOM identical.
+  - If needed, render a deterministic fallback until mount, then enable the
+    interactive overlay control (`skipPortal` may be required for stability).
 - In ParkUI components, the `asChild` prop is a render function, not a
   boolean.
 - When creating derived comps, be sure to import the ParkUI things with their ORIGINAL names. If not, the CSS breaks.

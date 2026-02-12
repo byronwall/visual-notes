@@ -14,6 +14,12 @@ type Filters = {
   createdTo?: string;
   updatedFrom?: string;
   updatedTo?: string;
+  activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+  sortMode?:
+    | "relevance"
+    | "recent_activity"
+    | "most_viewed_30d"
+    | "most_edited_30d";
 };
 
 export function useServerSearch(
@@ -35,14 +41,9 @@ export function useServerSearch(
     const q = debounced().trim();
     const f = filters();
     const resolvedTake = take ? take() : undefined;
-    console.log("[useServerSearch] effect", { q, take: resolvedTake });
-
     if (!q) {
       setResults((prev) => {
-        if (prev.length > 0) {
-          console.log("[useServerSearch] clear results for empty query");
-          return [];
-        }
+        if (prev.length > 0) return [];
         return prev;
       });
       setLoading(false);
@@ -55,14 +56,6 @@ export function useServerSearch(
     setLoading(true);
 
     const startMs = Date.now();
-    console.log("[useServerSearch] start", {
-      requestId,
-      q,
-      take: resolvedTake,
-      inFlight: inFlight.size,
-      filters: f,
-    });
-
     const slowTimer = window.setTimeout(() => {
       console.log("[useServerSearch] slow request", {
         requestId,
@@ -76,11 +69,6 @@ export function useServerSearch(
     onCleanup(() => {
       disposed = true;
       window.clearTimeout(slowTimer);
-      console.log("[useServerSearch] cleanup", {
-        requestId,
-        latestRequestId,
-        inFlight: inFlight.size,
-      });
     });
 
     searchDocs({ q, ...f, take: resolvedTake })
@@ -90,13 +78,6 @@ export function useServerSearch(
         const elapsedMs = Date.now() - startMs;
 
         if (disposed || requestId !== latestRequestId) {
-          console.log("[useServerSearch] stale response ignored", {
-            requestId,
-            latestRequestId,
-            elapsedMs,
-            count: items.length,
-            inFlight: inFlight.size,
-          });
           return;
         }
 
@@ -104,7 +85,6 @@ export function useServerSearch(
           requestId,
           elapsedMs,
           count: items.length,
-          inFlight: inFlight.size,
         });
         setResults(items);
         setLoading(false);
@@ -114,15 +94,7 @@ export function useServerSearch(
         window.clearTimeout(slowTimer);
         const elapsedMs = Date.now() - startMs;
 
-        if (disposed || requestId !== latestRequestId) {
-          console.log("[useServerSearch] stale error ignored", {
-            requestId,
-            latestRequestId,
-            elapsedMs,
-            inFlight: inFlight.size,
-          });
-          return;
-        }
+        if (disposed || requestId !== latestRequestId) return;
 
         console.error("[useServerSearch] request failed", {
           requestId,
@@ -135,7 +107,6 @@ export function useServerSearch(
   });
 
   const refetch = () => {
-    console.log("[useServerSearch] manual refetch");
     setReloadTick((x) => x + 1);
   };
 

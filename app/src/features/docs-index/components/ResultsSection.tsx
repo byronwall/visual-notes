@@ -17,6 +17,7 @@ export const ResultsSection = (props: {
   onVisibleIdsChange?: (ids: string[]) => void;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string, next: boolean) => void;
+  onResultOpen?: (id: string) => void;
 }) => {
   const q = props.query;
   const nowMs = () => props.nowMs ?? Date.now();
@@ -51,11 +52,11 @@ export const ResultsSection = (props: {
   });
 
   return (
-    <Stack gap="1.5rem" mt="1rem">
+    <Stack gap="0.4rem" mt="0">
       <Show
         when={!isSearching()}
         fallback={
-          <Stack gap="0.75rem">
+          <Stack gap="0.4rem">
             <HStack justify="space-between" alignItems="center" minH="1.5rem">
               <Text fontSize="sm" fontWeight="semibold" color="black.a8">
                 Search results
@@ -74,13 +75,14 @@ export const ResultsSection = (props: {
               when={searchResults().length > 0}
               fallback={<EmptySearchState loading={props.serverLoading} />}
             >
-              <Stack as="ul" gap="0.5rem">
+              <Stack as="ul" gap="0.35rem">
                 <For each={searchResults().slice(0, q.serverShown())}>
                   {(d) => (
                     <DocRow
                       {...d}
                       query={q.searchText()}
                       previewDoc={null}
+                      onResultOpen={props.onResultOpen}
                       onFilterPath={(p) => q.setPathPrefix(p)}
                       onFilterMeta={(k, v) => {
                         q.setMetaKey(k);
@@ -102,10 +104,7 @@ export const ResultsSection = (props: {
           </Stack>
         }
       >
-        <Stack gap="1.5rem">
-          <Text fontSize="sm" color="black.a7">
-            Total results: {props.items.length}
-          </Text>
+        <Stack gap="0.4rem">
           <For
             each={groupByUpdatedAt(
               props.items.slice(0, q.clientShown()),
@@ -114,11 +113,11 @@ export const ResultsSection = (props: {
           >
             {(g) => (
               <Show when={g.items.length}>
-                <Box as="section">
+                <Box as="section" p={0}>
                   <Text fontSize="sm" fontWeight="semibold" color="black.a7">
                     {g.label}
                   </Text>
-                  <Stack as="ul" gap="0.5rem" mt="0.5rem">
+                  <Stack as="ul" gap="0.35rem" mt="0.1rem">
                     <For each={g.items}>
                       {(d) => (
                         <DocRow

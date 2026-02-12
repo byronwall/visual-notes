@@ -4,7 +4,7 @@ import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { AlertTriangleIcon, SettingsIcon } from "lucide-solid";
-import { SimplePopover } from "~/components/ui/simple-popover";
+import { PanelPopover } from "~/components/ui/panel-popover";
 
 export const ActionsPopover = (props: {
   sources: Accessor<SourcesResponse | undefined>;
@@ -18,12 +18,14 @@ export const ActionsPopover = (props: {
   const [open, setOpen] = createSignal(false);
 
   return (
-    <SimplePopover
+    <PanelPopover
       open={open()}
       onClose={() => setOpen(false)}
       placement="bottom-end"
       offset={8}
-      style={{ width: "20rem", padding: "0.75rem" }}
+      width="22rem"
+      title="Actions"
+      description="Bulk tools, maintenance tasks, and destructive operations."
       anchor={
         <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
           <HStack gap="1" alignItems="center">
@@ -35,13 +37,7 @@ export const ActionsPopover = (props: {
     >
       <Stack gap="0.75rem">
         <Box>
-          <Text
-            fontSize="xs"
-            fontWeight="semibold"
-            textTransform="uppercase"
-            color="black.a7"
-            mb="0.5rem"
-          >
+          <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb="0.5rem">
             Bulk Actions
           </Text>
           <Stack gap="0.5rem">
@@ -98,8 +94,7 @@ export const ActionsPopover = (props: {
         >
           <Text
             fontSize="xs"
-            fontWeight="semibold"
-            textTransform="uppercase"
+            fontWeight="medium"
             color="red.11"
             mb="0.5rem"
             display="flex"
@@ -146,6 +141,6 @@ export const ActionsPopover = (props: {
           </Stack>
         </Box>
       </Stack>
-    </SimplePopover>
+    </PanelPopover>
   );
 };

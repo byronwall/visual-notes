@@ -8,6 +8,7 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { deleteDoc, updateDoc } from "~/services/docs.service";
+import { logDocViewEvent } from "~/services/activity/activity.actions";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
@@ -37,11 +38,13 @@ const DocumentViewer: VoidComponent<{
   const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
   const [editing, setEditing] = createSignal(false);
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
-    undefined
+    undefined,
   );
   const [title, setTitle] = createSignal(props.doc.title);
   const runUpdateDoc = useAction(updateDoc);
   const runDeleteDoc = useAction(deleteDoc);
+  const runLogDocViewEvent = useAction(logDocViewEvent);
+  let lastLoggedDocId = "";
   const firstH1 = () =>
     extractFirstHeading({
       markdown: props.doc.markdown,
@@ -55,6 +58,14 @@ const DocumentViewer: VoidComponent<{
     const nextTitle = props.doc.title;
     void nextDocId;
     setTitle((prev) => (prev === nextTitle ? prev : nextTitle));
+  });
+
+  createEffect(() => {
+    const nextDocId = props.doc.id;
+    if (!nextDocId) return;
+    if (nextDocId === lastLoggedDocId) return;
+    lastLoggedDocId = nextDocId;
+    void runLogDocViewEvent(nextDocId);
   });
 
   const handleCancelEdit = () => setEditing(false);
@@ -124,7 +135,7 @@ const DocumentViewer: VoidComponent<{
               if (open) {
                 console.log(
                   "[DocumentViewer] open title edit for doc:",
-                  props.doc.id
+                  props.doc.id,
                 );
               }
               setEditing(open);

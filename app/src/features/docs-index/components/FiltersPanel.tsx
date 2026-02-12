@@ -1,4 +1,4 @@
-import { Show, Suspense, createMemo, createSignal } from "solid-js";
+import { Show, Suspense, createMemo, createSignal, onMount } from "solid-js";
 import { PathEditor } from "~/components/PathEditor";
 import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
@@ -12,6 +12,7 @@ import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
+import { ActivityIcon, ArrowUpDownIcon } from "lucide-solid";
 
 export const FiltersPanel = (props: {
   q: ReturnType<typeof createDocsQueryStore>;
@@ -25,21 +26,26 @@ export const FiltersPanel = (props: {
   const [showSource, setShowSource] = createSignal(false);
   const [showCreated, setShowCreated] = createSignal(false);
   const [showUpdated, setShowUpdated] = createSignal(false);
+  const [selectsReady, setSelectsReady] = createSignal(false);
+
+  onMount(() => {
+    setSelectsReady(true);
+  });
 
   const hasPath = createMemo(() => q.pathPrefix().trim() || q.blankPathOnly());
   const hasOriginalId = createMemo(() => q.originalContentId().trim());
   const hasMeta = createMemo(() => q.metaKey().trim() || q.metaValue().trim());
   const hasSource = createMemo(() => q.source().trim());
   const hasCreated = createMemo(() =>
-    (q.createdFrom() || q.createdTo())?.trim?.()
+    (q.createdFrom() || q.createdTo())?.trim?.(),
   );
   const hasUpdated = createMemo(() =>
-    (q.updatedFrom() || q.updatedTo())?.trim?.()
+    (q.updatedFrom() || q.updatedTo())?.trim?.(),
   );
 
   const isPathOpen = createMemo(() => showPath() || !!hasPath());
   const isOriginalIdOpen = createMemo(
-    () => showOriginalId() || !!hasOriginalId()
+    () => showOriginalId() || !!hasOriginalId(),
   );
   const isMetaOpen = createMemo(() => showMeta() || !!hasMeta());
   const isSourceOpen = createMemo(() => showSource() || !!hasSource());
@@ -54,10 +60,72 @@ export const FiltersPanel = (props: {
       value: s.originalSource,
     })),
   ]);
+  const activityClassItems: SimpleSelectItem[] = [
+    { label: "All activity", value: "" },
+    { label: "Read-heavy", value: "READ_HEAVY" },
+    { label: "Edit-heavy", value: "EDIT_HEAVY" },
+    { label: "Balanced", value: "BALANCED" },
+    { label: "Cold", value: "COLD" },
+  ];
+  const sortModeItems: SimpleSelectItem[] = [
+    { label: "Relevance", value: "relevance" },
+    { label: "Recent activity", value: "recent_activity" },
+    { label: "Most viewed (30d)", value: "most_viewed_30d" },
+    { label: "Most edited (30d)", value: "most_edited_30d" },
+  ];
 
   return (
-    <Stack mt="0.5rem" gap="0.5rem">
-      <HStack gap="0.5rem" flexWrap="wrap">
+    <Stack mt="0.15rem" gap="1.5">
+      <HStack gap="0.5rem" flexWrap="wrap" alignItems="center">
+        <Show
+          when={selectsReady()}
+          fallback={
+            <HStack gap="2" alignItems="center" flexWrap="wrap">
+              <Text fontSize="xs" color="black.a7">
+                Sort:{" "}
+                {sortModeItems.find((item) => item.value === q.sortMode())
+                  ?.label ?? "Relevance"}
+              </Text>
+              <Text fontSize="xs" color="black.a7">
+                Activity:{" "}
+                {activityClassItems.find(
+                  (item) => item.value === q.activityClass(),
+                )?.label ?? "All activity"}
+              </Text>
+            </HStack>
+          }
+        >
+          <HStack gap="1.5" alignItems="center">
+            <ArrowUpDownIcon size={14} />
+            <SimpleSelect
+              items={sortModeItems}
+              value={q.sortMode()}
+              onChange={(value) =>
+                q.setSortMode(
+                  value as
+                    | "relevance"
+                    | "recent_activity"
+                    | "most_viewed_30d"
+                    | "most_edited_30d",
+                )
+              }
+              size="sm"
+              sameWidth
+              skipPortal
+            />
+          </HStack>
+          <HStack gap="1.5" alignItems="center">
+            <ActivityIcon size={14} />
+            <SimpleSelect
+              items={activityClassItems}
+              value={q.activityClass()}
+              onChange={(value) => q.setActivityClass(value)}
+              size="sm"
+              sameWidth
+              skipPortal
+            />
+          </HStack>
+        </Show>
         <Button
           type="button"
           size="xs"
@@ -241,7 +309,7 @@ export const FiltersPanel = (props: {
             value={q.originalContentId()}
             onInput={(e) =>
               q.setOriginalContentId(
-                (e.currentTarget as HTMLInputElement).value
+                (e.currentTarget as HTMLInputElement).value,
               )
             }
             autocomplete="off"

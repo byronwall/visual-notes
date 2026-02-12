@@ -1,5 +1,6 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
+import { logActionEvent } from "~/server/events/action-events";
 import type { ServerSearchItem } from "./docs.types";
 import {
   buildDocsWhere,
@@ -20,6 +21,12 @@ export const searchDocs = query(
     createdTo?: string;
     updatedFrom?: string;
     updatedTo?: string;
+    activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+    sortMode?:
+      | "relevance"
+      | "recent_activity"
+      | "most_viewed_30d"
+      | "most_edited_30d";
     take?: number;
   }): Promise<ServerSearchItem[]> => {
     "use server";
@@ -43,6 +50,7 @@ export const searchDocs = query(
       createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
       updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
       updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
+      activityClass: q.activityClass,
     });
 
     const titlePathDocs = await prisma.doc.findMany({
@@ -146,9 +154,61 @@ export const searchDocs = query(
       hitsMap.set(d.id, existing);
     }
 
+    const docIds = Array.from(hitsMap.keys());
+    const snapshots = docIds.length
+      ? await prisma.docActivitySnapshot.findMany({
+          where: { docId: { in: docIds } },
+          select: {
+            docId: true,
+            views30d: true,
+            edits30d: true,
+            searchClicks30d: true,
+            lastInteractedAt: true,
+          },
+        })
+      : [];
+    const snapshotByDocId = new Map(snapshots.map((s) => [s.docId, s]));
+    const nowMs = Date.now();
+    const sortMode = q.sortMode ?? "relevance";
+    const W_TEXT = 0.9;
+
     const items = Array.from(hitsMap.values())
+      .map((entry) => {
+        const snapshot = snapshotByDocId.get(entry.item.id);
+        const viewsBoost = Math.min(140, Math.log1p(snapshot?.views30d ?? 0) * 28);
+        const editsBoost = Math.min(150, Math.log1p(snapshot?.edits30d ?? 0) * 35);
+        const intentBoost = Math.min(
+          90,
+          Math.log1p(snapshot?.searchClicks30d ?? 0) * 24
+        );
+        const recencyBoost = snapshot?.lastInteractedAt
+          ? Math.max(
+              0,
+              120 - Math.floor((nowMs - snapshot.lastInteractedAt.getTime()) / (12 * 60 * 60 * 1000))
+            )
+          : 0;
+        const blendedScore =
+          entry.score * W_TEXT + recencyBoost + viewsBoost + editsBoost + intentBoost;
+        return {
+          item: entry.item,
+          blendedScore,
+          views30d: snapshot?.views30d ?? 0,
+          edits30d: snapshot?.edits30d ?? 0,
+          lastInteractedAt: snapshot?.lastInteractedAt?.getTime() ?? 0,
+        };
+      })
       .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
+        if (sortMode === "most_viewed_30d") {
+          if (b.views30d !== a.views30d) return b.views30d - a.views30d;
+        } else if (sortMode === "most_edited_30d") {
+          if (b.edits30d !== a.edits30d) return b.edits30d - a.edits30d;
+        } else if (sortMode === "recent_activity") {
+          if (b.lastInteractedAt !== a.lastInteractedAt) {
+            return b.lastInteractedAt - a.lastInteractedAt;
+          }
+        } else if (b.blendedScore !== a.blendedScore) {
+          return b.blendedScore - a.blendedScore;
+        }
         return (
           new Date(b.item.updatedAt).getTime() -
           new Date(a.item.updatedAt).getTime()
@@ -157,11 +217,31 @@ export const searchDocs = query(
       .slice(0, take)
       .map((x) => x.item);
 
-    try {
-      console.log(
-        `[docs.search] q="${term}" items=${items.length} take=${take} titlePath=${titlePathDocs.length} sections=${sections.length} msTotal=${Date.now() - startMs} msTitlePath=${afterTitlePathMs - startMs} msSections=${afterSectionsMs - afterTitlePathMs}`
-      );
-    } catch {}
+    await logActionEvent({
+      eventType: "search.query.executed",
+      entityType: "search",
+      payload: {
+        queryPreview: term.slice(0, 120),
+        queryLength: term.length,
+        tokenCount: terms.length,
+        resultCount: items.length,
+        filtersHash: JSON.stringify({
+          pathPrefix: q.pathPrefix ?? "",
+          pathBlankOnly: Boolean(q.pathBlankOnly),
+          metaKey: q.metaKey ?? "",
+          source: q.source ?? "",
+          activityClass: q.activityClass ?? "",
+        }).length,
+      },
+    });
+    console.log("[docs.search] query processed", {
+      msTotal: Date.now() - startMs,
+      msTitlePath: afterTitlePathMs - startMs,
+      msSections: afterSectionsMs - afterTitlePathMs,
+      take,
+      resultCount: items.length,
+      sortMode,
+    });
     return items;
   },
   "docs-index-search"

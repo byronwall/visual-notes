@@ -8,6 +8,7 @@ import {
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
 import { getMagicUserIdFromEvent } from "~/services/ai/ai-auth";
+import { logActionEvent } from "~/server/events/action-events";
 
 const createThreadInput = z.object({
   noteId: z.string().min(1),
@@ -39,7 +40,8 @@ export const createChatThread = action(
     "use server";
     const userId = getMagicUserIdFromEvent();
     const input = createThreadInput.parse(payload);
-    const title = input.title?.trim() || `Chat about ${input.noteId.slice(0, 12)}…`;
+    const title =
+      input.title?.trim() || `Chat about ${input.noteId.slice(0, 12)}…`;
     const thread = await prisma.chatThread.create({
       data: {
         userId,
@@ -49,9 +51,20 @@ export const createChatThread = action(
         lastMessageAt: new Date(),
       },
     });
+    await logActionEvent({
+      eventType: "ai.chat.thread_created",
+      entityType: "chat_thread",
+      entityId: thread.id,
+      relatedDocId: thread.noteId,
+      payload: {
+        noteId: thread.noteId,
+        hasCustomTitle: Boolean(input.title?.trim()),
+      },
+      context: { actorId: userId, actorType: "magic_user" },
+    });
     return { item: thread };
   },
-  "ai-chat-thread-create"
+  "ai-chat-thread-create",
 );
 
 export const updateChatThread = action(
@@ -76,7 +89,7 @@ export const updateChatThread = action(
     });
     return { item: updated };
   },
-  "ai-chat-thread-update"
+  "ai-chat-thread-update",
 );
 
 export const sendChatMessage = action(
@@ -98,9 +111,19 @@ export const sendChatMessage = action(
         contentHtml: sanitizeHtmlContent(
           looksLikeMarkdown(input.text)
             ? normalizeMarkdownToHtml(input.text)
-            : input.text
+            : input.text,
         ),
       },
+    });
+    await logActionEvent({
+      eventType: "ai.chat.message_sent",
+      entityType: "chat_thread",
+      entityId: thread.id,
+      relatedDocId: thread.noteId,
+      payload: {
+        messageLength: input.text.length,
+      },
+      context: { actorId: userId, actorType: "magic_user" },
     });
 
     await prisma.chatThread.update({
@@ -124,8 +147,8 @@ export const sendChatMessage = action(
       .map(
         (m) =>
           `${m.role === "user" ? "User" : "Assistant"}: ${toPlain(
-            m.contentHtml
-          )}`
+            m.contentHtml,
+          )}`,
       )
       .join("\n\n");
 
@@ -140,7 +163,9 @@ export const sendChatMessage = action(
     const html =
       output && output.trim().length
         ? sanitizeHtmlContent(
-            looksLikeMarkdown(output) ? normalizeMarkdownToHtml(output) : output
+            looksLikeMarkdown(output)
+              ? normalizeMarkdownToHtml(output)
+              : output,
           )
         : "<p>(no response)</p>";
 
@@ -159,7 +184,7 @@ export const sendChatMessage = action(
 
     return { userMessage: userMsg, assistantMessage: assistantMsg };
   },
-  "ai-chat-message-send"
+  "ai-chat-message-send",
 );
 
 export const updateChatMessage = action(
@@ -185,7 +210,7 @@ export const updateChatMessage = action(
     });
     return { item: updated };
   },
-  "ai-chat-message-update"
+  "ai-chat-message-update",
 );
 
 export const deleteChatMessage = action(
@@ -216,5 +241,5 @@ export const deleteChatMessage = action(
     });
     return { ok: true };
   },
-  "ai-chat-message-delete"
+  "ai-chat-message-delete",
 );

@@ -27,6 +27,7 @@ type DocHoverPreviewLinkProps = {
     meta?: Record<string, unknown> | null;
   } | null;
   triggerClass: string;
+  onNavigate?: () => void;
   children: JSX.Element;
 };
 
@@ -58,7 +59,11 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
     <Show
       when={mounted()}
       fallback={
-        <a href={props.href} class={props.triggerClass}>
+        <a
+          href={props.href}
+          class={props.triggerClass}
+          onClick={props.onNavigate}
+        >
           {props.children}
         </a>
       }
@@ -74,7 +79,12 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
       >
         <HoverCard.Trigger
           asChild={(triggerProps) => (
-            <a {...triggerProps} href={props.href} class={props.triggerClass}>
+            <a
+              {...triggerProps}
+              href={props.href}
+              class={props.triggerClass}
+              onClick={props.onNavigate}
+            >
               {props.children}
             </a>
           )}
@@ -82,7 +92,11 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
         <Portal>
           <HoverCard.Positioner>
             <HoverCard.Content maxW="320px">
-              <a href={props.href} class={contentLinkClass}>
+              <a
+                href={props.href}
+                class={contentLinkClass}
+                onClick={props.onNavigate}
+              >
                 <Stack gap="2">
                   <Box fontSize="sm" fontWeight="semibold" color="fg.default">
                     {props.title}

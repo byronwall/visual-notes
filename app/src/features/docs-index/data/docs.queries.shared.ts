@@ -19,6 +19,7 @@ function buildDocsWhere(q: {
   createdTo?: string;
   updatedFrom?: string;
   updatedTo?: string;
+  activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
 }) {
   const where: Record<string, any> = {};
   if (q.pathPrefix) where.path = { startsWith: q.pathPrefix };
@@ -58,6 +59,9 @@ function buildDocsWhere(q: {
       if (!isNaN(d.getTime())) range.lte = d;
     }
     if (Object.keys(range).length) where.updatedAt = range;
+  }
+  if (q.activityClass) {
+    where.activitySnapshot = { activityClass: q.activityClass };
   }
   return where;
 }

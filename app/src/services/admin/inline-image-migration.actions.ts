@@ -1,6 +1,7 @@
 import { action } from "@solidjs/router";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import { logActionEvent } from "~/server/events/action-events";
 import {
   computeContentHashForDoc,
   ensureJpegForHeicFile,
@@ -52,16 +53,21 @@ function buildDataImageWhere() {
 }
 
 export const runInlineImageMigrationBatch = action(
-  async (payload: z.infer<typeof runSchema>): Promise<InlineImageMigrationBatchResult> => {
+  async (
+    payload: z.infer<typeof runSchema>,
+  ): Promise<InlineImageMigrationBatchResult> => {
     "use server";
     const input = runSchema.parse(payload);
     const storageDir = resolveDocImageStorageDir();
-    console.log(
-      "[admin.inline-image-migration] start limit=%d dryRun=%s storage=%s",
-      input.limit,
-      input.dryRun,
-      storageDir
-    );
+    await logActionEvent({
+      eventType: "admin.inline_image_migration.started",
+      entityType: "admin_job",
+      payload: {
+        limit: input.limit,
+        dryRun: input.dryRun,
+      },
+      context: { actorType: "system", actorId: "system" },
+    });
 
     const candidates = await prisma.doc.findMany({
       where: buildDataImageWhere(),
@@ -146,14 +152,20 @@ export const runInlineImageMigrationBatch = action(
       }
     }
 
-    console.log(
-      "[admin.inline-image-migration] done scanned=%d updated=%d migratedRefs=%d skipped=%d failures=%d",
-      scanned,
-      updatedDocs,
-      migratedImageRefs,
-      skippedDocs,
-      failures.length
-    );
+    await logActionEvent({
+      eventType: "admin.inline_image_migration.finished",
+      entityType: "admin_job",
+      payload: {
+        limit: input.limit,
+        dryRun: input.dryRun,
+        scanned,
+        updatedDocs,
+        migratedImageRefs,
+        skippedDocs,
+        failures: failures.length,
+      },
+      context: { actorType: "system", actorId: "system" },
+    });
 
     return {
       dryRun: input.dryRun,
@@ -165,7 +177,7 @@ export const runInlineImageMigrationBatch = action(
       failures,
     };
   },
-  "admin-inline-image-migration-run-batch"
+  "admin-inline-image-migration-run-batch",
 );
 
 export const recoverInlineImageMigrationBackup = action(
@@ -181,15 +193,18 @@ export const recoverInlineImageMigrationBackup = action(
     });
     if (!doc) throw new Error("Doc not found");
 
-    const backup = doc.inlineImageMigrationBackup as
-      | { html?: unknown; markdown?: unknown }
-      | null;
+    const backup = doc.inlineImageMigrationBackup as {
+      html?: unknown;
+      markdown?: unknown;
+    } | null;
     if (!backup) throw new Error("No migration backup found for this doc");
 
     const html = typeof backup.html === "string" ? backup.html : "";
     const markdown = typeof backup.markdown === "string" ? backup.markdown : "";
     if (!html && !markdown) {
-      throw new Error("Backup is present but does not include recoverable content");
+      throw new Error(
+        "Backup is present but does not include recoverable content",
+      );
     }
 
     await prisma.doc.update({
@@ -202,34 +217,45 @@ export const recoverInlineImageMigrationBackup = action(
       select: { id: true },
     });
 
-    console.log("[admin.inline-image-migration] recovered backup for doc=%s", doc.id);
+    console.log(
+      "[admin.inline-image-migration] recovered backup for doc=%s",
+      doc.id,
+    );
     return { ok: true, id: doc.id };
   },
-  "admin-inline-image-migration-recover-backup"
+  "admin-inline-image-migration-recover-backup",
 );
 
 function buildHeicDocImageWhere() {
   return {
     OR: [
       { html: { contains: "/api/doc-images/", mode: "insensitive" as const } },
-      { markdown: { contains: "/api/doc-images/", mode: "insensitive" as const } },
+      {
+        markdown: {
+          contains: "/api/doc-images/",
+          mode: "insensitive" as const,
+        },
+      },
     ],
   };
 }
 
 export const runHeicToJpegBatch = action(
   async (
-    payload: z.infer<typeof transcodeHeicSchema>
+    payload: z.infer<typeof transcodeHeicSchema>,
   ): Promise<HeicTranscodeBatchResult> => {
     "use server";
     const input = transcodeHeicSchema.parse(payload);
     const storageDir = resolveDocImageStorageDir();
-    console.log(
-      "[admin.inline-image-migration] HEIC->JPEG start limit=%d dryRun=%s storage=%s",
-      input.limit,
-      input.dryRun,
-      storageDir
-    );
+    await logActionEvent({
+      eventType: "admin.heic_transcode.started",
+      entityType: "admin_job",
+      payload: {
+        limit: input.limit,
+        dryRun: input.dryRun,
+      },
+      context: { actorType: "system", actorId: "system" },
+    });
 
     const candidates = await prisma.doc.findMany({
       where: buildHeicDocImageWhere(),
@@ -316,14 +342,20 @@ export const runHeicToJpegBatch = action(
       }
     }
 
-    console.log(
-      "[admin.inline-image-migration] HEIC->JPEG done scanned=%d updated=%d transcoded=%d skipped=%d failures=%d",
-      scanned,
-      updatedDocs,
-      transcodedImages,
-      skippedDocs,
-      failures.length
-    );
+    await logActionEvent({
+      eventType: "admin.heic_transcode.finished",
+      entityType: "admin_job",
+      payload: {
+        limit: input.limit,
+        dryRun: input.dryRun,
+        scanned,
+        updatedDocs,
+        transcodedImages,
+        skippedDocs,
+        failures: failures.length,
+      },
+      context: { actorType: "system", actorId: "system" },
+    });
 
     return {
       dryRun: input.dryRun,
@@ -335,5 +367,5 @@ export const runHeicToJpegBatch = action(
       failures,
     };
   },
-  "admin-inline-image-migration-heic-to-jpeg"
+  "admin-inline-image-migration-heic-to-jpeg",
 );

@@ -7,6 +7,7 @@ import {
   NetworkIcon,
   ShieldIcon,
   SparklesIcon,
+  ActivityIcon,
 } from "lucide-solid";
 import { Button } from "~/components/ui/button";
 import { Box, Stack, VisuallyHidden } from "styled-system/jsx";
@@ -54,6 +55,12 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
       href: "/ai",
       icon: SparklesIcon,
       isActive: (path) => isActiveSection("/ai", path),
+    },
+    {
+      label: "Activity",
+      href: "/activity",
+      icon: ActivityIcon,
+      isActive: (path) => isActiveSection("/activity", path),
     },
     {
       label: "Admin",

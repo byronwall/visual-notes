@@ -33,7 +33,9 @@ import { ResultsSection } from "./ResultsSection";
 import { SearchInput } from "./SearchInput";
 import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
+import { SelectionPopover } from "./SelectionPopover";
 import { updateDoc } from "~/services/docs.service";
+import { logSearchResultOpened } from "~/services/activity/activity.actions";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Spinner } from "~/components/ui/spinner";
@@ -69,6 +71,8 @@ const DocsIndexPage = () => {
     "createdTo",
     "updatedFrom",
     "updatedTo",
+    "activityClass",
+    "sortMode",
     "clientShown",
     "serverShown",
   ];
@@ -78,6 +82,22 @@ const DocsIndexPage = () => {
     const num = (key: string, def: number) => {
       const v = Number(sp.get(key));
       return Number.isFinite(v) && v > 0 ? v : def;
+    };
+    const parseSortMode = (
+      value: string,
+    ):
+      | "relevance"
+      | "recent_activity"
+      | "most_viewed_30d"
+      | "most_edited_30d" => {
+      if (
+        value === "recent_activity" ||
+        value === "most_viewed_30d" ||
+        value === "most_edited_30d"
+      ) {
+        return value;
+      }
+      return "relevance";
     };
 
     const next = {
@@ -95,6 +115,8 @@ const DocsIndexPage = () => {
       createdTo: qp("createdTo"),
       updatedFrom: qp("updatedFrom"),
       updatedTo: qp("updatedTo"),
+      activityClass: qp("activityClass"),
+      sortMode: parseSortMode(qp("sortMode")),
       clientShown: num("clientShown", 100),
       serverShown: num("serverShown", 25),
     };
@@ -122,6 +144,9 @@ const DocsIndexPage = () => {
         q.setUpdatedFrom(next.updatedFrom || undefined);
       if (q.updatedTo() !== next.updatedTo)
         q.setUpdatedTo(next.updatedTo || undefined);
+      if (q.activityClass() !== next.activityClass)
+        q.setActivityClass(next.activityClass);
+      if (q.sortMode() !== next.sortMode) q.setSortMode(next.sortMode);
       if (q.clientShown() !== desiredClient) q.setClientShown(desiredClient);
       if (q.serverShown() !== desiredServer) q.setServerShown(desiredServer);
     });
@@ -186,6 +211,9 @@ const DocsIndexPage = () => {
     if (q.updatedFrom().trim())
       params.set("updatedFrom", q.updatedFrom().trim());
     if (q.updatedTo().trim()) params.set("updatedTo", q.updatedTo().trim());
+    if (q.activityClass().trim())
+      params.set("activityClass", q.activityClass().trim());
+    if (q.sortMode() !== "relevance") params.set("sortMode", q.sortMode());
     if (q.clientShown() !== 100)
       params.set("clientShown", String(q.clientShown()));
     if (q.serverShown() !== 25)
@@ -230,6 +258,13 @@ const DocsIndexPage = () => {
     createdTo: q.createdTo() || undefined,
     updatedFrom: q.updatedFrom() || undefined,
     updatedTo: q.updatedTo() || undefined,
+    activityClass: (q.activityClass() || undefined) as
+      | "READ_HEAVY"
+      | "EDIT_HEAVY"
+      | "BALANCED"
+      | "COLD"
+      | undefined,
+    sortMode: q.sortMode(),
   });
 
   const docs = createAsync(() => fetchDocs(docsQueryArgs()));
@@ -253,6 +288,11 @@ const DocsIndexPage = () => {
   const runScanRelativeImages = useAction(scanRelativeImages);
   const runBulkDeleteDocs = useAction(bulkDeleteDocs);
   const runBulkUpdateMeta = useAction(bulkUpdateMeta);
+  const runLogSearchResultOpened = useAction(logSearchResultOpened);
+  const isSearching = createMemo(() => q.searchText().trim().length > 0);
+  const totalResultsCount = createMemo(() =>
+    isSearching() ? serverResults().length : (docs() || []).length,
+  );
   const selectedVisibleCount = createMemo(() => {
     const selected = selectedIds();
     let count = 0;
@@ -292,6 +332,13 @@ const DocsIndexPage = () => {
       createdTo: q.createdTo() || undefined,
       updatedFrom: q.updatedFrom() || undefined,
       updatedTo: q.updatedTo() || undefined,
+      activityClass: (q.activityClass() || undefined) as
+        | "READ_HEAVY"
+        | "EDIT_HEAVY"
+        | "BALANCED"
+        | "COLD"
+        | undefined,
+      sortMode: q.sortMode(),
     }),
     () => Math.max(50, Math.min(200, q.serverShown() + 50)),
   );
@@ -301,6 +348,21 @@ const DocsIndexPage = () => {
     if (!value) return;
     await runBulkSetSource(value);
     await refreshDocs();
+  };
+
+  const handleSearchResultOpen = (id: string) => {
+    const query = q.searchText().trim();
+    if (!query) return;
+    const tokenCount = query
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2).length;
+    void runLogSearchResultOpened({
+      docId: id,
+      queryPreview: query.slice(0, 120),
+      queryLength: query.length,
+      tokenCount,
+    });
   };
 
   const handleCleanupTitles = async () => {
@@ -459,81 +521,67 @@ const DocsIndexPage = () => {
       <Flex align="stretch" minH="100vh">
         <Box flex="1" minW="0">
           <Container py="1.5rem" px="1rem" maxW="900px">
-            <Stack gap="1rem">
-              <Flex
-                align="center"
-                justify="space-between"
-                gap="0.75rem"
-                flexWrap="wrap"
-              >
-                <Heading as="h1" fontSize="2xl">
-                  Notes
-                </Heading>
-                <HStack gap="0.5rem" flexWrap="wrap">
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={visibleIds().length === 0}
-                    onClick={handleSelectAllVisible}
-                  >
-                    Select All ({visibleIds().length})
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={selectedIds().size === 0}
-                    onClick={handleSelectNone}
-                  >
-                    None
-                  </Button>
-                  <Button
-                    size="xs"
-                    colorPalette="red"
-                    disabled={selectedVisibleCount() === 0}
-                    onClick={handleDeleteSelected}
-                  >
-                    Delete ({selectedVisibleCount()})
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    disabled={selectedVisibleCount() === 0}
-                    onClick={handleOpenBulkMeta}
-                  >
-                    Edit Meta
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    disabled={selectedVisibleCount() === 0}
-                    onClick={handleOpenBulkPath}
-                  >
-                    Set Path
-                  </Button>
-                  <ActionsPopover
-                    sources={sources}
-                    onBulkSetSource={handleBulkSetSource}
-                    onCleanupTitles={handleCleanupTitles}
-                    onProcessPathRound={handleProcessPathRound}
-                    onScanRelativeImages={handleScanRelativeImages}
-                    onDeleteBySource={handleDeleteBySource}
-                    onDeleteAll={handleDeleteAll}
-                  />
-                </HStack>
-              </Flex>
-
-              <SearchInput
-                value={q.searchText()}
-                onChange={(v) => {
-                  q.setSearchText(v);
-                  q.resetPaging();
-                }}
-              />
-
-              <FiltersPanel
-                q={q as unknown as FiltersPanelStore}
-                sources={sources()?.sources ?? []}
-              />
+            <Stack gap="1.25rem">
+              <Stack gap="2" px="0.25rem">
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  gap="0.75rem"
+                  flexWrap="wrap"
+                >
+                  <HStack gap="3" alignItems="center" flexWrap="wrap">
+                    <Heading as="h1" fontSize="2xl">
+                      Notes
+                    </Heading>
+                    <Box borderRadius="full" px="2.5" py="0.75" bg="bg.subtle">
+                      <Text fontSize="xs" color="black.a7">
+                        Selected: {selectedVisibleCount()}
+                      </Text>
+                    </Box>
+                    <Box borderRadius="full" px="2.5" py="0.75" bg="bg.subtle">
+                      <Text fontSize="xs" color="black.a7">
+                        Visible: {visibleIds().length}
+                      </Text>
+                    </Box>
+                    <Box borderRadius="full" px="2.5" py="0.75" bg="bg.subtle">
+                      <Text fontSize="xs" color="black.a7">
+                        Results: {totalResultsCount()}
+                      </Text>
+                    </Box>
+                  </HStack>
+                  <HStack gap="2" alignItems="center">
+                    <SelectionPopover
+                      visibleCount={visibleIds().length}
+                      selectedCount={selectedVisibleCount()}
+                      onSelectAll={handleSelectAllVisible}
+                      onClearSelection={handleSelectNone}
+                      onDeleteSelected={handleDeleteSelected}
+                      onBulkMeta={handleOpenBulkMeta}
+                      onBulkPath={handleOpenBulkPath}
+                    />
+                    <ActionsPopover
+                      sources={sources}
+                      onBulkSetSource={handleBulkSetSource}
+                      onCleanupTitles={handleCleanupTitles}
+                      onProcessPathRound={handleProcessPathRound}
+                      onScanRelativeImages={handleScanRelativeImages}
+                      onDeleteBySource={handleDeleteBySource}
+                      onDeleteAll={handleDeleteAll}
+                    />
+                  </HStack>
+                </Flex>
+                <SearchInput
+                  value={q.searchText()}
+                  onChange={(v) => {
+                    q.setSearchText(v);
+                    q.resetPaging();
+                  }}
+                />
+                <FiltersPanel
+                  q={q as unknown as FiltersPanelStore}
+                  sources={sources()?.sources ?? []}
+                />
+              </Stack>
 
               <ErrorBoundary
                 fallback={(err) => {
@@ -565,6 +613,7 @@ const DocsIndexPage = () => {
                     onVisibleIdsChange={setVisibleIds}
                     selectedIds={selectedIds()}
                     onToggleSelect={handleToggleSelect}
+                    onResultOpen={handleSearchResultOpen}
                   />
                 </Suspense>
               </ErrorBoundary>

@@ -15,6 +15,12 @@ export function createDocsQueryStore() {
     createdTo: "" as string,
     updatedFrom: "" as string,
     updatedTo: "" as string,
+    activityClass: "",
+    sortMode: "relevance" as
+      | "relevance"
+      | "recent_activity"
+      | "most_viewed_30d"
+      | "most_edited_30d",
     clientShown: 100,
     serverShown: 25,
   });
@@ -31,6 +37,8 @@ export function createDocsQueryStore() {
   const createdTo = createMemo(() => state.createdTo);
   const updatedFrom = createMemo(() => state.updatedFrom);
   const updatedTo = createMemo(() => state.updatedTo);
+  const activityClass = createMemo(() => state.activityClass);
+  const sortMode = createMemo(() => state.sortMode);
   const clientShown = createMemo(() => state.clientShown);
   const serverShown = createMemo(() => state.serverShown);
 
@@ -45,6 +53,10 @@ export function createDocsQueryStore() {
   const setCreatedTo = (v?: string) => setState("createdTo", v ?? "");
   const setUpdatedFrom = (v?: string) => setState("updatedFrom", v ?? "");
   const setUpdatedTo = (v?: string) => setState("updatedTo", v ?? "");
+  const setActivityClass = (v: string) => setState("activityClass", v);
+  const setSortMode = (
+    v: "relevance" | "recent_activity" | "most_viewed_30d" | "most_edited_30d",
+  ) => setState("sortMode", v);
 
   const resetMeta = () => {
     setState({ metaKey: "", metaValue: "" });
@@ -79,6 +91,8 @@ export function createDocsQueryStore() {
     createdTo,
     updatedFrom,
     updatedTo,
+    activityClass,
+    sortMode,
     clientShown,
     serverShown,
     // Setters / actions
@@ -93,6 +107,8 @@ export function createDocsQueryStore() {
     setCreatedTo,
     setUpdatedFrom,
     setUpdatedTo,
+    setActivityClass,
+    setSortMode,
     resetMeta,
     resetDatesAndSource,
     resetPaging,

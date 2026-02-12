@@ -62,6 +62,19 @@ enum RunStatus {
   PARTIAL
 }
 
+enum ActionActorType {
+  magic_user
+  anonymous
+  system
+}
+
+enum ActionActivityClass {
+  READ_HEAVY
+  EDIT_HEAVY
+  BALANCED
+  COLD
+}
+
 /// Single prompt per task (e.g., "chapter_summary") with default model/params
 model Prompt {
   id              String          @id @default(cuid())
@@ -182,9 +195,70 @@ model Doc {
   umapPoints           UmapPoint[]
   sections             DocSection[]
   docSectionEmbeddings DocSectionEmbedding[]
+  actionEvents         ActionEvent[]       @relation("RelatedDocEvents")
+  activityDaily        DocActivityDaily[]
+  activitySnapshot     DocActivitySnapshot?
 
   @@unique([originalSource, originalContentId])
   @@index([path])
+}
+
+/// Append-only audit/event log for major user/system actions.
+model ActionEvent {
+  id          String          @id @default(cuid())
+  createdAt   DateTime        @default(now())
+  eventType   String
+  actorId     String?
+  actorType   ActionActorType @default(anonymous)
+  entityType  String
+  entityId    String?
+  relatedDocId String?
+  sessionId   String?
+  requestId   String?
+  payload     Json?
+
+  relatedDoc Doc? @relation("RelatedDocEvents", fields: [relatedDocId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([relatedDocId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+}
+
+/// Per-doc daily counters used for rolling activity windows.
+model DocActivityDaily {
+  id              String   @id @default(cuid())
+  docId           String
+  date            DateTime
+  viewCount       Int      @default(0)
+  editCount       Int      @default(0)
+  searchClickCount Int     @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@unique([docId, date])
+  @@index([date])
+  @@index([docId, date(sort: Desc)])
+}
+
+/// Cached 30-day rollup for ranking and filtering.
+model DocActivitySnapshot {
+  id               String              @id @default(cuid())
+  docId            String              @unique
+  views30d         Int                 @default(0)
+  edits30d         Int                 @default(0)
+  searchClicks30d  Int                 @default(0)
+  lastViewedAt     DateTime?
+  lastEditedAt     DateTime?
+  lastInteractedAt DateTime?
+  activityClass    ActionActivityClass @default(COLD)
+  updatedAt        DateTime            @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([lastInteractedAt(sort: Desc)])
 }
 
 /// Structural sections/chunks of a Doc after preprocessing

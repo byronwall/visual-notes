@@ -19,6 +19,12 @@ export const fetchDocs = query(
     createdTo?: string;
     updatedFrom?: string;
     updatedTo?: string;
+    activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+    sortMode?:
+      | "relevance"
+      | "recent_activity"
+      | "most_viewed_30d"
+      | "most_edited_30d";
     take?: number;
   }): Promise<DocListItem[]> => {
     "use server";
@@ -33,10 +39,29 @@ export const fetchDocs = query(
       createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
       updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
       updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
+      activityClass: q.activityClass,
     });
     const take = Math.max(1, Math.min(8000, q.take ?? 8000));
+    const sortMode = q.sortMode ?? "recent_activity";
+    const orderBy =
+      sortMode === "most_viewed_30d"
+        ? [
+            { activitySnapshot: { views30d: "desc" as const } },
+            { updatedAt: "desc" as const },
+          ]
+        : sortMode === "most_edited_30d"
+          ? [
+              { activitySnapshot: { edits30d: "desc" as const } },
+              { updatedAt: "desc" as const },
+            ]
+          : sortMode === "recent_activity"
+            ? [
+              { activitySnapshot: { lastInteractedAt: "desc" as const } },
+              { updatedAt: "desc" as const },
+            ]
+            : [{ updatedAt: "desc" as const }];
     const items = await prisma.doc.findMany({
-      orderBy: { updatedAt: "desc" },
+      orderBy,
       where,
       select: {
         id: true,
@@ -48,13 +73,6 @@ export const fetchDocs = query(
       },
       take,
     });
-    try {
-      console.log(
-        `[docs.list] filters pathPrefix=${q.pathPrefix || ""} pathBlankOnly=${
-          q.pathBlankOnly ? "1" : ""
-        } metaKey=${q.metaKey || ""} source=${q.source || ""}`
-      );
-    } catch {}
     return items.map((item) => ({
       id: item.id,
       title: item.title,

@@ -9,6 +9,7 @@ import {
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
 import { getMagicUserIdFromEvent } from "~/services/ai/ai-auth";
+import { logActionEvent } from "~/server/events/action-events";
 
 const runInput = z
   .object({
@@ -43,15 +44,17 @@ export const runPrompt = action(
     "use server";
     const input = runInput.parse(payload);
     const userId = getMagicUserIdFromEvent();
-
-    console.log("[ai.runPrompt] incoming", {
-      promptId: input.promptId,
-      model: input.model,
-      selection_text_len: input.selection_text?.length || 0,
-      doc_text_len: input.doc_text?.length || 0,
-      vars_has_selection_text:
-        typeof (input.vars as any)?.selection_text === "string" &&
-        (input.vars as any)?.selection_text.length > 0,
+    await logActionEvent({
+      eventType: "ai.prompt.run_started",
+      entityType: "prompt_run",
+      entityId: input.promptVersionId ?? input.promptId ?? null,
+      relatedDocId: input.noteId ?? null,
+      payload: {
+        promptId: input.promptId ?? null,
+        promptVersionId: input.promptVersionId ?? null,
+        hasSelection: Boolean(input.selection_text?.trim()),
+      },
+      context: { actorId: userId, actorType: "magic_user" },
     });
 
     let version:
@@ -144,16 +147,13 @@ export const runPrompt = action(
       !templateToUse.includes("{{selection")
     ) {
       templateToUse = `${templateToUse}\n\n{{selection}}`;
-      console.log("[ai.runPrompt] auto-appended {{selection}} to template");
+      console.log(
+        "[ai.runPrompt] normalized template with selection placeholder",
+      );
     }
 
     const compiledUser = await renderMustache(templateToUse, vars);
     const systemUsed = version.system ?? undefined;
-
-    console.log("[ai.runPrompt] compiled", {
-      compiled_len: compiledUser.length,
-      selection_text_len: (vars.selection_text as string)?.length || 0,
-    });
 
     let threadId: string | undefined = undefined;
     if (input.noteId) {
@@ -188,7 +188,7 @@ export const runPrompt = action(
       const compiledHtml = sanitizeHtmlContent(
         looksLikeMarkdown(compiledUser)
           ? normalizeMarkdownToHtml(compiledUser)
-          : compiledUser
+          : compiledUser,
       );
       await prisma.chatMessage.create({
         data: {
@@ -213,7 +213,7 @@ export const runPrompt = action(
               ? sanitizeHtmlContent(
                   looksLikeMarkdown(output)
                     ? normalizeMarkdownToHtml(output)
-                    : output
+                    : output,
                 )
               : "<p>(no response)</p>";
           await prisma.chatMessage.create({
@@ -225,7 +225,11 @@ export const runPrompt = action(
           });
           await prisma.chatThread.update({
             where: { id: created.id },
-            data: { status: "DONE", hasUnread: true, lastMessageAt: new Date() },
+            data: {
+              status: "DONE",
+              hasUnread: true,
+              lastMessageAt: new Date(),
+            },
           });
           await prisma.promptRun.create({
             data: {
@@ -242,8 +246,20 @@ export const runPrompt = action(
             },
             select: { id: true },
           });
+          await logActionEvent({
+            eventType: "ai.prompt.run_finished",
+            entityType: "prompt_run",
+            entityId: created.id,
+            relatedDocId: input.noteId ?? null,
+            payload: {
+              status: output ? "SUCCESS" : "ERROR",
+              model,
+              outputLength: output?.length ?? 0,
+            },
+            context: { actorId: userId, actorType: "magic_user" },
+          });
           console.log(
-            `[ai.runPrompt/bg] version=${version!.id} model=${model} ok=${!!output}`
+            `[ai.runPrompt/bg] version=${version!.id} model=${model} ok=${!!output}`,
           );
         } catch (e) {
           console.log("[ai.runPrompt/bg] error", e);
@@ -258,7 +274,11 @@ export const runPrompt = action(
             });
             await prisma.chatThread.update({
               where: { id: created.id },
-              data: { status: "DONE", hasUnread: true, lastMessageAt: new Date() },
+              data: {
+                status: "DONE",
+                hasUnread: true,
+                lastMessageAt: new Date(),
+              },
             });
             await prisma.promptRun.create({
               data: {
@@ -274,6 +294,18 @@ export const runPrompt = action(
                 error: (e as Error)?.message || "background error",
               },
               select: { id: true },
+            });
+            await logActionEvent({
+              eventType: "ai.prompt.run_finished",
+              entityType: "prompt_run",
+              entityId: created.id,
+              relatedDocId: input.noteId ?? null,
+              payload: {
+                status: "ERROR",
+                model,
+                error: (e as Error)?.message || "background error",
+              },
+              context: { actorId: userId, actorType: "magic_user" },
             });
           } catch {}
         }
@@ -295,7 +327,7 @@ export const runPrompt = action(
         ? sanitizeHtmlContent(
             looksLikeMarkdown(output)
               ? normalizeMarkdownToHtml(output)
-              : output
+              : output,
           )
         : null;
     const run = await prisma.promptRun.create({
@@ -313,6 +345,18 @@ export const runPrompt = action(
       },
       select: { id: true },
     });
+    await logActionEvent({
+      eventType: "ai.prompt.run_finished",
+      entityType: "prompt_run",
+      entityId: run.id,
+      relatedDocId: input.noteId ?? null,
+      payload: {
+        status: output ? "SUCCESS" : "ERROR",
+        model,
+        outputLength: output?.length ?? 0,
+      },
+      context: { actorId: userId, actorType: "magic_user" },
+    });
     return {
       runId: run.id,
       outputHtml,
@@ -322,12 +366,12 @@ export const runPrompt = action(
       threadId: null,
     };
   },
-  "ai-run-prompt"
+  "ai-run-prompt",
 );
 
 async function renderMustache(
   template: string,
-  vars: Record<string, unknown>
+  vars: Record<string, unknown>,
 ): Promise<string> {
   const { default: Mustache } = await import("mustache");
   const rendered = await Mustache.render(template, vars);

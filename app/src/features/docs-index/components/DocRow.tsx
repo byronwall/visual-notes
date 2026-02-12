@@ -19,6 +19,7 @@ export const DocRow = (props: {
   query?: string;
   onFilterPath?: (p: string) => void;
   onFilterMeta?: (k: string, v: string) => void;
+  onResultOpen?: (id: string) => void;
   selected?: boolean;
   onToggleSelect?: (id: string, next: boolean) => void;
   previewDoc?: {
@@ -75,6 +76,7 @@ export const DocRow = (props: {
               snippet={props.snippet}
               previewDoc={props.previewDoc}
               triggerClass={titleLinkClass}
+              onNavigate={() => props.onResultOpen?.(props.id)}
             >
               <Show when={props.query}>
                 {(query) => (

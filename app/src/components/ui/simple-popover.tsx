@@ -57,7 +57,9 @@ export const SimplePopover = (props: PopoverProps) => {
       <Popover.Anchor>{local.anchor}</Popover.Anchor>
       <WrapWhen when={portalled()} component={Portal}>
         <Popover.Positioner>
-          <Popover.Content>{local.children}</Popover.Content>
+          <Popover.Content class={local.class} style={local.style}>
+            {local.children}
+          </Popover.Content>
         </Popover.Positioner>
       </WrapWhen>
     </Popover.Root>

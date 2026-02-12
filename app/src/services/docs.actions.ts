@@ -3,6 +3,11 @@ import { createHash } from "crypto";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import {
+  lengthDeltaBucket,
+  logActionEvent,
+  logDocUpdate,
+} from "~/server/events/action-events";
+import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
@@ -87,6 +92,14 @@ export const createDoc = action(
           },
           select: { id: true },
         });
+        await logDocUpdate(
+          updated.id,
+          ["title", "markdown", "html", "path", "meta"],
+          {
+            source: input.originalSource ?? null,
+            contentLengthDeltaBucket: "upsert_replace",
+          },
+        );
         return { id: updated.id, updated: true };
       }
       const created = await prisma.doc.create({
@@ -102,6 +115,17 @@ export const createDoc = action(
         },
         select: { id: true },
       });
+      await logActionEvent({
+        eventType: "doc.create",
+        entityType: "doc",
+        entityId: created.id,
+        relatedDocId: created.id,
+        payload: {
+          source: input.originalSource ?? null,
+          hasPath: Boolean(input.path?.trim()),
+          hasMeta: Boolean(input.meta && Object.keys(input.meta).length > 0),
+        },
+      });
       return { id: created.id };
     }
 
@@ -116,9 +140,20 @@ export const createDoc = action(
       },
       select: { id: true },
     });
+    await logActionEvent({
+      eventType: "doc.create",
+      entityType: "doc",
+      entityId: created.id,
+      relatedDocId: created.id,
+      payload: {
+        source: null,
+        hasPath: Boolean(input.path?.trim()),
+        hasMeta: Boolean(input.meta && Object.keys(input.meta).length > 0),
+      },
+    });
     return { id: created.id };
   },
-  "docs-create"
+  "docs-create",
 );
 
 export const updateDoc = action(
@@ -126,39 +161,56 @@ export const updateDoc = action(
     "use server";
     const input = updateInput.parse(payload);
     const updates: Record<string, any> = {};
+    const fieldsChanged: string[] = [];
+    let prevContentLength = 0;
+    let nextContentLength = 0;
+    let docBefore:
+      | {
+          html: string;
+          markdown: string;
+        }
+      | undefined;
 
-    if (input.title !== undefined) updates.title = input.title;
+    if (input.html !== undefined || input.markdown !== undefined) {
+      const existing = await prisma.doc.findUnique({
+        where: { id: input.id },
+        select: { html: true, markdown: true },
+      });
+      if (!existing) throw new Error("Not found");
+      docBefore = {
+        html: String(existing.html || ""),
+        markdown: String(existing.markdown || ""),
+      };
+      prevContentLength = docBefore.html.length + docBefore.markdown.length;
+    }
+
+    if (input.title !== undefined) {
+      updates.title = input.title;
+      fieldsChanged.push("title");
+    }
 
     if (input.markdown) {
       const html = normalizeMarkdownToHtml(input.markdown);
       updates.markdown = input.markdown;
       updates.html = html;
+      fieldsChanged.push("markdown", "html");
+      nextContentLength = html.length + input.markdown.length;
     } else if (input.html) {
       const sanitized = sanitizeHtmlContent(String(input.html));
-      try {
-        const beforeImgs = (String(input.html).match(/<img\b/gi) || []).length;
-        const beforeDataImgs = (
-          String(input.html).match(/<img[^>]*src=["']data:/gi) || []
-        ).length;
-        const afterImgs = (sanitized.match(/<img\b/gi) || []).length;
-        const afterDataImgs =
-          (sanitized.match(/<img[^>]*src=["']data:/gi) || []).length;
-        console.log(
-          "[docs.update] doc:%s imgs:%d->%d dataImgs:%d->%d",
-          input.id,
-          beforeImgs,
-          afterImgs,
-          beforeDataImgs,
-          afterDataImgs
-        );
-      } catch {}
       updates.html = sanitized;
+      fieldsChanged.push("html");
+      nextContentLength =
+        sanitized.length + (docBefore ? docBefore.markdown.length : 0);
     }
 
     if (input.path !== undefined) {
       updates.path = input.path.trim().length ? input.path.trim() : null;
+      fieldsChanged.push("path");
     }
-    if (input.meta !== undefined) updates.meta = input.meta;
+    if (input.meta !== undefined) {
+      updates.meta = input.meta;
+      fieldsChanged.push("meta");
+    }
 
     if (Object.keys(updates).length === 0) {
       throw new Error("No valid fields to update");
@@ -169,18 +221,38 @@ export const updateDoc = action(
       data: updates,
       select: { id: true, updatedAt: true },
     });
+
+    if (input.html !== undefined || input.markdown !== undefined) {
+      if (nextContentLength <= 0 && docBefore) {
+        nextContentLength =
+          (docBefore.html || "").length + (docBefore.markdown || "").length;
+      }
+    }
+    await logDocUpdate(updated.id, Array.from(new Set(fieldsChanged)), {
+      hasContentChange:
+        input.html !== undefined || input.markdown !== undefined,
+      contentLengthDeltaBucket:
+        input.html !== undefined || input.markdown !== undefined
+          ? lengthDeltaBucket(prevContentLength, nextContentLength)
+          : "not_applicable",
+    });
     return { id: updated.id, updatedAt: updated.updatedAt.toISOString() };
   },
-  "docs-update"
+  "docs-update",
 );
 
 export const deleteDoc = action(async (id: string) => {
   "use server";
   if (!id) throw new Error("Missing id");
-  console.log("[docs.delete] deleting doc:%s", id);
   const deleted = await prisma.doc
     .delete({ where: { id }, select: { id: true } })
     .catch(() => null);
   if (!deleted) throw new Error("Not found");
+  await logActionEvent({
+    eventType: "doc.delete",
+    entityType: "doc",
+    entityId: id,
+    relatedDocId: id,
+  });
   return { ok: true, id: deleted.id };
 }, "docs-delete");
