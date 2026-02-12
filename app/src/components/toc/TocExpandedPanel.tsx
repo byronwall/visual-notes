@@ -1,5 +1,13 @@
-import { For, type Accessor } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  type Accessor,
+} from "solid-js";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 import { Box, Stack } from "styled-system/jsx";
 import { type TocItem } from "./types";
 
@@ -11,6 +19,7 @@ type Props = {
   activeIndex: Accessor<number>;
   visibleStartIndex: Accessor<number>;
   visibleEndIndex: Accessor<number>;
+  showExpandedPanel: Accessor<boolean>;
   onItemClick: (item: TocItem) => void;
   onListRef: (el: HTMLElement | undefined) => void;
   onListScrollRef: (el: HTMLElement | undefined) => void;
@@ -19,14 +28,52 @@ type Props = {
 };
 
 export function TocExpandedPanel(props: Props) {
+  const [search, setSearch] = createSignal("");
+  const [lockedPanelHeightPx, setLockedPanelHeightPx] = createSignal<number | undefined>(
+    undefined
+  );
+  let searchRef: HTMLInputElement | undefined;
+  let navRef: HTMLDivElement | undefined;
+
+  const filteredItems = createMemo(() => {
+    const query = search().trim().toLowerCase();
+    return props
+      .items()
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => {
+        if (!query) return true;
+        return item.text.toLowerCase().includes(query);
+      });
+  });
+
   function getDisplayDepth(level: TocItem["level"]) {
     return Math.max(level - props.minHeadingLevel(), 0);
   }
 
-  function getIndentStyle(depth: number) {
-    if (depth <= 0) return { "margin-left": "0px", width: "100%" };
-    const px = depth === 1 ? 16 : depth === 2 ? 28 : 36;
-    return { "margin-left": `${px}px`, width: `calc(100% - ${px}px)` };
+  function getItemPaddingLeftPx(depth: number) {
+    return 10 + depth * 14;
+  }
+
+  createEffect(() => {
+    props.showExpandedPanel();
+    if (!props.showExpandedPanel()) return;
+    window.requestAnimationFrame(() => searchRef?.focus());
+  });
+
+  function handleSearchInput(value: string) {
+    const wasSearching = search().trim().length > 0;
+    const willSearch = value.trim().length > 0;
+
+    if (!wasSearching && willSearch) {
+      const height = navRef?.getBoundingClientRect().height;
+      setLockedPanelHeightPx(height ? Math.round(height) : undefined);
+    }
+
+    if (wasSearching && !willSearch) {
+      setLockedPanelHeightPx(undefined);
+    }
+
+    setSearch(value);
   }
 
   return (
@@ -46,55 +93,68 @@ export function TocExpandedPanel(props: Props) {
       <Box
         as="nav"
         p="2"
-        overflowY="scroll"
-        ref={(el: HTMLElement) => props.onListScrollRef(el)}
-        style={{ "max-height": props.panelMaxHeightCss() }}
+        ref={navRef}
+        style={{
+          height: lockedPanelHeightPx() ? `${lockedPanelHeightPx()}px` : undefined,
+          "max-height": props.panelMaxHeightCss(),
+          display: "grid",
+          "grid-template-rows": "auto minmax(0, 1fr)",
+          gap: "8px",
+        }}
       >
+        <Input
+          type="search"
+          placeholder="Search headings"
+          value={search()}
+          onInput={(event) => handleSearchInput(event.currentTarget.value)}
+          size="sm"
+          ref={searchRef}
+        />
+
         <Stack
           as="ul"
           gap="1"
+          overflowY="auto"
+          position="relative"
+          pl="2"
           ref={(el: HTMLElement) => {
             props.onListRef(el);
+            props.onListScrollRef(el);
             props.onListReady();
           }}
         >
-          <For each={props.items()}>
-            {(item, i) => {
+          <For each={filteredItems()}>
+            {({ item, index }) => {
               const depth = () => getDisplayDepth(item.level);
-              const isActive = () => i() === props.activeIndex();
+              const isActive = () => index === props.activeIndex();
+              const isVisible = () =>
+                index >= props.visibleStartIndex() && index <= props.visibleEndIndex();
 
               return (
-                <Box as="li" data-toc-idx={i()} style={getIndentStyle(depth())}>
+                <Box as="li" data-toc-idx={index} position="relative" minH="8">
                   <Button
                     type="button"
                     variant="plain"
                     size="xs"
-                    colorPalette={isActive() ? "blue" : "gray"}
                     width="full"
                     justifyContent="flex-start"
-                    pl="2"
                     pr="3"
                     py="1.5"
                     fontWeight={depth() <= 0 ? "semibold" : "normal"}
-                    fontSize={depth() <= 1 ? "lg" : "md"}
-                    borderTopWidth={i() === props.visibleStartIndex() ? "2px" : "0"}
-                    borderTopColor="green.9"
-                    borderBottomWidth={i() === props.visibleEndIndex() ? "2px" : "0"}
-                    borderBottomColor="red.9"
-                    bg={
-                      i() >= props.visibleStartIndex() && i() <= props.visibleEndIndex()
-                        ? "bg.subtle"
-                        : "transparent"
-                    }
+                    fontSize={depth() <= 1 ? "sm" : "xs"}
+                    borderRadius="sm"
+                    bg={isActive() ? "bg.muted" : isVisible() ? "bg.subtle" : "transparent"}
                     _hover={{
                       bg: "bg.muted",
-                      borderColor: "gray.outline.border",
                     }}
                     whiteSpace="normal"
                     textAlign="left"
                     minH="unset"
                     h="auto"
                     onClick={() => props.onItemClick(item)}
+                    style={{
+                      "padding-left": `${getItemPaddingLeftPx(depth())}px`,
+                    }}
                   >
                     {item.text || item.id}
                   </Button>
@@ -102,6 +162,11 @@ export function TocExpandedPanel(props: Props) {
               );
             }}
           </For>
+          <Show when={filteredItems().length === 0}>
+            <Box as="li" px="2" py="2" fontSize="xs" color="fg.muted">
+              No headings found
+            </Box>
+          </Show>
         </Stack>
       </Box>
     </Box>

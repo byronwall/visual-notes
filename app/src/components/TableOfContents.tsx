@@ -50,6 +50,7 @@ export const TableOfContents: VoidComponent<{
             activeIndex={toc.activeIndex}
             visibleStartIndex={toc.visibleStartIndex}
             visibleEndIndex={toc.visibleEndIndex}
+            showExpandedPanel={toc.showExpandedPanel}
             onItemClick={toc.onItemClick}
             onListRef={toc.onListRef}
             onListScrollRef={toc.onListScrollRef}

@@ -17,28 +17,24 @@ export function TocRail(props: Props) {
     return Math.max(level - props.minHeadingLevel(), 0);
   }
 
-  function getWidth(depth: number) {
-    if (depth <= 0) return 16;
-    if (depth === 1) return 12;
-    if (depth === 2) return 9;
-    return 7;
+  function getLineWidth(depth: number) {
+    if (depth <= 0) return 14;
+    if (depth === 1) return 10;
+    if (depth === 2) return 7;
+    return 5;
   }
 
-  function getHeight(depth: number) {
-    if (depth <= 0) return 5;
-    if (depth <= 2) return 4;
-    return 7;
+  function getLineHeight(depth: number) {
+    if (depth <= 1) return 2;
+    return 1;
   }
+
+  const visibleHeightPct = () =>
+    Math.max((props.visibleBottomRatio() - props.visibleTopRatio()) * 100, 3.5);
 
   return (
     <Box
       position="relative"
-      borderWidth="1px"
-      borderColor="gray.outline.border"
-      bg="bg.default"
-      borderRadius="l2"
-      p="1"
-      boxShadow="sm"
       w="6"
       style={{
         height: `${props.heightPx()}px`,
@@ -47,52 +43,48 @@ export function TocRail(props: Props) {
     >
       <Box
         position="absolute"
-        left="1"
-        right="1"
-        h="2px"
-        bg="green.9"
-        opacity="1"
+        left="50%"
+        top="0"
+        bottom="0"
+        w="1px"
+        bg="border"
         style={{
-          top: `${(props.visibleTopRatio() * 100).toFixed(1)}%`,
-          transform: "translateY(-50%)",
+          transform: "translateX(-50%)",
         }}
       />
       <Box
         position="absolute"
-        left="1"
-        right="1"
-        h="2px"
-        bg="red.9"
-        opacity="1"
+        left="50%"
+        w="2px"
+        bg="gray.10"
+        borderRadius="full"
         style={{
-          top: `${(props.visibleBottomRatio() * 100).toFixed(1)}%`,
-          transform: "translateY(-50%)",
+          top: `${(props.visibleTopRatio() * 100).toFixed(1)}%`,
+          height: `${visibleHeightPct().toFixed(1)}%`,
+          transform: "translateX(-50%)",
+          transition: "top 180ms ease, height 180ms ease",
         }}
       />
-
       <Box position="absolute" top="3" bottom="3" left="1" right="1">
         <For each={props.markers()}>
           {(marker) => {
-            const isActive = () => marker.index === props.activeIndex();
             const depth = () => getDisplayDepth(marker.item.level);
-            const top = () => `${(marker.displayTopRatio * 100).toFixed(1)}%`;
+            const isActive = () => marker.index === props.activeIndex();
 
             return (
               <Box
                 position="absolute"
                 left="50%"
-                transform="translate(-50%, -50%)"
+                cursor="pointer"
                 style={{
-                  top: top(),
-                  width: `${getWidth(depth())}px`,
-                  height: `${getHeight(depth())}px`,
+                  top: `${(marker.displayTopRatio * 100).toFixed(1)}%`,
+                  width: `${getLineWidth(depth())}px`,
+                  height: `${getLineHeight(depth())}px`,
+                  transform: "translate(-50%, -50%)",
                   "border-radius": "999px",
                 }}
-                bg={isActive() ? "gray.12" : "gray.10"}
-                borderWidth={isActive() ? "0px" : "1px"}
-                borderColor="gray.4"
-                opacity={isActive() ? "1" : "0.78"}
-                cursor="pointer"
+                bg={isActive() ? "fg.default" : "fg.subtle"}
+                opacity={isActive() ? "0.95" : "0.7"}
                 onClick={() => props.onMarkerClick(marker)}
               />
             );
