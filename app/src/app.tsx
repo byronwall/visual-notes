@@ -1,7 +1,7 @@
 // @refresh reload
 import "./panda.css";
 
-import { MetaProvider, Title } from "@solidjs/meta";
+import { Meta, MetaProvider, Title } from "@solidjs/meta";
 import { Router } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
 import { Match, Suspense, Switch, createEffect, type JSX } from "solid-js";
@@ -20,6 +20,22 @@ export default function App() {
       root={(props) => (
         <MetaProvider>
           <Title>Visual Notes</Title>
+          <Meta
+            name="description"
+            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+          />
+          <Meta property="og:title" content="Visual Notes" />
+          <Meta
+            property="og:description"
+            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+          />
+          <Meta property="og:type" content="website" />
+          <Meta name="twitter:card" content="summary" />
+          <Meta name="twitter:title" content="Visual Notes" />
+          <Meta
+            name="twitter:description"
+            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+          />
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>

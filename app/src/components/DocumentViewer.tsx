@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { deleteDoc, updateDoc } from "~/services/docs.service";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
@@ -33,6 +34,7 @@ const DocumentViewer: VoidComponent<{
 
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
   const [editing, setEditing] = createSignal(false);
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined
@@ -75,6 +77,29 @@ const DocumentViewer: VoidComponent<{
       setTitle(newTitle);
     } catch (e) {
       alert((e as Error).message || "Failed to sync title");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setBusy(true);
+      console.log("[DocumentViewer] deleting docId=", props.doc?.id);
+      await runDeleteDoc(props.doc.id);
+      console.log("[DocumentViewer] deleted docId=", props.doc?.id);
+      if (props.onDeleted) {
+        try {
+          props.onDeleted();
+        } catch (err) {
+          console.error("[DocumentViewer] onDeleted threw", err);
+        }
+      } else {
+        navigate("/");
+      }
+    } catch (e) {
+      console.error(e);
+      alert((e as Error).message || "Failed to delete note");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -153,29 +178,7 @@ const DocumentViewer: VoidComponent<{
             colorPalette="red"
             aria-label="Delete note"
             disabled={busy()}
-            onClick={async () => {
-              if (!confirm("Delete this note? This cannot be undone.")) return;
-              try {
-                setBusy(true);
-                console.log("[DocumentViewer] deleting docId=", props.doc?.id);
-                await runDeleteDoc(props.doc.id);
-                console.log("[DocumentViewer] deleted docId=", props.doc?.id);
-                if (props.onDeleted) {
-                  try {
-                    props.onDeleted();
-                  } catch (err) {
-                    console.error("[DocumentViewer] onDeleted threw", err);
-                  }
-                } else {
-                  navigate("/");
-                }
-              } catch (e) {
-                console.error(e);
-                alert((e as Error).message || "Failed to delete note");
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onClick={() => setDeleteDialogOpen(true)}
           >
             <Trash2Icon size={16} />
           </IconButton>
@@ -194,6 +197,15 @@ const DocumentViewer: VoidComponent<{
           apiRef={(api) => setEditorApi(api)}
         />
       </Stack>
+      <ConfirmDialog
+        open={deleteDialogOpen()}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete this note?"
+        description="This action cannot be undone."
+        confirmLabel="Delete note"
+        cancelLabel="Cancel"
+        onConfirm={() => void handleDeleteConfirm()}
+      />
 
       {/* Inline properties moved to page-level top section in docs/[id].tsx */}
     </Box>

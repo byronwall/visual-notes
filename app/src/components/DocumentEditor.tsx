@@ -24,8 +24,9 @@ import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import { Button } from "~/components/ui/button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
-import { Box, HStack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
 
 type DocData = { id: string; title: string; markdown?: string; html?: string };
 
@@ -64,14 +65,25 @@ const DocumentEditor: VoidComponent<{
   const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<MetaRecord>({});
+  const [newTitle, setNewTitle] = createSignal(
+    (props.initialTitle || "").trim() || "Untitled note"
+  );
   const runCreateDoc = useAction(createDoc);
   const runUpdateDoc = useAction(updateDoc);
+  let lastAppliedInitialTitle = (props.initialTitle || "").trim();
 
   const isNew = createMemo(() => !props.docId);
 
   const displayTitle = createMemo(
-    () => doc()?.title || props.initialTitle || "Untitled note"
+    () => doc()?.title || newTitle().trim() || "Untitled note"
   );
+
+  createEffect(() => {
+    const incoming = (props.initialTitle || "").trim();
+    if (incoming === lastAppliedInitialTitle) return;
+    lastAppliedInitialTitle = incoming;
+    setNewTitle(incoming || "Untitled note");
+  });
 
   // TODO: need to delete HTML from imports - just rely on markdown
 
@@ -201,9 +213,14 @@ const DocumentEditor: VoidComponent<{
       const html = ed.getHTML();
       if (isNew()) {
         // First save → create the note
-        let title = displayTitle();
+        let title = newTitle().trim();
         const detected = extractFirstH1FromHtml(html);
-        if (detected && detected.trim().length > 0) title = detected.trim();
+        if (!title && detected && detected.trim().length > 0) {
+          title = detected.trim();
+        }
+        if (!title) {
+          title = "Untitled note";
+        }
         console.log("[editor.save] creating new doc with title:", title);
         const json = await runCreateDoc({
           title,
@@ -301,14 +318,27 @@ const DocumentEditor: VoidComponent<{
         )}
       </Show>
       <Show when={isNew()}>
-        <Box mb="3">
+        <Stack gap="2" mb="3">
+          <Box>
+            <Box as="p" fontSize="xs" color="fg.muted">
+              Title
+            </Box>
+            <Input
+              id="new-note-title"
+              mt="1"
+              size="sm"
+              value={newTitle()}
+              placeholder="Untitled note"
+              onInput={(event) => setNewTitle(event.currentTarget.value)}
+            />
+          </Box>
           <DocPropertiesCompactEditors
             initialPath={newPath()}
             initialMeta={newMeta()}
             onPathChange={(nextPath) => setNewPath(nextPath)}
             onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
           />
-        </Box>
+        </Stack>
       </Show>
       <TiptapEditor
         initialHTML={initialHTML()}

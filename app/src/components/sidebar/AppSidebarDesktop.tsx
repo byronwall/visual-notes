@@ -41,8 +41,7 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
           maxH="100vh"
           h="100vh"
           bg="bg.subtle"
-          overflowY="auto"
-          overflowX="hidden"
+          overflow="visible"
           borderRightWidth="1px"
           borderColor="border"
           onMouseEnter={props.onSidebarMouseEnter}

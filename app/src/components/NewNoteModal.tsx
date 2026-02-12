@@ -55,7 +55,6 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
       onOpenChange={handleOpenChange}
       onClose={handleCancel}
       title="New note"
-      description="Create a note without leaving your current page."
       maxW="900px"
       skipPortal={props.skipPortal}
       footer={

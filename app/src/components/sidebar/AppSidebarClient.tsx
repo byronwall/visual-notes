@@ -9,8 +9,8 @@ import { AppSidebarDesktop } from "./AppSidebarDesktop";
 import { AppSidebarMobile } from "./AppSidebarMobile";
 import { Box } from "styled-system/jsx";
 
-const COLLAPSED_WIDTH = "64px";
-const EXPANDED_WIDTH = "280px";
+const COLLAPSED_WIDTH = "100px";
+const EXPANDED_WIDTH = "300px";
 
 type AppSidebarClientProps = {
   children: JSX.Element;

@@ -73,17 +73,11 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         anchor={
           <Button
             type="button"
-            size="sm"
-            variant="plain"
+            size="xs"
+            variant="outline"
             colorPalette="gray"
-            px="3"
-            py="1.5"
-            borderWidth="1px"
-            borderStyle="dashed"
-            borderColor="gray.outline.border"
-            borderRadius="l2"
+            borderRadius="full"
             bg="bg.default"
-            _hover={{ bg: "gray.surface.bg" }}
             onClick={() => setPathPopoverOpen((open) => !open)}
           >
             <Text
