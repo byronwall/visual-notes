@@ -1,0 +1,4 @@
+interface:
+  display_name: "Post-Work Docs"
+  short_description: "Document completed implementation work in depth"
+  default_prompt: "Use $post-work-doc-playbook to create a detailed completion report covering major changes, issues, design decisions, verification, and process improvements."

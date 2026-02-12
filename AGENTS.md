@@ -69,6 +69,12 @@ full instructions when using a specific skill.
   custom ProseMirror DOM hooks, floating overlays, or ad-hoc addNodeView
   implementations with Solid components.
   (file: /Users/byronwall/Projects/visual-notes/docs/skills/tiptap-nodeview-migration-playbook/SKILL.md)
+- post-work-doc-playbook: Create detailed completion documentation after
+  implementation work, including major changes, design decisions, issues
+  encountered, validation, and process/agent improvements. Use when a user
+  asks for a summary, retrospective, postmortem, or repo docs update after
+  coding work is done.
+  (file: /Users/byronwall/Projects/visual-notes/docs/skills/post-work-doc-playbook/SKILL.md)
 
 ### How to use skills
 
@@ -152,6 +158,22 @@ code and refactors unless explicitly told otherwise.
 - Icons as buttons
 
   - If an icon is meant to behave like a button (clickable action), always wrap it with `IconButton` (don’t attach click handlers directly to the icon).
+
+- Floating edge controls (sidebar rails, collapse chips, protruding toggles).
+
+  - When a control must visually sit beyond a panel edge, place it as an absolutely positioned child of a `position: relative` container inside that feature, not in a page-level shell.
+  - Keep the positioning container `overflow: visible`; move scrolling to an inner wrapper (`overflowY: auto`) so the protruding control is not clipped.
+  - Avoid width-constant math (`calc(sidebarWidth...)`) for these controls when a simple `right: -Npx` edge offset can anchor reliably in both expanded/collapsed states.
+
+- New note creation UX.
+
+  - Provide a dedicated title input for new notes and keep it visually separate from path/meta editors.
+  - Do not rely on path editors or markdown heading extraction as the only source for initial note title.
+
+- Route metadata + missing-resource states.
+
+  - For detail routes, always set route-level `<Title>` and OG description/title tags from loaded resource data.
+  - For missing resources, set a real HTTP 404 status (`HttpStatusCode`) and render a clear recovery CTA (for example, `Go home`) instead of only showing inline error text.
 
 - Maintain a stable (often fixed) height for dynamic lists and streaming/async content.
   - Avoid layout shift when new items arrive, results load, or panels expand; reserve space up-front with a fixed height or a min-height + skeleton/loading row strategy.
