@@ -10,6 +10,7 @@ import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { deleteDoc, updateDoc } from "~/services/docs.service";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
 import { extractFirstHeading } from "~/utils/extractHeading";
+import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { TitleEditPopover } from "./TitleEditPopover";
@@ -185,6 +186,13 @@ const DocumentViewer: VoidComponent<{
           docId={props.doc.id}
           initialPath={props.doc.path}
           initialMeta={props.doc.meta}
+          trailing={
+            <DocActivitySummaryPopover
+              docId={props.doc.id}
+              createdAt={props.doc.createdAt}
+              updatedAt={props.doc.updatedAt}
+            />
+          }
         />
         <DocumentEditor
           docId={props.doc.id}

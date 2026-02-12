@@ -3,6 +3,7 @@ import { prisma } from "~/server/db";
 import type {
   ActionEventItem,
   ActivityTimelineFilter,
+  DocActivityHistory,
   DocActivitySummary,
 } from "./activity.types";
 
@@ -71,6 +72,68 @@ export const fetchTimelineEvents = query(
     }));
   },
   "activity-timeline-events"
+);
+
+export const fetchDocActivityHistory = query(
+  async (docId: string): Promise<DocActivityHistory | null> => {
+    "use server";
+    if (!docId) return null;
+    const generatedAt = new Date().toISOString();
+
+    const where = { relatedDocId: docId };
+    const [viewCount, editCount, searchOpenedCount, items] = await Promise.all([
+      prisma.actionEvent.count({ where: { ...where, eventType: "doc.view" } }),
+      prisma.actionEvent.count({ where: { ...where, eventType: "doc.update" } }),
+      prisma.actionEvent.count({
+        where: { ...where, eventType: "search.result.opened" },
+      }),
+      prisma.actionEvent.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: {
+          relatedDoc: {
+            select: {
+              title: true,
+              path: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const events: ActionEventItem[] = items.map((item) => ({
+      id: item.id,
+      createdAt: item.createdAt.toISOString(),
+      eventType: item.eventType,
+      actorId: item.actorId,
+      actorType: item.actorType,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      relatedDocId: item.relatedDocId,
+      relatedDocTitle: item.relatedDoc?.title ?? null,
+      relatedDocPath: item.relatedDoc?.path ?? null,
+      payload:
+        item.payload && typeof item.payload === "object" && !Array.isArray(item.payload)
+          ? (item.payload as Record<string, unknown>)
+          : null,
+    }));
+
+    const viewEvents = events.filter((event) => event.eventType === "doc.view");
+    const lastViewBeforeThisOne =
+      (viewEvents.length >= 2 ? viewEvents[1] : viewEvents[0])?.createdAt ??
+      null;
+
+    return {
+      docId,
+      generatedAt,
+      viewCount,
+      editCount,
+      searchOpenedCount,
+      lastViewBeforeThisOne,
+      events,
+    };
+  },
+  "activity-doc-history"
 );
 
 export const fetchDocActivitySummary = query(

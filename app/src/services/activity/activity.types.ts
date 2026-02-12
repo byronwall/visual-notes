@@ -35,3 +35,13 @@ export type DocActivitySummary = {
   activityClass: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
   updatedAt: string;
 };
+
+export type DocActivityHistory = {
+  docId: string;
+  generatedAt: string;
+  viewCount: number;
+  editCount: number;
+  searchOpenedCount: number;
+  lastViewBeforeThisOne?: string | null;
+  events: ActionEventItem[];
+};

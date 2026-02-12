@@ -233,6 +233,10 @@ code and refactors unless explicitly told otherwise.
   keep SSR and first client render DOM identical.
   - If needed, render a deterministic fallback until mount, then enable the
     interactive overlay control (`skipPortal` may be required for stability).
+  - When rendering time labels in SSR paths, avoid locale-dependent initial
+    text that can differ server vs client. Prefer deterministic server text
+    or compute relative labels from a server-provided anchor timestamp; show
+    absolute time via tooltip/title.
 - In ParkUI components, the `asChild` prop is a render function, not a
   boolean.
 - When creating derived comps, be sure to import the ParkUI things with their ORIGINAL names. If not, the CSS breaks.

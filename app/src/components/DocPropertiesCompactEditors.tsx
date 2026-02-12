@@ -1,4 +1,4 @@
-import { type VoidComponent, createEffect, createMemo, createSignal } from "solid-js";
+import { type JSX, type VoidComponent, createEffect, createMemo, createSignal } from "solid-js";
 import {
   normalizeMetaRecord,
   serializeMetaRecord,
@@ -19,6 +19,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   initialMeta?: Record<string, unknown> | null;
   onPathChange?: (path: string) => void;
   onMetaChange?: (meta: MetaRecord) => void;
+  trailing?: JSX.Element;
 }> = (props) => {
   const initialPathValue = () => (props.initialPath || "").trim();
   const initialMetaValue = () => normalizeMetaRecord(props.initialMeta);
@@ -150,6 +151,8 @@ export const DocPropertiesCompactEditors: VoidComponent<{
           />
         </Stack>
       </SimplePopover>
+
+      <>{props.trailing}</>
     </HStack>
   );
 };
