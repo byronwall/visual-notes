@@ -29,7 +29,9 @@ const recentDocLinkClass = css({
 });
 
 export const AppSidebarRecentDocs = (props: AppSidebarRecentDocsProps) => {
-  const items = createAsync(() => fetchDocs({ take: 10 }));
+  const items = createAsync(() =>
+    fetchDocs({ sortMode: "relevance", take: 10 })
+  );
   const previewDocsById = useDocPreviewMap(() =>
     (items() || []).map((item) => item.id)
   );
