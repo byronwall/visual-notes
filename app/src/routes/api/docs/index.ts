@@ -140,13 +140,15 @@ export async function GET(event: APIEvent) {
   const updatedToParam = url.searchParams.get("updatedTo") || undefined;
   const take = Number(takeParam ?? "50");
   const where: any = {};
+  const andClauses: any[] = [];
   if (pathPrefix) where.path = { startsWith: pathPrefix };
   if (
     pathBlankOnlyParam &&
     (pathBlankOnlyParam === "1" || pathBlankOnlyParam.toLowerCase() === "true")
   ) {
     // Blank-only overrides any prefix filter
-    where.path = null;
+    delete where.path;
+    andClauses.push({ OR: [{ path: null }, { path: "" }] });
   }
   if (metaKey && metaValue !== undefined) {
     where.meta = { path: [metaKey], equals: metaValue } as any;
@@ -184,6 +186,7 @@ export async function GET(event: APIEvent) {
     }
     if (Object.keys(range).length) where.updatedAt = range;
   }
+  if (andClauses.length > 0) where.AND = andClauses;
   const items = await prisma.doc.findMany({
     orderBy: { updatedAt: "desc" },
     where,

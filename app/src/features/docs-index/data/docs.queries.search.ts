@@ -192,7 +192,7 @@ export const searchDocs = query(
     const snapshotByDocId = new Map(snapshots.map((s) => [s.docId, s]));
     const nowMs = Date.now();
     const sortMode = q.sortMode ?? "relevance";
-    const W_TEXT = 0.9;
+    const W_TEXT = 1.35;
 
     const items = Array.from(hitsMap.values())
       .filter((entry) => {
@@ -215,7 +215,11 @@ export const searchDocs = query(
             )
           : 0;
         const blendedScore =
-          entry.score * W_TEXT + recencyBoost + viewsBoost + editsBoost + intentBoost;
+          entry.score * W_TEXT +
+          recencyBoost * 0.65 +
+          viewsBoost * 0.55 +
+          editsBoost * 0.65 +
+          intentBoost * 0.5;
         return {
           item: entry.item,
           blendedScore,
@@ -275,11 +279,19 @@ export const searchDocs = query(
 );
 
 function tokenizeQuery(termLower: string): string[] {
-  return termLower
+  const raw = termLower
     .split(/\s+/)
     .map((x) => x.trim())
     .filter((x) => x.length >= 2)
     .slice(0, 8);
+  const expanded: string[] = [];
+  for (const token of raw) {
+    expanded.push(token);
+    if (token.endsWith("s") && token.length >= 4) {
+      expanded.push(token.slice(0, -1));
+    }
+  }
+  return Array.from(new Set(expanded)).slice(0, 10);
 }
 
 function scoreTitleAndPath(input: {
@@ -294,20 +306,24 @@ function scoreTitleAndPath(input: {
 
   if (titleLower === input.termLower) score += 450;
   if (pathLower === input.termLower) score += 420;
-  if (titleLower.includes(input.termLower)) score += 210;
-  if (pathLower.includes(input.termLower)) score += 190;
+  if (titleLower.includes(input.termLower)) score += 260;
+  if (pathLower.includes(input.termLower)) score += 210;
   if (titleLower.startsWith(input.termLower)) score += 80;
   if (pathLower.startsWith(input.termLower)) score += 95;
+  if (includesNormalized(input.title, input.termLower)) score += 75;
+  if (includesNormalized(input.path, input.termLower)) score += 45;
 
   for (const token of input.terms) {
-    if (titleLower.includes(token)) score += 72;
-    if (pathLower.includes(token)) score += 68;
-    if (titleLower.startsWith(token)) score += 20;
+    if (titleLower.includes(token)) score += 86;
+    if (pathLower.includes(token)) score += 70;
+    if (titleLower.startsWith(token)) score += 28;
     if (pathLower.startsWith(token)) score += 30;
     const segmentHit = pathLower
       .split("/")
       .some((segment) => segment === token);
     if (segmentHit) score += 35;
+    if (includesNormalized(input.title, token)) score += 40;
+    if (includesNormalized(input.path, token)) score += 24;
   }
 
   return score;

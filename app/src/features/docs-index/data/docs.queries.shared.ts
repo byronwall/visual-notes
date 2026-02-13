@@ -22,8 +22,14 @@ function buildDocsWhere(q: {
   activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
 }) {
   const where: Record<string, any> = {};
+  const andClauses: Record<string, unknown>[] = [];
   if (q.pathPrefix) where.path = { startsWith: q.pathPrefix };
-  if (q.pathBlankOnly) where.path = null;
+  if (q.pathBlankOnly) {
+    delete where.path;
+    andClauses.push({
+      OR: [{ path: null }, { path: "" }],
+    });
+  }
   if (q.metaKey && q.metaValue !== undefined) {
     where.meta = { path: [q.metaKey], equals: q.metaValue } as any;
   } else if (q.metaKey && q.metaValue === undefined) {
@@ -62,6 +68,9 @@ function buildDocsWhere(q: {
   }
   if (q.activityClass) {
     where.activitySnapshot = { activityClass: q.activityClass };
+  }
+  if (andClauses.length > 0) {
+    where.AND = andClauses;
   }
   return where;
 }

@@ -48,6 +48,7 @@ type CommandItem =
   | {
       kind: "doc";
       key: string;
+      href: string;
       title: string;
       path?: string | null;
       snippet?: string | null;
@@ -110,6 +111,26 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   });
+  const docRowClass = (active: boolean) =>
+    css({
+      padding: "0.6rem 0.75rem",
+      borderBottomWidth: "1px",
+      borderColor: "gray.outline.border",
+      background: rowBg(active),
+      transition: "background 120ms ease",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "stretch",
+      justifyContent: "flex-start",
+      textAlign: "left",
+      minWidth: "0",
+      color: "fg.default",
+      textDecorationLine: "none",
+      _hover: {
+        textDecorationLine: "none",
+        background: active ? "black.a2" : "black.a1",
+      },
+    });
 
   let debounceTimer: number | undefined;
   createEffect(() => {
@@ -191,6 +212,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     const mapped: CommandItem[] = hits.slice(0, 10).map((d) => ({
       kind: "doc",
       key: d.id,
+      href: `/docs/${d.id}`,
       title: d.title,
       path: d.path,
       snippet: d.snippet,
@@ -283,6 +305,13 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
   const resultsPanelHeight = "55vh";
   const hitsLatest = () => (results.latest || []) as ServerSearchItem[];
+  const handleDocLinkClick = (ev: MouseEvent, id: string) => {
+    if (ev.defaultPrevented) return;
+    if (ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    handleOpenDoc(id);
+  };
 
   return (
     <SimpleDialog
@@ -403,28 +432,28 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             <Stack gap="0">
               <For each={items()}>
                 {(it, idx) => (
-                  <Button
-                    variant={idx() === selectedIndex() ? "subtle" : "plain"}
-                    size="sm"
-                    w="full"
-                    h="auto"
-                    px="0.75rem"
-                    py="0.6rem"
-                    borderRadius="0"
-                    borderBottomWidth="1px"
-                    borderColor="gray.outline.border"
-                    bg={rowBg(idx() === selectedIndex())}
-                    display="flex"
-                    flexDirection="column"
-                    alignItems="stretch"
-                    justifyContent="flex-start"
-                    textAlign="left"
-                    minW="0"
-                    onMouseEnter={() => setSelectedIndex(idx())}
-                    onClick={it.run}
-                  >
-                    <Switch>
-                      <Match when={it.kind === "action"}>
+                  <Switch>
+                    <Match when={it.kind === "action"}>
+                      <Button
+                        variant={idx() === selectedIndex() ? "subtle" : "plain"}
+                        size="sm"
+                        w="full"
+                        h="auto"
+                        px="0.75rem"
+                        py="0.6rem"
+                        borderRadius="0"
+                        borderBottomWidth="1px"
+                        borderColor="gray.outline.border"
+                        bg={rowBg(idx() === selectedIndex())}
+                        display="flex"
+                        flexDirection="column"
+                        alignItems="stretch"
+                        justifyContent="flex-start"
+                        textAlign="left"
+                        minW="0"
+                        onMouseEnter={() => setSelectedIndex(idx())}
+                        onClick={it.run}
+                      >
                         <HStack gap="2" alignItems="center" minW="0">
                           <Show
                             when={
@@ -448,8 +477,20 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                             <Box class={secondaryRowClass}>{hint()}</Box>
                           )}
                         </Show>
-                      </Match>
-                      <Match when={it.kind === "doc"}>
+                      </Button>
+                    </Match>
+                    <Match when={it.kind === "doc"}>
+                      <a
+                        href={(it as Extract<CommandItem, { kind: "doc" }>).href}
+                        class={docRowClass(idx() === selectedIndex())}
+                        onMouseEnter={() => setSelectedIndex(idx())}
+                        onClick={(e) =>
+                          handleDocLinkClick(
+                            e as unknown as MouseEvent,
+                            (it as Extract<CommandItem, { kind: "doc" }>).key,
+                          )
+                        }
+                      >
                         <Text fontSize="sm" fontWeight="semibold" truncate>
                           {renderHighlighted(
                             (it as Extract<CommandItem, { kind: "doc" }>).title,
@@ -479,9 +520,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                             </Box>
                           )}
                         </Show>
-                      </Match>
-                    </Switch>
-                  </Button>
+                      </a>
+                    </Match>
+                  </Switch>
                 )}
               </For>
 

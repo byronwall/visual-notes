@@ -458,7 +458,6 @@ const DocsIndexPage = () => {
       alert("No selected visible notes.");
       return;
     }
-    if (!confirm(`Set path for ${count} selected notes?`)) return;
     setBulkBusy(true);
     setBulkError(undefined);
     try {

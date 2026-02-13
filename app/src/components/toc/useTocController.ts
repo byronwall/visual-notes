@@ -173,15 +173,12 @@ export function useTocController(options: UseTocControllerOptions) {
     setPanelWidthPx(layout.panelWidthPx);
     setPanelOffsetPx(layout.panelOffsetPx);
     setCompactAtRest(layout.compactAtRest);
-    setShowExpandedByDefault(layout.showExpandedByDefault);
+    setShowExpandedByDefault(false);
 
     if (!showExpandedPanel()) {
       setRailHeightPx(layout.railHeightPx);
     }
 
-    if (layout.showExpandedByDefault) {
-      setIsHoverExpanded(false);
-    }
   }
 
   function updateActiveIndex(currentItems?: TocItem[]) {
@@ -297,15 +294,11 @@ export function useTocController(options: UseTocControllerOptions) {
   }
 
   function onRailMouseEnter() {
-    if (!showExpandedByDefault()) {
-      setIsHoverExpanded(true);
-    }
+    setIsHoverExpanded(true);
   }
 
   function onRailMouseLeave() {
-    if (!showExpandedByDefault()) {
-      setIsHoverExpanded(false);
-    }
+    setIsHoverExpanded(false);
   }
 
   function scrollListToActive(mode: "center" | "keep-visible") {

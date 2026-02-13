@@ -4,6 +4,8 @@ import { DocRow } from "./DocRow";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { createDocsQueryStore } from "../state/docsQuery";
 import type { DocListItem, ServerSearchItem } from "../data/docs.types";
+import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
+import { ClearButton } from "~/components/ui/clear-button";
 import { Text } from "~/components/ui/text";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -44,6 +46,7 @@ export const ResultsSection = (props: {
       .flatMap((g) => g.items)
       .map((x) => x.id);
   });
+  const previewDocsById = useDocPreviewMap(visibleIds);
 
   createEffect(() => {
     try {
@@ -61,14 +64,25 @@ export const ResultsSection = (props: {
               <Text fontSize="sm" fontWeight="semibold" color="black.a8">
                 Search results
               </Text>
-              <Show when={props.serverLoading && searchResults().length === 0}>
-                <HStack gap="0.5rem">
-                  <Spinner size="xs" />
-                  <Text fontSize="xs" color="black.a7">
-                    Searching…
-                  </Text>
-                </HStack>
-              </Show>
+              <HStack gap="0.5rem" alignItems="center">
+                <Show when={q.searchText().trim().length > 0}>
+                  <ClearButton
+                    label="Clear search"
+                    onClick={() => {
+                      q.setSearchText("");
+                      q.resetPaging();
+                    }}
+                  />
+                </Show>
+                <Show when={props.serverLoading && searchResults().length === 0}>
+                  <HStack gap="0.5rem">
+                    <Spinner size="xs" />
+                    <Text fontSize="xs" color="black.a7">
+                      Searching…
+                    </Text>
+                  </HStack>
+                </Show>
+              </HStack>
             </HStack>
 
             <Show
@@ -81,7 +95,7 @@ export const ResultsSection = (props: {
                     <DocRow
                       {...d}
                       query={q.searchText()}
-                      previewDoc={null}
+                      previewDoc={previewDocsById().get(d.id) || null}
                       onResultOpen={props.onResultOpen}
                       onFilterPath={(p) => q.setPathPrefix(p)}
                       onFilterMeta={(k, v) => {
@@ -122,7 +136,7 @@ export const ResultsSection = (props: {
                       {(d) => (
                         <DocRow
                           {...d}
-                          previewDoc={null}
+                          previewDoc={previewDocsById().get(d.id) || null}
                           onFilterPath={(p) => q.setPathPrefix(p)}
                           onFilterMeta={(k, v) => {
                             q.setMetaKey(k);

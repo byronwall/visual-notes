@@ -35,6 +35,10 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
       >
         <Box
           w={sidebarWidth()}
+          minW={sidebarWidth()}
+          maxW={sidebarWidth()}
+          flexShrink="0"
+          flexGrow="0"
           position="sticky"
           top="0"
           alignSelf="flex-start"

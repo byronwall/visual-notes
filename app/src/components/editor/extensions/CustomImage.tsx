@@ -18,8 +18,19 @@ function CustomImageNodeView() {
     const value = state().node.attrs.title;
     return value ? String(value) : undefined;
   });
+  const selectImageNode = () => {
+    const pos = state().getPos();
+    if (typeof pos !== "number") return;
+    state().editor.chain().focus().setNodeSelection(pos).run();
+  };
+
+  const onClick = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    selectImageNode();
+  };
 
   const onDblClick = (event: MouseEvent) => {
+    selectImageNode();
     event.preventDefault();
     event.stopPropagation();
     openImagePreview({ src: src(), alt: alt(), title: title() });
@@ -33,6 +44,7 @@ function CustomImageNodeView() {
       src={src()}
       alt={alt()}
       title={title()}
+      onClick={onClick}
       onDblClick={onDblClick}
       data-node-view-image="true"
     />
