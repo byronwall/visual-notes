@@ -1,4 +1,5 @@
 import { action } from "@solidjs/router";
+import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
@@ -39,15 +40,41 @@ type DocCandidate = {
   markdown: string;
 };
 
+type DataImageCandidateRow = {
+  id: string;
+  title: string;
+  html: string | null;
+  markdown: string | null;
+  updatedAt: Date;
+  inlineImageMigrationBackup: unknown;
+};
+
 function getCandidateTake(limit: number): number {
   return Math.max(100, limit * 20);
 }
 
-function buildDataImageWhere() {
+function buildDataImageWhere(): Prisma.DocWhereInput {
   return {
     OR: [
       { html: { contains: "data:image", mode: "insensitive" as const } },
       { markdown: { contains: "data:image", mode: "insensitive" as const } },
+    ],
+  };
+}
+
+function buildDataImageWhereAfter(
+  cursor: { updatedAt: Date; id: string } | null,
+): Prisma.DocWhereInput {
+  if (!cursor) return buildDataImageWhere();
+  return {
+    AND: [
+      buildDataImageWhere(),
+      {
+        OR: [
+          { updatedAt: { lt: cursor.updatedAt } },
+          { updatedAt: cursor.updatedAt, id: { lt: cursor.id } },
+        ],
+      },
     ],
   };
 }
@@ -69,27 +96,29 @@ export const runInlineImageMigrationBatch = action(
       context: { actorType: "system", actorId: "system" },
     });
 
-    const candidates = await prisma.doc.findMany({
-      where: buildDataImageWhere(),
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        html: true,
-        markdown: true,
-        inlineImageMigrationBackup: true,
-      },
-      take: getCandidateTake(input.limit),
-    });
-
     let scanned = 0;
     let updatedDocs = 0;
     let migratedImageRefs = 0;
     let skippedDocs = 0;
+    const maxScanned = getCandidateTake(input.limit);
     const failures: Array<{ docId: string; error: string }> = [];
+    let cursor: { updatedAt: Date; id: string } | null = null;
 
-    for (const raw of candidates) {
-      if (updatedDocs >= input.limit) break;
+    while (updatedDocs < input.limit && scanned < maxScanned) {
+      const raw: DataImageCandidateRow | null = await prisma.doc.findFirst({
+        where: buildDataImageWhereAfter(cursor),
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          title: true,
+          html: true,
+          markdown: true,
+          updatedAt: true,
+          inlineImageMigrationBackup: true,
+        },
+      });
+      if (!raw) break;
+      cursor = { updatedAt: raw.updatedAt, id: raw.id };
       scanned++;
       const doc: DocCandidate = {
         id: raw.id,

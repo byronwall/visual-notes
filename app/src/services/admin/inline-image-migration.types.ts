@@ -1,34 +1,37 @@
-export type InlineImageMigrationStatus = {
+export type InlineImageMigrationCountsStatus = {
   totalDocs: number;
   docsWithInlineDataImages: number;
   docsWithBackup: number;
   docsWithBackupAndStillInlineDataImages: number;
   docsRewrittenToDiskUrls: number;
   storageDir: string;
-  recentBackups: Array<{
-    id: string;
-    title: string;
+};
+
+export type InlineImageMigrationRecentBackup = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  path?: string | null;
+  meta?: Record<string, unknown> | null;
+  snippet?: string | null;
+};
+
+export type InlineImageMigrationImageStorageStatus = {
+  storageDir: string;
+  dirExists: boolean;
+  fileCount: number;
+  totalBytes: number;
+  files: Array<{
+    name: string;
+    sizeBytes: number;
     updatedAt: string;
-    path?: string | null;
-    meta?: Record<string, unknown> | null;
-    previewDoc?: {
-      markdown?: string | null;
-      html?: string | null;
-      path?: string | null;
-      meta?: Record<string, unknown> | null;
-    } | null;
+    url: string;
   }>;
-  imageStorage: {
-    dirExists: boolean;
-    fileCount: number;
-    totalBytes: number;
-    files: Array<{
-      name: string;
-      sizeBytes: number;
-      updatedAt: string;
-      url: string;
-    }>;
-  };
+};
+
+export type InlineImageMigrationStatus = InlineImageMigrationCountsStatus & {
+  recentBackups: InlineImageMigrationRecentBackup[];
+  imageStorage: Omit<InlineImageMigrationImageStorageStatus, "storageDir">;
 };
 
 export type InlineImageMigrationBatchResult = {

@@ -23,7 +23,11 @@ import {
   runHeicToJpegBatch,
   runInlineImageMigrationBatch,
 } from "~/services/admin/inline-image-migration.actions";
-import { fetchInlineImageMigrationStatus } from "~/services/admin/inline-image-migration.queries";
+import {
+  fetchInlineImageMigrationCounts,
+  fetchInlineImageMigrationImageStorage,
+  fetchInlineImageMigrationRecentBackups,
+} from "~/services/admin/inline-image-migration.queries";
 import type { InlineImageMigrationBatchResult } from "~/services/admin/inline-image-migration.types";
 import type { HeicTranscodeBatchResult } from "~/services/admin/inline-image-migration.types";
 
@@ -85,7 +89,9 @@ const MigrationPanel: VoidComponent = () => {
     minWidth: "0",
   });
 
-  const status = createAsync(() => fetchInlineImageMigrationStatus());
+  const countsStatus = createAsync(() => fetchInlineImageMigrationCounts());
+  const recentBackups = createAsync(() => fetchInlineImageMigrationRecentBackups());
+  const imageStorageStatus = createAsync(() => fetchInlineImageMigrationImageStorage());
   const runBatch = useAction(runInlineImageMigrationBatch);
   const runHeicBatchAction = useAction(runHeicToJpegBatch);
   const runRecoverBackup = useAction(recoverInlineImageMigrationBackup);
@@ -98,6 +104,13 @@ const MigrationPanel: VoidComponent = () => {
   const [runLogs, setRunLogs] = createSignal<RunLog[]>([]);
   const [heicRunLogs, setHeicRunLogs] = createSignal<HeicRunLog[]>([]);
   const [recoveringDocId, setRecoveringDocId] = createSignal<string | null>(null);
+  const refreshStatus = async () => {
+    await Promise.all([
+      revalidate(fetchInlineImageMigrationCounts.key),
+      revalidate(fetchInlineImageMigrationRecentBackups.key),
+      revalidate(fetchInlineImageMigrationImageStorage.key),
+    ]);
+  };
 
   const run = async () => {
     const parsed = Number(state.limit);
@@ -111,7 +124,7 @@ const MigrationPanel: VoidComponent = () => {
         { at: new Date().toISOString(), result },
         ...prev,
       ]);
-      await revalidate(fetchInlineImageMigrationStatus.key);
+      await refreshStatus();
     } catch (e) {
       setState(
         "error",
@@ -131,7 +144,7 @@ const MigrationPanel: VoidComponent = () => {
       setRecoveringDocId(docId);
       setState("error", "");
       await runRecoverBackup({ docId });
-      await revalidate(fetchInlineImageMigrationStatus.key);
+      await refreshStatus();
     } catch (e) {
       setState(
         "error",
@@ -154,7 +167,7 @@ const MigrationPanel: VoidComponent = () => {
       });
       const result = await runHeicBatchAction({ limit, dryRun: state.dryRun });
       setHeicRunLogs((prev) => [{ at: new Date().toISOString(), result }, ...prev]);
-      await revalidate(fetchInlineImageMigrationStatus.key);
+      await refreshStatus();
     } catch (e) {
       setState(
         "error",
@@ -183,7 +196,7 @@ const MigrationPanel: VoidComponent = () => {
       </Box>
 
       <Suspense fallback={<Text color="fg.muted">Loading migration status…</Text>}>
-        <Show when={status()}>
+        <Show when={countsStatus()}>
           {(s) => (
             <Stack gap="4">
               <Grid
@@ -281,7 +294,7 @@ const MigrationPanel: VoidComponent = () => {
             <Button
               variant="outline"
               disabled={state.running}
-              onClick={() => void revalidate(fetchInlineImageMigrationStatus.key)}
+              onClick={() => void refreshStatus()}
             >
               Refresh Status
             </Button>
@@ -346,7 +359,7 @@ const MigrationPanel: VoidComponent = () => {
           Recent Backups (30 Most Recent Docs)
         </Heading>
         <Suspense fallback={<Text color="fg.muted">Loading backup list…</Text>}>
-          <Show when={status()?.recentBackups?.length} fallback={<Text color="fg.muted">No backup rows yet.</Text>}>
+          <Show when={recentBackups()?.length} fallback={<Text color="fg.muted">No backup rows yet.</Text>}>
             <Table.Root>
               <Table.Head>
                 <Table.Row>
@@ -357,7 +370,7 @@ const MigrationPanel: VoidComponent = () => {
                 </Table.Row>
               </Table.Head>
               <Table.Body>
-                <For each={status()!.recentBackups}>
+                <For each={recentBackups()!}>
                   {(doc) => (
                     <Table.Row>
                       <Table.Cell>{formatUtcTimestamp(doc.updatedAt)}</Table.Cell>
@@ -368,7 +381,7 @@ const MigrationPanel: VoidComponent = () => {
                           updatedAt={doc.updatedAt}
                           path={doc.path}
                           meta={doc.meta}
-                          previewDoc={doc.previewDoc}
+                          snippet={doc.snippet}
                           triggerClass={titleLinkClass}
                         >
                           <Text
@@ -413,7 +426,7 @@ const MigrationPanel: VoidComponent = () => {
           Images On Disk (10 Biggest Files)
         </Heading>
         <Suspense fallback={<Text color="fg.muted">Loading image storage inventory…</Text>}>
-          <Show when={status()}>
+          <Show when={imageStorageStatus()}>
             {(s) => (
               <Stack gap="3">
                 <HStack gap="4" flexWrap="wrap">
@@ -421,21 +434,21 @@ const MigrationPanel: VoidComponent = () => {
                     Directory: <Box as="code">{s().storageDir}</Box>
                   </Text>
                   <Text textStyle="sm" color="fg.muted">
-                    Exists: {s().imageStorage.dirExists ? "Yes" : "No"}
+                    Exists: {s().dirExists ? "Yes" : "No"}
                   </Text>
                   <Text textStyle="sm" color="fg.muted">
-                    Files: {s().imageStorage.fileCount}
+                    Files: {s().fileCount}
                   </Text>
                   <Text textStyle="sm" color="fg.muted">
-                    Total Size: {formatBytes(s().imageStorage.totalBytes)}
+                    Total Size: {formatBytes(s().totalBytes)}
                   </Text>
                 </HStack>
                 <Show
-                  when={s().imageStorage.files.length > 0}
+                  when={s().files.length > 0}
                   fallback={<Text color="fg.muted">No image files found.</Text>}
                 >
                   <Text textStyle="xs" color="fg.muted">
-                    Showing the {s().imageStorage.files.length} largest files by size.
+                    Showing the {s().files.length} largest files by size.
                   </Text>
                   <Table.Root>
                     <Table.Head>
@@ -446,7 +459,7 @@ const MigrationPanel: VoidComponent = () => {
                       </Table.Row>
                     </Table.Head>
                     <Table.Body>
-                      <For each={s().imageStorage.files}>
+                      <For each={s().files}>
                         {(file) => (
                           <Table.Row>
                             <Table.Cell>
