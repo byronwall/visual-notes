@@ -160,9 +160,13 @@ export function createSolidNodeViewRenderer(
         updateProps({ node: nextNode, decorations: nextDecorations });
         return true;
       },
-      setSelection(anchor: number, head: number, root: Document | ShadowRoot) {
-        options?.setSelection?.(anchor, head, root);
-      },
+      ...(options?.setSelection
+        ? {
+            setSelection(anchor: number, head: number, root: Document | ShadowRoot) {
+              options.setSelection?.(anchor, head, root);
+            },
+          }
+        : {}),
       stopEvent(event: Event) {
         if (options?.stopEvent) {
           return options.stopEvent({ event });

@@ -19,10 +19,7 @@ export function NodeViewWrapper(props: NodeViewWrapperProps) {
       ref={local.ref}
       data-node-view-wrapper="true"
       onDragStart={state().onDragStart}
-      style={{
-        ...local.style,
-        "white-space": "normal",
-      }}
+      style={local.style}
       {...rest}
     />
   );

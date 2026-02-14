@@ -1,0 +1,4 @@
+interface:
+  display_name: "TipTap CodeBlock Stability"
+  short_description: "Debug and stabilize TipTap code block editing behavior"
+  default_prompt: "Use $tiptap-codeblock-stability-playbook to diagnose and fix code block cursor jumps, ENTER misplacement, loading freezes, and NodeView edit/view instability."

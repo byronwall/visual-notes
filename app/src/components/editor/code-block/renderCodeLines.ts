@@ -16,6 +16,9 @@ export type RenderedCodeLines = {
   highlighted: boolean;
 };
 
+const MAX_SHIKI_INPUT_CHARS = 12000;
+const highlightedCache = new Map<string, string[]>();
+
 export function createPlainRenderedCode(
   rawCode: string,
   language: string,
@@ -62,9 +65,21 @@ export async function renderCodeLines(args: {
 }): Promise<RenderedCodeLines> {
   const language = resolveCodeLanguage(args.dataMdLanguage, args.className);
   const plain = createPlainRenderedCode(args.rawCode, language);
+  const cacheKey = `${language}\u0000${plain.normalizedCode}`;
 
   if (language === "mermaid") {
     return plain;
+  }
+  if (plain.normalizedCode.length > MAX_SHIKI_INPUT_CHARS) {
+    return plain;
+  }
+  const cachedLines = highlightedCache.get(cacheKey);
+  if (cachedLines) {
+    return {
+      ...plain,
+      lines: cachedLines,
+      highlighted: true,
+    };
   }
 
   try {
@@ -79,6 +94,7 @@ export async function renderCodeLines(args: {
     );
 
     if (highlightedLines.length === plain.lineCount) {
+      highlightedCache.set(cacheKey, highlightedLines);
       return {
         ...plain,
         lines: highlightedLines,

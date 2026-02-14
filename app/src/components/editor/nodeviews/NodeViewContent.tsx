@@ -17,8 +17,8 @@ export function NodeViewContent(props: NodeViewContentProps) {
       ref={local.ref}
       data-node-view-content="true"
       style={{
-        ...local.style,
         "white-space": "pre-wrap",
+        ...local.style,
       }}
       {...rest}
     />
