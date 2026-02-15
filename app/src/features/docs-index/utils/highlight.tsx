@@ -16,6 +16,7 @@ export function renderHighlighted(text: string, query: string) {
     color: "black",
     borderRadius: "sm",
     px: "0.5",
+    mx: "-0.5",
   });
   return (
     <>

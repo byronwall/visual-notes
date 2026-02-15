@@ -10,6 +10,7 @@ import { CustomTableHeader } from "./CustomTableHeader";
 import { CustomTableCell } from "./CustomTableCell";
 import { CsvPaste } from "./CsvPaste";
 import { MarkdownPaste } from "./MarkdownPaste";
+import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { createEmojiSuggestion } from "./emojiSuggestion";
 
 export function buildExtensions(
@@ -41,6 +42,7 @@ export function buildExtensions(
     CustomTableRow,
     CustomTableHeader,
     CustomTableCell,
+    ListItemReorderShortcuts,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here
     MarkdownPaste.configure({}),

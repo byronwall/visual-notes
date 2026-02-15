@@ -488,7 +488,7 @@
   .prose mark {
     background: rgba(250, 204, 21, 0.45);
     border-radius: 0.25em;
-    padding: 0.05em 0.2em;
+    padding: 0;
   }
 
   .prose ul,
