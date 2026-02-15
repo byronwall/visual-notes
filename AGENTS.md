@@ -57,24 +57,46 @@ full instructions when using a specific skill.
   placement, and reactivity churn). Use when TOC markers or panel placement
   look wrong, especially after editor content changes or responsive layout
   shifts.
-  (file: /Users/byronwall/Projects/visual-notes/docs/skills/toc-rail-layout-playbook/SKILL.md)
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/toc-rail-layout-playbook/SKILL.md)
 - component-structure-minimal-dom: Build and refactor UI components with the
   least necessary DOM nodes while preserving clarity, accessibility, and
   composability. Use when extracting shared components, reducing wrapper
   depth, or fixing overflow/layout issues caused by unconstrained descendants.
-  (file: /Users/byronwall/Projects/visual-notes/docs/skills/component-structure-minimal-dom/SKILL.md)
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/component-structure-minimal-dom/SKILL.md)
 - tiptap-nodeview-migration-playbook: Convert TipTap plugin/overlay-based
   editor customizations to SolidJS NodeViews in this repo using the local
   nodeview renderer utilities (no external package). Use when replacing
   custom ProseMirror DOM hooks, floating overlays, or ad-hoc addNodeView
   implementations with Solid components.
-  (file: /Users/byronwall/Projects/visual-notes/docs/skills/tiptap-nodeview-migration-playbook/SKILL.md)
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/tiptap-nodeview-migration-playbook/SKILL.md)
 - post-work-doc-playbook: Create detailed completion documentation after
   implementation work, including major changes, design decisions, issues
   encountered, validation, and process/agent improvements. Use when a user
   asks for a summary, retrospective, postmortem, or repo docs update after
   coding work is done.
-  (file: /Users/byronwall/Projects/visual-notes/docs/skills/post-work-doc-playbook/SKILL.md)
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/post-work-doc-playbook/SKILL.md)
+- solid-reactivity-control-flow: Apply SolidJS reactivity and render
+  control-flow patterns that avoid stale UI and type-unsound branching. Use
+  when editing conditional rendering, derived state, effects, list rendering,
+  or resource loading boundaries.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/solid-reactivity-control-flow/SKILL.md)
+- solid-props-state-patterns: Enforce SolidJS prop and state patterns that
+  preserve reactivity and prevent feedback loops. Use when editing props,
+  local draft state, batching updates, context providers, refs, and lifecycle
+  cleanup.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/solid-props-state-patterns/SKILL.md)
+- solidstart-data-async: Apply SolidStart SSR-safe data access and async
+  boundaries. Use when implementing app data reads/writes, route resources,
+  metadata, missing-resource handling, and hydration-safe async UI.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/solidstart-data-async/SKILL.md)
+- solid-ui-composition-patterns: Apply UI composition conventions for Panda,
+  ParkUI wrappers, and shared app primitives. Use when building or refactoring
+  SolidJS UI to keep layout, overlays, and styling consistent.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/solid-ui-composition-patterns/SKILL.md)
+- solid-structure-types-quality: Enforce SolidJS file organization, TypeScript
+  hygiene, error boundaries, and verification gates. Use when reviewing or
+  refactoring code quality and before finalizing frontend changes.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/solid-structure-types-quality/SKILL.md)
 
 ### How to use skills
 
@@ -111,424 +133,30 @@ full instructions when using a specific skill.
   unclear instructions), state the issue, pick the next-best approach, and
   continue.
 
-## SolidJS Code Guidelines (from comp_refs)
-
-This repo prioritizes predictable SolidJS reactivity, clear TypeScript types,
-and maintainable component boundaries.
-
-If a guideline conflicts with existing code patterns, follow this doc for new
-code and refactors unless explicitly told otherwise.
-
-### Goals
-
-- Keep components easy to reason about.
-  - Prefer local clarity over clever abstractions.
-  - Prefer explicit control-flow components (Show, Switch/Match, Suspense)
-    over JS shortcuts.
-- Keep files small and scannable.
-  - Aim for < 200 LOC per file.
-  - Prefer 1 component per file, unless multiple components are tiny and
-    tightly related.
-
-### General UI patterns
-
-- Reuse shared prompt/modal helpers for consistency.
-
-  - For two-choice paste/import prompts with text previews, prefer
-    `usePasteChoicePrompt` from `app/src/components/editor/ui/usePasteChoicePrompt.tsx`
-    instead of duplicating modal state/resolver/button wiring.
-  - Keep prompt actions in `SimpleDialog` footer when they must remain visible.
-  - Constrain preview containers with an outer frame (`w="full"`, `maxW="100%"`,
-    `overflow="hidden"`) and put scroll behavior on an inner viewport only.
-
-- Reuse shared clear/close action wrappers.
-
-  - Prefer `ClearButton` from `app/src/components/ui/clear-button.tsx` for
-    clear-filter/clear-input icon actions.
-  - Prefer `CloseButton` from `app/src/components/ui/close-button.tsx` for
-    close actions instead of bespoke `IconButton + X` compositions.
-
-- Highlight matches in search results.
-
-  - Users should be able to visually scan why an item matched without rereading the whole row/card.
-  - Highlight both the main text and secondary fields that participate in matching (title/body/tags/etc.) and keep the highlight styling consistent across the app.
-  - Prefer safe text segmentation (rendering plain text with highlighted spans) over injecting HTML.
-  - Prefer the shared helper `renderHighlighted` from `app/src/features/docs-index/utils/highlight.tsx` for search-result highlighting so styling stays consistent across the app.
-
-- Icons as buttons
-
-  - If an icon is meant to behave like a button (clickable action), always wrap it with `IconButton` (don’t attach click handlers directly to the icon).
-
-- Floating edge controls (sidebar rails, collapse chips, protruding toggles).
-
-  - When a control must visually sit beyond a panel edge, place it as an absolutely positioned child of a `position: relative` container inside that feature, not in a page-level shell.
-  - Keep the positioning container `overflow: visible`; move scrolling to an inner wrapper (`overflowY: auto`) so the protruding control is not clipped.
-  - Avoid width-constant math (`calc(sidebarWidth...)`) for these controls when a simple `right: -Npx` edge offset can anchor reliably in both expanded/collapsed states.
-
-- New note creation UX.
-
-  - Provide a dedicated title input for new notes and keep it visually separate from path/meta editors.
-  - Do not rely on path editors or markdown heading extraction as the only source for initial note title.
-
-- Route metadata + missing-resource states.
-
-  - For detail routes, always set route-level `<Title>` and OG description/title tags from loaded resource data.
-  - For missing resources, set a real HTTP 404 status (`HttpStatusCode`) and render a clear recovery CTA (for example, `Go home`) instead of only showing inline error text.
-
-- Maintain a stable (often fixed) height for dynamic lists and streaming/async content.
-  - Avoid layout shift when new items arrive, results load, or panels expand; reserve space up-front with a fixed height or a min-height + skeleton/loading row strategy.
-  - Prefer scrollable regions (`overflow: auto`) for results panes so the surrounding layout stays anchored and the user's cursor/scroll position doesn't jump.
-  - When inserting items at the top (e.g. newest-first), consider scroll anchoring so content doesn't “push down” unexpectedly. If that’s non-trivial, add `TODO:EDGE_CASE, scroll anchoring when prepending items`.
-  - Exceptions (use judgment; default is still “avoid shift”):
-    - When the element is effectively the only thing on the page (no adjacent content to disturb), a natural expanding height is often fine.
-    - When there’s no surrounding modal/dialog/panel layout that would be pushed/reflowed by the content (i.e. expansion won’t cause secondary UI to jump).
-    - When it’s known that the shift is expected and non-jarring (e.g. a single results page that replaces a loading state in-place), prefer simplicity over over-constraining the layout.
-
-- Hover overlays in scrollable sidebars/lists (HoverCard/Tooltip/Popover).
-  - Use `Trigger` with `asChild` render function and pass a native DOM element (`a`/`button`) so the floating layer has a stable anchor ref.
-  - In scrolled/sticky layouts, prefer explicit positioning options (for example `placement: "right-start"` plus `strategy: "fixed"`) to avoid top-of-page fallback flashes.
-  - Avoid mutating reactive state in `onOpenChange` that changes the hovered row tree while positioning is being computed.
-  - If hover content needs extra data, prefetch lightweight preview data for the visible list instead of fetching on-hover; this keeps anchor measurement stable and prevents flicker.
-  - Use shared text-preview helpers from `app/src/features/docs-index/utils/doc-preview.ts` (`clipDocTitle`, `buildDocPreviewText`, `countMetaKeys`, `normalizePreviewText`) instead of duplicating markdown/html strip logic in UI components.
-  - Reuse `DocHoverPreviewLink` at `app/src/components/docs/DocHoverPreviewLink.tsx` for note/story hover previews instead of rebuilding HoverCard markup per list.
-  - Reuse `useDocPreviewMap` at `app/src/features/docs-index/hooks/useDocPreviewMap.ts` to prefetch visible note details for hover cards.
-
-- TOC/minimap overlays (document-edge navigation rails).
-  - Anchor to the document edge (measured content root), not fixed viewport offsets.
-  - Define interaction mode explicitly:
-    - Expanded by default only when full panel fits right gutter.
-    - Otherwise show rail-only and expand on hover.
-    - Hide rail while expanded panel is visible.
-  - For percent-based marker placement, use inline style (`style={{ top: "37.5%" }}`) instead of tokenized utility props that may not emit valid classes.
-  - For nested heading indentation, apply indent on a wrapper element (`li` margin/width), not only on `Button` paddings (component recipes can override paddings).
-  - Mutation observation for heading text must include `characterData: true` in addition to `childList/subtree` so live heading edits update TOC labels.
-  - Avoid layout thrash:
-    - Do not run periodic `refreshLayout` work on fixed intervals when nothing changed.
-    - Do not use synthetic ticks/signals solely to force recomputation.
-    - Trigger recalculation from real events only (root bind changes, resize, mutation debounce).
-  - Collapsed rail markers must remain visually detectable:
-    - Use explicit pixel sizes or inline styles for width/height when utility class generation is unreliable.
-    - Ensure inactive markers still meet a minimum contrast/opacity threshold.
-  - Verification checklist for TOC changes (manual):
-    - Add/edit heading text and confirm TOC label updates while typing.
-    - Confirm h2/h3/h4 indentation is visible in expanded panel.
-    - Confirm collapsed markers are visible and level-differentiated.
-    - Confirm panel never clips off-screen at narrow and wide widths.
-    - Confirm no continuous DOM/style churn while idle (DevTools should not spam updates).
-
-### UI composition (ParkUI simplification)
-
-- Prefer `SimplePopover`, `SimpleDialog`, `SimpleModal`, and `SimpleSelect`
-  wrappers over raw ParkUI/Ark UI composition when they meet the need.
-- For menu-like overlays with a title/description and consistent spacing,
-  prefer `PanelPopover` (`app/src/components/ui/panel-popover.tsx`) over
-  ad-hoc popover body markup.
-- Use `skipPortal` on these wrappers when you must render inline; default is
-  to render in a Portal.
-- When creating/updating UI wrappers, ensure public wrapper props are forwarded
-  to the effective rendered slot.
-  - Example: `style`/`class` passed to a popover wrapper must reach
-    `Popover.Content`, not only the wrapper component.
-- For SSR-sensitive overlay controls (Select/Popover in route-critical areas),
-  keep SSR and first client render DOM identical.
-  - If needed, render a deterministic fallback until mount, then enable the
-    interactive overlay control (`skipPortal` may be required for stability).
-  - When rendering time labels in SSR paths, avoid locale-dependent initial
-    text that can differ server vs client. Prefer deterministic server text
-    or compute relative labels from a server-provided anchor timestamp; show
-    absolute time via tooltip/title.
-- In ParkUI components, the `asChild` prop is a render function, not a
-  boolean.
-- When creating derived comps, be sure to import the ParkUI things with their ORIGINAL names. If not, the CSS breaks.
-  - Good: import \* as Popover from "./popover";
-  - Bad: import { Root } from "./popover";
-- When creating a derived component, add the name to the recipe in the `jsx` key.
-  - Good: jsx: ["Popover", "MyDerivedComponent"],
-  - Bad: jsx: ["MyDerivedComponent"],
-- When importing ParkUI components, use a barrel import if there are multiple things to import.
-  - Good: import \* as Popover from "./popover";
-  - Bad: import { Root, Anchor, Positioner, Content } from "./popover";
-- Avoid nested popovers for a single interaction flow unless there is a strong UX reason.
-  - Prefer one overlay layer and render extra controls as inline sections inside that layer.
-  - If nesting is intentional, add a short comment explaining why.
-
-### Tailwind → Panda conversion (from park-ui-migration)
-
-- No Tailwind utility strings in migrated components; use Panda props and
-  `styled-system/jsx` layout primitives (`Box`, `Stack`, `HStack`, `Flex`,
-  `Container`, `Spacer`).
-- Replace native controls/ad-hoc elements with `~/components/ui/*` (e.g.
-  `Button`, `Link`, `Input`, `Checkbox`, `Select`, `Drawer`).
-- Convert leftover utility classes to Panda props and prefer semantic tokens
-  (`bg="bg.default"`, `borderColor="border"`, `color="fg.muted"`).
-- Use `HStack` for horizontal layout and remember its prop is `alignItems`
-  (not `align`).
-- For Select: build a `createListCollection`, pass it to `Select.Root`, and
-  treat `value` as `string[]` even for single-select.
-- Keep Solid discipline during migration: `Show` over `&&`, `Suspense` for
-  resources, avoid prop destructuring.
-
-### File structure and organization
-
-- One component per file by default.
-  - Exception: a small set of private helper components (icons, tiny
-    subcomponents) that are only used by the parent component.
-- Types live with their consumer.
-  - Props types MUST be defined in the same file as the component.
-  - General-purpose/shared types belong in a common types module.
-- Helpers
-  - If a helper is reusable, move it to a common place (src/utils/_,
-    src/lib/_, etc.).
-  - Component-specific helpers can stay local, but if they grow or become
-    shared, promote them.
-
-### Imports and exports
-
-- Imports occur at the top of the file.
-  - No lazy/deferred imports.
-  - No inline imports in functions.
-- Prefer named exports over default exports.
-- Type imports:
-  - Good: import { type Foo } from "./foo"
-  - Avoid: typeof import("./foo").Foo
-
-### TypeScript rules
-
-- Avoid any.
-  - If any is unavoidable, add a comment explaining why.
-- Avoid as any to silence lint/type issues.
-  - If you must, mark it clearly:
-    - TODO:AS_ANY, <reason>
-- Avoid creating "mirror types" that duplicate an object's structure.
-  - Prefer deriving types from existing values/returns when possible.
-  - If blocked by tooling or an inference issue:
-    - TODO:TYPE_MIRROR, <reason>
-- Prefer type over interface.
-  - Use intersection composition where needed:
-    - type Props = BaseProps & { extra: string }
-
-### Debugging
-
-- Default to no `console.log` in shipped UI code.
-- Keep logs only in critical paths where they provide durable signal:
-  - important data-flow boundaries (for example request/response handoffs)
-  - important branch decisions that are hard to infer from state
-  - unexpected/failure conditions where `console.error`/`console.warn` is appropriate
-- Avoid noisy logs in render paths, mount/unmount hooks, repetitive UI events, polling ticks, and modal open/close handlers.
-- If temporary `console.log` statements are added for debugging, remove them before finishing unless the user explicitly asks to keep them.
-- Do not wrap `console.log` in try/catch.
-
-### Control flow and readability
-
-- Prefer early returns over deeply nested conditionals.
-- Prefer Solid control-flow components:
-  - Use Show over && for conditional rendering.
-  - Prefer Switch/Match for top-level forks when multiple branches exist.
-
-### Conditional rendering rules
-
-- Use Show to narrow types safely.
-  - Prefer function children when you want narrowed typing.
-- Do not use top-level signal-gated early returns for render branching (for
-  example `if (!mounted()) return <A />`) when the branch must update later.
-  - Reason: top-level render code is not reactive by default, so this can lock
-    the component into the fallback branch.
-  - Prefer reactive control flow: `<Show when={mounted()} fallback={<A />}>...</Show>`.
-
-Good:
-<Show when={user()}>{(u) => <UserCard user={u} />}</Show>
-
-Avoid:
-{ user() && <UserCard user={user()!} />; }
-
-### SolidJS reactivity fundamentals
-
-Signals vs stores
-
-- Single independent value: createSignal
-- Multiple related values: createStore
-- If state fields conceptually belong together, make a store.
-
-Derived values: inline thunks vs createMemo
-
-- Inline thunks are fine for most derived values:
-  - const label = () => props.title ?? "Untitled"
-- Only use createMemo when there's likely a performance hit:
-  - sorting, filtering, heavy mapping, expensive formatting, large lists
-
-Effects
-
-- Prefer createEffect. Do not use createComputed.
-- Effects should be for side effects, not for pure derivations.
-
-Batching updates
-
-- Use batch(() => { ... }) when updating multiple signals or multiple store
-  paths in a tight sequence.
-  - If multiple fields represent one user-visible value, update them atomically.
-  - Avoid intermediate transient states that can fire effects/callbacks with invalid values.
-
-Prop sync (external props ↔ local draft state)
-
-- For local draft state initialized from props, sync only when the incoming prop actually changes.
-- Compare against a previous incoming-prop snapshot (non-reactive local variable), not mutable draft state.
-- In parent/child feedback loops (`value` + `onChange`), guard no-op updates to avoid ping-pong resets.
-
-### Props handling
-
-- Do not destructure props (neither in parameters nor inside the body).
-  - Solid props are reactive; destructuring breaks reactivity.
-- Use splitProps when you need "local names".
-- mergeProps is allowed.
-
-### Client ↔ server communication (SolidStart)
-
-Use SolidStart’s SSR-friendly data APIs:
-
-- Reads: `query()` (server) + `createAsync()` (client)
-- Writes: server actions
-- Avoid raw `fetch(...)` inside UI components for app data
-
-Example (read via `query`):
-
-```ts
-import { query, createAsync } from "@solidjs/router";
-
-// server-side fetcher; args must be JSON-serializable
-export const getThing = query(async (id: string) => {
-  "use server";
-  // ... load data (db/service/etc) ...
-  return { id };
-}, "thing");
-
-// client usage (route/component)
-const thing = createAsync(() => getThing("123"));
-```
-
-Example (write via server action):
-
-```ts
-import { action } from "@solidjs/router";
-
-export const saveThing = action(
-  async (payload: { id: string; name: string }) => {
-    "use server";
-    // ... write to db/service ...
-    return { ok: true };
-  },
-  "save-thing"
-);
-```
-
-### Event handlers and callbacks
-
-- Inline handlers are OK if short (<= 3 lines).
-- If longer than 3 lines, pull into a named function in parent scope.
-- Avoid preventDefault and stopPropagation unless there is a strong reason.
-
-### Lists: <For> rules
-
-- Prefer <For> over .map() in JSX.
-- No need to set keyed by default.
-- When creating render functions inside a <For>, all variables must be
-  reactive functions.
-
-### Resources: createResource + Suspense
-
-- If createResource is involved, ALWAYS use Suspense with a fallback.
-- Avoid using Show as the primary loading gate for resources.
-- Prefer handling empty states inside the resolved UI rather than branching around the resource.
-
-### Error boundaries
-
-- Every major page/feature "island" MUST be wrapped in an <ErrorBoundary>.
-- Keep fallbacks user-friendly; logging in the fallback is OK.
-
-### Global state and Context API
-
-- Avoid prop drilling beyond 3 levels.
-- Prefer using an exported Provider from a module.
-- Context consumers MUST go through a useX() helper that throws if used
-  outside the Provider.
-- Prefer stores for related context state. Keep Provider logic small; move non-UI logic to a shared module if it grows.
-
-### DOM refs and component communication
-
-- For DOM refs:
-  - Use let myRef; and ref={myRef}.
-  - Avoid document.getElementById entirely.
-
-### Mounting, cleanup, and subscriptions
-
-- When pairing onMount with onCleanup, place onCleanup inside the onMount
-  callback.
-
-### Components and composition
-
-- Avoid IIFEs for Solid components.
-- SVG icons: put inline SVG into its own component with a good name.
-- Responsive layout shells must mount route/page children exactly once.
-  - Do not render the same `children` in both desktop and mobile wrappers at
-    the same time and rely on CSS (`display: none`) to hide one branch.
-  - Hidden branches still mount and run effects/resources, which can cause
-    duplicate requests and state divergence.
-  - Prefer a single reactive branch (`Show`/`Switch`) that mounts desktop OR
-    mobile content, not both.
-- Use the minimum number of DOM elements needed for the behavior.
-  - Avoid wrapper-on-wrapper composition when one structural primitive can
-    carry the layout/style semantics.
-  - Prefer structural primitives (`Box`, `Stack`, `HStack`, `Flex`) as the
-    composition backbone, and keep each layer purposeful.
-  - When overflow is needed, explicitly separate:
-    - constraint container (size/bounds)
-    - scroll container (overflow)
-    - content container (intrinsic width/height)
-
-### Error handling
-
-- Avoid wrapping code in try/catch unless clearly justified or requested.
-
-### Prisma rules (server-side)
-
-- Only modify the Prisma schema.
-- Always generate migrations via CLI.
-- Never manually author a migration file.
-- Follow the repo’s standard scripts/commands for generating and applying migrations.
-
-### Thinking and planning conventions
-
-- When designing new components, consider key edge cases and handle them if
-  simple. If handling is non-trivial, add:
-  - TODO:EDGE_CASE, <describe the case>
-
-### TODO tags (standardized)
-
-- TODO:AS_ANY, <reason>
-- TODO:TYPE_MIRROR, <reason>
-- TODO:EDGE_CASE, <reason>
-
-### Testing and verification
-
-- Run pnpm type-check to verify TypeScript types after making changes.
-- Do not run pnpm build for routine change verification; type-check is sufficient.
-- There are no unit tests currently; verification is done via successful
-  type check and manual testing.
-
-### Quick checklist (before you finish)
-
-- File is < 200 LOC (or intentionally justified)
-- No props destructuring; used splitProps if needed
-- Used createStore for related state
-- Derived values use thunks; createMemo only when it matters
-- Used batch when updating multiple signals/store paths together
-- Show instead of &&
-- Switch/Match for multi-branch top-level forks
-- <For> render locals are reactive functions
-- createResource is gated by Suspense fallback
-- Major feature islands wrapped in <ErrorBoundary>
-- Context uses exported Provider + exported useX() hook
-- Refs via let ref + ref={ref}; no document.getElementById
-- Cleanup paired with mount is inside onMount
-- No any without a comment; no as any without TODO:AS_ANY
-- Named exports; imports at top; no typeof import(...)
-- Logging is sparse and limited to critical data-flow/branch points (or errors/warnings)
+## SolidJS Guidance via Skills
+
+SolidJS-specific guidance has been split into focused skills so it can be
+invoked selectively per task.
+
+### SolidJS Skill Map
+
+- `solid-reactivity-control-flow`
+  - Conditional rendering (`Show`, `Switch/Match`), effects, memo usage, list
+    rendering (`For`), and Suspense/resource gating.
+- `solid-props-state-patterns`
+  - Props handling (`splitProps`), signal/store selection, batched updates,
+    context/provider patterns, refs, mount/cleanup pairing.
+- `solidstart-data-async`
+  - SolidStart reads/writes (`query`, `createAsync`, server actions), route
+    metadata, 404 handling, SSR-safe async/overlay patterns.
+- `solid-ui-composition-patterns`
+  - Panda + ParkUI wrapper conventions, shared UI primitives/helpers, route
+    boundaries, stable layout and overlay composition.
+- `solid-structure-types-quality`
+  - File organization, TypeScript hygiene, error boundaries, logging rules,
+    TODO tags, and final verification gates.
+
+### Related Specialized Skills
+
+- `component-structure-minimal-dom` for wrapper-depth/overflow refactors.
+- `toc-rail-layout-playbook` for TOC/minimap rail bugs.
