@@ -22,6 +22,37 @@ export type DocPreview = {
   previewText: string;
 };
 
+export type PathNoteCard = {
+  id: string;
+  title: string;
+  path?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PathPageData = {
+  path: string;
+  totalCount: number;
+  notes: PathNoteCard[];
+  childPaths: { path: string; count: number }[];
+};
+
+export type RelatedPathNotesData = {
+  path: string;
+  notes: PathNoteCard[];
+};
+
+export type PathDiscoveryItem = {
+  path: string;
+  count: number;
+  lastViewedAt?: string;
+};
+
+export type PathDiscoveryData = {
+  recentlyViewed: PathDiscoveryItem[];
+  highCount: PathDiscoveryItem[];
+};
+
 function getIdFromNotionId(id: string) {
   let initialId = decodeURIComponent(id.slice("__NOTION__".length));
   if (initialId.endsWith(".md")) {
@@ -90,17 +121,29 @@ export const fetchDocs = query(
   "docs-list"
 );
 
+const PREVIEW_INPUT_LIMIT = 20000;
+
+const limitPreviewInput = (value: string) =>
+  value.length > PREVIEW_INPUT_LIMIT ? value.slice(0, PREVIEW_INPUT_LIMIT) : value;
+
 const normalizePreviewText = (value: string) =>
-  value.replace(/\s+/g, " ").trim();
+  limitPreviewInput(value).replace(/\s+/g, " ").trim();
+
+const stripFencedCodeBlocks = (value: string) => {
+  if (!value.includes("```")) return value;
+  const parts = value.split("```");
+  return parts.filter((_part, index) => index % 2 === 0).join(" ");
+};
 
 const buildDocPreviewText = (
   markdown?: string | null,
   html?: string | null,
   maxLen = 240
 ) => {
+  const markdownText = limitPreviewInput(String(markdown || ""));
+  const htmlText = limitPreviewInput(String(html || ""));
   const md = normalizePreviewText(
-    String(markdown || "")
-      .replace(/```[\s\S]*?```/g, " ")
+    stripFencedCodeBlocks(markdownText)
       .replace(/`([^`]+)`/g, "$1")
       .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
@@ -109,7 +152,7 @@ const buildDocPreviewText = (
   );
   if (md.length > 0) return md.slice(0, maxLen);
   const plain = normalizePreviewText(
-    String(html || "")
+    htmlText
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
@@ -183,6 +226,189 @@ export const fetchPathSuggestions = query(
     return items;
   },
   "docs-paths"
+);
+
+export const fetchPathPageData = query(
+  async (
+    input: { path: string; take?: number } | undefined
+  ): Promise<PathPageData> => {
+    "use server";
+    const rawPath = String(input?.path || "").trim();
+    const path = rawPath
+      .split(".")
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0)
+      .join(".");
+    if (!path) {
+      return { path: "", totalCount: 0, notes: [], childPaths: [] };
+    }
+
+    const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
+    const treeWhere = {
+      OR: [{ path }, { path: { startsWith: `${path}.` } }],
+    };
+
+    const [totalCount, rows, descendantPathGroups] = await Promise.all([
+      prisma.doc.count({ where: treeWhere }),
+      prisma.doc.findMany({
+        where: treeWhere,
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          title: true,
+          path: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        take,
+      }),
+      prisma.doc.groupBy({
+        by: ["path"],
+        _count: { _all: true },
+        where: { path: { startsWith: `${path}.` } },
+      }),
+    ]);
+
+    const childCounts = new Map<string, number>();
+    for (const row of descendantPathGroups) {
+      const rowPath = String(row.path || "");
+      if (!rowPath.startsWith(`${path}.`)) continue;
+      const remainder = rowPath.slice(path.length + 1);
+      const nextSeg = remainder.split(".")[0] || "";
+      if (!nextSeg) continue;
+      const child = `${path}.${nextSeg}`;
+      childCounts.set(child, (childCounts.get(child) || 0) + row._count._all);
+    }
+
+    const childPaths = Array.from(childCounts.entries())
+      .map(([childPath, count]) => ({ path: childPath, count }))
+      .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
+      .slice(0, 24);
+
+    return {
+      path,
+      totalCount,
+      notes: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        path: row.path,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+      childPaths,
+    };
+  },
+  "docs-path-page-data"
+);
+
+export const fetchRelatedNotesByPath = query(
+  async (
+    input:
+      | {
+          path: string;
+          currentDocId?: string;
+          take?: number;
+        }
+      | undefined
+  ): Promise<RelatedPathNotesData> => {
+    "use server";
+    const path = String(input?.path || "").trim();
+    if (!path) return { path: "", notes: [] };
+    const take = Math.max(1, Math.min(40, input?.take ?? 12));
+    const currentDocId = String(input?.currentDocId || "");
+    const rows = await prisma.doc.findMany({
+      where: {
+        path,
+        ...(currentDocId ? { id: { not: currentDocId } } : {}),
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        path: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      take,
+    });
+    return {
+      path,
+      notes: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        path: row.path,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+    };
+  },
+  "docs-related-notes-by-path"
+);
+
+export const fetchPathDiscovery = query(
+  async (): Promise<PathDiscoveryData> => {
+    "use server";
+
+    const groupedPaths = await prisma.doc.groupBy({
+      by: ["path"],
+      _count: { _all: true },
+      where: {
+        path: {
+          not: null,
+        },
+      },
+    });
+
+    const highCount: PathDiscoveryItem[] = groupedPaths
+      .filter((row) => typeof row.path === "string" && row.path.trim().length > 0)
+      .map((row) => ({
+        path: row.path as string,
+        count: row._count._all,
+      }))
+      .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
+      .slice(0, 5);
+
+    const recentEvents = await prisma.actionEvent.findMany({
+      where: {
+        eventType: "doc.view",
+        relatedDocId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        createdAt: true,
+        relatedDoc: {
+          select: { path: true },
+        },
+      },
+      take: 500,
+    });
+
+    const recentByPath = new Map<string, { count: number; lastViewedAt: string }>();
+    for (const event of recentEvents) {
+      const path = String(event.relatedDoc?.path || "").trim();
+      if (!path) continue;
+      if (!recentByPath.has(path)) {
+        recentByPath.set(path, {
+          count: 0,
+          lastViewedAt: event.createdAt.toISOString(),
+        });
+      }
+      const current = recentByPath.get(path);
+      if (!current) continue;
+      current.count += 1;
+    }
+
+    const recentlyViewed = Array.from(recentByPath.entries())
+      .map(([path, value]) => ({
+        path,
+        count: value.count,
+        lastViewedAt: value.lastViewedAt,
+      }))
+      .slice(0, 5);
+
+    return { recentlyViewed, highCount };
+  },
+  "docs-path-discovery"
 );
 
 export const fetchMetaKeys = query(

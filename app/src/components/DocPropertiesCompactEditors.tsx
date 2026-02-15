@@ -12,6 +12,7 @@ import { Text } from "~/components/ui/text";
 import { type MetaRecord } from "~/services/docs.service";
 import { MetaKeyValueEditor } from "./MetaKeyValueEditor";
 import { PathEditor } from "./PathEditor";
+import { PathRelatedNotesPopover } from "./PathRelatedNotesPopover";
 
 export const DocPropertiesCompactEditors: VoidComponent<{
   docId?: string;
@@ -105,6 +106,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
           />
         </Stack>
       </SimplePopover>
+      <PathRelatedNotesPopover path={pathDraft()} currentDocId={props.docId} />
 
       <SimplePopover
         open={metaPopoverOpen()}

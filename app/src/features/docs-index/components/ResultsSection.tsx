@@ -97,7 +97,6 @@ export const ResultsSection = (props: {
                       query={q.searchText()}
                       previewDoc={previewDocsById().get(d.id) || null}
                       onResultOpen={props.onResultOpen}
-                      onFilterPath={(p) => q.setPathPrefix(p)}
                       onFilterMeta={(k, v) => {
                         q.setMetaKey(k);
                         q.setMetaValue(v);
@@ -137,7 +136,6 @@ export const ResultsSection = (props: {
                         <DocRow
                           {...d}
                           previewDoc={previewDocsById().get(d.id) || null}
-                          onFilterPath={(p) => q.setPathPrefix(p)}
                           onFilterMeta={(k, v) => {
                             q.setMetaKey(k);
                             q.setMetaValue(v);

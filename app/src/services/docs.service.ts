@@ -6,7 +6,10 @@ export {
   fetchDocs,
   fetchMetaKeys,
   fetchMetaValues,
+  fetchPathDiscovery,
+  fetchPathPageData,
   fetchPathSuggestions,
+  fetchRelatedNotesByPath,
 } from "./docs.queries";
 
 export { createDoc, deleteDoc, updateDoc } from "./docs.actions";

@@ -2,12 +2,13 @@ import { formatAbsoluteTime, formatRelativeTime } from "../utils/time";
 import { renderHighlighted } from "../utils/highlight";
 import { MetaChips } from "./MetaChips";
 import { Show } from "solid-js";
-import { Button } from "~/components/ui/button";
 import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
+import { PathPillLink } from "~/components/path/PathPillLink";
 import { Text } from "~/components/ui/text";
 import { Box, Flex, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
 import { css } from "styled-system/css";
+import { pathToRoute } from "~/utils/path-links";
 
 export const DocRow = (props: {
   id: string;
@@ -17,7 +18,6 @@ export const DocRow = (props: {
   meta?: Record<string, unknown> | null;
   snippet?: string | null;
   query?: string;
-  onFilterPath?: (p: string) => void;
   onFilterMeta?: (k: string, v: string) => void;
   onResultOpen?: (id: string) => void;
   selected?: boolean;
@@ -112,17 +112,15 @@ export const DocRow = (props: {
         <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
           <Show when={props.path}>
             {(path) => (
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={() => props.onFilterPath?.(path())}
-                title={`Filter by path: ${path()}`}
+              <PathPillLink
+                href={pathToRoute(path())}
+                variant="subtle"
+                title={`Open path page: ${path()}`}
               >
                 <Show when={props.query} fallback={path()}>
                   {(query) => renderHighlighted(path(), query())}
                 </Show>
-              </Button>
+              </PathPillLink>
             )}
           </Show>
           <MetaChips meta={props.meta} onClick={props.onFilterMeta} />
