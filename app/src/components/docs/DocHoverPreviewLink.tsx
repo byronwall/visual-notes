@@ -8,7 +8,6 @@ import {
   formatRelativeTime,
 } from "~/features/docs-index/utils/time";
 import {
-  buildDocPreviewText,
   countMetaKeys,
   normalizePreviewText,
 } from "~/features/docs-index/utils/doc-preview";
@@ -21,8 +20,7 @@ type DocHoverPreviewLinkProps = {
   meta?: Record<string, unknown> | null;
   snippet?: string | null;
   previewDoc?: {
-    markdown?: string | null;
-    html?: string | null;
+    previewText?: string;
     path?: string | null;
     meta?: Record<string, unknown> | null;
   } | null;
@@ -46,7 +44,7 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
 
   const previewText = () => {
     const doc = props.previewDoc;
-    if (doc) return buildDocPreviewText(doc.markdown, doc.html);
+    if (doc?.previewText && doc.previewText.length > 0) return doc.previewText;
     const snippet = normalizePreviewText(props.snippet || "");
     if (snippet.length > 0) return snippet.slice(0, 240);
     return "No preview available.";

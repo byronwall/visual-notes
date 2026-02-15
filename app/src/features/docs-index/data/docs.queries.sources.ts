@@ -4,6 +4,7 @@ import type { SourcesResponse } from "./docs.types";
 
 export const fetchSources = query(async (): Promise<SourcesResponse> => {
   "use server";
+  const startedAt = Date.now();
   const [total, groups] = await Promise.all([
     prisma.doc.count({}),
     prisma.doc.groupBy({
@@ -21,5 +22,10 @@ export const fetchSources = query(async (): Promise<SourcesResponse> => {
     }))
     .sort((a, b) => b.count - a.count);
 
+  console.log("[docs-index] fetchSources", {
+    ms: Date.now() - startedAt,
+    totalDocs: total,
+    sourceCount: sources.length,
+  });
   return { total, sources };
 }, "docs-index-sources");

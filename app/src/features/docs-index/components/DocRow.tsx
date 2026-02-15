@@ -23,8 +23,7 @@ export const DocRow = (props: {
   selected?: boolean;
   onToggleSelect?: (id: string, next: boolean) => void;
   previewDoc?: {
-    markdown?: string | null;
-    html?: string | null;
+    previewText?: string;
     path?: string | null;
     meta?: Record<string, unknown> | null;
   } | null;

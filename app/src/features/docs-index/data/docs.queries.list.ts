@@ -28,6 +28,7 @@ export const fetchDocs = query(
     take?: number;
   }): Promise<DocListItem[]> => {
     "use server";
+    const startedAt = Date.now();
     const where = buildDocsWhere({
       pathPrefix: q.pathPrefix,
       pathBlankOnly: q.pathBlankOnly,
@@ -72,6 +73,13 @@ export const fetchDocs = query(
         meta: true,
       },
       take,
+    });
+    console.log("[docs-index] fetchDocs", {
+      ms: Date.now() - startedAt,
+      count: items.length,
+      take,
+      sortMode,
+      hasFilters: Object.keys(where).length > 0,
     });
     return items.map((item) => ({
       id: item.id,

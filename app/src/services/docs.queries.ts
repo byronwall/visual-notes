@@ -15,6 +15,13 @@ export type DocDetail = {
   updatedAt: string;
 };
 
+export type DocPreview = {
+  id: string;
+  path?: string | null;
+  meta?: Record<string, unknown> | null;
+  previewText: string;
+};
+
 function getIdFromNotionId(id: string) {
   let initialId = decodeURIComponent(id.slice("__NOTION__".length));
   if (initialId.endsWith(".md")) {
@@ -63,21 +70,98 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
 export const fetchDocs = query(
   async (input?: { take?: number }): Promise<DocItem[]> => {
     "use server";
+    const startedAt = Date.now();
     const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
     const items = await prisma.doc.findMany({
       orderBy: { updatedAt: "desc" },
       select: { id: true, title: true, createdAt: true, path: true },
       take,
     });
-    try {
-      console.log(`[services] fetchDocs: loaded ${items.length} docs`);
-    } catch {}
+    console.log("[services] fetchDocs", {
+      take,
+      count: items.length,
+      ms: Date.now() - startedAt,
+    });
     return items.map((item) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
     }));
   },
   "docs-list"
+);
+
+const normalizePreviewText = (value: string) =>
+  value.replace(/\s+/g, " ").trim();
+
+const buildDocPreviewText = (
+  markdown?: string | null,
+  html?: string | null,
+  maxLen = 240
+) => {
+  const md = normalizePreviewText(
+    String(markdown || "")
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/[*_~>-]/g, " ")
+  );
+  if (md.length > 0) return md.slice(0, maxLen);
+  const plain = normalizePreviewText(
+    String(html || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+  );
+  if (plain.length > 0) return plain.slice(0, maxLen);
+  return "No preview available.";
+};
+
+export const fetchDocPreviews = query(
+  async (ids: string[]): Promise<DocPreview[]> => {
+    "use server";
+    const startedAt = Date.now();
+    const unique = Array.from(
+      new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))
+    ).slice(0, 120);
+    if (unique.length === 0) return [];
+
+    const rows = await prisma.doc.findMany({
+      where: { id: { in: unique } },
+      select: {
+        id: true,
+        markdown: true,
+        html: true,
+        path: true,
+        meta: true,
+      },
+    });
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const ordered = unique
+      .map((id) => byId.get(id))
+      .filter(
+        (row): row is NonNullable<typeof row> => row !== undefined
+      )
+      .map((row) => ({
+        id: row.id,
+        path: row.path,
+        meta: row.meta as Record<string, unknown> | null,
+        previewText: buildDocPreviewText(row.markdown, row.html),
+      }));
+
+    console.log("[services] fetchDocPreviews", {
+      requested: ids.length,
+      unique: unique.length,
+      returned: ordered.length,
+      ms: Date.now() - startedAt,
+    });
+    return ordered;
+  },
+  "docs-preview-bulk"
 );
 
 export const fetchPathSuggestions = query(
