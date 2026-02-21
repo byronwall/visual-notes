@@ -35,6 +35,9 @@ guidelines from comp_refs.
   - Command: `cd app && pnpm run fix:unstaged`
   - Use at the end of a series of edits to auto-run ESLint fix + Prettier on unstaged files under `app/`.
   - Optional: skip when you do not want automatic formatting/content changes yet.
+- Verification after sizable changes
+  - In `app/`, run both `pnpm lint` and `pnpm type-check` after sizable refactors or feature edits.
+  - Treat this as the default verification gate before handing work off or committing.
 
 ## Skills
 
