@@ -5,16 +5,16 @@ export function useDebouncedSignal(
   { leadMs = 100, trailMs = 500 }: { leadMs?: number; trailMs?: number } = {}
 ) {
   const [val, setVal] = createSignal(src());
-  let lead: number | undefined;
-  let trail: number | undefined;
+  let lead: ReturnType<typeof setTimeout> | undefined;
+  let trail: ReturnType<typeof setTimeout> | undefined;
 
   createEffect(() => {
     const q = src();
     if (lead) clearTimeout(lead);
     if (trail) clearTimeout(trail);
 
-    lead = window.setTimeout(() => setVal(q), leadMs);
-    trail = window.setTimeout(() => setVal(q), trailMs);
+    lead = setTimeout(() => setVal(q), leadMs);
+    trail = setTimeout(() => setVal(q), trailMs);
 
     onCleanup(() => {
       if (lead) clearTimeout(lead);

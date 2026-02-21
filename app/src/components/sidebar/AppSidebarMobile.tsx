@@ -1,4 +1,4 @@
-import type { Accessor, JSX } from "solid-js";
+import type { Accessor } from "solid-js";
 import { MenuIcon } from "lucide-solid";
 import { AppSidebarContent } from "./AppSidebarContent";
 import { IconButton } from "~/components/ui/icon-button";
@@ -16,7 +16,6 @@ type AppSidebarMobileProps = {
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
   authed: Accessor<boolean>;
-  children: JSX.Element;
 };
 
 export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
@@ -64,8 +63,6 @@ export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
           <MenuIcon size={18} />
         </IconButton>
       </Box>
-
-      <Box minH="100vh">{props.children}</Box>
     </Box>
   );
 };

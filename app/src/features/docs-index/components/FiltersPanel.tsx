@@ -1,4 +1,4 @@
-import { Show, Suspense, createMemo, createSignal, onMount } from "solid-js";
+import { Show, Suspense, createMemo, createSignal } from "solid-js";
 import { PathEditor } from "~/components/PathEditor";
 import { MetaKeySuggestions } from "~/components/MetaKeySuggestions";
 import { MetaValueSuggestions } from "~/components/MetaValueSuggestions";
@@ -26,12 +26,6 @@ export const FiltersPanel = (props: {
   const [showSource, setShowSource] = createSignal(false);
   const [showCreated, setShowCreated] = createSignal(false);
   const [showUpdated, setShowUpdated] = createSignal(false);
-  const [selectsReady, setSelectsReady] = createSignal(false);
-
-  onMount(() => {
-    setSelectsReady(true);
-  });
-
   const hasPath = createMemo(() => q.pathPrefix().trim() || q.blankPathOnly());
   const hasOriginalId = createMemo(() => q.originalContentId().trim());
   const hasMeta = createMemo(() => q.metaKey().trim() || q.metaValue().trim());
@@ -77,55 +71,36 @@ export const FiltersPanel = (props: {
   return (
     <Stack mt="0.15rem" gap="1.5">
       <HStack gap="0.5rem" flexWrap="wrap" alignItems="center">
-        <Show
-          when={selectsReady()}
-          fallback={
-            <HStack gap="2" alignItems="center" flexWrap="wrap">
-              <Text fontSize="xs" color="black.a7">
-                Sort:{" "}
-                {sortModeItems.find((item) => item.value === q.sortMode())
-                  ?.label ?? "Relevance"}
-              </Text>
-              <Text fontSize="xs" color="black.a7">
-                Activity:{" "}
-                {activityClassItems.find(
-                  (item) => item.value === q.activityClass(),
-                )?.label ?? "All activity"}
-              </Text>
-            </HStack>
-          }
-        >
-          <HStack gap="1.5" alignItems="center">
-            <ArrowUpDownIcon size={14} />
-            <SimpleSelect
-              items={sortModeItems}
-              value={q.sortMode()}
-              onChange={(value) =>
-                q.setSortMode(
-                  value as
-                    | "relevance"
-                    | "recent_activity"
-                    | "most_viewed_30d"
-                    | "most_edited_30d",
-                )
-              }
-              size="sm"
-              sameWidth
-              skipPortal
-            />
-          </HStack>
-          <HStack gap="1.5" alignItems="center">
-            <ActivityIcon size={14} />
-            <SimpleSelect
-              items={activityClassItems}
-              value={q.activityClass()}
-              onChange={(value) => q.setActivityClass(value)}
-              size="sm"
-              sameWidth
-              skipPortal
-            />
-          </HStack>
-        </Show>
+        <HStack gap="1.5" alignItems="center">
+          <ArrowUpDownIcon size={14} />
+          <SimpleSelect
+            items={sortModeItems}
+            value={q.sortMode()}
+            onChange={(value) =>
+              q.setSortMode(
+                value as
+                  | "relevance"
+                  | "recent_activity"
+                  | "most_viewed_30d"
+                  | "most_edited_30d",
+              )
+            }
+            size="sm"
+            sameWidth
+            skipPortal
+          />
+        </HStack>
+        <HStack gap="1.5" alignItems="center">
+          <ActivityIcon size={14} />
+          <SimpleSelect
+            items={activityClassItems}
+            value={q.activityClass()}
+            onChange={(value) => q.setActivityClass(value)}
+            size="sm"
+            sameWidth
+            skipPortal
+          />
+        </HStack>
         <Button
           type="button"
           size="xs"

@@ -80,6 +80,13 @@ See the root `README.md` for a concise Docker Quickstart using `app/docker-compo
 
 - Minimal ingest flow requires only Postgres.
 
+## SSR-first UI convention
+
+- Build UI to render correctly in SSR by default.
+- Keep server HTML and first client render structurally consistent to avoid hydration churn and loading stalls.
+- Avoid `onMount`-only control rendering for normal form controls (selects, filters, inputs) unless there is a hard browser-only dependency.
+- For responsive layouts, prefer CSS breakpoint visibility over runtime viewport branches that remount page content.
+
 ## Next steps
 
 - Search plan and filter by incomplete.

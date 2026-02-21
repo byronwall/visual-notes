@@ -3,6 +3,9 @@ import { useDebouncedSignal } from "./useDebouncedSignal";
 import { searchDocs } from "../data/docs.service";
 import type { ServerSearchItem } from "../data/docs.types";
 
+const SEARCH_LOG_PREFIX = "[docs-index/search]";
+const REQUEST_TIMEOUT_MS = 15_000;
+
 type Filters = {
   pathPrefix?: string;
   blankPathOnly?: boolean;
@@ -46,6 +49,8 @@ export function useServerSearch(
         if (prev.length > 0) return [];
         return prev;
       });
+      latestRequestId = 0;
+      inFlight.clear();
       setLoading(false);
       return;
     }
@@ -56,32 +61,57 @@ export function useServerSearch(
     setLoading(true);
 
     const startMs = Date.now();
-    const slowTimer = window.setTimeout(() => {
-      console.log("[useServerSearch] slow request", {
+    const slowTimer = setTimeout(() => {
+      console.info(`${SEARCH_LOG_PREFIX} slow`, {
         requestId,
         q,
         elapsedMs: Date.now() - startMs,
         inFlight: inFlight.size,
       });
     }, 2000);
+    const timeoutTimer = setTimeout(() => {
+      inFlight.delete(requestId);
+      const elapsedMs = Date.now() - startMs;
+      if (requestId !== latestRequestId) {
+        return;
+      }
+      console.warn(`${SEARCH_LOG_PREFIX} timeout`, {
+        requestId,
+        elapsedMs,
+        timeoutMs: REQUEST_TIMEOUT_MS,
+        q,
+        inFlight: inFlight.size,
+      });
+      setLoading(false);
+    }, REQUEST_TIMEOUT_MS);
+    console.info(`${SEARCH_LOG_PREFIX} start`, {
+      requestId,
+      q,
+      take: resolvedTake ?? null,
+      hasFilters: Object.values(f).some(
+        (value) => value !== undefined && value !== "" && value !== false,
+      ),
+    });
 
     let disposed = false;
     onCleanup(() => {
       disposed = true;
-      window.clearTimeout(slowTimer);
+      clearTimeout(slowTimer);
+      clearTimeout(timeoutTimer);
     });
 
     searchDocs({ q, ...f, take: resolvedTake })
       .then((items) => {
         inFlight.delete(requestId);
-        window.clearTimeout(slowTimer);
+        clearTimeout(slowTimer);
+        clearTimeout(timeoutTimer);
         const elapsedMs = Date.now() - startMs;
 
         if (disposed || requestId !== latestRequestId) {
           return;
         }
 
-        console.log("[useServerSearch] resolve", {
+        console.info(`${SEARCH_LOG_PREFIX} resolve`, {
           requestId,
           elapsedMs,
           count: items.length,
@@ -91,12 +121,13 @@ export function useServerSearch(
       })
       .catch((err: unknown) => {
         inFlight.delete(requestId);
-        window.clearTimeout(slowTimer);
+        clearTimeout(slowTimer);
+        clearTimeout(timeoutTimer);
         const elapsedMs = Date.now() - startMs;
 
         if (disposed || requestId !== latestRequestId) return;
 
-        console.error("[useServerSearch] request failed", {
+        console.error(`${SEARCH_LOG_PREFIX} request failed`, {
           requestId,
           elapsedMs,
           inFlight: inFlight.size,

@@ -25,49 +25,48 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
     props.expanded ? props.expandedWidth : props.collapsedWidth;
 
   return (
-    <Box display={{ base: "none", md: "block" }}>
+    <Box
+      display="flex"
+      minH="100vh"
+      bg="bg.default"
+      w="full"
+      alignItems="stretch"
+    >
       <Box
-        display="flex"
-        minH="100vh"
-        bg="bg.default"
-        w="full"
-        alignItems="stretch"
+        display={{ base: "none", md: "block" }}
+        w={sidebarWidth()}
+        minW={sidebarWidth()}
+        maxW={sidebarWidth()}
+        flexShrink="0"
+        flexGrow="0"
+        position="sticky"
+        top="0"
+        alignSelf="flex-start"
+        maxH="100vh"
+        h="100vh"
+        bg="bg.subtle"
+        overflow="visible"
+        borderRightWidth="1px"
+        borderColor="border"
+        onMouseEnter={props.onSidebarMouseEnter}
+        onMouseLeave={props.onSidebarMouseLeave}
       >
-        <Box
-          w={sidebarWidth()}
-          minW={sidebarWidth()}
-          maxW={sidebarWidth()}
-          flexShrink="0"
-          flexGrow="0"
-          position="sticky"
-          top="0"
-          alignSelf="flex-start"
-          maxH="100vh"
-          h="100vh"
-          bg="bg.subtle"
-          overflow="visible"
-          borderRightWidth="1px"
-          borderColor="border"
-          onMouseEnter={props.onSidebarMouseEnter}
-          onMouseLeave={props.onSidebarMouseLeave}
-        >
-          <AppSidebarContent
-            expanded={props.expanded}
-            mode="desktop"
-            onToggleCollapse={props.onToggleCollapse}
-            onClose={props.onClose}
-            onChatOpen={props.onChatOpen}
-            onNewNoteOpen={props.onNewNoteOpen}
-            onSearchOpen={props.onSearchOpen}
-            onLogout={props.onLogout}
-            hasUnreadAny={props.hasUnreadAny}
-            hasLoadingAny={props.hasLoadingAny}
-            authed={props.authed}
-          />
-        </Box>
-        <Box minW="0" minH="100vh" bg="bg.default" flex="1">
-          {props.children}
-        </Box>
+        <AppSidebarContent
+          expanded={props.expanded}
+          mode="desktop"
+          onToggleCollapse={props.onToggleCollapse}
+          onClose={props.onClose}
+          onChatOpen={props.onChatOpen}
+          onNewNoteOpen={props.onNewNoteOpen}
+          onSearchOpen={props.onSearchOpen}
+          onLogout={props.onLogout}
+          hasUnreadAny={props.hasUnreadAny}
+          hasLoadingAny={props.hasLoadingAny}
+          authed={props.authed}
+        />
+      </Box>
+      <Box minW="0" minH="100vh" bg="bg.default" flex="1">
+        {props.children}
       </Box>
     </Box>
   );

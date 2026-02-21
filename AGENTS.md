@@ -42,6 +42,13 @@ guidelines from comp_refs.
   - Prefer structured console logs with a stable unique prefix at the start of the first string argument, e.g. `[docs-index] loaded 25 items`.
   - When adding or touching debug instrumentation, keep prefixes consistent per feature/module so logs are filterable in the console log panel.
   - Prefer `console.debug`/`console.info` for routine diagnostics and reserve `console.warn`/`console.error` for degradations and failures.
+- SSR + hydration invariants (high priority)
+  - Default to SSR-first components: server render should match the first client render.
+  - Do not gate normal UI controls behind `onMount`/`isClient` just to avoid SSR work; prefer rendering the real control during SSR.
+  - Treat client-only rendering as an exception. Only use it for browser-only APIs or overlays that cannot safely render on the server.
+  - For responsive shells/layouts, mount route/page children exactly once and use CSS responsive display rules instead of runtime viewport branch swaps.
+  - Avoid placeholder-to-real control swaps that change dimensions after hydration; when a fallback is truly required, match final layout size to prevent CLS.
+  - If you intentionally use client-only rendering, add a short code comment explaining why SSR is unsafe for that case.
 
 ## Skills
 
