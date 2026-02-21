@@ -17,6 +17,15 @@ export const usePathGroups = (args: {
   path: () => string;
   notes: () => PathGroupNote[];
 }) => {
+  const compareNotesByTitle = (a: PathGroupNote, b: PathGroupNote) => {
+    const titleOrder = (a.title || "").localeCompare(b.title || "", undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+    if (titleOrder !== 0) return titleOrder;
+    return b.updatedAt.localeCompare(a.updatedAt);
+  };
+
   const [expandedGroups, setExpandedGroups] = createSignal<Record<string, boolean>>(
     {},
   );
@@ -44,9 +53,7 @@ export const usePathGroups = (args: {
 
     return sortedGroups.map((group) => ({
       ...group,
-      notes: group.notes
-        .slice()
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      notes: group.notes.slice().sort(compareNotesByTitle),
     }));
   });
 
