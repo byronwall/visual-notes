@@ -177,6 +177,18 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
             overflowY: "auto",
             overflowX: "auto",
           },
+          "& .ProseMirror .vn-codeblock-controls": {
+            opacity: "0",
+            visibility: "hidden",
+            pointerEvents: "none",
+            transition: "opacity 140ms ease, visibility 0ms linear 140ms",
+          },
+          "& .ProseMirror pre.vn-codeblock:hover .vn-codeblock-controls, & .ProseMirror pre.vn-codeblock:focus-within .vn-codeblock-controls, & .ProseMirror .vn-codeblock-controls:hover": {
+            opacity: "1",
+            visibility: "visible",
+            pointerEvents: "auto",
+            transition: "opacity 140ms ease",
+          },
           "& .ProseMirror .vn-codeblock-content": {
             display: "block",
             whiteSpace: "pre",

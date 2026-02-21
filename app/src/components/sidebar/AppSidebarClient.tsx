@@ -80,10 +80,21 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     const onWindowKeyDown = (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.metaKey !== true) return;
-      if (ev.altKey || ev.ctrlKey) return;
-      if (ev.key.toLowerCase() !== "k") return;
-      ev.preventDefault();
-      setCmdkOpen((prev) => !prev);
+      const key = ev.key.toLowerCase();
+      if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "k") {
+        ev.preventDefault();
+        setCmdkOpen((prev) => !prev);
+        return;
+      }
+      if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "d") {
+        ev.preventDefault();
+        handleNewNoteOpen();
+        return;
+      }
+      if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "i") {
+        ev.preventDefault();
+        handleChatOpen();
+      }
     };
     window.addEventListener("keydown", onWindowKeyDown);
     media.addEventListener("change", syncViewport);

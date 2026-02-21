@@ -115,22 +115,23 @@ function CustomCodeBlockNodeView() {
   });
   const lineDigits = createMemo(() => String(Math.max(1, lineCount())).length);
   const lineNumbers = createMemo(() =>
-    Array.from({ length: lineCount() }, (_, index) => index + 1),
+    Array.from({ length: lineCount() }, (_, index) => index + 1)
   );
   const editableGutterPadding = createMemo(
-    () => `calc(${lineDigits()}ch + 1.75rem)`,
+    () => `calc(${lineDigits()}ch + 2.5rem)`
   );
   const plainRendered = createMemo(() =>
-    createPlainRenderedCode(rawCode(), language()),
+    createPlainRenderedCode(rawCode(), language())
   );
   const [expandedRendered] = createResource(
-    () => (expandedSignal() ? { rawCode: rawCode(), language: language() } : null),
+    () =>
+      expandedSignal() ? { rawCode: rawCode(), language: language() } : null,
     async (source) =>
       renderCodeLines({
         rawCode: source.rawCode,
         dataMdLanguage: source.language,
       }),
-    { initialValue: plainRendered() },
+    { initialValue: plainRendered() }
   );
 
   let copiedTimeout: number | undefined;
@@ -227,10 +228,11 @@ function CustomCodeBlockNodeView() {
     >
       <Box
         as="span"
+        class="vn-codeblock-controls"
         data-code-action="true"
         contentEditable={false}
         position="absolute"
-        top="2"
+        top="-20"
         right="2"
         zIndex="2"
         display="inline-flex"
@@ -380,9 +382,19 @@ function CustomCodeBlockNodeView() {
             open={true}
             onOpenChange={setExpanded}
             header={
-              <HStack justifyContent="space-between" alignItems="flex-start" gap="4">
+              <HStack
+                justifyContent="space-between"
+                alignItems="flex-start"
+                gap="4"
+              >
                 <Box minW="0">
-                  <Box as="h2" m="0" fontSize="3xl" lineHeight="1.1" fontWeight="semibold">
+                  <Box
+                    as="h2"
+                    m="0"
+                    fontSize="3xl"
+                    lineHeight="1.1"
+                    fontWeight="semibold"
+                  >
                     Code Viewer
                   </Box>
                   <Box
@@ -404,7 +416,10 @@ function CustomCodeBlockNodeView() {
                     colorPalette="gray"
                     onClick={() => void copySnippet("expanded")}
                   >
-                    <Show when={copiedExpanded()} fallback={<CopyIcon size={16} />}>
+                    <Show
+                      when={copiedExpanded()}
+                      fallback={<CopyIcon size={16} />}
+                    >
                       <CheckIcon size={16} />
                     </Show>
                     <Show when={copiedExpanded()} fallback={<span>Copy</span>}>
@@ -428,21 +443,13 @@ function CustomCodeBlockNodeView() {
               width: "min(96vw, 1100px)",
             })}
           >
-            <Box
-              mt="0"
-              pt="3"
-              w="full"
-            >
+            <Box mt="0" pt="3" w="full">
               <Box
                 borderTopWidth="1px"
                 borderColor="gray.outline.border"
                 mb="3"
               />
-              <Box
-                w="full"
-                maxW="100%"
-                overflow="hidden"
-              >
+              <Box w="full" maxW="100%" overflow="hidden">
                 <Box
                   as="pre"
                   m="0"
@@ -463,7 +470,9 @@ function CustomCodeBlockNodeView() {
                   data-md-raw={rawCode()}
                   data-md-language={language()}
                 >
-                  <LineNumberedCodeView rendered={expandedRendered() ?? plainRendered()} />
+                  <LineNumberedCodeView
+                    rendered={expandedRendered() ?? plainRendered()}
+                  />
                 </Box>
               </Box>
             </Box>
