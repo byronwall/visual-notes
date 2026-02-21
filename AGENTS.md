@@ -38,6 +38,10 @@ guidelines from comp_refs.
 - Verification after sizable changes
   - In `app/`, run both `pnpm lint` and `pnpm type-check` after sizable refactors or feature edits.
   - Treat this as the default verification gate before handing work off or committing.
+- Logging + debugging
+  - Prefer structured console logs with a stable unique prefix at the start of the first string argument, e.g. `[docs-index] loaded 25 items`.
+  - When adding or touching debug instrumentation, keep prefixes consistent per feature/module so logs are filterable in the console log panel.
+  - Prefer `console.debug`/`console.info` for routine diagnostics and reserve `console.warn`/`console.error` for degradations and failures.
 
 ## Skills
 

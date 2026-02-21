@@ -5,9 +5,11 @@ import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
 import { CommandKMenu } from "~/components/CommandKMenu";
 import { NewNoteModal } from "~/components/NewNoteModal";
+import { ConsoleLogsPanel } from "~/components/ConsoleLogsPanel";
 import { AppSidebarDesktop } from "./AppSidebarDesktop";
 import { AppSidebarMobile } from "./AppSidebarMobile";
 import { Box } from "styled-system/jsx";
+import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
 
 const COLLAPSED_WIDTH = "100px";
 const EXPANDED_WIDTH = "300px";
@@ -27,6 +29,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
 
   const [collapsed, setCollapsed] = createSignal(false);
   const [cmdkOpen, setCmdkOpen] = createSignal(false);
+  const [logsOpen, setLogsOpen] = createSignal(false);
   const [newNoteOpen, setNewNoteOpen] = createSignal(false);
   const [newNoteInitialTitle, setNewNoteInitialTitle] = createSignal<
     string | undefined
@@ -68,6 +71,8 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   };
 
   onMount(() => {
+    initializeConsoleLogCapture();
+
     const media = window.matchMedia("(max-width: 767px)");
     const syncViewport = () => setIsMobileView(media.matches);
     syncViewport();
@@ -84,6 +89,11 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "k") {
         ev.preventDefault();
         setCmdkOpen((prev) => !prev);
+        return;
+      }
+      if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "p") {
+        ev.preventDefault();
+        setLogsOpen((prev) => !prev);
         return;
       }
       if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "d") {
@@ -154,6 +164,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         onOpenChange={setCmdkOpen}
         onCreateNewNote={handleCreateNewNoteFromCmdk}
       />
+      <ConsoleLogsPanel open={logsOpen()} onClose={() => setLogsOpen(false)} />
       <NewNoteModal
         open={newNoteOpen()}
         onOpenChange={handleNewNoteOpenChange}
