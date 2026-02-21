@@ -17,6 +17,7 @@ import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { PathPillLink } from "~/components/path/PathPillLink";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
@@ -28,8 +29,10 @@ import {
   type DocListItem,
   type ServerSearchItem,
 } from "~/features/docs-index/data/docs.service";
+import { fetchPathSuggestions } from "~/services/docs.service";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
-import { ActivityIcon, ArrowUpDownIcon } from "lucide-solid";
+import { pathToRoute } from "~/utils/path-links";
+import { ActivityIcon, ArrowUpDownIcon, RouteIcon } from "lucide-solid";
 
 type CommandKMenuProps = {
   open: boolean;
@@ -180,6 +183,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       snippet: undefined,
     }));
   });
+  const [allPathSuggestions] = createResource(() => props.open, async (isOpen) => {
+    if (!isOpen) return [];
+    return fetchPathSuggestions();
+  });
 
   const close = () => {
     props.onOpenChange(false);
@@ -262,14 +269,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
   createEffect(() => {
     if (!props.open) {
-      setQuery("");
       setSelectedIndex(0);
       setSortMode("relevance");
       setActivityClass("");
       return;
     }
     setSelectedIndex(0);
-    window.setTimeout(() => inputEl?.focus(), 0);
+    window.setTimeout(() => {
+      inputEl?.focus();
+      inputEl?.select();
+    }, 0);
   });
 
   createEffect(() => {
@@ -302,6 +311,54 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     if (!raw) return undefined;
     return raw.replace(/\s+/g, " ");
   };
+  const matchingPaths = createMemo(() => {
+    const q = qTrim().toLowerCase();
+    const all = (allPathSuggestions.latest || []) as { path: string; count: number }[];
+    if (!q) return all.slice(0, 8);
+
+    const tokens = q
+      .split(/[.\s/\\_-]+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 0);
+    if (tokens.length === 0) return all.slice(0, 8);
+
+    const scored = all
+      .filter((item) => {
+        const path = item.path.toLowerCase();
+        const segments = path.split(".");
+        return (
+          path.includes(q) ||
+          tokens.every((token) => segments.some((segment) => segment.includes(token)))
+        );
+      })
+      .map((item) => {
+        const path = item.path.toLowerCase();
+        const startsWith = path.startsWith(q);
+        const includes = path.includes(q);
+        return {
+          ...item,
+          score: startsWith ? 3 : includes ? 2 : 1,
+        };
+      })
+      .sort(
+        (a, b) => b.score - a.score || b.count - a.count || a.path.localeCompare(b.path),
+      )
+      .slice(0, 8)
+      .map(({ path, count }) => ({ path, count }));
+    return scored;
+  });
+  const pathMatchesRowClass = css({
+    display: "flex",
+    alignItems: "center",
+    gap: "1.5",
+    flexWrap: "nowrap",
+    overflowX: "auto",
+    overflowY: "hidden",
+    h: "2.25rem",
+    w: "full",
+    minW: "0",
+    pr: "0.5",
+  });
 
   const resultsPanelHeight = "55vh";
   const hitsLatest = () => (results.latest || []) as ServerSearchItem[];
@@ -311,6 +368,14 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
     ev.preventDefault();
     handleOpenDoc(id);
+  };
+  const handlePathLinkClick = (ev: MouseEvent, path: string) => {
+    if (ev.defaultPrevented) return;
+    if (ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    close();
+    navigate(pathToRoute(path));
   };
 
   return (
@@ -399,6 +464,43 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
               </HStack>
             </Show>
           </HStack>
+        </HStack>
+
+        <HStack gap="2" alignItems="center" minW="0" h="2.25rem">
+          <RouteIcon size={14} class={css({ color: "fg.muted", flexShrink: "0" })} />
+          <Box class={pathMatchesRowClass}>
+            <Show
+              when={matchingPaths().length > 0}
+              fallback={
+                <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
+                  No matching paths
+                </Text>
+              }
+            >
+              <For each={matchingPaths()}>
+                {(item) => (
+                  <PathPillLink
+                    href={pathToRoute(item.path)}
+                    variant="subtle"
+                    onClick={(e) =>
+                      handlePathLinkClick(
+                        e as unknown as MouseEvent,
+                        item.path,
+                      )
+                    }
+                  >
+                    <span>
+                      {renderHighlighted(item.path, qTrim())}
+                      {" "}
+                      <Text as="span" color="fg.muted">
+                        ({item.count})
+                      </Text>
+                    </span>
+                  </PathPillLink>
+                )}
+              </For>
+            </Show>
+          </Box>
         </HStack>
 
         <Suspense

@@ -14,9 +14,6 @@ export function renderHighlighted(text: string, query: string) {
   const markClass = css({
     bg: "amber.3",
     color: "black",
-    borderRadius: "sm",
-    px: "0.5",
-    mx: "-0.5",
   });
   return (
     <>
