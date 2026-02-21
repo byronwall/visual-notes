@@ -122,12 +122,69 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
             outlineOffset: "2px",
             borderRadius: "l2",
           },
-          "& .ProseMirror .ProseMirror-selectednode img.vn-image": {
+          "& .ProseMirror .ProseMirror-selectednode img.vn-image, & .ProseMirror .vn-image-node[data-selected='true'] img.vn-image": {
             outlineWidth: "2px",
             outlineStyle: "solid",
             outlineColor: "blue.9",
             outlineOffset: "2px",
             borderRadius: "l2",
+          },
+          "& .ProseMirror .vn-image-node": {
+            position: "relative",
+            marginTop: "3",
+            marginBottom: "3",
+            maxWidth: "100%",
+            minWidth: "0",
+          },
+          "& .ProseMirror .vn-image-node > img.vn-image": {
+            display: "block",
+            width: "100%",
+            maxWidth: "100%",
+            height: "auto",
+            borderRadius: "l2",
+            userSelect: "none",
+          },
+          "& .ProseMirror .vn-image-controls": {
+            opacity: "0",
+            visibility: "hidden",
+            pointerEvents: "none",
+            transition: "opacity 140ms ease, visibility 0ms linear 140ms",
+          },
+          "& .ProseMirror .vn-image-node[data-selected='true'] .vn-image-controls, & .ProseMirror .vn-image-node[data-resizing='true'] .vn-image-controls": {
+            opacity: "1",
+            visibility: "visible",
+            pointerEvents: "auto",
+            transition: "opacity 140ms ease",
+          },
+          "& .ProseMirror .vn-image-resize-handle": {
+            position: "absolute",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: "16px",
+            height: "36px",
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderColor: "gray.outline.border",
+            borderRadius: "full",
+            background: "bg.default",
+            boxShadow: "sm",
+            cursor: "ew-resize",
+            opacity: "0",
+            visibility: "hidden",
+            pointerEvents: "none",
+            transition: "opacity 120ms ease, visibility 0ms linear 120ms",
+          },
+          "& .ProseMirror .vn-image-node[data-selected='true'] .vn-image-resize-handle, & .ProseMirror .vn-image-node[data-resizing='true'] .vn-image-resize-handle": {
+            opacity: "1",
+            visibility: "visible",
+            pointerEvents: "auto",
+            transition: "opacity 120ms ease",
+          },
+          "& .ProseMirror .vn-image-resize-handle-left": {
+            left: "-9px",
+          },
+          "& .ProseMirror .vn-image-resize-handle-right": {
+            right: "-9px",
           },
           "& .ProseMirror table": {
             width: "100%",
@@ -157,10 +214,15 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
           "& .ProseMirror tbody tr:nth-of-type(even) td": {
             bg: "gray.surface.bg.hover",
           },
-          "& .ProseMirror pre.vn-codeblock": {
+          "& .ProseMirror .vn-codeblock-wrap": {
             position: "relative",
             marginTop: "3",
             marginBottom: "3",
+            overflow: "visible",
+          },
+          "& .ProseMirror pre.vn-codeblock": {
+            position: "relative",
+            margin: "0",
             borderWidth: "1px",
             borderStyle: "solid",
             borderColor: "gray.outline.border",
@@ -183,7 +245,7 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
             pointerEvents: "none",
             transition: "opacity 140ms ease, visibility 0ms linear 140ms",
           },
-          "& .ProseMirror pre.vn-codeblock:hover .vn-codeblock-controls, & .ProseMirror pre.vn-codeblock:focus-within .vn-codeblock-controls, & .ProseMirror .vn-codeblock-controls:hover": {
+          "& .ProseMirror .vn-codeblock-wrap:hover .vn-codeblock-controls, & .ProseMirror .vn-codeblock-wrap:focus-within .vn-codeblock-controls, & .ProseMirror .vn-codeblock-controls:hover": {
             opacity: "1",
             visibility: "visible",
             pointerEvents: "auto",

@@ -120,6 +120,7 @@ function CustomCodeBlockNodeView() {
   const editableGutterPadding = createMemo(
     () => `calc(${lineDigits()}ch + 2.5rem)`
   );
+  const isCollapsible = createMemo(() => lineCount() > COLLAPSED_VISIBLE_LINES);
   const plainRendered = createMemo(() =>
     createPlainRenderedCode(rawCode(), language())
   );
@@ -188,8 +189,6 @@ function CustomCodeBlockNodeView() {
     }
   });
 
-  const isCollapsible = createMemo(() => lineCount() > COLLAPSED_VISIBLE_LINES);
-
   onCleanup(() => {
     if (copiedTimeout) window.clearTimeout(copiedTimeout);
     if (openTimeout) window.clearTimeout(openTimeout);
@@ -219,12 +218,9 @@ function CustomCodeBlockNodeView() {
 
   return (
     <NodeViewWrapper
-      as="pre"
-      class="vn-codeblock"
+      as="div"
+      class="vn-codeblock-wrap"
       data-collapsed={isCollapsible() && collapsed() ? "true" : "false"}
-      data-md-raw={rawCode()}
-      data-md-language={language()}
-      {...htmlAttributes()}
     >
       <Box
         as="span"
@@ -232,9 +228,9 @@ function CustomCodeBlockNodeView() {
         data-code-action="true"
         contentEditable={false}
         position="absolute"
-        top="-20"
+        top="-2"
         right="2"
-        zIndex="2"
+        zIndex="3"
         display="inline-flex"
         bg="bg.default"
         borderWidth="1px"
@@ -305,76 +301,85 @@ function CustomCodeBlockNodeView() {
             aria-label="Expand code"
             title="Expand code"
             data-code-action="true"
-          >
-            <ExpandIcon size={12} />
-          </IconButton>
+        >
+          <ExpandIcon size={12} />
+        </IconButton>
         </Box>
       </Box>
 
       <Box
-        as="span"
-        class="vn-codeblock-line-gutter"
-        contentEditable={false}
-        aria-hidden="true"
+        as="pre"
+        class="vn-codeblock"
+        data-collapsed={isCollapsible() && collapsed() ? "true" : "false"}
+        data-md-raw={rawCode()}
+        data-md-language={language()}
+        {...htmlAttributes()}
       >
-        <For each={lineNumbers()}>
-          {(line) => (
-            <Box as="span" class="vn-codeblock-line-number">
-              {line}
-            </Box>
-          )}
-        </For>
-      </Box>
-
-      <NodeViewContent
-        as="code"
-        spellcheck={false}
-        class="vn-codeblock-content"
-        style={{
-          "padding-left": editableGutterPadding(),
-          "padding-right": "3",
-          "padding-top": "3",
-          "padding-bottom": isCollapsible() && collapsed() ? "0" : "3",
-          "white-space": "pre",
-          "font-family": "inherit",
-          "font-size": "inherit",
-          "line-height": "1.6em",
-        }}
-      />
-
-      <Show when={isCollapsible()}>
         <Box
           as="span"
-          data-code-action="true"
+          class="vn-codeblock-line-gutter"
           contentEditable={false}
-          position="sticky"
-          left="0"
-          right="0"
-          bottom="0"
-          zIndex="3"
-          display="flex"
-          justifyContent="center"
-          pointerEvents="none"
-          pt="6"
-          pb="0"
-          style={{
-            background: collapsed()
-              ? "linear-gradient(180deg, rgba(245,246,248,0) 0%, rgba(245,246,248,0.95) 60%, rgba(245,246,248,1) 100%)"
-              : undefined,
-          }}
+          aria-hidden="true"
         >
-          <Button
-            size="sm"
-            variant="plain"
-            colorPalette="gray"
-            onClick={() => setCollapsed(!collapsed())}
-            data-code-action="true"
-            style={{ "pointer-events": "auto" }}
-          >
-            {collapsed() ? "Show more" : "Show less"} • {lineCount()} lines
-          </Button>
+          <For each={lineNumbers()}>
+            {(line) => (
+              <Box as="span" class="vn-codeblock-line-number">
+                {line}
+              </Box>
+            )}
+          </For>
         </Box>
-      </Show>
+
+        <NodeViewContent
+          as="code"
+          spellcheck={false}
+          class="vn-codeblock-content"
+          style={{
+            "padding-left": editableGutterPadding(),
+            "padding-right": "3",
+            "padding-top": "3",
+            "padding-bottom": isCollapsible() && collapsed() ? "0" : "3",
+            "white-space": "pre",
+            "font-family": "inherit",
+            "font-size": "inherit",
+            "line-height": "1.6em",
+          }}
+        />
+
+        <Show when={isCollapsible()}>
+          <Box
+            as="span"
+            data-code-action="true"
+            contentEditable={false}
+            position="sticky"
+            left="0"
+            right="0"
+            bottom="0"
+            zIndex="3"
+            display="flex"
+            justifyContent="center"
+            pointerEvents="none"
+            pt="6"
+            pb="0"
+            style={{
+              background: collapsed()
+                ? "linear-gradient(180deg, rgba(245,246,248,0) 0%, rgba(245,246,248,0.95) 60%, rgba(245,246,248,1) 100%)"
+                : undefined,
+            }}
+          >
+            <Button
+              size="sm"
+              variant="plain"
+              colorPalette="gray"
+              onClick={() => setCollapsed(!collapsed())}
+              data-code-action="true"
+              style={{ "pointer-events": "auto" }}
+            >
+              {collapsed() ? "Show more" : "Show less"} • {lineCount()} lines
+            </Button>
+          </Box>
+        </Show>
+      </Box>
 
       <Show when={expanded()}>
         <Box contentEditable={false}>
