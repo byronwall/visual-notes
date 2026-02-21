@@ -610,3 +610,55 @@ For tooltip-like labels:
 
 - wrap inline text with `Text as="span"` inside a `Box`
 - avoids invalid block nesting and keeps typography consistent
+
+---
+
+## Sidebar Nested Menu (Canvas)
+
+This section captures the production pattern used for the left sidebar `Canvas`
+entry with hover-open behavior and submenu links.
+
+### NM-1) Use controlled `Menu.Root` state for hover-open behavior
+
+- Drive `open` via local signal state (`open={...}` + `onOpenChange`).
+- Open on row hover (`onMouseEnter`), not only click.
+- Use a short close delay on `onMouseLeave` so pointer movement into the
+  floating menu does not collapse it.
+
+### NM-2) Keep primary click behavior separate from submenu behavior
+
+- Clicking the `Canvas` trigger should navigate to `/canvas`.
+- The floating menu should expose secondary destinations (`/embeddings`,
+  `/umap`).
+- Keep submenu navigation in `Menu.Item onSelect`.
+
+### NM-3) Always portal sidebar flyout menus
+
+Sidebar containers often create local stacking contexts (`position: sticky`,
+`overflow`, borders, transforms). Render flyout menu layers in `Portal` to
+escape those contexts.
+
+Pattern:
+
+```tsx
+import { Portal } from "solid-js/web";
+import * as Menu from "~/components/ui/menu";
+
+<Menu.Root open={open()} onOpenChange={(d) => setOpen(d.open)}>
+  <Menu.Trigger asChild={(triggerProps) => <Button {...triggerProps} /> } />
+  <Portal>
+    <Menu.Positioner zIndex="tooltip">
+      <Menu.Content zIndex="tooltip">{/* submenu items */}</Menu.Content>
+    </Menu.Positioner>
+  </Portal>
+</Menu.Root>;
+```
+
+### NM-4) Layering guidance (z-index)
+
+- Default menu recipe uses dropdown layer; this can still appear under other
+  page surfaces.
+- For sidebar flyout menus, prefer `zIndex="popover"` or `zIndex="tooltip"` on
+  `Menu.Positioner` and `Menu.Content`.
+- If layering still fails, verify the menu is portaled first; do not rely on
+  z-index alone inside local stacking contexts.

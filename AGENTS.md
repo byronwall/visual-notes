@@ -25,6 +25,9 @@ guidelines from comp_refs.
   - Prefer `~/components/ui/*` wrappers over direct Ark UI usage in routes.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
+  - For sidebar/flyout nested menus: use controlled `Menu.Root` + `Portal` for
+    `Menu.Positioner`/`Menu.Content`, and apply token z-index (`popover` or
+    `tooltip`) at the menu call site to avoid stacking-context regressions.
 - Routes are routes
   - Do not create reusable UI under `app/src/routes/`.
   - Keep route modules focused on routing + data + page composition; move reusable UI to `app/src/components/` (or `~/components/*`).

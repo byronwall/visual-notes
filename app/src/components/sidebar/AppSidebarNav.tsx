@@ -1,21 +1,15 @@
 import type { JSX } from "solid-js";
-import { For, Show } from "solid-js";
+import { For } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
-import {
-  LayoutGridIcon,
-  MapIcon,
-  NetworkIcon,
-  ShieldIcon,
-  SparklesIcon,
-  ActivityIcon,
-} from "lucide-solid";
-import { Button } from "~/components/ui/button";
-import { Box, Stack, VisuallyHidden } from "styled-system/jsx";
+import { WaypointsIcon } from "lucide-solid";
+import { Stack } from "styled-system/jsx";
+import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
+import { SidebarNavButton, type SidebarNavIcon } from "./SidebarNavButton";
 
 type NavItem = {
   label: string;
   href: string;
-  icon: (props: { size?: number; strokeWidth?: number }) => JSX.Element;
+  icon: SidebarNavIcon;
   isActive: (pathname: string) => boolean;
 };
 
@@ -33,80 +27,30 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
 
   const navItems: NavItem[] = [
     {
-      label: "Canvas",
-      href: "/canvas",
-      icon: LayoutGridIcon,
-      isActive: (path) => isActiveSection("/canvas", path),
-    },
-    {
-      label: "Embeddings",
-      href: "/embeddings",
-      icon: NetworkIcon,
-      isActive: (path) => isActiveSection("/embeddings", path),
-    },
-    {
-      label: "UMAP",
-      href: "/umap",
-      icon: MapIcon,
-      isActive: (path) => isActiveSection("/umap", path),
-    },
-    {
-      label: "AI",
-      href: "/ai",
-      icon: SparklesIcon,
-      isActive: (path) => isActiveSection("/ai", path),
-    },
-    {
-      label: "Activity",
-      href: "/activity",
-      icon: ActivityIcon,
-      isActive: (path) => isActiveSection("/activity", path),
-    },
-    {
-      label: "Admin",
-      href: "/admin/migrations",
-      icon: ShieldIcon,
-      isActive: (path) => isActiveSection("/admin", path),
+      label: "Paths",
+      href: "/path",
+      icon: WaypointsIcon,
+      isActive: (path) => isActiveSection("/path", path),
     },
   ];
 
-  const navButtonStyle = (active: boolean) => ({
-    bg: active ? "bg.muted" : "transparent",
-    color: active ? "fg.default" : "fg.muted",
-    borderRadius: "l2",
-    _hover: {
-      bg: "bg.muted",
-      color: "fg.default",
-    },
-  });
-
   return (
     <Stack gap="1">
+      <AppSidebarCanvasMenu
+        expanded={props.expanded}
+        pathname={pathname()}
+        onNavigate={navigate}
+      />
+
       <For each={navItems}>
         {(item) => (
-          <Button
-            variant="plain"
-            size="sm"
-            aria-current={item.isActive(pathname()) ? "page" : undefined}
+          <SidebarNavButton
+            expanded={props.expanded}
+            active={item.isActive(pathname())}
+            label={item.label}
+            icon={item.icon}
             onClick={() => navigate(item.href)}
-            px={props.expanded ? "3" : "2"}
-            py="2"
-            w="full"
-            display="flex"
-            alignItems="center"
-            justifyContent={props.expanded ? "flex-start" : "center"}
-            gap={props.expanded ? "2" : "0"}
-            {...navButtonStyle(item.isActive(pathname()))}
-            title={item.label}
-          >
-            <item.icon size={18} strokeWidth={1.8} aria-hidden="true" />
-            <Show when={props.expanded}>
-              <Box as="span">{item.label}</Box>
-            </Show>
-            <Show when={!props.expanded}>
-              <VisuallyHidden>{item.label}</VisuallyHidden>
-            </Show>
-          </Button>
+          />
         )}
       </For>
     </Stack>
