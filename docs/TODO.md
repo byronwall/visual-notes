@@ -1,5 +1,14 @@
 # Main Todo
 
+## Issues spotted testing with Playright
+
+- Lots of tsc and other errors in new files
+- Unable to run on port 3000 when running already, fails to get a random port
+- Need to allow codex to run tests without prompting
+- Probably need to get some visibility on what hte tests do while running and how context efficient they are
+- Need to use a pnpm store that is local to the repo folder to avoid global cache and sandbox issues
+- Avoid running PW stuff in parallel - issue a single command to run them all at one time (serially)... port contention
+
 ## Major arcs - what to do next
 
 1. Need to clean up HTML -> markdown pipeline - formatting + line breaks are busted - consider using HTML?

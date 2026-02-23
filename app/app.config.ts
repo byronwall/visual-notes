@@ -12,6 +12,21 @@ export default defineConfig({
   ssr: true,
   middleware: "./src/middleware.ts",
   vite: {
+    build: {
+      rollupOptions: {
+        onwarn(warning, warn) {
+          if (
+            warning.code === "INVALID_ANNOTATION" &&
+            typeof warning.id === "string" &&
+            warning.id.includes("styled-system/jsx/")
+          ) {
+            return;
+          }
+
+          warn(warning);
+        },
+      },
+    },
     plugins: [
       lucidePreprocess(),
       tsconfigPaths(),

@@ -198,9 +198,48 @@ model Doc {
   actionEvents         ActionEvent[]       @relation("RelatedDocEvents")
   activityDaily        DocActivityDaily[]
   activitySnapshot     DocActivitySnapshot?
+  timeBlocks           TimeBlock[]
+  timeBlockDayMetadata TimeBlockDayMetadata[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
+}
+
+model TimeBlock {
+  id          String   @id @default(cuid())
+  title       String?
+  startTime   DateTime
+  endTime     DateTime
+  color       String?
+  isFixedTime Boolean  @default(false)
+  comments    String?
+  noteId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  note Doc? @relation(fields: [noteId], references: [id], onDelete: SetNull)
+
+  @@index([startTime])
+  @@index([noteId])
+}
+
+model TimeBlockDayMetadata {
+  id          String   @id @default(cuid())
+  date        DateTime
+  key         String
+  value       String
+  contributor String   @default("default")
+  comments    String?
+  noteId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  note Doc? @relation(fields: [noteId], references: [id], onDelete: SetNull)
+
+  @@unique([date, key, contributor])
+  @@index([date])
+  @@index([key])
+  @@index([noteId])
 }
 
 /// Append-only audit/event log for major user/system actions.

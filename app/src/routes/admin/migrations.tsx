@@ -41,6 +41,8 @@ type HeicRunLog = {
   result: HeicTranscodeBatchResult;
 };
 
+const RECOVER_TOOLTIP_COPY = "Restore this note’s original pre-migration content from backup.";
+
 function formatUtcTimestamp(input: string): string {
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return input;
@@ -396,7 +398,7 @@ const MigrationPanel: VoidComponent = () => {
                       <Table.Cell>{doc.id}</Table.Cell>
                       <Table.Cell>
                         <Tooltip
-                          content="Restore this note's original pre-migration content from backup."
+                          content={RECOVER_TOOLTIP_COPY}
                           showArrow
                         >
                           <Button

@@ -2,8 +2,13 @@
   "mcpServers": {
     "ark-ui": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@ark-ui/mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "@ark-ui/mcp"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": ["dlx", "@playwright/mcp@latest"]
     }
   }
 }

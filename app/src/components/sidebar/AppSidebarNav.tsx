@@ -1,7 +1,6 @@
-import type { JSX } from "solid-js";
 import { For } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { WaypointsIcon } from "lucide-solid";
+import { CalendarClockIcon, WaypointsIcon } from "lucide-solid";
 import { Stack } from "styled-system/jsx";
 import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
 import { SidebarNavButton, type SidebarNavIcon } from "./SidebarNavButton";
@@ -31,6 +30,12 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
       href: "/path",
       icon: WaypointsIcon,
       isActive: (path) => isActiveSection("/path", path),
+    },
+    {
+      label: "Time Blocks",
+      href: "/time-blocks",
+      icon: CalendarClockIcon,
+      isActive: (path) => isActiveSection("/time-blocks", path),
     },
   ];
 

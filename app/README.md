@@ -71,6 +71,42 @@ Optional AI summarization features exist and are disabled by default. To enable,
 - `pnpm dev` – start the dev server
 - `pnpm build` – production build
 - `pnpm start` – start the production server
+- `pnpm test` – run unit tests (Vitest)
+- `pnpm test:e2e` – run Playwright e2e tests
+- `pnpm test:e2e:ui` – open Playwright UI mode
+- `pnpm test:e2e:headed` – run Playwright in headed mode
+- `pnpm test:e2e:json` – run Playwright with machine-readable JSON report
+- `pnpm test:e2e:install` – install Chromium for Playwright
+- `pnpm mcp:playwright` – start the Playwright MCP server
+
+## Agentic + MCP Testing
+
+This repo is now wired for both code-level and browser-level automation:
+
+- `@playwright/test` for deterministic e2e runs against the app.
+- Playwright MCP server (`@playwright/mcp`) so an AI agent can control the browser via MCP tools.
+
+Typical setup:
+
+```bash
+pnpm i
+pnpm test:e2e:install
+```
+
+Typical CI/agent run:
+
+```bash
+pnpm test:e2e:json
+```
+
+Notes:
+
+- Playwright config is at `playwright.config.ts`.
+- Tests live under `tests/e2e`.
+- By default, Playwright targets `http://127.0.0.1:3100` and starts its own server on port `3100`.
+- Override the default port with `PLAYWRIGHT_PORT`, for example `PLAYWRIGHT_PORT=4100 pnpm test:e2e`.
+- To use an already-running environment, set `PLAYWRIGHT_BASE_URL` and run `pnpm test:e2e`.
+- Detailed guide: see `docs/playwright-mcp-testing-guide.md`.
 
 ## Docker
 
