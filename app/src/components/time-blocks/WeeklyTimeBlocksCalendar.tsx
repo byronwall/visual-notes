@@ -1,7 +1,8 @@
-import { createAsync, useAction } from "@solidjs/router";
+import { useAction } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
+  createResource,
   createSignal,
   For,
   onCleanup,
@@ -25,6 +26,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
+import * as ScrollArea from "~/components/ui/scroll-area";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
 import {
@@ -109,10 +111,13 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   const [listOpen, setListOpen] = createSignal(false);
   const [summaryOpen, setSummaryOpen] = createSignal(false);
   const [editorOpen, setEditorOpen] = createSignal(false);
-  const [editingBlock, setEditingBlock] = createSignal<TimeBlockItem | null>(null);
-  const [newRange, setNewRange] = createSignal<{ start: Date; end: Date } | null>(
-    null
+  const [editingBlock, setEditingBlock] = createSignal<TimeBlockItem | null>(
+    null,
   );
+  const [newRange, setNewRange] = createSignal<{
+    start: Date;
+    end: Date;
+  } | null>(null);
 
   const [refreshNonce, setRefreshNonce] = createSignal(0);
   const [optimisticTimes, setOptimisticTimes] = createSignal<
@@ -120,11 +125,13 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   >({});
 
   const [dragState, setDragState] = createSignal<DragState>({ type: "idle" });
+  const [nowTime, setNowTime] = createSignal<Date | null>(null);
   const [hoverTime, setHoverTime] = createSignal<Date | null>(null);
-  const [mouseIndicatorSide, setMouseIndicatorSide] = createSignal<"left" | "right">(
-    "right"
-  );
-  const [suppressNextBlockClick, setSuppressNextBlockClick] = createSignal(false);
+  const [mouseIndicatorSide, setMouseIndicatorSide] = createSignal<
+    "left" | "right"
+  >("right");
+  const [suppressNextBlockClick, setSuppressNextBlockClick] =
+    createSignal(false);
 
   let gridRef: HTMLDivElement | undefined;
   let scrollAreaRef: HTMLDivElement | undefined;
@@ -132,28 +139,40 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   const weekStart = createMemo(() => startOfDay(selectedDate()));
 
   const dayDates = createMemo(() =>
-    Array.from({ length: numberOfDays() }, (_, index) => addDays(weekStart(), index))
+    Array.from({ length: numberOfDays() }, (_, index) =>
+      addDays(weekStart(), index),
+    ),
   );
   const laneWidthPercent = createMemo(() => 100 / numberOfDays());
   const headerGridTemplate = createMemo(
-    () => `80px repeat(${numberOfDays()}, minmax(0, 1fr))`
+    () => `80px repeat(${numberOfDays()}, minmax(0, 1fr))`,
   );
 
-  const weeklyBlocks = createAsync(() => {
-    void refreshNonce();
-    return fetchWeeklyTimeBlocks({
+  const [weeklyBlocks] = createResource(
+    () => ({
+      refresh: refreshNonce(),
       weekStartIso: weekStart().toISOString(),
       numberOfDays: numberOfDays(),
       noteId: props.initialNoteId || undefined,
-    });
-  });
+    }),
+    async ({ weekStartIso, numberOfDays, noteId }) =>
+      fetchWeeklyTimeBlocks({
+        weekStartIso,
+        numberOfDays,
+        noteId,
+      }),
+  );
 
   const runUpdate = useAction(updateTimeBlock);
   const runDuplicate = useAction(duplicateTimeBlock);
   const runBulkUpdate = useAction(bulkUpdateTimeBlocks);
 
+  const refreshCalendar = () => {
+    setRefreshNonce((value) => value + 1);
+  };
+
   const mergedWeeklyBlocks = createMemo<TimeBlockItem[]>(() => {
-    const source = weeklyBlocks() || [];
+    const source = weeklyBlocks.latest ?? weeklyBlocks() ?? [];
     const optimistic = optimisticTimes();
     if (Object.keys(optimistic).length === 0) return source;
     return source.map((block) => {
@@ -193,7 +212,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
 
   const getTimeFromMouseEvent = (
     event: MouseEvent | PointerEvent,
-    fixedDayIndex?: number
+    fixedDayIndex?: number,
   ) => {
     if (!gridRef || !scrollAreaRef) return null;
     const gridRect = gridRef.getBoundingClientRect();
@@ -204,7 +223,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     const totalHeight = (endHour() - startHour()) * hourHeight();
     if (visibleY < 0 || visibleY > scrollRect.height) return null;
     if (y < 0 || y > totalHeight) return null;
-    if (fixedDayIndex === undefined && (x < 0 || x > gridRect.width)) return null;
+    if (fixedDayIndex === undefined && (x < 0 || x > gridRect.width))
+      return null;
 
     const dayWidth = gridRect.width / numberOfDays();
     const dayIndex =
@@ -232,7 +252,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
 
   const getMouseIndicatorSideFromEvent = (
     event: MouseEvent | PointerEvent,
-    fixedDayIndex?: number
+    fixedDayIndex?: number,
   ): "left" | "right" | null => {
     if (!gridRef) return null;
     const rect = gridRef.getBoundingClientRect();
@@ -260,7 +280,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       dayIndex,
       weekStart(),
       startHour(),
-      endHour()
+      endHour(),
     );
   };
 
@@ -358,7 +378,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       })
       .sort(
         (a, b) =>
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       );
 
     const fixedBlocks = blocksForDay
@@ -379,12 +399,21 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       }))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    const updates: Array<{ id: string; startTimeIso: string; endTimeIso: string }> = [];
-    const optimistic: Record<string, { startTime: string; endTime: string }> = {};
+    const updates: Array<{
+      id: string;
+      startTimeIso: string;
+      endTimeIso: string;
+    }> = [];
+    const optimistic: Record<string, { startTime: string; endTime: string }> =
+      {};
     const placedNonFixedIds = new Set<string>();
     let currentTime: Date | null = null;
 
-    const addUpdateIfNeeded = (block: TimeBlockItem, newStart: Date, newEnd: Date) => {
+    const addUpdateIfNeeded = (
+      block: TimeBlockItem,
+      newStart: Date,
+      newEnd: Date,
+    ) => {
       const originalStart = new Date(block.startTime);
       const originalEnd = new Date(block.endTime);
       if (
@@ -439,7 +468,9 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         currentTime =
           currentTime === null
             ? nextFixed.start
-            : new Date(Math.max(currentTime.getTime(), nextFixed.start.getTime()));
+            : new Date(
+                Math.max(currentTime.getTime(), nextFixed.start.getTime()),
+              );
       }
     }
 
@@ -452,7 +483,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
 
     try {
       await runBulkUpdate(updates);
-      setRefreshNonce((value) => value + 1);
+      refreshCalendar();
     } catch (error) {
       setOptimisticTimes((current) => {
         const next = { ...current };
@@ -510,7 +541,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       const rect = gridRef.getBoundingClientRect();
       const deltaY = event.clientY - state.initialMouseY;
       const deltaX = event.clientX - state.initialMouseX;
-      const minutesDelta = Math.round(deltaY / pxPerMinute() / snapMinutes()) * snapMinutes();
+      const minutesDelta =
+        Math.round(deltaY / pxPerMinute() / snapMinutes()) * snapMinutes();
       const dayDelta = Math.round(deltaX / (rect.width / numberOfDays()));
 
       const nextStart = new Date(state.anchorStart.getTime());
@@ -535,8 +567,10 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
 
     if (state.type === "resize") {
       const deltaY = event.clientY - state.initialMouseY;
-      const minutesDelta = Math.round(deltaY / pxPerMinute() / snapMinutes()) * snapMinutes();
-      const anchor = state.edge === "top" ? state.initialStart : state.initialEnd;
+      const minutesDelta =
+        Math.round(deltaY / pxPerMinute() / snapMinutes()) * snapMinutes();
+      const anchor =
+        state.edge === "top" ? state.initialStart : state.initialEnd;
       const time = new Date(anchor.getTime());
       time.setMinutes(time.getMinutes() + minutesDelta);
       setDragState({
@@ -602,7 +636,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
           return;
         }
       }
-      setRefreshNonce((value) => value + 1);
+      refreshCalendar();
       return;
     }
 
@@ -641,7 +675,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         });
         return;
       }
-      setRefreshNonce((value) => value + 1);
+      refreshCalendar();
     }
   };
 
@@ -656,7 +690,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   const handleBlockPointerDown = (
     event: PointerEvent,
     block: TimeBlockItem,
-    edge?: "top" | "bottom"
+    edge?: "top" | "bottom",
   ) => {
     event.stopPropagation();
     if (event.button !== 0) return;
@@ -729,8 +763,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   const dragGhostStyle = createMemo(() => {
     const state = dragState();
     if (state.type !== "move" && state.type !== "resize") return null;
-    const start = state.type === "move" ? state.currentStart : state.edge === "top" ? state.current : state.initialStart;
-    const end = state.type === "move" ? state.currentEnd : state.edge === "bottom" ? state.current : state.initialEnd;
+    const start =
+      state.type === "move"
+        ? state.currentStart
+        : state.edge === "top"
+          ? state.current
+          : state.initialStart;
+    const end =
+      state.type === "move"
+        ? state.currentEnd
+        : state.edge === "bottom"
+          ? state.current
+          : state.initialEnd;
     const dayIndex = toDayIndex(start);
     if (dayIndex === null) return null;
     const segment = getVisibleSegment(start, end, dayIndex);
@@ -742,7 +786,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       top: toGridY(segment.visibleStart),
       height: Math.max(
         pxPerMinute() * snapMinutes(),
-        toGridY(segment.visibleEnd) - toGridY(segment.visibleStart)
+        toGridY(segment.visibleEnd) - toGridY(segment.visibleStart),
       ),
       color: state.block.color || "var(--colors-blue-500)",
       title: state.block.title || "Untitled",
@@ -750,7 +794,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   });
 
   const nowIndicator = createMemo(() => {
-    const now = new Date();
+    const now = nowTime();
+    if (!now) return null;
     const dayIndex = toDayIndex(now);
     if (dayIndex === null) return null;
     const minutes = now.getHours() * 60 + now.getMinutes();
@@ -758,13 +803,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     return {
       dayIndex,
       top: toGridY(now),
+      label: formatTime24(now),
     };
   });
 
   const mouseTimeIndicator = createMemo(() => {
     const state = dragState();
     const sourceTime =
-      state.type === "create" ? state.current : state.type === "idle" ? hoverTime() : null;
+      state.type === "create"
+        ? state.current
+        : state.type === "idle"
+          ? hoverTime()
+          : null;
     if (!sourceTime) return null;
     const dayIndex = toDayIndex(sourceTime);
     if (dayIndex === null) return null;
@@ -801,7 +851,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       ];
     }
 
-    const blockStart = state.edge === "top" ? state.current : state.initialStart;
+    const blockStart =
+      state.edge === "top" ? state.current : state.initialStart;
     const blockEnd = state.edge === "bottom" ? state.current : state.initialEnd;
     let safeStart = blockStart;
     let safeEnd = blockEnd;
@@ -810,7 +861,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     }
     const durationMinutes = Math.max(
       snapMinutes(),
-      Math.round((safeEnd.getTime() - safeStart.getTime()) / 60_000)
+      Math.round((safeEnd.getTime() - safeStart.getTime()) / 60_000),
     );
     const dayIndex = toDayIndex(blockStart);
     if (dayIndex === null) return [];
@@ -820,7 +871,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         dayIndex,
         top: toGridY(state.edge === "top" ? safeStart : safeEnd),
         label: `${formatTime24(
-          state.edge === "top" ? safeStart : safeEnd
+          state.edge === "top" ? safeStart : safeEnd,
         )} (${formatDurationForIndicator(durationMinutes)})`,
         edge: state.edge,
       },
@@ -828,7 +879,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   });
 
   createEffect(() => {
-    const blocks = weeklyBlocks();
+    const blocks = weeklyBlocks.latest ?? weeklyBlocks();
     if (!blocks) return;
     const byId = new Map(blocks.map((block) => [block.id, block]));
     setOptimisticTimes((current) => {
@@ -845,6 +896,22 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         }
       }
       return next;
+    });
+  });
+
+  createEffect(() => {
+    if (typeof window === "undefined") return;
+    setNowTime(new Date());
+    const syncNow = () => setNowTime(new Date());
+    const msUntilNextMinute = 60_000 - (Date.now() % 60_000);
+    let intervalId: number | undefined;
+    const timeoutId = window.setTimeout(() => {
+      syncNow();
+      intervalId = window.setInterval(syncNow, 60_000);
+    }, msUntilNextMinute);
+    onCleanup(() => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
     });
   });
 
@@ -888,7 +955,9 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
             variant="plain"
             aria-label="Previous"
             title="Previous"
-            onClick={() => setSelectedDate(addDays(selectedDate(), -numberOfDays()))}
+            onClick={() =>
+              setSelectedDate(addDays(selectedDate(), -numberOfDays()))
+            }
           >
             <ChevronLeftIcon size={18} />
           </Button>
@@ -909,18 +978,30 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
             variant="plain"
             aria-label="Next"
             title="Next"
-            onClick={() => setSelectedDate(addDays(selectedDate(), numberOfDays()))}
+            onClick={() =>
+              setSelectedDate(addDays(selectedDate(), numberOfDays()))
+            }
           >
             <ChevronRightIcon size={18} />
           </Button>
         </HStack>
 
-        <HStack gap="2" alignItems="center" justifyContent="flex-end" flex="1" minW="0">
+        <HStack
+          gap="2"
+          alignItems="center"
+          justifyContent="flex-end"
+          flex="1"
+          minW="0"
+        >
           <Button size="md" variant="plain" onClick={() => setListOpen(true)}>
             <ListIcon size={16} />
             List View
           </Button>
-          <Button size="md" variant="plain" onClick={() => setSummaryOpen(true)}>
+          <Button
+            size="md"
+            variant="plain"
+            onClick={() => setSummaryOpen(true)}
+          >
             <TableIcon size={16} />
             Summary
           </Button>
@@ -928,7 +1009,11 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
             open={settingsOpen()}
             onClose={() => setSettingsOpen(false)}
             anchor={
-              <Button size="md" variant="plain" onClick={() => setSettingsOpen((value) => !value)}>
+              <Button
+                size="md"
+                variant="plain"
+                onClick={() => setSettingsOpen((value) => !value)}
+              >
                 <SettingsIcon size={16} />
               </Button>
             }
@@ -938,13 +1023,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
             <Stack
               gap="2.5"
               p="3"
-              style={{ width: "fit-content", "max-width": "calc(100vw - 32px)" }}
+              style={{
+                width: "fit-content",
+                "max-width": "calc(100vw - 32px)",
+              }}
             >
               <Text fontWeight="semibold">Calendar Settings</Text>
               <HStack alignItems="center" gap="3">
                 <HStack gap="1.5" alignItems="center" w="170px" flexShrink={0}>
                   <Clock3Icon size={14} />
-                  <Text fontSize="sm" color="fg.muted">Start Hour</Text>
+                  <Text fontSize="sm" color="fg.muted">
+                    Start Hour
+                  </Text>
                 </HStack>
                 <Input
                   type="number"
@@ -954,14 +1044,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   minW="96px"
                   value={String(startHour())}
                   onInput={(event) =>
-                    setStartHour(clamp(Number(event.currentTarget.value || 0), 0, 23))
+                    setStartHour(
+                      clamp(Number(event.currentTarget.value || 0), 0, 23),
+                    )
                   }
                 />
               </HStack>
               <HStack alignItems="center" gap="3">
                 <HStack gap="1.5" alignItems="center" w="170px" flexShrink={0}>
                   <Clock4Icon size={14} />
-                  <Text fontSize="sm" color="fg.muted">End Hour</Text>
+                  <Text fontSize="sm" color="fg.muted">
+                    End Hour
+                  </Text>
                 </HStack>
                 <Input
                   type="number"
@@ -971,14 +1065,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   minW="96px"
                   value={String(endHour())}
                   onInput={(event) =>
-                    setEndHour(clamp(Number(event.currentTarget.value || 24), 1, 24))
+                    setEndHour(
+                      clamp(Number(event.currentTarget.value || 24), 1, 24),
+                    )
                   }
                 />
               </HStack>
               <HStack alignItems="center" gap="3">
                 <HStack gap="1.5" alignItems="center" w="170px" flexShrink={0}>
                   <CalendarDaysIcon size={14} />
-                  <Text fontSize="sm" color="fg.muted">Days</Text>
+                  <Text fontSize="sm" color="fg.muted">
+                    Days
+                  </Text>
                 </HStack>
                 <Input
                   type="number"
@@ -988,14 +1086,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   minW="96px"
                   value={String(numberOfDays())}
                   onInput={(event) =>
-                    setNumberOfDays(clamp(Number(event.currentTarget.value || 7), 1, 14))
+                    setNumberOfDays(
+                      clamp(Number(event.currentTarget.value || 7), 1, 14),
+                    )
                   }
                 />
               </HStack>
               <HStack alignItems="center" gap="3">
                 <HStack gap="1.5" alignItems="center" w="170px" flexShrink={0}>
                   <Grid3X3Icon size={14} />
-                  <Text fontSize="sm" color="fg.muted">Snap Minutes</Text>
+                  <Text fontSize="sm" color="fg.muted">
+                    Snap Minutes
+                  </Text>
                 </HStack>
                 <Input
                   type="number"
@@ -1006,14 +1108,18 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   minW="96px"
                   value={String(snapMinutes())}
                   onInput={(event) =>
-                    setSnapMinutes(clamp(Number(event.currentTarget.value || 15), 5, 60))
+                    setSnapMinutes(
+                      clamp(Number(event.currentTarget.value || 15), 5, 60),
+                    )
                   }
                 />
               </HStack>
               <HStack alignItems="center" gap="3">
                 <HStack gap="1.5" alignItems="center" w="170px" flexShrink={0}>
                   <RulerIcon size={14} />
-                  <Text fontSize="sm" color="fg.muted">Hour Height (px)</Text>
+                  <Text fontSize="sm" color="fg.muted">
+                    Hour Height (px)
+                  </Text>
                 </HStack>
                 <Input
                   type="number"
@@ -1023,7 +1129,9 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   minW="96px"
                   value={String(hourHeight())}
                   onInput={(event) =>
-                    setHourHeight(clamp(Number(event.currentTarget.value || 56), 30, 140))
+                    setHourHeight(
+                      clamp(Number(event.currentTarget.value || 56), 30, 140),
+                    )
                   }
                 />
               </HStack>
@@ -1052,7 +1160,9 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
           bg="bg.muted"
         >
           <Box px="2" py="2" borderRightWidth="1px" borderColor="border">
-            <Text fontSize="xs" color="fg.muted">Time</Text>
+            <Text fontSize="xs" color="fg.muted">
+              Time
+            </Text>
           </Box>
           <For each={dayDates()}>
             {(date, index) => (
@@ -1070,7 +1180,10 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                   fontSize="md"
                   fontWeight="semibold"
                   lineHeight="1.2"
-                  style={{ "white-space": "normal", "word-break": "break-word" }}
+                  style={{
+                    "white-space": "normal",
+                    "word-break": "break-word",
+                  }}
                 >
                   {formatWeekdayShort(date)} {formatMonthDay(date)}
                 </Text>
@@ -1089,422 +1202,515 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
           </For>
         </Box>
 
-        <Box ref={scrollAreaRef} display="flex" minH="0" flex="1" overflow="auto">
-          <Stack
-            gap="0"
-            w="80px"
-            borderRightWidth="1px"
-            borderColor="border"
-            bg="bg.default"
-            flexShrink={0}
-            style={{ height: `${(endHour() - startHour()) * hourHeight()}px` }}
-          >
-            <For each={Array.from({ length: endHour() - startHour() }, (_, i) => i + startHour())}>
-              {(hour) => (
-                <Box
-                  data-testid="time-left-scale-row"
-                  data-hour={String(hour)}
-                  borderBottomWidth="1px"
-                  borderColor="border"
-                  style={{
-                    height: `${hourHeight()}px`,
-                    "min-height": `${hourHeight()}px`,
-                    "max-height": `${hourHeight()}px`,
-                    "padding-top": "6px",
-                    "padding-right": "10px",
-                    "padding-bottom": "0px",
-                    "padding-left": "0px",
-                    display: "flex",
-                    "align-items": "flex-start",
-                    "justify-content": "flex-end",
-                    "box-sizing": "border-box",
-                  }}
-                >
-                  <Text fontSize="xs" color="fg.muted">{hour}:00</Text>
-                </Box>
-              )}
-            </For>
-          </Stack>
-
-          <Box
-            ref={gridRef}
-            data-testid="time-blocks-grid"
-            position="relative"
-            flex="1"
-            minW="540px"
-            onPointerDown={(event) => handlePointerDownGrid(event)}
-            style={{
-              height: `${(endHour() - startHour()) * hourHeight()}px`,
-              cursor: dragState().type === "idle" ? "crosshair" : "grabbing",
-              "user-select": "none",
+        <ScrollArea.Root flex="1" minH="0">
+          <ScrollArea.Viewport
+            ref={(element) => {
+              scrollAreaRef = element;
             }}
           >
-            <For each={dayDates()}>
-              {(_date, index) => (
-                <Box
-                  position="absolute"
-                  style={{
-                    top: "0px",
-                    left: `${(index() * 100) / numberOfDays()}%`,
-                    width: `${100 / numberOfDays()}%`,
-                    height: "100%",
-                  }}
-                  borderLeftWidth={index() === 0 ? "0px" : "1px"}
+            <ScrollArea.Content>
+              <Box display="flex" minH="0" w="full">
+                <Stack
+                  gap="0"
+                  w="80px"
+                  borderRightWidth="1px"
                   borderColor="border"
+                  bg="bg.default"
+                  flexShrink={0}
+                  style={{
+                    height: `${(endHour() - startHour()) * hourHeight()}px`,
+                  }}
                 >
-                  <Box
-                    position="absolute"
-                    top="0"
-                    right="0"
-                    h="100%"
-                    w={`${LANE_GUTTER_PX}px`}
-                    data-testid="time-block-lane-gutter"
-                    bg="bg.default"
-                    opacity={0.75}
-                    pointerEvents="none"
-                  />
-                  <For each={Array.from({ length: (endHour() - startHour()) * 4 + 1 }, (_, q) => q)}>
-                    {(quarterIndex) => (
+                  <For
+                    each={Array.from(
+                      { length: endHour() - startHour() },
+                      (_, i) => i + startHour(),
+                    )}
+                  >
+                    {(hour) => (
                       <Box
-                        data-testid={
-                          quarterIndex % 4 === 0
-                            ? "time-grid-hour-line"
-                            : "time-grid-quarter-line"
-                        }
-                        position="absolute"
-                        left="0"
-                        right="0"
-                        borderTopWidth="1px"
+                        data-testid="time-left-scale-row"
+                        data-hour={String(hour)}
+                        borderBottomWidth="1px"
+                        borderColor="border"
                         style={{
-                          top: `${(quarterIndex * hourHeight()) / 4}px`,
-                          "border-top-color":
-                            quarterIndex % 4 === 0
-                              ? "rgba(24, 24, 27, 0.14)"
-                              : "rgba(24, 24, 27, 0.07)",
+                          height: `${hourHeight()}px`,
+                          "min-height": `${hourHeight()}px`,
+                          "max-height": `${hourHeight()}px`,
+                          "padding-top": "6px",
+                          "padding-right": "10px",
+                          "padding-bottom": "0px",
+                          "padding-left": "0px",
+                          display: "flex",
+                          "align-items": "flex-start",
+                          "justify-content": "flex-end",
+                          "box-sizing": "border-box",
                         }}
-                        pointerEvents="none"
-                      />
+                      >
+                        <Text fontSize="xs" color="fg.muted">
+                          {hour}:00
+                        </Text>
+                      </Box>
                     )}
                   </For>
-                </Box>
-              )}
-            </For>
+                </Stack>
 
-            <For each={Array.from(groupedBlocksByDay().entries())}>
-              {([dayIndex, blocks]) => (
-                <For each={blocks}>
-                  {(block) => {
-                    const start = new Date(block.startTime);
-                    const end = new Date(block.endTime);
-                    const geometry = () => {
-                      const segment = getVisibleSegment(start, end, dayIndex);
-                      if (!segment) return null;
-                      const laneWidth = laneWidthPercent();
-                      const overlapCount = Math.max(1, block.totalOverlaps);
-                      const left = `calc(${dayIndex * laneWidth}% + ((${laneWidth}% - ${LANE_GUTTER_PX}px) / ${overlapCount}) * ${block.index})`;
-                      const width = `calc((${laneWidth}% - ${LANE_GUTTER_PX}px) / ${overlapCount})`;
-                      return {
-                        left,
-                        width,
-                        top: toGridY(segment.visibleStart),
-                        height: Math.max(
-                          pxPerMinute() * snapMinutes(),
-                          toGridY(segment.visibleEnd) - toGridY(segment.visibleStart)
-                        ),
-                        isDraggedBlock: draggingBlockId() === block.id,
-                      };
-                    };
-                    return (
-                      <Show when={geometry()}>
-                        {(geo) => (
-                          <Box
-                            data-time-block="true"
-                            data-testid="time-block-item"
-                            data-time-block-id={block.id}
-                            position="absolute"
-                            px="1"
-                            py="0.5"
-                            borderRadius="sm"
-                            borderWidth="0"
-                            transition="box-shadow 120ms ease, filter 120ms ease"
-                            _hover={{
-                              boxShadow:
-                                "0 10px 24px rgba(0, 0, 0, 0.22), 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 0 4px rgba(37, 99, 235, 0.45)",
-                              filter: "brightness(1.04)",
-                            }}
-                            style={{
-                              "background-color": block.color || "var(--colors-blue-500)",
-                              color: "white",
-                              cursor: "grab",
-                              overflow: "hidden",
-                              opacity: geo().isDraggedBlock ? 0.3 : 1,
-                              left: geo().left,
-                              width: geo().width,
-                              top: `${geo().top}px`,
-                              height: `${geo().height}px`,
-                            }}
-                            onPointerDown={(event) => handleBlockPointerDown(event, block)}
-                            onClick={() => handleBlockClick(block)}
-                          >
-                            <Box
-                              data-time-block="true"
-                              data-testid="time-block-resize-top"
-                              position="absolute"
-                              top="0"
-                              left="0"
-                              right="0"
-                              h="6px"
-                              cursor="ns-resize"
-                              onPointerDown={(event) =>
-                                handleBlockPointerDown(event, block, "top")
-                              }
-                            />
-                            <Stack gap="0" pointerEvents="none">
-                              <Text
-                                fontSize="xs"
-                                fontWeight="semibold"
-                                color="white"
-                                style={{
-                                  "white-space": "normal",
-                                  overflow: "hidden",
-                                  "word-break": "break-word",
-                                  "line-height": "1.25",
-                                }}
-                              >
-                                {block.title || "Untitled"}
-                              </Text>
-                            </Stack>
-                            <Show when={block.isFixedTime}>
-                              <Box
-                                position="absolute"
-                                top="4px"
-                                right="4px"
-                                pointerEvents="none"
-                                style={{
-                                  "z-index": "2",
-                                  display: "flex",
-                                  "align-items": "center",
-                                  "justify-content": "center",
-                                }}
-                              >
-                                <LockIcon size={12} color="white" />
-                              </Box>
-                            </Show>
-                            <Box
-                              data-time-block="true"
-                              data-testid="time-block-resize-bottom"
-                              position="absolute"
-                              bottom="0"
-                              left="0"
-                              right="0"
-                              h="6px"
-                              cursor="ns-resize"
-                              onPointerDown={(event) =>
-                                handleBlockPointerDown(event, block, "bottom")
-                              }
-                            />
-                          </Box>
-                        )}
-                      </Show>
-                    );
-                  }}
-                </For>
-              )}
-            </For>
-
-            <Show when={previewStyle()}>
-              {(preview) => {
-                const laneWidth = laneWidthPercent();
-                return (
-                  <Box
-                    data-testid="time-block-create-preview"
-                    position="absolute"
-                    opacity={0.85}
-                    borderWidth="2px"
-                    borderColor="blue.800"
-                    borderStyle="solid"
-                    boxShadow="0 0 0 1px rgba(255,255,255,0.5) inset, 0 8px 22px rgba(0, 0, 0, 0.18)"
-                    pointerEvents="none"
-                    style={{
-                      "background-color": "rgba(37, 99, 235, 0.45)",
-                      left: `${preview().dayIndex * laneWidth}%`,
-                      width: `calc(${laneWidth}% - ${LANE_GUTTER_PX}px)`,
-                      top: `${preview().top}px`,
-                      height: `${preview().height}px`,
-                    }}
-                  />
-                );
-              }}
-            </Show>
-
-            <Show when={dragGhostStyle()}>
-              {(ghost) => (
                 <Box
-                  data-testid="time-block-drag-ghost"
-                  position="absolute"
-                  px="1"
-                  py="0.5"
-                  borderRadius="sm"
-                  borderWidth="2px"
-                  borderStyle="solid"
-                  borderColor="white"
-                    style={{
-                      "background-color": ghost().color,
-                    opacity: 0.88,
-                    "box-shadow": "0 0 0 1px rgba(255,255,255,0.45) inset, 0 10px 24px rgba(0,0,0,0.18)",
-                    "pointer-events": "none",
-                      left: `${ghost().left}%`,
-                      width: `calc(${ghost().width}% - ${LANE_GUTTER_PX}px)`,
-                    top: `${ghost().top}px`,
-                    height: `${ghost().height}px`,
+                  ref={gridRef}
+                  data-testid="time-blocks-grid"
+                  position="relative"
+                  flex="1"
+                  minW="0"
+                  onPointerDown={(event) => handlePointerDownGrid(event)}
+                  style={{
+                    height: `${(endHour() - startHour()) * hourHeight()}px`,
+                    cursor:
+                      dragState().type === "idle" ? "crosshair" : "grabbing",
+                    "user-select": "none",
                   }}
                 >
-                  <Text
-                    fontSize="xs"
-                    fontWeight="semibold"
-                    color="white"
-                    style={{
-                      "white-space": "normal",
-                      overflow: "hidden",
-                      "word-break": "break-word",
-                      "line-height": "1.25",
+                  <For each={dayDates()}>
+                    {(_date, index) => (
+                      <Box
+                        position="absolute"
+                        style={{
+                          top: "0px",
+                          left: `${(index() * 100) / numberOfDays()}%`,
+                          width: `${100 / numberOfDays()}%`,
+                          height: "100%",
+                        }}
+                        borderLeftWidth={index() === 0 ? "0px" : "1px"}
+                        borderColor="border"
+                      >
+                        <Box
+                          position="absolute"
+                          top="0"
+                          right="0"
+                          h="100%"
+                          w={`${LANE_GUTTER_PX}px`}
+                          data-testid="time-block-lane-gutter"
+                          bg="bg.default"
+                          opacity={0.75}
+                          pointerEvents="none"
+                        />
+                        <For
+                          each={Array.from(
+                            { length: (endHour() - startHour()) * 4 + 1 },
+                            (_, q) => q,
+                          )}
+                        >
+                          {(quarterIndex) => (
+                            <Box
+                              data-testid={
+                                quarterIndex % 4 === 0
+                                  ? "time-grid-hour-line"
+                                  : "time-grid-quarter-line"
+                              }
+                              position="absolute"
+                              left="0"
+                              right="0"
+                              borderTopWidth="1px"
+                              style={{
+                                top: `${(quarterIndex * hourHeight()) / 4}px`,
+                                "border-top-color":
+                                  quarterIndex % 4 === 0
+                                    ? "rgba(24, 24, 27, 0.14)"
+                                    : "rgba(24, 24, 27, 0.07)",
+                              }}
+                              pointerEvents="none"
+                            />
+                          )}
+                        </For>
+                      </Box>
+                    )}
+                  </For>
+
+                  <For each={Array.from(groupedBlocksByDay().entries())}>
+                    {([dayIndex, blocks]) => (
+                      <For each={blocks}>
+                        {(block) => {
+                          const start = new Date(block.startTime);
+                          const end = new Date(block.endTime);
+                          const geometry = () => {
+                            const segment = getVisibleSegment(
+                              start,
+                              end,
+                              dayIndex,
+                            );
+                            if (!segment) return null;
+                            const laneWidth = laneWidthPercent();
+                            const overlapCount = Math.max(
+                              1,
+                              block.totalOverlaps,
+                            );
+                            const left = `calc(${dayIndex * laneWidth}% + ((${laneWidth}% - ${LANE_GUTTER_PX}px) / ${overlapCount}) * ${block.index})`;
+                            const width = `calc((${laneWidth}% - ${LANE_GUTTER_PX}px) / ${overlapCount})`;
+                            return {
+                              left,
+                              width,
+                              top: toGridY(segment.visibleStart),
+                              height: Math.max(
+                                pxPerMinute() * snapMinutes(),
+                                toGridY(segment.visibleEnd) -
+                                  toGridY(segment.visibleStart),
+                              ),
+                              isDraggedBlock: draggingBlockId() === block.id,
+                            };
+                          };
+                          return (
+                            <Show when={geometry()}>
+                              {(geo) => (
+                                <Box
+                                  data-time-block="true"
+                                  data-testid="time-block-item"
+                                  data-time-block-id={block.id}
+                                  position="absolute"
+                                  px="1"
+                                  py="0.5"
+                                  borderRadius="sm"
+                                  borderWidth="0"
+                                  transition="box-shadow 120ms ease, filter 120ms ease"
+                                  _hover={{
+                                    boxShadow:
+                                      "0 10px 24px rgba(0, 0, 0, 0.22), 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 0 4px rgba(37, 99, 235, 0.45)",
+                                    filter: "brightness(1.04)",
+                                  }}
+                                  style={{
+                                    "background-color":
+                                      block.color || "var(--colors-blue-500)",
+                                    color: "white",
+                                    cursor: "grab",
+                                    overflow: "hidden",
+                                    opacity: geo().isDraggedBlock ? 0.3 : 1,
+                                    left: geo().left,
+                                    width: geo().width,
+                                    top: `${geo().top}px`,
+                                    height: `${geo().height}px`,
+                                  }}
+                                  onPointerDown={(event) =>
+                                    handleBlockPointerDown(event, block)
+                                  }
+                                  onClick={() => handleBlockClick(block)}
+                                >
+                                  <Box
+                                    data-time-block="true"
+                                    data-testid="time-block-resize-top"
+                                    position="absolute"
+                                    top="0"
+                                    left="0"
+                                    right="0"
+                                    h="6px"
+                                    cursor="ns-resize"
+                                    onPointerDown={(event) =>
+                                      handleBlockPointerDown(
+                                        event,
+                                        block,
+                                        "top",
+                                      )
+                                    }
+                                  />
+                                  <Stack gap="0" pointerEvents="none">
+                                    <Text
+                                      fontSize="xs"
+                                      fontWeight="semibold"
+                                      color="white"
+                                      style={{
+                                        "white-space": "normal",
+                                        overflow: "hidden",
+                                        "word-break": "break-word",
+                                        "line-height": "1.25",
+                                      }}
+                                    >
+                                      {block.title || "Untitled"}
+                                    </Text>
+                                  </Stack>
+                                  <Show when={block.isFixedTime}>
+                                    <Box
+                                      position="absolute"
+                                      top="4px"
+                                      right="4px"
+                                      pointerEvents="none"
+                                      style={{
+                                        "z-index": "2",
+                                        display: "flex",
+                                        "align-items": "center",
+                                        "justify-content": "center",
+                                      }}
+                                    >
+                                      <LockIcon size={12} color="white" />
+                                    </Box>
+                                  </Show>
+                                  <Box
+                                    data-time-block="true"
+                                    data-testid="time-block-resize-bottom"
+                                    position="absolute"
+                                    bottom="0"
+                                    left="0"
+                                    right="0"
+                                    h="6px"
+                                    cursor="ns-resize"
+                                    onPointerDown={(event) =>
+                                      handleBlockPointerDown(
+                                        event,
+                                        block,
+                                        "bottom",
+                                      )
+                                    }
+                                  />
+                                </Box>
+                              )}
+                            </Show>
+                          );
+                        }}
+                      </For>
+                    )}
+                  </For>
+
+                  <Show when={previewStyle()}>
+                    {(preview) => {
+                      const laneWidth = laneWidthPercent();
+                      return (
+                        <Box
+                          data-testid="time-block-create-preview"
+                          position="absolute"
+                          opacity={0.85}
+                          borderWidth="2px"
+                          borderColor="blue.800"
+                          borderStyle="solid"
+                          boxShadow="0 0 0 1px rgba(255,255,255,0.5) inset, 0 8px 22px rgba(0, 0, 0, 0.18)"
+                          pointerEvents="none"
+                          style={{
+                            "background-color": "rgba(37, 99, 235, 0.45)",
+                            left: `${preview().dayIndex * laneWidth}%`,
+                            width: `calc(${laneWidth}% - ${LANE_GUTTER_PX}px)`,
+                            top: `${preview().top}px`,
+                            height: `${preview().height}px`,
+                          }}
+                        />
+                      );
                     }}
-                  >
-                    {ghost().title}
-                  </Text>
+                  </Show>
+
+                  <Show when={dragGhostStyle()}>
+                    {(ghost) => (
+                      <Box
+                        data-testid="time-block-drag-ghost"
+                        position="absolute"
+                        px="1"
+                        py="0.5"
+                        borderRadius="sm"
+                        borderWidth="2px"
+                        borderStyle="solid"
+                        borderColor="white"
+                        style={{
+                          "background-color": ghost().color,
+                          opacity: 0.88,
+                          "box-shadow":
+                            "0 0 0 1px rgba(255,255,255,0.45) inset, 0 10px 24px rgba(0,0,0,0.18)",
+                          "pointer-events": "none",
+                          left: `${ghost().left}%`,
+                          width: `calc(${ghost().width}% - ${LANE_GUTTER_PX}px)`,
+                          top: `${ghost().top}px`,
+                          height: `${ghost().height}px`,
+                        }}
+                      >
+                        <Text
+                          fontSize="xs"
+                          fontWeight="semibold"
+                          color="white"
+                          style={{
+                            "white-space": "normal",
+                            overflow: "hidden",
+                            "word-break": "break-word",
+                            "line-height": "1.25",
+                          }}
+                        >
+                          {ghost().title}
+                        </Text>
+                      </Box>
+                    )}
+                  </Show>
+
+                  <Show when={nowIndicator()}>
+                    {(indicator) => {
+                      const laneWidth = 100 / numberOfDays();
+                      const centerPct =
+                        indicator().dayIndex * laneWidth + laneWidth / 2;
+                      return (
+                        <>
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            style={{
+                              left: `${indicator().dayIndex * laneWidth}%`,
+                              width: `${laneWidth}%`,
+                              top: `${indicator().top}px`,
+                              height: "0px",
+                              "border-top":
+                                "3px solid rgba(255, 255, 255, 0.96)",
+                              "z-index": "6",
+                            }}
+                          />
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            style={{
+                              left: `${indicator().dayIndex * laneWidth}%`,
+                              width: `${laneWidth}%`,
+                              top: `${indicator().top}px`,
+                              height: "0px",
+                              "border-top": "2px solid rgba(239, 68, 68, 0.98)",
+                              "z-index": "7",
+                            }}
+                          />
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            borderRadius="sm"
+                            px="1.5"
+                            py="0.5"
+                            style={{
+                              left: `${centerPct}%`,
+                              top: `${indicator().top}px`,
+                              transform: "translate(-50%, -50%)",
+                              "background-color": "rgba(239, 68, 68, 0.98)",
+                              color: "white",
+                              "font-size": "10px",
+                              "font-weight": "700",
+                              "line-height": "1",
+                              "letter-spacing": "0.02em",
+                              "z-index": "8",
+                              "box-shadow": "0 2px 8px rgba(0,0,0,0.24)",
+                            }}
+                          >
+                            Now
+                          </Box>
+                        </>
+                      );
+                    }}
+                  </Show>
+
+                  <Show when={mouseTimeIndicator()}>
+                    {(indicator) => {
+                      const laneWidth = 100 / numberOfDays();
+                      return (
+                        <>
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            style={{
+                              left: `${indicator().dayIndex * laneWidth}%`,
+                              width: `${laneWidth}%`,
+                              top: `${indicator().top}px`,
+                              height: "0px",
+                              "border-top":
+                                "4px solid rgba(255, 255, 255, 0.95)",
+                              "z-index": "2",
+                            }}
+                          />
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            style={{
+                              left: `${indicator().dayIndex * laneWidth}%`,
+                              width: `${laneWidth}%`,
+                              top: `${indicator().top}px`,
+                              height: "0px",
+                              "border-top": "2px solid rgba(37, 99, 235, 0.9)",
+                              "z-index": "3",
+                            }}
+                          />
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            borderRadius="sm"
+                            px="2"
+                            py="0.5"
+                            style={{
+                              left:
+                                indicator().side === "left"
+                                  ? `calc(${indicator().dayIndex * laneWidth}% + 6px)`
+                                  : `calc(${(indicator().dayIndex + 1) * laneWidth}% - 4px)`,
+                              top: `${indicator().top}px`,
+                              transform:
+                                indicator().side === "left"
+                                  ? "translate(0, -50%)"
+                                  : "translate(-100%, -50%)",
+                              "background-color": "rgba(239, 68, 68, 0.95)",
+                              color: "white",
+                              "font-size": "12px",
+                              "font-weight": "700",
+                              "line-height": "1",
+                              "z-index": "3",
+                              "box-shadow": "0 2px 8px rgba(0,0,0,0.2)",
+                            }}
+                          >
+                            {indicator().label}
+                          </Box>
+                        </>
+                      );
+                    }}
+                  </Show>
+
+                  <For each={dragTimeIndicators()}>
+                    {(indicator) => {
+                      const laneWidth = 100 / numberOfDays();
+                      const centerPct =
+                        indicator.dayIndex * laneWidth + laneWidth / 2;
+                      return (
+                        <>
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            style={{
+                              left: `${indicator.dayIndex * laneWidth}%`,
+                              width: `${laneWidth}%`,
+                              top: `${indicator.top}px`,
+                              height: "0px",
+                              "border-top": "2px solid rgba(239, 68, 68, 0.85)",
+                              "z-index": "3",
+                            }}
+                          />
+                          <Box
+                            position="absolute"
+                            pointerEvents="none"
+                            borderRadius="sm"
+                            px="2"
+                            py="0.5"
+                            style={{
+                              left: `${centerPct}%`,
+                              top: `${indicator.top}px`,
+                              transform:
+                                indicator.edge === "top"
+                                  ? "translate(-50%, calc(-100% - 6px))"
+                                  : "translate(-50%, 6px)",
+                              "background-color": "rgba(239, 68, 68, 0.95)",
+                              color: "white",
+                              "font-size": "12px",
+                              "font-weight": "700",
+                              "line-height": "1",
+                              "z-index": "4",
+                              "box-shadow": "0 2px 8px rgba(0,0,0,0.2)",
+                            }}
+                          >
+                            {indicator.label}
+                          </Box>
+                        </>
+                      );
+                    }}
+                  </For>
                 </Box>
-              )}
-            </Show>
-
-            <Show when={nowIndicator()}>
-              {(indicator) => {
-                const laneWidth = 100 / numberOfDays();
-                return (
-                  <Box
-                    position="absolute"
-                    bg="red.500"
-                    opacity="0.75"
-                    pointerEvents="none"
-                    style={{
-                      left: `${indicator().dayIndex * laneWidth}%`,
-                      width: `${laneWidth}%`,
-                      top: `${indicator().top}px`,
-                      height: "1px",
-                    }}
-                  />
-                );
-              }}
-            </Show>
-
-            <Show when={mouseTimeIndicator()}>
-              {(indicator) => {
-                const laneWidth = 100 / numberOfDays();
-                return (
-                  <>
-                    <Box
-                      position="absolute"
-                      pointerEvents="none"
-                      style={{
-                        left: `${indicator().dayIndex * laneWidth}%`,
-                        width: `${laneWidth}%`,
-                        top: `${indicator().top}px`,
-                        height: "0px",
-                        "border-top": "4px solid rgba(255, 255, 255, 0.95)",
-                        "z-index": "2",
-                      }}
-                    />
-                    <Box
-                      position="absolute"
-                      pointerEvents="none"
-                      style={{
-                        left: `${indicator().dayIndex * laneWidth}%`,
-                        width: `${laneWidth}%`,
-                        top: `${indicator().top}px`,
-                        height: "0px",
-                        "border-top": "2px solid rgba(37, 99, 235, 0.9)",
-                        "z-index": "3",
-                      }}
-                    />
-                    <Box
-                      position="absolute"
-                      pointerEvents="none"
-                      borderRadius="sm"
-                      px="2"
-                      py="0.5"
-                      style={{
-                        left:
-                          indicator().side === "left"
-                            ? `calc(${indicator().dayIndex * laneWidth}% + 6px)`
-                            : `calc(${(indicator().dayIndex + 1) * laneWidth}% - 4px)`,
-                        top: `${indicator().top}px`,
-                        transform:
-                          indicator().side === "left"
-                            ? "translate(0, -50%)"
-                            : "translate(-100%, -50%)",
-                        "background-color": "rgba(239, 68, 68, 0.95)",
-                        color: "white",
-                        "font-size": "12px",
-                        "font-weight": "700",
-                        "line-height": "1",
-                        "z-index": "3",
-                        "box-shadow": "0 2px 8px rgba(0,0,0,0.2)",
-                      }}
-                    >
-                      {indicator().label}
-                    </Box>
-                  </>
-                );
-              }}
-            </Show>
-
-            <For each={dragTimeIndicators()}>
-              {(indicator) => {
-                const laneWidth = 100 / numberOfDays();
-                const centerPct = indicator.dayIndex * laneWidth + laneWidth / 2;
-                return (
-                  <>
-                    <Box
-                      position="absolute"
-                      pointerEvents="none"
-                      style={{
-                        left: `${indicator.dayIndex * laneWidth}%`,
-                        width: `${laneWidth}%`,
-                        top: `${indicator.top}px`,
-                        height: "0px",
-                        "border-top": "2px solid rgba(239, 68, 68, 0.85)",
-                        "z-index": "3",
-                      }}
-                    />
-                    <Box
-                      position="absolute"
-                      pointerEvents="none"
-                      borderRadius="sm"
-                      px="2"
-                      py="0.5"
-                      style={{
-                        left: `${centerPct}%`,
-                        top: `${indicator.top}px`,
-                        transform:
-                          indicator.edge === "top"
-                            ? "translate(-50%, calc(-100% - 6px))"
-                            : "translate(-50%, 6px)",
-                        "background-color": "rgba(239, 68, 68, 0.95)",
-                        color: "white",
-                        "font-size": "12px",
-                        "font-weight": "700",
-                        "line-height": "1",
-                        "z-index": "4",
-                        "box-shadow": "0 2px 8px rgba(0,0,0,0.2)",
-                      }}
-                    >
-                      {indicator.label}
-                    </Box>
-                  </>
-                );
-              }}
-            </For>
-          </Box>
-        </Box>
+              </Box>
+            </ScrollArea.Content>
+          </ScrollArea.Viewport>
+          <ScrollArea.Scrollbar orientation="vertical">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+          <ScrollArea.Scrollbar orientation="horizontal">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+          <ScrollArea.Corner />
+        </ScrollArea.Root>
       </Box>
 
       <TimeBlockEditorDialog
@@ -1512,7 +1718,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         block={editingBlock()}
         newRange={newRange()}
         onClose={() => setEditorOpen(false)}
-        onSaved={() => setRefreshNonce((value) => value + 1)}
+        onSaved={() => refreshCalendar()}
       />
 
       <TimeBlocksListDialog
@@ -1526,7 +1732,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
           setEditorOpen(true);
         }}
         refreshKey={refreshNonce()}
-        onChanged={() => setRefreshNonce((value) => value + 1)}
+        onChanged={() => refreshCalendar()}
       />
 
       <TimeBlockMetadataSummaryDialog
@@ -1534,7 +1740,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         onClose={() => setSummaryOpen(false)}
         weekStart={weekStart()}
         refreshKey={refreshNonce()}
-        onChanged={() => setRefreshNonce((value) => value + 1)}
+        onChanged={() => refreshCalendar()}
       />
     </Stack>
   );

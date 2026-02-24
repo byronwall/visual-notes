@@ -89,8 +89,10 @@ export const TimeBlockEditorDialog = (props: Props) => {
     });
   });
 
-  const activeStart = () => setDateTimeFromInputs(new Date(), startDate(), startTime());
-  const activeEnd = () => setDateTimeFromInputs(new Date(), endDate(), endTime());
+  const activeStart = () =>
+    setDateTimeFromInputs(new Date(), startDate(), startTime());
+  const activeEnd = () =>
+    setDateTimeFromInputs(new Date(), endDate(), endTime());
 
   const matchesDuration = (minutes: number) => {
     return durationMinutes(activeStart(), activeEnd()) === minutes;
@@ -131,7 +133,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
       props.onSaved();
       props.onClose();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to save time block");
+      alert(
+        error instanceof Error ? error.message : "Failed to save time block",
+      );
     } finally {
       setSaving(false);
     }
@@ -139,7 +143,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
 
   const handleDelete = async () => {
     if (!props.block || deleting()) return;
-    const confirmed = confirm("Are you sure you want to delete this time block?");
+    const confirmed = confirm(
+      "Are you sure you want to delete this time block?",
+    );
     if (!confirmed) return;
     setDeleting(true);
     try {
@@ -147,7 +153,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
       props.onSaved();
       props.onClose();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to delete time block");
+      alert(
+        error instanceof Error ? error.message : "Failed to delete time block",
+      );
     } finally {
       setDeleting(false);
     }
@@ -158,6 +166,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
       open={props.open}
       onOpenChange={(open) => !open && props.onClose()}
       initialFocusEl={() => titleInputRef ?? null}
+      restoreFocus={false}
       maxW="calc(100vw - 48px)"
       contentClass={css({
         width: "fit-content",
@@ -176,10 +185,18 @@ export const TimeBlockEditorDialog = (props: Props) => {
               {deleting() ? "Deleting..." : "Delete"}
             </Button>
           </Show>
-          <Button type="button" onClick={() => void handleSubmit()} disabled={saving()}>
+          <Button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={saving()}
+          >
             <HStack gap="2" alignItems="baseline">
               <Text>
-                {saving() ? "Saving..." : props.block ? "Save Changes" : "Create Block"}
+                {saving()
+                  ? "Saving..."
+                  : props.block
+                    ? "Save Changes"
+                    : "Create Block"}
               </Text>
               <Text
                 fontSize="xs"
@@ -190,7 +207,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
                   "letter-spacing": "0.02em",
                 }}
               >
-                Cmd Enter
+                Enter (Title) / Cmd Enter
               </Text>
             </HStack>
           </Button>
@@ -207,7 +224,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
         }}
       >
         <Stack gap="1.5">
-          <Text fontSize="sm" fontWeight="medium">Title</Text>
+          <Text fontSize="sm" fontWeight="medium">
+            Title
+          </Text>
           <Input
             ref={(el) => {
               titleInputRef = el;
@@ -216,6 +235,18 @@ export const TimeBlockEditorDialog = (props: Props) => {
             value={title()}
             placeholder="Deep work"
             onInput={(event) => setTitle(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              event.preventDefault();
+              void handleSubmit();
+            }}
           />
         </Stack>
 
@@ -223,9 +254,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           <HStack gap="2" alignItems="center">
             <Switch.Root
               checked={isFixedTime()}
-              onCheckedChange={(d) =>
-                setIsFixedTime(Boolean(d.checked))
-              }
+              onCheckedChange={(d) => setIsFixedTime(Boolean(d.checked))}
             >
               <Switch.HiddenInput />
               <Switch.Control />
@@ -239,27 +268,58 @@ export const TimeBlockEditorDialog = (props: Props) => {
           </HStack>
         </HStack>
 
-        <HStack gap="2.5" alignItems="flex-end" flexWrap="nowrap" w="fit-content">
+        <HStack
+          gap="2.5"
+          alignItems="flex-end"
+          flexWrap="nowrap"
+          w="fit-content"
+        >
           <Stack gap="1.5" w="152px">
-            <Text fontSize="sm" fontWeight="medium">Start Date</Text>
-            <Input type="date" value={startDate()} onInput={(event) => setStartDate(event.currentTarget.value)} />
+            <Text fontSize="sm" fontWeight="medium">
+              Start Date
+            </Text>
+            <Input
+              type="date"
+              value={startDate()}
+              onInput={(event) => setStartDate(event.currentTarget.value)}
+            />
           </Stack>
           <Stack gap="1.5" w="152px">
-            <Text fontSize="sm" fontWeight="medium">Start Time</Text>
-            <Input type="time" value={startTime()} onInput={(event) => setStartTime(event.currentTarget.value)} />
+            <Text fontSize="sm" fontWeight="medium">
+              Start Time
+            </Text>
+            <Input
+              type="time"
+              value={startTime()}
+              onInput={(event) => setStartTime(event.currentTarget.value)}
+            />
           </Stack>
           <Stack gap="1.5" w="152px">
-            <Text fontSize="sm" fontWeight="medium">End Date</Text>
-            <Input type="date" value={endDate()} onInput={(event) => setEndDate(event.currentTarget.value)} />
+            <Text fontSize="sm" fontWeight="medium">
+              End Date
+            </Text>
+            <Input
+              type="date"
+              value={endDate()}
+              onInput={(event) => setEndDate(event.currentTarget.value)}
+            />
           </Stack>
           <Stack gap="1.5" w="152px">
-            <Text fontSize="sm" fontWeight="medium">End Time</Text>
-            <Input type="time" value={endTime()} onInput={(event) => setEndTime(event.currentTarget.value)} />
+            <Text fontSize="sm" fontWeight="medium">
+              End Time
+            </Text>
+            <Input
+              type="time"
+              value={endTime()}
+              onInput={(event) => setEndTime(event.currentTarget.value)}
+            />
           </Stack>
         </HStack>
 
         <Stack gap="1.5">
-          <Text fontSize="sm" fontWeight="medium">Quick Duration</Text>
+          <Text fontSize="sm" fontWeight="medium">
+            Quick Duration
+          </Text>
           <HStack gap="2" flexWrap="wrap">
             <For each={[15, 30, 45, 60, 90, 120, 180, 240]}>
               {(minutes) => (
@@ -277,7 +337,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
         </Stack>
 
         <Stack gap="1.5">
-          <Text fontSize="sm" fontWeight="medium">Comments</Text>
+          <Text fontSize="sm" fontWeight="medium">
+            Comments
+          </Text>
           <Textarea
             w="640px"
             rows={2}
@@ -288,7 +350,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
         </Stack>
 
         <Stack gap="1.5">
-          <Text fontSize="sm" fontWeight="medium">Color</Text>
+          <Text fontSize="sm" fontWeight="medium">
+            Color
+          </Text>
           <HStack gap="3" w="640px">
             <Input
               type="range"

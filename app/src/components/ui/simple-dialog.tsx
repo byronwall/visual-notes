@@ -20,6 +20,7 @@ type SimpleDialogProps = {
   closeLabel?: string;
   skipPortal?: boolean;
   initialFocusEl?: () => HTMLElement | null;
+  restoreFocus?: boolean;
 };
 
 export function SimpleDialog(props: SimpleDialogProps) {
@@ -42,7 +43,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-      })
+      }),
     );
     if (props.contentClass) classes.push(props.contentClass);
     return classes.join(" ");
@@ -70,6 +71,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
       open={props.open}
       onOpenChange={handleOpenChange}
       initialFocusEl={props.initialFocusEl}
+      restoreFocus={props.restoreFocus}
     >
       <WrapWhen when={props.skipPortal !== true} component={Portal}>
         <Dialog.Backdrop />
