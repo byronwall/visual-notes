@@ -37,6 +37,7 @@ export const searchDocs = query(
     const termLower = term.toLowerCase();
     const terms = tokenizeQuery(termLower);
     if (!terms.length) return [];
+    const hasMultiTermQuery = terms.length > 1;
 
     const take = Math.max(1, Math.min(200, q.take ?? 50));
     const docFilters = buildDocsWhere({
@@ -53,18 +54,31 @@ export const searchDocs = query(
       activityClass: q.activityClass,
     });
 
+    const titlePathTake = Math.min(Math.max(take * 4, 120), 800);
+    const titlePathTokenAndClause = hasMultiTermQuery
+      ? terms.map((token) => ({
+          OR: [
+            { title: { contains: token, mode: "insensitive" as const } },
+            { path: { contains: token, mode: "insensitive" as const } },
+          ],
+        }))
+      : [];
     const titlePathDocs = await prisma.doc.findMany({
       where: {
         ...docFilters,
         OR: [
           { title: { contains: term, mode: "insensitive" } },
           { path: { contains: term, mode: "insensitive" } },
-          ...terms.map((token) => ({
-            title: { contains: token, mode: "insensitive" as const },
-          })),
-          ...terms.map((token) => ({
-            path: { contains: token, mode: "insensitive" as const },
-          })),
+          ...(hasMultiTermQuery
+            ? [{ AND: titlePathTokenAndClause }]
+            : [
+                ...terms.map((token) => ({
+                  title: { contains: token, mode: "insensitive" as const },
+                })),
+                ...terms.map((token) => ({
+                  path: { contains: token, mode: "insensitive" as const },
+                })),
+              ]),
         ],
       },
       select: {
@@ -73,17 +87,26 @@ export const searchDocs = query(
         updatedAt: true,
         path: true,
       },
-      take: Math.min(Math.max(take * 4, 120), 800),
+      orderBy: [{ updatedAt: "desc" }],
+      take: titlePathTake,
     });
     const afterTitlePathMs = Date.now();
 
+    const sectionsTake = Math.min(Math.max(take * 8, 320), 1200);
+    const sectionTokenAndClause = hasMultiTermQuery
+      ? terms.map((token) => ({
+          text: { contains: token, mode: "insensitive" as const },
+        }))
+      : [];
     const sections = await prisma.docSection.findMany({
       where: {
         OR: [
           { text: { contains: term, mode: "insensitive" } },
-          ...terms.map((token) => ({
-            text: { contains: token, mode: "insensitive" as const },
-          })),
+          ...(hasMultiTermQuery
+            ? [{ AND: sectionTokenAndClause }]
+            : terms.map((token) => ({
+                text: { contains: token, mode: "insensitive" as const },
+              }))),
         ],
         ...(Object.keys(docFilters).length ? { doc: docFilters } : {}),
       },
@@ -94,7 +117,8 @@ export const searchDocs = query(
           select: { id: true, title: true, updatedAt: true, path: true },
         },
       },
-      take: Math.min(Math.max(take * 8, 320), 1200),
+      orderBy: [{ doc: { updatedAt: "desc" } }],
+      take: sectionsTake,
     });
     const afterSectionsMs = Date.now();
 
@@ -194,11 +218,14 @@ export const searchDocs = query(
     const sortMode = q.sortMode ?? "relevance";
     const W_TEXT = 1.35;
 
+    let droppedByTokenCoverage = 0;
     const items = Array.from(hitsMap.values())
       .filter((entry) => {
         if (terms.length <= 1) return true;
         if (entry.hasExactTerm) return true;
-        return entry.tokenHits.size >= terms.length;
+        const keep = entry.tokenHits.size >= terms.length;
+        if (!keep) droppedByTokenCoverage += 1;
+        return keep;
       })
       .map((entry) => {
         const snapshot = snapshotByDocId.get(entry.item.id);
@@ -265,13 +292,28 @@ export const searchDocs = query(
         }).length,
       },
     });
-    console.log("[docs.search] query processed", {
+    console.info("[docs.search] query processed", {
       msTotal: Date.now() - startMs,
       msTitlePath: afterTitlePathMs - startMs,
       msSections: afterSectionsMs - afterTitlePathMs,
       take,
+      term,
+      terms,
+      hasMultiTermQuery,
+      titlePathTake,
+      titlePathCount: titlePathDocs.length,
+      titlePathCapped: titlePathDocs.length >= titlePathTake,
+      sectionsTake,
+      sectionsCount: sections.length,
+      sectionsCapped: sections.length >= sectionsTake,
+      hitsBeforeCoverageFilter: hitsMap.size,
+      droppedByTokenCoverage,
       resultCount: items.length,
       sortMode,
+      topResultsPreview: items.slice(0, 5).map((item) => ({
+        id: item.id,
+        title: item.title,
+      })),
     });
     return items;
   },

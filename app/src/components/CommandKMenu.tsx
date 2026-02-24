@@ -161,6 +161,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   }));
 
   const [results] = createResource(searchParams, async (params) => {
+    console.debug("[cmdk.search] request", {
+      q: params.q,
+      sortMode: params.sortMode,
+      activityClass: params.activityClass,
+    });
     if (params.q) {
       return searchDocs({
         q: params.q,
@@ -182,6 +187,17 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       ...doc,
       snippet: undefined,
     }));
+  });
+  createEffect(() => {
+    const latest = (results.latest || []) as ServerSearchItem[];
+    console.debug("[cmdk.search] response", {
+      q: debouncedQuery(),
+      resultCount: latest.length,
+      topResultsPreview: latest.slice(0, 5).map((item) => ({
+        id: item.id,
+        title: item.title,
+      })),
+    });
   });
   const [allPathSuggestions] = createResource(() => props.open, async (isOpen) => {
     if (!isOpen) return [];
