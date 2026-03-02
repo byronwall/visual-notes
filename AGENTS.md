@@ -20,7 +20,9 @@ guidelines from comp_refs.
   - Default to generating migrations via Prisma CLI: `cd app && pnpm prisma migrate dev --name <migration_name>`.
   - Do not hand-write migration SQL unless there is a rare, clearly needed complex migration (for example, data transforms/backfills or database-specific manual steps).
 - Data loading (SolidStart)
-  - Reads: `query()` + `createAsync()`
+  - Reads: `query()` + `createResource()`
+  - For `createResource`, prefer consuming `resource.latest` by default to avoid transient loading/null visual bumps during revalidation.
+  - Use `resource()` (non-latest) only when you intentionally want loading-state transitions or explicit visual refresh bumps.
   - Writes: server actions
   - Avoid `fetch()` in UI components for app data, and avoid adding React Query/SWR/etc.
 - Component size & composition
@@ -175,7 +177,7 @@ invoked selectively per task.
   - Props handling (`splitProps`), signal/store selection, batched updates,
     context/provider patterns, refs, mount/cleanup pairing.
 - `solidstart-data-async`
-  - SolidStart reads/writes (`query`, `createAsync`, server actions), route
+  - SolidStart reads/writes (`query`, `createResource`, server actions), route
     metadata, 404 handling, SSR-safe async/overlay patterns.
 - `solid-ui-composition-patterns`
   - Panda + ParkUI wrapper conventions, shared UI primitives/helpers, route

@@ -4,7 +4,17 @@ import "./panda.css";
 import { Meta, MetaProvider, Title } from "@solidjs/meta";
 import { Router } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { Match, Suspense, Switch, createEffect, type JSX } from "solid-js";
+import {
+  ErrorBoundary,
+  Match,
+  Suspense,
+  Switch,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  type JSX,
+} from "solid-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { SessionProvider } from "@solid-mediakit/auth/client";
 import { clientEnv } from "~/env/client";
@@ -12,9 +22,39 @@ import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { ToastProvider, ToastViewport } from "~/components/Toast";
+import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
+
+type ClientExceptionState = {
+  source: "error" | "unhandledrejection";
+  error: unknown;
+};
 
 export default function App() {
   const queryClient = new QueryClient();
+  const [clientException, setClientException] =
+    createSignal<ClientExceptionState | null>(null);
+
+  onMount(() => {
+    const handleError = (event: ErrorEvent) => {
+      setClientException({
+        source: "error",
+        error: event.error || event.message || "Unknown client error",
+      });
+    };
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      setClientException({
+        source: "unhandledrejection",
+        error: event.reason || "Unhandled promise rejection",
+      });
+    };
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    onCleanup(() => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    });
+  });
+
   return (
     <Router
       root={(props) => (
@@ -40,12 +80,45 @@ export default function App() {
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
                 <ToastProvider>
-                  <Suspense fallback={null}>
-                    <AuthGate>
-                      <Suspense>{props.children}</Suspense>
-                    </AuthGate>
-                  </Suspense>
+                  <ErrorBoundary
+                    fallback={(error, reset) => (
+                      <GlobalErrorOverlay
+                        title="Something went wrong"
+                        message="An unexpected error interrupted the app. You can retry or reload the page."
+                        error={error}
+                        secondaryActionLabel="Reload page"
+                        onSecondaryAction={() => {
+                          window.location.reload();
+                        }}
+                        primaryActionLabel="Try again"
+                        onPrimaryAction={() => {
+                          setClientException(null);
+                          reset();
+                        }}
+                      />
+                    )}
+                  >
+                    <Suspense fallback={null}>
+                      <AuthGate>
+                        <Suspense>{props.children}</Suspense>
+                      </AuthGate>
+                    </Suspense>
+                  </ErrorBoundary>
                   <ToastViewport />
+                  <GlobalErrorOverlay
+                    title="Client exception"
+                    message="The page resumed with a stale connection and hit an uncaught client error."
+                    error={clientException()?.error}
+                    open={() => clientException() !== null}
+                    secondaryActionLabel="Dismiss"
+                    onSecondaryAction={() => {
+                      setClientException(null);
+                    }}
+                    primaryActionLabel="Reload page"
+                    onPrimaryAction={() => {
+                      window.location.reload();
+                    }}
+                  />
                 </ToastProvider>
               </MagicAuthProvider>
             </QueryClientProvider>

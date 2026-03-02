@@ -1,4 +1,5 @@
 import {
+  ErrorBoundary,
   For,
   Show,
   Suspense,
@@ -29,7 +30,6 @@ import {
   fetchChatThreads,
   type ChatThreadDetail,
   type ChatThreadPreview,
-  type ChatMessageRole,
 } from "~/services/ai/ai-chat.queries";
 import {
   createChatThread,
@@ -45,16 +45,57 @@ type ThreadPreview = ChatThreadPreview;
 
 type ThreadDetail = ChatThreadDetail;
 
+const TRANSIENT_SERVER_FUNCTION_ERROR_FRAGMENT =
+  "Malformed server function stream";
+
+const isTransientServerFunctionError = (error: unknown) => {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  return (
+    message.includes(TRANSIENT_SERVER_FUNCTION_ERROR_FRAGMENT) ||
+    message.includes("504")
+  );
+};
+
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const recoverServerFunctionCall = async <T,>(
+  run: () => Promise<T>,
+  label: string
+): Promise<T> => {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isTransientServerFunctionError(error)) throw error;
+    console.warn("[ai-chat] transient server query failed; retrying once", {
+      label,
+      error,
+    });
+    await delay(300);
+    return run();
+  }
+};
+
 export function useLLMSidebar() {
   const [open, setOpen] = createSignal(false);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
-  const threads = createAsync(() => fetchChatThreads());
+  const threads = createAsync(() =>
+    recoverServerFunctionCall(() => fetchChatThreads(), "fetchChatThreads")
+  );
   const thread = createAsync(() => {
     const id = selectedId();
     if (!id) return Promise.resolve<ThreadDetail | null>(null);
-    return fetchChatThread(id) as Promise<ThreadDetail | null>;
+    return recoverServerFunctionCall(
+      () => fetchChatThread(id) as Promise<ThreadDetail | null>,
+      "fetchChatThread"
+    );
   });
   const runCreateThread = useAction(createChatThread);
   const runUpdateThread = useAction(updateChatThread);
@@ -130,7 +171,10 @@ export function useLLMSidebar() {
 
   const runPoll = async () => {
     try {
-      const list = await fetchChatThreads();
+      const list = await recoverServerFunctionCall(
+        () => fetchChatThreads(),
+        "poll.fetchChatThreads"
+      );
       for (const t of list) {
         const prev = lastKnown[t.id];
         if (!prev) {
@@ -215,35 +259,74 @@ export function useLLMSidebar() {
 
   // Pass accessors to keep the view reactive without remounting on polls
   const view = (
-    <Suspense
-      fallback={
-        <Box p="4">
-          <HStack gap="2" alignItems="center">
-            <Spinner size="sm" color="fg.muted" />
+    <ErrorBoundary
+      fallback={(error, reset) => (
+        <Box p="4" bg="bg.default" borderWidth="1px" borderColor="border" borderRadius="l2">
+          <Stack gap="3" alignItems="flex-start">
+            <Text fontWeight="semibold">Chat failed to load</Text>
             <Text fontSize="sm" color="fg.muted">
-              Loading…
+              A stale server response caused this panel to fail. Retry to reconnect.
             </Text>
-          </HStack>
+            <Text fontSize="xs" color="red.11">
+              {error?.message || "Unknown error"}
+            </Text>
+            <HStack gap="2">
+              <Button
+                size="sm"
+                variant="solid"
+                colorPalette="blue"
+                onClick={() => {
+                  reset();
+                  void refreshThreads();
+                  void refreshThread();
+                }}
+              >
+                Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  reset();
+                }}
+              >
+                Dismiss
+              </Button>
+            </HStack>
+          </Stack>
         </Box>
-      }
+      )}
     >
-      <LLMSidebarView
-        open={open}
-        onClose={() => setOpen(false)}
-        threads={() => threads() || []}
-        selectedId={selectedId}
-        onSelect={(id) => setSelectedId(id)}
-        thread={() => thread() || undefined}
-        onRefresh={() => {
-          void refreshThreads();
-          void refreshThread();
-        }}
-        onCreateThread={createThread}
-        onSend={sendMessage}
-        onSaveEdit={saveAssistantEdit}
-        onDeleteMessage={deleteMessage}
-      />
-    </Suspense>
+      <Suspense
+        fallback={
+          <Box p="4">
+            <HStack gap="2" alignItems="center">
+              <Spinner size="sm" color="fg.muted" />
+              <Text fontSize="sm" color="fg.muted">
+                Loading…
+              </Text>
+            </HStack>
+          </Box>
+        }
+      >
+        <LLMSidebarView
+          open={open}
+          onClose={() => setOpen(false)}
+          threads={() => threads() || []}
+          selectedId={selectedId}
+          onSelect={(id) => setSelectedId(id)}
+          thread={() => thread() || undefined}
+          onRefresh={() => {
+            void refreshThreads();
+            void refreshThread();
+          }}
+          onCreateThread={createThread}
+          onSend={sendMessage}
+          onSaveEdit={saveAssistantEdit}
+          onDeleteMessage={deleteMessage}
+        />
+      </Suspense>
+    </ErrorBoundary>
   );
 
   return {
