@@ -29,7 +29,6 @@ export const PathRelatedNotesPopover = (props: {
       ? fetchRelatedNotesByPath({
           path: normalizedPath(),
           currentDocId: props.currentDocId,
-          take: 10,
         })
       : Promise.resolve({ path: "", notes: [] })
   );
@@ -53,7 +52,7 @@ export const PathRelatedNotesPopover = (props: {
         </IconButton>
       }
     >
-      <Stack gap="3" p="3">
+      <Stack gap="3" p="3" maxH="min(34rem, calc(100vh - 7rem))" overflow="hidden">
         <Show when={normalizedPath().length > 0}>
           <Stack gap="2">
             <PathHeadingLink
@@ -86,7 +85,16 @@ export const PathRelatedNotesPopover = (props: {
           </Text>
         </Show>
 
-        <Box borderTopWidth="1px" borderColor="gray.outline.border" pt="2">
+        <Box
+          borderTopWidth="1px"
+          borderColor="gray.outline.border"
+          pt="2"
+          flex="1"
+          minH="0"
+          display="flex"
+          flexDirection="column"
+          gap="2"
+        >
           <Text fontSize="xs" color="fg.muted" mb="2">
             Related notes in same path
           </Text>
@@ -98,7 +106,7 @@ export const PathRelatedNotesPopover = (props: {
               </Text>
             }
           >
-            <Stack gap="1">
+            <Stack gap="1" overflowY="auto" minH="0" flex="1" pr="1">
               <For each={related()?.notes || []}>
                 {(note) => (
                   <Button

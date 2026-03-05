@@ -314,7 +314,7 @@ export const fetchRelatedNotesByPath = query(
     "use server";
     const path = String(input?.path || "").trim();
     if (!path) return { path: "", notes: [] };
-    const take = Math.max(1, Math.min(40, input?.take ?? 12));
+    const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
     const currentDocId = String(input?.currentDocId || "");
     const rows = await prisma.doc.findMany({
       where: {
