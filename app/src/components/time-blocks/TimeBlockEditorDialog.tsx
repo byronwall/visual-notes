@@ -21,6 +21,12 @@ import {
   formatTime24,
   setDateTimeFromInputs,
 } from "./date-utils";
+import {
+  createTimeBlockColorFromHue,
+  extractHueFromColor,
+  normalizeTimeBlockColor,
+  randomTimeBlockColor,
+} from "./time-block-colors";
 
 type Props = {
   open: boolean;
@@ -30,8 +36,6 @@ type Props = {
   onSaved: () => void;
 };
 
-const randomHsl = () => `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`;
-
 export const TimeBlockEditorDialog = (props: Props) => {
   const runCreate = useAction(createTimeBlock);
   const runUpdate = useAction(updateTimeBlock);
@@ -39,7 +43,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
 
   const [title, setTitle] = createSignal("");
   const [isFixedTime, setIsFixedTime] = createSignal(false);
-  const [color, setColor] = createSignal(randomHsl());
+  const [color, setColor] = createSignal(randomTimeBlockColor());
   const [comments, setComments] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
@@ -59,7 +63,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
       const end = new Date(block.endTime);
       setTitle(block.title || "");
       setIsFixedTime(block.isFixedTime);
-      setColor(block.color || randomHsl());
+      setColor(normalizeTimeBlockColor(block.color, randomTimeBlockColor()));
       setComments(block.comments || "");
       setStartDate(formatDateOnly(start));
       setEndDate(formatDateOnly(end));
@@ -71,7 +75,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
     if (range) {
       setTitle("");
       setIsFixedTime(false);
-      setColor(randomHsl());
+      setColor(randomTimeBlockColor());
       setComments("");
       setStartDate(formatDateOnly(range.start));
       setEndDate(formatDateOnly(range.end));
@@ -359,13 +363,17 @@ export const TimeBlockEditorDialog = (props: Props) => {
               flex="1"
               min="0"
               max="360"
-              value={/hsl\((\d+)/.exec(color())?.[1] ?? "0"}
+              value={String(extractHueFromColor(color()) ?? 0)}
               onInput={(event) =>
-                setColor(`hsl(${event.currentTarget.value}, 70%, 50%)`)
+                setColor(
+                  createTimeBlockColorFromHue(
+                    Number.parseFloat(event.currentTarget.value),
+                  ),
+                )
               }
               style={{
                 background:
-                  "linear-gradient(90deg, #ef4444 0%, #f59e0b 16%, #84cc16 32%, #10b981 48%, #06b6d4 64%, #3b82f6 80%, #a855f7 100%)",
+                  "linear-gradient(90deg, hsl(0 52% 50%) 0%, hsl(35 52% 50%) 16%, hsl(85 52% 50%) 32%, hsl(150 52% 50%) 48%, hsl(190 52% 50%) 64%, hsl(220 52% 50%) 80%, hsl(280 52% 50%) 100%)",
               }}
             />
             <Box

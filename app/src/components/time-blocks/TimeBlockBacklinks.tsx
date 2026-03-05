@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { fetchTimeBlockBacklinks } from "~/services/time-blocks/time-blocks.service";
 import { formatDateOnly, formatTime12 } from "./date-utils";
+import { normalizeTimeBlockColor } from "./time-block-colors";
 
 type Props = {
   noteId: string;
@@ -66,7 +67,9 @@ export const TimeBlockBacklinks = (props: Props) => {
                     borderRadius="full"
                     borderWidth="1px"
                     borderColor="border"
-                    style={{ "background-color": block.color || "var(--colors-blue-500)" }}
+                    style={{
+                      "background-color": normalizeTimeBlockColor(block.color),
+                    }}
                   />
                 </HStack>
               )}

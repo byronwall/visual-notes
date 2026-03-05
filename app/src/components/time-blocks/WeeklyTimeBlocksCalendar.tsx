@@ -51,6 +51,7 @@ import {
   getVisibleSegmentForDay,
   toGridY as toGridYPx,
 } from "./weekly-geometry";
+import { normalizeTimeBlockColor } from "./time-block-colors";
 import { TimeBlockEditorDialog } from "./TimeBlockEditorDialog";
 import { TimeBlockMetadataSummaryDialog } from "./TimeBlockMetadataSummaryDialog";
 import { TimeBlocksListDialog } from "./TimeBlocksListDialog";
@@ -788,7 +789,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         pxPerMinute() * snapMinutes(),
         toGridY(segment.visibleEnd) - toGridY(segment.visibleStart),
       ),
-      color: state.block.color || "var(--colors-blue-500)",
+      color: normalizeTimeBlockColor(state.block.color),
       title: state.block.title || "Untitled",
     };
   });
@@ -1377,7 +1378,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                                   }}
                                   style={{
                                     "background-color":
-                                      block.color || "var(--colors-blue-500)",
+                                      normalizeTimeBlockColor(block.color),
                                     color: "white",
                                     cursor: "grab",
                                     overflow: "hidden",

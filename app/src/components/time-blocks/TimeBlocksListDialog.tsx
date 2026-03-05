@@ -21,6 +21,7 @@ import {
   formatWeekdayLong,
   startOfDay,
 } from "./date-utils";
+import { normalizeTimeBlockColor } from "./time-block-colors";
 
 type Props = {
   open: boolean;
@@ -130,7 +131,12 @@ export const TimeBlocksListDialog = (props: Props) => {
                           px="3"
                           py="2"
                           w="760px"
-                          style={{ "border-left-width": "4px", "border-left-color": block.color || "var(--colors-blue-500)" }}
+                          style={{
+                            "border-left-width": "4px",
+                            "border-left-color": normalizeTimeBlockColor(
+                              block.color,
+                            ),
+                          }}
                         >
                           <Stack gap="0.5" flex="1" minW="0" pr="2">
                             <Text
