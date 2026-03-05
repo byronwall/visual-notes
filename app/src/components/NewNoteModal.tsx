@@ -19,6 +19,13 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined
   );
+  const getInitialFocusEl = () => {
+    if (typeof document === "undefined") return null;
+    const root = document.querySelector("[data-new-note-modal-content]");
+    if (!(root instanceof HTMLElement)) return null;
+    const editorSurface = root.querySelector(".ProseMirror");
+    return editorSurface instanceof HTMLElement ? editorSurface : null;
+  };
 
   const handleOpenChange = (open: boolean) => {
     props.onOpenChange(open);
@@ -44,16 +51,16 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
   const isSaving = () => editorApi()?.saving() ?? false;
 
   const initialTitle = () => props.initialTitle?.trim() || "Untitled note";
-  const initialMarkdown = () => `# ${initialTitle()}\n\nStart writing...`;
+  const initialMarkdown = () => `# ${initialTitle()}`;
 
   return (
     <SimpleDialog
       open={props.open}
       onOpenChange={handleOpenChange}
       onClose={handleCancel}
-      title="New note"
       maxW="900px"
       skipPortal={props.skipPortal}
+      initialFocusEl={getInitialFocusEl}
       footer={
         <HStack justifyContent="flex-end" gap="2" w="full">
           <Button
@@ -77,10 +84,14 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
       }
     >
       <Show when={props.open}>
-        <Box w="full">
+        <Box w="full" data-new-note-modal-content>
           <DocumentEditor
             showTopBar={false}
             showAiPromptsBar={false}
+            showNewDocTitleField={false}
+            preferH1TitleForNewDoc
+            placeNewDocPropertiesAfterEditor
+            selectFirstLineOnMount
             initialTitle={initialTitle()}
             initialMarkdown={initialMarkdown()}
             onCreated={handleCreated}

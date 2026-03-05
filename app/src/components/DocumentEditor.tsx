@@ -51,6 +51,10 @@ const DocumentEditor: VoidComponent<{
   showAiPromptsBar?: boolean;
   showTitleInTopBar?: boolean;
   showSaveButtonInTopBar?: boolean;
+  showNewDocTitleField?: boolean;
+  preferH1TitleForNewDoc?: boolean;
+  placeNewDocPropertiesAfterEditor?: boolean;
+  selectFirstLineOnMount?: boolean;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -71,6 +75,7 @@ const DocumentEditor: VoidComponent<{
   const runCreateDoc = useAction(createDoc);
   const runUpdateDoc = useAction(updateDoc);
   let lastAppliedInitialTitle = (props.initialTitle || "").trim();
+  let hasAppliedInitialLineSelection = false;
 
   const isNew = createMemo(() => !props.docId);
 
@@ -130,6 +135,31 @@ const DocumentEditor: VoidComponent<{
     };
     window.addEventListener("keydown", onKey);
     onCleanup(() => window.removeEventListener("keydown", onKey));
+  });
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed) return;
+    if (props.selectFirstLineOnMount !== true) return;
+    if (hasAppliedInitialLineSelection) return;
+    queueMicrotask(() => {
+      if (hasAppliedInitialLineSelection) return;
+      const { doc: pmDoc } = ed.state;
+      let selectionRange: { from: number; to: number } | null = null;
+      pmDoc.descendants((node, pos) => {
+        if (selectionRange) return false;
+        if (!node.isTextblock) return true;
+        if (!node.textContent.trim()) return true;
+        const from = pos + 1;
+        const to = from + node.content.size;
+        selectionRange = { from, to };
+        return false;
+      });
+      if (!selectionRange) return;
+      ed.commands.focus();
+      ed.commands.setTextSelection(selectionRange);
+      hasAppliedInitialLineSelection = true;
+    });
   });
 
   // Warn on tab close/refresh when dirty
@@ -214,6 +244,9 @@ const DocumentEditor: VoidComponent<{
         // First save → create the note
         let title = newTitle().trim();
         const detected = extractFirstH1FromHtml(html);
+        if (props.preferH1TitleForNewDoc && detected && detected.trim().length > 0) {
+          title = detected.trim();
+        }
         if (!title && detected && detected.trim().length > 0) {
           title = detected.trim();
         }
@@ -259,6 +292,13 @@ const DocumentEditor: VoidComponent<{
   const shouldShowTitleInTopBar = () => props.showTitleInTopBar !== false;
   const shouldShowSaveButtonInTopBar = () =>
     props.showSaveButtonInTopBar !== false;
+  const shouldShowNewDocTitleField = () => props.showNewDocTitleField !== false;
+  const shouldPlaceNewDocPropertiesAfterEditor = () =>
+    props.placeNewDocPropertiesAfterEditor === true;
+  const shouldShowNewDocPropertiesBeforeEditor = () =>
+    isNew() && !shouldPlaceNewDocPropertiesAfterEditor();
+  const shouldShowNewDocPropertiesAfterEditor = () =>
+    isNew() && shouldPlaceNewDocPropertiesAfterEditor();
 
   const handleLeaveConfirm = () => {
     const retry = pendingRetry();
@@ -314,7 +354,7 @@ const DocumentEditor: VoidComponent<{
           </Box>
         )}
       </Show>
-      <Show when={isNew()}>
+      <Show when={isNew() && shouldShowNewDocTitleField()}>
         <Stack gap="2" mb="3">
           <Box>
             <Box as="p" fontSize="xs" color="fg.muted">
@@ -329,6 +369,10 @@ const DocumentEditor: VoidComponent<{
               onInput={(event) => setNewTitle(event.currentTarget.value)}
             />
           </Box>
+        </Stack>
+      </Show>
+      <Show when={shouldShowNewDocPropertiesBeforeEditor()}>
+        <Stack gap="2" mb="3">
           <DocPropertiesCompactEditors
             initialPath={newPath()}
             initialMeta={newMeta()}
@@ -343,6 +387,16 @@ const DocumentEditor: VoidComponent<{
         noteId={props.docId || doc()?.id}
         showAiPromptsMenu={shouldShowAiPromptsBar()}
       />
+      <Show when={shouldShowNewDocPropertiesAfterEditor()}>
+        <Stack gap="2" mt="3">
+          <DocPropertiesCompactEditors
+            initialPath={newPath()}
+            initialMeta={newMeta()}
+            onPathChange={(nextPath) => setNewPath(nextPath)}
+            onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+          />
+        </Stack>
+      </Show>
       <ConfirmDialog
         open={leaveDialogOpen()}
         onOpenChange={handleLeaveOpenChange}
