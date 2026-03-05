@@ -103,6 +103,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
             docId={props.docId}
             initialPath={pathDraft() || undefined}
             onChange={handlePathChange}
+            onChangeWhenSavedOnly
           />
         </Stack>
       </SimplePopover>

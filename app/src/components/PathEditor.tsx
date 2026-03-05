@@ -24,6 +24,7 @@ export const PathEditor: VoidComponent<{
   docId?: string;
   initialPath?: string;
   onChange?: (path: string) => void;
+  onChangeWhenSavedOnly?: boolean;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
@@ -44,6 +45,8 @@ export const PathEditor: VoidComponent<{
   });
 
   createEffect(() => {
+    const shouldEmitDraftChange = !props.onChangeWhenSavedOnly || !props.docId;
+    if (!shouldEmitDraftChange) return;
     const value = serializePathDraft(draft());
     if (props.onChange) props.onChange(value);
   });
@@ -52,8 +55,34 @@ export const PathEditor: VoidComponent<{
     buildNextSegmentSuggestions(pathCounts() || [], draft().committed, draft().current)
   );
 
-  const handleSelectSuggestion = (segment: string) => {
-    setDraft((prev) => appendSegment(prev, segment));
+  const updateDraft = (updater: (prev: PathDraft) => PathDraft): PathDraft => {
+    let nextDraft!: PathDraft;
+    setDraft((prev) => {
+      nextDraft = updater(prev);
+      return nextDraft;
+    });
+    return nextDraft;
+  };
+
+  const savePath = async (path: string) => {
+    if (!props.docId) return;
+    setSaving(true);
+    setError(undefined);
+    try {
+      await runUpdateDoc({ id: props.docId, path });
+      if (props.onChange && props.onChangeWhenSavedOnly) {
+        props.onChange(path);
+      }
+    } catch (e) {
+      setError((e as Error).message || "Failed to save path");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSelectSuggestion = async (segment: string) => {
+    const nextDraft = updateDraft((prev) => appendSegment(prev, segment));
+    await savePath(serializePathDraft(nextDraft).trim());
     if (inputRef) inputRef.focus();
   };
 
@@ -83,22 +112,12 @@ export const PathEditor: VoidComponent<{
   };
 
   const handleSave = async () => {
-    if (!props.docId) return;
-
-    const finalPath = serializePathDraft(draft()).trim();
-    setSaving(true);
-    setError(undefined);
-    try {
-      await runUpdateDoc({ id: props.docId, path: finalPath });
-    } catch (e) {
-      setError((e as Error).message || "Failed to save path");
-    } finally {
-      setSaving(false);
-    }
+    await savePath(serializePathDraft(draft()).trim());
   };
 
-  const truncateTo = (index: number) => () => {
-    setDraft((prev) => truncatePathDraft(prev, index));
+  const handleTruncate = (index: number) => {
+    const nextDraft = updateDraft((prev) => truncatePathDraft(prev, index));
+    void savePath(serializePathDraft(nextDraft).trim());
     if (inputRef) inputRef.focus();
   };
 
@@ -110,9 +129,9 @@ export const PathEditor: VoidComponent<{
       if (!confirmed) return;
     }
 
-    setDraft(clearPathDraft());
+    const nextDraft = updateDraft(() => clearPathDraft());
     setIsFocused(false);
-    await handleSave();
+    await savePath(serializePathDraft(nextDraft).trim());
   };
 
   const handleEditorFocusOut = (ev: FocusEvent) => {
@@ -147,12 +166,6 @@ export const PathEditor: VoidComponent<{
               if (inputRef) inputRef.focus();
             }}
           >
-            <Show when={draft().committed.length === 0 && draft().current.length === 0}>
-              <Text fontSize="sm" color="fg.subtle">
-                e.g. work.projects.alpha
-              </Text>
-            </Show>
-
             <For each={draft().committed}>
               {(segment, i) => (
                 <>
@@ -161,7 +174,7 @@ export const PathEditor: VoidComponent<{
                     variant="outline"
                     borderRadius="full"
                     title={segment}
-                    onClick={truncateTo(i())}
+                    onClick={() => handleTruncate(i())}
                   >
                     <Text
                       as="span"
@@ -183,11 +196,19 @@ export const PathEditor: VoidComponent<{
 
             <Input
               ref={inputRef}
-              variant="flushed"
+              variant="outline"
               size="xs"
               flex="1"
               minW="10ch"
+              h="auto"
+              minH="0"
+              px="0"
+              borderWidth="0"
+              borderColor="transparent"
               bg="transparent"
+              placeholder="e.g. work.projects.alpha"
+              _focus={{ borderColor: "transparent", boxShadow: "none" }}
+              _focusVisible={{ outline: "none", boxShadow: "none" }}
               value={draft().current}
               onInput={(e) =>
                 setDraft((prev) => setCurrentSegment(prev, e.currentTarget.value))
@@ -205,13 +226,16 @@ export const PathEditor: VoidComponent<{
 
           <Show when={isFocused()}>
             <Box
-              borderWidth="1px"
-              borderColor="gray.outline.border"
               borderRadius="l2"
               p="2.5"
-              bg="bg.default"
+              bg="gray.subtle.bg"
+              onMouseDown={(e) => {
+                // Keep suggestion panel visible when clicking non-interactive space.
+                e.preventDefault();
+                if (inputRef) inputRef.focus();
+              }}
             >
-              <Text fontSize="xs" color="fg.muted" mb="0.5rem">
+              <Text fontSize="xs" color="fg.muted" mb="1.5">
                 <Show
                   when={draft().committed.length === 0}
                   fallback={
@@ -238,7 +262,7 @@ export const PathEditor: VoidComponent<{
                         size="xs"
                         variant="outline"
                         borderRadius="full"
-                        onClick={() => handleSelectSuggestion(s.seg)}
+                        onClick={() => void handleSelectSuggestion(s.seg)}
                         title={`${s.seg} (${s.count})`}
                       >
                         <Text
