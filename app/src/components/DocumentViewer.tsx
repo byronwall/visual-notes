@@ -34,7 +34,7 @@ const DocumentViewer: VoidComponent<{
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
-  const [title, setTitle] = createSignal("");
+  const [title, setTitle] = createSignal(props.doc.title);
   const runUpdateDoc = useAction(updateDoc);
   const runDeleteDoc = useAction(deleteDoc);
   const runLogDocViewEvent = useAction(logDocViewEvent);
@@ -51,10 +51,7 @@ const DocumentViewer: VoidComponent<{
 
   // Keep local title state aligned when client-side navigation swaps docs.
   createEffect(() => {
-    const nextDocId = props.doc.id;
-    const nextTitle = props.doc.title;
-    void nextDocId;
-    setTitle(nextTitle);
+    setTitle(props.doc.title);
   });
 
   createEffect(() => {

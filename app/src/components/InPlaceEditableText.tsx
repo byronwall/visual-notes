@@ -1,4 +1,10 @@
-import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  type JSX,
+} from "solid-js";
 import { Box } from "styled-system/jsx";
 import * as Editable from "~/components/ui/editable";
 
@@ -19,15 +25,18 @@ type InPlaceEditableTextProps = {
 };
 
 export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
-  const [draft, setDraft] = createSignal("");
+  const [draft, setDraft] = createSignal(props.value);
   const [isEditing, setIsEditing] = createSignal(false);
   const [actionVisible, setActionVisible] = createSignal(false);
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
+  const editableValue = () => (isEditing() ? draft() : props.value);
 
   createEffect(() => {
     const next = props.value;
     if (isEditing()) return;
-    setDraft((prev) => (prev === next ? prev : next));
+    setDraft((prev) => {
+      return prev === next ? prev : next;
+    });
   });
 
   onCleanup(() => {
@@ -128,7 +137,7 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
       </Show>
       <Editable.Root
         width={props.fillWidth ? "full" : "fit-content"}
-        value={draft()}
+        value={editableValue()}
         placeholder={props.placeholder}
         activationMode="click"
         submitMode="both"
