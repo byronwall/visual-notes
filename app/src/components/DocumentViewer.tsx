@@ -1,7 +1,7 @@
 import { useAction, useNavigate } from "@solidjs/router";
 import { Trash2Icon } from "lucide-solid";
-import { type VoidComponent, createEffect, createSignal } from "solid-js";
-import { Box, HStack, Spacer, Stack } from "styled-system/jsx";
+import { Show, type VoidComponent, createEffect, createSignal } from "solid-js";
+import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
@@ -54,7 +54,7 @@ const DocumentViewer: VoidComponent<{
     const nextDocId = props.doc.id;
     const nextTitle = props.doc.title;
     void nextDocId;
-    setTitle((prev) => (prev === nextTitle ? prev : nextTitle));
+    setTitle(nextTitle);
   });
 
   createEffect(() => {
@@ -124,31 +124,37 @@ const DocumentViewer: VoidComponent<{
 
   return (
     <Box class="prose" maxW="none">
-      <HStack gap="3" alignItems="center" flexWrap="wrap">
-        <HStack gap="2" alignItems="center" flexWrap="wrap" minW="0">
-          <InPlaceEditableText
-            value={title()}
-            onCommit={handleConfirmEdit}
-            fontSize="4xl"
-            lineHeight="1.1"
-            fontWeight="semibold"
-            showLeadingAction={showSync()}
-            leadingAction={() => (
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                colorPalette="gray"
-                onClick={handleSync}
-                title={`Match H1: ${firstH1()}`}
-              >
-                Match H1
-              </Button>
+      <HStack gap="3" alignItems="flex-start" flexWrap="nowrap">
+        <Box flex="1" minW="0">
+          <Show when={props.doc.id} keyed>
+            {(_docId) => (
+              <InPlaceEditableText
+                value={title()}
+                placeholder={firstH1() || "Untitled note"}
+                onCommit={handleConfirmEdit}
+                fontSize="4xl"
+                lineHeight="1.1"
+                fontWeight="semibold"
+                fillWidth
+                wrapPreview
+                showLeadingAction={showSync()}
+                leadingAction={() => (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    colorPalette="gray"
+                    onClick={handleSync}
+                    title={`Match H1: ${firstH1()}`}
+                  >
+                    Match H1
+                  </Button>
+                )}
+              />
             )}
-          />
-        </HStack>
-        <Spacer />
-        <HStack gap="2" alignItems="center">
+          </Show>
+        </Box>
+        <HStack gap="2" alignItems="flex-start" flexShrink="0">
           <Button
             size="sm"
             variant="outline"

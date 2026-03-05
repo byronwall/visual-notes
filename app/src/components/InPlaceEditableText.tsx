@@ -13,15 +13,20 @@ type InPlaceEditableTextProps = {
   minInputWidth?: string;
   trimOnCommit?: boolean;
   allowEmpty?: boolean;
+  fillWidth?: boolean;
+  wrapPreview?: boolean;
+  placeholder?: string;
 };
 
 export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   const [draft, setDraft] = createSignal("");
+  const [isEditing, setIsEditing] = createSignal(false);
   const [actionVisible, setActionVisible] = createSignal(false);
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   createEffect(() => {
     const next = props.value;
+    if (isEditing()) return;
     setDraft((prev) => (prev === next ? prev : next));
   });
 
@@ -55,10 +60,12 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
     const next = normalize ? nextValue.trim() : nextValue;
     if (!next && !(props.allowEmpty ?? false)) {
       setDraft(previous);
+      setIsEditing(false);
       return;
     }
     if (next === previous) {
       setDraft(previous);
+      setIsEditing(false);
       return;
     }
     setDraft(next);
@@ -66,6 +73,8 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
       await props.onCommit(next);
     } catch {
       setDraft(previous);
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -74,7 +83,9 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   return (
     <Box
       as="span"
-      display="inline-block"
+      display={props.fillWidth ? "block" : "inline-block"}
+      w={props.fillWidth ? "full" : undefined}
+      minW="0"
       position="relative"
       onMouseEnter={showAction}
       onMouseLeave={hideActionSoon}
@@ -116,14 +127,22 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
         </Box>
       </Show>
       <Editable.Root
-        width="fit-content"
+        width={props.fillWidth ? "full" : "fit-content"}
         value={draft()}
+        placeholder={props.placeholder}
         activationMode="click"
         submitMode="both"
         selectOnFocus
-        onValueChange={(details) => setDraft(details.value)}
+        onEditChange={(details) => setIsEditing(details.edit)}
+        onValueChange={(details) => {
+          if (!isEditing()) return;
+          setDraft(details.value);
+        }}
         onValueCommit={(details) => void handleCommit(details.value)}
-        onValueRevert={() => setDraft(props.value)}
+        onValueRevert={() => {
+          setDraft(props.value);
+          setIsEditing(false);
+        }}
       >
         <Box
           as="span"
@@ -133,7 +152,11 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
           lineHeight={props.lineHeight ?? "1.2"}
           minW="0"
         >
-          <Editable.Area cursor="text">
+          <Editable.Area
+            cursor="text"
+            w={props.fillWidth ? "full" : undefined}
+            minW="0"
+          >
             <Editable.Preview
               px="0"
               py="0"
@@ -145,6 +168,10 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               fontSize="inherit"
               fontWeight="inherit"
               lineHeight="inherit"
+              display={props.wrapPreview ? "block" : undefined}
+              w={props.wrapPreview ? "full" : undefined}
+              whiteSpace={props.wrapPreview ? "normal" : undefined}
+              overflowWrap={props.wrapPreview ? "anywhere" : undefined}
             />
             <Editable.Input
               px="0"

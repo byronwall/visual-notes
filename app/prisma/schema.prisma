@@ -205,6 +205,50 @@ model Doc {
   @@index([path])
 }
 
+enum TaskStatus {
+  waiting
+  started
+  deferred
+  complete
+  cancelled
+}
+
+model TaskList {
+  id        String    @id @default(cuid())
+  name      String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  tasks     TaskItem[]
+
+  @@index([sortOrder])
+}
+
+model TaskItem {
+  id              String     @id @default(cuid())
+  listId          String
+  description     String
+  status          TaskStatus @default(waiting)
+  dueDate         DateTime?
+  durationMinutes Int?
+  tags            String[]   @default([])
+  meta            Json?
+  parentTaskId    String?
+  sortOrder       Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  list       TaskList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  parentTask TaskItem?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks TaskItem[] @relation("TaskHierarchy")
+
+  @@index([listId])
+  @@index([parentTaskId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([listId, parentTaskId, sortOrder])
+}
+
 model TimeBlock {
   id          String   @id @default(cuid())
   title       String?

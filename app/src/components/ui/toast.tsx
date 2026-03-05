@@ -1,10 +1,9 @@
 import { Toaster as ArkToaster, createToaster, Toast, useToastContext } from '@ark-ui/solid/toast'
-import { CheckCircleIcon, CircleAlertIcon, CircleXIcon } from 'lucide-solid'
+import { CheckCircleIcon, CircleAlertIcon, CircleXIcon, XIcon } from 'lucide-solid'
 import { Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { createStyleContext, Stack, styled } from 'styled-system/jsx'
 import { toast } from 'styled-system/recipes'
-import { CloseButton } from './close-button'
 import { Icon, type IconProps } from './icon'
 import { Spinner } from './spinner'
 
@@ -71,7 +70,7 @@ export const Toaster = () => {
             </Stack>
             <Show when={toast().closable}>
               <CloseTrigger>
-                <CloseButton size="sm" />
+                <XIcon size={14} />
               </CloseTrigger>
             </Show>
           </Root>

@@ -77,10 +77,19 @@ export function ToastViewport() {
     <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-[min(92vw,360px)]">
       <For each={toasts}>
         {(t) => (
-          <button
-            type="button"
+          <div
+            role="button"
+            tabindex={0}
             class="text-left rounded shadow-md border border-gray-200 bg-white p-3 hover:bg-gray-50 cursor-pointer"
             onClick={() => {
+              if (t.onClick) {
+                t.onClick();
+              }
+              dismiss(t.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
               if (t.onClick) {
                 t.onClick();
               }
@@ -103,7 +112,7 @@ export function ToastViewport() {
                 ×
               </button>
             </div>
-          </button>
+          </div>
         )}
       </For>
     </div>
