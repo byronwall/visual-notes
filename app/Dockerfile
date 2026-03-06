@@ -27,11 +27,12 @@ FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+ENV UMAP_PYTHON_BIN=/app/.venv/bin/python
 WORKDIR /app
 
 # System deps for Prisma + Python UMAP worker
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-pip \
+  && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-venv \
   && rm -rf /var/lib/apt/lists/*
 # Enable pnpm via Corepack in runtime
 RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
@@ -42,7 +43,8 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/scripts ./scripts
 
-RUN python3 -m pip install --no-cache-dir -r ./scripts/requirements-umap.txt
+RUN python3 -m venv /app/.venv \
+  && /app/.venv/bin/python -m pip install --no-cache-dir -r ./scripts/requirements-umap.txt
 
 EXPOSE 3000
 CMD ["sh","-c","pnpm start-prod"]
