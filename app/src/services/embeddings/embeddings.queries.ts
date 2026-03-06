@@ -24,6 +24,7 @@ export type EmbeddingRunDetail = {
     items: { id: string; title: string; embeddedAt: string }[];
     limit: number;
     offset: number;
+    total: number;
   };
 };
 
@@ -32,6 +33,7 @@ export type EmbeddingRunQuery = {
   includeDocs?: boolean;
   limit?: number;
   offset?: number;
+  titleQuery?: string;
 };
 
 export type EmbeddingRunsQuery = { limit?: number };
@@ -95,6 +97,14 @@ export const fetchEmbeddingRun = query(
     const includeDocs = Boolean(input.includeDocs);
     const limit = Math.min(500, Math.max(1, Number(input.limit ?? 50)));
     const offset = Math.max(0, Number(input.offset ?? 0));
+    const titleQuery = String(input.titleQuery || "").trim();
+    console.info("[embeddings.query] fetchEmbeddingRun:start", {
+      id: input.id,
+      includeDocs,
+      limit,
+      offset,
+      hasTitleQuery: Boolean(titleQuery),
+    });
 
     const run = await prisma.embeddingRun.findUnique({
       where: { id: input.id },
@@ -106,7 +116,10 @@ export const fetchEmbeddingRun = query(
         createdAt: true,
       },
     });
-    if (!run) return null;
+    if (!run) {
+      console.info("[embeddings.query] fetchEmbeddingRun:notFound", { id: input.id });
+      return null;
+    }
 
     const count = await prisma.docEmbedding.count({
       where: { runId: run.id },
@@ -114,8 +127,25 @@ export const fetchEmbeddingRun = query(
     const sectionCount = await prisma.docSectionEmbedding
       .count({ where: { runId: run.id } })
       .catch(() => 0);
-    const totalDocs = await prisma.doc.count();
-    const remaining = Math.max(0, totalDocs - count);
+    let remaining = 0;
+    try {
+      const rows = (await prisma.$queryRaw<any[]>`
+        SELECT COUNT(*)::int AS c
+        FROM "Doc" d
+        LEFT JOIN "DocEmbedding" de
+          ON de."docId" = d."id"
+         AND de."runId" = ${run.id}
+        WHERE de."id" IS NULL
+          AND (
+            COALESCE(TRIM(d."markdown"), '') <> ''
+            OR COALESCE(TRIM(d."html"), '') <> ''
+          );
+      `) as any[];
+      remaining = Number(rows?.[0]?.c || 0);
+    } catch (e) {
+      console.warn("[embeddings.query] failed to count remaining eligible docs", e);
+      remaining = 0;
+    }
 
     let changedEligible = 0;
     try {
@@ -133,6 +163,13 @@ export const fetchEmbeddingRun = query(
     }
 
     if (!includeDocs) {
+      console.info("[embeddings.query] fetchEmbeddingRun:done", {
+        id: run.id,
+        count,
+        sectionCount,
+        remaining,
+        changedEligible,
+      });
       return {
         id: run.id,
         model: run.model,
@@ -146,8 +183,21 @@ export const fetchEmbeddingRun = query(
       };
     }
 
+    const docsWhere = titleQuery
+      ? {
+          runId: run.id,
+          doc: {
+            title: { contains: titleQuery, mode: "insensitive" as const },
+          },
+        }
+      : { runId: run.id };
+
+    const filteredTotal = await prisma.docEmbedding.count({
+      where: docsWhere,
+    });
+
     const rows = await prisma.docEmbedding.findMany({
-      where: { runId: run.id },
+      where: docsWhere,
       select: { docId: true, createdAt: true },
       orderBy: { createdAt: "asc" },
       take: limit,
@@ -168,6 +218,15 @@ export const fetchEmbeddingRun = query(
       title: byId.get(r.docId)?.title || "(untitled)",
       embeddedAt: r.createdAt.toISOString(),
     }));
+    console.info("[embeddings.query] fetchEmbeddingRun:done", {
+      id: run.id,
+      count,
+      filteredTotal,
+      returnedItems: items.length,
+      offset,
+      limit,
+      hasTitleQuery: Boolean(titleQuery),
+    });
 
     return {
       id: run.id,
@@ -179,7 +238,7 @@ export const fetchEmbeddingRun = query(
       sectionCount,
       remaining,
       changedEligible,
-      docs: { items, limit, offset },
+      docs: { items, limit, offset, total: filteredTotal },
     };
   },
   "embedding-run"

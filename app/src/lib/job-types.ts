@@ -2,7 +2,8 @@ export type JobType =
   | "create_session"
   | "submit_answers"
   | "create_next_round"
-  | "add_more_questions";
+  | "add_more_questions"
+  | "umap_train";
 
 export type JobStage =
   | "pending"
@@ -38,6 +39,7 @@ export const JOB_ETA_BANDS: Record<JobType, EtaBand> = {
   submit_answers: { min: 20000, max: 90000, label: "Usually ~30s-1.5min" },
   create_next_round: { min: 20000, max: 90000, label: "Usually ~30s-1.5min" },
   add_more_questions: { min: 15000, max: 60000, label: "Usually ~15s-1min" },
+  umap_train: { min: 15000, max: 180000, label: "Usually ~15s-3min" },
 };
 
 export const STAGE_PROGRESS: Record<JobStage, number> = {
@@ -55,6 +57,7 @@ export const JOB_TYPE_LABELS: Record<JobType, string> = {
   submit_answers: "Generating result",
   create_next_round: "Creating next round",
   add_more_questions: "Adding questions",
+  umap_train: "Training UMAP",
 };
 
 export const STAGE_LABELS: Record<JobStage, string> = {

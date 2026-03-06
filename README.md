@@ -181,17 +181,32 @@ Set these in your shell or via Compose (see below):
 
 - `OPENAI_API_KEY`: Required to call OpenAI embeddings API
 - `EMBEDDING_MODEL`: Model id (default `text-embedding-3-small`)
+- `UMAP_PYTHON_BIN`: Python executable for persisted UMAP (default `python3`)
+- `UMAP_MODEL_DIR`: Directory for saved UMAP artifacts (default `/app/data/umap-models` in Docker)
 
-The Compose file already passes through `OPENAI_API_KEY` and sets a default for `EMBEDDING_MODEL`.
+The Compose file passes through `OPENAI_API_KEY`, sets a default for `EMBEDDING_MODEL`, and configures `UMAP_PYTHON_BIN`/`UMAP_MODEL_DIR`.
+
+For local (non-Docker) runs, install Python deps once:
+
+```bash
+cd app
+pnpm umap:setup:local
+```
 
 ### Database models
 
 - `EmbeddingRun(id, model, dims, params, createdAt)`
 - `DocEmbedding(id, runId, docId, vector Float[], createdAt)`
-- `UmapRun(id, embeddingRunId, dims, params, createdAt)`
+- `UmapRun(id, embeddingRunId, dims, params, artifactPath?, createdAt)`
 - `UmapPoint(id, runId, docId, x, y, z?)`
 
-Embeddings are stored as `Float[]` for simplicity (no `pgvector` required). UMAP points are stored per-run so multiple runs can coexist.
+Embeddings are stored as `Float[]` for simplicity (no `pgvector` required). UMAP points are stored per-run so multiple runs can coexist. Persisted UMAP artifacts (`joblib`) allow reusing trained models for fast future `transform` calls.
+
+### UMAP train vs project
+
+- **Train (`createUmapRun`)**: fit Python `umap-learn`, persist artifact, write initial points.
+- **Project (`projectUmapRun`)**: load artifact, transform fresh embeddings, upsert points without retraining.
+- `processEmbeddingRun` now auto-projects newly embedded docs into trained UMAP runs for that embedding run, so fresh notes can appear immediately on the canvas.
 
 ### API endpoints
 

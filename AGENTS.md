@@ -34,6 +34,7 @@ guidelines from comp_refs.
   - Prefer `~/components/ui/*` wrappers over direct Ark UI usage in routes.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
+  - Prefer subtle background/surface differences (`bg.subtle`, `bg.muted`, spacing) over heavy border stacks to separate sections; use borders sparingly for true emphasis or interactive affordance.
   - For simple single-field edits (for example names/titles), prefer inline edit-in-place interactions over opening a dedicated modal.
   - Avoid generic instructional helper copy in polished UI surfaces (for example, “hover/click to…” lines) unless user enablement truly depends on it.
   - Popovers/menus/dialog-like floating content should default to content-driven sizing (`fit-content` semantics) rather than fixed widths. Prefer letting child content define practical width constraints.

@@ -6,6 +6,8 @@ export type UmapRunSummary = {
   dims: number;
   params: Record<string, unknown> | null;
   embeddingRunId: string;
+  hasArtifact: boolean;
+  artifactPath?: string | null;
   createdAt: string;
 };
 
@@ -13,24 +15,34 @@ export type UmapRunDetail = UmapRunSummary & { count: number };
 
 export type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
 
-export const fetchUmapRuns = query(async (): Promise<UmapRunSummary[]> => {
+export type UmapRunsQuery = {
+  embeddingRunId?: string;
+  limit?: number;
+};
+
+export const fetchUmapRuns = query(async (input: UmapRunsQuery = {}): Promise<UmapRunSummary[]> => {
   "use server";
+  const limit = Math.min(200, Math.max(1, Number(input.limit ?? 20)));
+  const embeddingRunId = String(input.embeddingRunId || "").trim();
   const runs = await prisma.umapRun.findMany({
+    where: embeddingRunId ? { embeddingRunId } : undefined,
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
       dims: true,
       params: true,
       embeddingRunId: true,
+      artifactPath: true,
       createdAt: true,
     },
-    take: 20,
+    take: limit,
   });
   return runs.map((r) => ({
     id: r.id,
     dims: r.dims,
     params: r.params as Record<string, unknown> | null,
     embeddingRunId: r.embeddingRunId,
+    hasArtifact: Boolean(r.artifactPath),
     createdAt: r.createdAt.toISOString(),
   }));
 }, "umap-runs");
@@ -46,6 +58,7 @@ export const fetchUmapRun = query(
         dims: true,
         params: true,
         embeddingRunId: true,
+        artifactPath: true,
         createdAt: true,
       },
     });
@@ -56,6 +69,8 @@ export const fetchUmapRun = query(
       dims: run.dims,
       params: run.params as Record<string, unknown> | null,
       embeddingRunId: run.embeddingRunId,
+      hasArtifact: Boolean(run.artifactPath),
+      artifactPath: run.artifactPath,
       createdAt: run.createdAt.toISOString(),
       count,
     };

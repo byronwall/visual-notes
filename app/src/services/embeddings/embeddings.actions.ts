@@ -1,4 +1,5 @@
 import { action } from "@solidjs/router";
+import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { serverEnv } from "~/env/server";
@@ -10,6 +11,7 @@ import { makeChunks, type ChunkerConfig } from "~/server/lib/embedding/chunker";
 import { sha256 } from "~/server/lib/embedding/hash";
 import { meanPool } from "~/server/lib/embedding/pool";
 import { embedBatched } from "~/services/embeddings/embeddings.utils";
+import { projectVectorsIntoUmapRun } from "~/services/umap/umap.projection";
 
 const createSchema = z.object({
   model: z.string().optional(),
@@ -35,6 +37,20 @@ const processSchema = z.object({
   mode: z.enum(["missing", "changed"]).optional(),
 });
 
+function normalizeSourceForEmbedding(input: {
+  html?: string | null;
+  markdown?: string | null;
+}): string {
+  const html = String(input.html || "").trim();
+  if (html.length > 0) {
+    // For embedding, treat HTML as canonical when present and strip all tags.
+    return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return String(input.markdown || "");
+}
+
 export const createEmbeddingRun = action(
   async (payload: z.infer<typeof createSchema>) => {
     "use server";
@@ -43,9 +59,13 @@ export const createEmbeddingRun = action(
     }
     const { model, dims, params } = createSchema.parse(payload);
     const useModel = model || serverEnv.EMBEDDING_MODEL || "text-embedding-3-small";
+    console.info("[embeddings.action] createEmbeddingRun:start", {
+      model: useModel,
+      dims: dims ?? null,
+    });
 
     const docs = await prisma.doc.findMany({
-      select: { id: true, title: true, markdown: true },
+      select: { id: true, title: true, markdown: true, html: true },
       orderBy: { createdAt: "asc" },
     });
 
@@ -66,7 +86,8 @@ export const createEmbeddingRun = action(
 
     for (const d of docs as any[]) {
       try {
-        const sections = preprocessMarkdown(String(d.markdown || ""), flags);
+        const sourceText = normalizeSourceForEmbedding(d);
+        const sections = preprocessMarkdown(sourceText, flags);
         const chunks = makeChunks(sections, chunkCfg);
         for (const c of chunks) {
           const contentHash = sha256(c.text);
@@ -223,11 +244,13 @@ export const createEmbeddingRun = action(
       });
     }
 
-    return {
+    const result = {
       runId: run.id,
       docCount: docRows.length,
       sectionCount: sectionEmbRows.length,
     };
+    console.info("[embeddings.action] createEmbeddingRun:done", result);
+    return result;
   },
   "embedding-run-create"
 );
@@ -290,6 +313,11 @@ export const processEmbeddingRun = action(
     const input = processSchema.parse(payload);
     const batchSize = Math.min(500, Math.max(1, input.limit ?? 100));
     const mode = input.mode || "missing";
+    console.info("[embeddings.action] processEmbeddingRun:start", {
+      id: input.id,
+      mode,
+      batchSize,
+    });
 
     const run = await prisma.embeddingRun.findUnique({
       where: { id: input.id },
@@ -297,29 +325,40 @@ export const processEmbeddingRun = action(
     });
     if (!run) throw new Error("Not found");
 
-    let docs: { id: string; title: string; markdown: string }[] = [];
+    let docs: { id: string; title: string; markdown: string; html: string }[] = [];
     if (mode === "missing") {
-      const embedded = await prisma.docEmbedding.findMany({
-        where: { runId: run.id },
-        select: { docId: true },
-      });
-      const embeddedIds = new Set<string>(
-        embedded.map((e: any) => String(e.docId))
-      );
-      docs = (await prisma.doc.findMany({
-        where: { id: { notIn: Array.from(embeddedIds) } },
-        select: { id: true, title: true, markdown: true },
-        orderBy: { createdAt: "asc" },
-        take: batchSize,
-      })) as any;
+      try {
+        const rows = (await prisma.$queryRaw<any[]>`
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html
+          FROM "Doc" d
+          LEFT JOIN "DocEmbedding" de
+            ON de."docId" = d."id"
+           AND de."runId" = ${run.id}
+          WHERE de."id" IS NULL
+            AND (
+              COALESCE(TRIM(d."markdown"), '') <> ''
+              OR COALESCE(TRIM(d."html"), '') <> ''
+            )
+          ORDER BY d."createdAt" ASC
+          LIMIT ${batchSize};
+        `) as any[];
+        docs = rows as any;
+      } catch (err) {
+        console.log("[embeddings] failed to select missing eligible docs", err);
+        docs = [] as any;
+      }
     } else {
       try {
         const rows = (await prisma.$queryRaw<any[]>`
-          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html
           FROM "DocEmbedding" de
           JOIN "Doc" d ON d."id" = de."docId"
           WHERE de."runId" = ${run.id}
             AND d."updatedAt" > de."createdAt"
+            AND (
+              COALESCE(TRIM(d."markdown"), '') <> ''
+              OR COALESCE(TRIM(d."html"), '') <> ''
+            )
           ORDER BY d."updatedAt" ASC
           LIMIT ${batchSize};
         `) as any[];
@@ -332,13 +371,33 @@ export const processEmbeddingRun = action(
 
     if (!docs.length) {
       if (mode === "missing") {
-        const totalDocs = await prisma.doc.count();
-        const have = await prisma.docEmbedding.count({ where: { runId: run.id } });
-        return {
+        let remainingEligible = 0;
+        try {
+          const rows = (await prisma.$queryRaw<any[]>`
+            SELECT COUNT(*)::int AS c
+            FROM "Doc" d
+            LEFT JOIN "DocEmbedding" de
+              ON de."docId" = d."id"
+             AND de."runId" = ${run.id}
+            WHERE de."id" IS NULL
+              AND (
+                COALESCE(TRIM(d."markdown"), '') <> ''
+                OR COALESCE(TRIM(d."html"), '') <> ''
+              );
+          `) as any[];
+          remainingEligible = Number(rows?.[0]?.c || 0);
+        } catch {}
+        const result = {
           addedDocs: 0,
           addedSections: 0,
-          remaining: Math.max(0, totalDocs - have),
+          remaining: remainingEligible,
         };
+        console.info("[embeddings.action] processEmbeddingRun:done", {
+          ...result,
+          id: run.id,
+          mode,
+        });
+        return result;
       }
       let changedRemaining = 0;
       try {
@@ -351,8 +410,21 @@ export const processEmbeddingRun = action(
         `) as any[];
         changedRemaining = Number(rows?.[0]?.c || 0);
       } catch {}
-      return { addedDocs: 0, addedSections: 0, remaining: changedRemaining };
+      const result = { addedDocs: 0, addedSections: 0, remaining: changedRemaining };
+      console.info("[embeddings.action] processEmbeddingRun:done", {
+        ...result,
+        id: run.id,
+        mode,
+      });
+      return result;
     }
+
+    console.info("[embeddings.action] processEmbeddingRun:selectedDocs", {
+      id: run.id,
+      mode,
+      docsSelected: docs.length,
+      sampleDocIds: docs.slice(0, 5).map((d: any) => String(d.id)),
+    });
 
     const model = input.model || run.model;
     const flags: PreprocessFlags | undefined = (run.params as any) || undefined;
@@ -383,7 +455,8 @@ export const processEmbeddingRun = action(
     }
     for (const d of docs as any[]) {
       try {
-        const sections = preprocessMarkdown(String(d.markdown || ""), flags);
+        const sourceText = normalizeSourceForEmbedding(d);
+        const sections = preprocessMarkdown(sourceText, flags);
         const chunks = makeChunks(sections, chunkCfg);
         for (const c of chunks) {
           const contentHash = sha256(c.text);
@@ -410,6 +483,12 @@ export const processEmbeddingRun = action(
         );
       }
     }
+    console.info("[embeddings.action] processEmbeddingRun:chunked", {
+      id: run.id,
+      mode,
+      docsSelected: docs.length,
+      chunksPrepared: allChunks.length,
+    });
 
     const validChunks: ChunkItem[] = [];
     for (const item of allChunks) {
@@ -450,6 +529,14 @@ export const processEmbeddingRun = action(
           err
         );
       }
+    }
+    if (!validChunks.length && docs.length > 0) {
+      console.warn("[embeddings.action] processEmbeddingRun:noValidChunks", {
+        id: run.id,
+        mode,
+        docsSelected: docs.length,
+        sampleDocIds: docs.slice(0, 10).map((d: any) => String(d.id)),
+      });
     }
 
     console.log(
@@ -528,14 +615,86 @@ export const processEmbeddingRun = action(
       });
     }
 
+    let umapProjectionSummary:
+      | { runsUpdated: number; pointsProjected: number; failedRuns: number }
+      | undefined;
+    if (docRows.length) {
+      const trainedRuns = await prisma.umapRun.findMany({
+        where: {
+          embeddingRunId: run.id,
+          artifactPath: { not: null },
+        },
+        select: { id: true },
+      });
+      if (trainedRuns.length) {
+        let runsUpdated = 0;
+        let pointsProjected = 0;
+        let failedRuns = 0;
+        const rows = docRows.map((row) => ({
+          docId: row.docId,
+          vector: row.vector,
+        }));
+
+        for (const umapRun of trainedRuns) {
+          try {
+            const projected = await projectVectorsIntoUmapRun({
+              umapRunId: umapRun.id,
+              rows,
+              mode: "all",
+            });
+            if (projected.projected > 0) {
+              runsUpdated += 1;
+              pointsProjected += projected.projected;
+            }
+          } catch (error) {
+            failedRuns += 1;
+            console.warn(
+              `[embeddings] failed UMAP projection run=${umapRun.id}`,
+              error
+            );
+          }
+        }
+
+        umapProjectionSummary = {
+          runsUpdated,
+          pointsProjected,
+          failedRuns,
+        };
+      }
+    }
+
     if (mode === "missing") {
-      const totalDocs = await prisma.doc.count();
-      const have = await prisma.docEmbedding.count({ where: { runId: run.id } });
-      return {
+      let remainingEligible = 0;
+      try {
+        const rows = (await prisma.$queryRaw<any[]>`
+          SELECT COUNT(*)::int AS c
+          FROM "Doc" d
+          LEFT JOIN "DocEmbedding" de
+            ON de."docId" = d."id"
+           AND de."runId" = ${run.id}
+          WHERE de."id" IS NULL
+            AND (
+              COALESCE(TRIM(d."markdown"), '') <> ''
+              OR COALESCE(TRIM(d."html"), '') <> ''
+            );
+        `) as any[];
+        remainingEligible = Number(rows?.[0]?.c || 0);
+      } catch {}
+      const result = {
         addedDocs: docRows.length,
         addedSections: sectionEmbRows.length,
-        remaining: Math.max(0, totalDocs - have),
+        remaining: remainingEligible,
+        umapProjection: umapProjectionSummary,
       };
+      console.info("[embeddings.action] processEmbeddingRun:done", {
+        id: run.id,
+        mode,
+        addedDocs: result.addedDocs,
+        addedSections: result.addedSections,
+        remaining: result.remaining,
+        projectedPoints: result.umapProjection?.pointsProjected ?? 0,
+      });
+      return result;
     }
 
     let changedRemaining = 0;
@@ -550,11 +709,21 @@ export const processEmbeddingRun = action(
       changedRemaining = Number(rows?.[0]?.c || 0);
     } catch {}
 
-    return {
+    const result = {
       addedDocs: docRows.length,
       addedSections: sectionEmbRows.length,
       remaining: changedRemaining,
+      umapProjection: umapProjectionSummary,
     };
+    console.info("[embeddings.action] processEmbeddingRun:done", {
+      id: run.id,
+      mode,
+      addedDocs: result.addedDocs,
+      addedSections: result.addedSections,
+      remaining: result.remaining,
+      projectedPoints: result.umapProjection?.pointsProjected ?? 0,
+    });
+    return result;
   },
   "embedding-run-process"
 );

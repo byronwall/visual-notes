@@ -1,6 +1,8 @@
 import {
   type VoidComponent,
+  createEffect,
   For,
+  onCleanup,
   Show,
   Suspense,
 } from "solid-js";
@@ -10,11 +12,13 @@ import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
 import { Link } from "~/components/ui/link";
+import { Text } from "~/components/ui/text";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import * as Table from "~/components/ui/table";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import { fetchEmbeddingRuns } from "~/services/embeddings/embeddings.queries";
+import { fetchJobStatus, type JobStatus } from "~/services/jobs/jobs.queries";
 import { fetchUmapRuns } from "~/services/umap/umap.queries";
 import { createUmapRun } from "~/services/umap/umap.actions";
 
@@ -23,6 +27,7 @@ type UmapRun = {
   dims: number;
   params: Record<string, unknown> | null;
   embeddingRunId: string;
+  hasArtifact: boolean;
   createdAt: string;
 };
 
@@ -81,6 +86,7 @@ const UmapIndex: VoidComponent = () => {
   const runCreateUmap = useAction(createUmapRun);
   const [state, setState] = createStore({
     creating: false,
+    showAdvanced: false,
     selectedEmbedding: "",
     dims: 2 as 2 | 3,
     pcaVarsToKeep: "50",
@@ -95,6 +101,20 @@ const UmapIndex: VoidComponent = () => {
     setOpMixRatio: "",
     spread: "",
     init: "spectral" as "random" | "spectral",
+    activeJobId: "",
+  });
+  const activeJob = createAsync((): Promise<JobStatus | null> => {
+    if (!state.activeJobId) return Promise.resolve(null);
+    return fetchJobStatus(state.activeJobId);
+  });
+
+  createEffect(() => {
+    const jobId = state.activeJobId;
+    if (!jobId || typeof window === "undefined") return;
+    const timer = window.setInterval(() => {
+      void revalidate(fetchJobStatus.keyFor(jobId));
+    }, 1200);
+    onCleanup(() => window.clearInterval(timer));
   });
 
   const cloneRunToInputs = (r: UmapRun) => {
@@ -161,6 +181,13 @@ const UmapIndex: VoidComponent = () => {
     if (!state.selectedEmbedding) return;
 
     setState("creating", true);
+    const jobId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `umap-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setState("activeJobId", jobId);
+    await revalidate(fetchJobStatus.keyFor(jobId));
+
     try {
       const params: Record<string, unknown> = {};
       const pca = parseIntOrUndefined(state.pcaVarsToKeep);
@@ -203,6 +230,7 @@ const UmapIndex: VoidComponent = () => {
 
       await runCreateUmap({
         embeddingRunId: state.selectedEmbedding,
+        jobId,
         dims: state.dims,
         params,
       });
@@ -212,7 +240,12 @@ const UmapIndex: VoidComponent = () => {
       alert("Failed to start UMAP run");
     } finally {
       setState("creating", false);
+      setState("activeJobId", "");
     }
+  };
+
+  const toggleAdvanced = () => {
+    setState("showAdvanced", !state.showAdvanced);
   };
 
   return (
@@ -260,6 +293,71 @@ const UmapIndex: VoidComponent = () => {
             </Suspense>
           </Flex>
 
+          <Box borderWidth="1px" borderColor="border" borderRadius="l2" p="3">
+            <Stack gap="2">
+              <Heading as="h2" fontSize="sm">
+                Projection Workflow
+              </Heading>
+              <Text textStyle="sm" color="fg.muted">
+                1) Pick an embedding run and train UMAP once on this page.
+              </Text>
+              <Text textStyle="sm" color="fg.muted">
+                2) New or updated docs are embedded from the Embedding Run page.
+              </Text>
+              <Text textStyle="sm" color="fg.muted">
+                3) Fresh vectors are projected into trained UMAP models without retraining.
+              </Text>
+            </Stack>
+          </Box>
+
+          <Show when={state.activeJobId}>
+            <Suspense fallback={null}>
+              <Show when={activeJob()}>
+                {(job) => (
+                  <Box
+                    borderWidth="1px"
+                    borderColor="border"
+                    borderRadius="l2"
+                    bg="bg.default"
+                    p="3"
+                  >
+                    <Stack gap="2">
+                      <Flex align="center" justify="space-between" gap="3">
+                        <Box fontSize="sm" fontWeight="medium">
+                          {job().typeLabel}
+                        </Box>
+                        <Box fontSize="xs" color="fg.muted">
+                          {job().stageLabel} • {job().progress}%
+                        </Box>
+                      </Flex>
+                      <Box
+                        h="2"
+                        w="full"
+                        bg="bg.muted"
+                        borderRadius="full"
+                        overflow="hidden"
+                      >
+                        <Box
+                          h="full"
+                          bg={job().stage === "failed" ? "red.500" : "green.500"}
+                          style={{
+                            width: `${Math.max(0, Math.min(100, job().progress))}%`,
+                            transition: "width 180ms ease",
+                          }}
+                        />
+                      </Box>
+                      <Show when={job().error}>
+                        <Box fontSize="xs" color="red.600">
+                          {job().error}
+                        </Box>
+                      </Show>
+                    </Stack>
+                  </Box>
+                )}
+              </Show>
+            </Suspense>
+          </Show>
+
           <Box
             borderWidth="1px"
             borderColor="border"
@@ -268,9 +366,16 @@ const UmapIndex: VoidComponent = () => {
             p="3"
           >
             <Stack gap="3">
-              <Heading as="h2" fontSize="sm">
-                UMAP Parameters
-              </Heading>
+              <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
+                <Heading as="h2" fontSize="sm">
+                  UMAP Parameters
+                </Heading>
+                <Button size="xs" variant="outline" onClick={toggleAdvanced}>
+                  <Show when={state.showAdvanced} fallback={"Advanced"}>
+                    Hide Advanced
+                  </Show>
+                </Button>
+              </Flex>
 
               <Grid
                 gridTemplateColumns={{
@@ -353,108 +458,132 @@ const UmapIndex: VoidComponent = () => {
                   />
                 </Stack>
 
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    nEpochs (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={state.nEpochs}
-                    placeholder="200"
-                    onInput={(e) => setState("nEpochs", e.currentTarget.value)}
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    localConnectivity (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={state.localConnectivity}
-                    placeholder="1"
-                    onInput={(e) =>
-                      setState("localConnectivity", e.currentTarget.value)
-                    }
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    repulsionStrength (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={state.repulsionStrength}
-                    placeholder="1.0"
-                    onInput={(e) =>
-                      setState("repulsionStrength", e.currentTarget.value)
-                    }
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    negativeSampleRate (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={state.negativeSampleRate}
-                    placeholder="5"
-                    onInput={(e) =>
-                      setState("negativeSampleRate", e.currentTarget.value)
-                    }
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    setOpMixRatio (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="1"
-                    value={state.setOpMixRatio}
-                    placeholder="1.0"
-                    onInput={(e) =>
-                      setState("setOpMixRatio", e.currentTarget.value)
-                    }
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <Box as="label" fontSize="xs" color="fg.muted">
-                    spread (optional)
-                  </Box>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={state.spread}
-                    placeholder="1.0"
-                    onInput={(e) => setState("spread", e.currentTarget.value)}
-                  />
-                </Stack>
-
-                <Stack gap="1">
-                  <SimpleSelect
-                    items={INIT_ITEMS}
-                    value={state.init}
-                    onChange={(value) => setState("init", parseInit(value))}
-                    label="init"
-                    labelProps={{ fontSize: "xs", color: "fg.muted" }}
-                    sameWidth
-                    placeholder="init"
-                  />
-                </Stack>
+                <Show when={!state.showAdvanced}>
+                  <Stack gap="1">
+                    <SimpleSelect
+                      items={INIT_ITEMS}
+                      value={state.init}
+                      onChange={(value) => setState("init", parseInit(value))}
+                      label="init"
+                      labelProps={{ fontSize: "xs", color: "fg.muted" }}
+                      sameWidth
+                      placeholder="init"
+                    />
+                  </Stack>
+                </Show>
               </Grid>
+
+              <Show when={state.showAdvanced}>
+                <Grid
+                  gridTemplateColumns={{
+                    base: "1fr",
+                    md: "repeat(3, minmax(0, 1fr))",
+                  }}
+                  gap="3"
+                >
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      nEpochs (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={state.nEpochs}
+                      placeholder="200"
+                      onInput={(e) => setState("nEpochs", e.currentTarget.value)}
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      localConnectivity (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={state.localConnectivity}
+                      placeholder="1"
+                      onInput={(e) =>
+                        setState("localConnectivity", e.currentTarget.value)
+                      }
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      repulsionStrength (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={state.repulsionStrength}
+                      placeholder="1.0"
+                      onInput={(e) =>
+                        setState("repulsionStrength", e.currentTarget.value)
+                      }
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      negativeSampleRate (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={state.negativeSampleRate}
+                      placeholder="5"
+                      onInput={(e) =>
+                        setState("negativeSampleRate", e.currentTarget.value)
+                      }
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      setOpMixRatio (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={state.setOpMixRatio}
+                      placeholder="1.0"
+                      onInput={(e) =>
+                        setState("setOpMixRatio", e.currentTarget.value)
+                      }
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <Box as="label" fontSize="xs" color="fg.muted">
+                      spread (optional)
+                    </Box>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={state.spread}
+                      placeholder="1.0"
+                      onInput={(e) => setState("spread", e.currentTarget.value)}
+                    />
+                  </Stack>
+
+                  <Stack gap="1">
+                    <SimpleSelect
+                      items={INIT_ITEMS}
+                      value={state.init}
+                      onChange={(value) => setState("init", parseInit(value))}
+                      label="init"
+                      labelProps={{ fontSize: "xs", color: "fg.muted" }}
+                      sameWidth
+                      placeholder="init"
+                    />
+                  </Stack>
+                </Grid>
+              </Show>
             </Stack>
           </Box>
 
@@ -479,6 +608,7 @@ const UmapIndex: VoidComponent = () => {
                         <Table.Header textAlign="left">Run</Table.Header>
                         <Table.Header textAlign="left">Dims</Table.Header>
                         <Table.Header textAlign="left">Embedding</Table.Header>
+                        <Table.Header textAlign="left">Model</Table.Header>
                         <Table.Header textAlign="left">Created</Table.Header>
                         <Table.Header textAlign="left">Clone</Table.Header>
                         <Table.Header textAlign="right">Actions</Table.Header>
@@ -498,6 +628,11 @@ const UmapIndex: VoidComponent = () => {
                               <Link href={`/embeddings/${r.embeddingRunId}`}>
                                 {r.embeddingRunId.slice(0, 8)}
                               </Link>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Text textStyle="sm" color="fg.muted">
+                                {r.hasArtifact ? "Trained" : "Missing"}
+                              </Text>
                             </Table.Cell>
                             <Table.Cell>
                               {new Date(r.createdAt).toLocaleString()}

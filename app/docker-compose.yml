@@ -37,6 +37,8 @@ services:
       MAGIC_PASSWORD: ${MAGIC_PASSWORD:-magic-password}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      UMAP_PYTHON_BIN: ${UMAP_PYTHON_BIN:-python3}
+      UMAP_MODEL_DIR: ${UMAP_MODEL_DIR:-/app/data/umap-models}
       # Database pieces (compose defaults)
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}

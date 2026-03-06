@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 
 # -------- base deps --------
-FROM node:20-alpine AS base
+FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
@@ -23,14 +23,16 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm prisma generate && pnpm build
 
 # -------- runtime --------
-FROM node:20-alpine AS runtime
+FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /app
 
-# System deps for Prisma engine in alpine
-RUN apk add --no-cache openssl libc6-compat
+# System deps for Prisma + Python UMAP worker
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-pip \
+  && rm -rf /var/lib/apt/lists/*
 # Enable pnpm via Corepack in runtime
 RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
 
@@ -38,6 +40,9 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/scripts ./scripts
+
+RUN python3 -m pip install --no-cache-dir -r ./scripts/requirements-umap.txt
 
 EXPOSE 3000
 CMD ["sh","-c","pnpm start-prod"]

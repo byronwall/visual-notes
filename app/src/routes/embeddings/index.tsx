@@ -152,6 +152,23 @@ const EmbeddingsIndex: VoidComponent = () => {
             </HStack>
           </Flex>
 
+          <Box borderWidth="1px" borderColor="border" borderRadius="l2" p="3">
+            <Stack gap="2">
+              <Heading as="h2" fontSize="sm">
+                Workflow
+              </Heading>
+              <Text textStyle="sm" color="fg.muted">
+                1) Create or update embeddings from this page.
+              </Text>
+              <Text textStyle="sm" color="fg.muted">
+                2) Train a UMAP model once for an embedding run.
+              </Text>
+              <Text textStyle="sm" color="fg.muted">
+                3) Process new or changed notes to auto-project fresh points.
+              </Text>
+            </Stack>
+          </Box>
+
           <Show when={state.showAdvanced}>
             <Box borderWidth="1px" borderColor="border" borderRadius="l2" p="3">
               <Grid

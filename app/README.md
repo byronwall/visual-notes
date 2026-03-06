@@ -18,6 +18,7 @@ Small Solid app that ingests a Markdown document via API and displays a rendered
 - `UMAP` page lets you choose an embeddings run and create a UMAP projection.
 - `UMAP > [run]` shows run info and a small points preview (first 48).
 - `Canvas` uses the latest UMAP run to place notes; otherwise it falls back to a seeded layout.
+- UMAP runs are Python-backed (`umap-learn`) and persist a model artifact so new embeddings can be projected later without retraining.
 
 ## Getting started
 
@@ -25,6 +26,12 @@ Small Solid app that ingests a Markdown document via API and displays a rendered
 
 ```bash
 pnpm i
+```
+
+For persisted UMAP train/transform support, install Python deps once:
+
+```bash
+pnpm umap:setup:local
 ```
 
 2. Environment variables

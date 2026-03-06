@@ -77,8 +77,12 @@ class JobsDb {
     return result;
   }
 
-  async createJob(type: JobType, sessionId: string | null): Promise<Job> {
-    const jobId = id();
+  async createJob(
+    type: JobType,
+    sessionId: string | null,
+    forcedId?: string
+  ): Promise<Job> {
+    const jobId = forcedId?.trim() || id();
     const job: Job = {
       id: jobId,
       type,

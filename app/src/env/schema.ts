@@ -11,6 +11,8 @@ export const serverScheme = z.object({
   MAGIC_PASSWORD: z.string(),
   OPENAI_API_KEY: z.string().optional(),
   EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  UMAP_PYTHON_BIN: z.string().optional(),
+  UMAP_MODEL_DIR: z.string().optional(),
   // Explicit public base URL for server-side absolute fetch construction
   PUBLIC_BASE_URL: z.string().url().optional(),
   // Back-compat alias

@@ -8,12 +8,15 @@ import {
   Suspense,
 } from "solid-js";
 import { createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
+import { RotateCcwIcon } from "lucide-solid";
 import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
 import { Heading } from "~/components/ui/heading";
+import { IconButton } from "~/components/ui/icon-button";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
-import * as Table from "~/components/ui/table";
-import { Box, Container, Flex, Stack } from "styled-system/jsx";
+import { Tooltip } from "~/components/ui/tooltip";
+import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import {
   fetchUmapPointsForRun,
   fetchUmapRun,
@@ -29,7 +32,26 @@ type RunMeta = {
   embeddingRunId: string;
   createdAt: string;
   count?: number;
+  hasArtifact?: boolean;
+  artifactPath?: string | null;
 };
+
+function formatParamValue(value: unknown): string {
+  if (value == null) return "null";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function getParamEntries(params?: Record<string, unknown> | null): [string, unknown][] {
+  return Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
+}
 
 const UmapDetail: VoidComponent = () => {
   const params = useParams();
@@ -177,211 +199,224 @@ const UmapDetail: VoidComponent = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container py="4" px="4" maxW="1200px">
-        <Stack gap="6">
-          <Flex align="center" justify="space-between" gap="4" flexWrap="wrap">
-            <Stack gap="1">
-              <Heading as="h1" fontSize="2xl">
-                UMAP Run
-              </Heading>
-              <Suspense
-                fallback={
-                  <Text textStyle="sm" color="fg.muted">
-                    Loading…
-                  </Text>
-                }
-              >
-                <Show when={meta()}>
-                  {(m) => (
-                    <Stack gap="1" fontSize="sm" color="fg.muted">
-                      <Box>
-                        <Box as="span" fontWeight="semibold" color="fg.default">
-                          ID:
-                        </Box>{" "}
-                        {m().id}
-                      </Box>
-                      <Box>
-                        <Box as="span" fontWeight="semibold" color="fg.default">
-                          Dims:
-                        </Box>{" "}
-                        {m().dims}D
-                      </Box>
-                      <Box>
-                        <Box as="span" fontWeight="semibold" color="fg.default">
-                          Embedding Run:
-                        </Box>{" "}
-                        <Link href={`/embeddings/${m().embeddingRunId}`}>
-                          {m().embeddingRunId.slice(0, 10)}
-                        </Link>
-                      </Box>
-                      <Box>
-                        <Box as="span" fontWeight="semibold" color="fg.default">
-                          Created:
-                        </Box>{" "}
-                        {new Date(m().createdAt).toLocaleString()}
-                      </Box>
-
-                      <Box pt="2">
-                        <Box
-                          as="span"
-                          fontWeight="semibold"
-                          color="fg.default"
-                        >
-                          Params:
-                        </Box>
-                        <Show
-                          when={m().params && Object.keys(m().params || {}).length > 0}
-                          fallback={
-                            <Box as="span" ml="1" color="fg.subtle">
-                              (none)
-                            </Box>
-                          }
-                        >
-                          <Box
-                            mt="2"
-                            borderWidth="1px"
-                            borderColor="border"
-                            borderRadius="l2"
-                            overflow="hidden"
-                          >
-                            <Table.Root>
-                              <Table.Head>
-                                <Table.Row>
-                                  <Table.Header textAlign="left">
-                                    Key
-                                  </Table.Header>
-                                  <Table.Header textAlign="left">
-                                    Value
-                                  </Table.Header>
-                                </Table.Row>
-                              </Table.Head>
-                              <Table.Body>
-                                <For
-                                  each={Object.entries(
-                                    (m().params as Record<string, unknown>) || {}
-                                  )}
-                                >
-                                  {([k, v]) => (
-                                    <Table.Row>
-                                      <Table.Cell fontFamily="mono" fontSize="xs">
-                                        {k}
-                                      </Table.Cell>
-                                      <Table.Cell fontSize="xs">
-                                        {typeof v === "object"
-                                          ? JSON.stringify(v)
-                                          : String(v)}
-                                      </Table.Cell>
-                                    </Table.Row>
-                                  )}
-                                </For>
-                              </Table.Body>
-                            </Table.Root>
-                          </Box>
-                        </Show>
-                      </Box>
-                    </Stack>
-                  )}
-                </Show>
-              </Suspense>
-            </Stack>
-
-            <Button
-              size="sm"
-              variant="solid"
-              colorPalette="red"
-              loading={busy()}
-              onClick={handleDelete}
-            >
-              Delete Run
-            </Button>
-          </Flex>
-
-          <Suspense
-            fallback={
+      <Container py="4" px="4" maxW="1440px">
+        <Suspense
+          fallback={
+            <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
               <Text textStyle="sm" color="fg.muted">
-                Loading points…
+                Loading run…
               </Text>
+            </Box>
+          }
+        >
+          <Show
+            when={meta()}
+            fallback={
+              <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
+                <Text textStyle="sm" color="fg.muted">
+                  This UMAP run could not be loaded.
+                </Text>
+                <Box mt="3">
+                  <Link href="/umap">Back to UMAP</Link>
+                </Box>
+              </Box>
             }
           >
-            <Show when={data()}>
-              {(d) => (
-                <Stack gap="4">
-                  <Box
-                    borderWidth="1px"
-                    borderColor="border"
-                    borderRadius="l2"
-                    overflow="hidden"
+            {(m) => {
+              const paramEntries = getParamEntries(m().params);
+              return (
+                <Grid
+                  gridTemplateColumns={{
+                    base: "1fr",
+                    xl: "minmax(0, 1.9fr) minmax(320px, 1fr)",
+                  }}
+                  gap="4"
+                  alignItems="start"
+                >
+                  <Suspense
+                    fallback={
+                      <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
+                        <Text textStyle="sm" color="fg.muted">
+                          Loading points…
+                        </Text>
+                      </Box>
+                    }
                   >
-                    <Flex
-                      align="center"
-                      justify="space-between"
-                      px="3"
-                      py="2"
+                    <Show
+                      when={data()}
+                      fallback={
+                        <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
+                          <Text textStyle="sm" color="fg.muted">
+                            No point data available for this run yet.
+                          </Text>
+                        </Box>
+                      }
                     >
-                      <Text textStyle="sm" color="fg.muted">
-                        {d().points.length} points ({d().dims}D)
-                      </Text>
-                      <Button size="xs" variant="outline" onClick={refreshPoints}>
-                        Refresh
-                      </Button>
-                    </Flex>
+                      {(d) => (
+                        <Box
+                          borderWidth="1px"
+                          borderColor="border"
+                          borderRadius="l3"
+                          overflow="hidden"
+                        >
+                          <Flex
+                            align="center"
+                            justify="space-between"
+                            gap="3"
+                            flexWrap="wrap"
+                            px="4"
+                            py="3"
+                            borderBottomWidth="1px"
+                            borderColor="border"
+                          >
+                            <HStack gap="2" flexWrap="wrap">
+                              <Heading as="h1" fontSize="xl">
+                                UMAP Run
+                              </Heading>
+                              <Badge colorPalette="blue">{d().dims}D</Badge>
+                              <Badge colorPalette="gray">
+                                {d().points.length.toLocaleString()} points
+                              </Badge>
+                            </HStack>
+                            <HStack gap="2" flexWrap="wrap">
+                              <Tooltip content="Refresh points" showArrow>
+                                <IconButton
+                                  size="xs"
+                                  variant="outline"
+                                  aria-label="Refresh points"
+                                  onClick={refreshPoints}
+                                >
+                                  <RotateCcwIcon size={12} />
+                                </IconButton>
+                              </Tooltip>
+                              <Link href="/umap">Back to UMAP</Link>
+                              <Button
+                                size="sm"
+                                variant="solid"
+                                colorPalette="red"
+                                loading={busy()}
+                                onClick={handleDelete}
+                              >
+                                Delete Run
+                              </Button>
+                            </HStack>
+                          </Flex>
 
-                    <Box
-                      ref={(el) => (canvasContainerEl = el)}
-                      w="full"
-                      style={{ height: "360px" }}
-                    >
-                      <canvas ref={(el) => (canvasEl = el)} />
+                          <Box
+                            ref={(el) => (canvasContainerEl = el)}
+                            w="full"
+                            style={{ height: "clamp(360px, calc(100vh - 200px), 860px)" }}
+                          >
+                            <canvas ref={(el) => (canvasEl = el)} />
+                          </Box>
+                        </Box>
+                      )}
+                    </Show>
+                  </Suspense>
+
+                  <Stack gap="3">
+                    <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="3">
+                      <Stack gap="2">
+                        <Heading as="h2" fontSize="sm">
+                          Run Metadata
+                        </Heading>
+                        <Grid
+                          gridTemplateColumns="auto 1fr"
+                          columnGap="3"
+                          rowGap="2"
+                          alignItems="start"
+                        >
+                          <Text textStyle="xs" color="fg.subtle">
+                            ID
+                          </Text>
+                          <Text textStyle="xs" fontFamily="mono" lineBreak="anywhere">
+                            {m().id}
+                          </Text>
+                          <Text textStyle="xs" color="fg.subtle">
+                            Embedding run
+                          </Text>
+                          <Link href={`/embeddings/${m().embeddingRunId}`}>
+                            {m().embeddingRunId}
+                          </Link>
+                          <Text textStyle="xs" color="fg.subtle">
+                            Created
+                          </Text>
+                          <Text textStyle="sm" color="fg.muted">
+                            {new Date(m().createdAt).toLocaleString()}
+                          </Text>
+                          <Text textStyle="xs" color="fg.subtle">
+                            Model artifact
+                          </Text>
+                          <Show
+                            when={m().artifactPath}
+                            fallback={
+                              <Text textStyle="sm" color="fg.muted">
+                                Not available
+                              </Text>
+                            }
+                          >
+                            <Text textStyle="xs" fontFamily="mono" lineBreak="anywhere">
+                              {m().artifactPath}
+                            </Text>
+                          </Show>
+                        </Grid>
+                      </Stack>
                     </Box>
-                  </Box>
 
-                  <Box
-                    borderWidth="1px"
-                    borderColor="border"
-                    borderRadius="l2"
-                    overflow="hidden"
-                  >
-                    <Table.Root>
-                      <Table.Head>
-                        <Table.Row>
-                          <Table.Header textAlign="left">Doc</Table.Header>
-                          <Table.Header textAlign="left">x</Table.Header>
-                          <Table.Header textAlign="left">y</Table.Header>
-                          <Table.Header textAlign="left">z</Table.Header>
-                        </Table.Row>
-                      </Table.Head>
-                      <Table.Body>
-                        <For each={d().points.slice(0, 50)}>
-                          {(p) => (
-                            <Table.Row>
-                              <Table.Cell fontFamily="mono" fontSize="xs">
-                                <Link href={`/docs/${p.docId}`}>
-                                  {p.docId.slice(0, 10)}
-                                </Link>
-                              </Table.Cell>
-                              <Table.Cell>{p.x.toFixed(2)}</Table.Cell>
-                              <Table.Cell>{p.y.toFixed(2)}</Table.Cell>
-                              <Table.Cell>
-                                {p.z != null ? p.z.toFixed(2) : "-"}
-                              </Table.Cell>
-                            </Table.Row>
-                          )}
-                        </For>
-                      </Table.Body>
-                    </Table.Root>
-                    <Box px="3" py="2">
-                      <Text textStyle="xs" color="fg.muted">
-                        Showing first 50 points.
-                      </Text>
+                    <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="3">
+                      <Stack gap="2">
+                        <Flex align="center" justify="space-between" gap="3">
+                          <Heading as="h2" fontSize="sm">
+                            Training Params
+                          </Heading>
+                          <Badge colorPalette="gray">{paramEntries.length}</Badge>
+                        </Flex>
+                        <Show
+                          when={paramEntries.length > 0}
+                          fallback={
+                            <Text textStyle="sm" color="fg.muted">
+                              No training parameters were recorded.
+                            </Text>
+                          }
+                        >
+                          <Box maxH={{ base: "none", xl: "calc(100vh - 360px)" }} overflowY="auto">
+                            <Stack gap="0">
+                              <For each={paramEntries}>
+                                {([key, value]) => (
+                                  <Grid
+                                    gridTemplateColumns="minmax(0, 1fr) minmax(0, 1.3fr)"
+                                    gap="3"
+                                    py="2"
+                                    borderTopWidth="1px"
+                                    borderColor="border"
+                                    alignItems="start"
+                                  >
+                                    <Text
+                                      textStyle="xs"
+                                      fontFamily="mono"
+                                      color="fg.subtle"
+                                      lineBreak="anywhere"
+                                    >
+                                      {key}
+                                    </Text>
+                                    <Text textStyle="xs" lineBreak="anywhere">
+                                      {formatParamValue(value)}
+                                    </Text>
+                                  </Grid>
+                                )}
+                              </For>
+                            </Stack>
+                          </Box>
+                        </Show>
+                      </Stack>
                     </Box>
-                  </Box>
-                </Stack>
-              )}
-            </Show>
-          </Suspense>
 
-          <Link href="/umap">← Back to UMAP</Link>
-        </Stack>
+                  </Stack>
+                </Grid>
+              );
+            }}
+          </Show>
+        </Suspense>
       </Container>
     </Box>
   );

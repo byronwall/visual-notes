@@ -1,11 +1,19 @@
 import { action } from "@solidjs/router";
 import { z } from "zod";
-import * as UmapModule from "umap-js";
 import { prisma } from "~/server/db";
-import { projectWithPCA } from "~/server/lib/embedding/pca";
+import { jobsDb } from "~/server/jobs-db";
+import {
+  removeUmapArtifact,
+  trainUmapModel,
+  type UmapPythonParams,
+} from "~/server/lib/umap/python-umap";
+import {
+  projectDocEmbeddingsIntoUmapRun,
+} from "~/services/umap/umap.projection";
 
 const createSchema = z.object({
   embeddingRunId: z.string(),
+  jobId: z.string().min(1).optional(),
   dims: z.union([z.literal(2), z.literal(3)]).default(2),
   params: z
     .object({
@@ -21,6 +29,7 @@ const createSchema = z.object({
       setOpMixRatio: z.number().min(0).max(1).optional(),
       spread: z.number().positive().optional(),
       init: z.enum(["random", "spectral"]).optional(),
+      randomState: z.number().int().optional(),
     })
     .optional(),
 });
@@ -35,68 +44,119 @@ const deleteSchema = z.object({
   id: z.string().min(1),
 });
 
+const projectSchema = z.object({
+  umapRunId: z.string().min(1),
+  embeddingRunId: z.string().min(1).optional(),
+  docIds: z.array(z.string().min(1)).optional(),
+  mode: z.enum(["missing", "all"]).default("missing"),
+});
+
 export const createUmapRun = action(
   async (payload: z.infer<typeof createSchema>) => {
     "use server";
     const input = createSchema.parse(payload);
+    const job = await jobsDb().createJob("umap_train", null, input.jobId);
+    let createdRunId: string | null = null;
+    let artifactPath: string | null = null;
 
-    const rows = await prisma.docEmbedding.findMany({
-      where: { runId: input.embeddingRunId },
-      select: { docId: true, vector: true },
-      orderBy: { createdAt: "asc" },
-    });
-    if (!rows.length) throw new Error("No embeddings for run");
+    try {
+      await jobsDb().updateJobStage(job.id, "extract");
+      const rows = await prisma.docEmbedding.findMany({
+        where: { runId: input.embeddingRunId },
+        select: { docId: true, vector: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!rows.length) throw new Error("No embeddings for run");
 
-    const matrix = rows.map((r: any) => r.vector as number[]);
-    const pcaKeep = input.params?.pcaVarsToKeep ?? 50;
-    const projected = pcaKeep === 0 ? matrix : projectWithPCA(matrix, pcaKeep);
-    const UMAPCtor = (UmapModule as any).UMAP || (UmapModule as any).default;
-    if (typeof UMAPCtor !== "function") {
-      throw new Error("UMAP constructor not found in umap-js module");
-    }
-    const umap = new UMAPCtor({
-      nComponents: input.dims,
-      nNeighbors: input.params?.nNeighbors ?? 15,
-      minDist: input.params?.minDist ?? 0.1,
-      metric: input.params?.metric ?? "cosine",
-      learningRate: input.params?.learningRate,
-      nEpochs: input.params?.nEpochs,
-      localConnectivity: input.params?.localConnectivity,
-      repulsionStrength: input.params?.repulsionStrength,
-      negativeSampleRate: input.params?.negativeSampleRate,
-      setOpMixRatio: input.params?.setOpMixRatio,
-      spread: input.params?.spread,
-      init: input.params?.init,
-    } as any);
-    const embedding = umap.fit(projected);
+      const run = await prisma.umapRun.create({
+        data: {
+          embeddingRunId: input.embeddingRunId,
+          dims: input.dims,
+          params: input.params ?? {},
+          artifactPath: null,
+        },
+        select: { id: true },
+      });
+      createdRunId = run.id;
 
-    const run = await prisma.umapRun.create({
-      data: {
-        embeddingRunId: input.embeddingRunId,
-        dims: input.dims,
-        params: input.params ?? {},
-      },
-      select: { id: true },
-    });
-
-    const points = rows.map((r: any, i: number) => {
-      const coords = embedding[i] as number[];
-      return {
+      await jobsDb().updateJobStage(job.id, "analyze");
+      const trainResult = await trainUmapModel({
         runId: run.id,
-        docId: r.docId,
-        x: coords[0] ?? 0,
-        y: coords[1] ?? 0,
-        z: input.dims === 3 ? coords[2] ?? 0 : null,
-      };
-    });
-    await prisma.umapPoint.createMany({
-      data: points,
-      skipDuplicates: true,
-    });
+        matrix: rows.map((row) => row.vector as number[]),
+        dims: input.dims,
+        umapParams: (input.params ?? {}) as UmapPythonParams,
+      });
+      artifactPath = trainResult.artifactPath;
 
-    return { jobId: null, runId: run.id };
+      if (trainResult.points.length !== rows.length) {
+        throw new Error("UMAP training returned unexpected number of points");
+      }
+
+      const points = rows.map((row, index) => {
+        const coords = trainResult.points[index] ?? [];
+        return {
+          runId: run.id,
+          docId: row.docId,
+          x: coords[0] ?? 0,
+          y: coords[1] ?? 0,
+          z: input.dims === 3 ? (coords[2] ?? 0) : null,
+        };
+      });
+
+      await jobsDb().updateJobStage(job.id, "finalize");
+      await prisma.$transaction([
+        prisma.umapRun.update({
+          where: { id: run.id },
+          data: { artifactPath },
+        }),
+        prisma.umapPoint.createMany({
+          data: points,
+          skipDuplicates: true,
+        }),
+      ]);
+
+      console.info(
+        `[umap] trained run=${run.id} count=${points.length} fitMs=${
+          trainResult.fitMs ?? -1
+        }`
+      );
+
+      await jobsDb().completeJob(job.id, run.id);
+      return { jobId: job.id, runId: run.id, count: points.length };
+    } catch (error) {
+      if (artifactPath) {
+        await removeUmapArtifact(artifactPath).catch(() => {});
+      }
+      if (createdRunId) {
+        await prisma.umapPoint.deleteMany({ where: { runId: createdRunId } }).catch(() => {});
+        await prisma.umapRun.delete({ where: { id: createdRunId } }).catch(() => null);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      await jobsDb().failJob(job.id, message).catch(() => {});
+      throw error;
+    }
   },
   "umap-run-create"
+);
+
+export const projectUmapRun = action(
+  async (payload: z.infer<typeof projectSchema>) => {
+    "use server";
+    const input = projectSchema.parse(payload);
+
+    const result = await projectDocEmbeddingsIntoUmapRun({
+      umapRunId: input.umapRunId,
+      embeddingRunId: input.embeddingRunId,
+      docIds: input.docIds,
+      mode: input.mode,
+    });
+
+    console.info(
+      `[umap] projected run=${result.runId} embeddingRun=${result.embeddingRunId} projected=${result.projected} requested=${result.requested}`
+    );
+    return result;
+  },
+  "umap-run-project"
 );
 
 export const updateUmapRun = action(
@@ -132,12 +192,18 @@ export const deleteUmapRun = action(
   async (payload: z.infer<typeof deleteSchema>) => {
     "use server";
     const input = deleteSchema.parse(payload);
-    await prisma.umapPoint.deleteMany({ where: { runId: input.id } });
-    const deleted = await prisma.umapRun
-      .delete({ where: { id: input.id }, select: { id: true } })
-      .catch(() => null);
-    if (!deleted) throw new Error("Not found");
-    return { ok: true, id: deleted.id };
+    const run = await prisma.umapRun.findUnique({
+      where: { id: input.id },
+      select: { id: true, artifactPath: true },
+    });
+    if (!run) throw new Error("Not found");
+
+    await prisma.$transaction([
+      prisma.umapPoint.deleteMany({ where: { runId: input.id } }),
+      prisma.umapRun.delete({ where: { id: input.id } }),
+    ]);
+    await removeUmapArtifact(run.artifactPath).catch(() => {});
+    return { ok: true, id: run.id };
   },
   "umap-run-delete"
 );
