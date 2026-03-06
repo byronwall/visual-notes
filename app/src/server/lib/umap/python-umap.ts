@@ -41,7 +41,16 @@ type TransformOutput = {
 
 function resolvePythonBin(): string {
   const envBin = serverEnv.UMAP_PYTHON_BIN?.trim();
-  return envBin && envBin.length > 0 ? envBin : "python3";
+  if (envBin && envBin.length > 0) {
+    return envBin;
+  }
+
+  const venvBin = path.resolve(process.cwd(), ".venv", "bin", "python");
+  if (existsSync(venvBin)) {
+    return venvBin;
+  }
+
+  return "python3";
 }
 
 function resolveUmapScriptPath(): string {
