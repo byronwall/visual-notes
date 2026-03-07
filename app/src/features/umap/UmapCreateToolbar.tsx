@@ -1,9 +1,10 @@
 import { Suspense } from "solid-js";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
+import * as SegmentGroup from "~/components/ui/segment-group";
 import { SimpleSelect } from "~/components/ui/simple-select";
-import { Flex, HStack } from "styled-system/jsx";
-import { DIMS_ITEMS, type SelectItem } from "~/features/umap/types";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { type SelectItem } from "~/features/umap/types";
 
 type UmapCreateToolbarProps = {
   embeddingItems: SelectItem[];
@@ -17,45 +18,58 @@ type UmapCreateToolbarProps = {
 
 export function UmapCreateToolbar(props: UmapCreateToolbarProps) {
   return (
-    <Flex align="center" justify="space-between" gap="4" flexWrap="wrap">
-      <Heading as="h1" fontSize="2xl">
-        UMAP
-      </Heading>
+    <Box borderWidth="1px" borderColor="border" borderRadius="l2" bg="bg.default" p="3">
+      <Stack gap="3">
+        <Heading as="h2" fontSize="sm">
+          New UMAP Run
+        </Heading>
 
-      <Suspense fallback={null}>
-        <HStack gap="3" flexWrap="wrap">
-          <SimpleSelect
-            items={props.embeddingItems}
-            value={props.selectedEmbedding}
-            onChange={props.onSelectedEmbeddingChange}
-            skipPortal
-            sameWidth
-            minW="260px"
-            placeholder="Select embedding run…"
-          />
+        <Stack gap="2">
+          <Box as="label" fontSize="xs" color="fg.muted">
+            Embedding run and dimensions
+          </Box>
+          <HStack gap="2" alignItems="stretch">
+            <Box flex="1">
+              <Suspense fallback={null}>
+                <SimpleSelect
+                  items={props.embeddingItems}
+                  value={props.selectedEmbedding}
+                  onChange={props.onSelectedEmbeddingChange}
+                  skipPortal
+                  sameWidth
+                  placeholder="Select embedding run…"
+                />
+              </Suspense>
+            </Box>
+            <SegmentGroup.Root
+              size="sm"
+              value={String(props.dims)}
+              onValueChange={(details) => props.onDimsChange(details.value === "3" ? 3 : 2)}
+            >
+              <SegmentGroup.Indicator />
+              <SegmentGroup.Item value="2">
+                <SegmentGroup.ItemText>2D</SegmentGroup.ItemText>
+                <SegmentGroup.ItemHiddenInput />
+              </SegmentGroup.Item>
+              <SegmentGroup.Item value="3">
+                <SegmentGroup.ItemText>3D</SegmentGroup.ItemText>
+                <SegmentGroup.ItemHiddenInput />
+              </SegmentGroup.Item>
+            </SegmentGroup.Root>
+          </HStack>
+        </Stack>
 
-          <SimpleSelect
-            items={DIMS_ITEMS}
-            value={String(props.dims)}
-            onChange={(value) => props.onDimsChange(value === "3" ? 3 : 2)}
-            skipPortal
-            sameWidth
-            minW="96px"
-            placeholder="Dims"
-          />
-
-          <Button
-            size="sm"
-            variant="solid"
-            colorPalette="green"
-            loading={props.creating}
-            disabled={!props.selectedEmbedding}
-            onClick={props.onCreateRun}
-          >
-            Create Run
-          </Button>
-        </HStack>
-      </Suspense>
-    </Flex>
+        <Button
+          size="sm"
+          variant="solid"
+          colorPalette="green"
+          loading={props.creating}
+          disabled={!props.selectedEmbedding}
+          onClick={props.onCreateRun}
+        >
+          Create Run
+        </Button>
+      </Stack>
+    </Box>
   );
 }

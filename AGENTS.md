@@ -34,6 +34,7 @@ guidelines from comp_refs.
   - Prefer `~/components/ui/*` wrappers over direct Ark UI usage in routes.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
+  - In UI surfaces, prefer relative timestamps (for example, `5m ago`, `2d ago`) over absolute datetimes. Use absolute timestamps only when precision/auditability is required.
   - Prefer subtle background/surface differences (`bg.subtle`, `bg.muted`, spacing) over heavy border stacks to separate sections; use borders sparingly for true emphasis or interactive affordance.
   - For simple single-field edits (for example names/titles), prefer inline edit-in-place interactions over opening a dedicated modal.
   - Avoid generic instructional helper copy in polished UI surfaces (for example, “hover/click to…” lines) unless user enablement truly depends on it.

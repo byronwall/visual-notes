@@ -1,7 +1,9 @@
 import { type VoidComponent, createEffect, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { createAsync, revalidate, useAction } from "@solidjs/router";
-import { Box, Container, Stack } from "styled-system/jsx";
+import { Heading } from "~/components/ui/heading";
+import { Text } from "~/components/ui/text";
+import { Box, Container, Grid, Stack } from "styled-system/jsx";
 import { fetchEmbeddingRuns } from "~/services/embeddings/embeddings.queries";
 import { fetchJobStatus } from "~/services/jobs/jobs.queries";
 import { fetchUmapRuns } from "~/services/umap/umap.queries";
@@ -186,29 +188,46 @@ const UmapIndex: VoidComponent = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container py="4" px="4" maxW="1200px">
+      <Container py="5" px="4" maxW="1400px">
         <Stack gap="6">
-          <UmapCreateToolbar
-            embeddingItems={embeddingSelectItems()}
-            selectedEmbedding={state.selectedEmbedding}
-            dims={state.dims}
-            creating={state.creating}
-            onSelectedEmbeddingChange={(value) => setState("selectedEmbedding", value)}
-            onDimsChange={(value) => setState("dims", value)}
-            onCreateRun={handleCreateRun}
-          />
+          <Stack gap="1">
+            <Heading as="h1" fontSize="3xl">
+              UMAP Workspace
+            </Heading>
+            <Text textStyle="sm" color="fg.muted">
+              Manage trained projections on the left, configure and launch new runs on the right.
+            </Text>
+          </Stack>
 
-          <UmapWorkflowCard />
+          <Grid
+            gridTemplateColumns={{ base: "1fr", xl: "minmax(0, 1.5fr) minmax(360px, 1fr)" }}
+            alignItems="start"
+            gap="4"
+          >
+            <UmapRunsTable runs={runs} onClone={cloneRunToInputs} />
 
-          <UmapJobStatusCard activeJobId={state.activeJobId} activeJob={activeJob} />
+            <Stack gap="4" position={{ xl: "sticky" }} top={{ xl: "4" }}>
+              <UmapWorkflowCard />
 
-          <UmapParamsCard
-            state={state}
-            onToggleAdvanced={() => setState("showAdvanced", !state.showAdvanced)}
-            onFieldChange={(field, value) => setState(field, value)}
-          />
+              <UmapCreateToolbar
+                embeddingItems={embeddingSelectItems()}
+                selectedEmbedding={state.selectedEmbedding}
+                dims={state.dims}
+                creating={state.creating}
+                onSelectedEmbeddingChange={(value) => setState("selectedEmbedding", value)}
+                onDimsChange={(value) => setState("dims", value)}
+                onCreateRun={handleCreateRun}
+              />
 
-          <UmapRunsTable runs={runs} onClone={cloneRunToInputs} />
+              <UmapJobStatusCard activeJobId={state.activeJobId} activeJob={activeJob} />
+
+              <UmapParamsCard
+                state={state}
+                onToggleAdvanced={() => setState("showAdvanced", !state.showAdvanced)}
+                onFieldChange={(field, value) => setState(field, value)}
+              />
+            </Stack>
+          </Grid>
         </Stack>
       </Container>
     </Box>

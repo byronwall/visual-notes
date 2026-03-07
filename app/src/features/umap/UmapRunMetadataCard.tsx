@@ -2,7 +2,7 @@ import { Show } from "solid-js";
 import { Heading } from "~/components/ui/heading";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
-import { formatTimestampUtc } from "~/features/umap/format";
+import { formatRelativeTimestamp } from "~/features/umap/format";
 import type { UmapRunMeta } from "~/features/umap/detail-types";
 import { Box, Grid, Stack } from "styled-system/jsx";
 
@@ -36,7 +36,7 @@ export function UmapRunMetadataCard(props: UmapRunMetadataCardProps) {
             Created
           </Text>
           <Text textStyle="sm" color="fg.muted">
-            {formatTimestampUtc(props.meta.createdAt)}
+            {formatRelativeTimestamp(props.meta.createdAt)}
           </Text>
 
           <Text textStyle="xs" color="fg.subtle">

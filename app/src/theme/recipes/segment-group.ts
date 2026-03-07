@@ -26,6 +26,7 @@ export const segmentGroup = defineSlotRecipe({
     item: {
       alignItems: 'center',
       borderRadius: 'l3',
+      cursor: 'pointer',
       display: 'inline-flex',
       flexShrink: '0',
       fontWeight: 'medium',
@@ -34,7 +35,14 @@ export const segmentGroup = defineSlotRecipe({
       position: 'relative',
       userSelect: 'none',
       _disabled: {
+        cursor: 'default',
         opacity: '0.5',
+      },
+      '&[data-state=unchecked]:hover': {
+        bg: 'gray.surface.bg.hover',
+      },
+      '&[data-state=checked]:hover': {
+        bg: 'transparent',
       },
       '&:has(input:focus-visible)': {
         focusVisibleRing: 'outside',
