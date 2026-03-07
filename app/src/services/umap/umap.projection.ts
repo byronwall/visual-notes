@@ -1,12 +1,10 @@
 import { prisma } from "~/server/db";
 import { transformWithUmapModel } from "~/server/lib/umap/python-umap";
+import { prepareUmapVectorRows, type UmapVectorRow } from "~/services/umap/umap.vectors";
 
 export type UmapProjectionMode = "missing" | "all";
 
-export type VectorRow = {
-  docId: string;
-  vector: number[];
-};
+export type VectorRow = UmapVectorRow;
 
 function normalizeVectorRows(rows: VectorRow[]): VectorRow[] {
   const seen = new Set<string>();
@@ -79,17 +77,33 @@ export async function projectVectorsIntoUmapRun(params: {
     };
   }
 
+  const preparedRows = prepareUmapVectorRows(filtered.remaining);
+  if (!preparedRows.rows.length) {
+    throw new Error("No usable vectors remain for UMAP projection");
+  }
+  if (preparedRows.droppedInvalid > 0 || preparedRows.droppedMismatched > 0) {
+    console.warn("[umap] dropping inconsistent projection vectors", {
+      runId: run.id,
+      requested: filtered.remaining.length,
+      kept: preparedRows.rows.length,
+      targetDims: preparedRows.targetDims,
+      droppedInvalid: preparedRows.droppedInvalid,
+      droppedMismatched: preparedRows.droppedMismatched,
+      dimCounts: preparedRows.dimCounts,
+    });
+  }
+
   const transformed = await transformWithUmapModel({
     artifactPath: run.artifactPath,
-    matrix: filtered.remaining.map((row) => row.vector),
+    matrix: preparedRows.rows.map((row) => row.vector),
     dims: run.dims === 3 ? 3 : 2,
   });
 
-  if (transformed.points.length !== filtered.remaining.length) {
+  if (transformed.points.length !== preparedRows.rows.length) {
     throw new Error("UMAP transform returned unexpected number of points");
   }
 
-  const projectedRows = filtered.remaining.map((row, index) => {
+  const projectedRows = preparedRows.rows.map((row, index) => {
     const coords = transformed.points[index] ?? [];
     return {
       runId: run.id,

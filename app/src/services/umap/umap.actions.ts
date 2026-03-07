@@ -10,6 +10,7 @@ import {
 import {
   projectDocEmbeddingsIntoUmapRun,
 } from "~/services/umap/umap.projection";
+import { prepareUmapVectorRows } from "~/services/umap/umap.vectors";
 
 const createSchema = z.object({
   embeddingRunId: z.string(),
@@ -80,19 +81,41 @@ export const createUmapRun = action(
       createdRunId = run.id;
 
       await jobsDb().updateJobStage(job.id, "analyze");
+      const preparedRows = prepareUmapVectorRows(
+        rows.map((row) => ({
+          docId: row.docId,
+          vector: row.vector as number[],
+        }))
+      );
+      if (!preparedRows.rows.length) {
+        throw new Error("No usable embedding vectors found for this run");
+      }
+      if (preparedRows.droppedInvalid > 0 || preparedRows.droppedMismatched > 0) {
+        console.warn("[umap] dropping inconsistent training vectors", {
+          runId: run.id,
+          embeddingRunId: input.embeddingRunId,
+          requested: rows.length,
+          kept: preparedRows.rows.length,
+          targetDims: preparedRows.targetDims,
+          droppedInvalid: preparedRows.droppedInvalid,
+          droppedMismatched: preparedRows.droppedMismatched,
+          dimCounts: preparedRows.dimCounts,
+        });
+      }
+
       const trainResult = await trainUmapModel({
         runId: run.id,
-        matrix: rows.map((row) => row.vector as number[]),
+        matrix: preparedRows.rows.map((row) => row.vector),
         dims: input.dims,
         umapParams: (input.params ?? {}) as UmapPythonParams,
       });
       artifactPath = trainResult.artifactPath;
 
-      if (trainResult.points.length !== rows.length) {
+      if (trainResult.points.length !== preparedRows.rows.length) {
         throw new Error("UMAP training returned unexpected number of points");
       }
 
-      const points = rows.map((row, index) => {
+      const points = preparedRows.rows.map((row, index) => {
         const coords = trainResult.points[index] ?? [];
         return {
           runId: run.id,
