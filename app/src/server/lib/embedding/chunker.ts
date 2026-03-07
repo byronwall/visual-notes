@@ -1,4 +1,5 @@
 import type { Section } from "./preprocess";
+import { estimateTokensApprox } from "./token-budget";
 
 export type ChunkerMode = "structure" | "sliding";
 
@@ -19,8 +20,7 @@ export type Chunk = Section & {
 };
 
 function estimateTokens(s: string): number {
-  // Rough estimate ~4 chars per token
-  return Math.max(1, Math.round(s.length / 4));
+  return estimateTokensApprox(s);
 }
 
 function chunkStructure(
@@ -90,7 +90,7 @@ function chunkSliding(
   let start = 0;
   let order = 0;
   while (start < fullText.length) {
-    const end = Math.min(fullText.length, start + size * 4); // 4 chars/token heuristic
+    const end = Math.min(fullText.length, start + size * 3);
     const text = fullText.slice(start, end).trim();
     if (!text) break;
     out.push({
@@ -101,7 +101,7 @@ function chunkSliding(
       tokenCount: estimateTokens(text),
     });
     if (end === fullText.length) break;
-    start = end - overlap * 4;
+    start = end - overlap * 3;
     if (start <= 0) start = end; // avoid infinite loop
   }
   return out;
