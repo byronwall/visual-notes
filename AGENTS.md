@@ -99,6 +99,12 @@ full instructions when using a specific skill.
   composability. Use when extracting shared components, reducing wrapper
   depth, or fixing overflow/layout issues caused by unconstrained descendants.
   (file: /Users/byronwall/Projects/visual-notes/.agents/skills/component-structure-minimal-dom/SKILL.md)
+- improve-via-playwright: Use Playwright to audit, diagnose, and improve an
+  existing UI through direct browser testing, screenshots, and iterative fixes.
+  Use when the user wants UX issues found and fixed in the live app, especially
+  for layout, focus, hover behavior, progressive disclosure, responsive
+  overflow, inline editing, or interaction polish.
+  (file: /Users/byronwall/Projects/visual-notes/.agents/skills/improve-via-playwright/SKILL.md)
 - tiptap-nodeview-migration-playbook: Convert TipTap plugin/overlay-based
   editor customizations to SolidJS NodeViews in this repo using the local
   nodeview renderer utilities (no external package). Use when replacing
@@ -195,4 +201,5 @@ invoked selectively per task.
 ### Related Specialized Skills
 
 - `component-structure-minimal-dom` for wrapper-depth/overflow refactors.
+- `improve-via-playwright` for browser-driven UX audits and iterative live UI fixes.
 - `toc-rail-layout-playbook` for TOC/minimap rail bugs.

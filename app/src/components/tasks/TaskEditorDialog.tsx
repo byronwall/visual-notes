@@ -1,7 +1,11 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
-import { HStack, Stack } from "styled-system/jsx";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-solid";
+import { Grid, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import * as Collapsible from "~/components/ui/collapsible";
+import * as Field from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Textarea } from "~/components/ui/textarea";
 import {
@@ -78,6 +82,8 @@ export const TaskEditorDialog = (props: Props) => {
   const [submitting, setSubmitting] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = createSignal(false);
+  let descriptionRef: HTMLTextAreaElement | undefined;
 
   const dialogTitle = createMemo(() =>
     props.mode === "create" ? "Create Task" : "Edit Task"
@@ -95,7 +101,20 @@ export const TaskEditorDialog = (props: Props) => {
     setSubmitting(false);
     setDeleting(false);
     setError(null);
+    setShowAdvanced(!!props.task?.tags.length || !!props.task?.meta);
   });
+
+  const statusItems = createMemo(() =>
+    TASK_STATUSES.map((item) => ({ label: item, value: item }))
+  );
+
+  const parentItems = createMemo(() => [
+    { label: "No parent", value: "" },
+    ...props.parentOptions.map((option) => ({
+      label: option.label,
+      value: option.id,
+    })),
+  ]);
 
   const handleSave = async () => {
     if (!description().trim()) {
@@ -155,6 +174,7 @@ export const TaskEditorDialog = (props: Props) => {
         if (!open) props.onClose();
       }}
       onClose={props.onClose}
+      initialFocusEl={() => descriptionRef ?? null}
       title={dialogTitle()}
       footer={
         <HStack justifyContent="space-between" gap="2">
@@ -181,90 +201,136 @@ export const TaskEditorDialog = (props: Props) => {
       }
     >
       <Stack gap="3" data-testid="task-edit-dialog">
-        <Textarea
-          value={description()}
-          onInput={(event) => setDescription(event.currentTarget.value)}
-          placeholder="Task description"
-          rows={3}
-        />
-
-        <HStack gap="2" alignItems="flex-start">
-          <Stack gap="1" flex="1">
-            <label>Status</label>
-            <select
-              value={status()}
-              onChange={(event) => setStatus(event.currentTarget.value as TaskStatus)}
-              data-testid="task-status-select"
-            >
-              <For each={TASK_STATUSES}>
-                {(item) => <option value={item}>{item}</option>}
-              </For>
-            </select>
-          </Stack>
-
-          <Stack gap="1" flex="1">
-            <label>Due Date</label>
-            <Input
-              type="date"
-              value={dueDate()}
-              onInput={(event) => setDueDate(event.currentTarget.value)}
-              data-testid="task-due-date-input"
+        <Field.Root invalid={!!error()}>
+          <Stack gap="1.5">
+            <Field.Label for="task-description">Task description</Field.Label>
+            <Textarea
+              id="task-description"
+              ref={descriptionRef}
+              value={description()}
+              onInput={(event) => setDescription(event.currentTarget.value)}
+              placeholder="What needs to get done?"
+              rows={3}
             />
           </Stack>
+        </Field.Root>
 
-          <Stack gap="1" flex="1">
-            <label>Duration (minutes)</label>
-            <Input
-              type="number"
-              min="1"
-              value={durationMinutes()}
-              onInput={(event) => setDurationMinutes(event.currentTarget.value)}
-              data-testid="task-duration-input"
+        <Grid
+          gap="3"
+          gridTemplateColumns={{
+            base: "1fr",
+            md: "repeat(3, minmax(0, 1fr))",
+          }}
+          alignItems="start"
+        >
+          <Field.Root>
+            <Stack gap="1.5">
+              <Field.Label>Status</Field.Label>
+              <SimpleSelect
+                items={statusItems()}
+                value={status()}
+                onChange={(value) => setStatus(value as TaskStatus)}
+                sameWidth
+              />
+            </Stack>
+          </Field.Root>
+
+          <Field.Root>
+            <Stack gap="1.5">
+              <Field.Label for="task-due-date">Due date</Field.Label>
+              <Input
+                id="task-due-date"
+                type="date"
+                value={dueDate()}
+                onInput={(event) => setDueDate(event.currentTarget.value)}
+                data-testid="task-due-date-input"
+              />
+            </Stack>
+          </Field.Root>
+
+          <Field.Root>
+            <Stack gap="1.5">
+              <Field.Label for="task-duration">Duration (minutes)</Field.Label>
+              <Input
+                id="task-duration"
+                type="number"
+                min="1"
+                value={durationMinutes()}
+                onInput={(event) => setDurationMinutes(event.currentTarget.value)}
+                placeholder="30"
+                data-testid="task-duration-input"
+              />
+            </Stack>
+          </Field.Root>
+        </Grid>
+
+        <Field.Root>
+          <Stack gap="1.5">
+            <Field.Label>Parent task</Field.Label>
+            <SimpleSelect
+              items={parentItems()}
+              value={selectedParent()}
+              onChange={setSelectedParent}
+              placeholder="No parent"
+              sameWidth
             />
           </Stack>
-        </HStack>
+        </Field.Root>
 
-        <Stack gap="1">
-          <label>Parent Task</label>
-          <select
-            value={selectedParent()}
-            onChange={(event) => setSelectedParent(event.currentTarget.value)}
-            data-testid="task-parent-select"
-          >
-            <option value="">No parent</option>
-            <For each={props.parentOptions}>
-              {(option) => <option value={option.id}>{option.label}</option>}
-            </For>
-          </select>
-        </Stack>
+        <Collapsible.Root open={showAdvanced()} onOpenChange={(details) => setShowAdvanced(details.open)}>
+          <Stack gap="2">
+            <Collapsible.Trigger asChild={(triggerProps) => (
+              <Button
+                {...triggerProps()}
+                type="button"
+                variant="plain"
+                justifyContent="space-between"
+                px="0"
+              >
+                <span>Advanced details</span>
+                <Show when={showAdvanced()} fallback={<ChevronRightIcon size={16} />}>
+                  <ChevronDownIcon size={16} />
+                </Show>
+              </Button>
+            )} />
 
-        <Stack gap="1">
-          <label>Tags (comma separated)</label>
-          <Input
-            value={tags()}
-            onInput={(event) => setTags(event.currentTarget.value)}
-            placeholder="ops, deep-work"
-            data-testid="task-tags-input"
-          />
-        </Stack>
+            <Collapsible.Content>
+              <Stack gap="3" pt="1">
+                <Field.Root>
+                  <Stack gap="1.5">
+                    <Field.Label for="task-tags">Tags (comma separated)</Field.Label>
+                    <Input
+                      id="task-tags"
+                      value={tags()}
+                      onInput={(event) => setTags(event.currentTarget.value)}
+                      placeholder="ops, deep-work"
+                      data-testid="task-tags-input"
+                    />
+                  </Stack>
+                </Field.Root>
 
-        <Stack gap="1">
-          <label>Metadata (one per line: key: value)</label>
-          <Textarea
-            rows={4}
-            value={metaText()}
-            onInput={(event) => setMetaText(event.currentTarget.value)}
-            placeholder="owner: byron\npriority: high"
-            data-testid="task-meta-input"
-          />
-        </Stack>
+                <Field.Root>
+                  <Stack gap="1.5">
+                    <Field.Label for="task-meta">
+                      Metadata (one per line: key: value)
+                    </Field.Label>
+                    <Textarea
+                      id="task-meta"
+                      rows={4}
+                      value={metaText()}
+                      onInput={(event) => setMetaText(event.currentTarget.value)}
+                      placeholder="owner: byron\npriority: high"
+                      data-testid="task-meta-input"
+                    />
+                  </Stack>
+                </Field.Root>
+              </Stack>
+            </Collapsible.Content>
+          </Stack>
+        </Collapsible.Root>
 
         <Show when={error()}>
-          {(message) => (
-            <div style={{ color: "var(--colors-fg-error)", "font-size": "12px" }}>
-              {message()}
-            </div>
-          )}
+          {(message) => <Field.ErrorText>{message()}</Field.ErrorText>}
         </Show>
       </Stack>
     </SimpleDialog>

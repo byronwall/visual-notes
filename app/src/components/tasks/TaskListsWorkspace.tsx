@@ -20,7 +20,6 @@ import {
   updateTask,
   updateTaskList,
   type TaskItem,
-  type TaskListItem,
 } from "~/services/tasks/tasks.service";
 import { TaskEditorDialog } from "./TaskEditorDialog";
 import { TaskListEditorDialog } from "./TaskListEditorDialog";
@@ -34,6 +33,9 @@ export const TaskListsWorkspace = () => {
   const [listsRefreshNonce, setListsRefreshNonce] = createSignal(0);
   const [tasksRefreshNonce, setTasksRefreshNonce] = createSignal(0);
   const [selectedListId, setSelectedListId] = createSignal<string | null>(null);
+  const [optimisticListNames, setOptimisticListNames] = createSignal<Map<string, string>>(
+    new Map()
+  );
 
   const [listDialogOpen, setListDialogOpen] = createSignal(false);
 
@@ -74,6 +76,30 @@ export const TaskListsWorkspace = () => {
 
   createEffect(() => {
     const listItems = lists.latest ?? lists() ?? [];
+    const optimisticNames = optimisticListNames();
+
+    if (optimisticNames.size > 0 && listItems.length > 0) {
+      let changed = false;
+      for (const list of listItems) {
+        if (optimisticNames.get(list.id) === list.name) {
+          changed = true;
+          break;
+        }
+      }
+
+      if (changed) {
+        setOptimisticListNames((current) => {
+          const next = new Map(current);
+          for (const list of listItems) {
+            if (next.get(list.id) === list.name) {
+              next.delete(list.id);
+            }
+          }
+          return next;
+        });
+      }
+    }
+
     if (listItems.length === 0) {
       setSelectedListId(null);
       return;
@@ -85,8 +111,20 @@ export const TaskListsWorkspace = () => {
     }
   });
 
-  const selectedList = createMemo(() => {
+  const mergedLists = createMemo(() => {
     const listItems = lists.latest ?? lists() ?? [];
+    const optimisticNames = optimisticListNames();
+    if (optimisticNames.size === 0) return listItems;
+
+    return listItems.map((list) => {
+      const optimisticName = optimisticNames.get(list.id);
+      if (!optimisticName) return list;
+      return { ...list, name: optimisticName };
+    });
+  });
+
+  const selectedList = createMemo(() => {
+    const listItems = mergedLists();
     return listItems.find((list) => list.id === selectedListId()) ?? null;
   });
 
@@ -204,25 +242,54 @@ export const TaskListsWorkspace = () => {
   };
 
   return (
-    <HStack alignItems="stretch" gap="4" minH="0" flex="1" data-testid="tasks-page">
+    <Box
+      display="flex"
+      flexDirection={{ base: "column", lg: "row" }}
+      alignItems="stretch"
+      gap="4"
+      minH="0"
+      flex="1"
+      overflow="hidden"
+      data-testid="tasks-page"
+    >
       <Box
-        flex="0 0 360px"
-        minW="280px"
-        maxW="420px"
+        flex={{ lg: "0 0 360px" }}
+        w={{ base: "full", lg: "auto" }}
+        minW={{ lg: "280px" }}
+        maxW={{ base: "100%", lg: "420px" }}
         borderWidth="1px"
         borderColor="border"
         borderRadius="lg"
         p="3"
         minH="0"
+        maxH={{ base: "40vh", lg: "none" }}
+        overflow="hidden"
+        display="flex"
+        flexDirection="column"
       >
         <TaskListSelector
-          lists={lists.latest ?? lists() ?? []}
+          lists={mergedLists()}
           selectedListId={selectedListId()}
           onSelect={setSelectedListId}
           onCreate={openCreateListDialog}
-          onRename={async (list, nextName) => {
-            await runUpdateList({ id: list.id, name: nextName });
-            refreshLists();
+          onRename={(list, nextName) => {
+            setOptimisticListNames((current) => {
+              const next = new Map(current);
+              next.set(list.id, nextName);
+              return next;
+            });
+
+            void runUpdateList({ id: list.id, name: nextName })
+              .catch((error) => {
+                console.error("[tasks-lists] rename failed", {
+                  listId: list.id,
+                  nextName,
+                  error,
+                });
+              })
+              .finally(() => {
+                refreshLists();
+              });
           }}
           onDelete={async (list) => {
             await runDeleteList({ id: list.id });
@@ -235,6 +302,7 @@ export const TaskListsWorkspace = () => {
       <Box
         flex="1"
         minW="0"
+        w={{ base: "full", lg: "auto" }}
         borderWidth="1px"
         borderColor="border"
         borderRadius="lg"
@@ -360,6 +428,6 @@ export const TaskListsWorkspace = () => {
             : undefined
         }
       />
-    </HStack>
+    </Box>
   );
 };

@@ -8,10 +8,15 @@ import {
 import { Box } from "styled-system/jsx";
 import * as Editable from "~/components/ui/editable";
 
+type EditableActivationMode = "focus" | "dblclick" | "click" | "none";
+
 type InPlaceEditableTextProps = {
   value: string;
   onCommit: (value: string) => void | Promise<void>;
-  leadingAction?: () => JSX.Element;
+  leadingAction?: (controls: {
+    editing: boolean;
+    startEditing: () => void;
+  }) => JSX.Element;
   showLeadingAction?: boolean;
   fontSize?: string;
   fontWeight?: string;
@@ -22,12 +27,16 @@ type InPlaceEditableTextProps = {
   fillWidth?: boolean;
   wrapPreview?: boolean;
   placeholder?: string;
+  activationMode?: EditableActivationMode;
+  onStartEditingReady?: (startEditing: () => void) => void;
+  previewHoverable?: boolean;
 };
 
 export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   const [draft, setDraft] = createSignal(props.value);
   const [isEditing, setIsEditing] = createSignal(false);
   const [actionVisible, setActionVisible] = createSignal(false);
+  let editTriggerRef: HTMLButtonElement | undefined;
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   const editableValue = () => (isEditing() ? draft() : props.value);
 
@@ -88,6 +97,14 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   };
 
   const showLeadingAction = () => !!props.leadingAction && !!props.showLeadingAction;
+  const startEditing = () => {
+    setDraft(props.value);
+    editTriggerRef?.click();
+  };
+
+  createEffect(() => {
+    props.onStartEditingReady?.(startEditing);
+  });
 
   return (
     <Box
@@ -132,14 +149,17 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
             }
           }}
         >
-          {props.leadingAction?.()}
+          {props.leadingAction?.({
+            editing: isEditing(),
+            startEditing,
+          })}
         </Box>
       </Show>
       <Editable.Root
         width={props.fillWidth ? "full" : "fit-content"}
         value={editableValue()}
         placeholder={props.placeholder}
-        activationMode="click"
+        activationMode={props.activationMode ?? "click"}
         submitMode="both"
         selectOnFocus
         onEditChange={(details) => setIsEditing(details.edit)}
@@ -153,6 +173,19 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
           setIsEditing(false);
         }}
       >
+        <Editable.EditTrigger
+          ref={editTriggerRef}
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            opacity: "0",
+            overflow: "hidden",
+            "pointer-events": "none",
+          }}
+        />
         <Box
           as="span"
           m="0"
@@ -173,7 +206,11 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               cursor="pointer"
               transitionProperty="common"
               transitionDuration="normal"
-              _hover={{ bg: "gray.subtle", color: "fg.default" }}
+              _hover={
+                props.previewHoverable === false
+                  ? undefined
+                  : { bg: "gray.subtle", color: "fg.default" }
+              }
               fontSize="inherit"
               fontWeight="inherit"
               lineHeight="inherit"

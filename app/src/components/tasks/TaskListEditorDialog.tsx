@@ -1,6 +1,7 @@
 import { createEffect, createSignal, Show } from "solid-js";
 import { HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import * as Field from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 
@@ -14,6 +15,7 @@ export const TaskListEditorDialog = (props: Props) => {
   const [name, setName] = createSignal("");
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  let nameInputRef: HTMLInputElement | undefined;
 
   createEffect(() => {
     if (!props.open) return;
@@ -48,6 +50,7 @@ export const TaskListEditorDialog = (props: Props) => {
       onOpenChange={(open) => {
         if (!open) props.onClose();
       }}
+      initialFocusEl={() => nameInputRef ?? null}
       title="Create Task List"
       description="Task lists are independent containers for hierarchies of tasks."
       footer={
@@ -61,21 +64,27 @@ export const TaskListEditorDialog = (props: Props) => {
         </HStack>
       }
     >
-      <Stack gap="2">
-        <Input
-          value={name()}
-          onInput={(event) => setName(event.currentTarget.value)}
-          placeholder="List name"
-          data-testid="task-list-name-input"
-        />
-        <Show when={error()}>
-          {(message) => (
-            <div style={{ color: "var(--colors-fg-error)", "font-size": "12px" }}>
-              {message()}
-            </div>
-          )}
-        </Show>
-      </Stack>
+      <Field.Root invalid={!!error()}>
+        <Stack gap="2">
+          <Field.Label for="task-list-name">List name</Field.Label>
+          <Input
+            id="task-list-name"
+            ref={nameInputRef}
+            value={name()}
+            onInput={(event) => setName(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              void handleSubmit();
+            }}
+            placeholder="Weekly planning"
+            data-testid="task-list-name-input"
+          />
+          <Show when={error()}>
+            {(message) => <Field.ErrorText>{message()}</Field.ErrorText>}
+          </Show>
+        </Stack>
+      </Field.Root>
     </SimpleDialog>
   );
 };
