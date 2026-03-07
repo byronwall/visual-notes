@@ -2,12 +2,15 @@ import { createAsync, useNavigate } from "@solidjs/router";
 import { WaypointsIcon } from "lucide-solid";
 import { For, Show, createMemo, createSignal, type VoidComponent } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
+import { PathPillLink } from "~/components/path/PathPillLink";
+import { Button } from "~/components/ui/button";
 import { fetchNearbyUmapDocs } from "~/services/umap.service";
 import { colorFor } from "~/utils/colors";
 import { IconButton } from "~/components/ui/icon-button";
 import { Skeleton, SkeletonText } from "~/components/ui/skeleton";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
+import { normalizeDotPath, pathToRoute } from "~/utils/path-links";
 
 type PlotPoint = {
   id: string;
@@ -15,6 +18,7 @@ type PlotPoint = {
   path?: string | null;
   x: number;
   y: number;
+  distance: number;
   plotX: number;
   plotY: number;
   isCurrent: boolean;
@@ -26,11 +30,16 @@ const PLOT_PADDING = 12;
 const TOOLTIP_OFFSET_X = 12;
 const TOOLTIP_OFFSET_Y = -10;
 
+const formatDistance = (distance: number) => {
+  if (distance < 0.1) return distance.toFixed(3);
+  if (distance < 1) return distance.toFixed(2);
+  return distance.toFixed(1);
+};
+
 export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => {
   const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
   const [hoveredDocId, setHoveredDocId] = createSignal<string | undefined>();
-  const [mouse, setMouse] = createSignal({ x: 0, y: 0 });
 
   const nearby = createAsync(() =>
     open() && props.docId
@@ -67,6 +76,7 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
       path: point.path,
       x: point.x,
       y: point.y,
+      distance: point.distance,
       plotX: PLOT_PADDING + ((point.x - minX) / spanX) * drawW,
       plotY: PLOT_HEIGHT - PLOT_PADDING - ((point.y - minY) / spanY) * drawH,
       isCurrent: point.id === props.docId,
@@ -79,18 +89,26 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
     return plotPoints().find((point) => point.id === id);
   });
 
+  const nearbyDocs = createMemo(() =>
+    plotPoints()
+      .filter((point) => !point.isCurrent)
+      .sort((a, b) => a.distance - b.distance || a.title.localeCompare(b.title))
+  );
+
   const commonPaths = createMemo(() => {
-    const counts = new Map<string, number>();
-    for (const point of plotPoints()) {
-      if (point.isCurrent) continue;
-      const path = String(point.path || "").trim();
-      if (!path) continue;
-      counts.set(path, (counts.get(path) || 0) + 1);
+    const byPath = new Map<string, number>();
+    for (const point of nearbyDocs()) {
+      const normalizedPath = normalizeDotPath(point.path || "");
+      if (!normalizedPath) continue;
+      const existing = byPath.get(normalizedPath);
+      if (existing === undefined || point.distance < existing) {
+        byPath.set(normalizedPath, point.distance);
+      }
     }
-    return Array.from(counts.entries())
-      .map(([path, count]) => ({ path, count }))
-      .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
-      .slice(0, 6);
+
+    return Array.from(byPath.entries())
+      .map(([path, distance]) => ({ path, distance }))
+      .sort((a, b) => a.distance - b.distance || a.path.localeCompare(b.path));
   });
 
   return (
@@ -148,14 +166,6 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
               viewBox={`0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`}
               role="img"
               aria-label="Nearby notes scatter plot"
-              onPointerMove={(event) => {
-                if (!hoveredDocId()) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                setMouse({
-                  x: event.clientX - rect.left,
-                  y: event.clientY - rect.top,
-                });
-              }}
             >
               <rect x="0" y="0" width={PLOT_WIDTH} height={PLOT_HEIGHT} fill="transparent" />
               <For each={plotPoints()}>
@@ -171,14 +181,8 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
                       stroke={hovered() || point.isCurrent ? "black" : "white"}
                       stroke-width={hovered() || point.isCurrent ? 1.6 : 1}
                       style={{ cursor: "pointer" }}
-                      onPointerEnter={(event) => {
+                      onPointerEnter={() => {
                         setHoveredDocId(point.id);
-                        const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-                        if (!rect) return;
-                        setMouse({
-                          x: event.clientX - rect.left,
-                          y: event.clientY - rect.top,
-                        });
                       }}
                       onPointerLeave={() => setHoveredDocId(undefined)}
                       onClick={() => {
@@ -207,8 +211,8 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
                 boxShadow="sm"
                 zIndex="tooltip"
                 style={{
-                  left: `${mouse().x + TOOLTIP_OFFSET_X}px`,
-                  top: `${mouse().y + TOOLTIP_OFFSET_Y}px`,
+                  left: `${point().plotX + TOOLTIP_OFFSET_X}px`,
+                  top: `${point().plotY + TOOLTIP_OFFSET_Y}px`,
                   transform: "translateY(-100%)",
                 }}
               >
@@ -220,30 +224,91 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
           </Show>
         </Box>
 
-        <Show when={!isInitialLoading()} fallback={<SkeletonText noOfLines={3} gap="2" />}>
+        <Show when={!isInitialLoading()} fallback={<SkeletonText noOfLines={5} gap="2" />}>
           <Show
-            when={commonPaths().length > 0}
+            when={nearbyDocs().length > 0}
             fallback={
               <Text fontSize="sm" color="fg.muted">
-                No nearby paths available in the latest UMAP run for this note.
+                No nearby documents available in the latest UMAP run for this note.
               </Text>
             }
           >
-            <Stack gap="1">
-              <Text fontSize="xs" color="fg.muted">
-                Common nearby paths
-              </Text>
-              <Stack gap="1">
-                <For each={commonPaths()}>
-                  {(item) => (
-                    <HStack gap="2" justifyContent="space-between">
-                      <Text fontSize="xs" color="fg.default" maxW="18rem" truncate>
+            <Stack gap="2" minH="0">
+              <Show when={commonPaths().length > 0}>
+                <HStack gap="1.5" flexWrap="wrap">
+                  <For each={commonPaths()}>
+                    {(item) => (
+                      <PathPillLink
+                        href={pathToRoute(item.path)}
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                      >
                         {item.path}
-                      </Text>
-                      <Text fontSize="xs" color="fg.muted" fontFamily="mono">
-                        {item.count}
-                      </Text>
-                    </HStack>
+                      </PathPillLink>
+                    )}
+                  </For>
+                </HStack>
+              </Show>
+              <Stack gap="1" maxH="15rem" overflowY="auto" pr="1">
+                <For each={nearbyDocs()}>
+                  {(item) => (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      w="full"
+                      justifyContent="flex-start"
+                      alignItems="center"
+                      h="auto"
+                      minH="unset"
+                      px="2"
+                      py="1.5"
+                      textAlign="left"
+                      onMouseEnter={() => setHoveredDocId(item.id)}
+                      onMouseLeave={() => setHoveredDocId(undefined)}
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`/docs/${item.id}`);
+                      }}
+                    >
+                      <HStack gap="2" w="full" minW="0" alignItems="center">
+                        <Box
+                          boxSize="2.5"
+                          borderRadius="full"
+                          flexShrink="0"
+                          style={{
+                            background: colorFor(item.path || item.title),
+                          }}
+                        />
+                        <Stack gap="0.5" alignItems="flex-start" minW="0" flex="1">
+                          <HStack
+                            w="full"
+                            minW="0"
+                            alignItems="flex-start"
+                            justifyContent="space-between"
+                          >
+                            <Text
+                              fontSize="xs"
+                              color="fg.default"
+                              fontWeight="medium"
+                              truncate
+                              flex="1"
+                              minW="0"
+                            >
+                              {item.title || "Untitled"}
+                            </Text>
+                            <Text
+                              fontSize="xs"
+                              color="fg.muted"
+                              fontFamily="mono"
+                              flexShrink="0"
+                              pl="2"
+                            >
+                              {formatDistance(item.distance)}
+                            </Text>
+                          </HStack>
+                        </Stack>
+                      </HStack>
+                    </Button>
                   )}
                 </For>
               </Stack>

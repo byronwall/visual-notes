@@ -34,6 +34,7 @@ guidelines from comp_refs.
   - Prefer `~/components/ui/*` wrappers over direct Ark UI usage in routes.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
+  - Render document/file/path-like strings in a monospace font so paths scan distinctly from titles/body copy.
   - In UI surfaces, prefer relative timestamps (for example, `5m ago`, `2d ago`) over absolute datetimes. Use absolute timestamps only when precision/auditability is required.
   - Prefer subtle background/surface differences (`bg.subtle`, `bg.muted`, spacing) over heavy border stacks to separate sections; use borders sparingly for true emphasis or interactive affordance.
   - For simple single-field edits (for example names/titles), prefer inline edit-in-place interactions over opening a dedicated modal.
@@ -42,6 +43,7 @@ guidelines from comp_refs.
   - Do not set fixed popover widths by default. Only set explicit max/fixed width at the popover/container level for truly dynamic or unbounded content that cannot be constrained safely by child components.
   - When width constraints are needed, prefer max-width responsive to viewport (`calc(100vw - margin)`) and keep the container compositional so content can still size naturally.
   - For runtime-calculated geometry/positioning values (for example calendar/time-grid blocks, drag ghosts, overlays): do not rely on dynamic class-name generation for `top/left/width/height/transform`; set these values via inline `style` at render time.
+  - For runtime-calculated colors or other token values that are not statically analyzable by Panda, do not generate dynamic utility classes; set them with inline `style` at render time.
   - For sidebar/flyout nested menus: use controlled `Menu.Root` + `Portal` for
     `Menu.Positioner`/`Menu.Content`, and apply token z-index (`popover` or
     `tooltip`) at the menu call site to avoid stacking-context regressions.
