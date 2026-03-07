@@ -35,6 +35,11 @@ type RunMeta = {
   hasArtifact?: boolean;
   artifactPath?: string | null;
 };
+type UmapDetailData = {
+  meta: RunMeta;
+  dims: number;
+  points: Point[];
+};
 
 function formatParamValue(value: unknown): string {
   if (value == null) return "null";
@@ -53,16 +58,28 @@ function getParamEntries(params?: Record<string, unknown> | null): [string, unkn
   return Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
 }
 
+function formatTimestampUtc(iso: string): string {
+  return new Date(iso).toISOString().replace("T", " ").replace("Z", " UTC");
+}
+
 const UmapDetail: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const meta = createAsync(() => {
-    if (!params.id) return Promise.resolve<RunMeta | null>(null);
-    return fetchUmapRun(params.id) as Promise<RunMeta | null>;
-  });
-  const data = createAsync(() => {
-    if (!params.id) return Promise.resolve<PointsData | null>(null);
-    return fetchUmapPointsForRun(params.id) as Promise<PointsData | null>;
+  const detail = createAsync(async () => {
+    if (!params.id) return null as UmapDetailData | null;
+
+    const run = (await fetchUmapRun(params.id)) as RunMeta | null;
+    if (!run) return null;
+
+    const pointsData = (await fetchUmapPointsForRun(params.id).catch(() => null)) as
+      | PointsData
+      | null;
+
+    return {
+      meta: run,
+      dims: pointsData?.dims ?? run.dims,
+      points: pointsData?.points ?? [],
+    } satisfies UmapDetailData;
   });
   const runDelete = useAction(deleteUmapRun);
   const refreshPoints = () => {
@@ -98,7 +115,7 @@ const UmapDetail: VoidComponent = () => {
   });
 
   createEffect(() => {
-    const d = data();
+    const d = detail();
     const pts = d?.points || [];
     const dims = d?.dims || 2;
     const w = canvasWidth();
@@ -210,7 +227,7 @@ const UmapDetail: VoidComponent = () => {
           }
         >
           <Show
-            when={meta()}
+            when={detail()}
             fallback={
               <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
                 <Text textStyle="sm" color="fg.muted">
@@ -222,8 +239,9 @@ const UmapDetail: VoidComponent = () => {
               </Box>
             }
           >
-            {(m) => {
-              const paramEntries = getParamEntries(m().params);
+            {(d) => {
+              const meta = d().meta;
+              const paramEntries = getParamEntries(meta.params);
               return (
                 <Grid
                   gridTemplateColumns={{
@@ -233,86 +251,63 @@ const UmapDetail: VoidComponent = () => {
                   gap="4"
                   alignItems="start"
                 >
-                  <Suspense
-                    fallback={
-                      <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
-                        <Text textStyle="sm" color="fg.muted">
-                          Loading points…
-                        </Text>
-                      </Box>
-                    }
+                  <Box
+                    borderWidth="1px"
+                    borderColor="border"
+                    borderRadius="l3"
+                    overflow="hidden"
                   >
-                    <Show
-                      when={data()}
-                      fallback={
-                        <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
-                          <Text textStyle="sm" color="fg.muted">
-                            No point data available for this run yet.
-                          </Text>
-                        </Box>
-                      }
+                    <Flex
+                      align="center"
+                      justify="space-between"
+                      gap="3"
+                      flexWrap="wrap"
+                      px="4"
+                      py="3"
+                      borderBottomWidth="1px"
+                      borderColor="border"
                     >
-                      {(d) => (
-                        <Box
-                          borderWidth="1px"
-                          borderColor="border"
-                          borderRadius="l3"
-                          overflow="hidden"
+                      <HStack gap="2" flexWrap="wrap">
+                        <Heading as="h1" fontSize="xl">
+                          UMAP Run
+                        </Heading>
+                        <Badge colorPalette="blue">{d().dims}D</Badge>
+                        <Badge colorPalette="gray">
+                          {d().points.length.toLocaleString()} points
+                        </Badge>
+                      </HStack>
+                      <HStack gap="2" flexWrap="wrap">
+                        <Tooltip content="Refresh points" showArrow>
+                          <IconButton
+                            size="xs"
+                            variant="outline"
+                            aria-label="Refresh points"
+                            onClick={refreshPoints}
+                          >
+                            <RotateCcwIcon size={12} />
+                          </IconButton>
+                        </Tooltip>
+                        <Link href="/umap">Back to UMAP</Link>
+                        <Button
+                          size="sm"
+                          variant="solid"
+                          colorPalette="red"
+                          loading={busy()}
+                          onClick={handleDelete}
                         >
-                          <Flex
-                            align="center"
-                            justify="space-between"
-                            gap="3"
-                            flexWrap="wrap"
-                            px="4"
-                            py="3"
-                            borderBottomWidth="1px"
-                            borderColor="border"
-                          >
-                            <HStack gap="2" flexWrap="wrap">
-                              <Heading as="h1" fontSize="xl">
-                                UMAP Run
-                              </Heading>
-                              <Badge colorPalette="blue">{d().dims}D</Badge>
-                              <Badge colorPalette="gray">
-                                {d().points.length.toLocaleString()} points
-                              </Badge>
-                            </HStack>
-                            <HStack gap="2" flexWrap="wrap">
-                              <Tooltip content="Refresh points" showArrow>
-                                <IconButton
-                                  size="xs"
-                                  variant="outline"
-                                  aria-label="Refresh points"
-                                  onClick={refreshPoints}
-                                >
-                                  <RotateCcwIcon size={12} />
-                                </IconButton>
-                              </Tooltip>
-                              <Link href="/umap">Back to UMAP</Link>
-                              <Button
-                                size="sm"
-                                variant="solid"
-                                colorPalette="red"
-                                loading={busy()}
-                                onClick={handleDelete}
-                              >
-                                Delete Run
-                              </Button>
-                            </HStack>
-                          </Flex>
+                          Delete Run
+                        </Button>
+                      </HStack>
+                    </Flex>
 
-                          <Box
-                            ref={(el) => (canvasContainerEl = el)}
-                            w="full"
-                            style={{ height: "clamp(360px, calc(100vh - 200px), 860px)" }}
-                          >
-                            <canvas ref={(el) => (canvasEl = el)} />
-                          </Box>
-                        </Box>
-                      )}
-                    </Show>
-                  </Suspense>
+                    <Box
+                      ref={(el) => (canvasContainerEl = el)}
+                      w="full"
+                      style={{ height: "clamp(360px, calc(100vh - 200px), 860px)" }}
+                    >
+                      <canvas ref={(el) => (canvasEl = el)} />
+                    </Box>
+                  </Box>
 
                   <Stack gap="3">
                     <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="3">
@@ -330,25 +325,25 @@ const UmapDetail: VoidComponent = () => {
                             ID
                           </Text>
                           <Text textStyle="xs" fontFamily="mono" lineBreak="anywhere">
-                            {m().id}
+                            {meta.id}
                           </Text>
                           <Text textStyle="xs" color="fg.subtle">
                             Embedding run
                           </Text>
-                          <Link href={`/embeddings/${m().embeddingRunId}`}>
-                            {m().embeddingRunId}
+                          <Link href={`/embeddings/${meta.embeddingRunId}`}>
+                            {meta.embeddingRunId}
                           </Link>
                           <Text textStyle="xs" color="fg.subtle">
                             Created
                           </Text>
                           <Text textStyle="sm" color="fg.muted">
-                            {new Date(m().createdAt).toLocaleString()}
+                            {formatTimestampUtc(meta.createdAt)}
                           </Text>
                           <Text textStyle="xs" color="fg.subtle">
                             Model artifact
                           </Text>
                           <Show
-                            when={m().artifactPath}
+                            when={meta.artifactPath}
                             fallback={
                               <Text textStyle="sm" color="fg.muted">
                                 Not available
@@ -356,7 +351,7 @@ const UmapDetail: VoidComponent = () => {
                             }
                           >
                             <Text textStyle="xs" fontFamily="mono" lineBreak="anywhere">
-                              {m().artifactPath}
+                              {meta.artifactPath}
                             </Text>
                           </Show>
                         </Grid>

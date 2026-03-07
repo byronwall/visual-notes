@@ -78,6 +78,10 @@ function parseIntOrUndefined(v: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function formatTimestampUtc(iso: string): string {
+  return new Date(iso).toISOString().replace("T", " ").replace("Z", " UTC");
+}
+
 const UmapIndex: VoidComponent = () => {
   const runs = createAsync((): Promise<UmapRun[]> => fetchUmapRuns());
   const embeddingRuns = createAsync((): Promise<EmbeddingRun[]> =>
@@ -263,6 +267,7 @@ const UmapIndex: VoidComponent = () => {
                   items={embeddingSelectItems()}
                   value={state.selectedEmbedding ?? ""}
                   onChange={(value) => setState("selectedEmbedding", value)}
+                  skipPortal
                   sameWidth
                   minW="260px"
                   placeholder="Select embedding run…"
@@ -274,6 +279,7 @@ const UmapIndex: VoidComponent = () => {
                   onChange={(value) =>
                     setState("dims", value === "3" ? 3 : (2 as 2 | 3))
                   }
+                  skipPortal
                   sameWidth
                   minW="96px"
                   placeholder="Dims"
@@ -437,6 +443,7 @@ const UmapIndex: VoidComponent = () => {
                     onChange={(value) => setState("metric", parseMetric(value))}
                     label="metric"
                     labelProps={{ fontSize: "xs", color: "fg.muted" }}
+                    skipPortal
                     sameWidth
                     placeholder="metric"
                   />
@@ -466,6 +473,7 @@ const UmapIndex: VoidComponent = () => {
                       onChange={(value) => setState("init", parseInit(value))}
                       label="init"
                       labelProps={{ fontSize: "xs", color: "fg.muted" }}
+                      skipPortal
                       sameWidth
                       placeholder="init"
                     />
@@ -578,6 +586,7 @@ const UmapIndex: VoidComponent = () => {
                       onChange={(value) => setState("init", parseInit(value))}
                       label="init"
                       labelProps={{ fontSize: "xs", color: "fg.muted" }}
+                      skipPortal
                       sameWidth
                       placeholder="init"
                     />
@@ -635,7 +644,7 @@ const UmapIndex: VoidComponent = () => {
                               </Text>
                             </Table.Cell>
                             <Table.Cell>
-                              {new Date(r.createdAt).toLocaleString()}
+                              {formatTimestampUtc(r.createdAt)}
                             </Table.Cell>
                             <Table.Cell>
                               <Button
