@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { serverEnv } from "~/env/server";
 
 const execFileAsync = promisify(execFile);
+const PYTHON_DEP_CHECK = "import joblib, numpy, umap, sklearn";
 
 export type UmapPythonParams = {
   pcaVarsToKeep?: number;
@@ -39,18 +40,63 @@ type TransformOutput = {
   transformMs?: number;
 };
 
-function resolvePythonBin(): string {
+type PythonCandidate = {
+  label: string;
+  command: string;
+};
+
+let resolvedPythonBinPromise: Promise<string> | null = null;
+
+function getPythonCandidates(): PythonCandidate[] {
+  const candidates: PythonCandidate[] = [];
   const envBin = serverEnv.UMAP_PYTHON_BIN?.trim();
-  if (envBin && envBin.length > 0) {
-    return envBin;
+
+  if (envBin) {
+    candidates.push({ label: "UMAP_PYTHON_BIN", command: envBin });
   }
 
-  const venvBin = path.resolve(process.cwd(), ".venv", "bin", "python");
-  if (existsSync(venvBin)) {
-    return venvBin;
+  const bundledVenv = path.resolve(process.cwd(), ".venv", "bin", "python");
+  if (!envBin || envBin !== bundledVenv) {
+    candidates.push({ label: "local .venv", command: bundledVenv });
   }
 
-  return "python3";
+  const appVenv = "/app/.venv/bin/python";
+  if (appVenv !== bundledVenv && (!envBin || envBin !== appVenv)) {
+    candidates.push({ label: "docker .venv", command: appVenv });
+  }
+
+  candidates.push({ label: "system python3", command: "python3" });
+  return candidates;
+}
+
+async function probePythonCandidate(candidate: PythonCandidate): Promise<boolean> {
+  try {
+    if (candidate.command.includes(path.sep) && !existsSync(candidate.command)) {
+      return false;
+    }
+
+    await execFileAsync(candidate.command, ["-c", PYTHON_DEP_CHECK], {
+      maxBuffer: 1024 * 1024,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolvePythonBin(): Promise<string> {
+  const candidates = getPythonCandidates();
+  const failures: string[] = [];
+
+  for (const candidate of candidates) {
+    if (await probePythonCandidate(candidate)) {
+      return candidate.command;
+    }
+
+    failures.push(`${candidate.label}: ${candidate.command}`);
+  }
+
+  throw new Error(`No usable Python interpreter found. Checked ${failures.join(", ")}`);
 }
 
 function resolveUmapScriptPath(): string {
@@ -105,8 +151,12 @@ async function runPythonCommand(
       args.push("--artifact", artifactPath);
     }
 
-    const pythonBin = resolvePythonBin();
-    await execFileAsync(pythonBin, args, { maxBuffer: 8 * 1024 * 1024 });
+    const pythonBin =
+      resolvedPythonBinPromise ??= resolvePythonBin().catch((error: unknown) => {
+        resolvedPythonBinPromise = null;
+        throw error;
+      });
+    await execFileAsync(await pythonBin, args, { maxBuffer: 8 * 1024 * 1024 });
 
     const raw = await readFile(outputPath, "utf8");
     const parsed = JSON.parse(raw) as Record<string, unknown>;

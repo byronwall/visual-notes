@@ -89,6 +89,9 @@ This document describes where each UMAP-related piece runs and where its data is
 ### Docker
 - `app` image includes Python + UMAP deps.
 - `docker-compose` passes:
-  - `UMAP_PYTHON_BIN` (default `python3`)
+  - `UMAP_PYTHON_BIN` (default `/app/.venv/bin/python`)
   - `UMAP_MODEL_DIR` (default `/app/data/umap-models`)
+- The Node launcher validates that the selected interpreter can import the UMAP
+  dependency set before using it, and falls back to the bundled venv if an
+  override points at the wrong Python.
 - Artifacts persist in `app-data` volume; DB persists in `db-data`.
