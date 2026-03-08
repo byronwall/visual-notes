@@ -192,6 +192,30 @@ const DocumentEditor: VoidComponent<{
     return true;
   };
 
+  const getEditorView = (ed: Editor) =>
+    (
+      ed as {
+        view?: { dom?: HTMLElement; hasFocus?: () => boolean };
+        isDestroyed?: boolean;
+      }
+    ).view;
+
+  const hasMountedEditorView = (ed: Editor) => {
+    if ((ed as { isDestroyed?: boolean }).isDestroyed) return false;
+    const dom = getEditorView(ed)?.dom;
+    return dom instanceof HTMLElement && dom.isConnected;
+  };
+
+  const getEditorFocusState = (ed: Editor) => {
+    const view = getEditorView(ed);
+    if (!view) return false;
+    try {
+      return view.hasFocus?.() ?? false;
+    } catch {
+      return false;
+    }
+  };
+
   const clampSelection = (pos: number, max: number) =>
     Math.max(0, Math.min(pos, max));
 
@@ -200,25 +224,29 @@ const DocumentEditor: VoidComponent<{
     snapshot: { from: number; to: number; wasFocused: boolean } | null
   ) => {
     if (!snapshot) return;
+    if (!hasMountedEditorView(ed)) return;
     const max = ed.state.doc.content.size;
     const from = clampSelection(snapshot.from, max);
     const to = clampSelection(snapshot.to, max);
     ed.commands.setTextSelection({ from, to });
-    if (snapshot.wasFocused) ed.commands.focus();
+    if (snapshot.wasFocused) {
+      try {
+        ed.commands.focus();
+      } catch {
+        // Navigation/unmount can destroy the editor between save completion and
+        // queued selection restoration. Treat that as a no-op.
+      }
+    }
   };
 
   const isEditorFocused = (target?: EventTarget | null) => {
     const ed = editor();
     if (!ed) return false;
-    const view = (
-      ed as {
-        view?: { dom?: HTMLElement; hasFocus?: () => boolean };
-      }
-    ).view;
+    const view = getEditorView(ed);
     const dom = view?.dom;
     if (target && dom && target instanceof Node && dom.contains(target))
       return true;
-    if (view?.hasFocus?.()) return true;
+    if (getEditorFocusState(ed)) return true;
     if (dom && typeof document !== "undefined") {
       const active = document.activeElement;
       if (active && dom.contains(active)) return true;
@@ -231,10 +259,11 @@ const DocumentEditor: VoidComponent<{
     const ed = editor();
     const d = doc();
     if (!ed) return;
+    let shouldRestoreSelection = true;
     const selectionSnapshot = {
       from: ed.state.selection.from,
       to: ed.state.selection.to,
-      wasFocused: ed.view.hasFocus(),
+      wasFocused: getEditorFocusState(ed),
     };
     setSaving(true);
     setError(undefined);
@@ -262,6 +291,7 @@ const DocumentEditor: VoidComponent<{
         if (!json?.id) throw new Error("Failed to create note");
         setSavedAt(new Date());
         setDirty(false);
+        shouldRestoreSelection = false;
         if (props.onCreated) props.onCreated(String(json.id));
       } else {
         // Update existing
@@ -273,7 +303,9 @@ const DocumentEditor: VoidComponent<{
     } catch (e) {
       setError((e as Error).message || "Failed to save");
     } finally {
-      queueMicrotask(() => restoreSelection(ed, selectionSnapshot));
+      if (shouldRestoreSelection) {
+        queueMicrotask(() => restoreSelection(ed, selectionSnapshot));
+      }
       setSaving(false);
     }
   }
