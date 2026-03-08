@@ -378,7 +378,7 @@ export const moveTask = action(
 
     const moving = await prisma.taskItem.findUnique({
       where: { id: input.taskId },
-      select: { id: true, listId: true, parentTaskId: true },
+      select: { id: true, listId: true, parentTaskId: true, sortOrder: true },
     });
     if (!moving) throw new Error("Task not found");
 
@@ -409,7 +409,9 @@ export const moveTask = action(
         });
 
         const orderedIds = siblings.map((item) => item.id);
-        const targetIndex = clampIndex(input.targetIndex, orderedIds.length);
+        const adjustedTargetIndex =
+          moving.sortOrder < input.targetIndex ? input.targetIndex - 1 : input.targetIndex;
+        const targetIndex = clampIndex(adjustedTargetIndex, orderedIds.length);
         orderedIds.splice(targetIndex, 0, moving.id);
 
         for (const [index, id] of orderedIds.entries()) {

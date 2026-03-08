@@ -3,14 +3,18 @@ import {
   ChevronRightIcon,
   DotIcon,
   GripVerticalIcon,
+  SquarePenIcon,
 } from "lucide-solid";
-import { Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
+import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import type { TaskItem } from "~/services/tasks/tasks.service";
 
 type DropKind = "before" | "inside" | "after";
+type MoveDirection = "up" | "down" | "left" | "right";
 
 type Props = {
   task: TaskItem;
@@ -18,8 +22,13 @@ type Props = {
   hasChildren: boolean;
   childCount: number;
   expanded: boolean;
+  isActive: boolean;
+  shouldFocus: boolean;
   draggingTaskId: string | null;
   activeDrop: { taskId: string; kind: DropKind } | null;
+  inlineEditValue: string | null;
+  inlineEditSaving: boolean;
+  inlineEditError: string | null;
   onToggleExpanded: (taskId: string) => void;
   onDragStart: (taskId: string) => void;
   onDragEnd: () => void;
@@ -29,10 +38,69 @@ type Props = {
     draggedTaskId: string | null
   ) => void;
   onDragEnterTarget: (targetTaskId: string, kind: DropKind) => void;
-  onEdit: (task: TaskItem) => void;
+  onActivate: (taskId: string) => void;
+  onClearSelection: () => void;
+  onFocusSettled: (taskId: string) => void;
+  onSelectAdjacent: (taskId: string, direction: "up" | "down") => void;
+  onNavigateTree: (taskId: string, direction: "left" | "right") => void;
+  onOpenInlineEdit: (task: TaskItem) => void;
+  onOpenDetails: (task: TaskItem) => void;
+  onInlineEditChange: (value: string) => void;
+  onInlineEditSubmit: () => void;
+  onInlineEditCancel: () => void;
+  onMoveByKeyboard: (taskId: string, direction: MoveDirection) => void;
 };
 
+const inlineInputClass = css({
+  appearance: "none",
+  bg: "transparent",
+  borderWidth: "0",
+  boxShadow: "none",
+  color: "fg.default",
+  flex: "1",
+  fontSize: "sm",
+  fontWeight: "medium",
+  lineHeight: "1.3",
+  minW: "0",
+  outline: "none",
+  p: "0",
+  w: "full",
+  _placeholder: {
+    color: "fg.muted",
+  },
+});
+
+const ACTIVE_BORDER_COLOR = "#2f6fed";
+const ACTIVE_BORDER_SOFT = "#8fb4ff";
+const ACTIVE_BG_COLOR = "rgba(47, 111, 237, 0.10)";
+
 export const TaskRow = (props: Props) => {
+  let inlineInputRef: HTMLInputElement | undefined;
+  let rowRef: HTMLDivElement | undefined;
+  let hasFocusedInlineInput = false;
+
+  createEffect(() => {
+    if (props.inlineEditValue === null) {
+      hasFocusedInlineInput = false;
+      return;
+    }
+    if (!inlineInputRef || hasFocusedInlineInput) return;
+    hasFocusedInlineInput = true;
+    queueMicrotask(() => {
+      inlineInputRef?.focus();
+      const descriptionLength = props.task.description.length;
+      inlineInputRef?.setSelectionRange(0, descriptionLength);
+    });
+  });
+
+  createEffect(() => {
+    if (!props.shouldFocus || !rowRef) return;
+    queueMicrotask(() => {
+      rowRef?.focus();
+      props.onFocusSettled(props.task.id);
+    });
+  });
+
   const isDraggingSelf = () => props.draggingTaskId === props.task.id;
 
   const handleDrop = (kind: DropKind) => (event: DragEvent) => {
@@ -52,38 +120,128 @@ export const TaskRow = (props: Props) => {
     props.activeDrop?.taskId === props.task.id && props.activeDrop.kind === "inside";
   const afterActive = () =>
     props.activeDrop?.taskId === props.task.id && props.activeDrop.kind === "after";
+  const isInlineEditing = () => props.inlineEditValue !== null;
 
   return (
-    <Stack gap="0">
+    <Stack gap="0.5">
       <Box
         data-testid={`task-drop-before-${props.task.id}`}
-        h={beforeActive() ? "1.5" : "0"}
-        borderRadius="sm"
-        bg={beforeActive() ? "blue.subtle" : "transparent"}
-        borderWidth={beforeActive() ? "1px" : "0"}
-        borderStyle="dashed"
-        borderColor={beforeActive() ? "blue.500" : "transparent"}
+        h={beforeActive() ? "2" : "0.5"}
+        style={{
+          "border-top": beforeActive() ? `4px solid ${ACTIVE_BORDER_COLOR}` : "0 solid transparent",
+          "border-radius": "999px",
+          background: beforeActive() ? ACTIVE_BG_COLOR : "transparent",
+        }}
         onDragOver={handleDragOver}
         onDragEnter={() => props.onDragEnterTarget(props.task.id, "before")}
         onDrop={handleDrop("before")}
       />
 
       <HStack
+        ref={(node) => {
+          rowRef = node;
+        }}
         data-testid={`task-row-${props.task.id}`}
+        data-selected={props.isActive ? "true" : "false"}
+        data-drop-kind={
+          insideActive() ? "inside" : beforeActive() ? "before" : afterActive() ? "after" : "none"
+        }
         gap="2"
         borderWidth="1px"
         borderColor="border"
         borderRadius="md"
         px="2"
         py="1"
-        bg={
-          isDraggingSelf()
-            ? "bg.muted"
-            : props.depth > 0
-              ? "bg.subtle"
-              : "bg"
-        }
+        bg={isDraggingSelf() ? "bg.muted" : "bg"}
+        style={{
+          border: "1px solid #e7e9e7",
+          background:
+            isDraggingSelf()
+              ? undefined
+              : insideActive() || props.isActive
+                ? ACTIVE_BG_COLOR
+                : undefined,
+          "box-shadow": insideActive()
+            ? `0 0 0 1px ${ACTIVE_BORDER_COLOR}`
+            : props.isActive
+              ? `0 0 0 1px ${ACTIVE_BORDER_SOFT}`
+              : "none",
+        }}
         opacity={isDraggingSelf() ? 0.5 : 1}
+        tabIndex={0}
+        onFocus={() => props.onActivate(props.task.id)}
+        onClick={() => props.onActivate(props.task.id)}
+        onKeyDown={(event) => {
+          if (isInlineEditing()) return;
+
+          if (!event.altKey) {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              props.onClearSelection();
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              props.onSelectAdjacent(props.task.id, "up");
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              props.onSelectAdjacent(props.task.id, "down");
+              return;
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              props.onNavigateTree(props.task.id, "left");
+              return;
+            }
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              props.onNavigateTree(props.task.id, "right");
+              return;
+            }
+          }
+
+          if (event.altKey) {
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              props.onMoveByKeyboard(props.task.id, "up");
+              return;
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              props.onMoveByKeyboard(props.task.id, "down");
+              return;
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              props.onMoveByKeyboard(props.task.id, "left");
+              return;
+            }
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              props.onMoveByKeyboard(props.task.id, "right");
+              return;
+            }
+          }
+
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            props.onOpenDetails(props.task);
+            return;
+          }
+
+          if (event.key === "Enter") {
+            event.preventDefault();
+            props.onOpenInlineEdit(props.task);
+            return;
+          }
+
+          if (event.key === "F2") {
+            event.preventDefault();
+            props.onOpenInlineEdit(props.task);
+          }
+        }}
         onDragOver={handleDragOver}
         onDragEnter={() => props.onDragEnterTarget(props.task.id, "inside")}
         onDrop={handleDrop("inside")}
@@ -96,9 +254,6 @@ export const TaskRow = (props: Props) => {
           onClick={(event) => {
             event.stopPropagation();
             if (!props.hasChildren) return;
-            console.info(
-              `[tasks-tree] toggle click taskId=${props.task.id} expandedBefore=${props.expanded} childCount=${props.childCount}`
-            );
             props.onToggleExpanded(props.task.id);
           }}
           disabled={!props.hasChildren}
@@ -114,6 +269,8 @@ export const TaskRow = (props: Props) => {
         <Box
           draggable={!isDraggingSelf()}
           cursor="grab"
+          color="fg.muted"
+          onClick={(event) => event.stopPropagation()}
           onDragStart={(event) => {
             event.dataTransfer?.setData("text/plain", props.task.id);
             event.dataTransfer!.effectAllowed = "move";
@@ -124,11 +281,87 @@ export const TaskRow = (props: Props) => {
           <GripVerticalIcon size={14} />
         </Box>
 
-        <Stack gap="0" flex="1" minW="0" cursor="pointer" onClick={() => props.onEdit(props.task)}>
-          <HStack gap="2" alignItems="center">
-            <Text fontSize="sm" fontWeight="medium" lineClamp={2}>
-              {props.task.description}
-            </Text>
+        <Stack gap="0" flex="1" minW="0">
+          <HStack gap="2" alignItems="center" minW="0">
+            <Show
+              when={isInlineEditing()}
+              fallback={
+                <Text
+                  fontSize="sm"
+                  fontWeight="medium"
+                  lineClamp={2}
+                  flex="1"
+                  minW="0"
+                  cursor="text"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    props.onActivate(props.task.id);
+                    props.onOpenInlineEdit(props.task);
+                  }}
+                >
+                  {props.task.description}
+                </Text>
+              }
+            >
+              <input
+                ref={(node) => {
+                  inlineInputRef = node;
+                }}
+                value={props.inlineEditValue ?? ""}
+                onClick={(event) => event.stopPropagation()}
+                onInput={(event) => props.onInlineEditChange(event.currentTarget.value)}
+                onBlur={() => {
+                  if (!props.inlineEditSaving) props.onInlineEditSubmit();
+                }}
+                onKeyDown={(event) => {
+                  if (event.altKey) {
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      props.onMoveByKeyboard(props.task.id, "up");
+                      return;
+                    }
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      props.onMoveByKeyboard(props.task.id, "down");
+                      return;
+                    }
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      props.onMoveByKeyboard(props.task.id, "left");
+                      return;
+                    }
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      props.onMoveByKeyboard(props.task.id, "right");
+                      return;
+                    }
+                  }
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    props.onInlineEditSubmit();
+                    return;
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    props.onInlineEditCancel();
+                    return;
+                  }
+                  if (!event.altKey && event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    props.onNavigateTree(props.task.id, "left");
+                    return;
+                  }
+                  if (!event.altKey && event.key === "ArrowRight") {
+                    event.preventDefault();
+                    props.onNavigateTree(props.task.id, "right");
+                  }
+                }}
+                disabled={props.inlineEditSaving}
+                placeholder="Task title. Use #tags inline"
+                class={inlineInputClass}
+                data-testid={`task-inline-input-${props.task.id}`}
+              />
+            </Show>
             <Show when={props.hasChildren}>
               <Box
                 borderWidth="1px"
@@ -143,8 +376,21 @@ export const TaskRow = (props: Props) => {
                 </Text>
               </Box>
             </Show>
+            <IconButton
+              size="2xs"
+              variant="plain"
+              aria-label={`Edit details for ${props.task.description}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onActivate(props.task.id);
+                props.onOpenDetails(props.task);
+              }}
+            >
+              <SquarePenIcon size={14} />
+            </IconButton>
           </HStack>
-          <HStack gap="2" color="fg.muted" fontSize="xs" flexWrap="wrap">
+
+          <HStack gap="2" color="fg.muted" fontSize="xs" flexWrap="wrap" minH="4">
             <Text>{props.task.status}</Text>
             <Show when={props.task.dueDate}>
               {(due) => <Text>{due()}</Text>}
@@ -155,31 +401,26 @@ export const TaskRow = (props: Props) => {
             <Show when={props.task.tags.length > 0}>
               <Text>#{props.task.tags.join(" #")}</Text>
             </Show>
+            <Show when={props.inlineEditError}>
+              {(error) => (
+                <Text color="red.fg">
+                  {error()}
+                </Text>
+              )}
+            </Show>
           </HStack>
         </Stack>
 
-        <Box
-          data-testid={`task-drop-inside-${props.task.id}`}
-          w="6"
-          h="6"
-          borderRadius="sm"
-          bg={insideActive() ? "blue.subtle" : "bg.muted"}
-          borderWidth="1px"
-          borderColor={insideActive() ? "blue.500" : "border"}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop("inside")}
-          onDragEnter={() => props.onDragEnterTarget(props.task.id, "inside")}
-        />
       </HStack>
 
       <Box
         data-testid={`task-drop-after-${props.task.id}`}
-        h={afterActive() ? "1.5" : "0"}
-        borderRadius="sm"
-        bg={afterActive() ? "blue.subtle" : "transparent"}
-        borderWidth={afterActive() ? "1px" : "0"}
-        borderStyle="dashed"
-        borderColor={afterActive() ? "blue.500" : "transparent"}
+        h={afterActive() ? "2" : "0.5"}
+        style={{
+          "border-bottom": afterActive() ? `4px solid ${ACTIVE_BORDER_COLOR}` : "0 solid transparent",
+          "border-radius": "999px",
+          background: afterActive() ? ACTIVE_BG_COLOR : "transparent",
+        }}
         onDragOver={handleDragOver}
         onDragEnter={() => props.onDragEnterTarget(props.task.id, "after")}
         onDrop={handleDrop("after")}

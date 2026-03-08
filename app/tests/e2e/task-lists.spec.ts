@@ -4,16 +4,29 @@ import { ensureAuthed } from "./helpers/auth";
 const rowByText = (page: Page, text: string) =>
   page.locator("[data-testid^='task-row-']").filter({ hasText: text }).first();
 
+const inlineCreateInput = (page: Page) =>
+  page.getByTestId("task-inline-create-row").locator("input");
+
+const escapeForRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const detailsButtonForTask = (page: Page, text: string) =>
+  rowByText(page, text).getByRole("button", {
+    name: new RegExp(`edit details for ${escapeForRegex(text)}`, "i"),
+  });
+
 test.describe("task lists", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("create/edit/delete lists and tasks with hierarchy drag-drop", async ({ page }) => {
+  test("create/edit/delete lists and tasks with inline task editing and keyboard hierarchy moves", async ({
+    page,
+  }) => {
     test.setTimeout(120_000);
 
     const suffix = Date.now().toString().slice(-6);
     const listName = `E2E Tasks ${suffix}`;
     const renamedListName = `E2E Tasks Renamed ${suffix}`;
     const rootA = `Root A ${suffix}`;
+    const rootARenamed = `Root A Updated ${suffix}`;
     const rootB = `Root B ${suffix}`;
     const childA = `Child A ${suffix}`;
 
@@ -42,22 +55,34 @@ test.describe("task lists", () => {
       .click();
 
     await page.getByTestId("task-create-button").click();
-    await page.locator("[data-testid='task-edit-dialog'] textarea").first().fill(rootA);
-    await page.getByTestId("task-save-button").click();
+    await inlineCreateInput(page).fill(rootA);
+    await inlineCreateInput(page).press("Enter");
+    await page.keyboard.press("Escape");
     await expect(rowByText(page, rootA)).toBeVisible();
 
-    await page.getByTestId("task-create-button").click();
-    await page.locator("[data-testid='task-edit-dialog'] textarea").first().fill(rootB);
-    await page.getByTestId("task-save-button").click();
+    await page.keyboard.press("n");
+    await inlineCreateInput(page).fill(rootB);
+    await inlineCreateInput(page).press("Enter");
+    await page.keyboard.press("Escape");
     await expect(rowByText(page, rootB)).toBeVisible();
 
-    await page.getByTestId("task-create-button").click();
-    await page.locator("[data-testid='task-edit-dialog'] textarea").first().fill(childA);
-    await page.getByTestId("task-parent-select").selectOption({ label: rootA });
-    await page.getByTestId("task-save-button").click();
+    await page.keyboard.press("n");
+    await inlineCreateInput(page).fill(childA);
+    await inlineCreateInput(page).press("Enter");
+    await page.keyboard.press("Escape");
     await expect(rowByText(page, childA)).toBeVisible();
 
-    await rowByText(page, rootB).click();
+    await rowByText(page, childA).focus();
+    await rowByText(page, childA).press("Alt+ArrowUp");
+    await rowByText(page, childA).press("Alt+ArrowRight");
+    await expect(rowByText(page, rootB)).toContainText("1 child");
+
+    await rowByText(page, rootA).getByText(rootA).click();
+    await page.locator("[data-testid^='task-inline-input-']").fill(`${rootARenamed} #planning`);
+    await page.keyboard.press("Enter");
+    await expect(rowByText(page, rootARenamed)).toContainText("#planning");
+
+    await detailsButtonForTask(page, rootB).click();
     await page.getByTestId("task-status-select").selectOption("started");
     await page.getByTestId("task-due-date-input").fill("2026-04-15");
     await page.getByTestId("task-duration-input").fill("90");
@@ -68,32 +93,28 @@ test.describe("task lists", () => {
     await expect(rowByText(page, rootB)).toContainText("2026-04-15");
     await expect(rowByText(page, rootB)).toContainText("90m");
 
-    const rootARow = rowByText(page, rootA);
-    await rootARow.getByRole("button", { name: /collapse task/i }).click();
+    const rootBRow = rowByText(page, rootB);
+    await rootBRow.getByRole("button", { name: /collapse task/i }).click();
     await expect(rowByText(page, childA)).toHaveCount(0);
-    await rootARow.getByRole("button", { name: /expand task/i }).click();
+    await rootBRow.getByRole("button", { name: /expand task/i }).click();
     await expect(rowByText(page, childA)).toBeVisible();
 
     await page.reload();
-    await expect(rowByText(page, rootA)).toBeVisible();
+    await expect(rowByText(page, rootARenamed)).toBeVisible();
     await expect(rowByText(page, rootB)).toBeVisible();
     await expect(rowByText(page, childA)).toBeVisible();
 
-    await rowByText(page, rootA).click();
+    await detailsButtonForTask(page, rootB).click();
     await page.getByTestId("task-delete-button").click();
-    await expect(rowByText(page, rootA)).toHaveCount(0);
+    await expect(rowByText(page, rootB)).toHaveCount(0);
     await expect(rowByText(page, childA)).toBeVisible();
-
-    const reparentedChild = rowByText(page, childA);
-    const childMarginLeft = await reparentedChild.evaluate((node) =>
-      window.getComputedStyle(node as HTMLElement).marginLeft
-    );
-    expect(parseFloat(childMarginLeft)).toBe(0);
 
     const renamedList = page
       .locator("[data-testid^='task-list-item-']")
       .filter({ hasText: renamedListName });
-    await renamedList.getByRole("button", { name: new RegExp(`delete list ${renamedListName}`, "i") }).click();
+    await renamedList
+      .getByRole("button", { name: new RegExp(`delete list ${escapeForRegex(renamedListName)}`, "i") })
+      .click();
     await expect(renamedList).toHaveCount(0);
   });
 });
