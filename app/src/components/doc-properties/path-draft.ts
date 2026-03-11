@@ -18,6 +18,19 @@ export const parsePathDraft = (raw?: string): PathDraft => {
   };
 };
 
+export const parsePersistedPathDraft = (raw?: string): PathDraft => {
+  const incoming = (raw || "").trim();
+  if (!incoming) return { committed: [], current: "" };
+
+  return {
+    committed: incoming
+      .split(".")
+      .map((token) => token.trim())
+      .filter((token) => token.length > 0),
+    current: "",
+  };
+};
+
 export const serializePathDraft = (draft: PathDraft) => {
   const parts = [...draft.committed];
   if (draft.current.length > 0) parts.push(draft.current);

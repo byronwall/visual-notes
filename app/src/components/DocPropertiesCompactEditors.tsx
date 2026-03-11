@@ -23,6 +23,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   onMetaChange?: (meta: MetaRecord) => void;
   trailing?: JSX.Element;
 }> = (props) => {
+  let prevDocId = props.docId;
   const initialPathValue = () => (props.initialPath || "").trim();
   const initialMetaValue = () => normalizeMetaRecord(props.initialMeta);
 
@@ -35,10 +36,13 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   const [metaPopoverOpen, setMetaPopoverOpen] = createSignal(false);
 
   createEffect(() => {
+    const incomingDocId = props.docId;
     const incoming = initialPathValue();
-    if (incoming === prevIncomingPath) return;
+    if (incomingDocId === prevDocId && incoming === prevIncomingPath) return;
+    prevDocId = incomingDocId;
     prevIncomingPath = incoming;
     setPathDraft(incoming);
+    setPathPopoverOpen(false);
   });
 
   createEffect(() => {

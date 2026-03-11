@@ -9,7 +9,7 @@ import {
   buildNextSegmentSuggestions,
   clearPathDraft,
   commitCurrentSegment,
-  parsePathDraft,
+  parsePersistedPathDraft,
   popSegmentIntoCurrent,
   serializePathDraft,
   setCurrentSegment,
@@ -27,9 +27,12 @@ export const PathEditor: VoidComponent<{
   onChangeWhenSavedOnly?: boolean;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
+  let lastAppliedDocId = props.docId;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
 
-  const [draft, setDraft] = createSignal<PathDraft>(parsePathDraft(props.initialPath));
+  const [draft, setDraft] = createSignal<PathDraft>(
+    parsePersistedPathDraft(props.initialPath)
+  );
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isFocused, setIsFocused] = createSignal(false);
@@ -38,10 +41,18 @@ export const PathEditor: VoidComponent<{
   const pathCounts = createAsync(() => fetchPathSuggestions());
 
   createEffect(() => {
+    const incomingDocId = props.docId;
     const incoming = (props.initialPath || "").trim();
-    if (incoming === lastAppliedInitialPath) return;
+    if (
+      incomingDocId === lastAppliedDocId &&
+      incoming === lastAppliedInitialPath
+    ) {
+      return;
+    }
+    lastAppliedDocId = incomingDocId;
     lastAppliedInitialPath = incoming;
-    setDraft(parsePathDraft(incoming));
+    setDraft(parsePersistedPathDraft(incoming));
+    setIsFocused(false);
   });
 
   createEffect(() => {
@@ -251,7 +262,10 @@ export const PathEditor: VoidComponent<{
                 </Show>
               </Text>
               <Text fontSize="xs" color="fg.muted" mb="1.5">
-                Hit <Text as="span" fontFamily="mono">.</Text> to nest
+                Pick a child to continue nesting, or type a segment and hit{" "}
+                <Text as="span" fontFamily="mono">
+                  .
+                </Text>
               </Text>
 
               <Box maxH="12rem" overflowY="auto">
