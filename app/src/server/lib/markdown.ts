@@ -137,7 +137,7 @@ export function getSanitizeOptions(): IOptions {
     ]),
     allowedAttributes: {
       a: ["href", "name", "target", "rel"],
-      img: ["src", "alt", "title"],
+      img: ["src", "alt", "title", "data-width"],
       code: ["class"],
       // Shiki adds classes and inline styles on pre/span
       pre: ["class", "style"],
