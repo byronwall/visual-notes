@@ -35,6 +35,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     const detail = props.detail();
     const points = detail?.points ?? [];
     const dims = detail?.dims ?? 2;
+    const regions = detail?.meta.regions ?? null;
     const width = canvasWidth();
     const height = canvasHeight();
 
@@ -90,6 +91,31 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     ctx.strokeStyle = "#e5e7eb";
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+    if (regions) {
+      ctx.save();
+      ctx.font = "600 12px ui-sans-serif, system-ui, -apple-system";
+      ctx.textAlign = "center";
+      // Islands removed from display per current plan
+      for (const region of regions.regions) {
+        const px = pad + (region.centroid.x - minX) * sx;
+        const py = height - pad - (region.centroid.y - minY) * sy;
+        const radius = Math.max(
+          8,
+          Math.max(region.radius * sx, region.radius * sy)
+        );
+        ctx.fillStyle = "rgba(37, 99, 235, 0.06)";
+        ctx.strokeStyle = "rgba(37, 99, 235, 0.25)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#1e3a8a";
+        ctx.fillText(region.title, px, py - radius - 6);
+      }
+      ctx.restore();
+    }
 
     for (const point of points) {
       const px = pad + (point.x - minX) * sx;

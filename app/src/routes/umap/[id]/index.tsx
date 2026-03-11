@@ -7,7 +7,10 @@ import {
   fetchUmapPointsForRun,
   fetchUmapRun,
 } from "~/services/umap/umap.queries";
-import { deleteUmapRun } from "~/services/umap/umap.actions";
+import {
+  deleteUmapRun,
+  regenerateUmapRegionsAction,
+} from "~/services/umap/umap.actions";
 import { getParamEntries } from "~/features/umap/format";
 import {
   type UmapDetailData,
@@ -18,12 +21,15 @@ import { useUmapCanvas } from "~/features/umap/useUmapCanvas";
 import { UmapRunCanvasCard } from "~/features/umap/UmapRunCanvasCard";
 import { UmapRunMetadataCard } from "~/features/umap/UmapRunMetadataCard";
 import { UmapRunParamsCard } from "~/features/umap/UmapRunParamsCard";
+import { UmapRunRegionsCard } from "~/features/umap/UmapRunRegionsCard";
 
 const UmapDetail: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
   const runDelete = useAction(deleteUmapRun);
+  const runRegenerateRegions = useAction(regenerateUmapRegionsAction);
   const [busy, setBusy] = createSignal(false);
+  const [regeneratingRegions, setRegeneratingRegions] = createSignal(false);
 
   const detail = createAsync(async (): Promise<UmapDetailData | null> => {
     if (!params.id) return null;
@@ -65,6 +71,23 @@ const UmapDetail: VoidComponent = () => {
     }
   };
 
+  const handleRegenerateRegions = async () => {
+    if (!params.id) return;
+    try {
+      setRegeneratingRegions(true);
+      await runRegenerateRegions({ id: params.id });
+      await Promise.all([
+        revalidate(fetchUmapRun.keyFor(params.id)),
+        revalidate(fetchUmapPointsForRun.keyFor(params.id)),
+      ]);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to regenerate regions");
+    } finally {
+      setRegeneratingRegions(false);
+    }
+  };
+
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Container py="4" px="4" maxW="1440px">
@@ -93,29 +116,38 @@ const UmapDetail: VoidComponent = () => {
             {(result) => {
               const meta = result().meta;
               return (
-                <Grid
-                  gridTemplateColumns={{
-                    base: "1fr",
-                    xl: "minmax(0, 1.9fr) minmax(320px, 1fr)",
-                  }}
-                  gap="4"
-                  alignItems="start"
-                >
-                  <UmapRunCanvasCard
-                    dims={result().dims}
-                    pointsCount={result().points.length}
-                    busy={busy()}
-                    onRefresh={refreshPoints}
-                    onDelete={handleDelete}
-                    setCanvasContainerEl={setCanvasContainerEl}
-                    setCanvasEl={setCanvasEl}
-                  />
+                <Stack gap="4">
+                  <Grid
+                    gridTemplateColumns={{
+                      base: "1fr",
+                      xl: "minmax(0, 1.9fr) minmax(320px, 1fr)",
+                    }}
+                    gap="4"
+                    alignItems="start"
+                  >
+                    <UmapRunCanvasCard
+                      dims={result().dims}
+                      pointsCount={result().points.length}
+                      busy={busy()}
+                      onRefresh={refreshPoints}
+                      onDelete={handleDelete}
+                      setCanvasContainerEl={setCanvasContainerEl}
+                      setCanvasEl={setCanvasEl}
+                    />
 
-                  <Stack gap="3">
-                    <UmapRunMetadataCard meta={meta} />
-                    <UmapRunParamsCard paramEntries={getParamEntries(meta.params)} />
-                  </Stack>
-                </Grid>
+                    <Stack gap="3">
+                      <UmapRunMetadataCard meta={meta} />
+                      <UmapRunParamsCard paramEntries={getParamEntries(meta.params)} />
+                    </Stack>
+                  </Grid>
+
+                  <UmapRunRegionsCard
+                    runId={meta.id}
+                    regions={meta.regions}
+                    busy={regeneratingRegions()}
+                    onRegenerate={handleRegenerateRegions}
+                  />
+                </Stack>
               );
             }}
           </Show>

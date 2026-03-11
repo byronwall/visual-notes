@@ -1,3 +1,5 @@
+import type { UmapRegionsSnapshot } from "./region-types";
+
 export type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
 
 export type UmapRunMeta = {
@@ -9,6 +11,8 @@ export type UmapRunMeta = {
   count?: number;
   hasArtifact?: boolean;
   artifactPath?: string | null;
+  regions?: UmapRegionsSnapshot | null;
+  regionCount?: number;
 };
 
 export type UmapRunPointsData = {

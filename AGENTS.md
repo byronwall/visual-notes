@@ -32,6 +32,7 @@ guidelines from comp_refs.
   - Keep styles next to their users; do not extract CSS-in-JSS unless reused.
 - UI + styling
   - Prefer `~/components/ui/*` wrappers over direct Ark UI usage in routes.
+  - When wrapping Ark primitives, do not override relationship-critical DOM ids directly on subparts such as `Trigger`, `Content`, or `Positioner`. Use Ark’s structured `ids`/root APIs instead; manual ids can break trigger-to-overlay positioning and accessibility wiring.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
   - Render document/file/path-like strings in a monospace font so paths scan distinctly from titles/body copy.
@@ -47,6 +48,8 @@ guidelines from comp_refs.
   - For sidebar/flyout nested menus: use controlled `Menu.Root` + `Portal` for
     `Menu.Positioner`/`Menu.Content`, and apply token z-index (`popover` or
     `tooltip`) at the menu call site to avoid stacking-context regressions.
+  - For Ark `Select`/popover-like controls inside sticky, absolute, transformed, or canvas/sidebar shells: prefer `Portal` + explicit `positioning` at the call site (`strategy: "fixed"` when needed) and verify in Playwright that the overlay anchors to the trigger rather than rendering at `(0, 0)` or under adjacent rails.
+  - If a shared select/popover supports optional portalling, do not mount the floating subtree in-tree and then move it into a portal after hydration. Gate portal-mode overlay rendering until hydrated to avoid zero-size reference measurements.
 - Routes are routes
   - Do not create reusable UI under `app/src/routes/`.
   - Keep route modules focused on routing + data + page composition; move reusable UI to `app/src/components/` (or `~/components/*`).

@@ -16,6 +16,7 @@ import { VisualCanvas } from "~/components/visual/VisualCanvas";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { seededPositionFor } from "~/layout/seeded";
+import { normalizeUmapRegions } from "~/layout/umap-normalize";
 import {
   useUmapPointsResource,
   useUmapRunResource,
@@ -94,6 +95,9 @@ const CanvasRoute: VoidComponent = () => {
   const viewTransform = () => canvasStore.viewTransform();
   const scheduleTransform = () => canvasStore.scheduleTransform();
   const umapIndex = () => positionsStore.umapIndex();
+  const umapRegions = createMemo(() =>
+    normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD)
+  );
 
   // Selection store (brush + isolation)
   const selectionStore = createSelectionStore({
@@ -218,10 +222,12 @@ const CanvasRoute: VoidComponent = () => {
             docs={isolatedDocs()}
             positions={positions}
             umapIndex={umapIndex}
+            umapRegions={umapRegions}
             hoveredId={hover.hoveredId}
             hoveredLabelScreen={hover.hoveredLabelScreen}
             showHoverLabel={hover.showHoverLabel}
             viewTransform={viewTransform}
+            offset={canvasStore.offset}
             navHeight={canvasStore.navHeight}
             scale={canvasStore.scale}
             searchQuery={searchQuery}

@@ -10,6 +10,7 @@ import {
 import {
   projectDocEmbeddingsIntoUmapRun,
 } from "~/services/umap/umap.projection";
+import { regenerateUmapRegions } from "~/services/umap/umap.regions";
 import { prepareUmapVectorRows } from "~/services/umap/umap.vectors";
 
 const createSchema = z.object({
@@ -52,10 +53,17 @@ const projectSchema = z.object({
   mode: z.enum(["missing", "all"]).default("missing"),
 });
 
+const regenerateRegionsSchema = z.object({
+  id: z.string().min(1),
+});
+
 export const createUmapRun = action(
   async (payload: z.infer<typeof createSchema>) => {
     "use server";
     const input = createSchema.parse(payload);
+    console.info(
+      `[umap] create run requested embeddingRun=${input.embeddingRunId} dims=${input.dims}`
+    );
     const job = await jobsDb().createJob("umap_train", null, input.jobId);
     let createdRunId: string | null = null;
     let artifactPath: string | null = null;
@@ -68,6 +76,9 @@ export const createUmapRun = action(
         orderBy: { createdAt: "asc" },
       });
       if (!rows.length) throw new Error("No embeddings for run");
+      console.info(
+        `[umap] create run extracted embeddingRun=${input.embeddingRunId} rows=${rows.length} job=${job.id}`
+      );
 
       const run = await prisma.umapRun.create({
         data: {
@@ -102,6 +113,9 @@ export const createUmapRun = action(
           dimCounts: preparedRows.dimCounts,
         });
       }
+      console.info(
+        `[umap] create run prepared run=${run.id} usable=${preparedRows.rows.length} droppedInvalid=${preparedRows.droppedInvalid} droppedMismatched=${preparedRows.droppedMismatched}`
+      );
 
       const trainResult = await trainUmapModel({
         runId: run.id,
@@ -138,6 +152,11 @@ export const createUmapRun = action(
         }),
       ]);
 
+      console.info(`[umap] create run deriving regions run=${run.id}`);
+      await regenerateUmapRegions(run.id).catch((error) => {
+        console.warn(`[umap] failed to derive regions for run=${run.id}`, error);
+      });
+
       console.info(
         `[umap] trained run=${run.id} count=${points.length} fitMs=${
           trainResult.fitMs ?? -1
@@ -166,6 +185,9 @@ export const projectUmapRun = action(
   async (payload: z.infer<typeof projectSchema>) => {
     "use server";
     const input = projectSchema.parse(payload);
+    console.info(
+      `[umap] project requested run=${input.umapRunId} mode=${input.mode} embeddingRun=${input.embeddingRunId ?? "default"} docIds=${input.docIds?.length ?? 0}`
+    );
 
     const result = await projectDocEmbeddingsIntoUmapRun({
       umapRunId: input.umapRunId,
@@ -180,6 +202,24 @@ export const projectUmapRun = action(
     return result;
   },
   "umap-run-project"
+);
+
+export const regenerateUmapRegionsAction = action(
+  async (payload: z.infer<typeof regenerateRegionsSchema>) => {
+    "use server";
+    const input = regenerateRegionsSchema.parse(payload);
+    console.info(`[umap] regenerate regions requested run=${input.id}`);
+    const snapshot = await regenerateUmapRegions(input.id);
+    console.info(
+      `[umap] regenerate regions complete run=${input.id} groups=${snapshot?.regions.length ?? 0} islands=${snapshot?.islands.length ?? 0}`
+    );
+    return {
+      runId: input.id,
+      groups: snapshot?.regions.length ?? 0,
+      islands: snapshot?.islands.length ?? 0,
+    };
+  },
+  "umap-run-regenerate-regions"
 );
 
 export const updateUmapRun = action(

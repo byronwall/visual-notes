@@ -1,6 +1,7 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import type { UmapPoint, UmapRun } from "~/types/notes";
+import { parseUmapRegionsSnapshot } from "~/services/umap/umap.regions";
 
 export type NearbyUmapDoc = {
   id: string;
@@ -22,7 +23,7 @@ export const fetchLatestUmapRun = query(
     "use server";
     const run = await prisma.umapRun.findFirst({
       orderBy: { createdAt: "desc" },
-      select: { id: true, dims: true },
+      select: { id: true, dims: true, regionsJson: true },
     });
     if (run) {
       try {
@@ -31,7 +32,13 @@ export const fetchLatestUmapRun = query(
         );
       } catch {}
     }
-    return run ?? undefined;
+    return run
+      ? {
+          id: run.id,
+          dims: run.dims,
+          regions: parseUmapRegionsSnapshot(run.regionsJson),
+        }
+      : undefined;
   },
   "umap-latest-run"
 );

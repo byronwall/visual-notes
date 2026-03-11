@@ -105,7 +105,14 @@ export const fetchDocs = query(
     const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
     const items = await prisma.doc.findMany({
       orderBy: { updatedAt: "desc" },
-      select: { id: true, title: true, createdAt: true, path: true },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        path: true,
+        meta: true,
+      },
       take,
     });
     console.log("[services] fetchDocs", {
@@ -116,6 +123,8 @@ export const fetchDocs = query(
     return items.map((item) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
+      meta: item.meta as DocItem["meta"],
     }));
   },
   "docs-list"
@@ -135,7 +144,7 @@ const stripFencedCodeBlocks = (value: string) => {
   return parts.filter((_part, index) => index % 2 === 0).join(" ");
 };
 
-const buildDocPreviewText = (
+export const buildDocPreviewText = (
   markdown?: string | null,
   html?: string | null,
   maxLen = 240

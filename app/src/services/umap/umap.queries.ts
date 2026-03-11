@@ -1,5 +1,8 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
+import { buildDocPreviewText } from "~/services/docs.queries";
+import { parseUmapRegionsSnapshot } from "~/services/umap/umap.regions";
+import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 
 export type UmapRunSummary = {
   id: string;
@@ -8,10 +11,26 @@ export type UmapRunSummary = {
   embeddingRunId: string;
   hasArtifact: boolean;
   artifactPath?: string | null;
+  regions: UmapRegionsSnapshot | null;
+  regionCount: number;
   createdAt: string;
 };
 
 export type UmapRunDetail = UmapRunSummary & { count: number };
+export type UmapRegionDoc = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  path?: string | null;
+  meta?: Record<string, unknown> | null;
+  previewText: string;
+};
+export type UmapRegionDetail = {
+  run: UmapRunDetail;
+  region: NonNullable<UmapRegionsSnapshot["regions"][number]>;
+  island: UmapRegionsSnapshot["islands"][number] | null;
+  docs: UmapRegionDoc[];
+};
 
 export type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
 
@@ -33,6 +52,7 @@ export const fetchUmapRuns = query(async (input: UmapRunsQuery = {}): Promise<Um
       params: true,
       embeddingRunId: true,
       artifactPath: true,
+      regionsJson: true,
       createdAt: true,
     },
     take: limit,
@@ -40,11 +60,13 @@ export const fetchUmapRuns = query(async (input: UmapRunsQuery = {}): Promise<Um
   return runs.map((r) => ({
     id: r.id,
     dims: r.dims,
-    params: r.params as Record<string, unknown> | null,
-    embeddingRunId: r.embeddingRunId,
-    hasArtifact: Boolean(r.artifactPath),
-    createdAt: r.createdAt.toISOString(),
-  }));
+      params: r.params as Record<string, unknown> | null,
+      embeddingRunId: r.embeddingRunId,
+      hasArtifact: Boolean(r.artifactPath),
+      regions: parseUmapRegionsSnapshot(r.regionsJson),
+      regionCount: parseUmapRegionsSnapshot(r.regionsJson)?.regions.length ?? 0,
+      createdAt: r.createdAt.toISOString(),
+    }));
 }, "umap-runs");
 
 export const fetchUmapRun = query(
@@ -59,6 +81,7 @@ export const fetchUmapRun = query(
         params: true,
         embeddingRunId: true,
         artifactPath: true,
+        regionsJson: true,
         createdAt: true,
       },
     });
@@ -71,6 +94,8 @@ export const fetchUmapRun = query(
       embeddingRunId: run.embeddingRunId,
       hasArtifact: Boolean(run.artifactPath),
       artifactPath: run.artifactPath,
+      regions: parseUmapRegionsSnapshot(run.regionsJson),
+      regionCount: parseUmapRegionsSnapshot(run.regionsJson)?.regions.length ?? 0,
       createdAt: run.createdAt.toISOString(),
       count,
     };
@@ -104,4 +129,58 @@ export const fetchUmapPointsForRun = query(
     };
   },
   "umap-points"
+);
+
+export const fetchUmapRegionDetail = query(
+  async (
+    input: { runId: string; regionId: string }
+  ): Promise<UmapRegionDetail | null> => {
+    "use server";
+    const runId = String(input.runId || "").trim();
+    const regionId = String(input.regionId || "").trim();
+    if (!runId || !regionId) return null;
+
+    const run = await fetchUmapRun(runId);
+    if (!run) return null;
+    const regions = run.regions;
+    if (!regions) return null;
+
+    const region = regions.regions.find((item) => item.id === regionId) ?? null;
+    if (!region) return null;
+    const island = regions.islands.find((item) => item.id === region.islandId) ?? null;
+
+    const rows = await prisma.doc.findMany({
+      where: { id: { in: region.docIds } },
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+        path: true,
+        meta: true,
+        markdown: true,
+        html: true,
+      },
+    });
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const docs = region.docIds
+      .map((id) => byId.get(id))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        updatedAt: row.updatedAt.toISOString(),
+        path: row.path,
+        meta: row.meta as Record<string, unknown> | null,
+        previewText: buildDocPreviewText(row.markdown, row.html),
+      }));
+
+    return {
+      run,
+      region,
+      island,
+      docs,
+    };
+  },
+  "umap-region-detail"
 );

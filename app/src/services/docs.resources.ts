@@ -5,7 +5,7 @@ import {
   fetchLatestUmapRun,
   fetchUmapPoints,
 } from "~/services/umap.service";
-import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
+import type { UmapPoint } from "~/types/notes";
 
 export function useDocsResource() {
   return createAsync(() => fetchDocs());

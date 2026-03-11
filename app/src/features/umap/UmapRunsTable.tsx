@@ -49,6 +49,7 @@ export function UmapRunsTable(props: UmapRunsTableProps) {
                   <Table.Header textAlign="left">Embedding</Table.Header>
                   <Table.Header textAlign="left">Dims</Table.Header>
                   <Table.Header textAlign="left">Status</Table.Header>
+                  <Table.Header textAlign="left">Groups</Table.Header>
                   <Table.Header textAlign="left">Created</Table.Header>
                   <Table.Header textAlign="right">Clone</Table.Header>
                 </Table.Row>
@@ -67,6 +68,9 @@ export function UmapRunsTable(props: UmapRunsTableProps) {
                       </Table.Cell>
                       <Table.Cell>{run.dims}D</Table.Cell>
                       <Table.Cell>{run.hasArtifact ? "Trained" : "Missing"}</Table.Cell>
+                      <Table.Cell>
+                        {run.regionCount > 0 ? `${run.regionCount} ready` : "Pending"}
+                      </Table.Cell>
                       <Table.Cell>{formatRelativeTimestamp(run.createdAt)}</Table.Cell>
                       <Table.Cell textAlign="right">
                         <Tooltip

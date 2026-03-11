@@ -1,5 +1,6 @@
 import { prisma } from "~/server/db";
 import { transformWithUmapModel } from "~/server/lib/umap/python-umap";
+import { regenerateUmapRegions } from "~/services/umap/umap.regions";
 import { prepareUmapVectorRows, type UmapVectorRow } from "~/services/umap/umap.vectors";
 
 export type UmapProjectionMode = "missing" | "all";
@@ -47,6 +48,9 @@ export async function projectVectorsIntoUmapRun(params: {
   requested: number;
 }> {
   const mode = params.mode ?? "missing";
+  console.info(
+    `[umap.projection] start run=${params.umapRunId} mode=${mode} requestedRows=${params.rows.length}`
+  );
   const run = await prisma.umapRun.findUnique({
     where: { id: params.umapRunId },
     select: { id: true, dims: true, artifactPath: true },
@@ -60,6 +64,7 @@ export async function projectVectorsIntoUmapRun(params: {
 
   const requestedRows = normalizeVectorRows(params.rows);
   if (!requestedRows.length) {
+    console.info(`[umap.projection] skip run=${run.id} reason=no-rows`);
     return { runId: run.id, projected: 0, skippedExisting: 0, requested: 0 };
   }
 
@@ -69,6 +74,9 @@ export async function projectVectorsIntoUmapRun(params: {
       : { remaining: requestedRows, skippedExisting: 0 };
 
   if (!filtered.remaining.length) {
+    console.info(
+      `[umap.projection] skip run=${run.id} reason=no-remaining skippedExisting=${filtered.skippedExisting}`
+    );
     return {
       runId: run.id,
       projected: 0,
@@ -92,6 +100,9 @@ export async function projectVectorsIntoUmapRun(params: {
       dimCounts: preparedRows.dimCounts,
     });
   }
+  console.info(
+    `[umap.projection] prepared run=${run.id} transformRows=${preparedRows.rows.length} skippedExisting=${filtered.skippedExisting} droppedInvalid=${preparedRows.droppedInvalid} droppedMismatched=${preparedRows.droppedMismatched}`
+  );
 
   const transformed = await transformWithUmapModel({
     artifactPath: run.artifactPath,
@@ -126,6 +137,15 @@ export async function projectVectorsIntoUmapRun(params: {
       skipDuplicates: true,
     }),
   ]);
+
+  console.info(`[umap.projection] refreshing regions run=${run.id}`);
+  await regenerateUmapRegions(run.id).catch((error) => {
+    console.warn(`[umap] failed to refresh regions for run=${run.id}`, error);
+  });
+
+  console.info(
+    `[umap.projection] complete run=${run.id} projected=${projectedRows.length} requested=${requestedRows.length} skippedExisting=${filtered.skippedExisting}`
+  );
 
   return {
     runId: run.id,

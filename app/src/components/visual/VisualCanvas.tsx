@@ -1,14 +1,14 @@
 import {
   For,
   Show,
-  createEffect,
   createMemo,
   type Accessor,
   type VoidComponent,
-  type JSX,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
+import { CanvasHexCardLayer } from "~/components/visual/CanvasHexCardLayer";
 import { Text } from "~/components/ui/text";
+import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 import { colorFor } from "~/utils/colors";
 import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
@@ -27,17 +27,19 @@ export type VisualCanvasProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
   umapIndex: Accessor<Map<string, { x: number; y: number }>>;
+  umapRegions?: Accessor<UmapRegionsSnapshot | null>;
   hoveredId: Accessor<string | undefined>;
   hoveredLabelScreen: Accessor<
     { x: number; y: number; title: string } | undefined
   >;
   showHoverLabel: Accessor<boolean>;
   viewTransform: Accessor<string>;
+  offset: Accessor<Point>;
   navHeight: Accessor<number>;
   scale?: Accessor<number>;
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
-  layoutMode: Accessor<"umap" | "grid">;
+  layoutMode: Accessor<"umap" | "regions" | "grid" | "hex">;
   nestByPath: Accessor<boolean>;
   eventHandlers: PanZoomHandlers;
   onSelectDoc: (id: string) => void;
@@ -108,7 +110,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
 
               const circleRadius = createMemo(() => {
                 const s = Math.max(0.001, props.scale?.() ?? 1);
-                if (props.layoutMode() !== "umap") return 10;
+                if (props.layoutMode() === "grid") return 10;
+                if (props.layoutMode() === "hex") return Math.max(3, 6 / s);
                 const alpha = 1.2; // shrink against zoom: r_world = base / s^alpha
                 const rWorld = 10 / Math.pow(s, alpha);
                 // clamp to 2-12
@@ -183,8 +186,43 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 return boxes;
               });
 
+              const normalizedRegions = createMemo(
+                () => props.umapRegions?.() ?? null
+              );
+
               return (
                 <>
+                  <Show when={props.layoutMode() === "regions" && normalizedRegions()}>
+                    {(regions) => (
+                      <>
+                        <For each={regions().regions}>
+                          {(region) => (
+                            <g>
+                              <circle
+                                cx={region.centroid.x}
+                                cy={region.centroid.y}
+                                r={Math.max(18, region.radius)}
+                                fill="rgba(37, 99, 235, 0.06)"
+                                stroke="rgba(37, 99, 235, 0.25)"
+                                stroke-width="1.5"
+                                vector-effect="non-scaling-stroke"
+                              />
+                              <text
+                                x={region.centroid.x}
+                                y={region.centroid.y - Math.max(18, region.radius) - 8}
+                                fill="#1e3a8a"
+                                font-size="14"
+                                font-weight="600"
+                                text-anchor="middle"
+                              >
+                                {region.title}
+                              </text>
+                            </g>
+                          )}
+                        </For>
+                      </>
+                    )}
+                  </Show>
                   <For each={pathBoxes()}>
                     {(b) => {
                       const isGrid = props.layoutMode() === "grid";
@@ -217,7 +255,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                           seededPositionFor(d.title, i(), SPREAD)
                       );
                       const fill = createMemo(() =>
-                        props.layoutMode() === "umap"
+                        props.layoutMode() !== "grid"
                           ? colorFor(d.path || d.title)
                           : colorFor(d.title)
                       );
@@ -277,38 +315,53 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           </Show>
         </g>
       </svg>
-      {(() => {
-        const sel = props.selection;
-        if (!sel) return null as unknown as JSX.Element;
-        const rect = sel.brushRectScreen;
-        return (
-          <Show when={sel.isBrushing()}>
-            {(() => {
-              const r = rect();
-              if (!r) return null as unknown as JSX.Element;
-              const left = Math.min(r.minX, r.maxX);
-              const top = Math.min(r.minY, r.maxY);
-              const width = Math.abs(r.maxX - r.minX);
-              const height = Math.abs(r.maxY - r.minY);
-              return (
-                <Box
-                  position="absolute"
-                  pointerEvents="none"
-                  style={{
-                    left: `${left}px`,
-                    top: `${top}px`,
-                    width: `${width}px`,
-                    height: `${height}px`,
-                    border: "1px solid #2563EB",
-                    background: "rgba(37, 99, 235, 0.08)",
-                    "box-shadow": "inset 0 0 0 1px rgba(37,99,235,0.15)",
-                  }}
-                />
-              );
-            })()}
-          </Show>
-        );
-      })()}
+      <Show when={props.layoutMode() === "hex"}>
+        <CanvasHexCardLayer
+          docs={props.docs || []}
+          positions={props.positions}
+          scale={props.scale || (() => 1)}
+          offset={props.offset}
+          hoveredId={props.hoveredId}
+          showHoverLabel={props.showHoverLabel}
+          onSelectDoc={props.onSelectDoc}
+          isSelected={(id) =>
+            props.selection ? props.selection.isSelected(id) : false
+          }
+          hideNonMatches={props.hideNonMatches}
+          searchQuery={props.searchQuery}
+        />
+      </Show>
+      <Show when={props.selection}>
+        {(selection) => {
+          const rect = createMemo(() => selection().brushRectScreen());
+          return (
+            <Show when={selection().isBrushing() && rect()}>
+              {(() => {
+                const brush = rect()!;
+                const left = Math.min(brush.minX, brush.maxX);
+                const top = Math.min(brush.minY, brush.maxY);
+                const width = Math.abs(brush.maxX - brush.minX);
+                const height = Math.abs(brush.maxY - brush.minY);
+                return (
+                  <Box
+                    position="absolute"
+                    pointerEvents="none"
+                    style={{
+                      left: `${left}px`,
+                      top: `${top}px`,
+                      width: `${width}px`,
+                      height: `${height}px`,
+                      border: "1px solid #2563EB",
+                      background: "rgba(37, 99, 235, 0.08)",
+                      "box-shadow": "inset 0 0 0 1px rgba(37,99,235,0.15)",
+                    }}
+                  />
+                );
+              })()}
+            </Show>
+          );
+        }}
+      </Show>
       {(() => {
         const hoveredIsMatch = createMemo(() => {
           const id = props.hoveredId();
@@ -319,6 +372,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           return d ? d.title.toLowerCase().includes(q) : false;
         });
         const showHover = createMemo(() => {
+          if (props.layoutMode() === "hex") return false;
           const hasLbl = !!props.hoveredLabelScreen();
           if (!hasLbl) return false;
           if (props.hideNonMatches() && !hoveredIsMatch()) return false;

@@ -1,16 +1,10 @@
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Box, Stack } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import * as HoverCard from "~/components/ui/hover-card";
-import {
-  formatAbsoluteTime,
-  formatRelativeTime,
-} from "~/features/docs-index/utils/time";
-import {
-  countMetaKeys,
-  normalizePreviewText,
-} from "~/features/docs-index/utils/doc-preview";
+import { DocPreviewSummary } from "~/components/docs/DocPreviewSummary";
+import { normalizePreviewText } from "~/features/docs-index/utils/doc-preview";
 
 type DocHoverPreviewLinkProps = {
   href: string;
@@ -49,9 +43,6 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
     if (snippet.length > 0) return snippet.slice(0, 240);
     return "No preview available.";
   };
-
-  const path = () => props.previewDoc?.path ?? props.path;
-  const metaCount = () => countMetaKeys(props.previewDoc?.meta ?? props.meta);
 
   return (
     <Show
@@ -95,48 +86,15 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
                 class={contentLinkClass}
                 onClick={props.onNavigate}
               >
-                <Stack gap="2">
-                  <Box fontSize="sm" fontWeight="semibold" color="fg.default">
-                    {props.title}
-                  </Box>
-                  <Stack gap="0.5">
-                    <Box fontSize="xs" color="fg.muted">
-                      Updated {formatRelativeTime(props.updatedAt)} (
-                      {formatAbsoluteTime(props.updatedAt)})
-                    </Box>
-                    <Show when={path()}>
-                      {(value) => (
-                        <Box
-                          fontSize="xs"
-                          color="fg.muted"
-                          whiteSpace="nowrap"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
-                          Path {value()}
-                        </Box>
-                      )}
-                    </Show>
-                    <Show when={metaCount() > 0}>
-                      <Box fontSize="xs" color="fg.muted">
-                        Meta keys {metaCount()}
-                      </Box>
-                    </Show>
-                  </Stack>
-                  <Box borderTopWidth="1px" borderColor="border" />
-                  <Box
-                    fontSize="xs"
-                    color="fg.default"
-                    style={{
-                      display: "-webkit-box",
-                      "-webkit-line-clamp": "2",
-                      "-webkit-box-orient": "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {previewText()}
-                  </Box>
-                </Stack>
+                <Box>
+                  <DocPreviewSummary
+                    title={props.title}
+                    updatedAt={props.updatedAt}
+                    path={props.previewDoc?.path ?? props.path}
+                    meta={props.previewDoc?.meta ?? props.meta}
+                    previewText={previewText()}
+                  />
+                </Box>
               </a>
             </HoverCard.Content>
           </HoverCard.Positioner>

@@ -1,6 +1,15 @@
-import { Accessor, For, Show, createMemo, type ComponentProps } from "solid-js";
+import {
+  Accessor,
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  onMount,
+  type ComponentProps,
+} from "solid-js";
 import type { SelectRootProps } from "@ark-ui/solid/select";
 import { Portal } from "solid-js/web";
+import { css } from "styled-system/css";
 import { HStack } from "styled-system/jsx";
 import * as Select from "~/components/ui/select";
 import { WrapWhen } from "./WrapWhen";
@@ -28,6 +37,9 @@ type SimpleSelectProps = {
 };
 
 export function SimpleSelect(props: SimpleSelectProps) {
+  const [isHydrated, setIsHydrated] = createSignal(false);
+  onMount(() => setIsHydrated(true));
+
   const collection = createMemo(() =>
     Select.createListCollection<SimpleSelectItem>({ items: props.items })
   );
@@ -36,8 +48,8 @@ export function SimpleSelect(props: SimpleSelectProps) {
     SelectRootProps<SimpleSelectItem>["positioning"]
   > = () => {
     if (props.positioning) return props.positioning;
-    if (props.sameWidth) return { sameWidth: true };
-    return { placement: "bottom-start" };
+    if (props.sameWidth === false) return { placement: "bottom-start" };
+    return { placement: "bottom-start", sameWidth: true };
   };
 
   const inlineLabel = () =>
@@ -45,17 +57,22 @@ export function SimpleSelect(props: SimpleSelectProps) {
 
   const renderControl = () => (
     <Select.Control>
-      <Select.Trigger id={props.triggerId} minW={props.minW}>
+      <Select.Trigger minW={props.minW}>
         <Select.ValueText placeholder={props.placeholder} />
         <Select.Indicator />
       </Select.Trigger>
     </Select.Control>
   );
 
+  const shouldPortal = () => props.skipPortal === false && isHydrated();
+  const shouldRenderPositioner = () =>
+    props.skipPortal !== false || isHydrated();
+
   return (
     <Select.Root
       collection={collection()}
-      value={[props.value ?? ""]}
+      ids={props.triggerId ? { trigger: props.triggerId } : undefined}
+      value={props.value ? [props.value] : []}
       onValueChange={(details) => props.onChange(details.value[0] || "")}
       size={props.size}
       positioning={positioning()}
@@ -80,23 +97,29 @@ export function SimpleSelect(props: SimpleSelectProps) {
           </HStack>
         )}
       </Show>
-      <WrapWhen when={props.skipPortal !== true} component={Portal}>
-        <Select.Positioner>
-          <Select.Content>
-            <Select.List>
-              <For each={collection().items}>
-                {(item) => (
-                  <Select.Item item={item}>
-                    <Select.ItemText>{item.label}</Select.ItemText>
-                    <Select.ItemIndicator />
-                  </Select.Item>
-                )}
-              </For>
-            </Select.List>
-          </Select.Content>
-        </Select.Positioner>
-      </WrapWhen>
+      <Show when={shouldRenderPositioner()}>
+        <WrapWhen when={shouldPortal()} component={Portal}>
+          <Select.Positioner zIndex="popover">
+            <Select.Content class={contentClass} zIndex="popover">
+              <Select.List>
+                <For each={collection().items}>
+                  {(item) => (
+                    <Select.Item item={item}>
+                      <Select.ItemText>{item.label}</Select.ItemText>
+                      <Select.ItemIndicator />
+                    </Select.Item>
+                  )}
+                </For>
+              </Select.List>
+            </Select.Content>
+          </Select.Positioner>
+        </WrapWhen>
+      </Show>
       <Select.HiddenSelect />
     </Select.Root>
   );
 }
+
+const contentClass = css({
+  maxH: "72",
+});

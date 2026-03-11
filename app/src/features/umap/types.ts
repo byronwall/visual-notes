@@ -1,11 +1,15 @@
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 
+import type { UmapRegionsSnapshot } from "./region-types";
+
 export type UmapRun = {
   id: string;
   dims: number;
   params: Record<string, unknown> | null;
   embeddingRunId: string;
   hasArtifact: boolean;
+  regions: UmapRegionsSnapshot | null;
+  regionCount: number;
   createdAt: string;
 };
 

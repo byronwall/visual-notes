@@ -420,6 +420,8 @@ model UmapRun {
   dims           Int
   params         Json?
   artifactPath   String?
+  regionsJson    Json?
+  regionsUpdatedAt DateTime?
   createdAt      DateTime @default(now())
 
   embeddingRun EmbeddingRun @relation(fields: [embeddingRunId], references: [id], onDelete: Cascade)

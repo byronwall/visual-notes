@@ -21,7 +21,7 @@ export function createPositionsStore(deps: {
   umapRun: Accessor<UmapRun | undefined>;
   umapPoints: Accessor<UmapPoint[] | undefined>;
   useUmap: Accessor<boolean>;
-  layoutMode?: Accessor<"umap" | "grid">;
+  layoutMode?: Accessor<"umap" | "regions" | "grid" | "hex">;
   aspectRatio?: Accessor<number>;
   searchQuery: Accessor<string>;
   hideNonMatches: Accessor<boolean>;
@@ -39,7 +39,7 @@ export function createPositionsStore(deps: {
     const index = umapIndex();
     const preferUmap = useUmap();
     const clusterUnknown = deps.clusterUnknownTopCenter?.() === true;
-    const isUmapLayout = (layoutMode?.() || "umap") === "umap";
+    const isUmapLayout = (layoutMode?.() || "umap") !== "grid";
     const map = new Map<string, Point>();
     if (!list) return map;
 
