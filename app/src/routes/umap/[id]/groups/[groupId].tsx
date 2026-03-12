@@ -7,7 +7,6 @@ import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { Badge } from "~/components/ui/badge";
 import { formatRelativeTime } from "~/features/docs-index/utils/time";
-import { countMetaKeys } from "~/features/docs-index/utils/doc-preview";
 import { fetchUmapRegionDetail } from "~/services/umap/umap.queries";
 import {
   For,
@@ -115,6 +114,7 @@ const UmapGroupDetailRoute: VoidComponent = () => {
                     <Stack gap="2">
                       <HStack gap="3" flexWrap="wrap">
                         <Link href={`/umap/${result().run.id}`}>Back to UMAP run</Link>
+                        <Link href="/canvas">Open canvas</Link>
                         <Text textStyle="xs" color="fg.muted">
                           Run {result().run.id.slice(0, 8)}
                         </Text>
@@ -128,6 +128,12 @@ const UmapGroupDetailRoute: VoidComponent = () => {
                       <HStack gap="3" flexWrap="wrap">
                         <Text textStyle="xs" color="fg.muted">
                           {result().docs.length} notes
+                        </Text>
+                        <Text textStyle="xs" color="fg.muted">
+                          {result().region.sampleDocs.length} sample notes
+                        </Text>
+                        <Text textStyle="xs" color="fg.muted">
+                          Radius {Math.round(result().region.radius)}
                         </Text>
                       </HStack>
                     </Stack>

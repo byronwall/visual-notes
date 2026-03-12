@@ -9,9 +9,9 @@ export function createCanvasStore() {
   const [isPanning, setIsPanning] = createSignal(false);
   const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
   const [useUmap, setUseUmap] = createSignal(true);
-  const [layoutMode, setLayoutMode] = createSignal<"umap" | "regions" | "grid" | "hex">(
-    "umap"
-  );
+  const [layoutMode, setLayoutMode] = createSignal<
+    "umap" | "regions" | "grid" | "hex"
+  >("regions");
   const [clusterUnknownTopCenter, setClusterUnknownTopCenter] =
     createSignal(true);
 
@@ -45,6 +45,34 @@ export function createCanvasStore() {
     scheduleTransform();
   }
 
+  function animateToView(target: {
+    scale: number;
+    offset: { x: number; y: number };
+    durationMs?: number;
+  }) {
+    if (!isBrowser) return;
+    const startScale = scale();
+    const startOffset = offset();
+    const durationMs = target.durationMs ?? 320;
+    const start = performance.now();
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / durationMs);
+      const eased = easeOutCubic(progress);
+      setScale(startScale + (target.scale - startScale) * eased);
+      setOffset({
+        x: startOffset.x + (target.offset.x - startOffset.x) * eased,
+        y: startOffset.y + (target.offset.y - startOffset.y) * eased,
+      });
+      scheduleTransform();
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  }
+
   return {
     // state
     scale,
@@ -68,5 +96,6 @@ export function createCanvasStore() {
     // helpers
     scheduleTransform,
     fitToSpread,
+    animateToView,
   } as const;
 }

@@ -24,10 +24,6 @@ export function UmapRunRegionsCard(props: UmapRunRegionsCardProps) {
       .sort((a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title))
   );
 
-  const islandById = createMemo(
-    () => new Map((props.regions?.islands ?? []).map((island) => [island.id, island]))
-  );
-
   return (
     <Box borderWidth="1px" borderColor="border" borderRadius="l3" overflow="hidden">
       <Stack gap="0">

@@ -45,8 +45,8 @@ const SORT_ITEMS: SelectItem<SortMode>[] = [
 ];
 
 const LAYOUT_ITEMS: SelectItem<LayoutMode>[] = [
+  { label: "Regions first", value: "regions" },
   { label: "UMAP (raw)", value: "umap" },
-  { label: "UMAP + regions", value: "regions" },
   { label: "Grid (Z-order)", value: "grid" },
   { label: "Hex cards", value: "hex" },
 ];
@@ -59,9 +59,6 @@ const CANVAS_SELECT_POSITIONING = {
 export type ControlPanelProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
-  mouseWorld: Accessor<{ x: number; y: number }>;
-  hoveredId: Accessor<string | undefined>;
-  showHoverLabel: Accessor<boolean>;
   navHeight: Accessor<number>;
   scale: Accessor<number>;
   searchQuery: Accessor<string>;
@@ -72,7 +69,6 @@ export type ControlPanelProps = {
   setSortMode: (m: SortMode) => void;
   nudging: Accessor<boolean>;
   onNudge: (iterations?: number) => void;
-  onSelectDoc: (id: string) => void;
   layoutMode: Accessor<LayoutMode>;
   setLayoutMode: (m: LayoutMode) => void;
   clusterUnknownTopCenter: Accessor<boolean>;
@@ -94,32 +90,6 @@ export type ControlPanelProps = {
 };
 
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
-  const filteredAndSortedDocs = createMemo(() => {
-    const list = props.docs || [];
-    const q = props.searchQuery().trim().toLowerCase();
-    const pos = props.positions();
-    const m = props.mouseWorld();
-    const sMode = props.sortMode();
-    const filtered = q
-      ? list.filter((d) => d.title.toLowerCase().includes(q))
-      : list.slice();
-    if (sMode === "title") {
-      filtered.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sMode === "date") {
-      filtered.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-    } else {
-      function d2(id: string) {
-        const p = pos.get(id);
-        if (!p) return Number.POSITIVE_INFINITY;
-        const dx = p.x - m.x;
-        const dy = p.y - m.y;
-        return dx * dx + dy * dy;
-      }
-      filtered.sort((a, b) => d2(a.id) - d2(b.id));
-    }
-    return filtered;
-  });
-
   // Selection action state
   const selectedCount = createMemo(
     () => props.selection?.selectedIds().size || 0
@@ -247,7 +217,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
       case "grid":
         return "Dense reordered grid based on UMAP proximity.";
       case "regions":
-        return "UMAP points with region overlays.";
+        return "Region-first view. Click a region to zoom into note-level detail.";
       default:
         return "Raw UMAP note positions.";
     }
@@ -623,88 +593,26 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
         </Show>
       </Box>
 
-      <Box flex="1" overflowY="auto">
-        <Show
-          when={filteredAndSortedDocs().length > 0}
-          fallback={
-            <Box p="3">
-              <Text fontSize="sm" color="fg.muted">
-                No notes
-              </Text>
-            </Box>
-          }
+      <Box flex="1" overflowY="auto" p="3">
+        <Box
+          bg="bg.subtle"
+          borderRadius="l3"
+          borderWidth="1px"
+          borderColor="border"
+          p="3"
         >
-          <Box as="ul">
-            <For each={filteredAndSortedDocs().slice(0, 200)}>
-              {(d) => {
-                const p = createMemo(() => props.positions().get(d.id));
-                const isHover = createMemo(
-                  () => props.hoveredId() === d.id && props.showHoverLabel()
-                );
-                const distanceLabel = createMemo(() => {
-                  const m = props.mouseWorld();
-                  const pp = p();
-                  if (!pp) return "";
-                  const dx = pp.x - m.x;
-                  const dy = pp.y - m.y;
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  const angle = Math.atan2(-dy, dx);
-                  const arrows = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"];
-                  const idx =
-                    ((Math.round((angle * 8) / (2 * Math.PI)) % 8) + 8) % 8;
-                  const arrow = arrows[idx];
-                  return `${Math.round(dist)}u ${arrow}`;
-                });
-                return (
-                  <Box as="li">
-                    <Button
-                      variant="plain"
-                      colorPalette="gray"
-                      w="full"
-                      justifyContent="flex-start"
-                      textAlign="left"
-                      px="3"
-                      py="2"
-                      gap="2"
-                      bg={isHover() ? "gray.surface.bg.hover" : "transparent"}
-                      _hover={{ bg: "gray.surface.bg.hover" }}
-                      onClick={() => props.onSelectDoc(d.id)}
-                      title={d.title}
-                    >
-                      <Box
-                        flexShrink="0"
-                        boxSize="10px"
-                        borderRadius="full"
-                        bg={
-                          props.layoutMode() !== "grid"
-                            ? colorFor(d.path || d.title)
-                            : colorFor(d.title)
-                        }
-                        style={{ border: "1px solid rgba(0,0,0,0.2)" }}
-                      />
-                      <Text
-                        fontSize="sm"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                      >
-                        {d.title}
-                      </Text>
-                      <Text
-                        ml="auto"
-                        fontSize="10px"
-                        color="fg.muted"
-                        flexShrink="0"
-                      >
-                        {distanceLabel()}
-                      </Text>
-                    </Button>
-                  </Box>
-                );
-              }}
-            </For>
-          </Box>
-        </Show>
+          <Stack gap="1.5">
+            <Text fontSize="sm" fontWeight="medium">
+              Canvas focus
+            </Text>
+            <Text fontSize="xs" color="fg.muted">
+              Region navigation is now handled directly on the canvas. Hover regions for context and click to zoom into note-level detail.
+            </Text>
+            <Text fontSize="xs" color="fg.muted">
+              {props.docs?.length || 0} notes match the current search and refine filters.
+            </Text>
+          </Stack>
+        </Box>
       </Box>
 
       <Box p="2" borderTopWidth="1px" borderColor="border" bg="bg.default">

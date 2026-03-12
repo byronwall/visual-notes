@@ -70,6 +70,12 @@ const CanvasRoute: VoidComponent = () => {
   const [searchQuery, setSearchQuery] = createSignal("");
   const [hideNonMatches, setHideNonMatches] = createSignal(true);
   const [nestByPath, setNestByPath] = createSignal(false);
+  const [hoveredRegionId, setHoveredRegionId] = createSignal<
+    string | undefined
+  >(undefined);
+  const [pressedRegionId, setPressedRegionId] = createSignal<
+    string | undefined
+  >(undefined);
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
@@ -110,7 +116,11 @@ const CanvasRoute: VoidComponent = () => {
   const panZoomHandlers = createPanZoomHandlers(canvasStore, {
     getCanOpen: hover.showHoverLabel,
     getHoveredId: hover.hoveredId,
+    getHoveredRegionId: hoveredRegionId,
+    getPressedRegionId: pressedRegionId,
     onOpenDoc: (id) => setSelectedId(id),
+    onActivateRegion: handleZoomToRegion,
+    clearPressedRegion: () => setPressedRegionId(undefined),
     selection: selectionStore,
   });
 
@@ -124,6 +134,32 @@ const CanvasRoute: VoidComponent = () => {
 
   function fitToSpread() {
     canvasStore.fitToSpread(SPREAD);
+  }
+
+  function handleZoomToRegion(regionId: string) {
+    const snapshot = umapRegions();
+    if (!snapshot || typeof window === "undefined") return;
+    const region = snapshot.regions.find((item) => item.id === regionId);
+    if (!region) return;
+
+    const nav = canvasStore.navHeight();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = Math.max(240, window.innerHeight - nav);
+    const regionWidth = Math.max(120, region.bounds.maxX - region.bounds.minX);
+    const regionHeight = Math.max(120, region.bounds.maxY - region.bounds.minY);
+    const fitScale = Math.min(
+      (viewportWidth * 0.56) / regionWidth,
+      (viewportHeight * 0.56) / regionHeight
+    );
+    const targetScale = Math.max(0.55, Math.min(2.8, fitScale));
+
+    canvasStore.animateToView({
+      scale: targetScale,
+      offset: {
+        x: viewportWidth / 2 - region.centroid.x * targetScale,
+        y: nav + viewportHeight / 2 - region.centroid.y * targetScale,
+      },
+    });
   }
 
   onMount(() => {
@@ -218,11 +254,11 @@ const CanvasRoute: VoidComponent = () => {
         }
       >
         <Suspense fallback={null}>
-          <VisualCanvas
-            docs={isolatedDocs()}
-            positions={positions}
-            umapIndex={umapIndex}
-            umapRegions={umapRegions}
+        <VisualCanvas
+          docs={isolatedDocs()}
+          positions={positions}
+          umapIndex={umapIndex}
+          umapRegions={umapRegions}
             hoveredId={hover.hoveredId}
             hoveredLabelScreen={hover.hoveredLabelScreen}
             showHoverLabel={hover.showHoverLabel}
@@ -232,12 +268,17 @@ const CanvasRoute: VoidComponent = () => {
             scale={canvasStore.scale}
             searchQuery={searchQuery}
             hideNonMatches={hideNonMatches}
-            layoutMode={canvasStore.layoutMode}
-            nestByPath={nestByPath}
-            eventHandlers={panZoomHandlers}
-            onSelectDoc={(id) => setSelectedId(id)}
-            selection={selectionStore}
-          />
+          layoutMode={canvasStore.layoutMode}
+          nestByPath={nestByPath}
+          eventHandlers={panZoomHandlers}
+          hoveredRegionId={hoveredRegionId}
+          onHoveredRegionChange={setHoveredRegionId}
+          onPressedRegionChange={setPressedRegionId}
+          suppressNextOpen={panZoomHandlers.blockNextOpen}
+          onSelectDoc={(id) => setSelectedId(id)}
+          onZoomToRegion={handleZoomToRegion}
+          selection={selectionStore}
+        />
         </Suspense>
         <DocumentSidePanel
           open={!!selectedId()}
@@ -253,9 +294,6 @@ const CanvasRoute: VoidComponent = () => {
           <ControlPanel
             docs={isolatedDocs()}
             positions={positions}
-            mouseWorld={hover.mouseWorld}
-            hoveredId={hover.hoveredId}
-            showHoverLabel={hover.showHoverLabel}
             navHeight={canvasStore.navHeight}
             scale={canvasStore.scale}
             searchQuery={searchQuery}
@@ -266,7 +304,6 @@ const CanvasRoute: VoidComponent = () => {
             setSortMode={(m) => setSortMode(m)}
             nudging={positionsStore.nudging}
             onNudge={positionsStore.runNudge}
-            onSelectDoc={(id) => setSelectedId(id)}
             layoutMode={canvasStore.layoutMode}
             setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
             clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}

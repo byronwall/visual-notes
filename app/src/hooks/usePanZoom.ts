@@ -10,7 +10,11 @@ type SelectionStore = ReturnType<typeof createSelectionStore>;
 type PanZoomOptions = {
   getCanOpen?: Accessor<boolean>;
   getHoveredId?: Accessor<string | undefined>;
+  getHoveredRegionId?: Accessor<string | undefined>;
+  getPressedRegionId?: Accessor<string | undefined>;
   onOpenDoc?: (id: string) => void;
+  onActivateRegion?: (id: string) => void;
+  clearPressedRegion?: () => void;
   selection?: SelectionStore;
 };
 
@@ -22,9 +26,31 @@ export function createPanZoomHandlers(
   let clickStart: { x: number; y: number } | undefined;
   let clickStartTime = 0;
   let isBrushing = false;
+  let suppressNextOpen = false;
+  let pendingMouseScreen: { x: number; y: number } | undefined;
+  let mouseFrame = 0;
+
+  function blockNextOpen() {
+    suppressNextOpen = true;
+  }
 
   function scheduleTransform() {
     canvasStore.scheduleTransform();
+  }
+
+  function scheduleMouseScreen(next: { x: number; y: number }) {
+    pendingMouseScreen = next;
+    if (!isBrowser) {
+      canvasStore.setMouseScreen(next);
+      return;
+    }
+    if (mouseFrame) return;
+    mouseFrame = requestAnimationFrame(() => {
+      mouseFrame = 0;
+      if (!pendingMouseScreen) return;
+      canvasStore.setMouseScreen(pendingMouseScreen);
+      pendingMouseScreen = undefined;
+    });
   }
 
   function onWheel(e: WheelEvent) {
@@ -61,7 +87,7 @@ export function createPanZoomHandlers(
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
     container.setPointerCapture(e.pointerId);
-    canvasStore.setMouseScreen({ x: localX, y: localY });
+    scheduleMouseScreen({ x: localX, y: localY });
     if (e.shiftKey && opts.selection) {
       // Begin brush selection
       isBrushing = true;
@@ -69,8 +95,9 @@ export function createPanZoomHandlers(
       canvasStore.setIsPanning(false);
       clickStart = undefined;
     } else {
-      // Begin panning
-      canvasStore.setIsPanning(true);
+      // Start in a pending-click state and only enter panning
+      // after the pointer moves far enough to feel intentional.
+      canvasStore.setIsPanning(false);
       lastPan = { x: localX, y: localY };
       clickStart = { x: localX, y: localY };
       clickStartTime =
@@ -81,7 +108,7 @@ export function createPanZoomHandlers(
   function onPointerMove(e: PointerEvent) {
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
-    canvasStore.setMouseScreen({
+    scheduleMouseScreen({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     });
@@ -92,9 +119,19 @@ export function createPanZoomHandlers(
       });
       return;
     }
-    if (!canvasStore.isPanning()) return;
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
+    if (!canvasStore.isPanning()) {
+      if (clickStart) {
+        const dxFromStart = localX - clickStart.x;
+        const dyFromStart = localY - clickStart.y;
+        if (Math.hypot(dxFromStart, dyFromStart) >= 6) {
+          canvasStore.setIsPanning(true);
+          lastPan = { x: localX, y: localY };
+        }
+      }
+      if (!canvasStore.isPanning()) return;
+    }
     const dx = localX - lastPan.x;
     const dy = localY - lastPan.y;
     lastPan = { x: localX, y: localY };
@@ -118,7 +155,7 @@ export function createPanZoomHandlers(
     const rect = container.getBoundingClientRect();
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
-    canvasStore.setMouseScreen({ x: localX, y: localY });
+    scheduleMouseScreen({ x: localX, y: localY });
 
     // Bare-click open-nearest behavior (matches previous route logic)
     const CLICK_TOL_PX = 5;
@@ -135,13 +172,35 @@ export function createPanZoomHandlers(
         dist <= CLICK_TOL_PX &&
         dt <= CLICK_TOL_MS
       ) {
-        const canOpen = opts.getCanOpen ? opts.getCanOpen() : false;
-        const id = opts.getHoveredId ? opts.getHoveredId() : undefined;
-        if (canOpen && id && opts.onOpenDoc) opts.onOpenDoc(id);
+        const pressedRegionId = opts.getPressedRegionId?.();
+        const hoveredRegionId = opts.getHoveredRegionId?.();
+        const regionId = pressedRegionId ?? hoveredRegionId;
+        if (regionId && opts.onActivateRegion) {
+          opts.onActivateRegion(regionId);
+          opts.clearPressedRegion?.();
+          suppressNextOpen = false;
+          clickStart = undefined;
+          return;
+        }
+        if (!suppressNextOpen) {
+          const canOpen = opts.getCanOpen ? opts.getCanOpen() : false;
+          const id = opts.getHoveredId ? opts.getHoveredId() : undefined;
+          if (canOpen && id && opts.onOpenDoc) {
+            opts.onOpenDoc(id);
+          }
+        }
       }
     }
+    opts.clearPressedRegion?.();
+    suppressNextOpen = false;
     clickStart = undefined;
   }
 
-  return { onWheel, onPointerDown, onPointerMove, onPointerUp } as const;
+  return {
+    onWheel,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    blockNextOpen,
+  } as const;
 }

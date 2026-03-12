@@ -9,10 +9,11 @@ import type {
   UmapRegionSample,
 } from "~/features/umap/region-types";
 
-const MAX_GROUPS = 80;
+const MAX_GROUPS = 50;
 const REGION_SAMPLE_COUNT = 5;
 const MIN_REGION_LABEL_SAMPLES = 2;
 const LLM_MODEL = "gpt-4o-mini";
+const MIN_CLUSTER_SIZE = 12;
 
 type RegionPointRow = {
   docId: string;
@@ -78,10 +79,19 @@ export async function regenerateUmapRegions(
   }));
 
   const clusterCount = chooseClusterCount(points.length);
+  const mapDiagonal = computeBoundsDiagonal(computeBounds(points));
+  const maxDocsPerRegion = chooseMaxDocsPerRegion(points.length);
+  const maxRadius = chooseMaxRadius(mapDiagonal);
   console.info(
-    `[umap.regions] clustering run=${runId} points=${points.length} targetGroups=${clusterCount}`
+    `[umap.regions] clustering run=${runId} points=${points.length} targetGroups=${clusterCount} maxDocs=${maxDocsPerRegion} maxRadius=${maxRadius.toFixed(
+      2
+    )}`
   );
-  const clusters = buildClusters(points, clusterCount, runId);
+  const clusters = buildClusters(points, clusterCount, runId, {
+    maxGroups: MAX_GROUPS,
+    maxDocsPerRegion,
+    maxRadius,
+  });
   const unlabeledRegions = clusters
     .filter((cluster) => cluster.rows.length > 0)
     .map((cluster, index) => buildRegion(cluster, index));
@@ -210,10 +220,24 @@ export function parseUmapRegionsSnapshot(
 
 function chooseClusterCount(total: number) {
   if (total <= 10) return 1;
-  return Math.max(2, Math.min(MAX_GROUPS, Math.round(total / 20)));
+  return Math.max(6, Math.min(MAX_GROUPS, Math.round(total / 12)));
 }
 
 function buildClusters(
+  rows: RegionPointRow[],
+  clusterCount: number,
+  seedInput: string,
+  opts: {
+    maxGroups: number;
+    maxDocsPerRegion: number;
+    maxRadius: number;
+  }
+): ClusterAssignment[] {
+  const initial = runKMeans(rows, clusterCount, seedInput);
+  return splitLooseClusters(initial, `${seedInput}:split`, opts);
+}
+
+function runKMeans(
   rows: RegionPointRow[],
   clusterCount: number,
   seedInput: string
@@ -250,10 +274,63 @@ function buildClusters(
     if (!moved) break;
   }
 
-  return centroids.map((centroid, index) => ({
-    centroid,
-    rows: rows.filter((_row, rowIndex) => assignments[rowIndex] === index),
-  }));
+  return centroids
+    .map((centroid, index) => ({
+      centroid,
+      rows: rows.filter((_row, rowIndex) => assignments[rowIndex] === index),
+    }))
+    .filter((cluster) => cluster.rows.length > 0);
+}
+
+function splitLooseClusters(
+  clusters: ClusterAssignment[],
+  seedInput: string,
+  opts: {
+    maxGroups: number;
+    maxDocsPerRegion: number;
+    maxRadius: number;
+  }
+) {
+  const queue = clusters.slice().sort((a, b) => b.rows.length - a.rows.length);
+  const finalized: ClusterAssignment[] = [];
+  let splitIndex = 0;
+
+  while (queue.length > 0) {
+    const cluster = queue.shift()!;
+    const radius = computeRadius(cluster.centroid, cluster.rows);
+    const remainingCapacity = opts.maxGroups - finalized.length - queue.length;
+    const shouldSplit =
+      remainingCapacity > 0 &&
+      cluster.rows.length >= MIN_CLUSTER_SIZE * 2 &&
+      (cluster.rows.length > opts.maxDocsPerRegion || radius > opts.maxRadius);
+
+    if (!shouldSplit) {
+      finalized.push(cluster);
+      continue;
+    }
+
+    const splitInto = Math.min(
+      cluster.rows.length > opts.maxDocsPerRegion * 1.5 || radius > opts.maxRadius * 1.45
+        ? 3
+        : 2,
+      remainingCapacity + 1
+    );
+    const pieces = runKMeans(cluster.rows, splitInto, `${seedInput}:${splitIndex}`);
+    if (pieces.length <= 1) {
+      finalized.push(cluster);
+      continue;
+    }
+
+    console.info(
+      `[umap.regions] split cluster rows=${cluster.rows.length} radius=${radius.toFixed(
+        2
+      )} into=${pieces.length}`
+    );
+    splitIndex += 1;
+    queue.unshift(...pieces.sort((a, b) => b.rows.length - a.rows.length));
+  }
+
+  return finalized;
 }
 
 function buildRegion(
@@ -504,6 +581,21 @@ function computeBounds(rows: RegionPointRow[]): UmapRegionBounds {
   }
 
   return { minX, minY, maxX, maxY };
+}
+
+function computeBoundsDiagonal(bounds: UmapRegionBounds) {
+  const width = Math.max(0, bounds.maxX - bounds.minX);
+  const height = Math.max(0, bounds.maxY - bounds.minY);
+  return Math.sqrt(width * width + height * height);
+}
+
+function chooseMaxDocsPerRegion(totalPoints: number) {
+  return Math.max(24, Math.min(180, Math.ceil(totalPoints * 0.075)));
+}
+
+function chooseMaxRadius(mapDiagonal: number) {
+  if (!Number.isFinite(mapDiagonal) || mapDiagonal <= 0) return 1.5;
+  return Math.max(0.45, mapDiagonal * 0.12);
 }
 
 function combineBounds(boundsList: UmapRegionBounds[]) {
