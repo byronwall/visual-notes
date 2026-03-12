@@ -30,6 +30,18 @@ import type { DocItem } from "~/types/notes";
 
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
+const FULL_VIEW_PADDING = 120;
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select"
+  );
+}
 
 const CanvasRoute: VoidComponent = () => {
   const [docs, { refetch: refetchDocs }] = createResource(
@@ -56,6 +68,11 @@ const CanvasRoute: VoidComponent = () => {
   const [pressedRegionId, setPressedRegionId] = createSignal<
     string | undefined
   >(undefined);
+  const [selectedRegionId, setSelectedRegionId] = createSignal<
+    string | undefined
+  >(undefined);
+  const [regionsOnly, setRegionsOnly] = createSignal(false);
+  const [hasAutoFit, setHasAutoFit] = createSignal(false);
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
@@ -67,9 +84,6 @@ const CanvasRoute: VoidComponent = () => {
     },
     searchQuery,
   });
-
-  // Hover derivations
-  const hover = createHoverDerivations({ positionsStore, canvasStore, docs });
 
   // Positions and transform via stores
   const positions = () => positionsStore.positions();
@@ -86,18 +100,6 @@ const CanvasRoute: VoidComponent = () => {
     getPositions: positions,
   });
 
-  // Pan/zoom handlers
-  const panZoomHandlers = createPanZoomHandlers(canvasStore, {
-    getCanOpen: hover.showHoverLabel,
-    getHoveredId: hover.hoveredId,
-    getHoveredRegionId: hoveredRegionId,
-    getPressedRegionId: pressedRegionId,
-    onOpenDoc: (id) => setSelectedId(id),
-    onActivateRegion: handleZoomToRegion,
-    clearPressedRegion: () => setPressedRegionId(undefined),
-    selection: selectionStore,
-  });
-
   function measureNav() {
     const nav = document.querySelector("main nav");
     const h = nav
@@ -106,8 +108,99 @@ const CanvasRoute: VoidComponent = () => {
     canvasStore.setNavHeight(h);
   }
 
+  function measureCanvasViewport() {
+    const main = document.querySelector("main");
+    if (!(main instanceof HTMLElement)) {
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    }
+    const rect = main.getBoundingClientRect();
+    return {
+      width: Math.max(1, Math.round(rect.width)),
+      height: Math.max(1, Math.round(rect.height)),
+    };
+  }
+
+  function measureFullViewBounds() {
+    const snapshot = umapRegions();
+    if (snapshot && snapshot.regions.length > 0) {
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+
+      for (const region of snapshot.regions) {
+        minX = Math.min(minX, region.bounds.minX);
+        minY = Math.min(minY, region.bounds.minY);
+        maxX = Math.max(maxX, region.bounds.maxX);
+        maxY = Math.max(maxY, region.bounds.maxY);
+      }
+
+      return {
+        minX: minX - FULL_VIEW_PADDING,
+        minY: minY - FULL_VIEW_PADDING,
+        maxX: maxX + FULL_VIEW_PADDING,
+        maxY: maxY + FULL_VIEW_PADDING,
+      };
+    }
+
+    const positionMap = positions();
+    if (positionMap.size > 0) {
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+
+      for (const point of positionMap.values()) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      }
+
+      return {
+        minX: minX - FULL_VIEW_PADDING,
+        minY: minY - FULL_VIEW_PADDING,
+        maxX: maxX + FULL_VIEW_PADDING,
+        maxY: maxY + FULL_VIEW_PADDING,
+      };
+    }
+
+    return {
+      minX: -SPREAD,
+      minY: -SPREAD,
+      maxX: SPREAD,
+      maxY: SPREAD,
+    };
+  }
+
   function fitToSpread() {
-    canvasStore.fitToSpread(SPREAD);
+    if (!isBrowser) return;
+    const viewport = measureCanvasViewport();
+    const nav = canvasStore.navHeight();
+    const availH = Math.max(100, viewport.height - nav);
+    const bounds = measureFullViewBounds();
+    const contentWidth = Math.max(240, bounds.maxX - bounds.minX);
+    const contentHeight = Math.max(240, bounds.maxY - bounds.minY);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+    const targetScale = Math.max(
+      0.2,
+      Math.min(2, 0.92 * Math.min(viewport.width / contentWidth, availH / contentHeight))
+    );
+    canvasStore.setScale(targetScale);
+    canvasStore.setOffset({
+      x: viewport.width / 2 - centerX * targetScale,
+      y: nav + availH / 2 - centerY * targetScale,
+    });
+    scheduleTransform();
+  }
+
+  function clearSelectedRegion() {
+    setSelectedRegionId(undefined);
+    selectionStore.clearSelection();
   }
 
   function handleZoomToRegion(regionId: string) {
@@ -116,9 +209,14 @@ const CanvasRoute: VoidComponent = () => {
     const region = snapshot.regions.find((item) => item.id === regionId);
     if (!region) return;
 
+    setRegionsOnly(false);
+    setSelectedRegionId(region.id);
+    selectionStore.setSelection(region.docIds);
+
+    const viewport = measureCanvasViewport();
     const nav = canvasStore.navHeight();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = Math.max(240, window.innerHeight - nav);
+    const viewportWidth = viewport.width;
+    const viewportHeight = Math.max(240, viewport.height - nav);
     const regionWidth = Math.max(120, region.bounds.maxX - region.bounds.minX);
     const regionHeight = Math.max(120, region.bounds.maxY - region.bounds.minY);
     const fitScale = Math.min(
@@ -139,21 +237,62 @@ const CanvasRoute: VoidComponent = () => {
   onMount(() => {
     setIsMounted(true);
     measureNav();
-    // Center the origin initially under navbar
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    setViewportW(vw);
-    setViewportH(vh);
+    const viewport = measureCanvasViewport();
+    setViewportW(viewport.width);
+    setViewportH(viewport.height);
     canvasStore.setOffset({
-      x: vw / 2,
-      y: canvasStore.navHeight() + (vh - canvasStore.navHeight()) / 2,
+      x: viewport.width / 2,
+      y:
+        canvasStore.navHeight() +
+        (viewport.height - canvasStore.navHeight()) / 2,
     });
     scheduleTransform();
-    window.addEventListener("resize", () => {
+    const handleResize = () => {
       measureNav();
-      setViewportW(window.innerWidth);
-      setViewportH(window.innerHeight);
+      const nextViewport = measureCanvasViewport();
+      setViewportW(nextViewport.width);
+      setViewportH(nextViewport.height);
       scheduleTransform();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if (
+        event.key === "Escape" &&
+        (selectedId() ||
+          (typeof document !== "undefined" &&
+            document.querySelector('[role="dialog"][aria-label="Document details"]')))
+      ) {
+        return;
+      }
+      if (event.key === "Escape") {
+        if (!selectedRegionId()) return;
+        event.preventDefault();
+        clearSelectedRegion();
+        return;
+      }
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        clearSelectedRegion();
+        fitToSpread();
+        return;
+      }
+      if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        if (selectedRegionId()) {
+          clearSelectedRegion();
+          setRegionsOnly(true);
+          return;
+        }
+        setRegionsOnly((current) => !current);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("keydown", handleKeyDown);
+
+    onCleanup(() => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown);
     });
   });
 
@@ -170,21 +309,53 @@ const CanvasRoute: VoidComponent = () => {
           pos: seededPositionFor(d.title, i, SPREAD),
         }))
       );
-      if (isBrowser && list.length > 0) fitToSpread();
+      if (isBrowser && list.length > 0 && !hasAutoFit()) {
+        fitToSpread();
+        setHasAutoFit(true);
+      }
     }
   });
 
-  onCleanup(() => {
-    if (isBrowser) {
-      window.removeEventListener("resize", scheduleTransform);
-    }
+  const selectedRegion = createMemo(() => {
+    const regionId = selectedRegionId();
+    const snapshot = umapRegions();
+    if (!regionId || !snapshot) return null;
+    return snapshot.regions.find((item) => item.id === regionId) ?? null;
   });
 
-  const isolatedDocs = createMemo<DocItem[]>(() => {
+  const visibleDocs = createMemo<DocItem[]>(() => {
     const list: DocItem[] = (docs() || []) as DocItem[];
+    const region = selectedRegion();
+    if (region) {
+      const docIds = new Set(region.docIds);
+      return list.filter((doc: DocItem) => docIds.has(doc.id));
+    }
     const iso = selectionStore.isolatedIdSet();
     if (!iso) return list;
     return list.filter((d: DocItem) => iso.has(d.id));
+  });
+  const visibleDocIds = createMemo(() => new Set(visibleDocs().map((d) => d.id)));
+  const canHoverNotes = createMemo(
+    () => !regionsOnly() && canvasStore.scale() >= 0.82
+  );
+
+  // Hover derivations
+  const hover = createHoverDerivations({
+    positionsStore,
+    canvasStore,
+    docs,
+    canHoverNotes,
+    visibleDocIds: () => visibleDocIds(),
+  });
+  const panZoomHandlers = createPanZoomHandlers(canvasStore, {
+    getCanOpen: hover.showHoverLabel,
+    getHoveredId: hover.hoveredId,
+    getHoveredRegionId: hoveredRegionId,
+    getPressedRegionId: pressedRegionId,
+    onOpenDoc: (id) => setSelectedId(id),
+    onActivateRegion: handleZoomToRegion,
+    clearPressedRegion: () => setPressedRegionId(undefined),
+    selection: selectionStore,
   });
 
   return (
@@ -215,7 +386,7 @@ const CanvasRoute: VoidComponent = () => {
       >
         <Suspense fallback={null}>
         <VisualCanvas
-          docs={isolatedDocs()}
+          docs={visibleDocs()}
           positions={positions}
           umapRegions={umapRegions}
           hoveredId={hover.hoveredId}
@@ -233,6 +404,8 @@ const CanvasRoute: VoidComponent = () => {
           suppressNextOpen={panZoomHandlers.blockNextOpen}
           onSelectDoc={(id) => setSelectedId(id)}
           onZoomToRegion={handleZoomToRegion}
+          selectedRegionId={selectedRegionId}
+          regionsOnly={regionsOnly}
           selection={selectionStore}
         />
         </Suspense>

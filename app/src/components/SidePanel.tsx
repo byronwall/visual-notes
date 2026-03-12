@@ -20,7 +20,11 @@ export const SidePanel = (props: SidePanelProps) => {
   createEffect(() => {
     if (!props.open || !shouldCloseOnEsc()) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     onCleanup(() => window.removeEventListener("keydown", onKey));

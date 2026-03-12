@@ -1,7 +1,6 @@
 import {
   For,
   Show,
-  createEffect,
   createMemo,
   type Accessor,
   type VoidComponent,
@@ -62,6 +61,8 @@ export type VisualCanvasProps = {
   suppressNextOpen?: () => void;
   onSelectDoc: (id: string) => void;
   onZoomToRegion?: (id: string) => void;
+  selectedRegionId?: Accessor<string | undefined>;
+  regionsOnly?: Accessor<boolean>;
   selection?: ReturnType<typeof createSelectionStore>;
   // TODO:TYPE_MIRROR, allow extra props to avoid JSX excess property errors during incremental edits
   [key: string]: unknown;
@@ -272,7 +273,9 @@ function buildRegionLabelLayouts(args: {
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const noteHoverOpacity = createMemo(() =>
-    smoothstep(0.5, 0.95, Math.max(0.001, props.scale?.() ?? 1))
+    props.regionsOnly?.()
+      ? 0
+      : smoothstep(0.5, 0.95, Math.max(0.001, props.scale?.() ?? 1))
   );
 
   return (
@@ -318,24 +321,19 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               const regionLabelFontSize = createMemo(() =>
                 Math.max(20, Math.min(42, 12 / zoomScale()))
               );
-              const regionOpacity = createMemo(
-                () => Math.max(0.2, 1 - smoothstep(0.4, 0.9, zoomScale()))
+              const regionOpacity = createMemo(() =>
+                props.regionsOnly?.()
+                  ? Math.max(0.65, 1 - smoothstep(0.4, 0.9, zoomScale()))
+                  : Math.max(0.2, 1 - smoothstep(0.4, 0.9, zoomScale()))
               );
-              const regionLabelOpacity = createMemo(
-                () => Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
+              const regionLabelOpacity = createMemo(() =>
+                props.regionsOnly?.()
+                  ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
+                  : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
               );
               const noteOpacity = createMemo(() =>
-                zoomScale() >= 0.82 ? 1 : 0
+                props.regionsOnly?.() ? 0 : zoomScale() >= 0.82 ? 1 : 0
               );
-              const regionInteractive = createMemo(
-                () => zoomScale() < 1.2 && noteOpacity() < 1
-              );
-              createEffect(() => {
-                if (!regionInteractive() && props.hoveredRegionId()) {
-                  props.onHoveredRegionChange(undefined);
-                  props.onPressedRegionChange(undefined);
-                }
-              });
               const labeledRegionIds = createMemo(() => {
                 const regions = normalizedRegions()?.regions ?? [];
                 return new Set(
@@ -352,7 +350,14 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               const regionLabelLayouts = createMemo(() =>
                 buildRegionLabelLayouts({
                   regions: normalizedRegions()?.regions ?? [],
-                  labeledIds: labeledRegionIds(),
+                  labeledIds:
+                    props.selectedRegionId?.() != null
+                      ? new Set(
+                          [props.selectedRegionId?.()].filter(
+                            (id): id is string => !!id
+                          )
+                        )
+                      : labeledRegionIds(),
                   hoveredRegionId: props.hoveredRegionId(),
                   zoomScale: zoomScale(),
                   labelFontSize: regionLabelFontSize(),
@@ -367,6 +372,57 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
 
               return (
                 <>
+                  <defs>
+                    <filter
+                      id="canvas-hover-note-shadow"
+                      x="-150%"
+                      y="-150%"
+                      width="400%"
+                      height="400%"
+                    >
+                      <feDropShadow
+                        dx="0"
+                        dy="6"
+                        stdDeviation="8"
+                        flood-color="rgba(15, 23, 42, 0.28)"
+                      />
+                    </filter>
+                  </defs>
+                  <Show when={normalizedRegions()}>
+                    {(regions) => (
+                      <For each={regions().regions}>
+                        {(region) => (
+                          <circle
+                            cx={region.centroid.x}
+                            cy={region.centroid.y}
+                            r={Math.max(18, region.radius)}
+                            fill="transparent"
+                            stroke="none"
+                            style={{
+                              cursor: "pointer",
+                              "pointer-events": "fill",
+                            }}
+                            onPointerEnter={() =>
+                              props.onHoveredRegionChange(region.id)
+                            }
+                            onPointerLeave={() =>
+                              props.onHoveredRegionChange(undefined)
+                            }
+                            onPointerDown={() => {
+                              props.onHoveredRegionChange(region.id);
+                              props.onPressedRegionChange(region.id);
+                              props.suppressNextOpen?.();
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              props.onZoomToRegion?.(region.id);
+                            }}
+                          />
+                        )}
+                      </For>
+                    )}
+                  </Show>
                   <For each={listOrdered()}>
                     {(d, i) => {
                       const pos = createMemo(
@@ -377,11 +433,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       const fill = createMemo(() =>
                         colorFor(d.path || d.title)
                       );
-                      const isSelected = createMemo(() =>
-                        props.selection
-                          ? props.selection.isSelected(d.id)
-                          : false
-                      );
                       const matchesSearch = createMemo(() => {
                         const q = props.searchQuery().trim().toLowerCase();
                         if (!q) return true;
@@ -390,8 +441,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       const dimmed = createMemo(
                         () => !!props.searchQuery().trim() && !matchesSearch()
                       );
+                      const isHovered = createMemo(
+                        () => props.hoveredId() === d.id
+                      );
                       return (
-                        <Show when={matchesSearch()}>
+                        <Show when={matchesSearch() && !isHovered()}>
                           <g>
                             <circle
                               cx={pos().x}
@@ -399,13 +453,9 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                               r={circleRadius()}
                               fill={dimmed() ? "#9CA3AF" : fill()}
                               stroke={
-                                isSelected()
-                                  ? "#1D4ED8"
-                                  : dimmed()
-                                    ? "#00000010"
-                                    : "#00000020"
+                                dimmed() ? "#00000010" : "#00000020"
                               }
-                              stroke-width={isSelected() ? 3 : 1}
+                              stroke-width={1}
                               vector-effect="non-scaling-stroke"
                               opacity={noteOpacity()}
                               style={{
@@ -435,33 +485,54 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                   cy={region.centroid.y}
                                   r={Math.max(18, region.radius)}
                                   fill={
-                                    props.hoveredRegionId() === region.id
+                                    props.selectedRegionId?.() === region.id
+                                      ? "rgba(37, 99, 235, 0.2)"
+                                      : props.hoveredRegionId() === region.id
                                       ? "rgba(37, 99, 235, 0.16)"
                                       : "rgba(37, 99, 235, 0.06)"
                                   }
                                   stroke={
-                                    props.hoveredRegionId() === region.id
+                                    props.selectedRegionId?.() === region.id
+                                      ? "rgba(30, 64, 175, 0.9)"
+                                      : props.hoveredRegionId() === region.id
                                       ? "rgba(30, 64, 175, 0.7)"
                                       : "rgba(37, 99, 235, 0.2)"
                                   }
                                   stroke-width={
-                                    props.hoveredRegionId() === region.id
+                                    props.selectedRegionId?.() === region.id
+                                      ? "3"
+                                      : props.hoveredRegionId() === region.id
                                       ? "2.5"
                                       : "1.5"
                                   }
                                   vector-effect="non-scaling-stroke"
                                   opacity={
-                                    props.hoveredRegionId() === region.id
+                                    props.selectedRegionId?.() === region.id
+                                      ? Math.max(0.55, regionOpacity())
+                                      : props.hoveredRegionId() === region.id
                                       ? Math.max(0.4, regionOpacity())
                                       : regionOpacity()
                                   }
                                   style={{
-                                    cursor: regionInteractive()
-                                      ? "pointer"
-                                      : "default",
-                                    "pointer-events": regionInteractive()
-                                      ? "auto"
-                                      : "none",
+                                    "pointer-events": "none",
+                                  }}
+                                />
+                                <circle
+                                  cx={region.centroid.x}
+                                  cy={region.centroid.y}
+                                  r={Math.max(18, region.radius)}
+                                  fill="none"
+                                  stroke="transparent"
+                                  stroke-width={String(
+                                    Math.max(
+                                      props.selectedRegionId?.() === region.id ? 22 : 18,
+                                      12 / zoomScale()
+                                    )
+                                  )}
+                                  vector-effect="non-scaling-stroke"
+                                  style={{
+                                    cursor: "pointer",
+                                    "pointer-events": "stroke",
                                   }}
                                   onPointerEnter={() =>
                                     props.onHoveredRegionChange(region.id)
@@ -480,11 +551,18 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                     props.onZoomToRegion?.(region.id);
                                   }}
                                 />
-                                <Show when={regionLabelOpacity() > 0.04}>
+                                <Show
+                                  when={
+                                    props.selectedRegionId?.() === region.id ||
+                                    regionLabelOpacity() > 0.04
+                                  }
+                                >
                                   <Show
                                     when={
-                                      props.hoveredRegionId() === region.id ||
-                                      labeledRegionIds().has(region.id)
+                                      props.selectedRegionId?.() === region.id ||
+                                      (props.selectedRegionId?.() == null &&
+                                        (props.hoveredRegionId() === region.id ||
+                                          labeledRegionIds().has(region.id)))
                                     }
                                   >
                                     <Show
@@ -493,20 +571,20 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                       {(layout) => {
                                         const isHovered =
                                           props.hoveredRegionId() === region.id;
+                                        const isSelected =
+                                          props.selectedRegionId?.() === region.id;
                                         return (
                                           <g
                                             opacity={
-                                              isHovered
+                                              isSelected
+                                                ? 1
+                                                : isHovered
                                                 ? Math.max(0.95, regionLabelOpacity())
                                                 : regionLabelOpacity()
                                             }
                                             style={{
-                                              cursor: regionInteractive()
-                                                ? "pointer"
-                                                : "default",
-                                              "pointer-events": regionInteractive()
-                                                ? "auto"
-                                                : "none",
+                                              cursor: "pointer",
+                                              "pointer-events": "auto",
                                             }}
                                             onPointerEnter={() =>
                                               props.onHoveredRegionChange(region.id)
@@ -562,11 +640,19 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               d={`M ${layout().edgeX} ${layout().edgeY} L ${layout().elbowX} ${layout().elbowY} L ${layout().leaderEndX} ${layout().leaderEndY}`}
                                               fill="none"
                                               stroke={
-                                                isHovered
+                                                isSelected
+                                                  ? "rgba(30, 64, 175, 0.72)"
+                                                  : isHovered
                                                   ? "rgba(30, 64, 175, 0.5)"
                                                   : "rgba(37, 99, 235, 0.3)"
                                               }
-                                              stroke-width={isHovered ? "1.6" : "1.25"}
+                                              stroke-width={
+                                                isSelected
+                                                  ? "1.9"
+                                                  : isHovered
+                                                    ? "1.6"
+                                                    : "1.25"
+                                              }
                                               vector-effect="non-scaling-stroke"
                                               onPointerEnter={() =>
                                                 props.onHoveredRegionChange(region.id)
@@ -588,24 +674,32 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                             <text
                                               x={layout().textX}
                                               y={layout().textY}
-                                              fill={isHovered ? "#0f172a" : "#172554"}
+                                              fill={
+                                                isSelected || isHovered
+                                                  ? "#0f172a"
+                                                  : "#172554"
+                                              }
                                               font-size={String(regionLabelFontSize())}
                                               font-weight="700"
                                               text-anchor={layout().textAnchor}
                                               paint-order="stroke"
                                               stroke={
-                                                isHovered
+                                                isSelected || isHovered
                                                   ? "rgba(255,255,255,0.98)"
                                                   : "rgba(255,255,255,0.88)"
                                               }
                                               stroke-width={String(
-                                                isHovered
+                                                isSelected
+                                                  ? 7 / zoomScale()
+                                                  : isHovered
                                                   ? 6 / zoomScale()
                                                   : 4 / zoomScale()
                                               )}
                                               stroke-linejoin="round"
                                               style={{
-                                                filter: isHovered
+                                                filter: isSelected
+                                                  ? "drop-shadow(0 3px 10px rgba(15, 23, 42, 0.22))"
+                                                  : isHovered
                                                   ? "drop-shadow(0 2px 6px rgba(15, 23, 42, 0.16))"
                                                   : "drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08))",
                                               }}
@@ -675,6 +769,80 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         </>
                       )}
                     </Show>
+                  </Show>
+                  <Show when={(() => {
+                    const hoveredId = props.hoveredId();
+                    if (!hoveredId) return null;
+                    const doc = listOrdered().find((item) => item.id === hoveredId);
+                    if (!doc) return null;
+                    const q = props.searchQuery().trim().toLowerCase();
+                    if (q && !doc.title.toLowerCase().includes(q)) return null;
+                    return doc;
+                  })()}>
+                    {(doc) => {
+                      const pos = createMemo(() => {
+                        const listIndex = listOrdered().findIndex(
+                          (item) => item.id === doc().id
+                        );
+                        return (
+                          props.positions().get(doc().id) ??
+                          seededPositionFor(doc().title, Math.max(0, listIndex), SPREAD)
+                        );
+                      });
+                      const fill = createMemo(() =>
+                        colorFor(doc().path || doc().title)
+                      );
+                      const isDimmed = createMemo(() => {
+                        const q = props.searchQuery().trim().toLowerCase();
+                        return !!q && !doc().title.toLowerCase().includes(q);
+                      });
+                      const hoverRadius = createMemo(() =>
+                        Math.min(18, Math.max(7, circleRadius() * 2.7))
+                      );
+                      return (
+                        <g>
+                          <circle
+                            cx={pos().x}
+                            cy={pos().y}
+                            r={hoverRadius()}
+                            fill="rgba(255,255,255,0.92)"
+                            stroke="rgba(37, 99, 235, 0.28)"
+                            stroke-width="2"
+                            vector-effect="non-scaling-stroke"
+                            opacity={noteOpacity()}
+                            filter="url(#canvas-hover-note-shadow)"
+                            style={{
+                              cursor: "pointer",
+                              "pointer-events":
+                                noteOpacity() > 0.08 ? "auto" : "none",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              props.onSelectDoc(doc().id);
+                            }}
+                          />
+                          <circle
+                            cx={pos().x}
+                            cy={pos().y}
+                            r={hoverRadius() * 0.68}
+                            fill={isDimmed() ? "#9CA3AF" : fill()}
+                            stroke="#1D4ED8"
+                            stroke-width="2.5"
+                            vector-effect="non-scaling-stroke"
+                            opacity={noteOpacity()}
+                            style={{
+                              cursor: "pointer",
+                              "pointer-events":
+                                noteOpacity() > 0.08 ? "auto" : "none",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              props.onSelectDoc(doc().id);
+                            }}
+                          />
+                        </g>
+                      );
+                    }}
                   </Show>
                 </>
               );

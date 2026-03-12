@@ -6,13 +6,17 @@ import { kdNearest } from "~/spatial/kdtree";
 
 type CanvasStore = ReturnType<typeof createCanvasStore>;
 type PositionsStore = ReturnType<typeof createPositionsStore>;
+const NOTE_HOVER_MAX_SCREEN_DIST = 28;
 
 export function createHoverDerivations(params: {
   positionsStore: PositionsStore;
   canvasStore: CanvasStore;
   docs: Accessor<DocItem[] | undefined>;
+  canHoverNotes?: Accessor<boolean>;
+  visibleDocIds?: Accessor<Set<string> | null>;
 }) {
-  const { positionsStore, canvasStore, docs } = params;
+  const { positionsStore, canvasStore, docs, canHoverNotes, visibleDocIds } =
+    params;
 
   const mouseWorld = createMemo(() => {
     const s = canvasStore.scale();
@@ -22,21 +26,37 @@ export function createHoverDerivations(params: {
   });
 
   const nearestToMouse = createMemo(() => {
+    if (canHoverNotes && !canHoverNotes()) {
+      return undefined as unknown as { id?: string; dist2?: number };
+    }
     const root = positionsStore.kdTree();
     const m = mouseWorld();
     if (!root) return undefined as unknown as { id?: string; dist2?: number };
-    return kdNearest(root, m);
+    const nearest = kdNearest(root, m);
+    const id = nearest?.id;
+    if (!id) return nearest;
+    const visible = visibleDocIds?.();
+    if (visible && !visible.has(id)) {
+      return undefined as unknown as { id?: string; dist2?: number };
+    }
+    return nearest;
   });
 
-  const hoveredId = createMemo(() => nearestToMouse()?.id);
   const hoveredScreenDist = createMemo(() => {
     const d2 = nearestToMouse()?.dist2;
     if (d2 === undefined) return Infinity;
     const s = canvasStore.scale();
     return Math.sqrt(d2) * s;
   });
+  const hoveredId = createMemo(() =>
+    hoveredScreenDist() <= NOTE_HOVER_MAX_SCREEN_DIST
+      ? nearestToMouse()?.id
+      : undefined
+  );
 
-  const showHoverLabel = createMemo(() => hoveredScreenDist() < 48);
+  const showHoverLabel = createMemo(
+    () => hoveredScreenDist() <= NOTE_HOVER_MAX_SCREEN_DIST
+  );
 
   const hoveredLabelScreen = createMemo(() => {
     if (!showHoverLabel())
