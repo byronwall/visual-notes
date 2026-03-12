@@ -21,7 +21,7 @@ import {
   useUmapPointsResource,
   useUmapRunResource,
 } from "~/services/docs.resources";
-import { fetchDocs as fetchFilteredDocs } from "~/features/docs-index/data/docs.service";
+import { fetchDocs } from "~/features/docs-index/data/docs.service";
 import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
@@ -32,26 +32,9 @@ const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
 
 const CanvasRoute: VoidComponent = () => {
-  // Filters for server-backed docs fetch (path + meta)
-  const [pathPrefix, setPathPrefix] = createSignal("");
-  const [blankPathOnly, setBlankPathOnly] = createSignal(false);
-  const [metaKey, setMetaKey] = createSignal("");
-  const [metaValue, setMetaValue] = createSignal("");
-
   const [docs, { refetch: refetchDocs }] = createResource(
-    () => ({
-      p: pathPrefix(),
-      b: blankPathOnly(),
-      k: metaKey(),
-      v: metaValue(),
-    }),
-    (s) =>
-      fetchFilteredDocs({
-        pathPrefix: s.p || undefined,
-        pathBlankOnly: s.b || undefined,
-        metaKey: s.k || undefined,
-        metaValue: s.v || undefined,
-      })
+    () => true,
+    () => fetchDocs({})
   );
   const umapRun = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
@@ -66,10 +49,7 @@ const CanvasRoute: VoidComponent = () => {
   const [isMounted, setIsMounted] = createSignal(false);
   const [viewportW, setViewportW] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
-  // Search/filter state used by layout and UI
   const [searchQuery, setSearchQuery] = createSignal("");
-  const [hideNonMatches, setHideNonMatches] = createSignal(true);
-  const [nestByPath, setNestByPath] = createSignal(false);
   const [hoveredRegionId, setHoveredRegionId] = createSignal<
     string | undefined
   >(undefined);
@@ -80,17 +60,12 @@ const CanvasRoute: VoidComponent = () => {
     docs,
     umapRun,
     umapPoints,
-    useUmap: canvasStore.useUmap,
-    layoutMode: canvasStore.layoutMode,
-    clusterUnknownTopCenter: canvasStore.clusterUnknownTopCenter,
     aspectRatio: () => {
       const w = viewportW();
       const h = Math.max(1, viewportH() - canvasStore.navHeight());
       return w > 0 && h > 0 ? w / h : 1;
     },
     searchQuery,
-    hideNonMatches,
-    nestByPath,
   });
 
   // Hover derivations
@@ -100,7 +75,6 @@ const CanvasRoute: VoidComponent = () => {
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
   const scheduleTransform = () => canvasStore.scheduleTransform();
-  const umapIndex = () => positionsStore.umapIndex();
   const umapRegions = createMemo(() =>
     normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD)
   );
@@ -206,20 +180,6 @@ const CanvasRoute: VoidComponent = () => {
     }
   });
 
-  // Recenter when layout mode changes
-  createEffect(() => {
-    const mode = canvasStore.layoutMode();
-    console.log(`[canvas] layout mode: ${mode}`);
-    if (isBrowser) {
-      fitToSpread();
-    }
-  });
-
-  // ---------- Left list pane: search and sorting ----------
-  const [sortMode, setSortMode] = createSignal<"proximity" | "title" | "date">(
-    "proximity"
-  );
-
   const isolatedDocs = createMemo<DocItem[]>(() => {
     const list: DocItem[] = (docs() || []) as DocItem[];
     const iso = selectionStore.isolatedIdSet();
@@ -257,19 +217,15 @@ const CanvasRoute: VoidComponent = () => {
         <VisualCanvas
           docs={isolatedDocs()}
           positions={positions}
-          umapIndex={umapIndex}
           umapRegions={umapRegions}
-            hoveredId={hover.hoveredId}
-            hoveredLabelScreen={hover.hoveredLabelScreen}
-            showHoverLabel={hover.showHoverLabel}
-            viewTransform={viewTransform}
-            offset={canvasStore.offset}
-            navHeight={canvasStore.navHeight}
-            scale={canvasStore.scale}
-            searchQuery={searchQuery}
-            hideNonMatches={hideNonMatches}
-          layoutMode={canvasStore.layoutMode}
-          nestByPath={nestByPath}
+          hoveredId={hover.hoveredId}
+          hoveredLabelScreen={hover.hoveredLabelScreen}
+          showHoverLabel={hover.showHoverLabel}
+          viewTransform={viewTransform}
+          offset={canvasStore.offset}
+          navHeight={canvasStore.navHeight}
+          scale={canvasStore.scale}
+          searchQuery={searchQuery}
           eventHandlers={panZoomHandlers}
           hoveredRegionId={hoveredRegionId}
           onHoveredRegionChange={setHoveredRegionId}
@@ -292,35 +248,9 @@ const CanvasRoute: VoidComponent = () => {
         />
         <Suspense fallback={null}>
           <ControlPanel
-            docs={isolatedDocs()}
-            positions={positions}
             navHeight={canvasStore.navHeight}
-            scale={canvasStore.scale}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            hideNonMatches={hideNonMatches}
-            setHideNonMatches={setHideNonMatches}
-            sortMode={sortMode}
-            setSortMode={(m) => setSortMode(m)}
-            nudging={positionsStore.nudging}
-            onNudge={positionsStore.runNudge}
-            layoutMode={canvasStore.layoutMode}
-            setLayoutMode={(m) => canvasStore.setLayoutMode(m)}
-            clusterUnknownTopCenter={canvasStore.clusterUnknownTopCenter}
-            setClusterUnknownTopCenter={(v) =>
-              canvasStore.setClusterUnknownTopCenter(v)
-            }
-            nestByPath={nestByPath}
-            setNestByPath={setNestByPath}
-            selection={selectionStore}
-            pathPrefix={pathPrefix}
-            setPathPrefix={setPathPrefix}
-            blankPathOnly={blankPathOnly}
-            setBlankPathOnly={setBlankPathOnly}
-            metaKey={metaKey}
-            setMetaKey={setMetaKey}
-            metaValue={metaValue}
-            setMetaValue={setMetaValue}
           />
         </Suspense>
       </Show>

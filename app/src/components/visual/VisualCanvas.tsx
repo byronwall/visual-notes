@@ -7,7 +7,6 @@ import {
   type VoidComponent,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
-import { CanvasHexCardLayer } from "~/components/visual/CanvasHexCardLayer";
 import { Text } from "~/components/ui/text";
 import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 import { colorFor } from "~/utils/colors";
@@ -45,7 +44,6 @@ type RegionLabelLayout = {
 export type VisualCanvasProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
-  umapIndex: Accessor<Map<string, { x: number; y: number }>>;
   umapRegions?: Accessor<UmapRegionsSnapshot | null>;
   hoveredId: Accessor<string | undefined>;
   hoveredLabelScreen: Accessor<
@@ -57,9 +55,6 @@ export type VisualCanvasProps = {
   navHeight: Accessor<number>;
   scale?: Accessor<number>;
   searchQuery: Accessor<string>;
-  hideNonMatches: Accessor<boolean>;
-  layoutMode: Accessor<"umap" | "regions" | "grid" | "hex">;
-  nestByPath: Accessor<boolean>;
   eventHandlers: PanZoomHandlers;
   hoveredRegionId: Accessor<string | undefined>;
   onHoveredRegionChange: (id: string | undefined) => void;
@@ -132,7 +127,6 @@ function buildRegionLabelLayouts(args: {
     maxY: number;
   }> = [];
   const layouts: RegionLabelLayout[] = [];
-  const lineGap = 6 / args.zoomScale;
   const angles = [
     -155, -132, -110, -86, -62, -36, -14, 14, 36, 62, 86, 110, 132, 155,
   ].map((deg) => (deg * Math.PI) / 180);
@@ -218,7 +212,6 @@ function buildRegionLabelLayouts(args: {
             circlePenalty += gap * gap;
           }
         }
-        const centerX = (boxMinX + boxMaxX) / 2;
         const centerY = (boxMinY + boxMaxY) / 2;
         const leaderEndX = clamp(region.centroid.x, boxMinX, boxMaxX);
         const leaderEndY = clamp(region.centroid.y, boxMinY, boxMaxY);
@@ -279,9 +272,7 @@ function buildRegionLabelLayouts(args: {
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const noteHoverOpacity = createMemo(() =>
-    props.layoutMode() === "hex"
-      ? 1
-      : smoothstep(0.5, 0.95, Math.max(0.001, props.scale?.() ?? 1))
+    smoothstep(0.5, 0.95, Math.max(0.001, props.scale?.() ?? 1))
   );
 
   return (
@@ -309,113 +300,13 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           <Show when={props.docs}>
             {(() => {
               const docsArr = createMemo(() => props.docs || []);
-              const listOrdered = createMemo(() => {
-                const list = docsArr();
-                if (!list) return [] as DocItem[];
-                if (!props.nestByPath() || props.layoutMode() !== "grid")
-                  return list;
-                const byTop = new Map<string, DocItem[]>();
-                for (const d of list) {
-                  const top =
-                    (d.path || "").split(".").filter(Boolean)[0] || "∅";
-                  const arr = byTop.get(top) || [];
-                  arr.push(d);
-                  byTop.set(top, arr);
-                }
-                const groups = Array.from(byTop.keys()).sort((a, b) =>
-                  a.localeCompare(b)
-                );
-                const index = props.umapIndex();
-                const out: DocItem[] = [];
-                for (const g of groups) {
-                  const arr = byTop.get(g)!;
-                  arr.sort((a, b) => {
-                    const pa = index.get(a.id);
-                    const pb = index.get(b.id);
-                    const xa = pa ? pa.x : 0;
-                    const xb = pb ? pb.x : 0;
-                    return xa - xb;
-                  });
-                  out.push(...arr);
-                }
-                return out;
-              });
+              const listOrdered = createMemo(() => docsArr());
 
               const circleRadius = createMemo(() => {
                 const s = Math.max(0.001, props.scale?.() ?? 1);
-                if (props.layoutMode() === "grid") return 10;
-                if (props.layoutMode() === "hex") return Math.max(3, 6 / s);
                 const alpha = 1.2; // shrink against zoom: r_world = base / s^alpha
                 const rWorld = 8 / Math.pow(s, alpha);
                 return Math.max(0.8, Math.min(8, rWorld));
-              });
-
-              const pathBoxes = createMemo(() => {
-                if (!props.nestByPath() || props.layoutMode() !== "grid")
-                  return [] as {
-                    key: string;
-                    depth: number;
-                    minX: number;
-                    minY: number;
-                    maxX: number;
-                    maxY: number;
-                  }[];
-                const list = docsArr() || [];
-                const pos = props.positions();
-                const tree = new Map<
-                  string,
-                  { ids: string[]; depth: number }
-                >();
-                for (const d of list) {
-                  const segments = (d.path || "").split(".").filter(Boolean);
-                  let prefix = "";
-                  for (let i = 0; i < segments.length; i++) {
-                    prefix = prefix ? `${prefix}.${segments[i]}` : segments[i]!;
-                    const node = tree.get(prefix) || { ids: [], depth: i + 1 };
-                    node.ids.push(d.id);
-                    tree.set(prefix, node);
-                  }
-                }
-                const boxes: {
-                  key: string;
-                  depth: number;
-                  minX: number;
-                  minY: number;
-                  maxX: number;
-                  maxY: number;
-                }[] = [];
-                for (const [key, node] of tree) {
-                  let minX = Number.POSITIVE_INFINITY;
-                  let minY = Number.POSITIVE_INFINITY;
-                  let maxX = Number.NEGATIVE_INFINITY;
-                  let maxY = Number.NEGATIVE_INFINITY;
-                  for (const id of node.ids) {
-                    const p = pos.get(id);
-                    if (!p) continue;
-                    if (p.x < minX) minX = p.x;
-                    if (p.y < minY) minY = p.y;
-                    if (p.x > maxX) maxX = p.x;
-                    if (p.y > maxY) maxY = p.y;
-                  }
-                  if (
-                    !Number.isFinite(minX) ||
-                    !Number.isFinite(minY) ||
-                    !Number.isFinite(maxX) ||
-                    !Number.isFinite(maxY)
-                  )
-                    continue;
-                  const pad = 18;
-                  boxes.push({
-                    key,
-                    depth: node.depth,
-                    minX: minX - pad,
-                    minY: minY - pad,
-                    maxX: maxX + pad,
-                    maxY: maxY + pad,
-                  });
-                }
-                boxes.sort((a, b) => a.depth - b.depth);
-                return boxes;
               });
 
               const normalizedRegions = createMemo(
@@ -434,17 +325,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 () => Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
               );
               const noteOpacity = createMemo(() =>
-                props.layoutMode() === "hex"
-                  ? 1
-                  : zoomScale() >= 0.82
-                    ? 1
-                    : 0
+                zoomScale() >= 0.82 ? 1 : 0
               );
               const regionInteractive = createMemo(
-                () =>
-                  props.layoutMode() !== "hex" &&
-                  zoomScale() < 1.2 &&
-                  noteOpacity() < 1
+                () => zoomScale() < 1.2 && noteOpacity() < 1
               );
               createEffect(() => {
                 if (!regionInteractive() && props.hoveredRegionId()) {
@@ -483,30 +367,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
 
               return (
                 <>
-                  <For each={pathBoxes()}>
-                    {(b) => {
-                      const isGrid = props.layoutMode() === "grid";
-                      const boxFill = isGrid ? "#e5e7eb" : "#f8fafc"; // darker bg in Z-order view
-                      const boxStroke = isGrid ? "#475569" : "#cbd5e1"; // thicker, darker border in Z-order view
-                      const boxStrokeW = isGrid ? 3 : 1;
-                      return (
-                        <g>
-                          <rect
-                            x={b.minX}
-                            y={b.minY}
-                            width={b.maxX - b.minX}
-                            height={b.maxY - b.minY}
-                            rx={8}
-                            ry={8}
-                            fill={boxFill}
-                            stroke={boxStroke}
-                            stroke-width={boxStrokeW}
-                            vector-effect="non-scaling-stroke"
-                          />
-                        </g>
-                      );
-                    }}
-                  </For>
                   <For each={listOrdered()}>
                     {(d, i) => {
                       const pos = createMemo(
@@ -515,9 +375,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                           seededPositionFor(d.title, i(), SPREAD)
                       );
                       const fill = createMemo(() =>
-                        props.layoutMode() !== "grid"
-                          ? colorFor(d.path || d.title)
-                          : colorFor(d.title)
+                        colorFor(d.path || d.title)
                       );
                       const isSelected = createMemo(() =>
                         props.selection
@@ -533,7 +391,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         () => !!props.searchQuery().trim() && !matchesSearch()
                       );
                       return (
-                        <Show when={!props.hideNonMatches() || matchesSearch()}>
+                        <Show when={matchesSearch()}>
                           <g>
                             <circle
                               cx={pos().x}
@@ -565,7 +423,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       );
                     }}
                   </For>
-                  <Show when={props.layoutMode() !== "hex" && regionOpacity() > 0.02}>
+                  <Show when={regionOpacity() > 0.02}>
                     <Show when={normalizedRegions()}>
                       {(regions) => (
                         <>
@@ -629,127 +487,26 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                       labeledRegionIds().has(region.id)
                                     }
                                   >
-                                    {(() => {
-                                      const layout =
-                                        regionLabelLayoutById().get(region.id);
-                                      if (!layout) return null;
-                                      const isHovered =
-                                        props.hoveredRegionId() === region.id;
-                                      return (
-                                        <g
-                                          opacity={
-                                            isHovered
-                                              ? Math.max(0.95, regionLabelOpacity())
-                                              : regionLabelOpacity()
-                                          }
-                                          style={{
-                                            cursor: regionInteractive()
-                                              ? "pointer"
-                                              : "default",
-                                            "pointer-events": regionInteractive()
-                                              ? "auto"
-                                              : "none",
-                                          }}
-                                          onPointerEnter={() =>
-                                            props.onHoveredRegionChange(region.id)
-                                          }
-                                          onPointerLeave={() =>
-                                            props.onHoveredRegionChange(undefined)
-                                          }
-                                          onPointerDown={() => {
-                                            props.onHoveredRegionChange(region.id);
-                                            props.onPressedRegionChange(region.id);
-                                            props.suppressNextOpen?.();
-                                          }}
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            props.onZoomToRegion?.(region.id);
-                                          }}
-                                        >
-                                          <rect
-                                            x={layout.minX - 6 / zoomScale()}
-                                            y={layout.minY - 4 / zoomScale()}
-                                            width={
-                                              layout.maxX -
-                                              layout.minX +
-                                              12 / zoomScale()
-                                            }
-                                            height={
-                                              layout.maxY -
-                                              layout.minY +
-                                              8 / zoomScale()
-                                            }
-                                            rx={8 / zoomScale()}
-                                            ry={8 / zoomScale()}
-                                            fill="transparent"
-                                            onPointerEnter={() =>
-                                              props.onHoveredRegionChange(region.id)
-                                            }
-                                            onPointerLeave={() =>
-                                              props.onHoveredRegionChange(undefined)
-                                            }
-                                            onPointerDown={() => {
-                                              props.onHoveredRegionChange(region.id);
-                                              props.onPressedRegionChange(region.id);
-                                              props.suppressNextOpen?.();
-                                            }}
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              props.onZoomToRegion?.(region.id);
-                                            }}
-                                          />
-                                          <path
-                                            d={`M ${layout.edgeX} ${layout.edgeY} L ${layout.elbowX} ${layout.elbowY} L ${layout.leaderEndX} ${layout.leaderEndY}`}
-                                            fill="none"
-                                            stroke={
+                                    <Show
+                                      when={regionLabelLayoutById().get(region.id)}
+                                    >
+                                      {(layout) => {
+                                        const isHovered =
+                                          props.hoveredRegionId() === region.id;
+                                        return (
+                                          <g
+                                            opacity={
                                               isHovered
-                                                ? "rgba(30, 64, 175, 0.5)"
-                                                : "rgba(37, 99, 235, 0.3)"
+                                                ? Math.max(0.95, regionLabelOpacity())
+                                                : regionLabelOpacity()
                                             }
-                                            stroke-width={isHovered ? "1.6" : "1.25"}
-                                            vector-effect="non-scaling-stroke"
-                                            onPointerEnter={() =>
-                                              props.onHoveredRegionChange(region.id)
-                                            }
-                                            onPointerLeave={() =>
-                                              props.onHoveredRegionChange(undefined)
-                                            }
-                                            onPointerDown={() => {
-                                              props.onHoveredRegionChange(region.id);
-                                              props.onPressedRegionChange(region.id);
-                                              props.suppressNextOpen?.();
-                                            }}
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              props.onZoomToRegion?.(region.id);
-                                            }}
-                                          />
-                                          <text
-                                            x={layout.textX}
-                                            y={layout.textY}
-                                            fill={isHovered ? "#0f172a" : "#172554"}
-                                            font-size={String(regionLabelFontSize())}
-                                            font-weight="700"
-                                            text-anchor={layout.textAnchor}
-                                            paint-order="stroke"
-                                            stroke={
-                                              isHovered
-                                                ? "rgba(255,255,255,0.98)"
-                                                : "rgba(255,255,255,0.88)"
-                                            }
-                                            stroke-width={String(
-                                              isHovered
-                                                ? 6 / zoomScale()
-                                                : 4 / zoomScale()
-                                            )}
-                                            stroke-linejoin="round"
                                             style={{
-                                              filter: isHovered
-                                                ? "drop-shadow(0 2px 6px rgba(15, 23, 42, 0.16))"
-                                                : "drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08))",
+                                              cursor: regionInteractive()
+                                                ? "pointer"
+                                                : "default",
+                                              "pointer-events": regionInteractive()
+                                                ? "auto"
+                                                : "none",
                                             }}
                                             onPointerEnter={() =>
                                               props.onHoveredRegionChange(region.id)
@@ -768,46 +525,148 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               props.onZoomToRegion?.(region.id);
                                             }}
                                           >
-                                            <For each={layout.lines}>
-                                              {(line, lineIndex) => (
-                                                <tspan
-                                                  x={layout.textX}
-                                                  dy={
-                                                    lineIndex() === 0
-                                                      ? "0"
-                                                      : `${regionLabelFontSize() * 0.95}`
-                                                  }
-                                                  onPointerEnter={() =>
-                                                    props.onHoveredRegionChange(region.id)
-                                                  }
-                                                  onPointerLeave={() =>
-                                                    props.onHoveredRegionChange(
-                                                      undefined
-                                                    )
-                                                  }
-                                                  onPointerDown={() => {
-                                                    props.onHoveredRegionChange(
-                                                      region.id
-                                                    );
-                                                    props.onPressedRegionChange(
-                                                      region.id
-                                                    );
-                                                    props.suppressNextOpen?.();
-                                                  }}
-                                                  onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    props.onZoomToRegion?.(region.id);
-                                                  }}
-                                                >
-                                                  {line}
-                                                </tspan>
+                                            <rect
+                                              x={layout().minX - 6 / zoomScale()}
+                                              y={layout().minY - 4 / zoomScale()}
+                                              width={
+                                                layout().maxX -
+                                                layout().minX +
+                                                12 / zoomScale()
+                                              }
+                                              height={
+                                                layout().maxY -
+                                                layout().minY +
+                                                8 / zoomScale()
+                                              }
+                                              rx={8 / zoomScale()}
+                                              ry={8 / zoomScale()}
+                                              fill="transparent"
+                                              onPointerEnter={() =>
+                                                props.onHoveredRegionChange(region.id)
+                                              }
+                                              onPointerLeave={() =>
+                                                props.onHoveredRegionChange(undefined)
+                                              }
+                                              onPointerDown={() => {
+                                                props.onHoveredRegionChange(region.id);
+                                                props.onPressedRegionChange(region.id);
+                                                props.suppressNextOpen?.();
+                                              }}
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                props.onZoomToRegion?.(region.id);
+                                              }}
+                                            />
+                                            <path
+                                              d={`M ${layout().edgeX} ${layout().edgeY} L ${layout().elbowX} ${layout().elbowY} L ${layout().leaderEndX} ${layout().leaderEndY}`}
+                                              fill="none"
+                                              stroke={
+                                                isHovered
+                                                  ? "rgba(30, 64, 175, 0.5)"
+                                                  : "rgba(37, 99, 235, 0.3)"
+                                              }
+                                              stroke-width={isHovered ? "1.6" : "1.25"}
+                                              vector-effect="non-scaling-stroke"
+                                              onPointerEnter={() =>
+                                                props.onHoveredRegionChange(region.id)
+                                              }
+                                              onPointerLeave={() =>
+                                                props.onHoveredRegionChange(undefined)
+                                              }
+                                              onPointerDown={() => {
+                                                props.onHoveredRegionChange(region.id);
+                                                props.onPressedRegionChange(region.id);
+                                                props.suppressNextOpen?.();
+                                              }}
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                props.onZoomToRegion?.(region.id);
+                                              }}
+                                            />
+                                            <text
+                                              x={layout().textX}
+                                              y={layout().textY}
+                                              fill={isHovered ? "#0f172a" : "#172554"}
+                                              font-size={String(regionLabelFontSize())}
+                                              font-weight="700"
+                                              text-anchor={layout().textAnchor}
+                                              paint-order="stroke"
+                                              stroke={
+                                                isHovered
+                                                  ? "rgba(255,255,255,0.98)"
+                                                  : "rgba(255,255,255,0.88)"
+                                              }
+                                              stroke-width={String(
+                                                isHovered
+                                                  ? 6 / zoomScale()
+                                                  : 4 / zoomScale()
                                               )}
-                                            </For>
-                                          </text>
-                                        </g>
-                                      );
-                                    })()}
+                                              stroke-linejoin="round"
+                                              style={{
+                                                filter: isHovered
+                                                  ? "drop-shadow(0 2px 6px rgba(15, 23, 42, 0.16))"
+                                                  : "drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08))",
+                                              }}
+                                              onPointerEnter={() =>
+                                                props.onHoveredRegionChange(region.id)
+                                              }
+                                              onPointerLeave={() =>
+                                                props.onHoveredRegionChange(undefined)
+                                              }
+                                              onPointerDown={() => {
+                                                props.onHoveredRegionChange(region.id);
+                                                props.onPressedRegionChange(region.id);
+                                                props.suppressNextOpen?.();
+                                              }}
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                props.onZoomToRegion?.(region.id);
+                                              }}
+                                            >
+                                              <For each={layout().lines}>
+                                                {(line, lineIndex) => (
+                                                  <tspan
+                                                    x={layout().textX}
+                                                    dy={
+                                                      lineIndex() === 0
+                                                        ? "0"
+                                                        : `${regionLabelFontSize() * 0.95}`
+                                                    }
+                                                    onPointerEnter={() =>
+                                                      props.onHoveredRegionChange(region.id)
+                                                    }
+                                                    onPointerLeave={() =>
+                                                      props.onHoveredRegionChange(
+                                                        undefined
+                                                      )
+                                                    }
+                                                    onPointerDown={() => {
+                                                      props.onHoveredRegionChange(
+                                                        region.id
+                                                      );
+                                                      props.onPressedRegionChange(
+                                                        region.id
+                                                      );
+                                                      props.suppressNextOpen?.();
+                                                    }}
+                                                    onClick={(e) => {
+                                                      e.preventDefault();
+                                                      e.stopPropagation();
+                                                      props.onZoomToRegion?.(region.id);
+                                                    }}
+                                                  >
+                                                    {line}
+                                                  </tspan>
+                                                )}
+                                              </For>
+                                            </text>
+                                          </g>
+                                        );
+                                      }}
+                                    </Show>
                                   </Show>
                                 </Show>
                               </g>
@@ -823,22 +682,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           </Show>
         </g>
       </svg>
-      <Show when={props.layoutMode() === "hex"}>
-        <CanvasHexCardLayer
-          docs={props.docs || []}
-          positions={props.positions}
-          scale={props.scale || (() => 1)}
-          offset={props.offset}
-          hoveredId={props.hoveredId}
-          showHoverLabel={props.showHoverLabel}
-          onSelectDoc={props.onSelectDoc}
-          isSelected={(id) =>
-            props.selection ? props.selection.isSelected(id) : false
-          }
-          hideNonMatches={props.hideNonMatches}
-          searchQuery={props.searchQuery}
-        />
-      </Show>
       <Show when={props.selection}>
         {(selection) => {
           const rect = createMemo(() => selection().brushRectScreen());
@@ -880,12 +723,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           return d ? d.title.toLowerCase().includes(q) : false;
         });
         const showHover = createMemo(() => {
-          if (props.layoutMode() === "hex") return false;
           if (props.hoveredRegionId()) return false;
           if (noteHoverOpacity() < 0.16) return false;
           const hasLbl = !!props.hoveredLabelScreen();
           if (!hasLbl) return false;
-          if (props.hideNonMatches() && !hoveredIsMatch()) return false;
+          if (!hoveredIsMatch()) return false;
           return true;
         });
         const lbl = createMemo(() => props.hoveredLabelScreen());

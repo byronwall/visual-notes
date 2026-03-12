@@ -8,12 +8,6 @@ export function createCanvasStore() {
   const [navHeight, setNavHeight] = createSignal(56);
   const [isPanning, setIsPanning] = createSignal(false);
   const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
-  const [useUmap, setUseUmap] = createSignal(true);
-  const [layoutMode, setLayoutMode] = createSignal<
-    "umap" | "regions" | "grid" | "hex"
-  >("regions");
-  const [clusterUnknownTopCenter, setClusterUnknownTopCenter] =
-    createSignal(true);
 
   let frame = 0 as number | undefined;
 
@@ -85,12 +79,6 @@ export function createCanvasStore() {
     setIsPanning,
     mouseScreen,
     setMouseScreen,
-    useUmap,
-    setUseUmap,
-    layoutMode,
-    setLayoutMode,
-    clusterUnknownTopCenter,
-    setClusterUnknownTopCenter,
     // derived
     viewTransform,
     // helpers
