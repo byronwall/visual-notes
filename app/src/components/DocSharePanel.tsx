@@ -1,17 +1,18 @@
 import { A, useAction } from "@solidjs/router";
-import { CopyIcon, ExternalLinkIcon, Globe2Icon, Link2OffIcon } from "lucide-solid";
 import {
-  Show,
-  createEffect,
-  createMemo,
-  createSignal,
-} from "solid-js";
+  CopyIcon,
+  ExternalLinkIcon,
+  Globe2Icon,
+  Link2OffIcon,
+} from "lucide-solid";
+import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { useToasts } from "~/components/Toast";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
+import { Tooltip } from "~/components/ui/tooltip";
 import {
   deleteDocShare,
   upsertDocShare,
@@ -23,11 +24,14 @@ import { getBaseUrl } from "~/utils/base-url";
 type DocSharePanelProps = {
   docId: string;
   initialShare?: DocShareSummary | null;
+  iconOnly?: boolean;
 };
 
 export function DocSharePanel(props: DocSharePanelProps) {
   const [share, setShare] = createSignal(props.initialShare ?? null);
-  const [slugDraft, setSlugDraft] = createSignal(props.initialShare?.slug ?? "");
+  const [slugDraft, setSlugDraft] = createSignal(
+    props.initialShare?.slug ?? "",
+  );
   const [busy, setBusy] = createSignal(false);
   const [open, setOpen] = createSignal(false);
   const runUpsertDocShare = useAction(upsertDocShare);
@@ -103,20 +107,53 @@ export function DocSharePanel(props: DocSharePanelProps) {
         "max-width": "min(28rem, calc(100vw - 1rem))",
       }}
       anchor={
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          colorPalette={share() ? "green" : "gray"}
-          borderColor={share() ? "green.7" : "gray.outline.border"}
-          bg={share() ? "green.subtle" : "bg.default"}
-          color={share() ? "green.fg" : "fg.default"}
-          title={share() ? `Shared at ${sharePath()}` : "Create a share link"}
-          onClick={() => setOpen((value) => !value)}
+        <Show
+          when={props.iconOnly}
+          fallback={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              colorPalette={share() ? "green" : "gray"}
+              borderColor={share() ? "green.7" : "gray.outline.border"}
+              bg={share() ? "green.subtle" : "bg.default"}
+              color={share() ? "green.fg" : "fg.default"}
+              title={
+                share() ? `Shared at ${sharePath()}` : "Create a share link"
+              }
+              onClick={() => setOpen((value) => !value)}
+            >
+              <Globe2Icon size={14} />
+              {share() ? "Shared" : "Share"}
+            </Button>
+          }
         >
-          <Globe2Icon size={14} />
-          {share() ? "Shared" : "Share"}
-        </Button>
+          <Tooltip
+            content={share() ? "Share settings" : "Share note"}
+            showArrow
+            portalled={false}
+            contentProps={{ zIndex: "tooltip" }}
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              colorPalette={share() ? "green" : "gray"}
+              borderColor={share() ? "green.7" : "gray.outline.border"}
+              bg={share() ? "green.subtle" : "bg.default"}
+              color={share() ? "green.fg" : "fg.default"}
+              aria-label={
+                share() ? "Manage shared note link" : "Create a share link"
+              }
+              onClick={() => setOpen((value) => !value)}
+              minW="9"
+              w="9"
+              px="0"
+            >
+              <Globe2Icon size={14} />
+            </Button>
+          </Tooltip>
+        </Show>
       }
     >
       <Stack gap="3" p="3">
@@ -158,12 +195,12 @@ export function DocSharePanel(props: DocSharePanelProps) {
           {(current) => (
             <Stack gap="2">
               <HStack gap="2" flexWrap="wrap">
-                <A href={current().shareUrl} target="_blank" rel="noopener noreferrer">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    colorPalette="green"
-                  >
+                <A
+                  href={current().shareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="sm" variant="outline" colorPalette="green">
                     <ExternalLinkIcon size={14} />
                     Open shared story
                   </Button>

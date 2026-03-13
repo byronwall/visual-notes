@@ -1,21 +1,18 @@
+import { useAction } from "@solidjs/router";
 import {
   Show,
   Suspense,
   createResource,
+  createEffect,
   createSignal,
   type VoidComponent,
 } from "solid-js";
-import { useAction } from "@solidjs/router";
-import { Box, Flex, HStack } from "styled-system/jsx";
-import { Button } from "~/components/ui/button";
+import { Box, Flex } from "styled-system/jsx";
 import { CloseButton } from "~/components/ui/close-button";
-import { IconButton } from "~/components/ui/icon-button";
-import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
-import { TitleEditPopover } from "./TitleEditPopover";
-import { extractFirstHeading } from "~/utils/extractHeading";
+import { InPlaceEditableText } from "./InPlaceEditableText";
 import { fetchDoc, updateDoc } from "~/services/docs.service";
 
 type DocDetail = {
@@ -34,23 +31,30 @@ export const DocumentSidePanel: VoidComponent<{
   docId?: string;
   onClose: (shouldRefetch?: boolean) => void;
 }> = (props) => {
-  const [doc, { refetch }] = createResource(
+  const [doc] = createResource(
     () => props.docId,
-    (id) => fetchDocDetail(id)
+    (id) => fetchDocDetail(id),
   );
-  const [editing, setEditing] = createSignal(false);
+  const [title, setTitle] = createSignal("");
   const runUpdateDoc = useAction(updateDoc);
 
-  const handleCancelEdit = () => setEditing(false);
-  const handleConfirmEdit = async (newTitle: string) => {
+  createEffect(() => {
+    const current = doc();
+    if (!current) return;
+    setTitle(current.title);
+  });
+
+  const handleTitleCommit = async (nextTitle: string) => {
     if (!props.docId) return;
+    const previous = title();
+    const normalized = nextTitle.trim();
+    if (!normalized || normalized === previous) return;
+    setTitle(normalized);
     try {
-      await runUpdateDoc({ id: props.docId, title: newTitle });
-      await refetch();
-    } catch (e) {
-      alert((e as Error).message || "Failed to update title");
-    } finally {
-      setEditing(false);
+      await runUpdateDoc({ id: props.docId, title: normalized });
+    } catch (error) {
+      setTitle(previous);
+      alert((error as Error).message || "Failed to update title");
     }
   };
 
@@ -64,104 +68,29 @@ export const DocumentSidePanel: VoidComponent<{
         position="sticky"
         top="0"
         zIndex="10"
+        px="3"
+        pt="3"
+        pb="2"
         borderBottomWidth="1px"
         borderColor="border"
-        px="4"
-        py="3"
-        bg="bg.default"
         style={{
-          background: "rgba(255,255,255,0.95)",
-          "backdrop-filter": "blur(10px)",
+          background:
+            "linear-gradient(to bottom, rgba(255,255,255,0.98), rgba(255,255,255,0.9))",
         }}
       >
-        <Flex align="center" gap="2">
-          <Box minW="0" position="relative">
-            <Text fontSize="xs" color="fg.muted">
-              Note
-            </Text>
-            <HStack gap="2" alignItems="center" minW="0">
-              <Suspense
-                fallback={<Text fontSize="sm">Loading…</Text>}
-              >
-                <Show when={doc()}>
-                  {(d) => {
-                    const firstH1 = () =>
-                      extractFirstHeading({
-                        markdown: d().markdown,
-                        html: d().html,
-                      }) || "";
-                    const showSync = () =>
-                      firstH1() && firstH1() !== d().title;
-                    const handleSync = async () => {
-                      if (!props.docId) return;
-                      const newTitle = firstH1();
-                      if (!newTitle) return;
-                      try {
-                        await runUpdateDoc({ id: props.docId, title: newTitle });
-                        await refetch();
-                      } catch (e) {
-                        alert((e as Error).message || "Failed to sync title");
-                      }
-                    };
-                    return (
-                      <>
-                        <Text
-                          fontSize="sm"
-                          fontWeight="medium"
-                          color="fg.default"
-                          maxW="16rem"
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                          whiteSpace="nowrap"
-                          title={d().title}
-                        >
-                          {d().title}
-                        </Text>
-                        <TitleEditPopover
-                          open={editing()}
-                          onOpenChange={setEditing}
-                          initialTitle={d().title}
-                          onConfirm={handleConfirmEdit}
-                          onCancel={handleCancelEdit}
-                          trigger={
-                            <IconButton
-                              variant="plain"
-                              size="xs"
-                              aria-label="Edit title"
-                              title="Edit title"
-                            >
-                              ✏️
-                            </IconButton>
-                          }
-                        />
-                        <Show when={showSync()}>
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={handleSync}
-                            title={`Match H1: ${firstH1()}`}
-                          >
-                            Match H1
-                          </Button>
-                        </Show>
-                      </>
-                    );
-                  }}
-                </Show>
-              </Suspense>
-            </HStack>
+        <Flex align="flex-start" justify="space-between" gap="3">
+          <Box flex="1" minW="0">
+            <InPlaceEditableText
+              value={title()}
+              placeholder="Untitled note"
+              onCommit={handleTitleCommit}
+              fontSize="2xl"
+              lineHeight="1.05"
+              fontWeight="semibold"
+              fillWidth
+              wrapPreview
+            />
           </Box>
-          <Link
-            ml="auto"
-            fontSize="xs"
-            color="blue.9"
-            href={props.docId ? `/docs/${props.docId}` : "#"}
-            onClick={(e) => {
-              if (!props.docId) e.preventDefault();
-            }}
-          >
-            Open full page
-          </Link>
           <CloseButton
             size="xs"
             aria-label="Close panel"
@@ -171,7 +100,7 @@ export const DocumentSidePanel: VoidComponent<{
         </Flex>
       </Box>
 
-      <Box px="4" py="4">
+      <Box px="3" py="3">
         <Suspense
           fallback={
             <Text fontSize="sm" color="fg.muted">
@@ -182,7 +111,9 @@ export const DocumentSidePanel: VoidComponent<{
           <Show when={doc()} keyed>
             {(d) => (
               <DocumentViewer
-                doc={d}
+                doc={{ ...d, title: title() || d.title }}
+                panelMode
+                fullPageHref={props.docId ? `/docs/${props.docId}` : undefined}
                 onDeleted={() => props.onClose(true)}
               />
             )}

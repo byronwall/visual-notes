@@ -1,11 +1,18 @@
 import { createAsync } from "@solidjs/router";
 import { Clock3Icon, EyeIcon, PencilIcon, SearchIcon } from "lucide-solid";
-import { For, Show, Suspense, createSignal, type VoidComponent } from "solid-js";
+import {
+  For,
+  Show,
+  Suspense,
+  createSignal,
+  type VoidComponent,
+} from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { fetchDocActivityHistory } from "~/services/activity/activity.queries";
 import { Button } from "~/components/ui/button";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
+import { Tooltip } from "~/components/ui/tooltip";
 
 function formatAbsoluteTimestamp(value?: string | null): string {
   if (!value) return "-";
@@ -16,7 +23,7 @@ function formatAbsoluteTimestamp(value?: string | null): string {
 
 function formatRelativeTimestamp(
   anchorIso: string,
-  value?: string | null
+  value?: string | null,
 ): string {
   if (!value) return "-";
   const anchor = new Date(anchorIso).getTime();
@@ -58,12 +65,15 @@ function EventTypeIcon(props: { eventType: string }) {
   return <Icon size={12} />;
 }
 
-function eventPayloadSummary(payload?: Record<string, unknown> | null): string | null {
+function eventPayloadSummary(
+  payload?: Record<string, unknown> | null,
+): string | null {
   if (!payload) return null;
   const keys = ["docTitle", "queryPreview", "source", "lengthDeltaBucket"];
   for (const key of keys) {
     const value = payload[key];
-    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+    if (typeof value === "string" && value.trim().length > 0)
+      return value.trim();
   }
   return null;
 }
@@ -72,6 +82,7 @@ export const DocActivitySummaryPopover: VoidComponent<{
   docId: string;
   createdAt?: string;
   updatedAt?: string;
+  iconOnly?: boolean;
 }> = (props) => {
   const [open, setOpen] = createSignal(false);
   const history = createAsync(() => fetchDocActivityHistory(props.docId));
@@ -101,63 +112,84 @@ export const DocActivitySummaryPopover: VoidComponent<{
             offset={8}
             style={{ width: "min(24rem, 86vw)" }}
             anchor={
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                colorPalette="gray"
-                bg="bg.default"
-                borderColor="border"
-                h="auto"
-                px="2"
-                py="1.5"
-                onClick={() => setOpen((value) => !value)}
+              <Show
+                when={props.iconOnly}
+                fallback={
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    colorPalette="gray"
+                    bg="bg.subtle"
+                    borderColor="gray.subtle"
+                    h="auto"
+                    px="2.5"
+                    py="1.5"
+                    onClick={() => setOpen((value) => !value)}
+                  >
+                    <HStack gap="2" alignItems="center">
+                      <HStack gap="1.5" alignItems="center">
+                        <Clock3Icon size={12} />
+                        <Text
+                          as="span"
+                          fontSize="xs"
+                          color="fg.default"
+                          fontWeight="medium"
+                        >
+                          Activity
+                        </Text>
+                      </HStack>
+                      <HStack gap="1" alignItems="center">
+                        <EyeIcon size={12} />
+                        <Text as="span" fontSize="xs" color="fg.muted">
+                          {data().viewCount}
+                        </Text>
+                      </HStack>
+                      <HStack gap="1" alignItems="center">
+                        <PencilIcon size={12} />
+                        <Text as="span" fontSize="xs" color="fg.muted">
+                          {data().editCount}
+                        </Text>
+                      </HStack>
+                      <Text
+                        as="span"
+                        fontSize="xs"
+                        color="fg.muted"
+                        title={formatAbsoluteTimestamp(props.updatedAt)}
+                      >
+                        Saved{" "}
+                        {formatRelativeTimestamp(
+                          data().generatedAt,
+                          props.updatedAt,
+                        )}
+                      </Text>
+                    </HStack>
+                  </Button>
+                }
               >
-                <HStack gap="2" alignItems="center" flexWrap="wrap">
-                  <HStack gap="1" alignItems="center">
-                    <Clock3Icon size={12} />
-                    <Text as="span" fontSize="xs" color="fg.default" fontWeight="medium">
-                      Activity
-                    </Text>
-                  </HStack>
-                  <HStack gap="1" alignItems="center">
-                    <EyeIcon size={12} />
-                    <Text as="span" fontSize="xs" color="fg.muted">
-                      {data().viewCount}
-                    </Text>
-                  </HStack>
-                  <HStack gap="1" alignItems="center">
-                    <PencilIcon size={12} />
-                    <Text as="span" fontSize="xs" color="fg.muted">
-                      {data().editCount}
-                    </Text>
-                  </HStack>
-                  <Text
-                    as="span"
-                    fontSize="xs"
-                    color="fg.muted"
-                    title={formatAbsoluteTimestamp(data().lastViewBeforeThisOne)}
+                <Tooltip
+                  content="Activity"
+                  showArrow
+                  portalled={false}
+                  contentProps={{ zIndex: "tooltip" }}
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    colorPalette="gray"
+                    bg="bg.subtle"
+                    borderColor="gray.subtle"
+                    minW="9"
+                    w="9"
+                    px="0"
+                    aria-label={`Activity: ${data().viewCount} views, ${data().editCount} edits`}
+                    onClick={() => setOpen((value) => !value)}
                   >
-                    Prev view {formatRelativeTimestamp(data().generatedAt, data().lastViewBeforeThisOne)}
-                  </Text>
-                  <Text
-                    as="span"
-                    fontSize="xs"
-                    color="fg.muted"
-                    title={formatAbsoluteTimestamp(props.createdAt)}
-                  >
-                    Created {formatRelativeTimestamp(data().generatedAt, props.createdAt)}
-                  </Text>
-                  <Text
-                    as="span"
-                    fontSize="xs"
-                    color="fg.muted"
-                    title={formatAbsoluteTimestamp(props.updatedAt)}
-                  >
-                    Saved {formatRelativeTimestamp(data().generatedAt, props.updatedAt)}
-                  </Text>
-                </HStack>
-              </Button>
+                    <Clock3Icon size={14} />
+                  </Button>
+                </Tooltip>
+              </Show>
             }
           >
             <Stack gap="2" p="2.5">
@@ -194,21 +226,27 @@ export const DocActivitySummaryPopover: VoidComponent<{
                   color="fg.muted"
                   title={formatAbsoluteTimestamp(data().lastViewBeforeThisOne)}
                 >
-                  Prev view {formatRelativeTimestamp(data().generatedAt, data().lastViewBeforeThisOne)}
+                  Prev view{" "}
+                  {formatRelativeTimestamp(
+                    data().generatedAt,
+                    data().lastViewBeforeThisOne,
+                  )}
                 </Text>
                 <Text
                   fontSize="xs"
                   color="fg.muted"
                   title={formatAbsoluteTimestamp(props.createdAt)}
                 >
-                  Created {formatRelativeTimestamp(data().generatedAt, props.createdAt)}
+                  Created{" "}
+                  {formatRelativeTimestamp(data().generatedAt, props.createdAt)}
                 </Text>
                 <Text
                   fontSize="xs"
                   color="fg.muted"
                   title={formatAbsoluteTimestamp(props.updatedAt)}
                 >
-                  Saved {formatRelativeTimestamp(data().generatedAt, props.updatedAt)}
+                  Saved{" "}
+                  {formatRelativeTimestamp(data().generatedAt, props.updatedAt)}
                 </Text>
               </HStack>
 
@@ -226,11 +264,25 @@ export const DocActivitySummaryPopover: VoidComponent<{
                   <Stack gap="1.5">
                     <For each={data().events}>
                       {(event) => (
-                        <Box borderWidth="1px" borderColor="border" borderRadius="l1" px="2" py="1.5">
-                          <HStack justify="space-between" alignItems="baseline" gap="2">
+                        <Box
+                          borderWidth="1px"
+                          borderColor="border"
+                          borderRadius="l1"
+                          px="2"
+                          py="1.5"
+                        >
+                          <HStack
+                            justify="space-between"
+                            alignItems="baseline"
+                            gap="2"
+                          >
                             <HStack gap="1.5" alignItems="center">
                               <EventTypeIcon eventType={event.eventType} />
-                              <Text fontSize="sm" color="fg.default" fontWeight="medium">
+                              <Text
+                                fontSize="sm"
+                                color="fg.default"
+                                fontWeight="medium"
+                              >
                                 {eventTypeLabel(event.eventType)}
                               </Text>
                             </HStack>
@@ -239,7 +291,10 @@ export const DocActivitySummaryPopover: VoidComponent<{
                               color="fg.muted"
                               title={formatAbsoluteTimestamp(event.createdAt)}
                             >
-                              {formatRelativeTimestamp(data().generatedAt, event.createdAt)}
+                              {formatRelativeTimestamp(
+                                data().generatedAt,
+                                event.createdAt,
+                              )}
                             </Text>
                           </HStack>
                           <HStack gap="1.5" mt="0.5" flexWrap="wrap">
@@ -253,7 +308,12 @@ export const DocActivitySummaryPopover: VoidComponent<{
                             </Show>
                             <Show when={eventPayloadSummary(event.payload)}>
                               {(summary) => (
-                                <Text fontSize="xs" color="fg.muted" maxW="28rem" truncate>
+                                <Text
+                                  fontSize="xs"
+                                  color="fg.muted"
+                                  maxW="28rem"
+                                  truncate
+                                >
                                   {summary()}
                                 </Text>
                               )}
