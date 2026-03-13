@@ -12,15 +12,14 @@ export function ReadOnlyDocumentContent(props: ReadOnlyDocumentContentProps) {
   return (
     <Box
       class={props.class}
+      position="relative"
       borderWidth="1px"
       borderColor="gray.outline.border"
       borderRadius="l2"
       bg="bg.default"
-      px={{ base: "4", md: "6" }}
-      py={{ base: "4", md: "5" }}
       css={documentContentStyles}
     >
-      <Box class="vn-doc-content" innerHTML={props.html} />
+      <Box class="vn-doc-content prose editor-prose" innerHTML={props.html} />
     </Box>
   );
 }

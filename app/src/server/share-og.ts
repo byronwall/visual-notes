@@ -39,8 +39,14 @@ export function buildShareOgSvg(input: {
   baseUrl: string;
   path?: string | null;
 }) {
-  const titleLines = wrapText(input.title || "Untitled note", 24, 3);
-  const previewLines = wrapText(input.previewText || "", 48, 4);
+  const resolvedTitle = input.title.trim() || "Untitled note";
+  const resolvedPreview =
+    input.previewText.trim() &&
+    input.previewText.trim() !== "No preview available."
+      ? input.previewText.trim()
+      : "Open a shared note from Visual Notes.";
+  const titleLines = wrapText(resolvedTitle, 24, 3);
+  const previewLines = wrapText(resolvedPreview, 48, 4);
   const shareHref = buildShareAbsoluteUrl(input.baseUrl, input.shareUrl);
   const pathText = input.path ? input.path : "Shared note";
 
