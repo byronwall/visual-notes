@@ -13,6 +13,13 @@ export type DocDetail = {
   originalContentId?: string | null;
   createdAt: string;
   updatedAt: string;
+  share?: {
+    id: string;
+    slug: string;
+    shareUrl: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 };
 
 export type DocPreview = {
@@ -69,8 +76,9 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
   const resolvedDoc = isNotionId
     ? await prisma.doc.findFirst({
         where: { originalContentId: getIdFromNotionId(docId) },
+        include: { share: true },
       })
-    : await prisma.doc.findUnique({ where: { id: docId } });
+    : await prisma.doc.findUnique({ where: { id: docId }, include: { share: true } });
   if (!resolvedDoc) throw new Error("Not found");
   try {
     const html = String(resolvedDoc.html || "");
@@ -95,6 +103,15 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
     originalContentId: resolvedDoc.originalContentId,
     createdAt: resolvedDoc.createdAt.toISOString(),
     updatedAt: resolvedDoc.updatedAt.toISOString(),
+    share: resolvedDoc.share
+      ? {
+          id: resolvedDoc.share.id,
+          slug: resolvedDoc.share.slug,
+          shareUrl: resolvedDoc.share.shareUrl,
+          createdAt: resolvedDoc.share.createdAt.toISOString(),
+          updatedAt: resolvedDoc.share.updatedAt.toISOString(),
+        }
+      : null,
   };
 }, "docs-get");
 
@@ -112,6 +129,12 @@ export const fetchDocs = query(
         updatedAt: true,
         path: true,
         meta: true,
+        share: {
+          select: {
+            slug: true,
+            shareUrl: true,
+          },
+        },
       },
       take,
     });
@@ -125,6 +148,12 @@ export const fetchDocs = query(
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
       meta: item.meta as DocItem["meta"],
+      share: item.share
+        ? {
+            slug: item.share.slug,
+            shareUrl: item.share.shareUrl,
+          }
+        : null,
     }));
   },
   "docs-list"

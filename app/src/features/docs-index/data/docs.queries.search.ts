@@ -86,6 +86,12 @@ export const searchDocs = query(
         title: true,
         updatedAt: true,
         path: true,
+        share: {
+          select: {
+            slug: true,
+            shareUrl: true,
+          },
+        },
       },
       orderBy: [{ updatedAt: "desc" }],
       take: titlePathTake,
@@ -114,7 +120,18 @@ export const searchDocs = query(
         id: true,
         text: true,
         doc: {
-          select: { id: true, title: true, updatedAt: true, path: true },
+          select: {
+            id: true,
+            title: true,
+            updatedAt: true,
+            path: true,
+            share: {
+              select: {
+                slug: true,
+                shareUrl: true,
+              },
+            },
+          },
         },
       },
       orderBy: [{ doc: { updatedAt: "desc" } }],
@@ -138,6 +155,12 @@ export const searchDocs = query(
         updatedAt: d.updatedAt.toISOString(),
         path: d.path,
         snippet: undefined,
+        share: d.share
+          ? {
+              slug: d.share.slug,
+              shareUrl: d.share.shareUrl,
+            }
+          : null,
       };
       const score = scoreTitleAndPath({
         title: d.title ?? "",
@@ -172,6 +195,12 @@ export const searchDocs = query(
             updatedAt: d.updatedAt.toISOString(),
             path: d.path,
             snippet,
+            share: d.share
+              ? {
+                  slug: d.share.slug,
+                  shareUrl: d.share.shareUrl,
+                }
+              : null,
           },
           score:
             scoreTitleAndPath({

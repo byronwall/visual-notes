@@ -71,6 +71,12 @@ export const fetchDocs = query(
         updatedAt: true,
         path: true,
         meta: true,
+        share: {
+          select: {
+            slug: true,
+            shareUrl: true,
+          },
+        },
       },
       take,
     });
@@ -88,6 +94,12 @@ export const fetchDocs = query(
       updatedAt: item.updatedAt.toISOString(),
       path: item.path,
       meta: item.meta as DocListItem["meta"],
+      share: item.share
+        ? {
+            slug: item.share.slug,
+            shareUrl: item.share.shareUrl,
+          }
+        : null,
     }));
   },
   "docs-index-list"

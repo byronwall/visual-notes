@@ -137,6 +137,7 @@ const AuthGate = (props: { children: JSX.Element }) => {
   const location = useLocation();
 
   const isLoginRoute = () => location.pathname === "/login";
+  const isPublicShareRoute = () => location.pathname.startsWith("/share/");
 
   createEffect(() => {
     if (typeof window === "undefined") return;
@@ -144,7 +145,7 @@ const AuthGate = (props: { children: JSX.Element }) => {
       return;
     }
     const path = location.pathname;
-    if (!authed() && path !== "/login") {
+    if (!authed() && path !== "/login" && !path.startsWith("/share/")) {
       console.log("[auth-gate] redirecting to /login from", path);
       navigate("/login", { replace: true });
       return;
@@ -154,7 +155,9 @@ const AuthGate = (props: { children: JSX.Element }) => {
   return (
     <Switch fallback={null}>
       {/* Always allow the login page to render when unauthenticated. */}
-      <Match when={isLoginRoute()}>{props.children}</Match>
+      <Match when={isLoginRoute() || isPublicShareRoute()}>
+        {props.children}
+      </Match>
 
       {/* Hide navbar and content flash when not authed (non-login pages) */}
       <Match when={authed()}>

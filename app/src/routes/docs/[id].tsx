@@ -28,6 +28,13 @@ type DocDetail = {
   originalContentId?: string | null;
   createdAt: string;
   updatedAt: string;
+  share?: {
+    id: string;
+    slug: string;
+    shareUrl: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 };
 
 const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;

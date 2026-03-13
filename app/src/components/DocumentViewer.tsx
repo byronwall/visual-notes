@@ -5,6 +5,7 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import { DocSharePanel } from "./DocSharePanel";
 import { deleteDoc, updateDoc } from "~/services/docs.service";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
 import { extractFirstHeading } from "~/utils/extractHeading";
@@ -22,6 +23,13 @@ type DocumentData = {
   meta?: Record<string, unknown> | null;
   createdAt?: string;
   updatedAt?: string;
+  share?: {
+    id: string;
+    slug: string;
+    shareUrl: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 };
 
 const DocumentViewer: VoidComponent<{
@@ -152,6 +160,10 @@ const DocumentViewer: VoidComponent<{
           </Show>
         </Box>
         <HStack gap="2" alignItems="flex-start" flexShrink="0">
+          <DocSharePanel
+            docId={props.doc.id}
+            initialShare={props.doc.share}
+          />
           <Button
             size="sm"
             variant="outline"

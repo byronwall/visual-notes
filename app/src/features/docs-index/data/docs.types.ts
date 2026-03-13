@@ -7,6 +7,10 @@ export type DocListItem = {
   updatedAt: string;
   path?: string | null;
   meta?: MetaRecord | null;
+  share?: {
+    slug: string;
+    shareUrl: string;
+  } | null;
 };
 
 export type ServerSearchItem = DocListItem & { snippet?: string | null };

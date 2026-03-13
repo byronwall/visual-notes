@@ -7,6 +7,10 @@ export type DocItem = {
   updatedAt: string;
   path?: string | null;
   meta?: Record<string, unknown> | null;
+  share?: {
+    slug: string;
+    shareUrl: string;
+  } | null;
 };
 
 export type UmapPoint = {

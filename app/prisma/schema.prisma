@@ -199,11 +199,25 @@ model Doc {
   actionEvents         ActionEvent[]       @relation("RelatedDocEvents")
   activityDaily        DocActivityDaily[]
   activitySnapshot     DocActivitySnapshot?
+  share               DocShare?
   timeBlocks           TimeBlock[]
   timeBlockDayMetadata TimeBlockDayMetadata[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
+}
+
+model DocShare {
+  id        String   @id @default(cuid())
+  docId      String   @unique
+  slug       String   @unique
+  shareUrl   String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
 }
 
 enum TaskStatus {

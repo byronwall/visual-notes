@@ -16,6 +16,10 @@ export const DocRow = (props: {
   updatedAt: string;
   path?: string | null;
   meta?: Record<string, unknown> | null;
+  share?: {
+    slug: string;
+    shareUrl: string;
+  } | null;
   snippet?: string | null;
   query?: string;
   onFilterMeta?: (k: string, v: string) => void;
@@ -121,6 +125,24 @@ export const DocRow = (props: {
                   {(query) => renderHighlighted(path(), query())}
                 </Show>
               </PathPillLink>
+            )}
+          </Show>
+          <Show when={props.share}>
+            {(share) => (
+              <Box
+                as="span"
+                px="2"
+                py="1"
+                borderRadius="full"
+                bg="green.subtle"
+                color="green.fg"
+                fontSize="xs"
+                fontWeight="medium"
+                fontFamily="mono"
+                title={`Shared at ${share().shareUrl}`}
+              >
+                shared/{share().slug}
+              </Box>
             )}
           </Show>
           <MetaChips meta={props.meta} onClick={props.onFilterMeta} />
