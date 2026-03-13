@@ -6,7 +6,7 @@ import { kdNearest } from "~/spatial/kdtree";
 
 type CanvasStore = ReturnType<typeof createCanvasStore>;
 type PositionsStore = ReturnType<typeof createPositionsStore>;
-const NOTE_HOVER_MAX_SCREEN_DIST = 28;
+const NOTE_HOVER_MAX_SCREEN_DIST = 12;
 
 export function createHoverDerivations(params: {
   positionsStore: PositionsStore;

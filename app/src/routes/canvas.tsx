@@ -12,6 +12,10 @@ import {
 import { Box } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import { ControlPanel } from "~/components/visual/ControlPanel";
+import {
+  CANVAS_SIDE_RAIL_WIDTH_PX,
+  CanvasSideRail,
+} from "~/components/visual/CanvasSideRail";
 import { VisualCanvas } from "~/components/visual/VisualCanvas";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
@@ -31,6 +35,8 @@ import type { DocItem } from "~/types/notes";
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
 const FULL_VIEW_PADDING = 120;
+const DESKTOP_RAIL_BREAKPOINT = 700;
+const RAIL_GUTTER_PX = 40;
 
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -41,6 +47,11 @@ function isEditableTarget(target: EventTarget | null) {
     tagName === "textarea" ||
     tagName === "select"
   );
+}
+
+function getRailInset(viewportWidth: number) {
+  if (viewportWidth < DESKTOP_RAIL_BREAKPOINT) return 0;
+  return CANVAS_SIDE_RAIL_WIDTH_PX + RAIL_GUTTER_PX;
 }
 
 const CanvasRoute: VoidComponent = () => {
@@ -63,6 +74,9 @@ const CanvasRoute: VoidComponent = () => {
   const [viewportH, setViewportH] = createSignal(0);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [hoveredRegionId, setHoveredRegionId] = createSignal<
+    string | undefined
+  >(undefined);
+  const [railHoveredDocId, setRailHoveredDocId] = createSignal<
     string | undefined
   >(undefined);
   const [pressedRegionId, setPressedRegionId] = createSignal<
@@ -179,8 +193,9 @@ const CanvasRoute: VoidComponent = () => {
   function fitToSpread() {
     if (!isBrowser) return;
     const viewport = measureCanvasViewport();
-    const nav = canvasStore.navHeight();
-    const availH = Math.max(100, viewport.height - nav);
+    const railInset = getRailInset(viewport.width);
+    const availableWidth = Math.max(240, viewport.width - railInset);
+    const availH = Math.max(100, viewport.height - canvasStore.navHeight());
     const bounds = measureFullViewBounds();
     const contentWidth = Math.max(240, bounds.maxX - bounds.minX);
     const contentHeight = Math.max(240, bounds.maxY - bounds.minY);
@@ -188,14 +203,19 @@ const CanvasRoute: VoidComponent = () => {
     const centerY = (bounds.minY + bounds.maxY) / 2;
     const targetScale = Math.max(
       0.2,
-      Math.min(2, 0.92 * Math.min(viewport.width / contentWidth, availH / contentHeight))
+      Math.min(
+        2,
+        0.92 * Math.min(availableWidth / contentWidth, availH / contentHeight)
+      )
     );
-    canvasStore.setScale(targetScale);
-    canvasStore.setOffset({
-      x: viewport.width / 2 - centerX * targetScale,
-      y: nav + availH / 2 - centerY * targetScale,
+    canvasStore.animateToView({
+      scale: targetScale,
+      offset: {
+        x: availableWidth / 2 - centerX * targetScale,
+        y: availH / 2 - centerY * targetScale,
+      },
+      durationMs: 420,
     });
-    scheduleTransform();
   }
 
   function clearSelectedRegion() {
@@ -214,9 +234,12 @@ const CanvasRoute: VoidComponent = () => {
     selectionStore.setSelection(region.docIds);
 
     const viewport = measureCanvasViewport();
-    const nav = canvasStore.navHeight();
-    const viewportWidth = viewport.width;
-    const viewportHeight = Math.max(240, viewport.height - nav);
+    const railInset = getRailInset(viewport.width);
+    const viewportWidth = Math.max(240, viewport.width - railInset);
+    const viewportHeight = Math.max(
+      240,
+      viewport.height - canvasStore.navHeight()
+    );
     const regionWidth = Math.max(120, region.bounds.maxX - region.bounds.minX);
     const regionHeight = Math.max(120, region.bounds.maxY - region.bounds.minY);
     const fitScale = Math.min(
@@ -229,7 +252,7 @@ const CanvasRoute: VoidComponent = () => {
       scale: targetScale,
       offset: {
         x: viewportWidth / 2 - region.centroid.x * targetScale,
-        y: nav + viewportHeight / 2 - region.centroid.y * targetScale,
+        y: viewportHeight / 2 - region.centroid.y * targetScale,
       },
     });
   }
@@ -242,9 +265,7 @@ const CanvasRoute: VoidComponent = () => {
     setViewportH(viewport.height);
     canvasStore.setOffset({
       x: viewport.width / 2,
-      y:
-        canvasStore.navHeight() +
-        (viewport.height - canvasStore.navHeight()) / 2,
+      y: (viewport.height - canvasStore.navHeight()) / 2,
     });
     scheduleTransform();
     const handleResize = () => {
@@ -270,6 +291,7 @@ const CanvasRoute: VoidComponent = () => {
         clearSelectedRegion();
         return;
       }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key.toLowerCase() === "f") {
         event.preventDefault();
         clearSelectedRegion();
@@ -336,7 +358,12 @@ const CanvasRoute: VoidComponent = () => {
   });
   const visibleDocIds = createMemo(() => new Set(visibleDocs().map((d) => d.id)));
   const canHoverNotes = createMemo(
-    () => !regionsOnly() && canvasStore.scale() >= 0.82
+    () => !regionsOnly() && canvasStore.scale() >= 0.96
+  );
+  const visibleDocsSorted = createMemo(() =>
+    visibleDocs()
+      .slice()
+      .sort((a, b) => a.title.localeCompare(b.title))
   );
 
   // Hover derivations
@@ -389,7 +416,12 @@ const CanvasRoute: VoidComponent = () => {
           docs={visibleDocs()}
           positions={positions}
           umapRegions={umapRegions}
+          viewportWidth={() => Math.max(1, viewportW() - getRailInset(viewportW()))}
+          viewportHeight={() =>
+            Math.max(1, viewportH() - canvasStore.navHeight())
+          }
           hoveredId={hover.hoveredId}
+          railHoveredId={railHoveredDocId}
           hoveredLabelScreen={hover.hoveredLabelScreen}
           showHoverLabel={hover.showHoverLabel}
           viewTransform={viewTransform}
@@ -426,6 +458,20 @@ const CanvasRoute: VoidComponent = () => {
             setSearchQuery={setSearchQuery}
           />
         </Suspense>
+        <CanvasSideRail
+          navHeight={canvasStore.navHeight}
+          regions={() => umapRegions()?.regions ?? []}
+          selectedRegion={selectedRegion}
+          visibleDocs={visibleDocsSorted}
+          searchQuery={searchQuery}
+          hoveredRegionId={hoveredRegionId}
+          selectedDocId={selectedId}
+          onHoveredRegionChange={setHoveredRegionId}
+          onHoveredDocChange={setRailHoveredDocId}
+          onZoomToRegion={handleZoomToRegion}
+          onClearRegion={clearSelectedRegion}
+          onOpenDoc={(id) => setSelectedId(id)}
+        />
       </Show>
     </Box>
   );

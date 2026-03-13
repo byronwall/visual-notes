@@ -40,11 +40,21 @@ type RegionLabelLayout = {
   edgeY: number;
 };
 
+type CanvasPerfMetric = {
+  count: number;
+  total: number;
+  max: number;
+  last: number;
+};
+
 export type VisualCanvasProps = {
   docs: DocItem[] | undefined;
   positions: Accessor<Map<string, Point>>;
   umapRegions?: Accessor<UmapRegionsSnapshot | null>;
+  viewportWidth?: Accessor<number>;
+  viewportHeight?: Accessor<number>;
   hoveredId: Accessor<string | undefined>;
+  railHoveredId?: Accessor<string | undefined>;
   hoveredLabelScreen: Accessor<
     { x: number; y: number; title: string } | undefined
   >;
@@ -69,6 +79,36 @@ export type VisualCanvasProps = {
 };
 
 const SPREAD = 1000;
+const isBrowser = typeof window !== "undefined";
+
+function trackCanvasPerf(name: string, duration: number) {
+  if (!isBrowser || !Number.isFinite(duration)) return;
+  const metricsHost = window as Window & {
+    __canvasPerf?: Record<string, CanvasPerfMetric>;
+  };
+  const metrics = (metricsHost.__canvasPerf ??= {});
+  const existing = metrics[name] ?? {
+    count: 0,
+    total: 0,
+    max: 0,
+    last: 0,
+  };
+  existing.count += 1;
+  existing.total += duration;
+  existing.max = Math.max(existing.max, duration);
+  existing.last = duration;
+  metrics[name] = existing;
+}
+
+function measureCanvasWork<T>(name: string, fn: () => T) {
+  if (!isBrowser || typeof performance === "undefined") {
+    return fn();
+  }
+  const start = performance.now();
+  const result = fn();
+  trackCanvasPerf(name, performance.now() - start);
+  return result;
+}
 
 function smoothstep(edge0: number, edge1: number, value: number) {
   if (edge0 === edge1) return value < edge0 ? 0 : 1;
@@ -102,41 +142,152 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function buildStableRegionLabelOrder(
+  regions: NonNullable<UmapRegionsSnapshot["regions"]>
+) {
+  if (regions.length <= 1) {
+    return regions.map((region) => region.id);
+  }
+
+  const baseSorted = regions
+    .slice()
+    .sort(
+      (a, b) =>
+        b.docCount - a.docCount ||
+        b.radius - a.radius ||
+        a.title.localeCompare(b.title)
+    );
+  const maxDocCount = Math.max(...regions.map((region) => region.docCount), 1);
+  const maxRadius = Math.max(...regions.map((region) => region.radius), 1);
+  const center = regions.reduce(
+    (acc, region) => ({
+      x: acc.x + region.centroid.x,
+      y: acc.y + region.centroid.y,
+    }),
+    { x: 0, y: 0 }
+  );
+  center.x /= regions.length;
+  center.y /= regions.length;
+  const maxCenterDistance = Math.max(
+    ...regions.map((region) =>
+      Math.hypot(region.centroid.x - center.x, region.centroid.y - center.y)
+    ),
+    1
+  );
+
+  const ordered = [baseSorted[0]];
+  const remaining = new Map(baseSorted.slice(1).map((region) => [region.id, region]));
+
+  while (remaining.size > 0) {
+    let bestId: string | undefined;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (const [regionId, region] of remaining) {
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      for (const selected of ordered) {
+        nearestDistance = Math.min(
+          nearestDistance,
+          Math.hypot(
+            region.centroid.x - selected.centroid.x,
+            region.centroid.y - selected.centroid.y
+          )
+        );
+      }
+      const gapScore = nearestDistance / SPREAD;
+      const sizeScore =
+        region.docCount / maxDocCount + region.radius / maxRadius;
+      const centerDistance = Math.hypot(
+        region.centroid.x - center.x,
+        region.centroid.y - center.y
+      );
+      const centralityScore = 1 - centerDistance / maxCenterDistance;
+      const score = gapScore * 0.62 + sizeScore * 0.28 + centralityScore * 0.1;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = regionId;
+      }
+    }
+
+    if (!bestId) break;
+    ordered.push(remaining.get(bestId)!);
+    remaining.delete(bestId);
+  }
+
+  return ordered.map((region) => region.id);
+}
+
+function getVisibleRegionLabelCount(args: {
+  regionCount: number;
+  zoomScale: number;
+  regionsOnly: boolean;
+}) {
+  if (args.regionCount <= 0) return 0;
+  const minCount = Math.min(args.regionsOnly ? 18 : 12, args.regionCount);
+  const maxCount = Math.min(args.regionsOnly ? 54 : 42, args.regionCount);
+  if (minCount >= maxCount) return maxCount;
+  const ratio = smoothstep(
+    args.regionsOnly ? 0.34 : 0.44,
+    args.regionsOnly ? 1.1 : 0.9,
+    args.zoomScale
+  );
+  return Math.max(
+    minCount,
+    Math.min(maxCount, Math.round(minCount + (maxCount - minCount) * ratio))
+  );
+}
+
 function buildRegionLabelLayouts(args: {
   regions: NonNullable<UmapRegionsSnapshot["regions"]>;
   labeledIds: Set<string>;
-  hoveredRegionId?: string;
+  labelOrder?: string[];
+  emphasizedIds?: Set<string>;
   zoomScale: number;
   labelFontSize: number;
-}) {
-  const selected = args.regions
-    .filter(
-      (region) =>
-        args.labeledIds.has(region.id) || args.hoveredRegionId === region.id
-    )
-    .slice()
-    .sort((a, b) => {
-      if (a.id === args.hoveredRegionId) return -1;
-      if (b.id === args.hoveredRegionId) return 1;
-      return b.docCount - a.docCount || b.radius - a.radius;
-    });
-
-  const placed: Array<{
+  allowRegionOverlap?: boolean;
+  viewportBounds?: {
     minX: number;
     minY: number;
     maxX: number;
     maxY: number;
-  }> = [];
+  };
+  occupiedBoxes?: Array<{
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }>;
+}) {
+  const regionById = new Map(args.regions.map((region) => [region.id, region]));
+  const explicitOrder = args.labelOrder
+    ?.map((regionId) => regionById.get(regionId))
+    .filter((region): region is NonNullable<typeof region> => !!region)
+    .filter((region) => args.labeledIds.has(region.id));
+  const selected = (
+    explicitOrder ??
+    args.regions.filter((region) => args.labeledIds.has(region.id)).slice()
+  ).sort((a, b) => {
+    const aEmphasized = args.emphasizedIds?.has(a.id) ?? false;
+    const bEmphasized = args.emphasizedIds?.has(b.id) ?? false;
+    if (aEmphasized && !bEmphasized) return -1;
+    if (bEmphasized && !aEmphasized) return 1;
+    if (explicitOrder) return 0;
+    return b.docCount - a.docCount || b.radius - a.radius;
+  });
+
+  const placed = [...(args.occupiedBoxes ?? [])];
   const layouts: RegionLabelLayout[] = [];
   const angles = [
     -155, -132, -110, -86, -62, -36, -14, 14, 36, 62, 86, 110, 132, 155,
   ].map((deg) => (deg * Math.PI) / 180);
   const radialSteps = [6, 14, 26, 40].map((step) => step / args.zoomScale);
+  const labelSpacingX = 12 / args.zoomScale;
+  const labelSpacingY = 9 / args.zoomScale;
 
   for (const region of selected) {
     const lines = wrapRegionTitle(region.title, 16, 3);
     const radius = Math.max(18, region.radius);
-    const lineHeight = args.labelFontSize * 0.9;
+    const lineHeight = args.labelFontSize * 0.86;
     const labelWidth = Math.max(
       70 / args.zoomScale,
       Math.max(...lines.map((line) => line.length), 8) *
@@ -167,50 +318,88 @@ function buildRegionLabelLayouts(args: {
           textAnchor === "middle"
             ? anchorX
             : anchorX + Math.sign(cos) * (4 / args.zoomScale);
-        const boxMinX =
+        let boxMinX =
           textAnchor === "start"
             ? textX
             : textAnchor === "end"
               ? textX - labelWidth
               : textX - labelWidth / 2;
-        const boxMaxX =
+        let boxMaxX =
           textAnchor === "start"
             ? textX + labelWidth
             : textAnchor === "end"
               ? textX
               : textX + labelWidth / 2;
-        const boxMinY =
+        let boxMinY =
           sin < -0.18
             ? anchorY - labelHeight
             : sin > 0.18
               ? anchorY
               : anchorY - labelHeight / 2;
-        const boxMaxY = boxMinY + labelHeight;
+        let boxMaxY = boxMinY + labelHeight;
+        let adjustedTextX = textX;
+
+        let offscreenPenalty = 0;
+        if (args.viewportBounds) {
+          const offLeft = Math.max(0, args.viewportBounds.minX - boxMinX);
+          const offRight = Math.max(0, boxMaxX - args.viewportBounds.maxX);
+          const offTop = Math.max(0, args.viewportBounds.minY - boxMinY);
+          const offBottom = Math.max(0, boxMaxY - args.viewportBounds.maxY);
+          offscreenPenalty = offLeft + offRight + offTop + offBottom;
+
+          const shiftX =
+            (boxMinX < args.viewportBounds.minX
+              ? args.viewportBounds.minX - boxMinX
+              : 0) +
+            (boxMaxX > args.viewportBounds.maxX
+              ? args.viewportBounds.maxX - boxMaxX
+              : 0);
+          const shiftY =
+            (boxMinY < args.viewportBounds.minY
+              ? args.viewportBounds.minY - boxMinY
+              : 0) +
+            (boxMaxY > args.viewportBounds.maxY
+              ? args.viewportBounds.maxY - boxMaxY
+              : 0);
+
+          boxMinX += shiftX;
+          boxMaxX += shiftX;
+          boxMinY += shiftY;
+          boxMaxY += shiftY;
+          adjustedTextX += shiftX;
+        }
+
         const overlapPenalty = placed.reduce((penalty, box) => {
           const overlapX = Math.max(
             0,
-            Math.min(boxMaxX, box.maxX) - Math.max(boxMinX, box.minX)
+            Math.min(boxMaxX + labelSpacingX, box.maxX) -
+              Math.max(boxMinX - labelSpacingX, box.minX)
           );
           const overlapY = Math.max(
             0,
-            Math.min(boxMaxY, box.maxY) - Math.max(boxMinY, box.minY)
+            Math.min(boxMaxY + labelSpacingY, box.maxY) -
+              Math.max(boxMinY - labelSpacingY, box.minY)
           );
           return penalty + overlapX * overlapY;
         }, 0);
         let circlePenalty = 0;
         let clearance = Number.POSITIVE_INFINITY;
-        for (const other of args.regions) {
-          const pad =
-            other.id === region.id ? 4 / args.zoomScale : 10 / args.zoomScale;
-          const closestX = clamp(other.centroid.x, boxMinX, boxMaxX);
-          const closestY = clamp(other.centroid.y, boxMinY, boxMaxY);
-          const dxToBox = other.centroid.x - closestX;
-          const dyToBox = other.centroid.y - closestY;
-          const distanceToBox = Math.sqrt(dxToBox * dxToBox + dyToBox * dyToBox);
-          const gap = distanceToBox - (Math.max(18, other.radius) + pad);
-          clearance = Math.min(clearance, gap);
-          if (gap < 0) {
-            circlePenalty += gap * gap;
+        if (!args.allowRegionOverlap) {
+          for (const other of args.regions) {
+            const pad =
+              other.id === region.id ? 4 / args.zoomScale : 10 / args.zoomScale;
+            const closestX = clamp(other.centroid.x, boxMinX, boxMaxX);
+            const closestY = clamp(other.centroid.y, boxMinY, boxMaxY);
+            const dxToBox = other.centroid.x - closestX;
+            const dyToBox = other.centroid.y - closestY;
+            const distanceToBox = Math.sqrt(
+              dxToBox * dxToBox + dyToBox * dyToBox
+            );
+            const gap = distanceToBox - (Math.max(18, other.radius) + pad);
+            clearance = Math.min(clearance, gap);
+            if (gap < 0) {
+              circlePenalty += gap * gap;
+            }
           }
         }
         const centerY = (boxMinY + boxMaxY) / 2;
@@ -219,11 +408,14 @@ function buildRegionLabelLayouts(args: {
         const dx = leaderEndX - region.centroid.x;
         const dy = leaderEndY - region.centroid.y;
         const leaderLength = Math.sqrt(dx * dx + dy * dy);
-        const opennessReward = Math.max(0, Math.min(140 / args.zoomScale, clearance));
+        const opennessReward = args.allowRegionOverlap
+          ? 0
+          : Math.max(0, Math.min(140 / args.zoomScale, clearance));
         const angularBias = sin < -0.2 ? -8 : sin > 0.45 ? 5 : 0;
         const score =
           overlapPenalty * 1400 +
-          circlePenalty * 18 +
+          offscreenPenalty * 2200 +
+          circlePenalty * 10 +
           leaderLength * 1.1 +
           Math.abs(centerY - region.centroid.y) * 0.015 -
           opennessReward * 0.9 +
@@ -235,7 +427,7 @@ function buildRegionLabelLayouts(args: {
             regionId: region.id,
             lines,
             textAnchor,
-            textX,
+            textX: adjustedTextX,
             textY: boxMinY + args.labelFontSize * 0.9,
             leaderEndX,
             leaderEndY,
@@ -260,10 +452,10 @@ function buildRegionLabelLayouts(args: {
 
     if (!best) continue;
     placed.push({
-      minX: best.minX,
-      minY: best.minY,
-      maxX: best.maxX,
-      maxY: best.maxY,
+      minX: best.minX - labelSpacingX,
+      minY: best.minY - labelSpacingY,
+      maxX: best.maxX + labelSpacingX,
+      maxY: best.maxY + labelSpacingY,
     });
     layouts.push(best);
   }
@@ -272,6 +464,23 @@ function buildRegionLabelLayouts(args: {
 }
 
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
+  const effectiveHoveredId = createMemo(
+    () => props.railHoveredId?.() ?? props.hoveredId()
+  );
+  const viewportBounds = createMemo(() => {
+    const width = props.viewportWidth?.() ?? 0;
+    const height = props.viewportHeight?.() ?? 0;
+    const scale = Math.max(0.001, props.scale?.() ?? 1);
+    const offset = props.offset();
+    if (width <= 0 || height <= 0) return undefined;
+    const padding = 16 / scale;
+    return {
+      minX: (-offset.x + padding) / scale,
+      minY: (-offset.y + padding) / scale,
+      maxX: (width - offset.x - padding) / scale,
+      maxY: (height - offset.y - padding) / scale,
+    };
+  });
   const noteHoverOpacity = createMemo(() =>
     props.regionsOnly?.()
       ? 0
@@ -319,7 +528,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 Math.max(0.001, props.scale?.() ?? 1)
               );
               const regionLabelFontSize = createMemo(() =>
-                Math.max(20, Math.min(42, 12 / zoomScale()))
+                Math.max(18, Math.min(38, 11 / zoomScale()))
               );
               const regionOpacity = createMemo(() =>
                 props.regionsOnly?.()
@@ -332,43 +541,126 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
               );
               const noteOpacity = createMemo(() =>
-                props.regionsOnly?.() ? 0 : zoomScale() >= 0.82 ? 1 : 0
+                props.regionsOnly?.() ? 0 : zoomScale() >= 0.96 ? 1 : 0
               );
-              const labeledRegionIds = createMemo(() => {
-                const regions = normalizedRegions()?.regions ?? [];
-                return new Set(
-                  regions
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        b.docCount - a.docCount || b.radius - a.radius
-                    )
-                    .slice(0, 28)
-                    .map((region) => region.id)
+              const visibleDocsForRender = createMemo(() => {
+                if (noteOpacity() <= 0.01) return [] as DocItem[];
+                const bounds = viewportBounds();
+                if (!bounds) return listOrdered();
+                const overscan = Math.max(48, circleRadius() * 8);
+                const minX = bounds.minX - overscan;
+                const minY = bounds.minY - overscan;
+                const maxX = bounds.maxX + overscan;
+                const maxY = bounds.maxY + overscan;
+                const positionMap = props.positions();
+                const orderedDocs = listOrdered();
+                return measureCanvasWork("visibleDocsForRender", () =>
+                  orderedDocs.filter((doc, index) => {
+                    const pos =
+                      positionMap.get(doc.id) ??
+                      seededPositionFor(doc.title, index, SPREAD);
+                    return (
+                      pos.x >= minX &&
+                      pos.x <= maxX &&
+                      pos.y >= minY &&
+                      pos.y <= maxY
+                    );
+                  })
                 );
               });
-              const regionLabelLayouts = createMemo(() =>
-                buildRegionLabelLayouts({
-                  regions: normalizedRegions()?.regions ?? [],
-                  labeledIds:
-                    props.selectedRegionId?.() != null
-                      ? new Set(
-                          [props.selectedRegionId?.()].filter(
-                            (id): id is string => !!id
-                          )
-                        )
-                      : labeledRegionIds(),
-                  hoveredRegionId: props.hoveredRegionId(),
+              const stableRegionLabelOrder = createMemo(() => {
+                const regions = normalizedRegions()?.regions ?? [];
+                return measureCanvasWork("stableRegionLabelOrder", () =>
+                  buildStableRegionLabelOrder(regions)
+                );
+              });
+              const visibleRegionLabelCount = createMemo(() =>
+                getVisibleRegionLabelCount({
+                  regionCount: normalizedRegions()?.regions.length ?? 0,
                   zoomScale: zoomScale(),
-                  labelFontSize: regionLabelFontSize(),
+                  regionsOnly: props.regionsOnly?.() ?? false,
                 })
               );
+              const labeledRegionOrder = createMemo(() => {
+                const selectedId = props.selectedRegionId?.();
+                if (selectedId) return [selectedId];
+                return stableRegionLabelOrder().slice(0, visibleRegionLabelCount());
+              });
+              const labeledRegionIds = createMemo(() => {
+                const selectedId = props.selectedRegionId?.();
+                if (selectedId) return new Set([selectedId]);
+                const regions = normalizedRegions()?.regions ?? [];
+                if (regions.length <= visibleRegionLabelCount()) {
+                  return new Set(regions.map((region) => region.id));
+                }
+                return new Set(labeledRegionOrder());
+              });
+              const regionLabelLayouts = createMemo(() => {
+                const regions = normalizedRegions()?.regions ?? [];
+                const selectedId = props.selectedRegionId?.();
+                const emphasizedIds = selectedId
+                  ? new Set([selectedId])
+                  : undefined;
+                const labelIds = labeledRegionIds();
+                const labelOrder = labeledRegionOrder();
+                const currentZoomScale = zoomScale();
+                const labelFontSize = regionLabelFontSize();
+                return measureCanvasWork("baseRegionLabelLayouts", () =>
+                  buildRegionLabelLayouts({
+                    regions,
+                    labeledIds: labelIds,
+                    labelOrder,
+                    emphasizedIds,
+                    zoomScale: currentZoomScale,
+                    labelFontSize,
+                    allowRegionOverlap: true,
+                  })
+                );
+              });
+              const hoveredRegionLayout = createMemo(() => {
+                const hoveredId = props.hoveredRegionId();
+                if (!hoveredId || labeledRegionIds().has(hoveredId)) return null;
+                const regions = normalizedRegions()?.regions ?? [];
+                const occupiedBoxes = regionLabelLayouts().map((item) => ({
+                  minX: item.minX,
+                  minY: item.minY,
+                  maxX: item.maxX,
+                  maxY: item.maxY,
+                }));
+                const currentZoomScale = zoomScale();
+                const labelFontSize = regionLabelFontSize();
+                const currentViewportBounds = viewportBounds();
+                const layout = measureCanvasWork("hoveredRegionLabelLayout", () =>
+                  buildRegionLabelLayouts({
+                    regions,
+                    labeledIds: new Set([hoveredId]),
+                    labelOrder: [hoveredId],
+                    emphasizedIds: new Set([hoveredId]),
+                    zoomScale: currentZoomScale,
+                    labelFontSize,
+                    allowRegionOverlap: false,
+                    viewportBounds: currentViewportBounds,
+                    occupiedBoxes,
+                  })[0]
+                );
+                return layout ?? null;
+              });
               const regionLabelLayoutById = createMemo(
                 () =>
                   new Map(
-                    regionLabelLayouts().map((layout) => [layout.regionId, layout])
+                    [...regionLabelLayouts(), ...(hoveredRegionLayout() ? [hoveredRegionLayout()!] : [])].map(
+                      (layout) => [layout.regionId, layout]
+                    )
                   )
               );
+              const labelRenderOrder = createMemo(() => {
+                const hoveredId = props.hoveredRegionId();
+                return (normalizedRegions()?.regions ?? []).slice().sort((a, b) => {
+                  if (a.id === hoveredId) return 1;
+                  if (b.id === hoveredId) return -1;
+                  return 0;
+                });
+              });
 
               return (
                 <>
@@ -399,85 +691,18 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                             fill="transparent"
                             stroke="none"
                             style={{
-                              cursor: "pointer",
-                              "pointer-events": "fill",
-                            }}
-                            onPointerEnter={() =>
-                              props.onHoveredRegionChange(region.id)
-                            }
-                            onPointerLeave={() =>
-                              props.onHoveredRegionChange(undefined)
-                            }
-                            onPointerDown={() => {
-                              props.onHoveredRegionChange(region.id);
-                              props.onPressedRegionChange(region.id);
-                              props.suppressNextOpen?.();
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              props.onZoomToRegion?.(region.id);
+                              "pointer-events": "none",
                             }}
                           />
                         )}
                       </For>
                     )}
                   </Show>
-                  <For each={listOrdered()}>
-                    {(d, i) => {
-                      const pos = createMemo(
-                        () =>
-                          props.positions().get(d.id) ??
-                          seededPositionFor(d.title, i(), SPREAD)
-                      );
-                      const fill = createMemo(() =>
-                        colorFor(d.path || d.title)
-                      );
-                      const matchesSearch = createMemo(() => {
-                        const q = props.searchQuery().trim().toLowerCase();
-                        if (!q) return true;
-                        return d.title.toLowerCase().includes(q);
-                      });
-                      const dimmed = createMemo(
-                        () => !!props.searchQuery().trim() && !matchesSearch()
-                      );
-                      const isHovered = createMemo(
-                        () => props.hoveredId() === d.id
-                      );
-                      return (
-                        <Show when={matchesSearch() && !isHovered()}>
-                          <g>
-                            <circle
-                              cx={pos().x}
-                              cy={pos().y}
-                              r={circleRadius()}
-                              fill={dimmed() ? "#9CA3AF" : fill()}
-                              stroke={
-                                dimmed() ? "#00000010" : "#00000020"
-                              }
-                              stroke-width={1}
-                              vector-effect="non-scaling-stroke"
-                              opacity={noteOpacity()}
-                              style={{
-                                cursor: "pointer",
-                                "pointer-events":
-                                  noteOpacity() > 0.08 ? "auto" : "none",
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                props.onSelectDoc(d.id);
-                              }}
-                            />
-                          </g>
-                        </Show>
-                      );
-                    }}
-                  </For>
                   <Show when={regionOpacity() > 0.02}>
                     <Show when={normalizedRegions()}>
-                      {(regions) => (
+                      {() => (
                         <>
-                          <For each={regions().regions}>
+                          <For each={labelRenderOrder()}>
                             {(region) => (
                               <g>
                                 <circle
@@ -488,14 +713,14 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                     props.selectedRegionId?.() === region.id
                                       ? "rgba(37, 99, 235, 0.2)"
                                       : props.hoveredRegionId() === region.id
-                                      ? "rgba(37, 99, 235, 0.16)"
+                                      ? "rgba(249, 115, 22, 0.12)"
                                       : "rgba(37, 99, 235, 0.06)"
                                   }
                                   stroke={
                                     props.selectedRegionId?.() === region.id
                                       ? "rgba(30, 64, 175, 0.9)"
                                       : props.hoveredRegionId() === region.id
-                                      ? "rgba(30, 64, 175, 0.7)"
+                                      ? "rgba(234, 88, 12, 0.72)"
                                       : "rgba(37, 99, 235, 0.2)"
                                   }
                                   stroke-width={
@@ -514,25 +739,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                       : regionOpacity()
                                   }
                                   style={{
-                                    "pointer-events": "none",
-                                  }}
-                                />
-                                <circle
-                                  cx={region.centroid.x}
-                                  cy={region.centroid.y}
-                                  r={Math.max(18, region.radius)}
-                                  fill="none"
-                                  stroke="transparent"
-                                  stroke-width={String(
-                                    Math.max(
-                                      props.selectedRegionId?.() === region.id ? 22 : 18,
-                                      12 / zoomScale()
-                                    )
-                                  )}
-                                  vector-effect="non-scaling-stroke"
-                                  style={{
                                     cursor: "pointer",
-                                    "pointer-events": "stroke",
+                                    "pointer-events": "auto",
                                   }}
                                   onPointerEnter={() =>
                                     props.onHoveredRegionChange(region.id)
@@ -554,15 +762,16 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                 <Show
                                   when={
                                     props.selectedRegionId?.() === region.id ||
+                                    props.hoveredRegionId() === region.id ||
                                     regionLabelOpacity() > 0.04
                                   }
                                 >
                                   <Show
                                     when={
                                       props.selectedRegionId?.() === region.id ||
+                                      props.hoveredRegionId() === region.id ||
                                       (props.selectedRegionId?.() == null &&
-                                        (props.hoveredRegionId() === region.id ||
-                                          labeledRegionIds().has(region.id)))
+                                        labeledRegionIds().has(region.id))
                                     }
                                   >
                                     <Show
@@ -573,6 +782,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                           props.hoveredRegionId() === region.id;
                                         const isSelected =
                                           props.selectedRegionId?.() === region.id;
+                                        const padX = 6 / zoomScale();
+                                        const padY = 4 / zoomScale();
+                                        const originX = layout().minX;
+                                        const originY = layout().minY;
                                         return (
                                           <g
                                             opacity={
@@ -585,15 +798,13 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                             style={{
                                               cursor: "pointer",
                                               "pointer-events": "auto",
+                                              transform: `translate(${originX}px, ${originY}px)`,
+                                              "transform-origin": "0 0",
+                                              transition:
+                                                "transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 180ms ease",
+                                              "will-change": "transform",
                                             }}
-                                            onPointerEnter={() =>
-                                              props.onHoveredRegionChange(region.id)
-                                            }
-                                            onPointerLeave={() =>
-                                              props.onHoveredRegionChange(undefined)
-                                            }
                                             onPointerDown={() => {
-                                              props.onHoveredRegionChange(region.id);
                                               props.onPressedRegionChange(region.id);
                                               props.suppressNextOpen?.();
                                             }}
@@ -604,29 +815,22 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                             }}
                                           >
                                             <rect
-                                              x={layout().minX - 6 / zoomScale()}
-                                              y={layout().minY - 4 / zoomScale()}
+                                              x={-padX}
+                                              y={-padY}
                                               width={
                                                 layout().maxX -
                                                 layout().minX +
-                                                12 / zoomScale()
+                                                padX * 2
                                               }
                                               height={
                                                 layout().maxY -
                                                 layout().minY +
-                                                8 / zoomScale()
+                                                padY * 2
                                               }
                                               rx={8 / zoomScale()}
                                               ry={8 / zoomScale()}
                                               fill="transparent"
-                                              onPointerEnter={() =>
-                                                props.onHoveredRegionChange(region.id)
-                                              }
-                                              onPointerLeave={() =>
-                                                props.onHoveredRegionChange(undefined)
-                                              }
                                               onPointerDown={() => {
-                                                props.onHoveredRegionChange(region.id);
                                                 props.onPressedRegionChange(region.id);
                                                 props.suppressNextOpen?.();
                                               }}
@@ -637,7 +841,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               }}
                                             />
                                             <path
-                                              d={`M ${layout().edgeX} ${layout().edgeY} L ${layout().elbowX} ${layout().elbowY} L ${layout().leaderEndX} ${layout().leaderEndY}`}
+                                              d={`M ${layout().edgeX - originX} ${layout().edgeY - originY} L ${layout().elbowX - originX} ${layout().elbowY - originY} L ${layout().leaderEndX - originX} ${layout().leaderEndY - originY}`}
                                               fill="none"
                                               stroke={
                                                 isSelected
@@ -654,14 +858,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                                     : "1.25"
                                               }
                                               vector-effect="non-scaling-stroke"
-                                              onPointerEnter={() =>
-                                                props.onHoveredRegionChange(region.id)
-                                              }
-                                              onPointerLeave={() =>
-                                                props.onHoveredRegionChange(undefined)
-                                              }
                                               onPointerDown={() => {
-                                                props.onHoveredRegionChange(region.id);
                                                 props.onPressedRegionChange(region.id);
                                                 props.suppressNextOpen?.();
                                               }}
@@ -672,8 +869,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               }}
                                             />
                                             <text
-                                              x={layout().textX}
-                                              y={layout().textY}
+                                              x={layout().textX - originX}
+                                              y={layout().textY - originY}
                                               fill={
                                                 isSelected || isHovered
                                                   ? "#0f172a"
@@ -684,8 +881,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               text-anchor={layout().textAnchor}
                                               paint-order="stroke"
                                               stroke={
-                                                isSelected || isHovered
-                                                  ? "rgba(255,255,255,0.98)"
+                                                isSelected
+                                                  ? "rgba(219, 234, 254, 0.98)"
+                                                  : isHovered
+                                                  ? "rgba(255, 237, 213, 0.98)"
                                                   : "rgba(255,255,255,0.88)"
                                               }
                                               stroke-width={String(
@@ -698,19 +897,12 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               stroke-linejoin="round"
                                               style={{
                                                 filter: isSelected
-                                                  ? "drop-shadow(0 3px 10px rgba(15, 23, 42, 0.22))"
+                                                  ? "drop-shadow(0 3px 10px rgba(37, 99, 235, 0.16))"
                                                   : isHovered
-                                                  ? "drop-shadow(0 2px 6px rgba(15, 23, 42, 0.16))"
+                                                  ? "drop-shadow(0 2px 6px rgba(249, 115, 22, 0.14))"
                                                   : "drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08))",
                                               }}
-                                              onPointerEnter={() =>
-                                                props.onHoveredRegionChange(region.id)
-                                              }
-                                              onPointerLeave={() =>
-                                                props.onHoveredRegionChange(undefined)
-                                              }
                                               onPointerDown={() => {
-                                                props.onHoveredRegionChange(region.id);
                                                 props.onPressedRegionChange(region.id);
                                                 props.suppressNextOpen?.();
                                               }}
@@ -723,24 +915,13 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                                               <For each={layout().lines}>
                                                 {(line, lineIndex) => (
                                                   <tspan
-                                                    x={layout().textX}
+                                                    x={layout().textX - originX}
                                                     dy={
                                                       lineIndex() === 0
                                                         ? "0"
                                                         : `${regionLabelFontSize() * 0.95}`
                                                     }
-                                                    onPointerEnter={() =>
-                                                      props.onHoveredRegionChange(region.id)
-                                                    }
-                                                    onPointerLeave={() =>
-                                                      props.onHoveredRegionChange(
-                                                        undefined
-                                                      )
-                                                    }
                                                     onPointerDown={() => {
-                                                      props.onHoveredRegionChange(
-                                                        region.id
-                                                      );
                                                       props.onPressedRegionChange(
                                                         region.id
                                                       );
@@ -770,8 +951,60 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       )}
                     </Show>
                   </Show>
+                  <Show when={noteOpacity() > 0.01}>
+                    <For each={visibleDocsForRender()}>
+                      {(d, i) => {
+                        const pos = createMemo(
+                          () =>
+                            props.positions().get(d.id) ??
+                            seededPositionFor(d.title, i(), SPREAD)
+                        );
+                        const fill = createMemo(() =>
+                          colorFor(d.path || d.title)
+                        );
+                        const matchesSearch = createMemo(() => {
+                          const q = props.searchQuery().trim().toLowerCase();
+                          if (!q) return true;
+                          return d.title.toLowerCase().includes(q);
+                        });
+                        const dimmed = createMemo(
+                          () => !!props.searchQuery().trim() && !matchesSearch()
+                        );
+                        const isHovered = createMemo(
+                          () => effectiveHoveredId() === d.id
+                        );
+                        return (
+                          <Show when={matchesSearch() && !isHovered()}>
+                            <g>
+                              <circle
+                                cx={pos().x}
+                                cy={pos().y}
+                                r={circleRadius()}
+                                fill={dimmed() ? "#9CA3AF" : fill()}
+                                stroke={
+                                  dimmed() ? "#00000010" : "#00000020"
+                                }
+                                stroke-width={1}
+                                vector-effect="non-scaling-stroke"
+                                opacity={noteOpacity()}
+                                style={{
+                                  cursor: "pointer",
+                                  "pointer-events":
+                                    noteOpacity() > 0.08 ? "auto" : "none",
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  props.onSelectDoc(d.id);
+                                }}
+                              />
+                            </g>
+                          </Show>
+                        );
+                      }}
+                    </For>
+                  </Show>
                   <Show when={(() => {
-                    const hoveredId = props.hoveredId();
+                    const hoveredId = effectiveHoveredId();
                     if (!hoveredId) return null;
                     const doc = listOrdered().find((item) => item.id === hoveredId);
                     if (!doc) return null;
@@ -883,7 +1116,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       </Show>
       {(() => {
         const hoveredIsMatch = createMemo(() => {
-          const id = props.hoveredId();
+          const id = effectiveHoveredId();
           if (!id) return false;
           const q = props.searchQuery().trim().toLowerCase();
           if (!q) return true;
@@ -891,7 +1124,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           return d ? d.title.toLowerCase().includes(q) : false;
         });
         const showHover = createMemo(() => {
-          if (props.hoveredRegionId()) return false;
           if (noteHoverOpacity() < 0.16) return false;
           const hasLbl = !!props.hoveredLabelScreen();
           if (!hasLbl) return false;

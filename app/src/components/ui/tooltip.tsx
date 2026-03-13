@@ -26,6 +26,8 @@ export interface TooltipProps extends Omit<RootProps, 'content'> {
   children: JSX.Element | undefined
   content: JSX.Element | string
   contentProps?: ContentProps
+  arrowProps?: ComponentProps<typeof Arrow>
+  arrowTipProps?: ComponentProps<typeof ArrowTip>
   disabled?: boolean
 }
 
@@ -37,6 +39,8 @@ export const Tooltip = (props: TooltipProps) => {
     'portalled',
     'content',
     'contentProps',
+    'arrowProps',
+    'arrowTipProps',
     'portalRef',
   ])
 
@@ -56,8 +60,8 @@ export const Tooltip = (props: TooltipProps) => {
             <Positioner>
               <Content {...local.contentProps}>
                 <Show when={local.showArrow}>
-                  <Arrow>
-                    <ArrowTip />
+                  <Arrow {...local.arrowProps}>
+                    <ArrowTip {...local.arrowTipProps} />
                   </Arrow>
                 </Show>
                 {local.content}
@@ -69,8 +73,8 @@ export const Tooltip = (props: TooltipProps) => {
             <Positioner>
               <Content {...local.contentProps}>
                 <Show when={local.showArrow}>
-                  <Arrow>
-                    <ArrowTip />
+                  <Arrow {...local.arrowProps}>
+                    <ArrowTip {...local.arrowTipProps} />
                   </Arrow>
                 </Show>
                 {local.content}

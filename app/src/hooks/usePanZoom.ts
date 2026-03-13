@@ -172,6 +172,19 @@ export function createPanZoomHandlers(
         dist <= CLICK_TOL_PX &&
         dt <= CLICK_TOL_MS
       ) {
+        if (!suppressNextOpen) {
+          const canOpen = opts.getCanOpen ? opts.getCanOpen() : false;
+          const id = opts.getHoveredId ? opts.getHoveredId() : undefined;
+          // When a note is the active hover target inside a region, prefer
+          // opening the note over re-activating the containing region.
+          if (canOpen && id && opts.onOpenDoc) {
+            opts.onOpenDoc(id);
+            opts.clearPressedRegion?.();
+            suppressNextOpen = false;
+            clickStart = undefined;
+            return;
+          }
+        }
         const pressedRegionId = opts.getPressedRegionId?.();
         const hoveredRegionId = opts.getHoveredRegionId?.();
         const regionId = pressedRegionId ?? hoveredRegionId;
@@ -181,13 +194,6 @@ export function createPanZoomHandlers(
           suppressNextOpen = false;
           clickStart = undefined;
           return;
-        }
-        if (!suppressNextOpen) {
-          const canOpen = opts.getCanOpen ? opts.getCanOpen() : false;
-          const id = opts.getHoveredId ? opts.getHoveredId() : undefined;
-          if (canOpen && id && opts.onOpenDoc) {
-            opts.onOpenDoc(id);
-          }
         }
       }
     }
