@@ -56,6 +56,18 @@ Before changing code, gather as much of the following as is available:
 
 If details are missing, start from the most likely real user flow and document assumptions.
 
+## Repo-Specific Setup
+
+In this repo, use these local Playwright/MCP assumptions unless the user says otherwise:
+
+- The app server is usually already running on port `3000`.
+- Use the IPv6 loopback URL `http://[::1]:3000` for local browser access.
+- The Playwright MCP server is configured to run with `--isolated`, so separate
+  Codex threads get independent browser instances and do not fight over shared
+  profile state.
+- If an explicit base URL is needed for Playwright test runs, use
+  `PLAYWRIGHT_BASE_URL=http://[::1]:3000`.
+
 ## Priority Rubric
 
 Fix issues in this order:

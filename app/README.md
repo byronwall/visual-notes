@@ -110,9 +110,9 @@ Notes:
 
 - Playwright config is at `playwright.config.ts`.
 - Tests live under `tests/e2e`.
-- By default, Playwright targets `http://127.0.0.1:3100` and starts its own server on port `3100`.
-- Override the default port with `PLAYWRIGHT_PORT`, for example `PLAYWRIGHT_PORT=4100 pnpm test:e2e`.
-- To use an already-running environment, set `PLAYWRIGHT_BASE_URL` and run `pnpm test:e2e`.
+- For local agent/browser work, assume the app server is already running on port `3000`.
+- Use the IPv6 loopback URL when pointing Playwright at that local server: `http://[::1]:3000`.
+- To use the already-running environment explicitly, run `PLAYWRIGHT_BASE_URL=http://[::1]:3000 pnpm test:e2e`.
 - Detailed guide: see `docs/playwright-mcp-testing-guide.md`.
 
 ## Docker

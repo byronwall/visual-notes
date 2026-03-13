@@ -7,7 +7,7 @@ This document describes the Playwright test setup in `app/`, how MCP is wired fo
 - App test stack:
   - Unit/integration: Vitest (`pnpm test`)
   - Browser/e2e: Playwright Test (`pnpm test:e2e`)
-  - Agent browser control: Playwright MCP server (`pnpm mcp:playwright`)
+- Agent browser control: Playwright MCP server (`pnpm mcp:playwright`, isolated by default)
 - Repo conventions:
   - Use `pnpm` and `pnpm dlx` only (no `npx`)
   - MCP server entries are configured in `/Users/byronwall/Projects/visual-notes/.mcp.json`
@@ -20,7 +20,7 @@ This document describes the Playwright test setup in `app/`, how MCP is wired fo
 - Added package scripts:
   - `test:e2e`, `test:e2e:ui`, `test:e2e:headed`, `test:e2e:json`, `test:e2e:install`, `mcp:playwright`
   - File: `/Users/byronwall/Projects/visual-notes/app/package.json`
-- Added MCP server entry for Playwright using `pnpm dlx`:
+- Added MCP server entry for Playwright using `pnpm dlx` in isolated mode:
   - File: `/Users/byronwall/Projects/visual-notes/.mcp.json`
 - Updated test isolation so Vitest does not run e2e files:
   - File: `/Users/byronwall/Projects/visual-notes/app/vitest.config.ts`
@@ -96,6 +96,10 @@ pnpm test:e2e:json
 pnpm mcp:playwright
 ```
 
+This launches Playwright MCP with `--isolated`, so each spawned server keeps its
+browser profile in memory instead of reusing a shared on-disk profile. That
+prevents separate Codex threads from contending over the same browser state.
+
 MCP config for clients (already present):
 
 ```json
@@ -104,7 +108,7 @@ MCP config for clients (already present):
     "playwright": {
       "type": "stdio",
       "command": "pnpm",
-      "args": ["dlx", "@playwright/mcp@latest"]
+      "args": ["dlx", "@playwright/mcp@latest", "--isolated"]
     }
   }
 }
@@ -112,20 +116,22 @@ MCP config for clients (already present):
 
 ### 5. Run against an already-running app
 
-If your app is already started on a different URL:
+For local agent/browser work, assume your app server is already running on port
+`3000`. Use the IPv6 loopback address when targeting that local server:
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 pnpm test:e2e
+PLAYWRIGHT_BASE_URL=http://[::1]:3000 pnpm test:e2e
 ```
 
 `PLAYWRIGHT_BASE_URL` disables Playwright-managed `webServer` bootstrapping.
 
 ### 6. Keep app dev server and Playwright running at once
 
-Default behavior uses a dedicated Playwright server port (`3100`), so your local
-`pnpm dev` server can continue on `3000`.
+The preferred local setup is to keep your app server running on port `3000` and
+point Playwright at it via `http://[::1]:3000`.
 
-To change the Playwright-managed server port:
+If you still want Playwright to manage its own server process, you can override
+the port explicitly:
 
 ```bash
 PLAYWRIGHT_PORT=4100 pnpm test:e2e
@@ -135,6 +141,8 @@ PLAYWRIGHT_PORT=4100 pnpm test:e2e
 
 - Use official Microsoft Playwright MCP (`@playwright/mcp`) instead of custom bridge.
   - Benefit: maintained protocol compatibility and standard tooling.
+  - Benefit: `--isolated` keeps each MCP server session independent, so concurrent
+    Codex threads do not fight over the same persistent browser profile.
   - Tradeoff: when run via `pnpm dlx`, first run depends on external package fetch/cache.
 - Keep deterministic e2e tests in `tests/e2e`.
   - Benefit: clear separation from unit tests.

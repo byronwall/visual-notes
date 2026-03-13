@@ -15,7 +15,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:json": "playwright test --reporter=list,json",
     "test:e2e:install": "playwright install chromium",
-    "mcp:playwright": "pnpm dlx @playwright/mcp@latest",
+    "mcp:playwright": "pnpm dlx @playwright/mcp@latest --isolated",
     "umap:setup:local": "node scripts/setup-umap-local.mjs",
     "umap:python:install": "python3 -m venv .venv && ./.venv/bin/python -m pip install -r scripts/requirements-umap.txt",
     "umap:python:check": "UMAP_PYTHON_BIN=${UMAP_PYTHON_BIN:-$PWD/.venv/bin/python} ${UMAP_PYTHON_BIN:-$PWD/.venv/bin/python} scripts/umap_model.py check --output /tmp/vn-umap-check.json && cat /tmp/vn-umap-check.json",
