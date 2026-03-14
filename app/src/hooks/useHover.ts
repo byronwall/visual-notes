@@ -22,6 +22,11 @@ export function createHoverDerivations(params: {
     const s = canvasStore.scale();
     const t = canvasStore.offset();
     const m = canvasStore.mouseScreen();
+    if (!m)
+      return undefined as unknown as {
+        x: number;
+        y: number;
+      };
     return { x: (m.x - t.x) / s, y: (m.y - t.y) / s };
   });
 
@@ -31,7 +36,8 @@ export function createHoverDerivations(params: {
     }
     const root = positionsStore.kdTree();
     const m = mouseWorld();
-    if (!root) return undefined as unknown as { id?: string; dist2?: number };
+    if (!root || !m)
+      return undefined as unknown as { id?: string; dist2?: number };
     const nearest = kdNearest(root, m);
     const id = nearest?.id;
     if (!id) return nearest;

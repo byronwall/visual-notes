@@ -7,7 +7,9 @@ export function createCanvasStore() {
   const [offset, setOffset] = createSignal({ x: 0, y: 0 });
   const [navHeight, setNavHeight] = createSignal(56);
   const [isPanning, setIsPanning] = createSignal(false);
-  const [mouseScreen, setMouseScreen] = createSignal({ x: 0, y: 0 });
+  const [mouseScreen, setMouseScreen] = createSignal<
+    { x: number; y: number } | undefined
+  >(undefined);
 
   let frame = 0 as number | undefined;
 

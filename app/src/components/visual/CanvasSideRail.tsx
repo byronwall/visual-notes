@@ -62,6 +62,9 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
       .slice()
       .sort((a, b) => a.title.localeCompare(b.title));
   });
+  const selectedRegionStoryCount = createMemo(
+    () => props.selectedRegion()?.docCount ?? filteredStories().length
+  );
 
   return (
     <Box
@@ -110,6 +113,36 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
             </Box>
           </Box>
         </Show>
+
+        <Box px="4" pt="2" pb="2" borderBottomWidth="1px" borderColor="border.subtle">
+          <Show
+            when={props.selectedRegion()}
+            fallback={
+              <>
+                <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="fg.muted">
+                  Regions
+                </Text>
+                <Text fontSize="sm" fontWeight="semibold" mt="1">
+                  {regionsSorted().length} visible clusters
+                </Text>
+              </>
+            }
+          >
+            {(region) => (
+              <>
+                <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="fg.muted">
+                  Stories
+                </Text>
+                <Text fontSize="sm" fontWeight="semibold" mt="1" lineClamp="2">
+                  {region().title}
+                </Text>
+                <Text fontSize="xs" color="fg.muted" mt="1">
+                  {selectedRegionStoryCount()} stories in this region
+                </Text>
+              </>
+            )}
+          </Show>
+        </Box>
 
         <Box flex="1" overflowY="auto" px="2" py="2">
           <Show

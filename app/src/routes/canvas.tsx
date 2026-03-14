@@ -358,7 +358,10 @@ const CanvasRoute: VoidComponent = () => {
   });
   const visibleDocIds = createMemo(() => new Set(visibleDocs().map((d) => d.id)));
   const canHoverNotes = createMemo(
-    () => !regionsOnly() && canvasStore.scale() >= 0.96
+    () =>
+      !regionsOnly() &&
+      !!selectedRegionId() &&
+      canvasStore.scale() >= 0.96
   );
   const visibleDocsSorted = createMemo(() =>
     visibleDocs()
@@ -422,8 +425,6 @@ const CanvasRoute: VoidComponent = () => {
           }
           hoveredId={hover.hoveredId}
           railHoveredId={railHoveredDocId}
-          hoveredLabelScreen={hover.hoveredLabelScreen}
-          showHoverLabel={hover.showHoverLabel}
           viewTransform={viewTransform}
           offset={canvasStore.offset}
           navHeight={canvasStore.navHeight}
@@ -435,6 +436,7 @@ const CanvasRoute: VoidComponent = () => {
           onPressedRegionChange={setPressedRegionId}
           suppressNextOpen={panZoomHandlers.blockNextOpen}
           onSelectDoc={(id) => setSelectedId(id)}
+          onHoveredDocChange={setRailHoveredDocId}
           onZoomToRegion={handleZoomToRegion}
           selectedRegionId={selectedRegionId}
           regionsOnly={regionsOnly}

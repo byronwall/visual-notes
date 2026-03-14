@@ -202,11 +202,28 @@ export function createPanZoomHandlers(
     clickStart = undefined;
   }
 
+  function onPointerLeave() {
+    pendingMouseScreen = undefined;
+    if (mouseFrame && isBrowser) {
+      cancelAnimationFrame(mouseFrame);
+      mouseFrame = 0;
+    }
+    canvasStore.setMouseScreen(undefined);
+    canvasStore.setIsPanning(false);
+    if (isBrushing) {
+      isBrushing = false;
+      opts.selection?.endBrush();
+    }
+    opts.clearPressedRegion?.();
+    clickStart = undefined;
+  }
+
   return {
     onWheel,
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerLeave,
     blockNextOpen,
   } as const;
 }
