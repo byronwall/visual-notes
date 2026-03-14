@@ -17,6 +17,62 @@ const detailsButtonForTask = (page: Page, text: string) =>
 test.describe("task lists", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("inline task title editing preserves native left/right cursor movement and selection", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+
+    const suffix = Date.now().toString().slice(-6);
+    const listName = `E2E Caret ${suffix}`;
+    const taskName = `Alpha Beta ${suffix}`;
+
+    await ensureAuthed(page);
+    await page.goto("/tasks");
+    await expect(page.getByTestId("tasks-page")).toBeVisible();
+
+    await page.getByTestId("task-list-create-button").click();
+    await page.getByTestId("task-list-name-input").fill(listName);
+    await page.getByRole("button", { name: /^save$/i }).click();
+
+    const listItem = page.locator("[data-testid^='task-list-item-']").filter({ hasText: listName });
+    await expect(listItem).toBeVisible();
+    await listItem.getByText(listName).click();
+
+    await page.getByTestId("task-create-button").click();
+    await inlineCreateInput(page).fill(taskName);
+    await inlineCreateInput(page).press("Enter");
+    await page.keyboard.press("Escape");
+
+    const taskText = rowByText(page, taskName).getByText(taskName);
+    await taskText.click();
+
+    const input = page.locator("[data-testid^='task-inline-input-']").first();
+    await expect(input).toBeVisible();
+
+    await input.evaluate((el: HTMLInputElement) => el.setSelectionRange(5, 5));
+    await page.keyboard.press("ArrowLeft");
+    await expect
+      .poll(() =>
+        input.evaluate((el: HTMLInputElement) => ({
+          start: el.selectionStart,
+          end: el.selectionEnd,
+        }))
+      )
+      .toEqual({ start: 4, end: 4 });
+
+    await input.evaluate((el: HTMLInputElement) => el.setSelectionRange(5, 5));
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect
+      .poll(() =>
+        input.evaluate((el: HTMLInputElement) => ({
+          start: el.selectionStart,
+          end: el.selectionEnd,
+        }))
+      )
+      .toEqual({ start: 4, end: 5 });
+
+  });
+
   test("create/edit/delete lists and tasks with inline task editing and keyboard hierarchy moves", async ({
     page,
   }) => {

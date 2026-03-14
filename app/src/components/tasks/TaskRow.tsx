@@ -12,6 +12,7 @@ import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import type { TaskItem } from "~/services/tasks/tasks.service";
+import { TaskMarkdownPreview } from "./TaskMarkdownPreview";
 
 type DropKind = "before" | "inside" | "after";
 type MoveDirection = "up" | "down" | "left" | "right";
@@ -286,21 +287,13 @@ export const TaskRow = (props: Props) => {
             <Show
               when={isInlineEditing()}
               fallback={
-                <Text
-                  fontSize="sm"
-                  fontWeight="medium"
-                  lineClamp={2}
-                  flex="1"
-                  minW="0"
-                  cursor="text"
-                  onClick={(event) => {
-                    event.stopPropagation();
+                <TaskMarkdownPreview
+                  markdown={props.task.description}
+                  onClick={() => {
                     props.onActivate(props.task.id);
                     props.onOpenInlineEdit(props.task);
                   }}
-                >
-                  {props.task.description}
-                </Text>
+                />
               }
             >
               <input
@@ -345,15 +338,6 @@ export const TaskRow = (props: Props) => {
                     event.preventDefault();
                     props.onInlineEditCancel();
                     return;
-                  }
-                  if (!event.altKey && event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    props.onNavigateTree(props.task.id, "left");
-                    return;
-                  }
-                  if (!event.altKey && event.key === "ArrowRight") {
-                    event.preventDefault();
-                    props.onNavigateTree(props.task.id, "right");
                   }
                 }}
                 disabled={props.inlineEditSaving}
