@@ -1,0 +1,9 @@
+version = 1
+
+[mcp_servers.ark-ui]
+command = "pnpm"
+args = ["dlx", "@ark-ui/mcp"]
+
+[mcp_servers.playwright]
+command = "pnpm"
+args = ["dlx", "@playwright/mcp@latest", "--isolated"]

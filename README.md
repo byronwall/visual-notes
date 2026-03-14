@@ -131,6 +131,12 @@ cd app && docker compose up --build
 
 Then open `http://localhost:3000`.
 
+## Codex MCP config
+
+Codex reads repo-local MCP server settings from `/Users/byronwall/Projects/visual-notes/.codex/config.toml`.
+
+This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse a shared browser profile.
+
 ### What it does
 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.

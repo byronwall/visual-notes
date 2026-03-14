@@ -10,7 +10,7 @@ This document describes the Playwright test setup in `app/`, how MCP is wired fo
 - Agent browser control: Playwright MCP server (`pnpm mcp:playwright`, isolated by default)
 - Repo conventions:
   - Use `pnpm` and `pnpm dlx` only (no `npx`)
-  - MCP server entries are configured in `/Users/byronwall/Projects/visual-notes/.mcp.json`
+  - Codex MCP server entries are configured in `/Users/byronwall/Projects/visual-notes/.codex/config.toml`
 
 ## Major changes delivered
 
@@ -20,8 +20,8 @@ This document describes the Playwright test setup in `app/`, how MCP is wired fo
 - Added package scripts:
   - `test:e2e`, `test:e2e:ui`, `test:e2e:headed`, `test:e2e:json`, `test:e2e:install`, `mcp:playwright`
   - File: `/Users/byronwall/Projects/visual-notes/app/package.json`
-- Added MCP server entry for Playwright using `pnpm dlx` in isolated mode:
-  - File: `/Users/byronwall/Projects/visual-notes/.mcp.json`
+- Added Codex MCP server entries using repo-local TOML config:
+  - File: `/Users/byronwall/Projects/visual-notes/.codex/config.toml`
 - Updated test isolation so Vitest does not run e2e files:
   - File: `/Users/byronwall/Projects/visual-notes/app/vitest.config.ts`
 
@@ -100,18 +100,14 @@ This launches Playwright MCP with `--isolated`, so each spawned server keeps its
 browser profile in memory instead of reusing a shared on-disk profile. That
 prevents separate Codex threads from contending over the same browser state.
 
-MCP config for clients (already present):
+Codex MCP config for this repo (already present):
 
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "type": "stdio",
-      "command": "pnpm",
-      "args": ["dlx", "@playwright/mcp@latest", "--isolated"]
-    }
-  }
-}
+```toml
+version = 1
+
+[mcp_servers.playwright]
+command = "pnpm"
+args = ["dlx", "@playwright/mcp@latest", "--isolated"]
 ```
 
 ### 5. Run against an already-running app
