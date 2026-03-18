@@ -228,6 +228,11 @@ enum TaskStatus {
   cancelled
 }
 
+enum ArchivedPageCaptureMode {
+  bulk
+  targeted
+}
+
 model TaskList {
   id        String    @id @default(cuid())
   name      String
@@ -280,6 +285,66 @@ model TimeBlock {
 
   @@index([startTime])
   @@index([noteId])
+}
+
+model ArchivedPage {
+  id             String                @id @default(cuid())
+  normalizedUrl  String                @unique
+  originalUrl    String
+  title          String
+  siteHostname   String?
+  groupName      String?
+  lastCapturedAt DateTime?
+  meta           Json?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  snapshots ArchivedPageSnapshot[]
+  notes     ArchivedPageNote[]
+
+  @@index([siteHostname])
+  @@index([groupName])
+  @@index([lastCapturedAt(sort: Desc)])
+}
+
+model ArchivedPageSnapshot {
+  id               String                   @id @default(cuid())
+  archivedPageId   String
+  captureMode      ArchivedPageCaptureMode
+  capturedAt       DateTime
+  title            String?
+  groupName        String?
+  htmlPath         String?
+  htmlHash         String?
+  meta             Json?
+  textSnippet      String?
+  extensionPayload Json?
+  createdAt        DateTime                 @default(now())
+
+  archivedPage ArchivedPage      @relation(fields: [archivedPageId], references: [id], onDelete: Cascade)
+  notes        ArchivedPageNote[]
+
+  @@index([archivedPageId, capturedAt(sort: Desc)])
+  @@index([groupName])
+  @@index([capturedAt(sort: Desc)])
+  @@index([htmlHash])
+}
+
+model ArchivedPageNote {
+  id             String   @id @default(cuid())
+  archivedPageId String
+  snapshotId     String?
+  noteText       String
+  imageUrls      String[] @default([])
+  sourceContext  Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  archivedPage ArchivedPage          @relation(fields: [archivedPageId], references: [id], onDelete: Cascade)
+  snapshot     ArchivedPageSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  @@index([archivedPageId, createdAt(sort: Desc)])
+  @@index([snapshotId])
 }
 
 model TimeBlockDayMetadata {

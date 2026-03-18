@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Visual Notes Archive",
+  "version": "0.1.0",
+  "description": "Capture all tabs in the current Chrome window into Visual Notes.",
+  "permissions": ["tabs", "scripting", "storage", "activeTab"],
+  "host_permissions": [
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3000/*",
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Visual Notes Archive"
+  }
+}
+

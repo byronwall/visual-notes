@@ -1,6 +1,11 @@
 import { For } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { CalendarClockIcon, ListTodoIcon, WaypointsIcon } from "lucide-solid";
+import {
+  ArchiveIcon,
+  CalendarClockIcon,
+  ListTodoIcon,
+  WaypointsIcon,
+} from "lucide-solid";
 import { Stack } from "styled-system/jsx";
 import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
 import { SidebarNavButton, type SidebarNavIcon } from "./SidebarNavButton";
@@ -42,6 +47,12 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
       href: "/tasks",
       icon: ListTodoIcon,
       isActive: (path) => isActiveSection("/tasks", path),
+    },
+    {
+      label: "Archive",
+      href: "/archive",
+      icon: ArchiveIcon,
+      isActive: (path) => isActiveSection("/archive", path),
     },
   ];
 

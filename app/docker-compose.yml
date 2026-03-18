@@ -35,6 +35,7 @@ services:
       VITE_AUTH_PATH: ${VITE_AUTH_PATH:-/api/auth}
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me}
       MAGIC_PASSWORD: ${MAGIC_PASSWORD:-magic-password}
+      ARCHIVE_INGEST_TOKEN: ${ARCHIVE_INGEST_TOKEN:-change-me-archive-token}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       UMAP_PYTHON_BIN: ${UMAP_PYTHON_BIN:-/app/.venv/bin/python}

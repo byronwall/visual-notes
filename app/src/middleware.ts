@@ -1,4 +1,5 @@
 import { createMiddleware } from "@solidjs/start/middleware";
+import { isArchiveIngestAuthorized } from "~/server/lib/archive/auth";
 import { isRequestAuthenticated } from "~/server/magic-auth";
 
 function isAssetPath(pathname: string): boolean {
@@ -38,6 +39,15 @@ export default createMiddleware({
       const pathname = url.pathname;
 
       if (isAllowedUnauthed(event.request)) return;
+
+      if (
+        pathname.startsWith("/api/archive/bulk-capture") ||
+        pathname.startsWith("/api/archive/targeted-capture") ||
+        pathname.startsWith("/api/archive/lookup") ||
+        pathname.startsWith("/api/archive/groups")
+      ) {
+        if (isArchiveIngestAuthorized(event.request)) return;
+      }
 
       const authed = isRequestAuthenticated(event.request);
       if (authed) return;

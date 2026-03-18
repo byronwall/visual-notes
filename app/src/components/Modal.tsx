@@ -1,6 +1,7 @@
 import { JSX, Show, createEffect, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Box } from "styled-system/jsx";
+import { acquireBodyScrollLock } from "./overlay/bodyScrollLock";
 
 export default function Modal(props: {
   open: boolean;
@@ -29,11 +30,8 @@ export default function Modal(props: {
   // Lock background scroll while modal is open
   createEffect(() => {
     if (!props.open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    onCleanup(() => {
-      document.body.style.overflow = previousOverflow;
-    });
+    const release = acquireBodyScrollLock();
+    onCleanup(release);
   });
 
   return (
