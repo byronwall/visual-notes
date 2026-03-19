@@ -16,7 +16,7 @@ export function createCanvasStore() {
   const viewTransform = createMemo(() => {
     const t = offset();
     const s = scale();
-    return `translate(${t.x}, ${t.y}) scale(${s})`;
+    return `translate(${t.x}px, ${t.y}px) scale(${s})`;
   });
 
   function scheduleTransform() {

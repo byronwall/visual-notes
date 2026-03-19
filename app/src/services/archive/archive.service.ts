@@ -1,4 +1,5 @@
 export {
+  fetchArchiveGroupCanvasItems,
   fetchArchivedPageDetail,
   fetchArchivedPageGroups,
   fetchArchivedPages,
@@ -7,8 +8,9 @@ export {
 
 export type {
   ArchivedPageDetail,
+  ArchivedPageCanvasCardMode,
+  ArchivedPageCanvasItem,
   ArchivedPageListItem,
   ArchiveListFilters,
   PageLookupResponse,
 } from "./archive.types";
-

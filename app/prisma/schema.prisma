@@ -233,6 +233,12 @@ enum ArchivedPageCaptureMode {
   targeted
 }
 
+enum ArchiveCanvasCardMode {
+  compact
+  summary
+  rich
+}
+
 model TaskList {
   id        String    @id @default(cuid())
   name      String
@@ -295,6 +301,9 @@ model ArchivedPage {
   siteHostname   String?
   groupName      String?
   lastCapturedAt DateTime?
+  canvasX        Float?
+  canvasY        Float?
+  canvasCardMode ArchiveCanvasCardMode @default(summary)
   meta           Json?
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt

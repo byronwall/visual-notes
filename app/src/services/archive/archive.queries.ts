@@ -7,18 +7,21 @@ import {
   resolveArchiveHtmlStorageDir,
 } from "~/server/lib/archive/html-storage";
 import { normalizeArchivedPageUrl } from "~/server/lib/archive/url";
+import {
+  buildArchivePreferredImages,
+  getArchiveCanvasDescription,
+  getArchiveMetaDescription,
+  getArchiveMetaPreviewImage,
+  getArchiveCanvasPosition,
+  normalizeArchiveCanvasCardMode,
+} from "./archive-canvas";
 import type {
   ArchiveListFilters,
+  ArchivedPageCanvasItem,
   ArchivedPageDetail,
   ArchivedPageListItem,
   PageLookupResponse,
 } from "./archive.types";
-
-function getArchiveMetaPreviewImage(meta: Record<string, unknown> | null | undefined) {
-  const twitter = typeof meta?.twitterImage === "string" ? meta.twitterImage : null;
-  const og = typeof meta?.ogImage === "string" ? meta.ogImage : null;
-  return twitter || og || null;
-}
 
 function getFirstNoteImage(
   notes:
@@ -270,4 +273,73 @@ export const fetchArchivedPageGroups = query(
       .filter((value): value is string => Boolean(value));
   },
   "archive-groups",
+);
+
+export const fetchArchiveGroupCanvasItems = query(
+  async (groupName: string): Promise<ArchivedPageCanvasItem[]> => {
+    "use server";
+    const group = String(groupName || "").trim();
+    if (!group) throw new Error("Missing archive group");
+
+    const rows = await prisma.archivedPage.findMany({
+      where: { groupName: group },
+      orderBy: [{ lastCapturedAt: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        title: true,
+        originalUrl: true,
+        groupName: true,
+        siteHostname: true,
+        canvasX: true,
+        canvasY: true,
+        canvasCardMode: true,
+        meta: true,
+        updatedAt: true,
+        notes: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 8,
+          select: {
+            noteText: true,
+            imageUrls: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    return rows.map((row, index) => {
+      const meta = (row.meta as Record<string, unknown> | null) ?? null;
+      const latestNoteText =
+        row.notes.find((note) => note.noteText.trim())?.noteText ?? null;
+      const seededPosition = getArchiveCanvasPosition({
+        id: row.id,
+        title: row.title,
+        index,
+        canvasX: row.canvasX,
+        canvasY: row.canvasY,
+      });
+
+      return {
+        id: row.id,
+        title: row.title,
+        originalUrl: row.originalUrl,
+        groupName: row.groupName || group,
+        siteHostname: row.siteHostname,
+        metaDescription: getArchiveMetaDescription(meta),
+        description: getArchiveCanvasDescription({
+          meta,
+          noteText: latestNoteText,
+        }),
+        preferredImages: buildArchivePreferredImages({
+          meta,
+          noteImageUrls: row.notes.map((note) => note.imageUrls),
+        }),
+        canvasX: seededPosition.x,
+        canvasY: seededPosition.y,
+        canvasCardMode: normalizeArchiveCanvasCardMode(row.canvasCardMode),
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
+  },
+  "archive-group-canvas-items",
 );

@@ -1,5 +1,7 @@
 export type ArchiveMetaRecord = Record<string, unknown>;
 
+export type ArchivedPageCanvasCardMode = "compact" | "summary" | "rich";
+
 export type ArchivedPageListItem = {
   id: string;
   title: string;
@@ -68,4 +70,19 @@ export type ArchiveListFilters = {
   hostname?: string;
   capturedFrom?: string;
   capturedTo?: string;
+};
+
+export type ArchivedPageCanvasItem = {
+  id: string;
+  title: string;
+  originalUrl: string;
+  groupName: string;
+  siteHostname: string | null;
+  metaDescription: string | null;
+  description: string | null;
+  preferredImages: string[];
+  canvasX: number;
+  canvasY: number;
+  canvasCardMode: ArchivedPageCanvasCardMode;
+  updatedAt: string;
 };
