@@ -153,6 +153,30 @@ When useful, also inspect:
 
 Prefer direct measurement when visual judgment is ambiguous.
 
+### 3.5) Verify interaction layers, not just the main action
+
+For table rows, cards, drawers, and utility routes, explicitly verify:
+
+- row/container hover state
+- nested link/button hover state
+- destructive action hover state
+- popover/menu trigger hover state
+- route render behavior when visited directly in the browser
+
+When a surface mixes a row click target with nested actions, confirm in the browser that:
+
+- the row itself has a visible hover state
+- nested actions have their own hover treatment
+- nested actions stop propagation when intended
+- users can visually distinguish the primary click target from secondary controls
+
+For direct-browser utility routes such as downloads, review pages, and generated artifacts:
+
+- navigate to the route directly
+- confirm it does not land on an unhelpful blank page or raw error response
+- confirm the route either renders a usable landing page or immediately performs the expected action
+- confirm any linked download/review action completes successfully
+
 ### 4) Patch one coherent issue at a time
 
 - Keep the change small and targeted.

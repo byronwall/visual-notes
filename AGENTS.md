@@ -49,6 +49,9 @@ guidelines from comp_refs.
     `Menu.Positioner`/`Menu.Content`, and apply token z-index (`popover` or
     `tooltip`) at the menu call site to avoid stacking-context regressions.
   - For Ark `Select`/popover-like controls inside sticky, absolute, transformed, or canvas/sidebar shells: prefer `Portal` + explicit `positioning` at the call site (`strategy: "fixed"` when needed) and verify in Playwright that the overlay anchors to the trigger rather than rendering at `(0, 0)` or under adjacent rails.
+  - For dense data tables or list rows with row-level click targets plus nested controls, verify hover and interactive states in Playwright for all layers: row hover, nested links, inline edit triggers, destructive actions, and secondary toggles/popovers. Cursor changes alone are not sufficient feedback.
+  - When a table/list row is clickable, provide a visible hover state on the row and separate hover states for nested interactive controls so users can distinguish “open row” from “open nested action”.
+  - For route-like utility endpoints used directly in the browser (for example local downloads/review pages), do not leave the user on a blank binary/JSON dead end. If the route is likely to be visited directly, render a small HTML landing page or otherwise provide obvious next steps while preserving the real download/action path.
   - If a shared select/popover supports optional portalling, do not mount the floating subtree in-tree and then move it into a portal after hydration. Gate portal-mode overlay rendering until hydrated to avoid zero-size reference measurements.
 - Routes are routes
   - Do not create reusable UI under `app/src/routes/`.
@@ -60,6 +63,12 @@ guidelines from comp_refs.
 - Verification after sizable changes
   - In `app/`, run both `pnpm lint` and `pnpm type-check` after sizable refactors or feature edits.
   - Treat this as the default verification gate before handing work off or committing.
+  - For UI work that changes navigation, drawers, popovers, or row actions, add a Playwright smoke pass that covers:
+    - route render for every affected page/utility route
+    - hover states for primary and nested interactive targets
+    - click behavior for row-level actions vs nested actions
+    - popover/menu/dialog open states and anchor positioning
+    - direct-browser behavior for download/review routes
 - Logging + debugging
   - Prefer structured console logs with a stable unique prefix at the start of the first string argument, e.g. `[docs-index] loaded 25 items`.
   - When adding or touching debug instrumentation, keep prefixes consistent per feature/module so logs are filterable in the console log panel.
