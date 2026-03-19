@@ -114,11 +114,11 @@ export async function ingestTargetedArchiveCapture(
     title: payload.title,
     groupName: payload.groupName,
     capturedAt,
-      meta: payload.meta,
+    meta: payload.meta,
   });
 
   let snapshotId: string | null = null;
-  if (!payload.skipSnapshot && payload.html) {
+  if (payload.html) {
     const htmlFile = await persistArchiveHtml(payload.html);
     const snapshot = await prisma.archivedPageSnapshot.create({
       data: {
@@ -147,22 +147,28 @@ export async function ingestTargetedArchiveCapture(
     imageUrls.push(persisted.publicUrl);
   }
 
-  const note = await prisma.archivedPageNote.create({
-    data: {
-      archivedPageId: page.id,
-      snapshotId,
-      noteText: payload.noteText?.trim() || "Screenshot added",
-      imageUrls,
-      sourceContext: toJson(payload.selection ?? null),
-    },
-    select: { id: true },
-  });
+  const trimmedNoteText = payload.noteText?.trim() || "";
+  const shouldCreateNote =
+    trimmedNoteText.length > 0 || imageUrls.length > 0 || payload.selection != null;
+
+  const note = shouldCreateNote
+    ? await prisma.archivedPageNote.create({
+        data: {
+          archivedPageId: page.id,
+          snapshotId,
+          noteText: trimmedNoteText,
+          imageUrls,
+          sourceContext: toJson(payload.selection ?? null),
+        },
+        select: { id: true },
+      })
+    : null;
 
   return {
     ok: true,
     pageId: page.id,
     snapshotId,
-    noteId: note.id,
+    noteId: note?.id ?? null,
     createdImageCount: imageUrls.length,
   };
 }

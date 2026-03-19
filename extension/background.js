@@ -38,8 +38,7 @@ async function handleMessage(message) {
         result: await runTargetedCapture({
           groupName: message.groupName,
           noteText: message.noteText,
-          mode: message.mode || "region",
-          skipSnapshot: Boolean(message.skipSnapshot),
+          action: message.action || "screenshot",
         }),
       };
     default:
@@ -97,28 +96,14 @@ async function runBulkCapture(groupName) {
   return { ...result, skipped };
 }
 
-async function runTargetedCapture({ groupName, noteText, mode, skipSnapshot }) {
+async function runTargetedCapture({ groupName, noteText, action }) {
   const tab = await getActiveTab();
   if (!tab?.id || !tab.url) throw new Error("No active tab");
   if (!isInjectableUrl(tab.url)) throw new Error("Active tab cannot be captured");
 
   let selection = undefined;
   let screenshotDataUrl = undefined;
-  if (mode === "viewport") {
-    screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-      format: "png",
-    });
-    selection = {
-      mode: "viewport",
-      rect: {
-        x: 0,
-        y: 0,
-        width: tab.width || 0,
-        height: tab.height || 0,
-        devicePixelRatio: 1,
-      },
-    };
-  } else if (mode !== "note") {
+  if (action === "screenshot" || action === "dom-node") {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["content-targeted.js"],
@@ -126,7 +111,7 @@ async function runTargetedCapture({ groupName, noteText, mode, skipSnapshot }) {
 
     const selectionResponse = await chrome.tabs.sendMessage(tab.id, {
       type: "archive:start-selection",
-      mode,
+      mode: action === "dom-node" ? "node" : "region",
     });
     if (!selectionResponse?.ok) {
       throw new Error(selectionResponse?.error || "Selection failed");
@@ -142,21 +127,13 @@ async function runTargetedCapture({ groupName, noteText, mode, skipSnapshot }) {
     );
   }
 
-  const snapshot = skipSnapshot
-    ? {
-        url: tab.url,
-        title: tab.title || tab.url,
-        html: "",
-        textSnippet: "",
-        meta: {},
-      }
-    : await extractFromTab(tab.id);
+  const snapshot = await extractFromTab(tab.id);
   const payload = {
     url: snapshot.url,
     title: snapshot.title,
     capturedAt: new Date().toISOString(),
     groupName: groupName || undefined,
-    html: snapshot.html || undefined,
+    html: snapshot.html,
     meta: snapshot.meta,
     noteText,
     screenshotDataUrl,
@@ -165,12 +142,12 @@ async function runTargetedCapture({ groupName, noteText, mode, skipSnapshot }) {
     extensionPayload: {
       tabId: tab.id,
       windowId: tab.windowId,
+      action,
     },
-    skipSnapshot: Boolean(skipSnapshot),
   };
   const result = await sendTargetedCapture(payload);
   await refreshActiveTabBadge();
-  return result;
+  return { ...result, action };
 }
 
 async function getActiveTab() {
@@ -243,6 +220,9 @@ async function extractFromTab(tabId) {
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 500);
+      const canonicalUrl =
+        document.head?.querySelector('link[rel="canonical"]')?.getAttribute("href") ||
+        null;
 
       return {
         url: location.href,
@@ -260,8 +240,13 @@ async function extractFromTab(tabId) {
           twitterTitle: readMeta('meta[name="twitter:title"]'),
           twitterDescription: readMeta('meta[name="twitter:description"]'),
           twitterImage: readMeta('meta[name="twitter:image"]'),
-          faviconUrl:
-            document.querySelector('link[rel~="icon"]')?.href || null,
+          faviconUrl: document.querySelector('link[rel~="icon"]')?.href || null,
+          canonicalUrl,
+          language: document.documentElement?.lang || null,
+          charset: document.characterSet || null,
+          viewport: readMeta('meta[name="viewport"]'),
+          referrer: document.referrer || null,
+          lastModified: document.lastModified || null,
           byName,
           byProperty,
         },

@@ -15,6 +15,12 @@ export const archiveMetaSchema = z.object({
   twitterDescription: z.string().nullable().optional(),
   twitterImage: z.string().nullable().optional(),
   faviconUrl: z.string().nullable().optional(),
+  canonicalUrl: z.string().nullable().optional(),
+  language: z.string().nullable().optional(),
+  charset: z.string().nullable().optional(),
+  viewport: z.string().nullable().optional(),
+  referrer: z.string().nullable().optional(),
+  lastModified: z.string().nullable().optional(),
   byName: flatJsonRecord.optional(),
   byProperty: flatJsonRecord.optional(),
 });
@@ -70,13 +76,6 @@ export const targetedCapturePayloadSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "html is required unless skipSnapshot is true",
       path: ["html"],
-    });
-  }
-  if (!value.screenshotDataUrl && !value.noteText?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "noteText or screenshotDataUrl is required",
-      path: ["noteText"],
     });
   }
 });

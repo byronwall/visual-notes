@@ -12,15 +12,11 @@ const els = {
   targetGroupName: document.getElementById("targetGroupName"),
   targetGroups: document.getElementById("targetGroups"),
   noteText: document.getElementById("noteText"),
-  selectionMode: document.getElementById("selectionMode"),
   saveNote: document.getElementById("saveNote"),
-  startSnapshot: document.getElementById("startSnapshot"),
   startScreenshot: document.getElementById("startScreenshot"),
-  startViewport: document.getElementById("startViewport"),
+  startDomNode: document.getElementById("startDomNode"),
   resultStatus: document.getElementById("resultStatus"),
 };
-
-let selectedMode = "region";
 
 init().catch((error) => setStatus(error.message));
 
@@ -32,10 +28,6 @@ async function init() {
     els.configPanel.open = false;
   }
 
-  wireToggleGroup(els.selectionMode, (value) => {
-    selectedMode = value;
-  });
-
   els.saveConfig.addEventListener("click", async () => {
     await setArchiveConfig({
       serverBaseUrl: els.serverBaseUrl.value.trim(),
@@ -45,6 +37,8 @@ async function init() {
     await refreshGroups();
     await refreshLookup();
   });
+
+  els.noteText.addEventListener("input", syncNoteActionLabel);
 
   els.bulkCapture.addEventListener("click", async () => {
     setStatus("Capturing current window…", "info");
@@ -58,59 +52,51 @@ async function init() {
   });
 
   els.saveNote.addEventListener("click", async () => {
-    const noteText = els.noteText.value.trim();
-    if (!noteText) {
-      setStatus("Add note text before saving.", "error");
-      return;
+    try {
+      setStatus("Saving link and HTML…", "info");
+      const noteText = els.noteText.value.trim();
+      const response = await sendMessage({
+        type: "archive:targeted-capture",
+        groupName: els.targetGroupName.value.trim(),
+        noteText,
+        action: "note",
+      });
+      setStatus(renderResultSummary(response.result), "success");
+      els.noteText.value = "";
+      syncNoteActionLabel();
+      await refreshGroups();
+      await refreshLookup();
+    } catch (error) {
+      setStatus(error.message, "error");
     }
-    const response = await sendMessage({
-      type: "archive:targeted-capture",
-      groupName: els.targetGroupName.value.trim(),
-      noteText,
-      mode: "note",
-      skipSnapshot: true,
-    });
-    setStatus(renderResultSummary(response.result), "success");
-    await refreshGroups();
-    await refreshLookup();
-  });
-
-  els.startSnapshot.addEventListener("click", async () => {
-    await beginCapture({
-      mode: selectedMode,
-      skipSnapshot: false,
-    });
   });
 
   els.startScreenshot.addEventListener("click", async () => {
-    await beginCapture({
-      mode: selectedMode,
-      skipSnapshot: true,
-    });
+    await beginCapture("screenshot");
   });
 
-  els.startViewport.addEventListener("click", async () => {
-    await beginCapture({
-      mode: "viewport",
-      skipSnapshot: true,
-    });
+  els.startDomNode.addEventListener("click", async () => {
+    await beginCapture("dom-node");
   });
 
   await refreshGroups();
   await refreshLookup();
+  syncNoteActionLabel();
 }
 
-async function beginCapture({ mode, skipSnapshot }) {
+async function beginCapture(action) {
   const noteText = els.noteText.value.trim();
   try {
-    setStatus("Starting capture…", "info");
+    setStatus(
+      action === "dom-node" ? "Pick an element to capture…" : "Brush a region to capture…",
+      "info",
+    );
     chrome.runtime.sendMessage(
       {
         type: "archive:targeted-capture",
         groupName: els.targetGroupName.value.trim(),
         noteText,
-        mode,
-        skipSnapshot,
+        action,
       },
       () => {
         if (chrome.runtime.lastError) {
@@ -188,23 +174,26 @@ function renderResultSummary(result) {
   if (typeof result.createdCount === "number") {
     return `Bulk capture saved ${result.createdCount} item(s).${result.skipped?.length ? ` Skipped ${result.skipped.length}.` : ""}`;
   }
+  if (result.action === "note" && !result.noteId) {
+    return result.snapshotId ? "Link and HTML saved." : "Saved.";
+  }
   if (result.noteId) {
-    return `Saved.${result.createdImageCount ? ` Added ${result.createdImageCount} image.` : ""}${result.snapshotId ? " Snapshot stored." : ""}`;
+    const label =
+      result.action === "note"
+        ? "Note saved."
+        : result.action === "dom-node"
+          ? "DOM capture saved."
+          : "Screenshot saved.";
+    return `${label}${result.createdImageCount ? ` Added ${result.createdImageCount} image.` : ""}${result.snapshotId ? " HTML snapshot stored." : ""}`;
   }
   return JSON.stringify(result, null, 2);
 }
 
-function wireToggleGroup(root, onChange) {
-  if (!root) return;
-  root.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-value]");
-    if (!button) return;
-    const value = button.dataset.value;
-    for (const item of root.querySelectorAll("[data-value]")) {
-      item.classList.toggle("active", item === button);
-    }
-    onChange(value);
-  });
+function syncNoteActionLabel() {
+  if (!els.saveNote) return;
+  els.saveNote.textContent = els.noteText.value.trim()
+    ? "Save link note and HTML"
+    : "Save link + HTML";
 }
 
 function setStatus(value, tone = "info") {

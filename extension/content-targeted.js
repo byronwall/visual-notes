@@ -13,18 +13,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function startSelection(mode) {
   cleanupOverlay();
+
+  const frame = await createOverlayFrame();
+  const surfaceDocument = frame.contentDocument;
+  const surfaceWindow = frame.contentWindow;
+  if (!surfaceDocument || !surfaceWindow) {
+    frame.remove();
+    throw new Error("Could not initialize overlay");
+  }
+
   return new Promise((resolve, reject) => {
-    const overlay = document.createElement("div");
-    overlay.id = OVERLAY_ID;
-    Object.assign(overlay.style, {
-      position: "fixed",
-      inset: "0",
-      zIndex: "2147483647",
-      cursor: mode === "node" ? "crosshair" : "crosshair",
+    const surface = surfaceDocument.body;
+    Object.assign(surface.style, {
+      margin: "0",
+      width: "100vw",
+      height: "100vh",
+      overflow: "hidden",
+      cursor: "crosshair",
       background: "rgba(5, 8, 17, 0.12)",
+      position: "relative",
+      userSelect: "none",
     });
 
-    const hint = document.createElement("div");
+    const hint = surfaceDocument.createElement("div");
     hint.textContent =
       mode === "node"
         ? "Move to highlight. SPACE climbs to parent. ENTER or ✓ confirms. Mouse move resets. ESC cancels."
@@ -41,23 +52,26 @@ async function startSelection(mode) {
       maxWidth: "320px",
       border: `2px solid ${HIGHLIGHT_PRIMARY}`,
       boxShadow: `0 0 0 4px ${HIGHLIGHT_SHADOW}`,
+      pointerEvents: "none",
+      transition: "opacity 80ms linear",
+      zIndex: "2",
     });
-    overlay.appendChild(hint);
+    surface.appendChild(hint);
 
-    const controls = document.createElement("div");
+    const controls = surfaceDocument.createElement("div");
     Object.assign(controls.style, {
       position: "fixed",
       top: "16px",
       right: "16px",
       display: "flex",
       gap: "8px",
-      zIndex: "2147483647",
+      zIndex: "3",
     });
 
-    const cancelButton = buildToolbarButton("Cancel");
-    const acceptButton = buildToolbarButton("✓");
+    const cancelButton = buildToolbarButton(surfaceDocument, "Cancel");
+    const acceptButton = buildToolbarButton(surfaceDocument, "✓");
     controls.append(cancelButton, acceptButton);
-    overlay.appendChild(controls);
+    surface.appendChild(controls);
 
     let startX = 0;
     let startY = 0;
@@ -68,10 +82,12 @@ async function startSelection(mode) {
     let currentDepth = 0;
     let currentRect = null;
     let handles = [];
-    let toolbarPosition = { x: 0, y: 0 };
+    let hintHidden = false;
 
     const cleanup = () => {
-      overlay.remove();
+      frame.style.pointerEvents = "none";
+      frame.style.opacity = "0";
+      frame.remove();
       document.removeEventListener("keydown", onKeyDown, true);
     };
 
@@ -85,7 +101,7 @@ async function startSelection(mode) {
 
       if (event.key === "Enter") {
         event.preventDefault();
-        confirmSelection();
+        void confirmSelection();
         return;
       }
 
@@ -96,20 +112,25 @@ async function startSelection(mode) {
     };
 
     document.addEventListener("keydown", onKeyDown, true);
-    cancelButton.addEventListener("click", () => {
+    cancelButton.addEventListener("click", (event) => {
+      event.preventDefault();
       cleanup();
       reject(new Error("Selection cancelled"));
     });
-    acceptButton.addEventListener("click", () => confirmSelection());
+    acceptButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      void confirmSelection();
+    });
 
     if (mode === "node") {
-      overlay.addEventListener(
+      surface.addEventListener(
         "pointermove",
         (event) => {
           event.preventDefault();
           event.stopPropagation();
-          const target = pickUnderlyingElement(overlay, event.clientX, event.clientY);
-          if (!target || target === overlay || controls.contains(target)) return;
+          setHintHidden(shouldHideHintForPointer(event.clientX, event.clientY));
+          const target = pickUnderlyingElement(frame, event.clientX, event.clientY);
+          if (!target || target === frame || isInsideOverlay(target)) return;
           hoveredElement = target;
           currentDepth = 0;
           currentElement = hoveredElement;
@@ -117,7 +138,7 @@ async function startSelection(mode) {
         },
         true,
       );
-      overlay.addEventListener(
+      surface.addEventListener(
         "click",
         (event) => {
           event.preventDefault();
@@ -126,10 +147,13 @@ async function startSelection(mode) {
         true,
       );
     } else {
-      overlay.addEventListener(
+      surface.addEventListener(
         "pointerdown",
         (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           if (controls.contains(event.target)) return;
+          setHintHidden(shouldHideHintForPointer(event.clientX, event.clientY));
           startX = event.clientX;
           startY = event.clientY;
           const handleName = event.target?.dataset?.handle || "";
@@ -149,9 +173,12 @@ async function startSelection(mode) {
         true,
       );
 
-      overlay.addEventListener(
+      surface.addEventListener(
         "pointermove",
         (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setHintHidden(shouldHideHintForPointer(event.clientX, event.clientY));
           if (!pointerState || pointerState === "idle") return;
           if (!currentRect) return;
           if (pointerState === "draw") {
@@ -165,34 +192,41 @@ async function startSelection(mode) {
             startX = event.clientX;
             startY = event.clientY;
           } else if (pointerState.startsWith("resize:")) {
-            currentRect = resizeRect(currentRect, pointerState.slice("resize:".length), event.clientX, event.clientY);
+            currentRect = resizeRect(
+              currentRect,
+              pointerState.slice("resize:".length),
+              event.clientX,
+              event.clientY,
+            );
           }
           updateRegionBox();
         },
         true,
       );
 
-      overlay.addEventListener(
+      surface.addEventListener(
         "pointerup",
-        () => {
+        (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           pointerState = "idle";
+          setHintHidden(false);
           updateRegionBox();
         },
         true,
       );
     }
 
-    document.documentElement.appendChild(overlay);
-
-    function confirmSelection() {
+    async function confirmSelection() {
       if (mode === "node") {
         if (!currentElement) {
-          reject(new Error("No element selected"));
           cleanup();
+          reject(new Error("No element selected"));
           return;
         }
         const rect = currentElement.getBoundingClientRect();
         cleanup();
+        await waitForCaptureFrame();
         resolve({
           mode: "node",
           selector: buildSelector(currentElement),
@@ -207,7 +241,9 @@ async function startSelection(mode) {
         reject(new Error("Selection too small"));
         return;
       }
+
       cleanup();
+      await waitForCaptureFrame();
       resolve({
         mode: "region",
         rect: {
@@ -255,11 +291,12 @@ async function startSelection(mode) {
       });
       controls.style.top = `${Math.max(16, rect.top - 44)}px`;
       controls.style.left = `${Math.max(16, rect.left)}px`;
+      controls.style.right = "auto";
     }
 
     function ensureRegionBox() {
       if (regionBox) return;
-      regionBox = document.createElement("div");
+      regionBox = surfaceDocument.createElement("div");
       Object.assign(regionBox.style, {
         position: "fixed",
         border: `3px solid ${HIGHLIGHT_PRIMARY}`,
@@ -268,12 +305,13 @@ async function startSelection(mode) {
         background: "rgba(0, 229, 255, 0.12)",
         boxSizing: "border-box",
         boxShadow: `0 0 0 1px ${HIGHLIGHT_SHADOW}, 0 0 0 5px rgba(255, 43, 214, 0.22)`,
+        zIndex: "1",
       });
-      overlay.appendChild(regionBox);
+      surface.appendChild(regionBox);
 
       if (mode === "region") {
         handles = ["nw", "ne", "sw", "se"].map((name) => {
-          const handle = document.createElement("div");
+          const handle = surfaceDocument.createElement("div");
           handle.dataset.handle = name;
           Object.assign(handle.style, {
             position: "absolute",
@@ -298,12 +336,9 @@ async function startSelection(mode) {
         width: `${currentRect.width}px`,
         height: `${currentRect.height}px`,
       });
-      toolbarPosition = {
-        x: currentRect.x,
-        y: Math.max(16, currentRect.y - 44),
-      };
-      controls.style.left = `${toolbarPosition.x}px`;
-      controls.style.top = `${toolbarPosition.y}px`;
+      controls.style.left = `${currentRect.x}px`;
+      controls.style.top = `${Math.max(16, currentRect.y - 44)}px`;
+      controls.style.right = "auto";
 
       if (handles.length > 0) {
         positionHandle(handles[0], 0, 0);
@@ -312,7 +347,65 @@ async function startSelection(mode) {
         positionHandle(handles[3], currentRect.width - 12, currentRect.height - 12);
       }
     }
+
+    function setHintHidden(nextHidden) {
+      if (hintHidden === nextHidden) return;
+      hintHidden = nextHidden;
+      hint.style.opacity = nextHidden ? "0" : "1";
+    }
+
+    function shouldHideHintForPointer(x, y) {
+      const rect = hint.getBoundingClientRect();
+      const padding = 28;
+      return x <= rect.right + padding && y <= rect.bottom + padding;
+    }
   });
+}
+
+function waitForCaptureFrame() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 0);
+      });
+    });
+  });
+}
+
+async function createOverlayFrame() {
+  const frame = document.createElement("iframe");
+  frame.id = OVERLAY_ID;
+  frame.setAttribute("aria-hidden", "true");
+  frame.setAttribute("tabindex", "-1");
+  Object.assign(frame.style, {
+    position: "fixed",
+    inset: "0",
+    width: "100vw",
+    height: "100vh",
+    border: "0",
+    margin: "0",
+    padding: "0",
+    zIndex: "2147483647",
+    background: "transparent",
+    colorScheme: "light",
+  });
+  frame.srcdoc =
+    "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;padding:0;background:transparent;overflow:hidden;}</style></head><body></body></html>";
+  document.documentElement.appendChild(frame);
+
+  await new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error("Overlay load timed out")), 1000);
+    frame.addEventListener(
+      "load",
+      () => {
+        clearTimeout(timeoutId);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+
+  return frame;
 }
 
 function cleanupOverlay() {
@@ -329,8 +422,8 @@ function rectToJson(rect) {
   };
 }
 
-function buildToolbarButton(text) {
-  const button = document.createElement("button");
+function buildToolbarButton(surfaceDocument, text) {
+  const button = surfaceDocument.createElement("button");
   button.type = "button";
   button.textContent = text;
   Object.assign(button.style, {
@@ -374,12 +467,16 @@ function positionHandle(handle, left, top) {
   });
 }
 
-function pickUnderlyingElement(overlay, x, y) {
-  const previous = overlay.style.pointerEvents;
-  overlay.style.pointerEvents = "none";
+function pickUnderlyingElement(frame, x, y) {
+  const previous = frame.style.pointerEvents;
+  frame.style.pointerEvents = "none";
   const target = document.elementFromPoint(x, y);
-  overlay.style.pointerEvents = previous;
+  frame.style.pointerEvents = previous;
   return target;
+}
+
+function isInsideOverlay(target) {
+  return target instanceof Element && Boolean(target.closest(`#${OVERLAY_ID}`));
 }
 
 function buildSelector(element) {
@@ -390,7 +487,10 @@ function buildSelector(element) {
     let part = current.localName;
     if (!part) break;
     if (current.classList.length > 0) {
-      part += `.${Array.from(current.classList).slice(0, 2).map((value) => CSS.escape(value)).join(".")}`;
+      part += `.${Array.from(current.classList)
+        .slice(0, 2)
+        .map((value) => CSS.escape(value))
+        .join(".")}`;
     }
     parts.unshift(part);
     current = current.parentElement;

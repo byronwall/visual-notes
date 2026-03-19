@@ -179,28 +179,10 @@
         display: grid;
         gap: 5px;
       }
-      .segmented {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 5px;
-      }
-      .toggleBtn {
-        padding: 6px 8px;
-        border-radius: 10px;
-        border: 1px solid #cbd5e1;
-        background: white;
-        color: #475569;
-        font-weight: 600;
-      }
-      .toggleBtn.active {
-        border-color: #0f172a;
-        background: #0f172a;
-        color: white;
-      }
       .buttonRow {
         display: grid;
         gap: 5px;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: 1fr;
       }
       .infoGrid {
         display: grid;
@@ -272,29 +254,21 @@
               <input id="targetGroupName" list="targetGroups" placeholder="Choose or type a group" />
               <datalist id="targetGroups"></datalist>
             </label>
-            <div class="compact">
-              <div class="muted">Selection mode</div>
-              <div class="segmented" id="selectionMode">
-                <button type="button" class="toggleBtn active" data-value="region">Region</button>
-                <button type="button" class="toggleBtn" data-value="node">DOM node</button>
-                <button type="button" class="toggleBtn" data-value="viewport">Viewport</button>
-              </div>
-            </div>
             <div class="notesRow">
               <label>
                 Notes
                 <textarea id="noteText" placeholder="What matters on this page?"></textarea>
               </label>
-              <button id="saveNote" class="secondary">Save note</button>
+              <button id="saveNote" class="secondary">Save link + HTML</button>
             </div>
             <div class="buttonRow">
-              <button id="startSnapshot">Snapshot</button>
-              <button id="startScreenshot" class="secondary">Screenshot</button>
-              <button id="startViewport" class="secondary">Viewport shot</button>
+              <button id="startScreenshot">Add screenshot</button>
+              <button id="startDomNode" class="secondary">Add DOM node</button>
             </div>
             <div class="miniMeta">
-              <span>Snapshot: HTML + image</span>
-              <span>Screenshot: image only</span>
+              <span>Every save includes fresh HTML + metadata</span>
+              <span>Screenshot lets you brush a region</span>
+              <span>DOM node lets you target one element</span>
             </div>
           </div>
         </div>
