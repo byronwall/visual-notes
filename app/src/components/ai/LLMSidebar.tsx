@@ -83,13 +83,23 @@ const recoverServerFunctionCall = async <T,>(
 
 export function useLLMSidebar() {
   const [open, setOpen] = createSignal(false);
+  const [initialized, setInitialized] = createSignal(false);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
-  const threads = createAsync(() =>
-    recoverServerFunctionCall(() => fetchChatThreads(), "fetchChatThreads")
-  );
+  const ensureInitialized = () => {
+    if (initialized()) return;
+    setInitialized(true);
+  };
+  const threads = createAsync(() => {
+    if (!initialized()) return Promise.resolve<ThreadPreview[]>([]);
+    return recoverServerFunctionCall(
+      () => fetchChatThreads(),
+      "fetchChatThreads"
+    );
+  });
   const thread = createAsync(() => {
+    if (!initialized()) return Promise.resolve<ThreadDetail | null>(null);
     const id = selectedId();
     if (!id) return Promise.resolve<ThreadDetail | null>(null);
     return recoverServerFunctionCall(
@@ -108,10 +118,12 @@ export function useLLMSidebar() {
   >({});
 
   const refreshThreads = async () => {
+    if (!initialized()) return;
     await revalidate(fetchChatThreads.key);
   };
 
   const refreshThread = async () => {
+    if (!initialized()) return;
     const id = selectedId();
     if (!id) return;
     await revalidate(fetchChatThread.keyFor(id));
@@ -141,6 +153,7 @@ export function useLLMSidebar() {
   const schedulePoll = () => {
     if (isServer) return;
     if (destroyed) return;
+    if (!initialized()) return;
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = window.setTimeout(runPoll, pollDelayMs);
   };
@@ -151,6 +164,7 @@ export function useLLMSidebar() {
   }
 
   const openSidebar = (threadId?: string) => {
+    ensureInitialized();
     if (threadId) setSelectedId(threadId);
     setOpen(true);
     // Opening sidebar often follows a new request; reset polling
@@ -159,6 +173,7 @@ export function useLLMSidebar() {
   const closeSidebar = () => setOpen(false);
 
   const createThread = async (noteId: string, title?: string) => {
+    ensureInitialized();
     const data = await runCreateThread({ noteId, title });
     if (data?.item?.id) {
       await refreshThreads();
@@ -170,6 +185,7 @@ export function useLLMSidebar() {
   };
 
   const runPoll = async () => {
+    if (!initialized()) return;
     try {
       const list = await recoverServerFunctionCall(
         () => fetchChatThreads(),
@@ -219,7 +235,6 @@ export function useLLMSidebar() {
       schedulePoll();
     }
   };
-  schedulePoll();
   onCleanup(() => {
     destroyed = true;
     if (pollTimer) clearTimeout(pollTimer);
@@ -240,6 +255,7 @@ export function useLLMSidebar() {
   const sendMessage = async (text: string) => {
     const id = selectedId();
     if (!id || !text.trim()) return;
+    ensureInitialized();
     // Optimistic: mark loading state by refetching thread after POST returns
     await runSendMessage({ threadId: id, text });
     await Promise.all([refreshThread(), refreshThreads()]);
