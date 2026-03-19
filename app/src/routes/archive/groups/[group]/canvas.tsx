@@ -5,7 +5,10 @@ import { Box, Container, HStack, Stack, styled } from "styled-system/jsx";
 import { button, link } from "styled-system/recipes";
 import { ArchiveGroupCanvas } from "~/components/archive/ArchiveGroupCanvas";
 import { Text } from "~/components/ui/text";
-import { fetchArchiveGroupCanvasItems } from "~/services/archive/archive.service";
+import {
+  fetchArchiveGroupCanvasItems,
+  fetchArchivedPageGroups,
+} from "~/services/archive/archive.service";
 
 const RouterLink = styled(A, link);
 const RouterButtonLink = styled(A, button);
@@ -14,6 +17,7 @@ const ArchiveGroupCanvasRoute = () => {
   const params = useParams();
   const groupName = () => decodeURIComponent(params.group || "");
   const items = createAsync(() => fetchArchiveGroupCanvasItems(groupName()));
+  const groups = createAsync(() => fetchArchivedPageGroups());
 
   return (
     <Box as="main" h="100vh" bg="bg.default" overflow="hidden">
@@ -31,9 +35,13 @@ const ArchiveGroupCanvasRoute = () => {
                 <ArchiveGroupCanvas
                   groupName={groupName()}
                   items={items() || []}
+                  groupOptions={groups.latest ?? groups() ?? []}
                   toolbarPrefix={
                     <HStack gap="3" flexShrink="0">
                       <RouterLink href="/archive">Back to Explorer</RouterLink>
+                      <RouterButtonLink href="/archive/canvas" variant="outline" size="sm">
+                        Groups overview
+                      </RouterButtonLink>
                       <Show when={groupName()}>
                         <RouterButtonLink
                           href={`/archive?group=${encodeURIComponent(groupName())}`}

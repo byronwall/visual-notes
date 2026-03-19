@@ -113,15 +113,20 @@ const ArchivePage = () => {
                   Captured pages, snapshots, notes, and group jumps into canvas.
                 </Text>
               </Stack>
-              <Show when={selectedGroup()}>
-                <RouterButtonLink
-                  href={`/archive/groups/${encodeURIComponent(selectedGroup())}/canvas`}
-                  variant="solid"
-                  size="sm"
-                >
-                  Open {selectedGroup()} canvas
+              <HStack gap="2" flexWrap="wrap">
+                <RouterButtonLink href="/archive/canvas" variant="outline" size="sm">
+                  Groups overview
                 </RouterButtonLink>
-              </Show>
+                <Show when={selectedGroup()}>
+                  <RouterButtonLink
+                    href={`/archive/groups/${encodeURIComponent(selectedGroup())}/canvas`}
+                    variant="solid"
+                    size="sm"
+                  >
+                    Open {selectedGroup()} canvas
+                  </RouterButtonLink>
+                </Show>
+              </HStack>
             </HStack>
 
             <Show when={topGroups().length > 0}>

@@ -11,6 +11,19 @@ const updateArchivedPageCanvasStateInput = z.object({
   canvasCardMode: z.enum(["compact", "summary", "rich"]).optional(),
 });
 
+const saveArchiveGroupCanvasLayoutInput = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        canvasX: z.number().finite(),
+        canvasY: z.number().finite(),
+        canvasCardMode: z.enum(["compact", "summary", "rich"]).optional(),
+      }),
+    )
+    .min(1),
+});
+
 const updateArchivedPageInput = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).max(300).optional(),
@@ -126,6 +139,46 @@ export const updateArchivedPageCanvasState = action(
     };
   },
   "archive-update-canvas-state",
+);
+
+export const saveArchiveGroupCanvasLayout = action(
+  async (payload: z.infer<typeof saveArchiveGroupCanvasLayoutInput>) => {
+    "use server";
+    const input = saveArchiveGroupCanvasLayoutInput.parse(payload);
+
+    const existing = await prisma.archivedPage.findMany({
+      where: { id: { in: input.items.map((item) => item.id) } },
+      select: {
+        id: true,
+        canvasCardMode: true,
+      },
+    });
+
+    const existingById = new Map(existing.map((item) => [item.id, item]));
+
+    await prisma.$transaction(
+      input.items.map((item) => {
+        const current = existingById.get(item.id);
+        const nextMode = normalizeArchiveCanvasCardMode(
+          item.canvasCardMode ?? current?.canvasCardMode,
+        ) as ArchivedPageCanvasCardMode;
+
+        return prisma.archivedPage.update({
+          where: { id: item.id },
+          data: {
+            canvasX: item.canvasX,
+            canvasY: item.canvasY,
+            canvasCardMode: nextMode,
+          },
+        });
+      }),
+    );
+
+    return {
+      saved: input.items.length,
+    };
+  },
+  "archive-save-group-canvas-layout",
 );
 
 export const updateArchivedPage = action(

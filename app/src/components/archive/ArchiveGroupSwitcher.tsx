@@ -7,6 +7,9 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import * as Popover from "~/components/ui/popover";
+import { styled } from "styled-system/jsx";
+
+const GroupCanvasLink = styled(A);
 
 export const ArchiveGroupSwitcher = (props: {
   value: string;
@@ -53,8 +56,7 @@ export const ArchiveGroupSwitcher = (props: {
         }
       >
         {(groupName) => (
-          <Box
-            as={A}
+          <GroupCanvasLink
             href={props.canvasHref || "#"}
             onClick={(event) => event.stopPropagation()}
             minW="0"
@@ -70,7 +72,7 @@ export const ArchiveGroupSwitcher = (props: {
             _hover={{ bg: "bg.subtle" }}
           >
             {groupName()}
-          </Box>
+          </GroupCanvasLink>
         )}
       </Show>
 
@@ -147,7 +149,7 @@ export const ArchiveGroupSwitcher = (props: {
                   <Show when={props.value}>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="plain"
                       size="sm"
                       justifyContent="flex-start"
                       onClick={() => void commit("")}
@@ -160,7 +162,7 @@ export const ArchiveGroupSwitcher = (props: {
                     {(option) => (
                       <Button
                         type="button"
-                        variant={option === props.value ? "subtle" : "ghost"}
+                        variant={option === props.value ? "subtle" : "plain"}
                         size="sm"
                         justifyContent="flex-start"
                         onClick={() => void commit(option)}

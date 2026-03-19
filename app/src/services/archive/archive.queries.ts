@@ -21,6 +21,7 @@ import type {
   ArchiveAdminSnapshotItem,
   ArchiveAdminSnapshotDetail,
   ArchivedPageCanvasItem,
+  ArchivedPageCanvasOverviewGroup,
   ArchivedPageDetail,
   ArchivedPageGroupSummary,
   ArchivedPageListItem,
@@ -382,6 +383,11 @@ export const fetchArchiveGroupCanvasItems = query(
       const meta = (row.meta as Record<string, unknown> | null) ?? null;
       const latestNoteText =
         row.notes.find((note) => note.noteText.trim())?.noteText ?? null;
+      const noteSnippets = row.notes
+        .map((note) => note.noteText.trim())
+        .filter((noteText) => Boolean(noteText))
+        .slice(0, 3);
+      const metaDescription = getArchiveMetaDescription(meta);
       const seededPosition = getArchiveCanvasPosition({
         id: row.id,
         title: row.title,
@@ -396,11 +402,18 @@ export const fetchArchiveGroupCanvasItems = query(
         originalUrl: row.originalUrl,
         groupName: row.groupName || group,
         siteHostname: row.siteHostname,
-        metaDescription: getArchiveMetaDescription(meta),
+        faviconUrl: getArchiveMetaFavicon(meta),
+        metaDescription,
+        noteSnippets,
         description: getArchiveCanvasDescription({
           meta,
           noteText: latestNoteText,
         }),
+        descriptionSource: metaDescription
+          ? "meta"
+          : latestNoteText?.trim()
+            ? "note"
+            : null,
         preferredImages: buildArchivePreferredImages({
           meta,
           noteImageUrls: row.notes.map((note) => note.imageUrls),
@@ -408,11 +421,86 @@ export const fetchArchiveGroupCanvasItems = query(
         canvasX: seededPosition.x,
         canvasY: seededPosition.y,
         canvasCardMode: normalizeArchiveCanvasCardMode(row.canvasCardMode),
+        hasPersistedPosition:
+          typeof row.canvasX === "number" && typeof row.canvasY === "number",
         updatedAt: row.updatedAt.toISOString(),
       };
     });
   },
   "archive-group-canvas-items",
+);
+
+export const fetchArchiveCanvasOverviewGroups = query(
+  async (): Promise<ArchivedPageCanvasOverviewGroup[]> => {
+    "use server";
+
+    const rows = await prisma.archivedPage.findMany({
+      where: { groupName: { not: null } },
+      orderBy: [{ updatedAt: "desc" }, { lastCapturedAt: "desc" }, { id: "asc" }],
+      select: {
+        groupName: true,
+        updatedAt: true,
+        meta: true,
+        title: true,
+        notes: {
+          take: 3,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: {
+            imageUrls: true,
+          },
+        },
+      },
+      take: 500,
+    });
+
+    const grouped = new Map<string, ArchivedPageCanvasOverviewGroup>();
+
+    for (const row of rows) {
+      const groupName = row.groupName?.trim();
+      if (!groupName) continue;
+      const existing = grouped.get(groupName);
+      const meta = (row.meta as Record<string, unknown> | null) ?? null;
+
+      if (!existing) {
+        grouped.set(groupName, {
+          name: groupName,
+          count: 1,
+          latestUpdatedAt: row.updatedAt.toISOString(),
+          previewImages: buildArchivePreferredImages({
+            meta,
+            noteImageUrls: row.notes.map((note) => note.imageUrls ?? []),
+            limit: 3,
+          }),
+          sampleTitles: [row.title],
+        });
+        continue;
+      }
+
+      existing.count += 1;
+      if (existing.sampleTitles.length < 3) {
+        existing.sampleTitles.push(row.title);
+      }
+      if (existing.previewImages.length < 3) {
+        const nextImages = buildArchivePreferredImages({
+          meta,
+          noteImageUrls: row.notes.map((note) => note.imageUrls ?? []),
+          limit: 3,
+        });
+        for (const image of nextImages) {
+          if (existing.previewImages.includes(image)) continue;
+          existing.previewImages.push(image);
+          if (existing.previewImages.length >= 3) break;
+        }
+      }
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const aTime = a.latestUpdatedAt ? Date.parse(a.latestUpdatedAt) : 0;
+      const bTime = b.latestUpdatedAt ? Date.parse(b.latestUpdatedAt) : 0;
+      return bTime - aTime || a.name.localeCompare(b.name);
+    });
+  },
+  "archive-canvas-overview-groups",
 );
 
 export const fetchArchiveAdminSnapshots = query(

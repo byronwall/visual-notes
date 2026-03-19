@@ -1,4 +1,5 @@
 export {
+  fetchArchiveCanvasOverviewGroups,
   fetchArchiveAdminSnapshotDetail,
   fetchArchiveAdminSnapshots,
   fetchArchiveGroupCanvasItems,
@@ -12,6 +13,7 @@ export {
 export type {
   ArchiveAdminSnapshotDetail,
   ArchiveAdminSnapshotItem,
+  ArchivedPageCanvasOverviewGroup,
   ArchivedPageDetail,
   ArchivedPageCanvasCardMode,
   ArchivedPageCanvasItem,

@@ -93,13 +93,25 @@ export type ArchivedPageCanvasItem = {
   originalUrl: string;
   groupName: string;
   siteHostname: string | null;
+  faviconUrl: string | null;
   metaDescription: string | null;
+  noteSnippets: string[];
   description: string | null;
+  descriptionSource: "meta" | "note" | null;
   preferredImages: string[];
   canvasX: number;
   canvasY: number;
   canvasCardMode: ArchivedPageCanvasCardMode;
+  hasPersistedPosition: boolean;
   updatedAt: string;
+};
+
+export type ArchivedPageCanvasOverviewGroup = {
+  name: string;
+  count: number;
+  latestUpdatedAt: string | null;
+  previewImages: string[];
+  sampleTitles: string[];
 };
 
 export type ArchiveAdminSnapshotItem = {
