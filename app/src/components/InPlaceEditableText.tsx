@@ -26,6 +26,7 @@ type InPlaceEditableTextProps = {
   allowEmpty?: boolean;
   fillWidth?: boolean;
   wrapPreview?: boolean;
+  truncatePreview?: boolean;
   placeholder?: string;
   activationMode?: EditableActivationMode;
   onStartEditingReady?: (startEditing: () => void) => void;
@@ -214,10 +215,14 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               fontSize="inherit"
               fontWeight="inherit"
               lineHeight="inherit"
-              display={props.wrapPreview ? "block" : undefined}
-              w={props.wrapPreview ? "full" : undefined}
-              whiteSpace={props.wrapPreview ? "normal" : undefined}
+              display={props.wrapPreview || props.truncatePreview ? "block" : undefined}
+              w={props.wrapPreview || props.truncatePreview ? "full" : undefined}
+              whiteSpace={
+                props.wrapPreview ? "normal" : props.truncatePreview ? "nowrap" : undefined
+              }
               overflowWrap={props.wrapPreview ? "anywhere" : undefined}
+              overflow={props.truncatePreview ? "hidden" : undefined}
+              textOverflow={props.truncatePreview ? "ellipsis" : undefined}
             />
             <Editable.Input
               px="0"

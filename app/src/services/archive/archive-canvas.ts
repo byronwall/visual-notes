@@ -24,6 +24,14 @@ export function getArchiveMetaPreviewImage(meta: ArchiveMetaRecord | null | unde
   );
 }
 
+export function getArchiveMetaFavicon(meta: ArchiveMetaRecord | null | undefined) {
+  return (
+    getMetaString(meta, "faviconUrl") ||
+    getMetaString(meta, "icon") ||
+    getMetaString(meta, "shortcutIcon")
+  );
+}
+
 export function buildArchivePreferredImages(args: {
   noteImageUrls: string[][];
   meta: ArchiveMetaRecord | null | undefined;

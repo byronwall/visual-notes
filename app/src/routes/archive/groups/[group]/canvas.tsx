@@ -17,10 +17,10 @@ const ArchiveGroupCanvasRoute = () => {
 
   return (
     <Box as="main" h="100vh" bg="bg.default" overflow="hidden">
-      <Title>{`${groupName() || "Archive"} Canvas • Visual Notes`}</Title>
+      <Title>{`${groupName() || "Explorer"} Canvas • Visual Notes`}</Title>
       <Meta
         property="og:title"
-        content={`${groupName() || "Archive"} Canvas • Visual Notes`}
+        content={`${groupName() || "Explorer"} Canvas • Visual Notes`}
       />
 
       <Container py="3" px={{ base: "3", md: "4" }} maxW="100%" h="full">
@@ -33,7 +33,7 @@ const ArchiveGroupCanvasRoute = () => {
                   items={items() || []}
                   toolbarPrefix={
                     <HStack gap="3" flexShrink="0">
-                      <RouterLink href="/archive">Back to Archive</RouterLink>
+                      <RouterLink href="/archive">Back to Explorer</RouterLink>
                       <Show when={groupName()}>
                         <RouterButtonLink
                           href={`/archive?group=${encodeURIComponent(groupName())}`}
@@ -57,10 +57,10 @@ const ArchiveGroupCanvasRoute = () => {
                 >
                   <Stack gap="2">
                     <Text fontSize="lg" fontWeight="semibold">
-                      No archive items in this group
+                      No explorer items in this group
                     </Text>
                     <Text color="fg.muted">
-                      Choose another group from Archive or add items to {groupName()} first.
+                      Choose another group from Explorer or add items to {groupName()} first.
                     </Text>
                   </Stack>
                 </Box>

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
@@ -10,6 +10,7 @@ import { normalizeArchivedPageUrl } from "~/server/lib/archive/url";
 import {
   buildArchivePreferredImages,
   getArchiveCanvasDescription,
+  getArchiveMetaFavicon,
   getArchiveMetaDescription,
   getArchiveMetaPreviewImage,
   getArchiveCanvasPosition,
@@ -17,8 +18,11 @@ import {
 } from "./archive-canvas";
 import type {
   ArchiveListFilters,
+  ArchiveAdminSnapshotItem,
+  ArchiveAdminSnapshotDetail,
   ArchivedPageCanvasItem,
   ArchivedPageDetail,
+  ArchivedPageGroupSummary,
   ArchivedPageListItem,
   PageLookupResponse,
 } from "./archive.types";
@@ -43,6 +47,29 @@ function getArchivePreviewImage(args: {
   notes?: Array<{ imageUrls?: string[] | null }> | null;
 }) {
   return getArchiveMetaPreviewImage(args.meta) || getFirstNoteImage(args.notes);
+}
+
+async function readArchiveHtmlInfo(htmlPath: string | null | undefined) {
+  if (!htmlPath) {
+    return {
+      htmlSnippet: "No preview available.",
+      htmlSizeBytes: null,
+    };
+  }
+
+  try {
+    const abs = path.resolve(resolveArchiveHtmlStorageDir(), path.basename(htmlPath));
+    const [html, stats] = await Promise.all([readFile(abs, "utf8"), stat(abs)]);
+    return {
+      htmlSnippet: buildArchiveHtmlSnippet(html),
+      htmlSizeBytes: stats.size,
+    };
+  } catch {
+    return {
+      htmlSnippet: "Stored HTML unavailable.",
+      htmlSizeBytes: null,
+    };
+  }
 }
 
 function parseDate(value?: string) {
@@ -102,23 +129,35 @@ export const fetchArchivedPages = query(
       take: 500,
     });
 
-    return rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      originalUrl: row.originalUrl,
-      normalizedUrl: row.normalizedUrl,
-      siteHostname: row.siteHostname,
-      groupName: row.groupName,
-      lastCapturedAt: row.lastCapturedAt?.toISOString() ?? null,
-      previewImageUrl: getArchivePreviewImage({
-        meta: row.meta as Record<string, unknown> | null | undefined,
-        notes: row.notes,
-      }),
-      notesCount: row._count.notes,
-      snapshotsCount: row._count.snapshots,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    }));
+    return rows.map((row) => {
+      const meta = row.meta as Record<string, unknown> | null | undefined;
+      const previewImageUrls = buildArchivePreferredImages({
+        meta,
+        noteImageUrls: row.notes.map((note) => note.imageUrls ?? []),
+        limit: 3,
+      });
+
+      return {
+        id: row.id,
+        title: row.title,
+        originalUrl: row.originalUrl,
+        normalizedUrl: row.normalizedUrl,
+        siteHostname: row.siteHostname,
+        groupName: row.groupName,
+        lastCapturedAt: row.lastCapturedAt?.toISOString() ?? null,
+        previewImageUrl: getArchivePreviewImage({
+          meta,
+          notes: row.notes,
+        }),
+        previewImageUrls,
+        faviconUrl: getArchiveMetaFavicon(meta),
+        description: getArchiveMetaDescription(meta),
+        notesCount: row._count.notes,
+        snapshotsCount: row._count.snapshots,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
   },
   "archive-items",
 );
@@ -144,20 +183,33 @@ export const fetchArchivedPageDetail = query(
 
     if (!row) throw new Error("Not found");
 
-    let htmlSnippet = "No preview available.";
     const latestHtmlPath = row.snapshots.find((snapshot) => snapshot.htmlPath)?.htmlPath;
-    if (latestHtmlPath) {
-      try {
-        const abs = path.resolve(
-          resolveArchiveHtmlStorageDir(),
-          path.basename(latestHtmlPath),
-        );
-        const html = await readFile(abs, "utf8");
-        htmlSnippet = buildArchiveHtmlSnippet(html);
-      } catch {
-        htmlSnippet = "Stored HTML unavailable.";
-      }
-    }
+    const meta = (row.meta as Record<string, unknown> | null) ?? null;
+    const preferredImageUrls = buildArchivePreferredImages({
+      meta,
+      noteImageUrls: row.notes.map((note) => note.imageUrls ?? []),
+      limit: 6,
+    });
+    const latestSnapshot = row.snapshots.find((snapshot) => snapshot.htmlPath) ?? row.snapshots[0];
+    const htmlInfo = await readArchiveHtmlInfo(latestHtmlPath);
+
+    const snapshots = await Promise.all(
+      row.snapshots.map(async (snapshot) => {
+        const htmlInfo = await readArchiveHtmlInfo(snapshot.htmlPath);
+        return {
+          id: snapshot.id,
+          captureMode: snapshot.captureMode,
+          capturedAt: snapshot.capturedAt.toISOString(),
+          title: snapshot.title,
+          groupName: snapshot.groupName,
+          htmlPath: snapshot.htmlPath,
+          htmlSizeBytes: htmlInfo.htmlSizeBytes,
+          htmlHash: snapshot.htmlHash,
+          textSnippet: snapshot.textSnippet,
+          meta: (snapshot.meta as Record<string, unknown> | null) ?? null,
+        };
+      }),
+    );
 
     return {
       id: row.id,
@@ -168,14 +220,17 @@ export const fetchArchivedPageDetail = query(
       groupName: row.groupName,
       lastCapturedAt: row.lastCapturedAt?.toISOString() ?? null,
       previewImageUrl: getArchivePreviewImage({
-        meta: row.meta as Record<string, unknown> | null | undefined,
+        meta,
         notes: row.notes,
       }),
-      socialPreviewImageUrl: getArchiveMetaPreviewImage(
-        row.meta as Record<string, unknown> | null | undefined,
-      ),
-      meta: (row.meta as Record<string, unknown> | null) ?? null,
-      htmlSnippet,
+      preferredImageUrls,
+      socialPreviewImageUrl: getArchiveMetaPreviewImage(meta),
+      faviconUrl: getArchiveMetaFavicon(meta),
+      description: getArchiveMetaDescription(meta),
+      meta,
+      htmlSnippet: htmlInfo.htmlSnippet,
+      latestSnapshotId: latestSnapshot?.id ?? null,
+      latestSnapshotHtmlSizeBytes: htmlInfo.htmlSizeBytes,
       notes: row.notes.map((note) => ({
         id: note.id,
         noteText: note.noteText,
@@ -185,17 +240,7 @@ export const fetchArchivedPageDetail = query(
         updatedAt: note.updatedAt.toISOString(),
         snapshotId: note.snapshotId,
       })),
-      snapshots: row.snapshots.map((snapshot) => ({
-        id: snapshot.id,
-        captureMode: snapshot.captureMode,
-        capturedAt: snapshot.capturedAt.toISOString(),
-        title: snapshot.title,
-        groupName: snapshot.groupName,
-        htmlPath: snapshot.htmlPath,
-        htmlHash: snapshot.htmlHash,
-        textSnippet: snapshot.textSnippet,
-        meta: (snapshot.meta as Record<string, unknown> | null) ?? null,
-      })),
+      snapshots,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -275,6 +320,32 @@ export const fetchArchivedPageGroups = query(
   "archive-groups",
 );
 
+export const fetchArchivedPageGroupSummaries = query(
+  async (): Promise<ArchivedPageGroupSummary[]> => {
+    "use server";
+    const rows = await prisma.archivedPage.groupBy({
+      by: ["groupName"],
+      where: { groupName: { not: null } },
+      _count: { _all: true },
+      _max: { lastCapturedAt: true },
+      orderBy: { _max: { lastCapturedAt: "desc" } },
+    });
+
+    return rows
+      .map((row) =>
+        row.groupName
+          ? {
+              name: row.groupName,
+              count: row._count._all,
+              lastCapturedAt: row._max.lastCapturedAt?.toISOString() ?? null,
+            }
+          : null,
+      )
+      .filter((value): value is ArchivedPageGroupSummary => Boolean(value));
+  },
+  "archive-group-summaries",
+);
+
 export const fetchArchiveGroupCanvasItems = query(
   async (groupName: string): Promise<ArchivedPageCanvasItem[]> => {
     "use server";
@@ -342,4 +413,100 @@ export const fetchArchiveGroupCanvasItems = query(
     });
   },
   "archive-group-canvas-items",
+);
+
+export const fetchArchiveAdminSnapshots = query(
+  async (): Promise<ArchiveAdminSnapshotItem[]> => {
+    "use server";
+    const rows = await prisma.archivedPageSnapshot.findMany({
+      orderBy: [{ capturedAt: "desc" }, { createdAt: "desc" }],
+      take: 150,
+      select: {
+        id: true,
+        archivedPageId: true,
+        captureMode: true,
+        capturedAt: true,
+        groupName: true,
+        htmlPath: true,
+        htmlHash: true,
+        textSnippet: true,
+        archivedPage: {
+          select: {
+            title: true,
+            originalUrl: true,
+          },
+        },
+      },
+    });
+
+    const items = await Promise.all(
+      rows.map(async (row) => {
+        const htmlInfo = await readArchiveHtmlInfo(row.htmlPath);
+        return {
+          id: row.id,
+          archivedPageId: row.archivedPageId,
+          pageTitle: row.archivedPage.title,
+          originalUrl: row.archivedPage.originalUrl,
+          groupName: row.groupName,
+          captureMode: row.captureMode,
+          capturedAt: row.capturedAt.toISOString(),
+          htmlPath: row.htmlPath,
+          htmlSizeBytes: htmlInfo.htmlSizeBytes,
+          htmlHash: row.htmlHash,
+          textSnippet: row.textSnippet,
+        } satisfies ArchiveAdminSnapshotItem;
+      }),
+    );
+
+    return items;
+  },
+  "archive-admin-snapshots",
+);
+
+export const fetchArchiveAdminSnapshotDetail = query(
+  async (id: string): Promise<ArchiveAdminSnapshotDetail> => {
+    "use server";
+    const snapshotId = String(id || "").trim();
+    if (!snapshotId) throw new Error("Missing snapshot id");
+
+    const row = await prisma.archivedPageSnapshot.findUnique({
+      where: { id: snapshotId },
+      select: {
+        id: true,
+        archivedPageId: true,
+        captureMode: true,
+        capturedAt: true,
+        groupName: true,
+        htmlPath: true,
+        htmlHash: true,
+        textSnippet: true,
+        meta: true,
+        archivedPage: {
+          select: {
+            title: true,
+            originalUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!row) throw new Error("Snapshot not found");
+    const htmlInfo = await readArchiveHtmlInfo(row.htmlPath);
+
+    return {
+      id: row.id,
+      archivedPageId: row.archivedPageId,
+      pageTitle: row.archivedPage.title,
+      originalUrl: row.archivedPage.originalUrl,
+      groupName: row.groupName,
+      captureMode: row.captureMode,
+      capturedAt: row.capturedAt.toISOString(),
+      htmlPath: row.htmlPath,
+      htmlSizeBytes: htmlInfo.htmlSizeBytes,
+      htmlHash: row.htmlHash,
+      textSnippet: row.textSnippet,
+      meta: (row.meta as Record<string, unknown> | null) ?? null,
+    };
+  },
+  "archive-admin-snapshot-detail",
 );

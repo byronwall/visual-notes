@@ -19,6 +19,7 @@ function isAllowedUnauthed(request: Request): boolean {
   if (pathname === "/login") return true;
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
+  if (pathname === "/api/archive/extension-package") return true;
   // Allow action calls initiated from the login page
   if (pathname.startsWith("/_server")) {
     const referer = request.headers.get("referer");

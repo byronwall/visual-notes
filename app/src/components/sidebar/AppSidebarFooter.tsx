@@ -22,7 +22,7 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
   const location = useLocation();
   const pathname = () => location.pathname;
   const isAdminActive = () =>
-    pathname() === "/admin/migrations" || pathname().startsWith("/admin/");
+    pathname() === "/admin/archive" || pathname().startsWith("/admin/");
   const isAiActive = () => pathname() === "/ai" || pathname().startsWith("/ai/");
   const isActivityActive = () =>
     pathname() === "/activity" || pathname().startsWith("/activity/");
@@ -53,7 +53,7 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
       >
         <SidebarFooterIconLink
           label="Admin"
-          onClick={() => navigate("/admin/migrations")}
+          onClick={() => navigate("/admin/archive")}
           active={isAdminActive()}
           icon={<ShieldIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
         />

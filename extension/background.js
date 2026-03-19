@@ -184,13 +184,13 @@ async function refreshTabBadge(tab) {
       });
       await chrome.action.setTitle({
         tabId: tab.id,
-        title: `Visual Notes Archive: tracked (${lookup.title || tab.url})`,
+        title: `Visual Notes Explorer: tracked (${lookup.title || tab.url})`,
       });
     } else {
       await chrome.action.setBadgeText({ text: "", tabId: tab.id });
       await chrome.action.setTitle({
         tabId: tab.id,
-        title: "Visual Notes Archive",
+        title: "Visual Notes Explorer",
       });
     }
   } catch {

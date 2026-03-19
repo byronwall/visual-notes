@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Visual Notes Archive",
+  "name": "Visual Notes Explorer",
   "version": "0.1.0",
   "description": "Capture all tabs in the current Chrome window into Visual Notes.",
   "permissions": ["tabs", "scripting", "storage", "activeTab"],
@@ -16,7 +16,6 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Visual Notes Archive"
+    "default_title": "Visual Notes Explorer"
   }
 }
-

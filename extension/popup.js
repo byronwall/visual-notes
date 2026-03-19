@@ -180,7 +180,7 @@ function renderResultSummary(result) {
   if (result.noteId) {
     const label =
       result.action === "note"
-        ? "Note saved."
+        ? "Explorer note saved."
         : result.action === "dom-node"
           ? "DOM capture saved."
           : "Screenshot saved.";
@@ -192,7 +192,7 @@ function renderResultSummary(result) {
 function syncNoteActionLabel() {
   if (!els.saveNote) return;
   els.saveNote.textContent = els.noteText.value.trim()
-    ? "Save link note and HTML"
+    ? "Save explorer note + HTML"
     : "Save link + HTML";
 }
 

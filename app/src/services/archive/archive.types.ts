@@ -11,6 +11,9 @@ export type ArchivedPageListItem = {
   groupName: string | null;
   lastCapturedAt: string | null;
   previewImageUrl: string | null;
+  previewImageUrls: string[];
+  faviconUrl: string | null;
+  description: string | null;
   notesCount: number;
   snapshotsCount: number;
   createdAt: string;
@@ -34,6 +37,7 @@ export type ArchivedPageSnapshotItem = {
   title: string | null;
   groupName: string | null;
   htmlPath: string | null;
+  htmlSizeBytes: number | null;
   htmlHash: string | null;
   textSnippet: string | null;
   meta: ArchiveMetaRecord | null;
@@ -48,9 +52,14 @@ export type ArchivedPageDetail = {
   groupName: string | null;
   lastCapturedAt: string | null;
   previewImageUrl: string | null;
+  preferredImageUrls: string[];
   socialPreviewImageUrl: string | null;
+  faviconUrl: string | null;
+  description: string | null;
   meta: ArchiveMetaRecord | null;
   htmlSnippet: string;
+  latestSnapshotId: string | null;
+  latestSnapshotHtmlSizeBytes: number | null;
   notes: ArchivedPageNoteItem[];
   snapshots: ArchivedPageSnapshotItem[];
   createdAt: string;
@@ -72,6 +81,12 @@ export type ArchiveListFilters = {
   capturedTo?: string;
 };
 
+export type ArchivedPageGroupSummary = {
+  name: string;
+  count: number;
+  lastCapturedAt: string | null;
+};
+
 export type ArchivedPageCanvasItem = {
   id: string;
   title: string;
@@ -85,4 +100,22 @@ export type ArchivedPageCanvasItem = {
   canvasY: number;
   canvasCardMode: ArchivedPageCanvasCardMode;
   updatedAt: string;
+};
+
+export type ArchiveAdminSnapshotItem = {
+  id: string;
+  archivedPageId: string;
+  pageTitle: string;
+  originalUrl: string;
+  groupName: string | null;
+  captureMode: "bulk" | "targeted";
+  capturedAt: string;
+  htmlPath: string | null;
+  htmlSizeBytes: number | null;
+  htmlHash: string | null;
+  textSnippet: string | null;
+};
+
+export type ArchiveAdminSnapshotDetail = ArchiveAdminSnapshotItem & {
+  meta: ArchiveMetaRecord | null;
 };

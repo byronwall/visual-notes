@@ -3,15 +3,13 @@ import { buildArchiveHtmlSnippet } from "./html-storage";
 import { normalizeArchivedPageUrl } from "./url";
 
 describe("normalizeArchivedPageUrl", () => {
-  it("strips the hash but preserves query params", () => {
+  it("strips the hash and utm params while preserving other query params", () => {
     const result = normalizeArchivedPageUrl(
-      "https://example.com/path?a=1&b=2#section",
+      "https://example.com/path?a=1&utm_source=test&b=2#section",
     );
 
     expect(result.normalizedUrl).toBe("https://example.com/path?a=1&b=2");
-    expect(result.originalUrl).toBe(
-      "https://example.com/path?a=1&b=2#section",
-    );
+    expect(result.originalUrl).toBe("https://example.com/path?a=1&b=2");
     expect(result.hostname).toBe("example.com");
   });
 });
@@ -26,4 +24,3 @@ describe("buildArchiveHtmlSnippet", () => {
     expect(snippet).toBe("Hello Archive this page.");
   });
 });
-

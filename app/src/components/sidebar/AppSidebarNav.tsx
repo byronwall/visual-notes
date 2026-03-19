@@ -49,7 +49,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
       isActive: (path) => isActiveSection("/tasks", path),
     },
     {
-      label: "Archive",
+      label: "Explorer",
       href: "/archive",
       icon: ArchiveIcon,
       isActive: (path) => isActiveSection("/archive", path),
