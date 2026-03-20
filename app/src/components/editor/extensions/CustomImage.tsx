@@ -1,6 +1,6 @@
 import Image from "@tiptap/extension-image";
 import { ExpandIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-solid";
-import { For, createMemo, createSignal, onCleanup } from "solid-js";
+import { For, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack } from "styled-system/jsx";
 import { IconButton } from "~/components/ui/icon-button";
@@ -56,9 +56,31 @@ const COMMON_WIDTH_PERCENTS = Array.from(
   )
 ).sort((a, b) => a - b);
 
+const imageNodeClass = css({
+  position: "relative",
+  marginTop: "3",
+  marginBottom: "3",
+  maxWidth: "100%",
+  minWidth: "0",
+});
+const imageNodeSelectedClass = css({
+  borderRadius: "l2",
+  boxShadow: "inset 0 0 0 2px rgba(17, 24, 39, 0.95)",
+});
+
+const imageElementClass = css({
+  display: "block",
+  width: "100%",
+  maxWidth: "100%",
+  height: "auto",
+  borderRadius: "l2",
+  userSelect: "none",
+});
+
 function CustomImageNodeView() {
   const { state } = useSolidNodeView<ImageAttrs>();
   const [resizing, setResizing] = createSignal(false);
+  const selected = createMemo(() => state().selected || resizing());
 
   const src = createMemo(() => String(state().node.attrs.src || ""));
   const alt = createMemo(() => String(state().node.attrs.alt || ""));
@@ -74,6 +96,22 @@ function CustomImageNodeView() {
     if (COMMON_WIDTH_PERCENTS.includes(current)) return COMMON_WIDTH_PERCENTS;
     return [...COMMON_WIDTH_PERCENTS, current].sort((a, b) => a - b);
   });
+  const controlsStyle = createMemo<JSX.CSSProperties>(() => ({
+    opacity: selected() ? "1" : "0",
+    visibility: selected() ? "visible" : "hidden",
+    pointerEvents: selected() ? "auto" : "none",
+    transition: "opacity 140ms ease, visibility 140ms ease",
+  }));
+  const imageStyle = createMemo<JSX.CSSProperties>(() => ({
+    width: "100%",
+  }));
+  const resizeHandleStyle = createMemo<JSX.CSSProperties>(() => ({
+    transform: "translateY(-50%)",
+    opacity: selected() ? "1" : "0",
+    visibility: selected() ? "visible" : "hidden",
+    pointerEvents: selected() ? "auto" : "none",
+    transition: "opacity 120ms ease, visibility 120ms ease",
+  }));
 
   let rootEl: HTMLDivElement | undefined;
   let imageEl: HTMLImageElement | undefined;
@@ -186,7 +224,7 @@ function CustomImageNodeView() {
   return (
     <NodeViewWrapper
       as="div"
-      class="vn-image-node"
+      class={`${imageNodeClass} ${selected() ? imageNodeSelectedClass : ""} vn-image-node`}
       data-selected={state().selected ? "true" : "false"}
       data-resizing={resizing() ? "true" : "false"}
       style={{ width: `${widthPercent()}%` }}
@@ -214,7 +252,10 @@ function CustomImageNodeView() {
         px="2"
         py="1"
         boxShadow="sm"
-        style={{ transform: "translateY(-70%)" }}
+        style={{
+          transform: "translateY(-70%)",
+          ...controlsStyle(),
+        }}
         onDblClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -339,12 +380,12 @@ function CustomImageNodeView() {
         ref={(el) => {
           imageEl = el;
         }}
-        class="vn-image"
+        class={`${imageElementClass} vn-image`}
         draggable={false}
         src={src()}
         alt={alt()}
         title={title()}
-        style={{ width: "100%" }}
+        style={imageStyle()}
       />
 
       <Box
@@ -352,6 +393,19 @@ function CustomImageNodeView() {
         class="vn-image-resize-handle vn-image-resize-handle-left"
         data-image-action="true"
         contentEditable={false}
+        position="absolute"
+        top="50%"
+        left="-9px"
+        width="16px"
+        height="36px"
+        borderWidth="1px"
+        borderStyle="solid"
+        borderColor="gray.outline.border"
+        borderRadius="full"
+        bg="bg.default"
+        boxShadow="sm"
+        cursor="ew-resize"
+        style={resizeHandleStyle()}
         onPointerDown={(event) => onResizePointerDown(event, "left")}
       />
       <Box
@@ -359,6 +413,19 @@ function CustomImageNodeView() {
         class="vn-image-resize-handle vn-image-resize-handle-right"
         data-image-action="true"
         contentEditable={false}
+        position="absolute"
+        top="50%"
+        right="-9px"
+        width="16px"
+        height="36px"
+        borderWidth="1px"
+        borderStyle="solid"
+        borderColor="gray.outline.border"
+        borderRadius="full"
+        bg="bg.default"
+        boxShadow="sm"
+        cursor="ew-resize"
+        style={resizeHandleStyle()}
         onPointerDown={(event) => onResizePointerDown(event, "right")}
       />
     </NodeViewWrapper>

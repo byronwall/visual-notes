@@ -73,6 +73,57 @@ const CODE_LANGUAGES = [
 const expandedByPos = new Map<number, boolean>();
 const collapsedByPos = new Map<number, boolean>();
 const COLLAPSED_VISIBLE_LINES = 15;
+const codeBlockWrapperClass = css({
+  position: "relative",
+  marginTop: "3",
+  marginBottom: "3",
+  overflow: "visible",
+});
+const codeBlockPreClass = css({
+  position: "relative",
+  margin: "0",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "gray.outline.border",
+  borderRadius: "l2",
+  background: "gray.surface.bg",
+  padding: "0",
+  overflow: "visible",
+  fontFamily: "mono",
+  fontSize: "sm",
+  lineHeight: "1.6",
+});
+const codeBlockContentClass = css({
+  display: "block",
+  position: "relative",
+  zIndex: "1",
+  fontFamily: "mono",
+  fontSize: "sm",
+  lineHeight: "1.6em",
+  whiteSpace: "pre",
+});
+const codeBlockGutterClass = css({
+  position: "absolute",
+  left: "3",
+  top: "3",
+  bottom: "3",
+  display: "block",
+  width: "auto",
+  minWidth: "3ch",
+  color: "fg.muted",
+  userSelect: "none",
+  pointerEvents: "none",
+  textAlign: "right",
+  fontFamily: "mono",
+  fontSize: "sm",
+  lineHeight: "1.6em",
+  zIndex: "0",
+});
+const codeBlockLineNumberClass = css({
+  display: "block",
+  height: "1.6em",
+  lineHeight: "1.6em",
+});
 
 function downloadSnippet(rawCode: string, language: string) {
   const extension = extensionForLanguage(language);
@@ -219,7 +270,7 @@ function CustomCodeBlockNodeView() {
   return (
     <NodeViewWrapper
       as="div"
-      class="vn-codeblock-wrap"
+      class={`${codeBlockWrapperClass} vn-codeblock-wrap`}
       data-collapsed={isCollapsible() && collapsed() ? "true" : "false"}
     >
       <Box
@@ -309,21 +360,33 @@ function CustomCodeBlockNodeView() {
 
       <Box
         as="pre"
-        class="vn-codeblock"
+        class={`${codeBlockPreClass} vn-codeblock`}
         data-collapsed={isCollapsible() && collapsed() ? "true" : "false"}
         data-md-raw={rawCode()}
         data-md-language={language()}
+        style={
+          isCollapsible() && collapsed()
+            ? {
+                "max-height": "calc(15 * 1.6em + 4.5rem)",
+                "overflow-y": "auto",
+                "overflow-x": "auto",
+              }
+            : undefined
+        }
         {...htmlAttributes()}
       >
         <Box
           as="span"
-          class="vn-codeblock-line-gutter"
+          class={`${codeBlockGutterClass} vn-codeblock-line-gutter`}
           contentEditable={false}
           aria-hidden="true"
         >
           <For each={lineNumbers()}>
             {(line) => (
-              <Box as="span" class="vn-codeblock-line-number">
+              <Box
+                as="span"
+                class={`${codeBlockLineNumberClass} vn-codeblock-line-number`}
+              >
                 {line}
               </Box>
             )}
@@ -333,16 +396,13 @@ function CustomCodeBlockNodeView() {
         <NodeViewContent
           as="code"
           spellcheck={false}
-          class="vn-codeblock-content"
+          class={`${codeBlockContentClass} vn-codeblock-content`}
           style={{
             "padding-left": editableGutterPadding(),
-            "padding-right": "3",
-            "padding-top": "3",
-            "padding-bottom": isCollapsible() && collapsed() ? "0" : "3",
-            "white-space": "pre",
-            "font-family": "inherit",
-            "font-size": "inherit",
-            "line-height": "1.6em",
+            "padding-right": "0.75rem",
+            "padding-top": "0.75rem",
+            "padding-bottom":
+              isCollapsible() && collapsed() ? "0" : "0.75rem",
           }}
         />
 
