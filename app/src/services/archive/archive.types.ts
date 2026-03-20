@@ -1,6 +1,7 @@
 export type ArchiveMetaRecord = Record<string, unknown>;
 
 export type ArchivedPageCanvasCardMode = "compact" | "summary" | "rich";
+export type ArchivedCanvasNodeKind = "note" | "image";
 
 export type ArchivedPageListItem = {
   id: string;
@@ -10,8 +11,8 @@ export type ArchivedPageListItem = {
   siteHostname: string | null;
   groupName: string | null;
   lastCapturedAt: string | null;
-  previewImageUrl: string | null;
-  previewImageUrls: string[];
+  socialPreviewImageUrl: string | null;
+  userImageUrls: string[];
   faviconUrl: string | null;
   description: string | null;
   notesCount: number;
@@ -88,6 +89,7 @@ export type ArchivedPageGroupSummary = {
 };
 
 export type ArchivedPageCanvasItem = {
+  entityType: "page";
   id: string;
   title: string;
   originalUrl: string;
@@ -105,6 +107,22 @@ export type ArchivedPageCanvasItem = {
   hasPersistedPosition: boolean;
   updatedAt: string;
 };
+
+export type ArchivedCanvasNodeItem = {
+  entityType: "node";
+  id: string;
+  groupName: string;
+  kind: ArchivedCanvasNodeKind;
+  contentHtml: string | null;
+  imageUrl: string | null;
+  canvasX: number;
+  canvasY: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  updatedAt: string;
+};
+
+export type ArchiveGroupCanvasItem = ArchivedPageCanvasItem | ArchivedCanvasNodeItem;
 
 export type ArchivedPageCanvasOverviewGroup = {
   name: string;

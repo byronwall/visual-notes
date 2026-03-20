@@ -1,8 +1,21 @@
 import { action } from "@solidjs/router";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import {
+  persistDataImage,
+  resolveDocImageStorageDir,
+} from "~/server/lib/inline-image-migration";
 import { normalizeArchiveCanvasCardMode } from "./archive-canvas";
 import type { ArchivedPageCanvasCardMode } from "./archive.types";
+
+const DEFAULT_CANVAS_NODE_SIZE = {
+  note: { width: 420, height: 300 },
+  image: { width: 360, height: 280 },
+} as const;
+
+function getDefaultCanvasNodeSize(kind: "note" | "image") {
+  return DEFAULT_CANVAS_NODE_SIZE[kind];
+}
 
 const updateArchivedPageCanvasStateInput = z.object({
   id: z.string().min(1),
@@ -15,9 +28,12 @@ const saveArchiveGroupCanvasLayoutInput = z.object({
   items: z
     .array(
       z.object({
+        entityType: z.enum(["page", "node"]),
         id: z.string().min(1),
         canvasX: z.number().finite(),
         canvasY: z.number().finite(),
+        canvasWidth: z.number().finite().positive().optional(),
+        canvasHeight: z.number().finite().positive().optional(),
         canvasCardMode: z.enum(["compact", "summary", "rich"]).optional(),
       }),
     )
@@ -62,6 +78,46 @@ const deleteArchivedPageNoteImageInput = z.object({
 });
 
 const deleteArchivedPageInput = z.object({
+  id: z.string().min(1),
+});
+
+const createArchiveCanvasNodeInput = z
+  .object({
+    groupName: z.string().trim().min(1).max(200),
+    kind: z.enum(["note", "image"]),
+    canvasX: z.number().finite(),
+    canvasY: z.number().finite(),
+    contentHtml: z.string().max(20000).optional(),
+    imageDataUrl: z.string().optional(),
+    imageUrl: z.string().url().optional(),
+    canvasWidth: z.number().finite().positive().optional(),
+    canvasHeight: z.number().finite().positive().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.kind === "note") return;
+    if (value.imageDataUrl || value.imageUrl) return;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Image nodes require image data or an image URL",
+      path: ["imageDataUrl"],
+    });
+  });
+
+const updateArchiveCanvasNodeInput = z.object({
+  id: z.string().min(1),
+  contentHtml: z.string().max(20000).optional(),
+  imageUrl: z.string().url().optional(),
+});
+
+const updateArchiveCanvasNodeStateInput = z.object({
+  id: z.string().min(1),
+  canvasX: z.number().finite(),
+  canvasY: z.number().finite(),
+  canvasWidth: z.number().finite().positive().optional(),
+  canvasHeight: z.number().finite().positive().optional(),
+});
+
+const deleteArchiveCanvasNodeInput = z.object({
   id: z.string().min(1),
 });
 
@@ -146,8 +202,9 @@ export const saveArchiveGroupCanvasLayout = action(
     "use server";
     const input = saveArchiveGroupCanvasLayoutInput.parse(payload);
 
+    const pageItems = input.items.filter((item) => item.entityType === "page");
     const existing = await prisma.archivedPage.findMany({
-      where: { id: { in: input.items.map((item) => item.id) } },
+      where: { id: { in: pageItems.map((item) => item.id) } },
       select: {
         id: true,
         canvasCardMode: true,
@@ -158,6 +215,22 @@ export const saveArchiveGroupCanvasLayout = action(
 
     await prisma.$transaction(
       input.items.map((item) => {
+        if (item.entityType === "node") {
+          return prisma.archivedCanvasNode.update({
+            where: { id: item.id },
+            data: {
+              canvasX: item.canvasX,
+              canvasY: item.canvasY,
+              ...(typeof item.canvasWidth === "number"
+                ? { canvasWidth: item.canvasWidth }
+                : {}),
+              ...(typeof item.canvasHeight === "number"
+                ? { canvasHeight: item.canvasHeight }
+                : {}),
+            },
+          });
+        }
+
         const current = existingById.get(item.id);
         const nextMode = normalizeArchiveCanvasCardMode(
           item.canvasCardMode ?? current?.canvasCardMode,
@@ -179,6 +252,157 @@ export const saveArchiveGroupCanvasLayout = action(
     };
   },
   "archive-save-group-canvas-layout",
+);
+
+export const createArchiveCanvasNode = action(
+  async (payload: z.infer<typeof createArchiveCanvasNodeInput>) => {
+    "use server";
+    const input = createArchiveCanvasNodeInput.parse(payload);
+
+    let imageUrl: string | null = null;
+    const size = getDefaultCanvasNodeSize(input.kind);
+    if (input.kind === "image") {
+      if (input.imageDataUrl) {
+        const persisted = await persistDataImage(
+          input.imageDataUrl,
+          resolveDocImageStorageDir(),
+        );
+        imageUrl = persisted.publicUrl;
+      } else {
+        imageUrl = input.imageUrl?.trim() ?? null;
+      }
+    }
+
+    const created = await prisma.archivedCanvasNode.create({
+      data: {
+        groupName: input.groupName,
+        kind: input.kind,
+        contentHtml:
+          input.kind === "note"
+            ? input.contentHtml?.trim() || "<p>New note</p>"
+            : null,
+        imageUrl,
+        canvasX: input.canvasX,
+        canvasY: input.canvasY,
+        canvasWidth: input.canvasWidth ?? size.width,
+        canvasHeight: input.canvasHeight ?? size.height,
+      },
+      select: {
+        id: true,
+        groupName: true,
+        kind: true,
+        contentHtml: true,
+        imageUrl: true,
+        canvasX: true,
+        canvasY: true,
+        canvasWidth: true,
+        canvasHeight: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      entityType: "node" as const,
+      id: created.id,
+      groupName: created.groupName,
+      kind: created.kind,
+      contentHtml: created.contentHtml,
+      imageUrl: created.imageUrl,
+      canvasX: created.canvasX,
+      canvasY: created.canvasY,
+      canvasWidth: created.canvasWidth,
+      canvasHeight: created.canvasHeight,
+      updatedAt: created.updatedAt.toISOString(),
+    };
+  },
+  "archive-create-canvas-node",
+);
+
+export const updateArchiveCanvasNode = action(
+  async (payload: z.infer<typeof updateArchiveCanvasNodeInput>) => {
+    "use server";
+    const input = updateArchiveCanvasNodeInput.parse(payload);
+    const updates: Record<string, string | null> = {};
+
+    if (input.contentHtml !== undefined) {
+      updates.contentHtml = input.contentHtml.trim() || "<p></p>";
+    }
+    if (input.imageUrl !== undefined) {
+      updates.imageUrl = input.imageUrl.trim();
+    }
+
+    if (!Object.keys(updates).length) {
+      throw new Error("No canvas node updates provided");
+    }
+
+    const updated = await prisma.archivedCanvasNode.update({
+      where: { id: input.id },
+      data: updates,
+      select: {
+        id: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      id: updated.id,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  },
+  "archive-update-canvas-node",
+);
+
+export const updateArchiveCanvasNodeState = action(
+  async (payload: z.infer<typeof updateArchiveCanvasNodeStateInput>) => {
+    "use server";
+    const input = updateArchiveCanvasNodeStateInput.parse(payload);
+    const updated = await prisma.archivedCanvasNode.update({
+      where: { id: input.id },
+      data: {
+        canvasX: input.canvasX,
+        canvasY: input.canvasY,
+        ...(typeof input.canvasWidth === "number"
+          ? { canvasWidth: input.canvasWidth }
+          : {}),
+        ...(typeof input.canvasHeight === "number"
+          ? { canvasHeight: input.canvasHeight }
+          : {}),
+      },
+      select: {
+        id: true,
+        groupName: true,
+        canvasX: true,
+        canvasY: true,
+        canvasWidth: true,
+        canvasHeight: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      id: updated.id,
+      groupName: updated.groupName,
+      canvasX: updated.canvasX,
+      canvasY: updated.canvasY,
+      canvasWidth: updated.canvasWidth,
+      canvasHeight: updated.canvasHeight,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  },
+  "archive-update-canvas-node-state",
+);
+
+export const deleteArchiveCanvasNode = action(
+  async (payload: z.infer<typeof deleteArchiveCanvasNodeInput>) => {
+    "use server";
+    const input = deleteArchiveCanvasNodeInput.parse(payload);
+    const deleted = await prisma.archivedCanvasNode.delete({
+      where: { id: input.id },
+      select: { id: true },
+    });
+    return { ok: true, id: deleted.id };
+  },
+  "archive-delete-canvas-node",
 );
 
 export const updateArchivedPage = action(

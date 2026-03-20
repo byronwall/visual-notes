@@ -13,10 +13,11 @@ export {
 export type {
   ArchiveAdminSnapshotDetail,
   ArchiveAdminSnapshotItem,
+  ArchiveGroupCanvasItem,
+  ArchivedCanvasNodeKind,
   ArchivedPageCanvasOverviewGroup,
   ArchivedPageDetail,
   ArchivedPageCanvasCardMode,
-  ArchivedPageCanvasItem,
   ArchivedPageGroupSummary,
   ArchivedPageListItem,
   ArchiveListFilters,

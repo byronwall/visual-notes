@@ -11,17 +11,24 @@ import {
 } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { Box, HStack, Stack } from "styled-system/jsx";
+import { ArchiveCanvasFreeformCard } from "~/components/archive/ArchiveCanvasFreeformCard";
 import { ArchiveDetailDrawer } from "~/components/archive/ArchiveDetailDrawer";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { toaster } from "~/components/ui/toast";
 import {
+  createArchiveCanvasNode,
+  deleteArchiveCanvasNode,
   saveArchiveGroupCanvasLayout,
+  updateArchiveCanvasNode,
+  updateArchiveCanvasNodeState,
   updateArchivedPageCanvasState,
 } from "~/services/archive/archive.actions";
 import { fetchArchiveGroupCanvasItems } from "~/services/archive/archive.service";
 import type {
+  ArchiveGroupCanvasItem,
+  ArchivedCanvasNodeItem,
   ArchivedPageCanvasCardMode,
   ArchivedPageCanvasItem,
 } from "~/services/archive/archive.types";
@@ -30,7 +37,7 @@ import { ArchiveCanvasCard } from "./ArchiveCanvasCard";
 
 type Props = {
   groupName: string;
-  items: ArchivedPageCanvasItem[];
+  items: ArchiveGroupCanvasItem[];
   groupOptions: string[];
   toolbarPrefix?: JSX.Element;
 };
@@ -38,7 +45,9 @@ type Props = {
 type CanvasNodeState = {
   x: number;
   y: number;
-  mode: ArchivedPageCanvasCardMode;
+  mode?: ArchivedPageCanvasCardMode;
+  width?: number;
+  height?: number;
 };
 
 type CardMeasurement = {
@@ -46,8 +55,20 @@ type CardMeasurement = {
   height: number;
 };
 
+type ResizeDirection = "n" | "e" | "s" | "w" | "ne" | "nw" | "se" | "sw";
+
 const CARD_WIDTH = 320;
 const CARD_HEIGHT = 280;
+const NOTE_NODE_WIDTH = 420;
+const NOTE_NODE_HEIGHT = 300;
+const IMAGE_NODE_WIDTH = 360;
+const IMAGE_NODE_HEIGHT = 280;
+const MIN_NOTE_NODE_WIDTH = 280;
+const MIN_NOTE_NODE_HEIGHT = 180;
+const MIN_IMAGE_NODE_WIDTH = 180;
+const MIN_IMAGE_NODE_HEIGHT = 140;
+const MAX_NODE_WIDTH = 1200;
+const MAX_NODE_HEIGHT = 960;
 const GRID_GAP_X = 56;
 const GRID_GAP_Y = 48;
 const GRID_ROW_BUFFER = 12;
@@ -56,16 +77,53 @@ function roundPosition(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function measureCard(element: HTMLDivElement | undefined): CardMeasurement {
+function clampNodeSize(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function getDefaultNodeSize(kind: ArchivedCanvasNodeItem["kind"]) {
+  return kind === "note"
+    ? { width: NOTE_NODE_WIDTH, height: NOTE_NODE_HEIGHT }
+    : { width: IMAGE_NODE_WIDTH, height: IMAGE_NODE_HEIGHT };
+}
+
+function getMinNodeSize(kind: ArchivedCanvasNodeItem["kind"]) {
+  return kind === "note"
+    ? { width: MIN_NOTE_NODE_WIDTH, height: MIN_NOTE_NODE_HEIGHT }
+    : { width: MIN_IMAGE_NODE_WIDTH, height: MIN_IMAGE_NODE_HEIGHT };
+}
+
+function getResizeCursor(direction: ResizeDirection) {
+  switch (direction) {
+    case "n":
+    case "s":
+      return "ns-resize";
+    case "e":
+    case "w":
+      return "ew-resize";
+    case "ne":
+    case "sw":
+      return "nesw-resize";
+    case "nw":
+    case "se":
+    default:
+      return "nwse-resize";
+  }
+}
+
+function measureCard(
+  element: HTMLDivElement | undefined,
+  fallback?: Partial<CardMeasurement>,
+): CardMeasurement {
   const rect = element?.getBoundingClientRect();
   const width = Math.max(
-    CARD_WIDTH,
+    fallback?.width ?? CARD_WIDTH,
     Math.ceil(rect?.width ?? 0),
     Math.ceil(element?.offsetWidth ?? 0),
     Math.ceil(element?.scrollWidth ?? 0),
   );
   const height = Math.max(
-    CARD_HEIGHT,
+    fallback?.height ?? CARD_HEIGHT,
     Math.ceil(rect?.height ?? 0),
     Math.ceil(element?.offsetHeight ?? 0),
     Math.ceil(element?.scrollHeight ?? 0),
@@ -75,13 +133,15 @@ function measureCard(element: HTMLDivElement | undefined): CardMeasurement {
 }
 
 function buildGridLayout(args: {
-  items: ArchivedPageCanvasItem[];
+  items: ArchiveGroupCanvasItem[];
   measurements: Record<string, CardMeasurement>;
   viewportWidth: number;
 }) {
   const items = args.items;
-  const firstMeasurement = items[0] ? args.measurements[items[0].id] : undefined;
-  const columnWidth = Math.max(CARD_WIDTH, firstMeasurement?.width ?? CARD_WIDTH);
+  const columnWidth = Math.max(
+    CARD_WIDTH,
+    ...items.map((item) => args.measurements[item.id]?.width ?? CARD_WIDTH),
+  );
   const usableWidth = Math.max(columnWidth, args.viewportWidth - 160);
   const columns = Math.max(
     1,
@@ -116,7 +176,7 @@ function buildGridLayout(args: {
         {
           x: originX + column * (columnWidth + GRID_GAP_X),
           y: rowOffsets[row] ?? originY,
-          mode: item.canvasCardMode,
+          mode: item.entityType === "page" ? item.canvasCardMode : undefined,
         } satisfies CanvasNodeState,
       ];
     }),
@@ -125,6 +185,10 @@ function buildGridLayout(args: {
 
 export const ArchiveGroupCanvas = (props: Props) => {
   const canvasStore = createCanvasStore();
+  const runCreateArchiveCanvasNode = useAction(createArchiveCanvasNode);
+  const runDeleteArchiveCanvasNode = useAction(deleteArchiveCanvasNode);
+  const runUpdateArchiveCanvasNode = useAction(updateArchiveCanvasNode);
+  const runUpdateArchiveCanvasNodeState = useAction(updateArchiveCanvasNodeState);
   const runUpdateArchivedPageCanvasState = useAction(updateArchivedPageCanvasState);
   const runSaveArchiveGroupCanvasLayout = useAction(saveArchiveGroupCanvasLayout);
 
@@ -132,8 +196,10 @@ export const ArchiveGroupCanvas = (props: Props) => {
   const [didInitialFit, setDidInitialFit] = createSignal(false);
   const [didSeedInitialPositions, setDidSeedInitialPositions] = createSignal(false);
   const [draggingId, setDraggingId] = createSignal<string>();
+  const [resizingId, setResizingId] = createSignal<string>();
   const [activeId, setActiveId] = createSignal<string>();
   const [selectedId, setSelectedId] = createSignal<string>();
+  const [editingNoteId, setEditingNoteId] = createSignal<string>();
   let canvasViewportRef: HTMLDivElement | undefined;
   let transformLayerRef: HTMLDivElement | undefined;
   const cardElements = new Map<string, HTMLDivElement>();
@@ -143,11 +209,21 @@ export const ArchiveGroupCanvas = (props: Props) => {
   const itemsWithState = createMemo(() =>
     props.items.map((item) => {
       const node = nodes[item.id];
+      if (item.entityType === "page") {
+        return {
+          ...item,
+          canvasX: node?.x ?? item.canvasX,
+          canvasY: node?.y ?? item.canvasY,
+          canvasCardMode: node?.mode ?? item.canvasCardMode,
+        };
+      }
+
       return {
         ...item,
         canvasX: node?.x ?? item.canvasX,
         canvasY: node?.y ?? item.canvasY,
-        canvasCardMode: node?.mode ?? item.canvasCardMode,
+        canvasWidth: node?.width ?? item.canvasWidth,
+        canvasHeight: node?.height ?? item.canvasHeight,
       };
     }),
   );
@@ -161,6 +237,12 @@ export const ArchiveGroupCanvas = (props: Props) => {
   const itemsById = createMemo(
     () => new Map(itemsWithState().map((item) => [item.id, item] as const)),
   );
+  const editingNote = createMemo(() => {
+    const id = editingNoteId();
+    if (!id) return null;
+    const item = itemsById().get(id);
+    return item?.entityType === "node" && item.kind === "note" ? item : null;
+  });
 
   const measureNav = () => {
     const nav = document.querySelector("main nav");
@@ -184,6 +266,20 @@ export const ArchiveGroupCanvas = (props: Props) => {
     };
   };
 
+  const getItemMeasurement = (item: ArchiveGroupCanvasItem): CardMeasurement => {
+    if (item.entityType === "page") {
+      return measureCard(cardElements.get(item.id), {
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+      });
+    }
+
+    return measureCard(cardElements.get(item.id), {
+      width: item.canvasWidth ?? getDefaultNodeSize(item.kind).width,
+      height: item.canvasHeight ?? getDefaultNodeSize(item.kind).height,
+    });
+  };
+
   const fitToContent = () => {
     const items = itemsWithState();
     if (!items.length) return;
@@ -200,10 +296,11 @@ export const ArchiveGroupCanvas = (props: Props) => {
     let maxY = Number.NEGATIVE_INFINITY;
 
     for (const item of items) {
+      const measurement = getItemMeasurement(item);
       minX = Math.min(minX, item.canvasX);
       minY = Math.min(minY, item.canvasY);
-      maxX = Math.max(maxX, item.canvasX + CARD_WIDTH);
-      maxY = Math.max(maxY, item.canvasY + CARD_HEIGHT);
+      maxX = Math.max(maxX, item.canvasX + measurement.width);
+      maxY = Math.max(maxY, item.canvasY + measurement.height);
     }
 
     const contentWidth = Math.max(320, maxX - minX + padding);
@@ -224,15 +321,26 @@ export const ArchiveGroupCanvas = (props: Props) => {
   };
 
   const persistLayout = async (
-    nextItems: Array<{ id: string; x: number; y: number; mode: ArchivedPageCanvasCardMode }>,
+    nextItems: Array<{
+      entityType: "page" | "node";
+      id: string;
+      x: number;
+      y: number;
+      mode?: ArchivedPageCanvasCardMode;
+      width?: number;
+      height?: number;
+    }>,
     options?: { successTitle?: string },
   ) => {
     try {
       await runSaveArchiveGroupCanvasLayout({
         items: nextItems.map((item) => ({
+          entityType: item.entityType,
           id: item.id,
           canvasX: roundPosition(item.x),
           canvasY: roundPosition(item.y),
+          canvasWidth: item.width ? roundPosition(item.width) : undefined,
+          canvasHeight: item.height ? roundPosition(item.height) : undefined,
           canvasCardMode: item.mode,
         })),
       });
@@ -260,7 +368,9 @@ export const ArchiveGroupCanvas = (props: Props) => {
         {
           x: item.canvasX,
           y: item.canvasY,
-          mode: item.canvasCardMode,
+          mode: item.entityType === "page" ? item.canvasCardMode : undefined,
+          width: item.entityType === "node" ? item.canvasWidth : undefined,
+          height: item.entityType === "node" ? item.canvasHeight : undefined,
         },
       ]),
     );
@@ -285,7 +395,10 @@ export const ArchiveGroupCanvas = (props: Props) => {
 
   createEffect(() => {
     if (didSeedInitialPositions()) return;
-    const missing = props.items.filter((item) => !item.hasPersistedPosition);
+    const missing = props.items.filter(
+      (item): item is ArchivedPageCanvasItem =>
+        item.entityType === "page" && !item.hasPersistedPosition,
+    );
     if (!missing.length) {
       setDidSeedInitialPositions(true);
       return;
@@ -297,10 +410,11 @@ export const ArchiveGroupCanvas = (props: Props) => {
         const node = nodes[item.id];
         if (!node) return null;
         return {
+          entityType: "page" as const,
           id: item.id,
           x: node.x,
           y: node.y,
-          mode: node.mode,
+          mode: node.mode ?? item.canvasCardMode,
         };
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -348,9 +462,11 @@ export const ArchiveGroupCanvas = (props: Props) => {
       fitToContent();
     };
 
+    window.addEventListener("paste", handleCanvasPaste);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", handleResize);
     onCleanup(() => {
+      window.removeEventListener("paste", handleCanvasPaste);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleResize);
     });
@@ -358,15 +474,34 @@ export const ArchiveGroupCanvas = (props: Props) => {
 
   const persistNodeState = async (
     id: string,
-    next: { x: number; y: number; mode: ArchivedPageCanvasCardMode },
+    next: {
+      x: number;
+      y: number;
+      mode?: ArchivedPageCanvasCardMode;
+      width?: number;
+      height?: number;
+    },
   ) => {
     try {
-      await runUpdateArchivedPageCanvasState({
-        id,
-        canvasX: roundPosition(next.x),
-        canvasY: roundPosition(next.y),
-        canvasCardMode: next.mode,
-      });
+      const item = itemsById().get(id);
+      if (!item) return;
+
+      if (item.entityType === "node") {
+        await runUpdateArchiveCanvasNodeState({
+          id,
+          canvasX: roundPosition(next.x),
+          canvasY: roundPosition(next.y),
+          canvasWidth: next.width ? roundPosition(next.width) : undefined,
+          canvasHeight: next.height ? roundPosition(next.height) : undefined,
+        });
+      } else {
+        await runUpdateArchivedPageCanvasState({
+          id,
+          canvasX: roundPosition(next.x),
+          canvasY: roundPosition(next.y),
+          canvasCardMode: next.mode ?? item.canvasCardMode,
+        });
+      }
       await revalidate(fetchArchiveGroupCanvasItems.keyFor(props.groupName));
     } catch (error) {
       console.error("[archive-canvas] failed to persist node state", {
@@ -382,9 +517,126 @@ export const ArchiveGroupCanvas = (props: Props) => {
     }
   };
 
+  const viewportCenterCanvasPoint = () => {
+    const viewportRect = canvasViewportRef?.getBoundingClientRect();
+    const viewOffset = canvasStore.offset();
+    const viewScale = canvasStore.scale();
+    const localX = (viewportRect?.width ?? window.innerWidth) / 2;
+    const localY = (viewportRect?.height ?? window.innerHeight) / 2;
+    return {
+      x: (localX - viewOffset.x) / viewScale,
+      y: (localY - viewOffset.y) / viewScale,
+    };
+  };
+
+  const createNoteNode = async () => {
+    try {
+      const center = viewportCenterCanvasPoint();
+      const created = await runCreateArchiveCanvasNode({
+        groupName: props.groupName,
+        kind: "note",
+        canvasX: roundPosition(center.x),
+        canvasY: roundPosition(center.y),
+        canvasWidth: NOTE_NODE_WIDTH,
+        canvasHeight: NOTE_NODE_HEIGHT,
+        contentHtml: "<p>New note</p>",
+      });
+      await revalidate(fetchArchiveGroupCanvasItems.keyFor(props.groupName));
+      setEditingNoteId(created.id);
+      setActiveId(created.id);
+    } catch (error) {
+      toaster.create({
+        type: "error",
+        title: "Could not create note",
+        description: error instanceof Error ? error.message : "Canvas note creation failed.",
+      });
+    }
+  };
+
+  const saveEditingNote = async (html: string) => {
+    const current = editingNote();
+    if (!current) return;
+    await runUpdateArchiveCanvasNode({
+      id: current.id,
+      contentHtml: html,
+    });
+    await revalidate(fetchArchiveGroupCanvasItems.keyFor(props.groupName));
+  };
+
+  const saveInlineNote = (html: string) =>
+    saveEditingNote(html).then(() => {
+      setEditingNoteId(undefined);
+    });
+
+  const removeCanvasNode = async (id: string) => {
+    try {
+      await runDeleteArchiveCanvasNode({ id });
+      if (editingNoteId() === id) setEditingNoteId(undefined);
+      await revalidate(fetchArchiveGroupCanvasItems.keyFor(props.groupName));
+    } catch (error) {
+      toaster.create({
+        type: "error",
+        title: "Could not delete canvas item",
+        description: error instanceof Error ? error.message : "Canvas item deletion failed.",
+      });
+    }
+  };
+
+  const handleCanvasPaste = async (event: ClipboardEvent) => {
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      (target instanceof HTMLElement && target.isContentEditable)
+    ) {
+      return;
+    }
+
+    const imageItem = Array.from(event.clipboardData?.items ?? []).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) return;
+      try {
+        const center = viewportCenterCanvasPoint();
+        await runCreateArchiveCanvasNode({
+          groupName: props.groupName,
+          kind: "image",
+          canvasX: roundPosition(center.x),
+          canvasY: roundPosition(center.y),
+          canvasWidth: IMAGE_NODE_WIDTH,
+          canvasHeight: IMAGE_NODE_HEIGHT,
+          imageDataUrl: result,
+        });
+        await revalidate(fetchArchiveGroupCanvasItems.keyFor(props.groupName));
+        toaster.create({
+          type: "success",
+          title: "Added image to canvas",
+        });
+      } catch (error) {
+        toaster.create({
+          type: "error",
+          title: "Could not add pasted image",
+          description: error instanceof Error ? error.message : "Canvas image creation failed.",
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleModeChange = async (id: string, mode: ArchivedPageCanvasCardMode) => {
+    const currentItem = itemsById().get(id);
     const current = nodes[id];
-    if (!current || current.mode === mode) return;
+    if (!current || current.mode === mode || currentItem?.entityType !== "page") return;
     setNodes(id, "mode", mode);
     await persistNodeState(id, { ...current, mode });
   };
@@ -431,11 +683,15 @@ export const ArchiveGroupCanvas = (props: Props) => {
         x: nextCanvasPoint.x - dragOffset.x,
         y: nextCanvasPoint.y - dragOffset.y,
         mode: latest.mode,
+        width: latest.width,
+        height: latest.height,
       };
       setNodes(itemId, {
         x: latest.x,
         y: latest.y,
         mode: latest.mode,
+        width: latest.width,
+        height: latest.height,
       });
     };
 
@@ -456,13 +712,110 @@ export const ArchiveGroupCanvas = (props: Props) => {
     window.addEventListener("pointercancel", finish);
   };
 
+  const beginNodeResize = (event: PointerEvent, itemId: string, direction: ResizeDirection) => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    const item = itemsById().get(itemId);
+    if (item?.entityType !== "node") return;
+
+    const origin = nodes[itemId];
+    if (!origin) return;
+
+    const currentTarget = event.currentTarget;
+    if (!(currentTarget instanceof HTMLElement)) return;
+
+    const minSize = getMinNodeSize(item.kind);
+    const startWidth = origin.width ?? item.canvasWidth ?? getDefaultNodeSize(item.kind).width;
+    const startHeight = origin.height ?? item.canvasHeight ?? getDefaultNodeSize(item.kind).height;
+    const startLeft = origin.x;
+    const startTop = origin.y;
+    const startRight = startLeft + startWidth;
+    const startBottom = startTop + startHeight;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const scale = canvasStore.scale();
+    let latest = {
+      ...origin,
+      width: startWidth,
+      height: startHeight,
+    };
+
+    try {
+      currentTarget.setPointerCapture(event.pointerId);
+    } catch (_) {}
+
+    setActiveId(itemId);
+    setResizingId(itemId);
+    document.body.style.cursor = getResizeCursor(direction);
+
+    const onPointerMove = (moveEvent: MouseEvent | PointerEvent) => {
+      if ("preventDefault" in moveEvent) {
+        moveEvent.preventDefault();
+      }
+
+      const deltaX = (moveEvent.clientX - startX) / scale;
+      const deltaY = (moveEvent.clientY - startY) / scale;
+      const next = {
+        ...latest,
+      };
+
+      if (direction.includes("e")) {
+        next.width = clampNodeSize(startWidth + deltaX, minSize.width, MAX_NODE_WIDTH);
+      }
+
+      if (direction.includes("s")) {
+        next.height = clampNodeSize(startHeight + deltaY, minSize.height, MAX_NODE_HEIGHT);
+      }
+
+      if (direction.includes("w")) {
+        next.width = clampNodeSize(startWidth - deltaX, minSize.width, MAX_NODE_WIDTH);
+        next.x = roundPosition(startRight - next.width);
+      }
+
+      if (direction.includes("n")) {
+        next.height = clampNodeSize(startHeight - deltaY, minSize.height, MAX_NODE_HEIGHT);
+        next.y = roundPosition(startBottom - next.height);
+      }
+
+      latest = next;
+
+      setNodes(itemId, {
+        x: latest.x,
+        y: latest.y,
+        mode: latest.mode,
+        width: latest.width,
+        height: latest.height,
+      });
+    };
+
+    const finish = async () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("mousemove", onPointerMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("mouseup", finish);
+      window.removeEventListener("pointercancel", finish);
+      try {
+        currentTarget.releasePointerCapture(event.pointerId);
+      } catch (_) {}
+      document.body.style.cursor = "";
+      setResizingId((value) => (value === itemId ? undefined : value));
+      await persistNodeState(itemId, latest);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("mouseup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
   const arrangeGrid = async () => {
     const measurements = Object.fromEntries(
       itemsWithState().map((item) => {
-        const element = cardElements.get(item.id);
         return [
           item.id,
-          measureCard(element),
+          getItemMeasurement(item),
         ];
       }),
     );
@@ -473,12 +826,22 @@ export const ArchiveGroupCanvas = (props: Props) => {
     });
     setNodes(reconcile(nextLayout));
     await persistLayout(
-      Object.entries(nextLayout).map(([id, layout]) => ({
-        id,
-        x: layout.x,
-        y: layout.y,
-        mode: layout.mode,
-      })),
+      Object.entries(nextLayout)
+        .map(([id, layout]) => {
+          const item = itemsById().get(id);
+          if (!item) return null;
+          return {
+            entityType: item.entityType,
+            id,
+            x: layout.x,
+            y: layout.y,
+            mode: layout.mode,
+            width: item.entityType === "node" ? nodes[id]?.width ?? item.canvasWidth : undefined,
+            height:
+              item.entityType === "node" ? nodes[id]?.height ?? item.canvasHeight : undefined,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item)),
       { successTitle: "Saved grid arrangement" },
     );
     fitToContent();
@@ -502,12 +865,15 @@ export const ArchiveGroupCanvas = (props: Props) => {
                 {props.groupName}
               </Text>
               <Text color="fg.muted" fontSize="sm" lineClamp="1" hideBelow="md">
-                Drag any header to organize, or drop into a saved grid.
+                Drag, resize, and edit notes inline. Paste an image anywhere on the canvas.
               </Text>
             </HStack>
           </HStack>
 
           <HStack gap="2" flexWrap="wrap">
+            <Button type="button" variant="solid" onClick={() => void createNoteNode()}>
+              Add note
+            </Button>
             <Button type="button" variant="outline" onClick={() => void arrangeGrid()}>
               Arrange grid (G)
             </Button>
@@ -561,22 +927,51 @@ export const ArchiveGroupCanvas = (props: Props) => {
                           transform: `translate(${current().canvasX}px, ${current().canvasY}px)`,
                         }}
                       >
-                        <ArchiveCanvasCard
-                          item={current()}
-                          isActive={itemId === activeId()}
-                          isDragging={draggingId() === itemId}
-                          cardRef={(element) => {
-                            if (element) {
-                              cardElements.set(itemId, element);
-                              return;
-                            }
-                            cardElements.delete(itemId);
-                          }}
-                          onActivate={() => setActiveId(itemId)}
-                          onDragStart={(event) => beginCardDrag(event, itemId)}
-                          onModeChange={(mode) => void handleModeChange(itemId, mode)}
-                          onOpenDetails={() => setSelectedId(itemId)}
-                        />
+                        <Show
+                          when={current().entityType === "page"}
+                          fallback={
+                            <ArchiveCanvasFreeformCard
+                              item={current() as ArchivedCanvasNodeItem}
+                              isActive={itemId === activeId()}
+                              isDragging={draggingId() === itemId}
+                              isEditing={editingNoteId() === itemId}
+                              isResizing={resizingId() === itemId}
+                              cardRef={(element) => {
+                                if (element) {
+                                  cardElements.set(itemId, element);
+                                  return;
+                                }
+                                cardElements.delete(itemId);
+                              }}
+                              onActivate={() => setActiveId(itemId)}
+                              onDragStart={(event) => beginCardDrag(event, itemId)}
+                              onResizeStart={(event, direction) =>
+                                beginNodeResize(event, itemId, direction)
+                              }
+                              onStartEditing={() => setEditingNoteId(itemId)}
+                              onCancelEditing={() => setEditingNoteId(undefined)}
+                              onSaveNote={saveInlineNote}
+                              onDelete={() => void removeCanvasNode(itemId)}
+                            />
+                          }
+                        >
+                          <ArchiveCanvasCard
+                            item={current() as ArchivedPageCanvasItem}
+                            isActive={itemId === activeId()}
+                            isDragging={draggingId() === itemId}
+                            cardRef={(element) => {
+                              if (element) {
+                                cardElements.set(itemId, element);
+                                return;
+                              }
+                              cardElements.delete(itemId);
+                            }}
+                            onActivate={() => setActiveId(itemId)}
+                            onDragStart={(event) => beginCardDrag(event, itemId)}
+                            onModeChange={(mode) => void handleModeChange(itemId, mode)}
+                            onOpenDetails={() => setSelectedId(itemId)}
+                          />
+                        </Show>
                       </Box>
                     )}
                   </Show>

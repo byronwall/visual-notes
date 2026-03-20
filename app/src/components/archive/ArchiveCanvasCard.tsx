@@ -1,5 +1,5 @@
-import { PanelRightOpenIcon } from "lucide-solid";
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { GripHorizontalIcon, PanelRightOpenIcon } from "lucide-solid";
+import { For, Show, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { ArchiveFavicon } from "~/components/archive/ArchiveFavicon";
 import { openImagePreview } from "~/components/editor/ui/imagePreviewService";
@@ -81,7 +81,8 @@ export const ArchiveCanvasCard = (props: Props) => {
       <HStack
         position="absolute"
         top="0"
-        right="3"
+        left="4"
+        zIndex="3"
         gap="1"
         p="1"
         borderRadius="full"
@@ -92,12 +93,42 @@ export const ArchiveCanvasCard = (props: Props) => {
         opacity={showChrome() ? 1 : 0}
         pointerEvents={showChrome() ? "auto" : "none"}
         transitionDuration="normal"
-        transitionProperty="opacity, transform"
-        style={{
-          transform: showChrome()
-            ? "translateY(calc(-100% + 1px))"
-            : "translateY(calc(-100% - 3px))",
-        }}
+        transitionProperty="opacity"
+        style={{ top: "-34px" }}
+      >
+        <Button
+          type="button"
+          size="xs"
+          variant="plain"
+          aria-label={`Move ${props.item.title}`}
+          cursor={props.isDragging ? "grabbing" : "grab"}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            props.onActivate();
+            props.onDragStart(event);
+          }}
+        >
+          <GripHorizontalIcon size={14} />
+        </Button>
+      </HStack>
+
+      <HStack
+        position="absolute"
+        top="0"
+        right="4"
+        zIndex="3"
+        gap="1"
+        p="1"
+        borderRadius="full"
+        borderWidth="1px"
+        borderColor="border"
+        bg="bg.default"
+        boxShadow="sm"
+        opacity={showChrome() ? 1 : 0}
+        pointerEvents={showChrome() ? "auto" : "none"}
+        transitionDuration="normal"
+        transitionProperty="opacity"
+        style={{ top: "-34px" }}
       >
         <For each={MODE_OPTIONS}>
           {(option) => (
@@ -117,52 +148,30 @@ export const ArchiveCanvasCard = (props: Props) => {
             </Button>
           )}
         </For>
-      </HStack>
-
-      <Stack gap="0" overflow="hidden" borderRadius="inherit">
-        <HStack
-          justify="space-between"
-          gap="3"
-          px="3"
-          py="2.5"
-          bg="bg.subtle"
-          borderBottomWidth="1px"
-          borderColor="border"
-          cursor={props.isDragging ? "grabbing" : "grab"}
-          transitionDuration="normal"
-          transitionProperty="background-color, box-shadow"
-          _hover={{ bg: "bg.muted" }}
-          onPointerDown={(event) => {
+        <Button
+          type="button"
+          variant="plain"
+          size="xs"
+          aria-label={`Open details for ${props.item.title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
             props.onActivate();
-            props.onDragStart(event);
+            props.onOpenDetails();
           }}
         >
-          <HStack gap="2.5" minW="0" flex="1">
-            <ArchiveFavicon src={props.item.faviconUrl} title={props.item.title} size="18px" />
-            <Stack gap="0" minW="0" flex="1">
-              <Text fontSize="sm" fontWeight="semibold" lineClamp="1">
-                {props.item.title}
-              </Text>
-            </Stack>
-          </HStack>
+          <PanelRightOpenIcon size={14} />
+        </Button>
+      </HStack>
 
-          <Button
-            type="button"
-            variant="plain"
-            size="xs"
-            aria-label={`Open details for ${props.item.title}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              props.onActivate();
-              props.onOpenDetails();
-            }}
-          >
-            <PanelRightOpenIcon size={14} />
-          </Button>
+      <Stack gap="3" px="4" py="4" overflow="hidden" borderRadius="inherit">
+        <HStack gap="2.5" minW="0">
+          <ArchiveFavicon src={props.item.faviconUrl} title={props.item.title} size="18px" />
+          <Text fontSize="sm" fontWeight="semibold" lineClamp="2">
+            {props.item.title}
+          </Text>
         </HStack>
 
-        <Stack gap="3" px="4" py="4">
           <Link
             href={props.item.originalUrl}
             target="_blank"
@@ -170,6 +179,7 @@ export const ArchiveCanvasCard = (props: Props) => {
             display="inline-flex"
             alignItems="center"
             fontSize="sm"
+            fontFamily="mono"
             color="fg.default"
             lineClamp="1"
             title={props.item.originalUrl}
@@ -318,7 +328,6 @@ export const ArchiveCanvasCard = (props: Props) => {
               </For>
             </Box>
           </Show>
-        </Stack>
       </Stack>
     </Box>
   );

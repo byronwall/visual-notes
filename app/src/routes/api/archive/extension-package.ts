@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -86,9 +87,22 @@ export async function GET({ request }: { request: Request }) {
 
   const tempDir = await mkdtemp(path.join(tmpdir(), "visual-notes-extension-"));
   const zipPath = path.join(tempDir, "visual-notes-explorer-extension.zip");
-  const extensionDir = path.resolve(process.cwd(), "..", "extension");
+  const extensionDir =
+    [
+      path.resolve(process.cwd(), "extension"),
+      path.resolve(process.cwd(), "..", "extension"),
+    ].find((candidate) => existsSync(candidate)) ?? "";
 
   try {
+    if (!extensionDir) {
+      return new Response(buildDownloadPage("/api/archive/extension-package"), {
+        status: 500,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+        },
+      });
+    }
+
     await execFileAsync("zip", ["-r", zipPath, "."], {
       cwd: extensionDir,
     });

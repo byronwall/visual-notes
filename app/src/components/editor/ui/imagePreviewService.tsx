@@ -4,14 +4,16 @@ import { ImagePreviewModal } from "./ImagePreviewModal";
 
 type PreviewState = {
   open: boolean;
-  src: string;
+  images: string[];
+  index: number;
   alt?: string;
   title?: string;
 };
 
 const [preview, setPreview] = createSignal<PreviewState>({
   open: false,
-  src: "",
+  images: [],
+  index: 0,
 });
 
 let dispose: (() => void) | null = null;
@@ -25,7 +27,8 @@ function ensurePreviewHost() {
     () => (
       <ImagePreviewModal
         open={preview().open}
-        src={preview().src}
+        images={preview().images}
+        initialIndex={preview().index}
         alt={preview().alt}
         title={preview().title}
         onClose={() => setPreview((current) => ({ ...current, open: false }))}
@@ -39,7 +42,29 @@ export function openImagePreview(args: { src: string; alt?: string; title?: stri
   ensurePreviewHost();
   setPreview({
     open: true,
-    src: args.src,
+    images: [args.src],
+    index: 0,
+    alt: args.alt,
+    title: args.title,
+  });
+}
+
+export function openImagePreviewCarousel(args: {
+  images: string[];
+  index?: number;
+  alt?: string;
+  title?: string;
+}) {
+  const images = args.images
+    .map((value) => value.trim())
+    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
+  if (!images.length) return;
+
+  ensurePreviewHost();
+  setPreview({
+    open: true,
+    images,
+    index: Math.max(0, Math.min(args.index ?? 0, images.length - 1)),
     alt: args.alt,
     title: args.title,
   });

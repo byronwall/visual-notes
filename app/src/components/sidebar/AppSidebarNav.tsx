@@ -1,8 +1,8 @@
 import { For } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import {
-  ArchiveIcon,
   CalendarClockIcon,
+  CompassIcon,
   ListTodoIcon,
   WaypointsIcon,
 } from "lucide-solid";
@@ -51,7 +51,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
     {
       label: "Explorer",
       href: "/archive",
-      icon: ArchiveIcon,
+      icon: CompassIcon,
       isActive: (path) => isActiveSection("/archive", path),
     },
   ];

@@ -21,6 +21,7 @@ import type {
   ArchiveAdminSnapshotItem,
   ArchiveAdminSnapshotDetail,
   ArchivedPageCanvasItem,
+  ArchiveGroupCanvasItem,
   ArchivedPageCanvasOverviewGroup,
   ArchivedPageDetail,
   ArchivedPageGroupSummary,
@@ -48,6 +49,31 @@ function getArchivePreviewImage(args: {
   notes?: Array<{ imageUrls?: string[] | null }> | null;
 }) {
   return getArchiveMetaPreviewImage(args.meta) || getFirstNoteImage(args.notes);
+}
+
+function getArchiveUserImages(
+  notes:
+    | Array<{
+        imageUrls?: string[] | null;
+      }>
+    | null
+    | undefined,
+  limit = 12,
+) {
+  const results: string[] = [];
+  const seen = new Set<string>();
+
+  for (const note of notes || []) {
+    for (const value of note.imageUrls || []) {
+      const next = typeof value === "string" ? value.trim() : "";
+      if (!next || seen.has(next)) continue;
+      seen.add(next);
+      results.push(next);
+      if (results.length >= limit) return results;
+    }
+  }
+
+  return results;
 }
 
 async function readArchiveHtmlInfo(htmlPath: string | null | undefined) {
@@ -132,11 +158,7 @@ export const fetchArchivedPages = query(
 
     return rows.map((row) => {
       const meta = row.meta as Record<string, unknown> | null | undefined;
-      const previewImageUrls = buildArchivePreferredImages({
-        meta,
-        noteImageUrls: row.notes.map((note) => note.imageUrls ?? []),
-        limit: 3,
-      });
+      const userImageUrls = getArchiveUserImages(row.notes, 18);
 
       return {
         id: row.id,
@@ -146,11 +168,8 @@ export const fetchArchivedPages = query(
         siteHostname: row.siteHostname,
         groupName: row.groupName,
         lastCapturedAt: row.lastCapturedAt?.toISOString() ?? null,
-        previewImageUrl: getArchivePreviewImage({
-          meta,
-          notes: row.notes,
-        }),
-        previewImageUrls,
+        socialPreviewImageUrl: getArchiveMetaPreviewImage(meta),
+        userImageUrls,
         faviconUrl: getArchiveMetaFavicon(meta),
         description: getArchiveMetaDescription(meta),
         notesCount: row._count.notes,
@@ -348,38 +367,56 @@ export const fetchArchivedPageGroupSummaries = query(
 );
 
 export const fetchArchiveGroupCanvasItems = query(
-  async (groupName: string): Promise<ArchivedPageCanvasItem[]> => {
+  async (groupName: string): Promise<ArchiveGroupCanvasItem[]> => {
     "use server";
     const group = String(groupName || "").trim();
     if (!group) throw new Error("Missing archive group");
 
-    const rows = await prisma.archivedPage.findMany({
-      where: { groupName: group },
-      orderBy: [{ lastCapturedAt: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
-      select: {
-        id: true,
-        title: true,
-        originalUrl: true,
-        groupName: true,
-        siteHostname: true,
-        canvasX: true,
-        canvasY: true,
-        canvasCardMode: true,
-        meta: true,
-        updatedAt: true,
-        notes: {
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: 8,
-          select: {
-            noteText: true,
-            imageUrls: true,
-            createdAt: true,
+    const [rows, freeformNodes] = await Promise.all([
+      prisma.archivedPage.findMany({
+        where: { groupName: group },
+        orderBy: [{ lastCapturedAt: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          originalUrl: true,
+          groupName: true,
+          siteHostname: true,
+          canvasX: true,
+          canvasY: true,
+          canvasCardMode: true,
+          meta: true,
+          updatedAt: true,
+          notes: {
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 8,
+            select: {
+              noteText: true,
+              imageUrls: true,
+              createdAt: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.archivedCanvasNode.findMany({
+        where: { groupName: group },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+        select: {
+          id: true,
+          groupName: true,
+          kind: true,
+          contentHtml: true,
+          imageUrl: true,
+          canvasX: true,
+          canvasY: true,
+          canvasWidth: true,
+          canvasHeight: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
 
-    return rows.map((row, index) => {
+    const pageItems = rows.map((row, index) => {
       const meta = (row.meta as Record<string, unknown> | null) ?? null;
       const latestNoteText =
         row.notes.find((note) => note.noteText.trim())?.noteText ?? null;
@@ -397,6 +434,7 @@ export const fetchArchiveGroupCanvasItems = query(
       });
 
       return {
+        entityType: "page" as const,
         id: row.id,
         title: row.title,
         originalUrl: row.originalUrl,
@@ -424,7 +462,27 @@ export const fetchArchiveGroupCanvasItems = query(
         hasPersistedPosition:
           typeof row.canvasX === "number" && typeof row.canvasY === "number",
         updatedAt: row.updatedAt.toISOString(),
-      };
+      } satisfies ArchivedPageCanvasItem;
+    });
+
+    const nodeItems = freeformNodes.map((node) => ({
+      entityType: "node" as const,
+      id: node.id,
+      groupName: node.groupName,
+      kind: node.kind,
+      contentHtml: node.contentHtml,
+      imageUrl: node.imageUrl,
+      canvasX: node.canvasX,
+      canvasY: node.canvasY,
+      canvasWidth: node.canvasWidth,
+      canvasHeight: node.canvasHeight,
+      updatedAt: node.updatedAt.toISOString(),
+    }));
+
+    return [...pageItems, ...nodeItems].sort((a, b) => {
+      const aTime = Date.parse(a.updatedAt);
+      const bTime = Date.parse(b.updatedAt);
+      return bTime - aTime || a.id.localeCompare(b.id);
     });
   },
   "archive-group-canvas-items",

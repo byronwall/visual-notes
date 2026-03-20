@@ -29,6 +29,9 @@ const ArchiveSnapshotReviewRoute = () => {
         <Stack gap="4">
           <HStack justify="space-between" gap="3" flexWrap="wrap">
             <HStack gap="2" flexWrap="wrap">
+              <RouterButtonLink href="/admin" variant="outline" size="sm">
+                Admin home
+              </RouterButtonLink>
               <RouterButtonLink href="/admin/archive" variant="outline" size="sm">
                 Back to Explorer Admin
               </RouterButtonLink>
@@ -71,6 +74,21 @@ const ArchiveSnapshotReviewRoute = () => {
                         Group {current().groupName || "—"}
                       </Text>
                     </HStack>
+                    <HStack gap="3" flexWrap="wrap">
+                      <Text fontSize="xs" color="fg.muted" fontFamily="mono">
+                        Path {current().htmlPath || "—"}
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted" fontFamily="mono">
+                        Hash {current().htmlHash?.slice(0, 16) || "—"}
+                      </Text>
+                    </HStack>
+                    <Show when={current().textSnippet}>
+                      {(snippet) => (
+                        <Text fontSize="sm" color="fg.muted">
+                          {snippet()}
+                        </Text>
+                      )}
+                    </Show>
                   </Stack>
 
                   <Box

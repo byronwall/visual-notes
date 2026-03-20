@@ -230,13 +230,14 @@ const ArchivePage = () => {
                   bg="bg.default"
                   borderWidth="1px"
                   borderColor="border"
-                  overflow="hidden"
+                  overflow="visible"
+                  position="relative"
                 >
-                  <Box overflowX="auto" overscrollBehaviorX="contain">
+                  <Box overflowX="auto" overflowY="visible" overscrollBehaviorX="contain">
                     <Table.Root>
                       <Table.Head>
                         <Table.Row>
-                          <Table.Header>Preview</Table.Header>
+                          <Table.Header pl="12">Preview</Table.Header>
                           <Table.Header>Entry</Table.Header>
                           <Table.Header>Host</Table.Header>
                           <Table.Header>Group</Table.Header>
@@ -255,9 +256,15 @@ const ArchivePage = () => {
                               _hover={{ bg: "bg.subtle" }}
                               style={{ cursor: "pointer" }}
                             >
-                              <Table.Cell>
+                              <Table.Cell
+                                pl="12"
+                                overflow="visible"
+                                position="relative"
+                                zIndex="2"
+                              >
                                 <ArchivePreviewStack
-                                  images={item.previewImageUrls}
+                                  socialPreviewImageUrl={item.socialPreviewImageUrl}
+                                  userImages={item.userImageUrls}
                                   title={item.title}
                                 />
                               </Table.Cell>

@@ -25,6 +25,9 @@ type TiptapEditorProps = {
   /** Show AI prompts menu in the toolbar. Defaults to false. */
   showAiPromptsMenu?: boolean;
   noteId?: string;
+  fillHeight?: boolean;
+  minEditorHeight?: string;
+  borderless?: boolean;
 };
 
 const TiptapEditor: Component<TiptapEditorProps> = (props) => {
@@ -81,10 +84,18 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
   });
 
   return (
-    <Box class={props.class} w="full">
+    <Box
+      class={props.class}
+      w="full"
+      h={props.fillHeight ? "full" : undefined}
+      minH={props.fillHeight ? "0" : undefined}
+      display="flex"
+      flexDirection="column"
+      gap="2"
+    >
       <Show when={props.showToolbar !== false}>
         <Box
-          mb="2"
+          flexShrink="0"
           position="sticky"
           top="0"
           zIndex="20"
@@ -110,12 +121,19 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
       <Box
         position="relative"
-        borderWidth="1px"
-        borderColor="gray.outline.border"
-        borderRadius="l2"
+        flex={props.fillHeight ? "1" : undefined}
+        minH={props.fillHeight ? "0" : undefined}
+        overflow={props.fillHeight ? "auto" : undefined}
+        borderWidth={props.borderless ? "0" : "1px"}
+        borderColor={props.borderless ? undefined : "gray.outline.border"}
+        borderRadius={props.borderless ? undefined : "l2"}
         css={documentContentStyles}
       >
-        <Box minH="200px" ref={setContainer} />
+        <Box
+          minH={props.minEditorHeight ?? "200px"}
+          h={props.fillHeight ? "full" : undefined}
+          ref={setContainer}
+        />
       </Box>
 
       {csvPromptView}

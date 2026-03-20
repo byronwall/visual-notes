@@ -76,6 +76,11 @@ enum ActionActivityClass {
   COLD
 }
 
+enum ArchivedCanvasNodeKind {
+  note
+  image
+}
+
 /// Single prompt per task (e.g., "chapter_summary") with default model/params
 model Prompt {
   id              String          @id @default(cuid())
@@ -174,32 +179,32 @@ model LlmRequest {
 
 /// Minimal document for Markdown ingest
 model Doc {
-  id                String   @id @default(cuid())
-  title             String
-  markdown          String // @db.Text
-  html              String // @db.Text
+  id                         String   @id @default(cuid())
+  title                      String
+  markdown                   String // @db.Text
+  html                       String // @db.Text
   // Source + content id form a stable identity for ingest pipelines
-  originalSource    String?
-  originalContentId String?
-  contentHash       String?
+  originalSource             String?
+  originalContentId          String?
+  contentHash                String?
   // Dot path for filtering/nesting (e.g., "work.projects.alpha")
-  path              String?
+  path                       String?
   // Arbitrary single-level key/value pairs from client (stored as JSONB)
-  meta              Json?
+  meta                       Json?
   // Backup snapshot captured before inline data-image migration rewrites.
   inlineImageMigrationBackup Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   // Relations
   docEmbeddings        DocEmbedding[]
   umapPoints           UmapPoint[]
   sections             DocSection[]
   docSectionEmbeddings DocSectionEmbedding[]
-  actionEvents         ActionEvent[]       @relation("RelatedDocEvents")
+  actionEvents         ActionEvent[]          @relation("RelatedDocEvents")
   activityDaily        DocActivityDaily[]
   activitySnapshot     DocActivitySnapshot?
-  share               DocShare?
+  share                DocShare?
   timeBlocks           TimeBlock[]
   timeBlockDayMetadata TimeBlockDayMetadata[]
 
@@ -209,11 +214,11 @@ model Doc {
 
 model DocShare {
   id        String   @id @default(cuid())
-  docId      String   @unique
-  slug       String   @unique
-  shareUrl   String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  docId     String   @unique
+  slug      String   @unique
+  shareUrl  String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
 
@@ -240,11 +245,11 @@ enum ArchiveCanvasCardMode {
 }
 
 model TaskList {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  sortOrder Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   tasks     TaskItem[]
 
   @@index([sortOrder])
@@ -316,8 +321,24 @@ model ArchivedPage {
   @@index([lastCapturedAt(sort: Desc)])
 }
 
+model ArchivedCanvasNode {
+  id           String                 @id @default(cuid())
+  groupName    String
+  kind         ArchivedCanvasNodeKind
+  contentHtml  String?
+  imageUrl     String?
+  canvasX      Float
+  canvasY      Float
+  canvasWidth  Float
+  canvasHeight Float
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([groupName, updatedAt(sort: Desc)])
+}
+
 model ArchivedPageSnapshot {
-  id               String                   @id @default(cuid())
+  id               String                  @id @default(cuid())
   archivedPageId   String
   captureMode      ArchivedPageCaptureMode
   capturedAt       DateTime
@@ -328,9 +349,9 @@ model ArchivedPageSnapshot {
   meta             Json?
   textSnippet      String?
   extensionPayload Json?
-  createdAt        DateTime                 @default(now())
+  createdAt        DateTime                @default(now())
 
-  archivedPage ArchivedPage      @relation(fields: [archivedPageId], references: [id], onDelete: Cascade)
+  archivedPage ArchivedPage       @relation(fields: [archivedPageId], references: [id], onDelete: Cascade)
   notes        ArchivedPageNote[]
 
   @@index([archivedPageId, capturedAt(sort: Desc)])
@@ -377,17 +398,17 @@ model TimeBlockDayMetadata {
 
 /// Append-only audit/event log for major user/system actions.
 model ActionEvent {
-  id          String          @id @default(cuid())
-  createdAt   DateTime        @default(now())
-  eventType   String
-  actorId     String?
-  actorType   ActionActorType @default(anonymous)
-  entityType  String
-  entityId    String?
+  id           String          @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  eventType    String
+  actorId      String?
+  actorType    ActionActorType @default(anonymous)
+  entityType   String
+  entityId     String?
   relatedDocId String?
-  sessionId   String?
-  requestId   String?
-  payload     Json?
+  sessionId    String?
+  requestId    String?
+  payload      Json?
 
   relatedDoc Doc? @relation("RelatedDocEvents", fields: [relatedDocId], references: [id], onDelete: SetNull)
 
@@ -399,14 +420,14 @@ model ActionEvent {
 
 /// Per-doc daily counters used for rolling activity windows.
 model DocActivityDaily {
-  id              String   @id @default(cuid())
-  docId           String
-  date            DateTime
-  viewCount       Int      @default(0)
-  editCount       Int      @default(0)
-  searchClickCount Int     @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  docId            String
+  date             DateTime
+  viewCount        Int      @default(0)
+  editCount        Int      @default(0)
+  searchClickCount Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
 
@@ -503,14 +524,14 @@ model DocSectionEmbedding {
 
 /// UMAP projection run over a given EmbeddingRun
 model UmapRun {
-  id             String   @id @default(cuid())
-  embeddingRunId String
-  dims           Int
-  params         Json?
-  artifactPath   String?
-  regionsJson    Json?
+  id               String    @id @default(cuid())
+  embeddingRunId   String
+  dims             Int
+  params           Json?
+  artifactPath     String?
+  regionsJson      Json?
   regionsUpdatedAt DateTime?
-  createdAt      DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   embeddingRun EmbeddingRun @relation(fields: [embeddingRunId], references: [id], onDelete: Cascade)
   points       UmapPoint[]

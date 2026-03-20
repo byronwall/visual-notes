@@ -53,7 +53,7 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
       >
         <SidebarFooterIconLink
           label="Admin"
-          onClick={() => navigate("/admin/archive")}
+          onClick={() => navigate("/admin")}
           active={isAdminActive()}
           icon={<ShieldIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
         />
