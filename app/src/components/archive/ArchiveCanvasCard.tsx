@@ -80,7 +80,7 @@ export const ArchiveCanvasCard = (props: Props) => {
     >
       <HStack
         position="absolute"
-        top="0"
+        top="2"
         left="4"
         zIndex="3"
         gap="1"
@@ -94,7 +94,6 @@ export const ArchiveCanvasCard = (props: Props) => {
         pointerEvents={showChrome() ? "auto" : "none"}
         transitionDuration="normal"
         transitionProperty="opacity"
-        style={{ top: "-34px" }}
       >
         <Button
           type="button"
@@ -114,7 +113,7 @@ export const ArchiveCanvasCard = (props: Props) => {
 
       <HStack
         position="absolute"
-        top="0"
+        top="2"
         right="4"
         zIndex="3"
         gap="1"
@@ -128,7 +127,6 @@ export const ArchiveCanvasCard = (props: Props) => {
         pointerEvents={showChrome() ? "auto" : "none"}
         transitionDuration="normal"
         transitionProperty="opacity"
-        style={{ top: "-34px" }}
       >
         <For each={MODE_OPTIONS}>
           {(option) => (

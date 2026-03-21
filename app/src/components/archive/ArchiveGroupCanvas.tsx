@@ -426,7 +426,10 @@ export const ArchiveGroupCanvas = (props: Props) => {
   createEffect(() => {
     const layer = transformLayerRef;
     if (!layer) return;
-    layer.style.transform = canvasStore.viewTransform();
+    const offset = canvasStore.offset();
+    const scale = canvasStore.scale();
+    const transform = `translate(${offset.x}px, ${offset.y}px) scale(${scale})`;
+    layer.style.transform = transform;
     layer.style.transformOrigin = "0 0";
   });
 
@@ -465,10 +468,12 @@ export const ArchiveGroupCanvas = (props: Props) => {
     window.addEventListener("paste", handleCanvasPaste);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", handleResize);
+    canvasViewportRef?.addEventListener("mousedown", beginBackgroundMousePan);
     onCleanup(() => {
       window.removeEventListener("paste", handleCanvasPaste);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleResize);
+      canvasViewportRef?.removeEventListener("mousedown", beginBackgroundMousePan);
     });
   });
 
@@ -847,6 +852,48 @@ export const ArchiveGroupCanvas = (props: Props) => {
     fitToContent();
   };
 
+  const beginBackgroundMousePan = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (
+      target !== canvasViewportRef &&
+      target !== transformLayerRef &&
+      !(target instanceof HTMLElement && target.closest('[data-archive-canvas-card="true"]'))
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    let lastX = event.clientX;
+    let lastY = event.clientY;
+    let moved = false;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - lastX;
+      const dy = moveEvent.clientY - lastY;
+      if (!moved && Math.hypot(moveEvent.clientX - event.clientX, moveEvent.clientY - event.clientY) >= 6) {
+        moved = true;
+        canvasStore.setIsPanning(true);
+      }
+      if (moved) {
+        const offset = canvasStore.offset();
+        canvasStore.setOffset({ x: offset.x + dx, y: offset.y + dy });
+        canvasStore.scheduleTransform();
+      }
+      lastX = moveEvent.clientX;
+      lastY = moveEvent.clientY;
+    };
+
+    const finish = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", finish);
+      canvasStore.setIsPanning(false);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", finish);
+  };
+
   return (
     <>
       <Stack gap="3" h="full" minH="0">
@@ -906,14 +953,15 @@ export const ArchiveGroupCanvas = (props: Props) => {
           onPointerLeave={panZoomHandlers.onPointerLeave}
           ref={canvasViewportRef}
         >
-          <Box
-            position="absolute"
-            left="0"
-            top="0"
-            w="full"
-            h="full"
-            ref={transformLayerRef}
-          >
+        <Box
+          position="absolute"
+          left="0"
+          top="0"
+          w="full"
+          h="full"
+          pointerEvents="none"
+          ref={transformLayerRef}
+        >
             <For each={activeItemIds()}>
               {(itemId, index) => {
                 const item = () => itemsById().get(itemId);
@@ -923,6 +971,8 @@ export const ArchiveGroupCanvas = (props: Props) => {
                       <Box
                         position="absolute"
                         zIndex={itemId === activeId() ? 40 : 10 + index()}
+                        pointerEvents="auto"
+                        data-archive-canvas-card="true"
                         style={{
                           transform: `translate(${current().canvasX}px, ${current().canvasY}px)`,
                         }}

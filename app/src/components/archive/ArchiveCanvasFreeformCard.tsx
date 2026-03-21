@@ -156,7 +156,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
     >
       <HStack
         position="absolute"
-        top="0"
+        top="2"
         left="4"
         zIndex="3"
         gap="1"
@@ -170,7 +170,6 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
         pointerEvents={chromeVisible() ? "auto" : "none"}
         transitionDuration="normal"
         transitionProperty="opacity"
-        style={{ top: "-34px" }}
       >
         <Button
           type="button"
@@ -190,7 +189,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
 
       <HStack
         position="absolute"
-        top="0"
+        top="2"
         right="4"
         zIndex="3"
         gap="1"
@@ -204,7 +203,6 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
         pointerEvents={chromeVisible() ? "auto" : "none"}
         transitionDuration="normal"
         transitionProperty="opacity"
-        style={{ top: "-34px" }}
       >
         <Show
           when={props.isEditing}
