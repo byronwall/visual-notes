@@ -468,12 +468,10 @@ export const ArchiveGroupCanvas = (props: Props) => {
     window.addEventListener("paste", handleCanvasPaste);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("resize", handleResize);
-    canvasViewportRef?.addEventListener("mousedown", beginBackgroundMousePan);
     onCleanup(() => {
       window.removeEventListener("paste", handleCanvasPaste);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("resize", handleResize);
-      canvasViewportRef?.removeEventListener("mousedown", beginBackgroundMousePan);
     });
   });
 
@@ -850,48 +848,6 @@ export const ArchiveGroupCanvas = (props: Props) => {
       { successTitle: "Saved grid arrangement" },
     );
     fitToContent();
-  };
-
-  const beginBackgroundMousePan = (event: MouseEvent) => {
-    if (event.button !== 0) return;
-    const target = event.target;
-    if (
-      target !== canvasViewportRef &&
-      target !== transformLayerRef &&
-      !(target instanceof HTMLElement && target.closest('[data-archive-canvas-card="true"]'))
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    let lastX = event.clientX;
-    let lastY = event.clientY;
-    let moved = false;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.clientX - lastX;
-      const dy = moveEvent.clientY - lastY;
-      if (!moved && Math.hypot(moveEvent.clientX - event.clientX, moveEvent.clientY - event.clientY) >= 6) {
-        moved = true;
-        canvasStore.setIsPanning(true);
-      }
-      if (moved) {
-        const offset = canvasStore.offset();
-        canvasStore.setOffset({ x: offset.x + dx, y: offset.y + dy });
-        canvasStore.scheduleTransform();
-      }
-      lastX = moveEvent.clientX;
-      lastY = moveEvent.clientY;
-    };
-
-    const finish = () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", finish);
-      canvasStore.setIsPanning(false);
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", finish);
   };
 
   return (
