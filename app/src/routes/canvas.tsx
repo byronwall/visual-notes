@@ -30,6 +30,10 @@ import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
 import { DocumentSidePanel } from "~/components/DocumentSidePanel";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import { Button } from "~/components/ui/button";
+import { SimpleDialog } from "~/components/ui/simple-dialog";
+import type { DocumentEditorApi } from "~/components/DocumentEditor";
 import type { DocItem } from "~/types/notes";
 
 const SPREAD = 1000;
@@ -65,6 +69,51 @@ const CanvasRoute: VoidComponent = () => {
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
+  const [activeEditor, setActiveEditor] = createSignal<{
+    docId: string;
+    api: DocumentEditorApi;
+  }>();
+  const [pendingSelectedId, setPendingSelectedId] = createSignal<
+    string | undefined
+  >();
+  const [discardDialogOpen, setDiscardDialogOpen] = createSignal(false);
+  const [saveInProgressDialogOpen, setSaveInProgressDialogOpen] =
+    createSignal(false);
+
+  const requestSelectedId = (nextId: string | undefined) => {
+    if (nextId === selectedId()) return;
+    const currentEditor = activeEditor();
+    if (currentEditor && currentEditor.docId === selectedId()) {
+      if (currentEditor.api.saving()) {
+        setSaveInProgressDialogOpen(true);
+        return;
+      }
+      if (currentEditor.api.dirty()) {
+        setPendingSelectedId(nextId);
+        setDiscardDialogOpen(true);
+        return;
+      }
+    }
+    setSelectedId(nextId);
+  };
+
+  const handleEditorApiChange = (docId: string, api?: DocumentEditorApi) => {
+    if (api) {
+      setActiveEditor({ docId, api });
+      return;
+    }
+    setActiveEditor((current) =>
+      current?.docId === docId ? undefined : current,
+    );
+  };
+
+  createEffect(() => {
+    if (!saveInProgressDialogOpen()) return;
+    const currentEditor = activeEditor();
+    if (!currentEditor || !currentEditor.api.saving()) {
+      setSaveInProgressDialogOpen(false);
+    }
+  });
   // Panel fetches document internally
 
   // Stores
@@ -382,7 +431,7 @@ const CanvasRoute: VoidComponent = () => {
     getHoveredId: hover.hoveredId,
     getHoveredRegionId: hoveredRegionId,
     getPressedRegionId: pressedRegionId,
-    onOpenDoc: (id) => setSelectedId(id),
+    onOpenDoc: requestSelectedId,
     onActivateRegion: handleZoomToRegion,
     clearPressedRegion: () => setPressedRegionId(undefined),
     selection: selectionStore,
@@ -435,7 +484,7 @@ const CanvasRoute: VoidComponent = () => {
           onHoveredRegionChange={setHoveredRegionId}
           onPressedRegionChange={setPressedRegionId}
           suppressNextOpen={panZoomHandlers.blockNextOpen}
-          onSelectDoc={(id) => setSelectedId(id)}
+          onSelectDoc={requestSelectedId}
           onHoveredDocChange={setRailHoveredDocId}
           onZoomToRegion={handleZoomToRegion}
           selectedRegionId={selectedRegionId}
@@ -446,12 +495,48 @@ const CanvasRoute: VoidComponent = () => {
         <DocumentSidePanel
           open={!!selectedId()}
           docId={selectedId()}
-          onClose={(shouldRefetch) => {
-            if (shouldRefetch) {
-              refetchDocs();
+          onEditorApiChange={handleEditorApiChange}
+          onClose={() => requestSelectedId(undefined)}
+          onDeleted={(deletedDocId) => {
+            refetchDocs();
+            if (selectedId() === deletedDocId) {
+              // The note is already deleted, so preserve the delete flow without
+              // prompting to discard edits from the now-removed editor.
+              setPendingSelectedId(undefined);
+              setDiscardDialogOpen(false);
+              setSaveInProgressDialogOpen(false);
+              setSelectedId(undefined);
             }
-            setSelectedId(undefined);
           }}
+        />
+        <ConfirmDialog
+          open={discardDialogOpen()}
+          onOpenChange={(open) => {
+            setDiscardDialogOpen(open);
+            if (!open) setPendingSelectedId(undefined);
+          }}
+          title="Discard unsaved changes?"
+          description="Your unsaved changes will be lost if you leave this note."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            setSelectedId(pendingSelectedId());
+            setPendingSelectedId(undefined);
+          }}
+        />
+        <SimpleDialog
+          open={saveInProgressDialogOpen()}
+          onOpenChange={setSaveInProgressDialogOpen}
+          title="Note is saving"
+          description="Wait for this save to finish before closing or opening another note."
+          footer={
+            <Button
+              variant="solid"
+              onClick={() => setSaveInProgressDialogOpen(false)}
+            >
+              Keep editing
+            </Button>
+          }
         />
         <Suspense fallback={null}>
           <ControlPanel
@@ -472,7 +557,7 @@ const CanvasRoute: VoidComponent = () => {
           onHoveredDocChange={setRailHoveredDocId}
           onZoomToRegion={handleZoomToRegion}
           onClearRegion={clearSelectedRegion}
-          onOpenDoc={(id) => setSelectedId(id)}
+          onOpenDoc={requestSelectedId}
         />
       </Show>
     </Box>
