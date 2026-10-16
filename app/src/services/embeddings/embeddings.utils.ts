@@ -23,6 +23,29 @@ type Segment = {
 
 export { estimateTokensApprox };
 
+function validateVectors(vectors: number[][], expectedCount: number): number[][] {
+  if (vectors.length !== expectedCount) {
+    throw new Error(
+      `Expected ${expectedCount} embeddings, received ${vectors.length}`
+    );
+  }
+  if (expectedCount === 0) return vectors;
+  if (vectors.some((vector) => !Array.isArray(vector) || vector.length === 0)) {
+    throw new Error("Embedding failed for one or more inputs");
+  }
+
+  const dimensions = vectors[0].length;
+  for (const vector of vectors) {
+    if (
+      vector.length !== dimensions ||
+      vector.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error("Embedding response contained an invalid vector");
+    }
+  }
+  return vectors;
+}
+
 export async function embedWithOpenAI(
   texts: string[],
   model: string
@@ -41,7 +64,10 @@ export async function embedWithOpenAI(
   }
   const json = (await res.json()) as any;
   const data = Array.isArray(json.data) ? json.data : [];
-  return data.map((d: any) => d.embedding as number[]);
+  return validateVectors(
+    data.map((d: any) => d.embedding as number[]),
+    texts.length
+  );
 }
 
 function tryParseOpenAIError(err: unknown): OpenAIEmbeddingError | null {
@@ -272,5 +298,8 @@ export async function embedBatched(
     );
   }
 
-  return result.map((vector) => (Array.isArray(vector) ? vector : []));
+  return validateVectors(
+    result.map((vector) => (Array.isArray(vector) ? vector : [])),
+    texts.length
+  );
 }
