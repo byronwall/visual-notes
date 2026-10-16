@@ -1,6 +1,5 @@
 import { For, Show, Suspense, createEffect, createSignal } from "solid-js";
 import type { VoidComponent } from "solid-js";
-import { useAction } from "@solidjs/router";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import {
@@ -15,7 +14,8 @@ import {
 } from "~/components/doc-properties/meta-draft";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
-import { updateDoc, type MetaRecord } from "~/services/docs.service";
+import { type MetaRecord } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 import { MetaKeySuggestions } from "./MetaKeySuggestions";
 import { MetaValueSuggestions } from "./MetaValueSuggestions";
 
@@ -33,7 +33,7 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [isEditing, setIsEditing] = createSignal(false);
   const [editKey, setEditKey] = createSignal("");
   const [editValue, setEditValue] = createSignal("");
-  const runUpdateDoc = useAction(updateDoc);
+  const { update: runUpdateDoc } = useNoteMutations();
 
   const resetEditorFields = () => {
     setEditingIndex(null);

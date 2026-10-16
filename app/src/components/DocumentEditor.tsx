@@ -8,18 +8,14 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import { useAction, useBeforeLeave } from "@solidjs/router";
+import { useBeforeLeave } from "@solidjs/router";
 import { extractFirstH1FromHtml } from "~/utils/extractHeading";
 import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
-import {
-  createDoc,
-  fetchDoc,
-  type MetaRecord,
-  updateDoc,
-} from "~/services/docs.service";
+import { fetchDoc, type MetaRecord } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import { Button } from "~/components/ui/button";
@@ -63,24 +59,23 @@ const DocumentEditor: VoidComponent<{
   const [dirty, setDirty] = createSignal(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = createSignal(false);
   const [pendingRetry, setPendingRetry] = createSignal<(() => void) | null>(
-    null
+    null,
   );
 
   const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<MetaRecord>({});
   const [newTitle, setNewTitle] = createSignal(
-    (props.initialTitle || "").trim() || "Untitled note"
+    (props.initialTitle || "").trim() || "Untitled note",
   );
-  const runCreateDoc = useAction(createDoc);
-  const runUpdateDoc = useAction(updateDoc);
+  const { create: runCreateDoc, update: runUpdateDoc } = useNoteMutations();
   let lastAppliedInitialTitle = (props.initialTitle || "").trim();
   let hasAppliedInitialLineSelection = false;
 
   const isNew = createMemo(() => !props.docId);
 
   const displayTitle = createMemo(
-    () => doc()?.title || newTitle().trim() || "Untitled note"
+    () => doc()?.title || newTitle().trim() || "Untitled note",
   );
 
   createEffect(() => {
@@ -103,7 +98,7 @@ const DocumentEditor: VoidComponent<{
     if (props.initialHTML) return props.initialHTML;
 
     const html = normalizeMarkdownToHtml(
-      props.initialMarkdown || "# Untitled\n\nStart writing..."
+      props.initialMarkdown || "# Untitled\n\nStart writing...",
     );
 
     return html;
@@ -221,7 +216,7 @@ const DocumentEditor: VoidComponent<{
 
   const restoreSelection = (
     ed: Editor,
-    snapshot: { from: number; to: number; wasFocused: boolean } | null
+    snapshot: { from: number; to: number; wasFocused: boolean } | null,
   ) => {
     if (!snapshot) return;
     if (!hasMountedEditorView(ed)) return;
@@ -273,7 +268,11 @@ const DocumentEditor: VoidComponent<{
         // First save → create the note
         let title = newTitle().trim();
         const detected = extractFirstH1FromHtml(html);
-        if (props.preferH1TitleForNewDoc && detected && detected.trim().length > 0) {
+        if (
+          props.preferH1TitleForNewDoc &&
+          detected &&
+          detected.trim().length > 0
+        ) {
           title = detected.trim();
         }
         if (!title && detected && detected.trim().length > 0) {
@@ -288,11 +287,10 @@ const DocumentEditor: VoidComponent<{
           path: newPath() || undefined,
           meta: newMeta(),
         });
-        if (!json?.id) throw new Error("Failed to create note");
         setSavedAt(new Date());
         setDirty(false);
         shouldRestoreSelection = false;
-        if (props.onCreated) props.onCreated(String(json.id));
+        if (props.onCreated) props.onCreated(json.id);
       } else {
         // Update existing
         await runUpdateDoc({ id: d!.id, html });
