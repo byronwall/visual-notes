@@ -74,7 +74,7 @@ corepack pnpm audit:fixtures cleanup --manifest /abs/evidence/fixtures.json --ow
 corepack pnpm audit:fixtures cleanup --manifest /abs/evidence/fixtures.json --owner harness --database visual_notes_audit_harness --id <id> --env-file /path/to/secure/local.env
 ```
 
-Supported kinds are `Doc`, `ArchivedPage`, `TaskList`, and `TimeBlock`. Cleanup refuses an ID absent from the owner's manifest, a different owner or database, or a kind mismatch, and it checks all of these before connecting. It deletes one row by its exact ID from the loopback synthetic database and then removes the entry from the manifest. Cleanup still needs the coordinator's authorization; the command only limits what an authorized cleanup can touch.
+Supported kinds are `Doc`, `ArchivedPage`, `TaskList`, `TimeBlock`, and `EmbeddingRun` (its `UmapRun` and `UmapPoint` rows cascade with it). Cleanup refuses an ID absent from the owner's manifest, a different owner or database, or a kind mismatch, and it checks all of these before connecting. It deletes one row by its exact ID from the loopback synthetic database and then removes the entry from the manifest. Cleanup still needs the coordinator's authorization; the command only limits what an authorized cleanup can touch.
 
 The manifest looks like this:
 

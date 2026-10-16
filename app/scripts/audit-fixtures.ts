@@ -13,6 +13,8 @@ export const fixtureModels = {
   ArchivedPage: "archivedPage",
   TaskList: "taskList",
   TimeBlock: "timeBlock",
+  // Deleting an EmbeddingRun cascades to its UmapRun and UmapPoint rows.
+  EmbeddingRun: "embeddingRun",
 } as const;
 
 export type EntityKind = keyof typeof fixtureModels;
@@ -150,7 +152,8 @@ async function deleteFixture(
   fixture: FixtureEntry,
 ) {
   const source = parseEnv(readFileSync(envFile, "utf8"));
-  if (!source.DATABASE_URL) throw new Error("Env file must define DATABASE_URL.");
+  if (!source.DATABASE_URL)
+    throw new Error("Env file must define DATABASE_URL.");
   const datasourceUrl = auditDatabaseUrl(
     source.DATABASE_URL,
     source,
@@ -173,7 +176,9 @@ async function deleteFixture(
 }
 
 async function main() {
-  const [command, ...rest] = process.argv.slice(2).filter((arg) => arg !== "--");
+  const [command, ...rest] = process.argv
+    .slice(2)
+    .filter((arg) => arg !== "--");
   const { values } = parseArgs({
     args: rest,
     options: {
@@ -212,7 +217,8 @@ async function main() {
 
   if (command === "cleanup") {
     const manifest = readManifest(manifestPath);
-    if (!manifest) throw new Error(`No manifest at ${manifestPath}. Cleanup refused.`);
+    if (!manifest)
+      throw new Error(`No manifest at ${manifestPath}. Cleanup refused.`);
     const fixture = resolveOwnedFixture(
       manifest,
       owner,
