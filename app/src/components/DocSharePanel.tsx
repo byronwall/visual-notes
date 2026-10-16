@@ -73,8 +73,8 @@ export function DocSharePanel(props: DocSharePanelProps) {
     const initialShare = props.initialShare ?? null;
     const selectionChanged =
       selectedDocId !== undefined && docId !== selectedDocId;
+    selectedDocId = docId;
     if (selectionChanged) {
-      selectedDocId = docId;
       selectionGeneration += 1;
     }
 
