@@ -30,4 +30,4 @@ Helpers can mistake login pages or hidden controls for valid state. Require prot
 
 ## 8. Follow-ups and open risks
 
-Independent normal hover, track click, visible heading jump, edit/save/reload, resize, and scroll-owner checks passed. The document scrolls the page; the TOC list scrolls separately. Delayed image/font marker accuracy was not checked in the browser. Its invalidation signals passed source review.
+Independent normal hover, track click, visible heading jump, edit/save/reload, resize, and scroll-owner checks passed. The document scrolls the page; the TOC list scrolls separately. A controlled local-font runtime check changed document height by 384px, updated ticks, and kept the heading jump correct. Reload removed the probe. Physical image reflow remains unverified because the probe image rendered at zero height. No probe mutation was saved.
