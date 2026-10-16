@@ -54,3 +54,9 @@ The source report described an exact full-page note update that returned HTTP 50
 - **Local `d47aa01` support:** This commit is the local PR15 readiness cherry-pick (`e401804`), containing the app hydration marker and browser-check readiness helpers. It is support-only, not title-recovery implementation. Root will remove it from branch history before publishing; no worker action is needed.
 - **Local audit artifacts:** `app/scripts/audit-harness.local.ts`, the temporary credential fixture, and `tmp/` evidence are local diagnostic support. The browser verifier is finished. Root owns cleanup: remove the credential fixture and harness, then retain only evidence needed for the handoff. No cleanup was performed by this worker.
 - **Scope limit:** Do not infer cross-note authorization, delete behavior, or universal cancellation behavior from these traces. Those probes were outside this work and remain blocked or unverified.
+
+### Controlled cancellation follow-up
+
+A later source review raised a possible stale transition flag after cancellation. The resolved Zag 1.31.1 controlled preview actions contain `revertValue`, `restoreFocus`, and `invokeOnCancel`. They do not call `invokeOnPreview` a second time.
+
+An offline fixture tested the actual component at `408972f` with its real Ark, Solid, and Panda dependencies. Escape restored the original preview. A later parent signal change updated the visible preview and hidden input value. No commit ran. The real callback trace had one `edit(false)` before `value-revert`, with no second callback afterward. An uninstrumented run used the exact app wrapper; a separate trace wrapper only recorded and forwarded callbacks. This proof did not access app authentication or the database. The fixture browser and server closed. Evidence: `tmp/inline-title-current-proof/report.md` and `report.json` in the audit checkout. No feature source change was needed.
