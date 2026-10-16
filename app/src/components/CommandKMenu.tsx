@@ -24,11 +24,11 @@ import { Text } from "~/components/ui/text";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import {
-  fetchDocs,
-  searchDocs,
-  type DocListItem,
-  type ServerSearchItem,
-} from "~/features/docs-index/data/docs.service";
+  commandSearchKey,
+  loadCommandResults,
+  retryCommandResults,
+  type CommandSearchParams,
+} from "~/components/command-search";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { pathToRoute } from "~/utils/path-links";
@@ -92,13 +92,14 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     "" | "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD"
   >("");
   let inputEl: HTMLInputElement | undefined;
+  let resultsViewportEl: HTMLDivElement | undefined;
 
   onMount(() => {
     setSelectsReady(true);
   });
 
   const qTrim = () => query().trim();
-  const qForSearch = () => (qTrim().length >= 2 ? qTrim() : "");
+  const qForSearch = () => qTrim();
 
   const snippetClass = css({
     fontSize: "xs",
@@ -154,46 +155,30 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     });
   });
 
-  const searchParams = createMemo(() => ({
+  const searchParams = createMemo<CommandSearchParams>(() => ({
     q: debouncedQuery(),
     sortMode: sortMode(),
     activityClass: activityClass(),
   }));
 
-  const [results] = createResource(searchParams, async (params) => {
-    console.debug("[cmdk.search] request", {
-      q: params.q,
-      sortMode: params.sortMode,
-      activityClass: params.activityClass,
-    });
-    if (params.q) {
-      return searchDocs({
+  const [results, { refetch: retrySearch }] = createResource(
+    searchParams,
+    async (params) => {
+      console.debug("[cmdk.search] request", {
         q: params.q,
-        take: 25,
         sortMode: params.sortMode,
-        activityClass: params.activityClass || undefined,
+        activityClass: params.activityClass,
       });
-    }
-
-    // Empty-state feed: show likely next docs to open, activity-aware.
-    const emptySortMode =
-      params.sortMode === "relevance" ? "recent_activity" : params.sortMode;
-    const docs = await fetchDocs({
-      take: 25,
-      sortMode: emptySortMode,
-      activityClass: params.activityClass || undefined,
-    });
-    return docs.map((doc: DocListItem): ServerSearchItem => ({
-      ...doc,
-      snippet: undefined,
-    }));
-  });
+      return loadCommandResults(params);
+    },
+  );
   createEffect(() => {
-    const latest = (results.latest || []) as ServerSearchItem[];
+    const latest = results.latest;
     console.debug("[cmdk.search] response", {
       q: debouncedQuery(),
-      resultCount: latest.length,
-      topResultsPreview: latest.slice(0, 5).map((item) => ({
+      resultCount: latest?.items.length ?? 0,
+      failed: latest?.failed ?? false,
+      topResultsPreview: (latest?.items ?? []).slice(0, 5).map((item) => ({
         id: item.id,
         title: item.title,
       })),
@@ -219,6 +204,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     navigate(`/docs/${id}`);
   };
 
+  const currentResults = () => {
+    const latest = results.latest;
+    const currentKey = commandSearchKey({
+      q: qForSearch(),
+      sortMode: sortMode(),
+      activityClass: activityClass(),
+    });
+    return latest?.key === currentKey ? latest : undefined;
+  };
+
   const items = createMemo<CommandItem[]>(() => {
     const base: CommandItem[] = [
       {
@@ -231,7 +226,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     ];
 
     // Use `latest` to avoid Suspense re-triggering (UI flashing) on each query change.
-    const hits = (results.latest || []) as ServerSearchItem[];
+    const hits = currentResults()?.items ?? [];
     const mapped: CommandItem[] = hits.slice(0, 10).map((d) => ({
       kind: "doc",
       key: d.id,
@@ -250,8 +245,20 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     return Math.max(0, Math.min(max, next));
   };
 
+  const resetSelection = () => {
+    setSelectedIndex(0);
+    if (resultsViewportEl) resultsViewportEl.scrollTop = 0;
+  };
+
+  const scrollSelectedIntoView = () => {
+    resultsViewportEl
+      ?.querySelector<HTMLElement>(`[data-command-index="${selectedIndex()}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  };
+
   const moveSelected = (delta: number) => {
     setSelectedIndex((prev) => clampSelected(prev + delta));
+    scrollSelectedIntoView();
   };
 
   const runSelected = () => {
@@ -298,13 +305,12 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   createEffect(() => {
-    // When query changes, snap selection back to the top.
-    // This keeps the "New note" action easy to hit via Enter.
+    // Keep the New note action visible and selected when the query changes.
     void query();
-    setSelectedIndex(0);
+    resetSelection();
   });
 
-  const isSearchingEnabled = () => qTrim().length >= 2;
+  const isSearchingEnabled = () => qForSearch().length > 0;
   const isSearching = () => results.loading;
 
   const rowBg = (active: boolean) => (active ? "black.a2" : "transparent");
@@ -375,9 +381,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     minW: "0",
     pr: "0.5",
   });
+  const pathMatchLinkClass = css({ flexShrink: "0", whiteSpace: "nowrap" });
 
   const resultsPanelHeight = "55vh";
-  const hitsLatest = () => (results.latest || []) as ServerSearchItem[];
+  const hitsLatest = () => currentResults()?.items ?? [];
   const handleDocLinkClick = (ev: MouseEvent, id: string) => {
     if (ev.defaultPrevented) return;
     if (ev.button !== 0) return;
@@ -407,7 +414,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             size="sm"
             flex="1"
             minW="0"
-            placeholder="Type to search… (2+ characters)"
+            placeholder="Type to search…"
             value={query()}
             onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
             onKeyDown={(e) => handleInputKeyDown(e as unknown as KeyboardEvent)}
@@ -443,15 +450,17 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <SimpleSelect
                     items={sortModeItems}
                     value={sortMode()}
-                    onChange={(value) =>
-                      setSortMode(
-                        value as
-                          | "relevance"
-                          | "recent_activity"
-                          | "most_viewed_30d"
-                          | "most_edited_30d",
-                      )
-                    }
+                    onChange={(value) => {
+                      const next = value as
+                        | "relevance"
+                        | "recent_activity"
+                        | "most_viewed_30d"
+                        | "most_edited_30d";
+                      if (next !== sortMode()) {
+                        resetSelection();
+                      }
+                      setSortMode(next);
+                    }}
                     size="sm"
                     sameWidth
                     skipPortal
@@ -461,17 +470,20 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <ActivityIcon size={14} />
                   <SimpleSelect
                     items={activityClassItems}
+                    placeholder="All activity"
                     value={activityClass()}
-                    onChange={(value) =>
-                      setActivityClass(
-                        value as
-                          | ""
-                          | "READ_HEAVY"
-                          | "EDIT_HEAVY"
-                          | "BALANCED"
-                          | "COLD",
-                      )
-                    }
+                    onChange={(value) => {
+                      const next = value as
+                        | ""
+                        | "READ_HEAVY"
+                        | "EDIT_HEAVY"
+                        | "BALANCED"
+                        | "COLD";
+                      if (next !== activityClass()) {
+                        resetSelection();
+                      }
+                      setActivityClass(next);
+                    }}
                     size="sm"
                     sameWidth
                     skipPortal
@@ -498,6 +510,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <PathPillLink
                     href={pathToRoute(item.path)}
                     variant="subtle"
+                    class={pathMatchLinkClass}
                     onClick={(e) =>
                       handlePathLinkClick(
                         e as unknown as MouseEvent,
@@ -539,6 +552,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
           }
         >
           <Box
+            ref={resultsViewportEl}
             borderWidth="1px"
             borderColor="gray.outline.border"
             borderRadius="l2"
@@ -553,6 +567,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <Switch>
                     <Match when={it.kind === "action"}>
                       <Button
+                        data-command-index={idx()}
                         variant={idx() === selectedIndex() ? "subtle" : "plain"}
                         size="sm"
                         w="full"
@@ -599,6 +614,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                     </Match>
                     <Match when={it.kind === "doc"}>
                       <a
+                        data-command-index={idx()}
                         href={(it as Extract<CommandItem, { kind: "doc" }>).href}
                         class={docRowClass(idx() === selectedIndex())}
                         onMouseEnter={() => setSelectedIndex(idx())}
@@ -644,11 +660,43 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                 )}
               </For>
 
+              <Show when={currentResults()?.failed && !results.loading}>
+                <Box
+                  role="alert"
+                  borderWidth="1px"
+                  borderColor="gray.outline.border"
+                  borderRadius="l2"
+                  px="0.75rem"
+                  py="0.65rem"
+                >
+                  <HStack
+                    justify="space-between"
+                    alignItems="center"
+                    gap="0.75rem"
+                  >
+                    <Text fontSize="sm" color="fg.muted">
+                      Could not load results. Try again.
+                    </Text>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void retryCommandResults(searchParams(), retrySearch)
+                      }
+                    >
+                      Retry
+                    </Button>
+                  </HStack>
+                </Box>
+              </Show>
+
               <Show
                 when={
                   isSearchingEnabled() &&
                   debouncedQuery().length > 0 &&
                   !results.loading &&
+                  currentResults()?.failed !== true &&
                   hitsLatest().length === 0
                 }
               >

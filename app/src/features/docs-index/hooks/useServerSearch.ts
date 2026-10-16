@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 type Filters = {
   pathPrefix?: string;
-  blankPathOnly?: boolean;
+  pathBlankOnly?: boolean;
   metaKey?: string;
   metaValue?: string;
   source?: string;
@@ -33,6 +33,7 @@ export function useServerSearch(
   const debounced = useDebouncedSignal(qSig, { leadMs: 100, trailMs: 500 });
   const [results, setResults] = createSignal<ServerSearchItem[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal<"request" | "timeout">();
   const [reloadTick, setReloadTick] = createSignal(0);
 
   let requestSeq = 0;
@@ -49,6 +50,7 @@ export function useServerSearch(
         if (prev.length > 0) return [];
         return prev;
       });
+      setError(undefined);
       latestRequestId = 0;
       inFlight.clear();
       setLoading(false);
@@ -59,8 +61,11 @@ export function useServerSearch(
     latestRequestId = requestId;
     inFlight.add(requestId);
     setLoading(true);
+    setResults([]);
+    setError(undefined);
 
     const startMs = Date.now();
+    let timedOut = false;
     const slowTimer = setTimeout(() => {
       console.info(`${SEARCH_LOG_PREFIX} slow`, {
         requestId,
@@ -71,6 +76,7 @@ export function useServerSearch(
     }, 2000);
     const timeoutTimer = setTimeout(() => {
       inFlight.delete(requestId);
+      timedOut = true;
       const elapsedMs = Date.now() - startMs;
       if (requestId !== latestRequestId) {
         return;
@@ -83,11 +89,13 @@ export function useServerSearch(
         inFlight: inFlight.size,
       });
       setLoading(false);
+      setError("timeout");
     }, REQUEST_TIMEOUT_MS);
     console.info(`${SEARCH_LOG_PREFIX} start`, {
       requestId,
       q,
       take: resolvedTake ?? null,
+      inFlight: inFlight.size,
       hasFilters: Object.values(f).some(
         (value) => value !== undefined && value !== "" && value !== false,
       ),
@@ -96,12 +104,14 @@ export function useServerSearch(
     let disposed = false;
     onCleanup(() => {
       disposed = true;
+      inFlight.delete(requestId);
       clearTimeout(slowTimer);
       clearTimeout(timeoutTimer);
     });
 
     searchDocs({ q, ...f, take: resolvedTake })
       .then((items) => {
+        if (timedOut) return;
         inFlight.delete(requestId);
         clearTimeout(slowTimer);
         clearTimeout(timeoutTimer);
@@ -120,6 +130,7 @@ export function useServerSearch(
         setLoading(false);
       })
       .catch((err: unknown) => {
+        if (timedOut) return;
         inFlight.delete(requestId);
         clearTimeout(slowTimer);
         clearTimeout(timeoutTimer);
@@ -133,7 +144,9 @@ export function useServerSearch(
           inFlight: inFlight.size,
           err,
         });
+        setResults([]);
         setLoading(false);
+        setError("request");
       });
   });
 
@@ -141,5 +154,5 @@ export function useServerSearch(
     setReloadTick((x) => x + 1);
   };
 
-  return { results, loading, refetch };
+  return { results, loading, error, refetch };
 }

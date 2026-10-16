@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -102,15 +102,27 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       }
     };
     window.addEventListener("keydown", onWindowKeyDown);
-    return () => {
+    onCleanup(() => {
       off();
       window.removeEventListener("keydown", onWindowKeyDown);
-    };
+    });
   });
 
   return (
     <>
       <Box minH="100vh" bg="bg.default">
+        <AppSidebarMobile
+          open={mobileOpen()}
+          onOpenChange={setMobileOpen}
+          onToggleCollapse={handleCollapseToggle}
+          onChatOpen={handleChatOpen}
+          onNewNoteOpen={handleNewNoteOpen}
+          onSearchOpen={handleSearchOpen}
+          onLogout={handleLogout}
+          hasUnreadAny={hasUnreadAny}
+          hasLoadingAny={hasLoadingAny}
+          authed={authed}
+        />
         <AppSidebarDesktop
           expanded={isExpanded()}
           collapsedWidth={COLLAPSED_WIDTH}
@@ -129,18 +141,6 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         >
           {props.children}
         </AppSidebarDesktop>
-        <AppSidebarMobile
-          open={mobileOpen()}
-          onOpenChange={setMobileOpen}
-          onToggleCollapse={handleCollapseToggle}
-          onChatOpen={handleChatOpen}
-          onNewNoteOpen={handleNewNoteOpen}
-          onSearchOpen={handleSearchOpen}
-          onLogout={handleLogout}
-          hasUnreadAny={hasUnreadAny}
-          hasLoadingAny={hasLoadingAny}
-          authed={authed}
-        />
       </Box>
 
       {llmSidebarView}

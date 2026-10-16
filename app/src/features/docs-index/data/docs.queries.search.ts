@@ -36,7 +36,6 @@ export const searchDocs = query(
 
     const termLower = term.toLowerCase();
     const terms = tokenizeQuery(termLower);
-    if (!terms.length) return [];
     const hasMultiTermQuery = terms.length > 1;
 
     const take = Math.max(1, Math.min(200, q.take ?? 50));

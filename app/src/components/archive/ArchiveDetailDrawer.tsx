@@ -1,5 +1,5 @@
 import { revalidate, useAction } from "@solidjs/router";
-import { createMemo, createResource, createSignal, For, Show, Suspense, type VoidComponent } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, Show, Suspense, type VoidComponent } from "solid-js";
 import { PlusIcon } from "lucide-solid";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { openImagePreview } from "~/components/editor/ui/imagePreviewService";
@@ -53,6 +53,39 @@ const ArchiveNoteRow = (props: {
   onDeleteImage: (noteId: string, index: number) => Promise<void>;
 }) => {
   const [imageDraft, setImageDraft] = createSignal("");
+  const [noteText, setNoteText] = createSignal<string>();
+  const [noteError, setNoteError] = createSignal<string>();
+  const [canRetryNoteSave, setCanRetryNoteSave] = createSignal(false);
+  let lastSavedText: string | undefined;
+
+  createEffect(() => {
+    const savedText = props.note.noteText;
+    if (savedText === lastSavedText) return;
+    lastSavedText = savedText;
+    setNoteText(savedText);
+  });
+
+  const commitNoteText = async (next: string) => {
+    setNoteText(next);
+    setNoteError(undefined);
+    setCanRetryNoteSave(false);
+    if (!next.trim() && props.note.imageUrls.length === 0) {
+      setNoteError("Add note text or an image before saving.");
+      return;
+    }
+    try {
+      await props.onNoteCommit(props.note.id, next);
+    } catch (error) {
+      setNoteError(error instanceof Error ? error.message : "Could not save note.");
+      setCanRetryNoteSave(true);
+    }
+  };
+
+  const restoreSavedText = () => {
+    setNoteText(props.note.noteText);
+    setNoteError(undefined);
+    setCanRetryNoteSave(false);
+  };
 
   return (
     <Stack gap="2" p="3" borderRadius="l3" bg="bg.subtle">
@@ -72,15 +105,42 @@ const ArchiveNoteRow = (props: {
       </HStack>
 
       <InPlaceEditableText
-        value={props.note.noteText}
+        value={noteText() ?? props.note.noteText}
         placeholder="Add note text"
-        onCommit={(value) => props.onNoteCommit(props.note.id, value)}
+        onCommit={commitNoteText}
         activationMode="click"
         fillWidth
         wrapPreview
         allowEmpty
         minInputWidth="16rem"
       />
+      <Show when={noteError()}>
+        {(message) => (
+          <HStack justify="space-between" gap="2" alignItems="center">
+            <Text role="alert" fontSize="xs" color="fg.error">{message()}</Text>
+            <HStack gap="1" alignItems="center">
+              <Button
+                type="button"
+                size="xs"
+                variant="plain"
+                onClick={restoreSavedText}
+              >
+                Restore saved
+              </Button>
+              <Show when={canRetryNoteSave()}>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={() => void commitNoteText(noteText() ?? props.note.noteText)}
+                >
+                  Retry save
+                </Button>
+              </Show>
+            </HStack>
+          </HStack>
+        )}
+      </Show>
 
       <Show when={props.note.imageUrls.length > 0}>
         <Box display="flex" flexWrap="wrap" gap="2">
@@ -205,6 +265,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
 
   const [newNoteText, setNewNoteText] = createSignal("");
   const [newNoteImageUrl, setNewNoteImageUrl] = createSignal("");
+  const [newNoteError, setNewNoteError] = createSignal<string>();
 
   const item = createMemo(() => detail.latest ?? detail());
 
@@ -253,14 +314,25 @@ export const ArchiveDetailDrawer: VoidComponent<{
 
   const createNote = async () => {
     if (!props.pageId) return;
-    await runCreateArchivedPageNote({
-      pageId: props.pageId,
-      noteText: newNoteText(),
-      imageUrl: newNoteImageUrl() || undefined,
-    });
-    setNewNoteText("");
-    setNewNoteImageUrl("");
-    await refresh();
+    const noteText = newNoteText().trim();
+    const imageUrl = newNoteImageUrl().trim();
+    if (!noteText && !imageUrl) {
+      setNewNoteError("Add note text or an image URL.");
+      return;
+    }
+    setNewNoteError(undefined);
+    try {
+      await runCreateArchivedPageNote({
+        pageId: props.pageId,
+        noteText,
+        imageUrl: imageUrl || undefined,
+      });
+      setNewNoteText("");
+      setNewNoteImageUrl("");
+      await refresh();
+    } catch (error) {
+      setNewNoteError(error instanceof Error ? error.message : "Could not add note.");
+    }
   };
 
   const deleteEntry = async () => {
@@ -390,18 +462,37 @@ export const ArchiveDetailDrawer: VoidComponent<{
                         value={newNoteText()}
                         placeholder="Add a note to this entry"
                         rows={2}
-                        onInput={(event) => setNewNoteText(event.currentTarget.value)}
+                        onInput={(event) => {
+                          setNewNoteText(event.currentTarget.value);
+                          setNewNoteError(undefined);
+                        }}
                       />
                       <HStack gap="2">
                         <Input
                           value={newNoteImageUrl()}
                           placeholder="Optional image URL"
-                          onInput={(event) => setNewNoteImageUrl(event.currentTarget.value)}
+                          onInput={(event) => {
+                            setNewNoteImageUrl(event.currentTarget.value);
+                            setNewNoteError(undefined);
+                          }}
                         />
-                        <Button type="button" size="sm" onClick={() => void createNote()}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!newNoteText().trim() && !newNoteImageUrl().trim()}
+                          onClick={() => void createNote()}
+                        >
                           Add note
                         </Button>
                       </HStack>
+                      <Show when={newNoteError()}>
+                        {(message) => <Text role="alert" fontSize="xs" color="fg.error">{message()}</Text>}
+                      </Show>
+                      <Show when={!newNoteText().trim() && !newNoteImageUrl().trim() && !newNoteError()}>
+                        <Text fontSize="xs" color="fg.muted">
+                          Add text or an image URL to create a note.
+                        </Text>
+                      </Show>
                     </Stack>
 
                     <Show
