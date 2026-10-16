@@ -7,6 +7,7 @@ import {
 } from "solid-js";
 import { Box } from "styled-system/jsx";
 import * as Editable from "~/components/ui/editable";
+import { Text } from "~/components/ui/text";
 
 type EditableActivationMode = "focus" | "dblclick" | "click" | "none";
 
@@ -37,13 +38,19 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   const [draft, setDraft] = createSignal(props.value);
   const [isEditing, setIsEditing] = createSignal(false);
   const [actionVisible, setActionVisible] = createSignal(false);
+  const [saveError, setSaveError] = createSignal("");
+  const [isSaving, setIsSaving] = createSignal(false);
+  const [previewTransition, setPreviewTransition] = createSignal(false);
+  let commitPending = false;
+  let editSession = 0;
   let editTriggerRef: HTMLButtonElement | undefined;
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
-  const editableValue = () => (isEditing() ? draft() : props.value);
+  const editableValue = () =>
+    isEditing() || isSaving() || previewTransition() ? draft() : props.value;
 
   createEffect(() => {
     const next = props.value;
-    if (isEditing()) return;
+    if (isEditing() || isSaving() || previewTransition()) return;
     setDraft((prev) => {
       return prev === next ? prev : next;
     });
@@ -73,7 +80,21 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
     }, 160);
   };
 
+  const cancelEdit = () => {
+    editSession += 1;
+    setPreviewTransition(false);
+    setSaveError("");
+    setDraft(props.value);
+    setIsEditing(false);
+  };
+
   const handleCommit = async (nextValue: string) => {
+    setPreviewTransition(false);
+    if (commitPending) {
+      setIsEditing(true);
+      return;
+    }
+    const session = editSession;
     const previous = props.value;
     const normalize = props.trimOnCommit ?? true;
     const next = normalize ? nextValue.trim() : nextValue;
@@ -88,12 +109,23 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
       return;
     }
     setDraft(next);
+    setSaveError("");
+    setIsSaving(true);
+    commitPending = true;
     try {
       await props.onCommit(next);
-    } catch {
-      setDraft(previous);
+    } catch (error) {
+      if (session === editSession) {
+        setSaveError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to save. Try again.",
+        );
+        if (!isEditing()) setIsEditing(true);
+      }
     } finally {
-      setIsEditing(false);
+      commitPending = false;
+      setIsSaving(false);
     }
   };
 
@@ -158,21 +190,30 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
       </Show>
       <Editable.Root
         width={props.fillWidth ? "full" : "fit-content"}
+        edit={isEditing()}
         value={editableValue()}
         placeholder={props.placeholder}
         activationMode={props.activationMode ?? "click"}
         submitMode="both"
         selectOnFocus
-        onEditChange={(details) => setIsEditing(details.edit)}
+        onEditChange={(details) => {
+          if (details.edit) {
+            editSession += 1;
+            setPreviewTransition(false);
+            setSaveError("");
+            setIsEditing(true);
+            return;
+          }
+          setPreviewTransition(true);
+          setIsEditing(false);
+        }}
         onValueChange={(details) => {
           if (!isEditing()) return;
+          setSaveError("");
           setDraft(details.value);
         }}
         onValueCommit={(details) => void handleCommit(details.value)}
-        onValueRevert={() => {
-          setDraft(props.value);
-          setIsEditing(false);
-        }}
+        onValueRevert={cancelEdit}
       >
         <Editable.EditTrigger
           ref={editTriggerRef}
@@ -237,6 +278,18 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
           </Editable.Area>
         </Box>
       </Editable.Root>
+      <Show when={isSaving()}>
+        <Text as="div" role="status" fontSize="xs" color="fg.muted">
+          Saving…
+        </Text>
+      </Show>
+      <Show when={saveError()}>
+        {(message) => (
+          <Text as="div" role="alert" fontSize="xs" color="red.11">
+            {message()}
+          </Text>
+        )}
+      </Show>
     </Box>
   );
 };
