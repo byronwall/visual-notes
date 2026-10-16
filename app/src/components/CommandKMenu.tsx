@@ -469,6 +469,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <ActivityIcon size={14} />
                   <SimpleSelect
                     items={activityClassItems}
+                    placeholder="All activity"
                     value={activityClass()}
                     onChange={(value) => {
                       const next = value as
