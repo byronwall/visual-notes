@@ -17,15 +17,19 @@ type SidePanelProps = {
 
 export const SidePanel = (props: SidePanelProps) => {
   const shouldCloseOnEsc = () => props.closeOnEsc !== false;
+  let panelElement: HTMLDivElement | undefined;
 
   createEffect(() => {
     if (!props.open || !shouldCloseOnEsc()) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        props.onClose();
-      }
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target;
+      const targetDialog =
+        target instanceof Element ? target.closest('[role="dialog"]') : null;
+      if (targetDialog && targetDialog !== panelElement) return;
+      e.preventDefault();
+      e.stopPropagation();
+      props.onClose();
     };
     window.addEventListener("keydown", onKey);
     onCleanup(() => window.removeEventListener("keydown", onKey));
@@ -50,6 +54,7 @@ export const SidePanel = (props: SidePanelProps) => {
           role="dialog"
           aria-modal="true"
           aria-label={props.ariaLabel || "Side panel"}
+          ref={panelElement}
         >
           <Box
             position="absolute"

@@ -114,9 +114,14 @@ function serializeBlockNode(
       return raw.length > 0 ? raw.split("\n") : [""];
     }
     const language = String(node.attrs?.language || "").trim();
-    const fenceHead = language ? `\`\`\`${language}` : "```";
+    const fenceLength = (raw.match(/`+/g) || []).reduce(
+      (length, run) => Math.max(length, run.length + 1),
+      3,
+    );
+    const fence = "`".repeat(fenceLength);
+    const fenceHead = language ? `${fence}${language}` : fence;
     const body = raw.length > 0 ? raw.split("\n") : [""];
-    return [fenceHead, ...body, "```"];
+    return [fenceHead, ...body, fence];
   }
 
   if (type === "paragraph" || type === "heading") {

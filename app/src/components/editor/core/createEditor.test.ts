@@ -1,4 +1,5 @@
 import { getSchema, Node } from "@tiptap/core";
+import { marked } from "marked";
 import { describe, expect, it, vi } from "vitest";
 
 const captured = vi.hoisted(() => ({ options: undefined as unknown }));
@@ -257,5 +258,46 @@ describe("editor clipboard text", () => {
         ],
       }),
     ).toBe("```text\nx\ny\n```");
+  });
+
+  it.each(["```", "````"])(
+    "uses a longer fence when code contains %s",
+    async (embeddedFence) => {
+      const raw = `before\n${embeddedFence}\nafter`;
+      const fence = "`".repeat(embeddedFence.length + 1);
+      const serialized = serializeSlice({
+        type: "doc",
+        content: [
+          {
+            type: "codeBlock",
+            attrs: { language: "text" },
+            content: [{ type: "text", text: raw }],
+          },
+        ],
+      });
+
+      expect(serialized).toBe(`${fence}text\n${raw}\n${fence}`);
+      expect(await marked.parse(serialized)).toBe(
+        `<pre><code class="language-text">${raw}\n</code></pre>\n`,
+      );
+    },
+  );
+
+  it("keeps a partial code block as plain text", () => {
+    const doc = schema.nodeFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          attrs: { language: "text" },
+          content: [{ type: "text", text: "before\n```\nafter" }],
+        },
+      ],
+    });
+    const slice = doc.slice(1, doc.content.size);
+
+    expect(slice.openStart).toBe(1);
+    expect(slice.openEnd).toBe(0);
+    expect(getSerializer()(slice)).toBe("before\n```\nafter");
   });
 });
