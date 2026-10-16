@@ -180,6 +180,18 @@ export const buildDocPreviewText = (
 ) => {
   const markdownText = limitPreviewInput(String(markdown || ""));
   const htmlText = limitPreviewInput(String(html || ""));
+  if (htmlText) {
+    const plain = normalizePreviewText(
+      htmlText
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+    );
+    return plain.length > 0 ? plain.slice(0, maxLen) : "No preview available.";
+  }
+
   const md = normalizePreviewText(
     stripFencedCodeBlocks(markdownText)
       .replace(/`([^`]+)`/g, "$1")
@@ -189,15 +201,6 @@ export const buildDocPreviewText = (
       .replace(/[*_~>-]/g, " ")
   );
   if (md.length > 0) return md.slice(0, maxLen);
-  const plain = normalizePreviewText(
-    htmlText
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-  );
-  if (plain.length > 0) return plain.slice(0, maxLen);
   return "No preview available.";
 };
 
