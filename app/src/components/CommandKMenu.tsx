@@ -381,6 +381,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     minW: "0",
     pr: "0.5",
   });
+  const pathMatchLinkClass = css({ flexShrink: "0", whiteSpace: "nowrap" });
 
   const resultsPanelHeight = "55vh";
   const hitsLatest = () => currentResults()?.items ?? [];
@@ -509,6 +510,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <PathPillLink
                     href={pathToRoute(item.path)}
                     variant="subtle"
+                    class={pathMatchLinkClass}
                     onClick={(e) =>
                       handlePathLinkClick(
                         e as unknown as MouseEvent,

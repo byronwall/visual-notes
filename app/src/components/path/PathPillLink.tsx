@@ -9,6 +9,7 @@ type PathPillLinkProps = {
   title?: string;
   variant?: "outline" | "subtle";
   size?: "xs" | "sm";
+  class?: string;
 };
 
 export const PathPillLink = (props: PathPillLinkProps) => {
@@ -20,6 +21,7 @@ export const PathPillLink = (props: PathPillLinkProps) => {
     "title",
     "variant",
     "size",
+    "class",
   ]);
 
   const isOutline = () => (local.variant ?? "subtle") === "outline";
@@ -30,6 +32,7 @@ export const PathPillLink = (props: PathPillLinkProps) => {
       href={local.href}
       onClick={local.onClick}
       title={local.title}
+      class={local.class}
       fontFamily="mono"
       fontSize={isSmall() ? "sm" : "xs"}
       textDecoration="none"
