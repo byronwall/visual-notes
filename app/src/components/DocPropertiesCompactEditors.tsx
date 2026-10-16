@@ -28,6 +28,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   initialMeta?: Record<string, unknown> | null;
   onPathChange?: (path: string) => void;
   onMetaChange?: (meta: MetaRecord) => void;
+  pathPopoverPortalled?: boolean;
   trailing?: JSX.Element;
 }> = (props) => {
   let prevDocId: string | undefined;
@@ -101,6 +102,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         placement="bottom-start"
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
+        portalled={props.pathPopoverPortalled}
         anchor={
           <Button
             type="button"

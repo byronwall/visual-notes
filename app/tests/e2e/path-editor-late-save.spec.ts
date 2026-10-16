@@ -146,7 +146,9 @@ test("late path saves do not replace a switched note or a newer draft", async ({
     await savePathButton(page).click();
     const sameNoteRequest = await sameNoteSave.request;
     expect(sameNoteRequest.postData()).toContain(noteBId);
-    await input.fill(newerPath);
+    await input.fill("");
+    await input.pressSequentially(newerPath);
+    await expect(input).toHaveValue(newerPath);
     sameNoteSave.release();
     const sameNoteResponse = await (await sameNoteSave.request).response();
     await sameNoteResponse?.finished();
