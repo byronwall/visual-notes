@@ -115,9 +115,9 @@ const DocumentViewer: VoidComponent<{
     setTitle(newTitle);
     try {
       await runUpdateDoc({ id: props.doc.id, title: newTitle });
-    } catch (e) {
+    } catch (error) {
       setTitle(previousTitle);
-      alert((e as Error).message || "Failed to update title");
+      throw error;
     }
   };
   const handleSync = async () => {
