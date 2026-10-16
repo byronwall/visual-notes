@@ -161,13 +161,15 @@ describe("searchDocs current body search", () => {
 
   it("scans every filtered page and applies activity ranking and take", async () => {
     const firstPage = Array.from({ length: 250 }, (_, index) =>
-      doc(`note-${index}`, "<p>sharedneedle</p>", "", "/keep/item")
+      doc(`note-${index}`, "<p>sharedneedle</p>", "", "/keep.item")
     );
-    const lastDoc = doc("last-page", "<p>sharedneedle</p>", "", "/keep/last");
+    const lastDoc = doc("last-page", "<p>sharedneedle</p>", "", "/keep.last");
     let bodyPage = 0;
     findDocs.mockImplementation(async (args) => {
       if (!args.select?.html) return [];
-      expect(args.where).toMatchObject({ path: { startsWith: "/keep" } });
+      expect(args.where).toMatchObject({
+        AND: [{ OR: [{ path: "/keep" }, { path: { startsWith: "/keep." } }] }],
+      });
       bodyPage += 1;
       return bodyPage === 1 ? firstPage : [lastDoc];
     });
