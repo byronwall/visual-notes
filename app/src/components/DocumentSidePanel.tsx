@@ -54,7 +54,7 @@ export const DocumentSidePanel: VoidComponent<{
       await runUpdateDoc({ id: props.docId, title: normalized });
     } catch (error) {
       setTitle(previous);
-      alert((error as Error).message || "Failed to update title");
+      throw error;
     }
   };
 
