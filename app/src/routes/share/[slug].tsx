@@ -13,7 +13,6 @@ import {
 import { buildShareAbsoluteUrl } from "~/services/doc-shares.shared";
 import { getBaseUrl } from "~/utils/base-url";
 
-const loadingTitle = "Shared note • Visual Notes";
 const notFoundTitle = "Shared note not found • Visual Notes";
 const loadingDescription = "Open a shared note from Visual Notes.";
 const notFoundDescription =
@@ -35,6 +34,7 @@ export default function SharedDocRoute() {
   const params = useParams();
   const sharedDoc = createAsync(
     (): Promise<PublicSharedDoc | null> => fetchPublicSharedDoc(params.slug || ""),
+    { deferStream: true },
   );
 
   const shareUrl = () => {
@@ -50,16 +50,6 @@ export default function SharedDocRoute() {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Title>{loadingTitle}</Title>
-      <Meta property="og:title" content={loadingTitle} />
-      <Meta name="description" content={loadingDescription} />
-      <Meta property="og:description" content={loadingDescription} />
-      <Meta property="og:type" content="article" />
-      <Meta property="og:image" content={`${getBaseUrl()}/og-image.png`} />
-      <Meta name="twitter:card" content="summary_large_image" />
-      <Meta name="twitter:title" content={loadingTitle} />
-      <Meta name="twitter:description" content={loadingDescription} />
-      <Meta name="twitter:image" content={`${getBaseUrl()}/og-image.png`} />
       <Container pt="4" pb={{ base: "24", md: "32" }} px="4">
         <Suspense
           fallback={

@@ -160,6 +160,7 @@ export const fetchDocs = query(
 );
 
 const PREVIEW_INPUT_LIMIT = 20000;
+const DOC_PREVIEW_BATCH_SIZE = 120;
 
 const limitPreviewInput = (value: string) =>
   value.length > PREVIEW_INPUT_LIMIT ? value.slice(0, PREVIEW_INPUT_LIMIT) : value;
@@ -180,6 +181,18 @@ export const buildDocPreviewText = (
 ) => {
   const markdownText = limitPreviewInput(String(markdown || ""));
   const htmlText = limitPreviewInput(String(html || ""));
+  if (htmlText) {
+    const plain = normalizePreviewText(
+      htmlText
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+    );
+    return plain.length > 0 ? plain.slice(0, maxLen) : "No preview available.";
+  }
+
   const md = normalizePreviewText(
     stripFencedCodeBlocks(markdownText)
       .replace(/`([^`]+)`/g, "$1")
@@ -189,15 +202,6 @@ export const buildDocPreviewText = (
       .replace(/[*_~>-]/g, " ")
   );
   if (md.length > 0) return md.slice(0, maxLen);
-  const plain = normalizePreviewText(
-    htmlText
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-  );
-  if (plain.length > 0) return plain.slice(0, maxLen);
   return "No preview available.";
 };
 
@@ -207,7 +211,7 @@ export const fetchDocPreviews = query(
     const startedAt = Date.now();
     const unique = Array.from(
       new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))
-    ).slice(0, 120);
+    ).slice(0, DOC_PREVIEW_BATCH_SIZE);
     if (unique.length === 0) return [];
 
     const rows = await prisma.doc.findMany({
@@ -244,6 +248,27 @@ export const fetchDocPreviews = query(
   },
   "docs-preview-bulk"
 );
+
+// Hydrate the combined result while keeping each inner query cached per chunk.
+const fetchDocPreviewsBatchedQuery = query(
+  async (ids: string[]): Promise<DocPreview[]> => {
+    const requests: Promise<DocPreview[]>[] = [];
+    for (let i = 0; i < ids.length; i += DOC_PREVIEW_BATCH_SIZE) {
+      requests.push(fetchDocPreviews(ids.slice(i, i + DOC_PREVIEW_BATCH_SIZE)));
+    }
+    return Promise.all(requests).then((results) => results.flat());
+  },
+  "docs-preview-batched",
+);
+
+export const fetchDocPreviewsBatched = (
+  ids: string[],
+): Promise<DocPreview[]> => {
+  const unique = Array.from(
+    new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))
+  );
+  return fetchDocPreviewsBatchedQuery(unique);
+};
 
 export const fetchPathSuggestions = query(
   async (): Promise<{ path: string; count: number }[]> => {
