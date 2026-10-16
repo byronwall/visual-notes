@@ -48,6 +48,8 @@ const DocumentViewer: VoidComponent<{
     undefined,
   );
   const [title, setTitle] = createSignal(props.doc.title);
+  const [savedUpdatedAt, setSavedUpdatedAt] = createSignal(props.doc.updatedAt);
+  let savedDocId = props.doc.id;
   const { update: runUpdateDoc, delete: runDeleteDoc } = useNoteMutations();
   const runLogDocViewEvent = useAction(logDocViewEvent);
   let lastLoggedDocId = "";
@@ -65,6 +67,33 @@ const DocumentViewer: VoidComponent<{
   createEffect(() => {
     setTitle(props.doc.title);
   });
+
+  createEffect(() => {
+    const id = props.doc.id;
+    const updatedAt = props.doc.updatedAt;
+    if (id !== savedDocId) {
+      savedDocId = id;
+      setSavedUpdatedAt(updatedAt);
+    } else if (updatedAt) {
+      const incomingTime = Date.parse(updatedAt);
+      const savedTime = Date.parse(savedUpdatedAt() || "");
+      if (
+        Number.isFinite(incomingTime) &&
+        (!Number.isFinite(savedTime) || incomingTime > savedTime)
+      ) {
+        setSavedUpdatedAt(updatedAt);
+      }
+    }
+  });
+
+  const handleContentSaved = (result: { id: string; updatedAt: string }) => {
+    if (props.doc.id !== result.id) return;
+    setSavedUpdatedAt((current) =>
+      Date.parse(current || "") >= Date.parse(result.updatedAt)
+        ? current
+        : result.updatedAt,
+    );
+  };
 
   createEffect(() => {
     const nextDocId = props.doc.id;
@@ -210,7 +239,7 @@ const DocumentViewer: VoidComponent<{
             <DocActivitySummaryPopover
               docId={props.doc.id}
               createdAt={props.doc.createdAt}
-              updatedAt={props.doc.updatedAt}
+              updatedAt={savedUpdatedAt()}
               iconOnly
             />
           </HStack>
@@ -360,7 +389,7 @@ const DocumentViewer: VoidComponent<{
                 <DocActivitySummaryPopover
                   docId={props.doc.id}
                   createdAt={props.doc.createdAt}
-                  updatedAt={props.doc.updatedAt}
+                  updatedAt={savedUpdatedAt()}
                 />
               </HStack>
             }
@@ -371,6 +400,7 @@ const DocumentViewer: VoidComponent<{
           showTitleInTopBar={false}
           showSaveButtonInTopBar={false}
           apiRef={(api) => setEditorApi(api)}
+          onSaved={handleContentSaved}
         />
       </Stack>
       <ConfirmDialog
