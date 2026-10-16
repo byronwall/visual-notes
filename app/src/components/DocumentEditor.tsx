@@ -115,9 +115,9 @@ const DocumentEditor: VoidComponent<{
     if (!ed) return;
     const handler = () => setDirty(true);
     ed.on("update", handler);
-    return () => {
+    onCleanup(() => {
       ed.off("update", handler);
-    };
+    });
   });
 
   // Intercept Cmd+S / Ctrl+S to save
