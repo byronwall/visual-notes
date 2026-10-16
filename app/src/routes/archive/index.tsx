@@ -292,7 +292,12 @@ const ArchivePage = () => {
                                 <Stack gap="1.5" maxW="400px">
                                   <HStack gap="2" minW="0" alignItems="center">
                                     <ArchiveFavicon src={item.faviconUrl} title={item.title} />
-                                    <Box minW="0" flex="1" maxW="calc(400px - 26px)">
+                                    <Box
+                                      minW="0"
+                                      flex="1"
+                                      maxW="calc(400px - 26px)"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
                                       <InPlaceEditableText
                                         value={item.title}
                                         onCommit={(value) => handleTitleCommit(item.id, value)}
