@@ -1,32 +1,14 @@
 import { Meta, Title } from "@solidjs/meta";
 import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import { For, Show, Suspense, createMemo } from "solid-js";
-import { css } from "styled-system/css";
 import { Box, Container, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Breadcrumb from "~/components/ui/breadcrumb";
 import { Text } from "~/components/ui/text";
-import { fetchDocPreviews, fetchPathPageData } from "~/services/docs.service";
+import { fetchPathPageData } from "~/services/docs.service";
 import { PathChildPathLinks } from "~/features/path-view/components/PathChildPathLinks";
-import { PathGroupSection } from "~/features/path-view/components/PathGroupSection";
-import { usePathGroups } from "~/features/path-view/hooks/usePathGroups";
+import { PathNoteGroups } from "~/features/path-view/components/PathNoteGroups";
 import { buildPathAncestors, pathToRoute, routeParamToPath } from "~/utils/path-links";
-
-const titleTriggerClass = css({
-  display: "inline-flex",
-  color: "inherit",
-  textDecoration: "none",
-  fontWeight: "semibold",
-  fontSize: "xl",
-  lineHeight: "1.3",
-  _hover: { textDecoration: "underline" },
-});
-
-const pathSubtitleClass = css({
-  fontSize: "sm",
-  color: "fg.muted",
-  fontFamily: "mono",
-});
 
 const DocsPathPage = () => {
   const params = useParams();
@@ -34,21 +16,6 @@ const DocsPathPage = () => {
   const path = createMemo(() => routeParamToPath(params.segments));
   const data = createAsync(() => fetchPathPageData({ path: path() }));
   const breadcrumbs = createMemo(() => buildPathAncestors(path()));
-
-  const groups = usePathGroups({
-    path,
-    notes: () => data()?.notes || [],
-  });
-
-  const previewDocs = createAsync(() => {
-    const ids = groups.visibleNoteIds();
-    if (ids.length === 0) return Promise.resolve([]);
-    return fetchDocPreviews(ids);
-  });
-
-  const previewById = createMemo(
-    () => new Map((previewDocs() || []).map((item) => [item.id, item])),
-  );
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
@@ -110,24 +77,11 @@ const DocsPathPage = () => {
                   </Text>
                 }
               >
-                <Stack gap="6">
-                  <For each={groups.grouped()}>
-                    {(group) => (
-                      <PathGroupSection
-                        group={group}
-                        notes={groups.visibleNotesForGroup(group)}
-                        previewById={previewById()}
-                        titleTriggerClass={titleTriggerClass}
-                        pathSubtitleClass={pathSubtitleClass}
-                        canExpand={groups.canExpandGroup(group)}
-                        expanded={groups.isGroupExpanded(group.groupPath)}
-                        onToggleExpanded={() =>
-                          groups.toggleGroupExpanded(group.groupPath)
-                        }
-                      />
-                    )}
-                  </For>
-                </Stack>
+                {/* Mount previews only after the path query has resolved. */}
+                <PathNoteGroups
+                  path={path}
+                  notes={() => data()?.notes || []}
+                />
               </Show>
             </Stack>
           </Show>
