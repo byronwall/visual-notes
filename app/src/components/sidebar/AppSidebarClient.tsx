@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -102,10 +102,10 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       }
     };
     window.addEventListener("keydown", onWindowKeyDown);
-    return () => {
+    onCleanup(() => {
       off();
       window.removeEventListener("keydown", onWindowKeyDown);
-    };
+    });
   });
 
   return (

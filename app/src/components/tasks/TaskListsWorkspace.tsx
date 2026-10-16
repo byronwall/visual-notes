@@ -5,6 +5,7 @@ import {
   createMemo,
   createResource,
   createSignal,
+  onCleanup,
   onMount,
   Show,
 } from "solid-js";
@@ -729,9 +730,9 @@ export const TaskListsWorkspace = () => {
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
-    return () => {
+    onCleanup(() => {
       window.removeEventListener("keydown", handleWindowKeyDown);
-    };
+    });
   });
 
   return (
