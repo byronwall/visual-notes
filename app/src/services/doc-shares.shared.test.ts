@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isDocShareDeleteAcknowledged,
+  isDocShareSelectionCurrent,
   isDocShareUpsertAcknowledged,
 } from "./doc-shares.shared";
 
@@ -34,6 +35,34 @@ describe("doc share action acknowledgments", () => {
     expect(isDocShareDeleteAcknowledged(undefined, "doc-1")).toBe(false);
     expect(
       isDocShareDeleteAcknowledged({ ok: true, docId: "doc-2" }, "doc-1"),
+    ).toBe(false);
+  });
+});
+
+describe("doc share selection identity", () => {
+  it("rejects late work after A→B→A or owner disposal", () => {
+    const submitted = { docId: "A", generation: 0 };
+
+    expect(
+      isDocShareSelectionCurrent(
+        submitted,
+        { docId: "A", generation: 0 },
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      isDocShareSelectionCurrent(
+        submitted,
+        { docId: "A", generation: 2 },
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      isDocShareSelectionCurrent(
+        submitted,
+        { docId: "A", generation: 0 },
+        true,
+      ),
     ).toBe(false);
   });
 });
