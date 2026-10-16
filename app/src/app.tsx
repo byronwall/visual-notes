@@ -35,6 +35,7 @@ export default function App() {
     createSignal<ClientExceptionState | null>(null);
 
   onMount(() => {
+    document.documentElement.dataset.appHydrated = "true";
     const handleError = (event: ErrorEvent) => {
       setClientException({
         source: "error",
