@@ -442,17 +442,6 @@ export const processEmbeddingRun = action(
     };
 
     const allChunks: ChunkItem[] = [];
-    if (mode === "changed") {
-      const docIds = docs.map((d: any) => String(d.id));
-      if (docIds.length) {
-        await prisma.docSectionEmbedding.deleteMany({
-          where: { runId: run.id, docId: { in: docIds } },
-        });
-        await prisma.docEmbedding.deleteMany({
-          where: { runId: run.id, docId: { in: docIds } },
-        });
-      }
-    }
     for (const d of docs as any[]) {
       try {
         const sourceText = normalizeSourceForEmbedding(d);
@@ -560,13 +549,6 @@ export const processEmbeddingRun = action(
       tokenCount: c.tokenCount ?? null,
       createdAt: now,
     }));
-    if (sectionEmbRows.length) {
-      await prisma.docSectionEmbedding.createMany({
-        data: sectionEmbRows,
-        skipDuplicates: true,
-      });
-    }
-
     const docIdToVectors = new Map<string, number[][]>();
     for (let i = 0; i < validChunks.length; i++) {
       const c = validChunks[i];
@@ -608,10 +590,31 @@ export const processEmbeddingRun = action(
         createdAt: now,
       });
     }
-    if (docRows.length) {
-      await prisma.docEmbedding.createMany({
-        data: docRows,
-        skipDuplicates: true,
+    if (sectionEmbRows.length || docRows.length) {
+      await prisma.$transaction(async (tx) => {
+        if (mode === "changed") {
+          const docIds = [...new Set(docRows.map((row) => row.docId))];
+          if (docIds.length) {
+            await tx.docSectionEmbedding.deleteMany({
+              where: { runId: run.id, docId: { in: docIds } },
+            });
+            await tx.docEmbedding.deleteMany({
+              where: { runId: run.id, docId: { in: docIds } },
+            });
+          }
+        }
+        if (sectionEmbRows.length) {
+          await tx.docSectionEmbedding.createMany({
+            data: sectionEmbRows,
+            skipDuplicates: true,
+          });
+        }
+        if (docRows.length) {
+          await tx.docEmbedding.createMany({
+            data: docRows,
+            skipDuplicates: true,
+          });
+        }
       });
     }
 
