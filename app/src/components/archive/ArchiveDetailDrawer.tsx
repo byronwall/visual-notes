@@ -463,7 +463,10 @@ export const ArchiveDetailDrawer: VoidComponent<{
 
       <Box px="4" py="4">
         <Suspense fallback={<Text color="fg.muted">Loading…</Text>}>
-          <Show when={item()} fallback={<Text color="fg.muted">No item selected.</Text>}>
+          <Show
+            when={item()}
+            fallback={<Text color="fg.muted">{detail.loading ? "Loading…" : "No item selected."}</Text>}
+          >
             {(current) => (
               <Stack gap="5">
                 <Stack gap="3">
