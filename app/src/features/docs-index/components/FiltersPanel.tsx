@@ -94,6 +94,7 @@ export const FiltersPanel = (props: {
           <ActivityIcon size={14} />
           <SimpleSelect
             items={activityClassItems}
+            placeholder="All activity"
             value={q.activityClass()}
             onChange={(value) => q.setActivityClass(value)}
             size="sm"

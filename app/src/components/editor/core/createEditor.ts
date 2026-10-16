@@ -51,6 +51,20 @@ function serializeListItem(
   return lines;
 }
 
+function serializeTableRow(
+  row: PMNode,
+  indentLevel: number,
+  options: { fenceCodeBlocks: boolean },
+): string {
+  const cells = fragmentToArray(row.content).map((cell) => {
+    const value = serializeBlockNode(cell, indentLevel, options).join("\n");
+    return /[\t\r\n"]/.test(value)
+      ? `"${value.replaceAll('"', '""')}"`
+      : value;
+  });
+  return `${"  ".repeat(indentLevel)}${cells.join("\t")}`;
+}
+
 function serializeBlockNode(
   node: PMNode,
   indentLevel = 0,
@@ -82,6 +96,16 @@ function serializeBlockNode(
 
   if (type === "listItem") {
     return serializeListItem(node, indentLevel, "- ", options);
+  }
+
+  if (type === "table") {
+    return fragmentToArray(node.content).map((row) =>
+      serializeTableRow(row, indentLevel, options),
+    );
+  }
+
+  if (type === "tableRow") {
+    return [serializeTableRow(node, indentLevel, options)];
   }
 
   if (type === "codeBlock") {
@@ -117,15 +141,22 @@ function serializeClipboardText(slice: {
   openEnd: number;
 }): string {
   const options = { fenceCodeBlocks: slice.openStart === 0 && slice.openEnd === 0 };
-  const lines = fragmentToArray(slice.content).flatMap((node, index, arr) => {
+  const nodes = fragmentToArray(slice.content);
+  const lines = nodes.flatMap((node, index) => {
     const blockLines = serializeBlockNode(node, 0, options);
-    if (index < arr.length - 1 && blockLines.length > 0) {
-      return [...blockLines, ""];
+    if (index < nodes.length - 1 && blockLines.length > 0) {
+      const isAdjacentTableRow =
+        node.type?.name === "tableRow" &&
+        nodes[index + 1]?.type?.name === "tableRow";
+      return isAdjacentTableRow ? blockLines : [...blockLines, ""];
     }
     return blockLines;
   });
-  while (lines.length > 0 && lines[lines.length - 1] === "") {
-    lines.pop();
+  const lastType = nodes[nodes.length - 1]?.type?.name;
+  if (lastType !== "table" && lastType !== "tableRow") {
+    while (lines.length > 0 && lines[lines.length - 1] === "") {
+      lines.pop();
+    }
   }
   return lines.join("\n");
 }

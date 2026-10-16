@@ -1,6 +1,10 @@
 import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
 import { ErrorBoundary, Suspense, createMemo } from "solid-js";
-import { fetchDocs, fetchDocsServerNow, fetchSources } from "../data/docs.service";
+import {
+  fetchDocs,
+  fetchDocsServerNow,
+  fetchSources,
+} from "../data/docs.service";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { DocsIndexHeader } from "./DocsIndexHeader";
@@ -53,11 +57,16 @@ const DocsIndexPage = () => {
   const refreshDocs = () => revalidate(fetchDocs.keyFor(docsQueryArgs()));
   const refreshSources = () => revalidate(fetchSources.key);
 
-  const { results: serverResults, loading: serverLoading } = useServerSearch(
+  const {
+    results: serverResults,
+    loading: serverLoading,
+    error: serverError,
+    refetch: retryServerSearch,
+  } = useServerSearch(
     q.searchText,
     () => ({
       pathPrefix: q.pathPrefix(),
-      blankPathOnly: q.blankPathOnly() || undefined,
+      pathBlankOnly: q.blankPathOnly() || undefined,
       metaKey: q.metaKey(),
       metaValue: q.metaValue(),
       source: q.source() || undefined,
@@ -150,6 +159,8 @@ const DocsIndexPage = () => {
                 nowMs={docsServerNow()}
                 serverResults={serverResults() || []}
                 serverLoading={serverLoading()}
+                serverError={serverError()}
+                onSearchRetry={retryServerSearch}
                 onVisibleIdsChange={actions.setVisibleIds}
                 selectedIds={actions.selectedIds()}
                 onToggleSelect={actions.handleToggleSelect}

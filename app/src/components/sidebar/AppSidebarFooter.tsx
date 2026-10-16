@@ -28,7 +28,11 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
     pathname() === "/activity" || pathname().startsWith("/activity/");
 
   return (
-    <HStack gap="1" justifyContent="center">
+    <HStack
+      gap="1"
+      justifyContent="center"
+      flexWrap={props.expanded ? "nowrap" : "wrap"}
+    >
       <SidebarFooterIconLink
         label="AI Dashboard"
         onClick={() => navigate("/ai")}

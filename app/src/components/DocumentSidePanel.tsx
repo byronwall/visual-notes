@@ -1,10 +1,10 @@
-import { useAction } from "@solidjs/router";
 import {
   Show,
   Suspense,
   createResource,
   createEffect,
   createSignal,
+  untrack,
   type VoidComponent,
 } from "solid-js";
 import { Box, Flex } from "styled-system/jsx";
@@ -13,7 +13,9 @@ import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
 import { InPlaceEditableText } from "./InPlaceEditableText";
-import { fetchDoc, updateDoc } from "~/services/docs.service";
+import { fetchDoc } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
+import type { DocumentEditorApi } from "./DocumentEditor";
 
 type DocDetail = {
   id: string;
@@ -29,14 +31,26 @@ const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 export const DocumentSidePanel: VoidComponent<{
   open: boolean;
   docId?: string;
-  onClose: (shouldRefetch?: boolean) => void;
+  onClose: () => void;
+  onDeleted: (docId: string) => void;
+  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
 }> = (props) => {
   const [doc] = createResource(
     () => props.docId,
     (id) => fetchDocDetail(id),
   );
   const [title, setTitle] = createSignal("");
-  const runUpdateDoc = useAction(updateDoc);
+  const { update: runUpdateDoc } = useNoteMutations();
+  let currentDocId = untrack(() => props.docId);
+  let docGeneration = 0;
+
+  createEffect(() => {
+    const nextDocId = props.docId;
+    if (nextDocId !== currentDocId) {
+      currentDocId = nextDocId;
+      docGeneration += 1;
+    }
+  });
 
   createEffect(() => {
     const current = doc();
@@ -45,23 +59,27 @@ export const DocumentSidePanel: VoidComponent<{
   });
 
   const handleTitleCommit = async (nextTitle: string) => {
-    if (!props.docId) return;
+    const editDocId = props.docId;
+    const editGeneration = docGeneration;
+    if (!editDocId) return;
     const previous = title();
     const normalized = nextTitle.trim();
     if (!normalized || normalized === previous) return;
     setTitle(normalized);
     try {
-      await runUpdateDoc({ id: props.docId, title: normalized });
+      await runUpdateDoc({ id: editDocId, title: normalized });
     } catch (error) {
-      setTitle(previous);
-      alert((error as Error).message || "Failed to update title");
+      if (props.docId === editDocId && docGeneration === editGeneration) {
+        setTitle(previous);
+      }
+      throw error;
     }
   };
 
   return (
     <SidePanel
       open={props.open}
-      onClose={() => props.onClose(false)}
+      onClose={props.onClose}
       ariaLabel="Document details"
     >
       <Box
@@ -80,22 +98,24 @@ export const DocumentSidePanel: VoidComponent<{
       >
         <Flex align="flex-start" justify="space-between" gap="3">
           <Box flex="1" minW="0">
-            <InPlaceEditableText
-              value={title()}
-              placeholder="Untitled note"
-              onCommit={handleTitleCommit}
-              fontSize="2xl"
-              lineHeight="1.05"
-              fontWeight="semibold"
-              fillWidth
-              wrapPreview
-            />
+            <Show when={props.docId} keyed>
+              <InPlaceEditableText
+                value={title()}
+                placeholder="Untitled note"
+                onCommit={handleTitleCommit}
+                fontSize="2xl"
+                lineHeight="1.05"
+                fontWeight="semibold"
+                fillWidth
+                wrapPreview
+              />
+            </Show>
           </Box>
           <CloseButton
             size="xs"
             aria-label="Close panel"
             title="Close panel"
-            onClick={() => props.onClose(false)}
+            onClick={props.onClose}
           />
         </Flex>
       </Box>
@@ -114,7 +134,8 @@ export const DocumentSidePanel: VoidComponent<{
                 doc={{ ...d, title: title() || d.title }}
                 panelMode
                 fullPageHref={props.docId ? `/docs/${props.docId}` : undefined}
-                onDeleted={() => props.onClose(true)}
+                onDeleted={props.onDeleted}
+                onEditorApiChange={props.onEditorApiChange}
               />
             )}
           </Show>
