@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   embedBatched: vi.fn(),
+  preprocessMarkdown: vi.fn(),
+  makeChunks: vi.fn(),
   prisma: {
     embeddingRun: { findUnique: vi.fn() },
     $queryRaw: vi.fn(),
@@ -20,18 +22,10 @@ vi.mock("~/env/server", () => ({
   serverEnv: { OPENAI_API_KEY: "mock-key", EMBEDDING_MODEL: "mock-model" },
 }));
 vi.mock("~/server/lib/embedding/preprocess", () => ({
-  preprocessMarkdown: () => [{ text: "body" }],
+  preprocessMarkdown: mocks.preprocessMarkdown,
 }));
 vi.mock("~/server/lib/embedding/chunker", () => ({
-  makeChunks: () => [
-    {
-      text: "body",
-      headingPath: [],
-      orderIndex: 0,
-      charCount: 4,
-      tokenCount: 1,
-    },
-  ],
+  makeChunks: mocks.makeChunks,
 }));
 vi.mock("~/server/lib/embedding/hash", () => ({ sha256: () => "hash" }));
 vi.mock("~/server/lib/embedding/pool", () => ({
@@ -54,11 +48,13 @@ describe("processEmbeddingRun embedding writes", () => {
     docEmbeddings: EmbeddingRow[];
   };
   let events: string[];
+  let markdown: string;
 
   beforeEach(() => {
     vi.clearAllMocks();
     state = { sectionEmbeddings: [], docEmbeddings: [] };
     events = [];
+    markdown = "body";
     mocks.prisma.embeddingRun.findUnique.mockResolvedValue({
       id: "run-1",
       model: "mock-model",
@@ -69,13 +65,23 @@ describe("processEmbeddingRun embedding writes", () => {
       (strings: TemplateStringsArray) => {
         return Promise.resolve(
           strings.join(" ").includes("SELECT d.")
-            ? [{ id: "doc-1", title: "Doc", markdown: "body", html: "" }]
+            ? [{ id: "doc-1", title: "Doc", markdown, html: "" }]
             : [{ c: 0 }],
         );
       },
     );
     mocks.prisma.docSection.findUnique.mockResolvedValue({ id: "section-1" });
     mocks.prisma.umapRun.findMany.mockResolvedValue([]);
+    mocks.preprocessMarkdown.mockReturnValue([{ text: "body" }]);
+    mocks.makeChunks.mockReturnValue([
+      {
+        text: "body",
+        headingPath: [],
+        orderIndex: 0,
+        charCount: 4,
+        tokenCount: 1,
+      },
+    ]);
     mocks.prisma.docSectionEmbedding.deleteMany.mockImplementation(async () => {
       events.push("delete sections");
       state.sectionEmbeddings = [];
@@ -156,5 +162,47 @@ describe("processEmbeddingRun embedding writes", () => {
     ]);
     expect(state.sectionEmbeddings[0]?.vector).toEqual([9, 8, 7]);
     expect(state.docEmbeddings[0]?.vector).toEqual([9, 8, 7]);
+  });
+
+  it("removes old vectors when a bare URL produces no chunks", async () => {
+    state.sectionEmbeddings = [
+      { runId: "run-1", docId: "doc-1", vector: [1, 2, 3] },
+    ];
+    state.docEmbeddings = [
+      { runId: "run-1", docId: "doc-1", vector: [1, 2, 3] },
+    ];
+    markdown = "https://example.com";
+    mocks.makeChunks.mockReturnValue([]);
+
+    await processEmbeddingRun({ id: "run-1", mode: "changed" });
+
+    expect(mocks.embedBatched).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      "transaction start",
+      "delete sections",
+      "delete docs",
+      "transaction commit",
+    ]);
+    expect(state.sectionEmbeddings).toEqual([]);
+    expect(state.docEmbeddings).toEqual([]);
+  });
+
+  it("keeps changed vectors when preprocessing fails", async () => {
+    state.sectionEmbeddings = [
+      { runId: "run-1", docId: "doc-1", vector: [1, 2, 3] },
+    ];
+    state.docEmbeddings = [
+      { runId: "run-1", docId: "doc-1", vector: [1, 2, 3] },
+    ];
+    mocks.preprocessMarkdown.mockImplementation(() => {
+      throw new Error("unsupported document content");
+    });
+
+    await processEmbeddingRun({ id: "run-1", mode: "changed" });
+
+    expect(mocks.embedBatched).not.toHaveBeenCalled();
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(state.sectionEmbeddings[0]?.vector).toEqual([1, 2, 3]);
+    expect(state.docEmbeddings[0]?.vector).toEqual([1, 2, 3]);
   });
 });
