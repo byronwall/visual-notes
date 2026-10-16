@@ -74,3 +74,21 @@ Use each entity's actual app route in `startUrl`. For example, open an `Archived
 When browser code creates a Playwright `Browser` handle, close that handle in a `finally` block with `await browser.close()`. The MCP `browser_close` tool may close only the active page, so it is not a substitute for closing a browser handle created by test code.
 
 Never use the original app database for audit writes. Do not add an OpenAI key to this harness. The launcher sets OPENAI_API_KEY to an empty value.
+
+## Hand off work
+
+Give each accepted change one current handoff instead of a stream of status messages. Update it when the source, proof, or limits change.
+
+```md
+- Source: <absolute worktree path> @ <branch> <short head SHA>
+- PR: <number> (base <base branch>)
+- Proof: <evidence paths, relative to the worktree>
+- Checks: lint / type-check / test results, or "not run"
+- Limits: what the proof does not cover
+```
+
+Before rebasing or restacking PRs, save each PR's current body, head, and base so screenshots and history can be compared afterwards:
+
+```sh
+gh pr view <number> --json number,title,body,headRefName,headRefOid,baseRefName > tmp/pr-<number>-before.json
+```
