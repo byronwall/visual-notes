@@ -251,6 +251,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     return Math.max(0, Math.min(max, next));
   };
 
+  const resetSelection = () => {
+    setSelectedIndex(0);
+    if (resultsViewportEl) resultsViewportEl.scrollTop = 0;
+  };
+
   const scrollSelectedIntoView = () => {
     resultsViewportEl
       ?.querySelector<HTMLElement>(`[data-command-index="${selectedIndex()}"]`)
@@ -306,10 +311,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   createEffect(() => {
-    // When query changes, snap selection back to the top.
-    // This keeps the "New note" action easy to hit via Enter.
+    // Keep the New note action visible and selected when the query changes.
     void query();
-    setSelectedIndex(0);
+    resetSelection();
   });
 
   const isSearchingEnabled = () => qTrim().length >= 2;
@@ -458,8 +462,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         | "most_viewed_30d"
                         | "most_edited_30d";
                       if (next !== sortMode()) {
-                        setSelectedIndex(0);
-                        scrollSelectedIntoView();
+                        resetSelection();
                       }
                       setSortMode(next);
                     }}
@@ -481,8 +484,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         | "BALANCED"
                         | "COLD";
                       if (next !== activityClass()) {
-                        setSelectedIndex(0);
-                        scrollSelectedIntoView();
+                        resetSelection();
                       }
                       setActivityClass(next);
                     }}
