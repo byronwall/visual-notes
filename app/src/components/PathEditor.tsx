@@ -1,6 +1,13 @@
-import { For, Show, Suspense, createEffect, createMemo, createSignal } from "solid-js";
+import {
+  For,
+  Show,
+  Suspense,
+  createEffect,
+  createMemo,
+  createSignal,
+} from "solid-js";
 import type { VoidComponent } from "solid-js";
-import { createAsync, useAction } from "@solidjs/router";
+import { createAsync } from "@solidjs/router";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { ClearButton } from "~/components/ui/clear-button";
@@ -18,7 +25,8 @@ import {
 } from "~/components/doc-properties/path-draft";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
-import { fetchPathSuggestions, updateDoc } from "~/services/docs.service";
+import { fetchPathSuggestions } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 
 export const PathEditor: VoidComponent<{
   docId?: string;
@@ -31,13 +39,13 @@ export const PathEditor: VoidComponent<{
   let lastAppliedInitialPath = (props.initialPath || "").trim();
 
   const [draft, setDraft] = createSignal<PathDraft>(
-    parsePersistedPathDraft(props.initialPath)
+    parsePersistedPathDraft(props.initialPath),
   );
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isFocused, setIsFocused] = createSignal(false);
 
-  const runUpdateDoc = useAction(updateDoc);
+  const { update: runUpdateDoc } = useNoteMutations();
   const pathCounts = createAsync(() => fetchPathSuggestions());
 
   createEffect(() => {
@@ -63,7 +71,11 @@ export const PathEditor: VoidComponent<{
   });
 
   const nextSegmentSuggestions = createMemo(() =>
-    buildNextSegmentSuggestions(pathCounts() || [], draft().committed, draft().current)
+    buildNextSegmentSuggestions(
+      pathCounts() || [],
+      draft().committed,
+      draft().current,
+    ),
   );
 
   const updateDraft = (updater: (prev: PathDraft) => PathDraft): PathDraft => {
@@ -135,7 +147,7 @@ export const PathEditor: VoidComponent<{
   const clearAll = async () => {
     if (props.docId) {
       const confirmed = window.confirm(
-        "Clear the path and save it as empty? This will reset the path to the base level."
+        "Clear the path and save it as empty? This will reset the path to the base level.",
       );
       if (!confirmed) return;
     }
@@ -222,7 +234,9 @@ export const PathEditor: VoidComponent<{
               _focusVisible={{ outline: "none", boxShadow: "none" }}
               value={draft().current}
               onInput={(e) =>
-                setDraft((prev) => setCurrentSegment(prev, e.currentTarget.value))
+                setDraft((prev) =>
+                  setCurrentSegment(prev, e.currentTarget.value),
+                )
               }
               onKeyDown={(e) => {
                 handleKeyDown(e as unknown as KeyboardEvent);
