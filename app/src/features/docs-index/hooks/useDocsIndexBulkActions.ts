@@ -226,10 +226,15 @@ export const useDocsIndexBulkActions = (args: {
         ids.map((id) => runUpdateDoc({ id, path })),
       );
       const succeededIds = ids.filter(
-        (_, index) => results[index].status === "fulfilled",
+        (id, index) =>
+          results[index].status === "fulfilled" &&
+          results[index].value?.id === id,
       );
       const failedIds = ids.filter(
-        (_, index) => results[index].status === "rejected",
+        (id, index) => {
+          const result = results[index];
+          return result.status === "rejected" || result.value?.id !== id;
+        },
       );
       setSelectedIds((prev) => {
         const next = new Set(prev);

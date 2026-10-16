@@ -30,6 +30,55 @@ afterEach(() => {
 });
 
 describe("useDocsIndexBulkActions bulk path", () => {
+  it("keeps an empty fulfilled path response selected for retry", async () => {
+    vi.mocked(updateDoc).mockResolvedValueOnce(undefined as never);
+    let dispose!: () => void;
+    const actions = createRoot((stop) => {
+      dispose = stop;
+      return useDocsIndexBulkActions({
+        q: { searchText: () => "" } as never,
+        sources: () => undefined as SourcesResponse | undefined,
+        refreshDocs: vi.fn(),
+        refreshSources: vi.fn(),
+      });
+    });
+    actions.setVisibleIds(["note-1"]);
+    actions.handleToggleSelect("note-1", true);
+    actions.handleOpenBulkPath();
+
+    await expect(actions.handleApplyBulkPath("/new/path")).rejects.toThrow(
+      "Updated paths for 0 of 1 notes. Results were refreshed. Failed notes remain selected for retry.",
+    );
+    expect(actions.selectedIds()).toEqual(new Set(["note-1"]));
+    expect(actions.showBulkPath()).toBe(true);
+    dispose();
+  });
+
+  it("closes the path modal after a matching update acknowledgement", async () => {
+    vi.mocked(updateDoc).mockResolvedValueOnce({
+      id: "note-1",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    let dispose!: () => void;
+    const actions = createRoot((stop) => {
+      dispose = stop;
+      return useDocsIndexBulkActions({
+        q: { searchText: () => "" } as never,
+        sources: () => undefined as SourcesResponse | undefined,
+        refreshDocs: vi.fn(),
+        refreshSources: vi.fn(),
+      });
+    });
+    actions.setVisibleIds(["note-1"]);
+    actions.handleToggleSelect("note-1", true);
+    actions.handleOpenBulkPath();
+
+    await actions.handleApplyBulkPath("/new/path");
+    expect(actions.selectedIds()).toEqual(new Set());
+    expect(actions.showBulkPath()).toBe(false);
+    dispose();
+  });
+
   it("keeps failed path updates selected and retries only those IDs", async () => {
     const refreshDocs = vi.fn();
     vi.mocked(updateDoc).mockRejectedValueOnce(new Error("write failed"));
