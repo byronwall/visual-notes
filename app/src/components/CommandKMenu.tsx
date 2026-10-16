@@ -443,15 +443,15 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <SimpleSelect
                     items={sortModeItems}
                     value={sortMode()}
-                    onChange={(value) =>
-                      setSortMode(
-                        value as
-                          | "relevance"
-                          | "recent_activity"
-                          | "most_viewed_30d"
-                          | "most_edited_30d",
-                      )
-                    }
+                    onChange={(value) => {
+                      const next = value as
+                        | "relevance"
+                        | "recent_activity"
+                        | "most_viewed_30d"
+                        | "most_edited_30d";
+                      if (next !== sortMode()) setSelectedIndex(0);
+                      setSortMode(next);
+                    }}
                     size="sm"
                     sameWidth
                     skipPortal
@@ -462,16 +462,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <SimpleSelect
                     items={activityClassItems}
                     value={activityClass()}
-                    onChange={(value) =>
-                      setActivityClass(
-                        value as
-                          | ""
-                          | "READ_HEAVY"
-                          | "EDIT_HEAVY"
-                          | "BALANCED"
-                          | "COLD",
-                      )
-                    }
+                    onChange={(value) => {
+                      const next = value as
+                        | ""
+                        | "READ_HEAVY"
+                        | "EDIT_HEAVY"
+                        | "BALANCED"
+                        | "COLD";
+                      if (next !== activityClass()) setSelectedIndex(0);
+                      setActivityClass(next);
+                    }}
                     size="sm"
                     sameWidth
                     skipPortal
