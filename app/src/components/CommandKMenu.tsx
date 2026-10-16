@@ -99,7 +99,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   const qTrim = () => query().trim();
-  const qForSearch = () => (qTrim().length >= 2 ? qTrim() : "");
+  const qForSearch = () => qTrim();
 
   const snippetClass = css({
     fontSize: "xs",
@@ -316,7 +316,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     resetSelection();
   });
 
-  const isSearchingEnabled = () => qTrim().length >= 2;
+  const isSearchingEnabled = () => qForSearch().length > 0;
   const isSearching = () => results.loading;
 
   const rowBg = (active: boolean) => (active ? "black.a2" : "transparent");
@@ -419,7 +419,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             size="sm"
             flex="1"
             minW="0"
-            placeholder="Type to search… (2+ characters)"
+            placeholder="Type to search…"
             value={query()}
             onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
             onKeyDown={(e) => handleInputKeyDown(e as unknown as KeyboardEvent)}
