@@ -37,6 +37,7 @@ export const PathEditor: VoidComponent<{
   let inputRef: HTMLInputElement | undefined;
   let lastAppliedDocId = props.docId;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
+  let saveVersion = 0;
 
   const [draft, setDraft] = createSignal<PathDraft>(
     parsePersistedPathDraft(props.initialPath),
@@ -51,6 +52,7 @@ export const PathEditor: VoidComponent<{
   createEffect(() => {
     const incomingDocId = props.docId;
     const incoming = (props.initialPath || "").trim();
+    const docChanged = incomingDocId !== lastAppliedDocId;
     if (
       incomingDocId === lastAppliedDocId &&
       incoming === lastAppliedInitialPath
@@ -59,6 +61,11 @@ export const PathEditor: VoidComponent<{
     }
     lastAppliedDocId = incomingDocId;
     lastAppliedInitialPath = incoming;
+    if (docChanged) {
+      saveVersion += 1;
+      setSaving(false);
+      setError(undefined);
+    }
     setDraft(parsePersistedPathDraft(incoming));
     setIsFocused(false);
   });
@@ -88,18 +95,30 @@ export const PathEditor: VoidComponent<{
   };
 
   const savePath = async (path: string) => {
-    if (!props.docId) return;
+    const docId = props.docId;
+    if (!docId) return;
+    const version = ++saveVersion;
     setSaving(true);
     setError(undefined);
     try {
-      await runUpdateDoc({ id: props.docId, path });
-      if (props.onChange && props.onChangeWhenSavedOnly) {
+      await runUpdateDoc({ id: docId, path });
+      if (
+        props.docId === docId &&
+        version === saveVersion &&
+        serializePathDraft(draft()).trim() === path &&
+        props.onChange &&
+        props.onChangeWhenSavedOnly
+      ) {
         props.onChange(path);
       }
     } catch (e) {
-      setError((e as Error).message || "Failed to save path");
+      if (props.docId === docId && version === saveVersion) {
+        setError((e as Error).message || "Failed to save path");
+      }
     } finally {
-      setSaving(false);
+      if (props.docId === docId && version === saveVersion) {
+        setSaving(false);
+      }
     }
   };
 
