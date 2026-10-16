@@ -111,6 +111,18 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   return (
     <>
       <Box minH="100vh" bg="bg.default">
+        <AppSidebarMobile
+          open={mobileOpen()}
+          onOpenChange={setMobileOpen}
+          onToggleCollapse={handleCollapseToggle}
+          onChatOpen={handleChatOpen}
+          onNewNoteOpen={handleNewNoteOpen}
+          onSearchOpen={handleSearchOpen}
+          onLogout={handleLogout}
+          hasUnreadAny={hasUnreadAny}
+          hasLoadingAny={hasLoadingAny}
+          authed={authed}
+        />
         <AppSidebarDesktop
           expanded={isExpanded()}
           collapsedWidth={COLLAPSED_WIDTH}
@@ -129,18 +141,6 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         >
           {props.children}
         </AppSidebarDesktop>
-        <AppSidebarMobile
-          open={mobileOpen()}
-          onOpenChange={setMobileOpen}
-          onToggleCollapse={handleCollapseToggle}
-          onChatOpen={handleChatOpen}
-          onNewNoteOpen={handleNewNoteOpen}
-          onSearchOpen={handleSearchOpen}
-          onLogout={handleLogout}
-          hasUnreadAny={hasUnreadAny}
-          hasLoadingAny={hasLoadingAny}
-          authed={authed}
-        />
       </Box>
 
       {llmSidebarView}

@@ -65,7 +65,13 @@ export const AppSidebarDesktop = (props: AppSidebarDesktopProps) => {
           authed={props.authed}
         />
       </Box>
-      <Box minW="0" minH="100vh" bg="bg.default" flex="1">
+      <Box
+        minW="0"
+        minH={{ base: "auto", md: "100vh" }}
+        pt={{ base: "16", md: "0" }}
+        bg="bg.default"
+        flex="1"
+      >
         {props.children}
       </Box>
     </Box>
