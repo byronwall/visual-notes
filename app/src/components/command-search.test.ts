@@ -2,6 +2,7 @@ import type * as Solid from "solid-js";
 // Use Solid's client runtime because the server build cannot create resources.
 // @ts-expect-error Solid does not publish declarations for this installed runtime entry.
 import * as clientRuntime from "solid-js/dist/solid.js";
+import { revalidate } from "@solidjs/router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchDocs,
@@ -11,6 +12,7 @@ import {
 import {
   commandSearchKey,
   loadCommandResults,
+  retryCommandResults,
   type CommandSearchParams,
 } from "./command-search";
 
@@ -18,9 +20,14 @@ const { createRoot, createResource, createSignal } =
   clientRuntime as typeof Solid;
 
 vi.mock("~/features/docs-index/data/docs.service", () => ({
-  fetchDocs: vi.fn(),
-  searchDocs: vi.fn(),
+  fetchDocs: Object.assign(vi.fn(), {
+    keyFor: vi.fn(() => "fetch-docs-key"),
+  }),
+  searchDocs: Object.assign(vi.fn(), {
+    keyFor: vi.fn(() => "search-docs-key"),
+  }),
 }));
+vi.mock("@solidjs/router", () => ({ revalidate: vi.fn(async () => {}) }));
 
 const search = vi.mocked(searchDocs);
 const fetch = vi.mocked(fetchDocs);
@@ -41,6 +48,7 @@ const result: ServerSearchItem = {
 afterEach(() => {
   search.mockReset();
   fetch.mockReset();
+  vi.mocked(revalidate).mockClear();
 });
 
 describe("CmdK search resource recovery", () => {
@@ -65,7 +73,15 @@ describe("CmdK search resource recovery", () => {
       failed: true,
     });
 
-    await state.retry();
+    const retryOrder: string[] = [];
+    vi.mocked(revalidate).mockImplementation(async () => {
+      retryOrder.push("invalidate");
+    });
+    await retryCommandResults(params, () => {
+      retryOrder.push("refetch");
+      return state.retry();
+    });
+    expect(retryOrder).toEqual(["invalidate", "refetch"]);
     await vi.waitFor(() => expect(state.resource.loading).toBe(false));
     expect(state.resource.latest).toMatchObject({
       key: commandSearchKey(params),
@@ -79,6 +95,13 @@ describe("CmdK search resource recovery", () => {
       sortMode: "relevance",
       activityClass: undefined,
     });
+    expect(search.keyFor).toHaveBeenCalledWith({
+      q: "needle",
+      take: 25,
+      sortMode: "relevance",
+      activityClass: undefined,
+    });
+    expect(revalidate).toHaveBeenCalledWith("search-docs-key");
     state.dispose();
   });
 
@@ -99,7 +122,7 @@ describe("CmdK search resource recovery", () => {
     await vi.waitFor(() => expect(state.resource.loading).toBe(false));
     expect(state.resource.latest?.failed).toBe(true);
 
-    await state.retry();
+    await retryCommandResults(params, state.retry);
     await vi.waitFor(() => expect(state.resource.loading).toBe(false));
     expect(state.resource.latest?.items).toEqual([result]);
     state.dispose();
@@ -152,13 +175,19 @@ describe("CmdK search resource recovery", () => {
 
     await vi.waitFor(() => expect(state.resource.loading).toBe(false));
     expect(state.resource.latest?.failed).toBe(true);
-    await state.retry();
+    await retryCommandResults(feedParams, state.retry);
     await vi.waitFor(() => expect(state.resource.loading).toBe(false));
     expect(state.resource.latest).toMatchObject({
       key: commandSearchKey(feedParams),
       items: [{ id: "doc-1", snippet: undefined }],
       failed: false,
     });
+    expect(fetch.keyFor).toHaveBeenCalledWith({
+      take: 25,
+      sortMode: "recent_activity",
+      activityClass: undefined,
+    });
+    expect(revalidate).toHaveBeenCalledWith("fetch-docs-key");
     state.dispose();
   });
 });

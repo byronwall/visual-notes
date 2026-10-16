@@ -26,6 +26,7 @@ import { SimpleSelect } from "~/components/ui/simple-select";
 import {
   commandSearchKey,
   loadCommandResults,
+  retryCommandResults,
   type CommandSearchParams,
 } from "~/components/command-search";
 import { fetchPathSuggestions } from "~/services/docs.service";
@@ -677,7 +678,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => void retrySearch()}
+                      onClick={() =>
+                        void retryCommandResults(searchParams(), retrySearch)
+                      }
                     >
                       Retry
                     </Button>
