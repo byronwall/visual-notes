@@ -264,6 +264,12 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               overflowWrap={props.wrapPreview ? "anywhere" : undefined}
               overflow={props.truncatePreview ? "hidden" : undefined}
               textOverflow={props.truncatePreview ? "ellipsis" : undefined}
+              onKeyDown={(event) => {
+                if (props.activationMode !== "dblclick" || event.key !== "Enter") return;
+                event.preventDefault();
+                event.stopPropagation();
+                startEditing();
+              }}
             />
             <Editable.Input
               px="0"
