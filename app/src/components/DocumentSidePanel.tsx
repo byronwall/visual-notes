@@ -1,4 +1,3 @@
-import { useAction } from "@solidjs/router";
 import {
   Show,
   Suspense,
@@ -13,7 +12,8 @@ import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
 import { InPlaceEditableText } from "./InPlaceEditableText";
-import { fetchDoc, updateDoc } from "~/services/docs.service";
+import { fetchDoc } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 
 type DocDetail = {
   id: string;
@@ -36,7 +36,7 @@ export const DocumentSidePanel: VoidComponent<{
     (id) => fetchDocDetail(id),
   );
   const [title, setTitle] = createSignal("");
-  const runUpdateDoc = useAction(updateDoc);
+  const { update: runUpdateDoc } = useNoteMutations();
 
   createEffect(() => {
     const current = doc();

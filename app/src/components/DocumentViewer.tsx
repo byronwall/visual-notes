@@ -8,7 +8,7 @@ import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Link } from "~/components/ui/link";
 import { Tooltip } from "~/components/ui/tooltip";
 import { DocSharePanel } from "./DocSharePanel";
-import { deleteDoc, updateDoc } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
@@ -48,8 +48,7 @@ const DocumentViewer: VoidComponent<{
     undefined,
   );
   const [title, setTitle] = createSignal(props.doc.title);
-  const runUpdateDoc = useAction(updateDoc);
-  const runDeleteDoc = useAction(deleteDoc);
+  const { update: runUpdateDoc, delete: runDeleteDoc } = useNoteMutations();
   const runLogDocViewEvent = useAction(logDocViewEvent);
   let lastLoggedDocId = "";
   const firstH1 = () =>
