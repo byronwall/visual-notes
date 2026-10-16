@@ -1,8 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
+import { storageStatePath } from "./tests/e2e/global-setup";
 
 const fallbackPlaywrightPort = process.env.PLAYWRIGHT_PORT ?? "3100";
 const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${fallbackPlaywrightPort}`;
+  process.env.PLAYWRIGHT_BASE_URL ??
+  `http://127.0.0.1:${fallbackPlaywrightPort}`;
 const webServerPort =
   process.env.PLAYWRIGHT_SERVER_PORT ??
   (() => {
@@ -21,11 +23,13 @@ webServerEnv.PORT = webServerPort;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,
+    storageState: storageStatePath,
     trace: "retain-on-failure",
     video: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -33,7 +37,8 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "set -a; source .env; set +a; unset NO_COLOR; pnpm build && pnpm start",
+        command:
+          "set -a; source .env; set +a; unset NO_COLOR; pnpm build && pnpm start",
         env: webServerEnv,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
