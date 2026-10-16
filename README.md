@@ -18,7 +18,7 @@ This repo includes a minimal end-to-end slice to ingest a single Markdown docume
 
 ### Prerequisites
 
-- Node.js and pnpm
+- Node.js 22.6+ and pnpm 9.15.9 (pinned in `app/package.json`; run `corepack enable` or prefix commands with `corepack`)
 - Postgres if you want to run against a real DB locally (Compose file available)
 
 ### Install deps and generate Prisma
