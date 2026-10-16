@@ -78,7 +78,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       }
     });
     const onWindowKeyDown = (ev: KeyboardEvent) => {
-      if (ev.repeat) return;
+      if (ev.defaultPrevented || ev.repeat) return;
       if (ev.metaKey !== true) return;
       const key = ev.key.toLowerCase();
       if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "k") {
