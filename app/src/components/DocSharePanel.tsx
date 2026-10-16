@@ -6,7 +6,7 @@ import {
   Link2OffIcon,
 } from "lucide-solid";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { HStack, Stack } from "styled-system/jsx";
 import { useToasts } from "~/components/Toast";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Button } from "~/components/ui/button";
@@ -18,7 +18,11 @@ import {
   upsertDocShare,
   type DocShareSummary,
 } from "~/services/doc-shares.service";
-import { buildShareAbsoluteUrl } from "~/services/doc-shares.shared";
+import {
+  buildShareAbsoluteUrl,
+  isDocShareDeleteAcknowledged,
+  isDocShareUpsertAcknowledged,
+} from "~/services/doc-shares.shared";
 import { getBaseUrl } from "~/utils/base-url";
 
 type DocSharePanelProps = {
@@ -46,12 +50,16 @@ export function DocSharePanel(props: DocSharePanelProps) {
   const sharePath = createMemo(() => share()?.shareUrl || "");
   const handleSave = async () => {
     const hadShare = share() !== null;
+    const submittedDocId = props.docId;
     setBusy(true);
     try {
       const next = await runUpsertDocShare({
-        docId: props.docId,
+        docId: submittedDocId,
         slug: slugDraft().trim() || undefined,
       });
+      if (!isDocShareUpsertAcknowledged(next)) {
+        throw new Error("The server did not confirm the share link.");
+      }
       setShare(next);
       setSlugDraft(next.slug);
       showToast({
@@ -66,9 +74,13 @@ export function DocSharePanel(props: DocSharePanelProps) {
   };
 
   const handleCancelShare = async () => {
+    const submittedDocId = props.docId;
     setBusy(true);
     try {
-      await runDeleteDocShare({ docId: props.docId });
+      const result = await runDeleteDocShare({ docId: submittedDocId });
+      if (!isDocShareDeleteAcknowledged(result, submittedDocId)) {
+        throw new Error("The server did not confirm the share removal.");
+      }
       setShare(null);
       setSlugDraft("");
       showToast({
