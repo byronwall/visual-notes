@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "authjs.csrf-token",
+      "value": "994482b13ca26cff54a472490fb8b8a8e9ca73bf5db092cfc25655cfd9c7c8d4%7Cea3fcc4c2717b7ff5dcd4361c0c5c1cc2e74a05d16c65c0c6d2dcfe80441b2f8",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authjs.callback-url",
+      "value": "http%3A%2F%2F127.0.0.1%3A3191",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "magic_auth",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvayI6dHJ1ZSwiaWF0IjoxNzkyMTc3MDk3LCJleHAiOjE3OTQ3NjkwOTd9.LVuq_kEbE6f31zu4pYEttIqgrDqESrlLEbYvFXZfqp8",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": 1794769097.511327,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
