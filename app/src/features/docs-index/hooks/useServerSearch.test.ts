@@ -21,6 +21,7 @@ const deferred = <T>() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.resetAllMocks();
 });
 
@@ -57,6 +58,7 @@ describe("useServerSearch request outcomes", () => {
 
   it("keeps the newest query results when an older request resolves later", async () => {
     vi.useFakeTimers();
+    const logSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const older = deferred<Awaited<ReturnType<typeof searchDocs>>>();
     const newer = deferred<Awaited<ReturnType<typeof searchDocs>>>();
     vi.mocked(searchDocs)
@@ -75,6 +77,10 @@ describe("useServerSearch request outcomes", () => {
     setQuery("newer");
     await vi.advanceTimersByTimeAsync(100);
     expect(vi.mocked(searchDocs)).toHaveBeenCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledWith(
+      "[docs-index/search] start",
+      expect.objectContaining({ q: "newer", inFlight: 1 }),
+    );
 
     const newerResults = [
       { id: "newer", title: "Newer", createdAt: "", updatedAt: "" },
