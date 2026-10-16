@@ -42,9 +42,6 @@ export default defineConfig({
     ssr: {
       external: ["@prisma/client"],
     },
-    optimizeDeps: {
-      include: ["solid-markdown > micromark", "solid-markdown > unified"],
-    },
   },
 }).addRouter({
   name: "ws",

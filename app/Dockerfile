@@ -4,7 +4,7 @@
 FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 
 # -------- deps install (cached) --------
@@ -35,7 +35,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-venv \
   && rm -rf /var/lib/apt/lists/*
 # Enable pnpm via Corepack in runtime
-RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output

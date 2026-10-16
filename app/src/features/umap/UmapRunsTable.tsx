@@ -74,7 +74,7 @@ export function UmapRunsTable(props: UmapRunsTableProps) {
                       <Table.Cell>{formatRelativeTimestamp(run.createdAt)}</Table.Cell>
                       <Table.Cell textAlign="right">
                         <Tooltip
-                          content="Copy this run's params into the New UMAP Run form"
+                          content={<>Copy this run's params into the New UMAP Run form</>}
                           showArrow
                         >
                           <IconButton

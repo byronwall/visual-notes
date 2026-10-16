@@ -1,8 +1,9 @@
 {
   "name": "visual-notes",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "dev": "pnpm panda codegen && vinxi dev",
-    "build": "pnpm panda codegen && vinxi build",
+    "dev": "panda codegen && vinxi dev",
+    "build": "panda codegen && vinxi build",
     "start": "vinxi start",
     "start-prod": "pnpm prisma migrate deploy && pnpm start",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"**/*.{ts,tsx,js,jsx}\"",
@@ -15,6 +16,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:json": "playwright test --reporter=list,json",
     "test:e2e:install": "playwright install chromium",
+    "audit:harness": "node --experimental-strip-types scripts/audit-harness.ts",
+    "audit:harness:check": "node --experimental-strip-types scripts/audit-harness.ts --self-check",
     "mcp:playwright": "pnpm dlx @playwright/mcp@latest --isolated",
     "umap:setup:local": "node scripts/setup-umap-local.mjs",
     "umap:python:install": "python3 -m venv .venv && ./.venv/bin/python -m pip install -r scripts/requirements-umap.txt",
