@@ -26,7 +26,7 @@ export const useDocsIndexBulkActions = (args: {
   const [showBulkMeta, setShowBulkMeta] = createSignal(false);
   const [showBulkPath, setShowBulkPath] = createSignal(false);
   const [bulkBusy, setBulkBusy] = createSignal(false);
-  const [bulkError, setBulkError] = createSignal<string | undefined>(undefined);
+  const [pendingPathIds, setPendingPathIds] = createSignal<string[]>([]);
 
   const runCleanupTitles = useAction(cleanupTitles);
   const runUpdateDoc = useAction(updateDoc);
@@ -151,53 +151,110 @@ export const useDocsIndexBulkActions = (args: {
   const handleCloseBulkMeta = () => {
     if (bulkBusy()) return;
     setShowBulkMeta(false);
-    setBulkError(undefined);
   };
 
   const handleOpenBulkPath = () => setShowBulkPath(true);
   const handleCloseBulkPath = () => {
     if (bulkBusy()) return;
     setShowBulkPath(false);
-    setBulkError(undefined);
+    setPendingPathIds([]);
   };
 
-  const handleApplyBulkMeta = async (actions: BulkMetaAction[]) => {
+  const handleApplyBulkMeta = async (
+    actions: BulkMetaAction[],
+  ): Promise<boolean> => {
     const ids = visibleIds().filter((id) => selectedIds().has(id));
     const count = ids.length;
     if (!count) {
-      alert("No selected visible notes.");
-      return;
+      throw new Error("No selected visible notes. Review the selection.");
     }
     if (!confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`))
-      return;
+      return false;
     setBulkBusy(true);
-    setBulkError(undefined);
     try {
-      await runBulkUpdateMeta(ids, actions);
-      await args.refreshDocs();
+      let result: Awaited<ReturnType<typeof runBulkUpdateMeta>>;
+      try {
+        result = await runBulkUpdateMeta(ids, actions);
+      } catch (error) {
+        try {
+          await args.refreshDocs();
+        } catch {
+          // Keep the action error. The write may have completed before its response failed.
+        }
+        throw error;
+      }
+      let refreshError: unknown;
+      try {
+        await args.refreshDocs();
+      } catch (error) {
+        refreshError = error;
+      }
+      if (result.updated < count) {
+        setSelectedIds(new Set<string>());
+        throw new Error(
+          `Updated ${result.updated} of ${count} notes.${refreshError ? ` Results could not refresh: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}.` : " Results were refreshed."} Selection was cleared. The server did not report which notes failed. Review the results and reselect notes before applying again.`,
+        );
+      }
+      if (refreshError) {
+        throw new Error(
+          `Updated ${result.updated} of ${count} notes, but results could not refresh: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}.`,
+        );
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.delete(id);
+        return next;
+      });
       setShowBulkMeta(false);
-    } catch (error) {
-      setBulkError((error as Error).message || "Failed to apply metadata");
+      return true;
     } finally {
       setBulkBusy(false);
     }
   };
 
   const handleApplyBulkPath = async (path: string) => {
-    const ids = visibleIds().filter((id) => selectedIds().has(id));
+    const ids = pendingPathIds().length
+      ? pendingPathIds()
+      : visibleIds().filter((id) => selectedIds().has(id));
     const count = ids.length;
     if (!count) {
-      alert("No selected visible notes.");
-      return;
+      throw new Error("No selected visible notes.");
     }
     setBulkBusy(true);
-    setBulkError(undefined);
     try {
-      await Promise.all(ids.map((id) => runUpdateDoc({ id, path })));
-      await args.refreshDocs();
+      const results = await Promise.allSettled(
+        ids.map((id) => runUpdateDoc({ id, path })),
+      );
+      const succeededIds = ids.filter(
+        (_, index) => results[index].status === "fulfilled",
+      );
+      const failedIds = ids.filter(
+        (_, index) => results[index].status === "rejected",
+      );
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of succeededIds) next.delete(id);
+        for (const id of failedIds) next.add(id);
+        return next;
+      });
+      setPendingPathIds(failedIds);
+      let refreshError: unknown;
+      try {
+        await args.refreshDocs();
+      } catch (error) {
+        refreshError = error;
+      }
+      if (failedIds.length) {
+        throw new Error(
+          `Updated paths for ${succeededIds.length} of ${count} notes.${refreshError ? ` Results could not refresh: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}.` : " Results were refreshed."} Failed notes remain selected for retry.`,
+        );
+      }
+      if (refreshError) {
+        throw new Error(
+          `Updated paths for ${succeededIds.length} of ${count} notes, but results could not refresh: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}.`,
+        );
+      }
       setShowBulkPath(false);
-    } catch (error) {
-      setBulkError((error as Error).message || "Failed to update paths");
     } finally {
       setBulkBusy(false);
     }
