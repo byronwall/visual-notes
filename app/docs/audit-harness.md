@@ -74,3 +74,13 @@ Use each entity's actual app route in `startUrl`. For example, open an `Archived
 When browser code creates a Playwright `Browser` handle, close that handle in a `finally` block with `await browser.close()`. The MCP `browser_close` tool may close only the active page, so it is not a substitute for closing a browser handle created by test code.
 
 Never use the original app database for audit writes. Do not add an OpenAI key to this harness. The launcher sets OPENAI_API_KEY to an empty value.
+
+## Check the PGM ledger
+
+Run the read-only consistency report against a local PGM export before closing out a run:
+
+```sh
+corepack pnpm pgm:report --root /abs/path/to/pgm-export --project visual-notes-repository-improvement --repo-root /abs/path/to/worktree
+```
+
+It lists implemented nodes without a solution, open nodes that already record a solution (review their disposition), duplicate titles, invalid parents, thin open records, and referenced `tmp/`, `docs/`, or `app/` evidence paths that do not exist under `--repo-root`. Add `--json` for machine-readable output. It never edits or deletes nodes and does not start the PGM viewer.
