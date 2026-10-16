@@ -110,7 +110,7 @@ function detectDelimiter(text: string): Delim | null {
   if (!hasNewline) return null;
   const candidates: Delim[] = [",", "\t"];
   const results = candidates.map((d) => analyzeConsistency(sample, d));
-  const passing = results.filter((r) => r.ok);
+  const passing = results.filter((r) => r.ok && r.modeCols >= 2);
   if (passing.length === 0) return null;
   // Choose the one with fewer mismatches; tie-break on larger modeCols, then prefer tab.
   passing.sort((a, b) => {

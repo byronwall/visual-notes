@@ -5,8 +5,15 @@ import {
   Globe2Icon,
   Link2OffIcon,
 } from "lucide-solid";
-import { Show, createEffect, createMemo, createSignal } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import {
+  Show,
+  batch,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+} from "solid-js";
+import { HStack, Stack } from "styled-system/jsx";
 import { useToasts } from "~/components/Toast";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Button } from "~/components/ui/button";
@@ -18,7 +25,13 @@ import {
   upsertDocShare,
   type DocShareSummary,
 } from "~/services/doc-shares.service";
-import { buildShareAbsoluteUrl } from "~/services/doc-shares.shared";
+import {
+  buildShareAbsoluteUrl,
+  isDocShareDeleteAcknowledged,
+  isDocShareSelectionCurrent,
+  isDocShareUpsertAcknowledged,
+  type DocShareSelection,
+} from "~/services/doc-shares.shared";
 import { getBaseUrl } from "~/utils/base-url";
 
 type DocSharePanelProps = {
@@ -34,41 +47,91 @@ export function DocSharePanel(props: DocSharePanelProps) {
   );
   const [busy, setBusy] = createSignal(false);
   const [open, setOpen] = createSignal(false);
+  let selectedDocId: string | undefined = undefined;
+  let selectionGeneration = 0;
+  let disposed = false;
   const runUpsertDocShare = useAction(upsertDocShare);
   const runDeleteDocShare = useAction(deleteDocShare);
   const { show: showToast } = useToasts();
 
+  const isCurrentSelection = (
+    submitted: DocShareSelection,
+    currentDocId: string,
+  ) =>
+    isDocShareSelectionCurrent(
+      submitted,
+      { docId: currentDocId, generation: selectionGeneration },
+      disposed,
+    );
+
+  onCleanup(() => {
+    disposed = true;
+  });
+
   createEffect(() => {
-    setShare(props.initialShare ?? null);
-    setSlugDraft(props.initialShare?.slug ?? "");
+    const docId = props.docId;
+    const initialShare = props.initialShare ?? null;
+    const selectionChanged =
+      selectedDocId !== undefined && docId !== selectedDocId;
+    selectedDocId = docId;
+    if (selectionChanged) {
+      selectionGeneration += 1;
+    }
+
+    batch(() => {
+      if (selectionChanged) setBusy(false);
+      setShare(initialShare);
+      setSlugDraft(initialShare?.slug ?? "");
+    });
   });
 
   const sharePath = createMemo(() => share()?.shareUrl || "");
   const handleSave = async () => {
     const hadShare = share() !== null;
+    const submittedDocId = props.docId;
+    const submittedSelection = {
+      docId: submittedDocId,
+      generation: selectionGeneration,
+    };
+    const submittedSlugDraft = slugDraft();
+    const submittedSlug = submittedSlugDraft.trim() || undefined;
     setBusy(true);
     try {
       const next = await runUpsertDocShare({
-        docId: props.docId,
-        slug: slugDraft().trim() || undefined,
+        docId: submittedDocId,
+        slug: submittedSlug,
       });
+      if (!isDocShareUpsertAcknowledged(next)) {
+        throw new Error("The server did not confirm the share link.");
+      }
+      if (!isCurrentSelection(submittedSelection, props.docId)) return;
       setShare(next);
-      setSlugDraft(next.slug);
+      if (slugDraft() === submittedSlugDraft) setSlugDraft(next.slug);
       showToast({
         title: hadShare ? "Share updated" : "Share created",
         message: "The public share link is ready.",
       });
     } catch (error) {
+      if (!isCurrentSelection(submittedSelection, props.docId)) return;
       alert((error as Error).message || "Failed to save share link");
     } finally {
-      setBusy(false);
+      if (isCurrentSelection(submittedSelection, props.docId)) setBusy(false);
     }
   };
 
   const handleCancelShare = async () => {
+    const submittedDocId = props.docId;
+    const submittedSelection = {
+      docId: submittedDocId,
+      generation: selectionGeneration,
+    };
     setBusy(true);
     try {
-      await runDeleteDocShare({ docId: props.docId });
+      const result = await runDeleteDocShare({ docId: submittedDocId });
+      if (!isDocShareDeleteAcknowledged(result, submittedDocId)) {
+        throw new Error("The server did not confirm the share removal.");
+      }
+      if (!isCurrentSelection(submittedSelection, props.docId)) return;
       setShare(null);
       setSlugDraft("");
       showToast({
@@ -77,9 +140,10 @@ export function DocSharePanel(props: DocSharePanelProps) {
       });
       setOpen(false);
     } catch (error) {
+      if (!isCurrentSelection(submittedSelection, props.docId)) return;
       alert((error as Error).message || "Failed to remove share link");
     } finally {
-      setBusy(false);
+      if (isCurrentSelection(submittedSelection, props.docId)) setBusy(false);
     }
   };
 

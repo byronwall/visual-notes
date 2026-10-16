@@ -7,6 +7,7 @@ import { FileRoutes } from "@solidjs/start/router";
 import {
   ErrorBoundary,
   Match,
+  Show,
   Suspense,
   Switch,
   createEffect,
@@ -60,23 +61,7 @@ export default function App() {
     <Router
       root={(props) => (
         <MetaProvider>
-          <Title>Visual Notes</Title>
-          <Meta
-            name="description"
-            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
-          />
-          <Meta property="og:title" content="Visual Notes" />
-          <Meta
-            property="og:description"
-            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
-          />
-          <Meta property="og:type" content="website" />
-          <Meta name="twitter:card" content="summary" />
-          <Meta name="twitter:title" content="Visual Notes" />
-          <Meta
-            name="twitter:description"
-            content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
-          />
+          <DefaultMetadata />
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
@@ -131,6 +116,33 @@ export default function App() {
     </Router>
   );
 }
+
+const DefaultMetadata = () => {
+  const location = useLocation();
+  const isPublicShareRoute = () => location.pathname.startsWith("/share/");
+
+  return (
+    <Show when={!isPublicShareRoute()}>
+      <Title>Visual Notes</Title>
+      <Meta
+        name="description"
+        content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+      />
+      <Meta property="og:title" content="Visual Notes" />
+      <Meta
+        property="og:description"
+        content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+      />
+      <Meta property="og:type" content="website" />
+      <Meta name="twitter:card" content="summary" />
+      <Meta name="twitter:title" content="Visual Notes" />
+      <Meta
+        name="twitter:description"
+        content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
+      />
+    </Show>
+  );
+};
 
 const AuthGate = (props: { children: JSX.Element }) => {
   const { authed, loading } = useMagicAuth();
