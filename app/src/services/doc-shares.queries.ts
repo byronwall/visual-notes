@@ -20,7 +20,6 @@ export type PublicSharedDoc = {
   html: string;
   markdown?: string | null;
   path?: string | null;
-  meta?: Record<string, unknown> | null;
   updatedAt: string;
   share: DocShareSummary;
   previewText: string;
@@ -74,7 +73,6 @@ export const fetchPublicSharedDoc = query(
             html: true,
             markdown: true,
             path: true,
-            meta: true,
             updatedAt: true,
           },
         },
@@ -93,7 +91,6 @@ export const fetchPublicSharedDoc = query(
       html,
       markdown: share.doc.markdown,
       path: share.doc.path,
-      meta: share.doc.meta as Record<string, unknown> | null,
       updatedAt: share.doc.updatedAt.toISOString(),
       share: {
         id: share.id,
