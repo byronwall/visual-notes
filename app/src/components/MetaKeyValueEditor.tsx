@@ -5,8 +5,10 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import {
   entriesFromMeta,
+  hasDuplicateMetaKey,
   recordFromEntries,
   removeEntryAt,
+  shouldSyncMetaDraft,
   serializeMetaRecord,
   upsertEntry,
   type MetaEntry,
@@ -23,7 +25,7 @@ export const MetaKeyValueEditor: VoidComponent<{
   onChange?: (meta: MetaRecord) => void;
 }> = (props) => {
   const [entries, setEntries] = createSignal<MetaEntry[]>(
-    entriesFromMeta(props.initialMeta)
+    entriesFromMeta(props.initialMeta),
   );
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
@@ -33,40 +35,72 @@ export const MetaKeyValueEditor: VoidComponent<{
   const [editValue, setEditValue] = createSignal("");
   const runUpdateDoc = useAction(updateDoc);
 
-  let prevIncomingMeta = serializeMetaRecord(props.initialMeta || {});
-
-  createEffect(() => {
-    const incomingSerialized = serializeMetaRecord(props.initialMeta || {});
-    if (incomingSerialized === prevIncomingMeta) return;
-    prevIncomingMeta = incomingSerialized;
-    setEntries(entriesFromMeta(props.initialMeta));
-  });
-
-  const persistIfNeeded = async (nextEntries: MetaEntry[]) => {
-    const record = recordFromEntries(nextEntries);
-
-    if (props.docId) {
-      setBusy(true);
-      setError(undefined);
-      try {
-        await runUpdateDoc({ id: props.docId, meta: record });
-        if (props.onChange) props.onChange(record);
-      } catch (e) {
-        setError((e as Error).message || "Failed to save metadata");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
-    if (props.onChange) props.onChange(record);
-  };
-
   const resetEditorFields = () => {
     setEditingIndex(null);
     setEditKey("");
     setEditValue("");
     setIsEditing(false);
+  };
+
+  let prevDocId: string | undefined;
+  let docVersion = 0;
+  let prevIncomingMeta = serializeMetaRecord(props.initialMeta || {});
+
+  createEffect(() => {
+    const incomingDocId = props.docId;
+    const incomingSerialized = serializeMetaRecord(props.initialMeta || {});
+    if (
+      !shouldSyncMetaDraft(
+        prevDocId,
+        incomingDocId,
+        prevIncomingMeta,
+        incomingSerialized,
+      )
+    ) {
+      return;
+    }
+    const docChanged = incomingDocId !== prevDocId;
+    prevDocId = incomingDocId;
+    prevIncomingMeta = incomingSerialized;
+    setEntries(entriesFromMeta(props.initialMeta));
+    setError(undefined);
+    if (docChanged) {
+      docVersion += 1;
+      setBusy(false);
+      resetEditorFields();
+    }
+  });
+
+  const persistIfNeeded = async (
+    nextEntries: MetaEntry[],
+    docId: string | undefined,
+    version: number,
+  ) => {
+    const record = recordFromEntries(nextEntries);
+
+    if (!docId) {
+      if (version !== docVersion) return false;
+      setEntries(nextEntries);
+      if (props.onChange) props.onChange(record);
+      return true;
+    }
+
+    setBusy(true);
+    setError(undefined);
+    try {
+      await runUpdateDoc({ id: docId, meta: record });
+      if (version !== docVersion) return false;
+      setEntries(nextEntries);
+      if (props.onChange) props.onChange(record);
+      return true;
+    } catch (error) {
+      if (version === docVersion) {
+        setError((error as Error)?.message || "Failed to save metadata");
+      }
+      return false;
+    } finally {
+      if (version === docVersion) setBusy(false);
+    }
   };
 
   const openForNew = () => {
@@ -76,34 +110,26 @@ export const MetaKeyValueEditor: VoidComponent<{
     setIsEditing(true);
   };
 
-  const openForEdit = (index: number) => () => {
-    const entry = entries()[index];
-    setEditingIndex(index);
-    setEditKey(entry?.key || "");
-    setEditValue(entry?.value || "");
-    setIsEditing(true);
-  };
-
   const handleSave = async () => {
     const key = editKey().trim();
     if (!key || busy()) return;
 
     const nextEntry: MetaEntry = { key, value: editValue() };
     const next = upsertEntry(entries(), editingIndex(), nextEntry);
+    setError(undefined);
+    if (hasDuplicateMetaKey(next)) {
+      setError("Each detail key can only appear once.");
+      return;
+    }
 
-    setEntries(next);
-    await persistIfNeeded(next);
-    resetEditorFields();
-  };
-
-  const removeAt = (index: number) => async () => {
-    const next = removeEntryAt(entries(), index);
-    setEntries(next);
-    await persistIfNeeded(next);
-  };
-
-  const makeRemoveHandler = (index: number) => () => {
-    void removeAt(index)();
+    const docId = props.docId;
+    const version = docVersion;
+    if (
+      (await persistIfNeeded(next, docId, version)) &&
+      version === docVersion
+    ) {
+      resetEditorFields();
+    }
   };
 
   const handleFieldKeyDown = async (ev: KeyboardEvent) => {
@@ -136,11 +162,24 @@ export const MetaKeyValueEditor: VoidComponent<{
                 variant="plain"
                 colorPalette="gray"
                 px="0"
-                onClick={openForEdit(index())}
+                onClick={() => {
+                  const entry = entries()[index()];
+                  setEditingIndex(index());
+                  setEditKey(entry?.key || "");
+                  setEditValue(entry?.value || "");
+                  setIsEditing(true);
+                }}
                 type="button"
+                disabled={busy()}
                 title={`${entry.key}: ${entry.value}`}
               >
-                <Text as="span" fontSize="xs" fontWeight="medium" maxW="14rem" truncate>
+                <Text
+                  as="span"
+                  fontSize="xs"
+                  fontWeight="medium"
+                  maxW="14rem"
+                  truncate
+                >
                   {entry.key}
                 </Text>
                 <Text as="span" fontSize="xs" color="fg.muted">
@@ -155,8 +194,31 @@ export const MetaKeyValueEditor: VoidComponent<{
                 variant="plain"
                 colorPalette="gray"
                 px="0.5"
-                onClick={makeRemoveHandler(index())}
+                onClick={() => {
+                  if (busy()) return;
+                  const removedIndex = index();
+                  const version = docVersion;
+                  void (async () => {
+                    const removed = await persistIfNeeded(
+                      removeEntryAt(entries(), removedIndex),
+                      props.docId,
+                      version,
+                    );
+                    if (!removed || version !== docVersion) return;
+
+                    const activeIndex = editingIndex();
+                    if (activeIndex === removedIndex) {
+                      resetEditorFields();
+                    } else if (
+                      activeIndex !== null &&
+                      activeIndex > removedIndex
+                    ) {
+                      setEditingIndex(activeIndex - 1);
+                    }
+                  })();
+                }}
                 type="button"
+                disabled={busy()}
                 aria-label={`Remove ${entry.key}`}
                 title="Remove"
               >
@@ -173,13 +235,19 @@ export const MetaKeyValueEditor: VoidComponent<{
           borderRadius="full"
           onClick={openForNew}
           type="button"
+          disabled={busy()}
         >
           + Add
         </Button>
       </HStack>
 
       <Show when={isEditing()}>
-        <Box borderWidth="1px" borderColor="gray.outline.border" borderRadius="l2" p="2.5">
+        <Box
+          borderWidth="1px"
+          borderColor="gray.outline.border"
+          borderRadius="l2"
+          p="2.5"
+        >
           <Stack gap="2">
             <HStack gap="2" alignItems="flex-start">
               <Stack gap="1" flex="1">
@@ -234,7 +302,12 @@ export const MetaKeyValueEditor: VoidComponent<{
               >
                 Cancel
               </Button>
-              <Button size="sm" onClick={() => void handleSave()} type="button" disabled={busy()}>
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                type="button"
+                disabled={busy()}
+              >
                 {busy() ? "Saving…" : "Save"}
               </Button>
             </HStack>
