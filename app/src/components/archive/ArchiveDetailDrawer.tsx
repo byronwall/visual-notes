@@ -273,7 +273,10 @@ export const ArchiveDetailDrawer: VoidComponent<{
     setNewNoteDrafts(pageId, { ...previous, ...patch });
   };
 
-  const item = createMemo(() => detail.latest ?? detail());
+  const item = createMemo(() => {
+    const current = detail.latest ?? detail();
+    return current?.id === props.pageId ? current : undefined;
+  });
 
   const refresh = async (pageId: string) => {
     if (props.pageId === pageId) await refetch();
@@ -351,7 +354,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
   };
 
   const deleteEntry = async () => {
-    const pageId = props.pageId;
+    const pageId = item()?.id;
     if (!pageId) return;
     if (!confirm("Delete this explorer entry and everything captured under it?")) return;
     await runDeleteArchivedPage({ id: pageId });
@@ -448,6 +451,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
               size="xs"
               variant="plain"
               colorPalette="red"
+              disabled={!item()}
               onClick={() => void deleteEntry()}
             >
               Delete
