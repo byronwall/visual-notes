@@ -24,7 +24,13 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 
-type DocData = { id: string; title: string; markdown?: string; html?: string };
+type DocData = {
+  id: string;
+  title: string;
+  markdown?: string;
+  html?: string;
+  updatedAt?: string;
+};
 
 export type DocumentEditorApi = {
   save: () => Promise<void>;
@@ -42,6 +48,7 @@ const DocumentEditor: VoidComponent<{
   initialMarkdown?: string;
   initialHTML?: string;
   onCreated?: (id: string) => void;
+  onSaved?: (result: { id: string; updatedAt: string }) => void;
   apiRef?: (api: DocumentEditorApi) => void;
   showTopBar?: boolean;
   showAiPromptsBar?: boolean;
@@ -55,7 +62,6 @@ const DocumentEditor: VoidComponent<{
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
-  const [savedAt, setSavedAt] = createSignal<Date | undefined>(undefined);
   const [dirty, setDirty] = createSignal(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = createSignal(false);
   const [pendingRetry, setPendingRetry] = createSignal<(() => void) | null>(
@@ -287,16 +293,21 @@ const DocumentEditor: VoidComponent<{
           path: newPath() || undefined,
           meta: newMeta(),
         });
-        setSavedAt(new Date());
         setDirty(false);
         shouldRestoreSelection = false;
         if (props.onCreated) props.onCreated(json.id);
       } else {
         // Update existing
-        await runUpdateDoc({ id: d!.id, html });
-        setSavedAt(new Date());
-        setDirty(false);
-        mutate((current) => (current ? { ...current, html } : current));
+        const updated = await runUpdateDoc({ id: d!.id, html });
+        if (props.docId === updated.id && doc()?.id === updated.id) {
+          setDirty(false);
+          mutate((current) =>
+            current?.id === updated.id
+              ? { ...current, html, updatedAt: updated.updatedAt }
+              : current,
+          );
+          props.onSaved?.(updated);
+        }
       }
     } catch (e) {
       setError((e as Error).message || "Failed to save");
