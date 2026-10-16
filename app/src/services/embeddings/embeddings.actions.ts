@@ -442,11 +442,16 @@ export const processEmbeddingRun = action(
     };
 
     const allChunks: ChunkItem[] = [];
+    const emptyChunkDocIds = new Set<string>();
     for (const d of docs as any[]) {
       try {
         const sourceText = normalizeSourceForEmbedding(d);
         const sections = preprocessMarkdown(sourceText, flags);
         const chunks = makeChunks(sections, chunkCfg);
+        if (chunks.length === 0) {
+          emptyChunkDocIds.add(String(d.id));
+          continue;
+        }
         for (const c of chunks) {
           const contentHash = sha256(c.text);
           const headingPath = Array.isArray(c.headingPath)
@@ -590,10 +595,19 @@ export const processEmbeddingRun = action(
         createdAt: now,
       });
     }
-    if (sectionEmbRows.length || docRows.length) {
+    if (
+      sectionEmbRows.length ||
+      docRows.length ||
+      (mode === "changed" && emptyChunkDocIds.size > 0)
+    ) {
       await prisma.$transaction(async (tx) => {
         if (mode === "changed") {
-          const docIds = [...new Set(docRows.map((row) => row.docId))];
+          const docIds = [
+            ...new Set([
+              ...docRows.map((row) => row.docId),
+              ...emptyChunkDocIds,
+            ]),
+          ];
           if (docIds.length) {
             await tx.docSectionEmbedding.deleteMany({
               where: { runId: run.id, docId: { in: docIds } },
