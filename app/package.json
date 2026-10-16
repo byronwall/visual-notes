@@ -19,6 +19,7 @@
     "audit:harness": "node --experimental-strip-types scripts/audit-harness.ts",
     "audit:harness:check": "node --experimental-strip-types scripts/audit-harness.ts --self-check",
     "audit:fixtures": "node --experimental-strip-types scripts/audit-fixtures.ts",
+    "audit:run": "node --experimental-strip-types scripts/audit-run.ts",
     "mcp:playwright": "pnpm dlx @playwright/mcp@latest --isolated",
     "umap:setup:local": "node scripts/setup-umap-local.mjs",
     "umap:python:install": "python3 -m venv .venv && ./.venv/bin/python -m pip install -r scripts/requirements-umap.txt",

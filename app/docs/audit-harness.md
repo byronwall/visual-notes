@@ -49,6 +49,19 @@ The app is available at `http://127.0.0.1:<port>`. Stop it with Ctrl+C. The laun
 
 The persistent audit coordinator owns each long-lived server session and records its worktree, port, and terminal session. Bounded audit workers use that URL and close browser handles they create. They do not stop the coordinator's server.
 
+## Record the run
+
+Pass `--owner`, `--run-manifest`, and optionally `--fixtures` and `--evidence` (absolute paths) to the launcher. It writes one JSON run manifest with the source root, branch, commit, a hash of uncommitted changes, the port, the database name, launcher and server PIDs, and the fixture and evidence paths. It never records the database URL or credentials. The launcher records server shutdown itself; record page and browser closure as separate facts:
+
+```sh
+corepack pnpm audit:harness -- <launcher options> --owner harness --run-manifest /abs/evidence/run.json --fixtures /abs/evidence/fixtures.json --evidence /abs/evidence
+corepack pnpm audit:run mark --manifest /abs/evidence/run.json --closed page
+corepack pnpm audit:run mark --manifest /abs/evidence/run.json --closed browser
+corepack pnpm audit:run verify --manifest /abs/evidence/run.json --artifact shot.png
+```
+
+`verify` prints the run identity and shutdown state, then fails if the source changed since launch, the fixture manifest is missing or belongs to another owner or database, the evidence directory is missing, or a named artifact (relative to the evidence directory) is absent. Files under the manifest, fixture, and evidence paths do not count as source changes. A source mismatch invalidates the proof; do not rebase or restart to make it pass. Whether the evidence is sufficient remains the reviewer's call.
+
 ## Record fixtures and evidence
 
 Keep fixture ownership explicit. Each owner records only IDs returned by that owner's creation responses. Do not copy IDs from another audit, infer ownership from titles or recent activity, or use fixtures from the original database.

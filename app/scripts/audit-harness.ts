@@ -5,6 +5,12 @@ import { createServer } from "node:net";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { parseArgs as parseCliArgs, parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  identityExcludes,
+  sourceIdentity,
+  writeRunManifest,
+  type RunManifest,
+} from "./audit-run.ts";
 
 type Options = {
   envFile: string;
@@ -12,6 +18,12 @@ type Options = {
   database: string;
   worktree: string;
   branch: string;
+  run?: {
+    owner: string;
+    manifest: string;
+    fixtures: string | null;
+    evidence: string | null;
+  };
 };
 
 const databasePrefix = "visual_notes_audit_";
@@ -25,6 +37,10 @@ function parseArgs(args: string[]): Options | null {
       database: { type: "string" },
       worktree: { type: "string" },
       branch: { type: "string" },
+      owner: { type: "string" },
+      "run-manifest": { type: "string" },
+      fixtures: { type: "string" },
+      evidence: { type: "string" },
       "self-check": { type: "boolean" },
     },
     strict: true,
@@ -69,7 +85,36 @@ function parseArgs(args: string[]): Options | null {
     );
   }
 
-  return { envFile: resolve(envFile), port, database, worktree, branch };
+  const {
+    owner,
+    "run-manifest": runManifest,
+    fixtures,
+    evidence,
+  } = parsed.values;
+  if ((owner || fixtures || evidence) && !runManifest) {
+    throw new Error(
+      "--owner, --fixtures, and --evidence require --run-manifest.",
+    );
+  }
+  if (runManifest && !owner)
+    throw new Error("--run-manifest requires --owner.");
+
+  return {
+    envFile: resolve(envFile),
+    port,
+    database,
+    worktree,
+    branch,
+    run:
+      runManifest && owner
+        ? {
+            owner,
+            manifest: resolve(runManifest),
+            fixtures: fixtures ? resolve(fixtures) : null,
+            evidence: evidence ? resolve(evidence) : null,
+          }
+        : undefined,
+  };
 }
 
 function assertAssignment(
@@ -350,6 +395,29 @@ async function start(options: Options) {
     detached: true,
     stdio: "inherit",
   });
+  const run = options.run;
+  let runManifest: RunManifest | null = null;
+  if (run) {
+    const paths = { fixtureManifest: run.fixtures, evidenceDir: run.evidence };
+    runManifest = {
+      owner: run.owner,
+      source: sourceIdentity(
+        dirname(packageJsonPath),
+        identityExcludes(run.manifest, paths),
+      ),
+      port: options.port,
+      database: options.database,
+      ...paths,
+      launcher: {
+        pid: process.pid,
+        serverPid: child.pid ?? null,
+        startedAt: new Date().toISOString(),
+      },
+      shutdown: { page: null, browser: null, server: null },
+    };
+    writeRunManifest(run.manifest, runManifest);
+    console.info(`[audit-harness] run manifest: ${run.manifest}`);
+  }
   let stopping = false;
   const stop = (signal: NodeJS.Signals) => {
     if (stopping || !child.pid) return;
@@ -370,6 +438,18 @@ async function start(options: Options) {
     process.exitCode = 1;
   });
   child.once("exit", (code, signal) => {
+    if (run && runManifest) {
+      // Keep page/browser facts recorded by `audit:run mark` since start.
+      const latest = JSON.parse(
+        readFileSync(run.manifest, "utf8"),
+      ) as RunManifest;
+      latest.shutdown.server = {
+        closedAt: new Date().toISOString(),
+        exitCode: code,
+        signal,
+      };
+      writeRunManifest(run.manifest, latest);
+    }
     process.off("SIGINT", onInt);
     process.off("SIGTERM", onTerm);
     process.exitCode = signal ? 1 : code ?? 1;
