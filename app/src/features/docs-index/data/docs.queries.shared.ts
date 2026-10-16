@@ -38,9 +38,15 @@ function buildDocsWhere(q: {
 }) {
   const where: Record<string, any> = {};
   const andClauses: Record<string, unknown>[] = [];
-  if (q.pathPrefix) where.path = { startsWith: q.pathPrefix };
+  if (q.pathPrefix && !q.pathBlankOnly) {
+    andClauses.push({
+      OR: [
+        { path: q.pathPrefix },
+        { path: { startsWith: `${q.pathPrefix}.` } },
+      ],
+    });
+  }
   if (q.pathBlankOnly) {
-    delete where.path;
     andClauses.push({
       OR: [{ path: null }, { path: "" }],
     });
