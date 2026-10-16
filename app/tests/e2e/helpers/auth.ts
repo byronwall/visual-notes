@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
+import { waitForAppReady } from "./readiness";
 
 const parseEnvPassword = () => {
   if (process.env.PLAYWRIGHT_MAGIC_PASSWORD) {
@@ -24,6 +25,8 @@ const parseEnvPassword = () => {
 
 export const ensureAuthed = async (page: Page) => {
   await page.goto("/");
+  await waitForAppReady(page);
+  await page.waitForLoadState("networkidle");
   const signInHeading = page.getByRole("heading", { name: /sign in/i });
   const needsLogin = await signInHeading.isVisible().catch(() => false);
 
@@ -38,5 +41,6 @@ export const ensureAuthed = async (page: Page) => {
 
   await page.getByRole("textbox").first().fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).not.toHaveURL(/\/login$/);
+  await page.waitForLoadState("networkidle");
+  await expect(page).not.toHaveURL((url) => url.pathname === "/login");
 };
