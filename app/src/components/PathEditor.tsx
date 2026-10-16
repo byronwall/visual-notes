@@ -6,7 +6,7 @@ import {
   createMemo,
   createSignal,
 } from "solid-js";
-import type { VoidComponent } from "solid-js";
+import type { JSX, VoidComponent } from "solid-js";
 import { createAsync } from "@solidjs/router";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
@@ -33,15 +33,17 @@ export const PathEditor: VoidComponent<{
   initialPath?: string;
   onChange?: (path: string) => void;
   onChangeWhenSavedOnly?: boolean;
+  actions?: JSX.Element;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
-  let lastAppliedDocId = props.docId;
+  let lastAppliedDocId: string | undefined;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
+  let saveVersion = 0;
 
   const [draft, setDraft] = createSignal<PathDraft>(
     parsePersistedPathDraft(props.initialPath),
   );
-  const [saving, setSaving] = createSignal(false);
+  const [pendingDocIds, setPendingDocIds] = createSignal<Set<string>>(new Set());
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isFocused, setIsFocused] = createSignal(false);
 
@@ -51,6 +53,7 @@ export const PathEditor: VoidComponent<{
   createEffect(() => {
     const incomingDocId = props.docId;
     const incoming = (props.initialPath || "").trim();
+    const docChanged = incomingDocId !== lastAppliedDocId;
     if (
       incomingDocId === lastAppliedDocId &&
       incoming === lastAppliedInitialPath
@@ -59,6 +62,12 @@ export const PathEditor: VoidComponent<{
     }
     lastAppliedDocId = incomingDocId;
     lastAppliedInitialPath = incoming;
+    if (docChanged) {
+      saveVersion += 1;
+      setError(undefined);
+    } else if (incoming === serializePathDraft(draft()).trim()) {
+      return;
+    }
     setDraft(parsePersistedPathDraft(incoming));
     setIsFocused(false);
   });
@@ -88,22 +97,41 @@ export const PathEditor: VoidComponent<{
   };
 
   const savePath = async (path: string) => {
-    if (!props.docId) return;
-    setSaving(true);
+    const docId = props.docId;
+    if (!docId) return;
+    if (pendingDocIds().has(docId)) return;
+    const version = ++saveVersion;
+    setPendingDocIds((current) => new Set(current).add(docId));
     setError(undefined);
     try {
-      await runUpdateDoc({ id: props.docId, path });
-      if (props.onChange && props.onChangeWhenSavedOnly) {
+      await runUpdateDoc({ id: docId, path });
+      if (
+        props.docId === docId &&
+        version === saveVersion &&
+        serializePathDraft(draft()).trim() === path &&
+        props.onChange &&
+        props.onChangeWhenSavedOnly
+      ) {
         props.onChange(path);
       }
     } catch (e) {
-      setError((e as Error).message || "Failed to save path");
+      if (props.docId === docId && version === saveVersion) {
+        setError((e as Error).message || "Failed to save path");
+      }
     } finally {
-      setSaving(false);
+      setPendingDocIds((current) => {
+        const next = new Set(current);
+        next.delete(docId);
+        return next;
+      });
     }
   };
 
+  const isSavingCurrentDoc = () =>
+    !!props.docId && pendingDocIds().has(props.docId);
+
   const handleSelectSuggestion = async (segment: string) => {
+    if (isSavingCurrentDoc()) return;
     const nextDraft = updateDraft((prev) => appendSegment(prev, segment));
     await savePath(serializePathDraft(nextDraft).trim());
     if (inputRef) inputRef.focus();
@@ -135,16 +163,19 @@ export const PathEditor: VoidComponent<{
   };
 
   const handleSave = async () => {
+    if (isSavingCurrentDoc()) return;
     await savePath(serializePathDraft(draft()).trim());
   };
 
   const handleTruncate = (index: number) => {
+    if (isSavingCurrentDoc()) return;
     const nextDraft = updateDraft((prev) => truncatePathDraft(prev, index));
     void savePath(serializePathDraft(nextDraft).trim());
     if (inputRef) inputRef.focus();
   };
 
   const clearAll = async () => {
+    if (isSavingCurrentDoc()) return;
     if (props.docId) {
       const confirmed = window.confirm(
         "Clear the path and save it as empty? This will reset the path to the base level.",
@@ -165,12 +196,11 @@ export const PathEditor: VoidComponent<{
   };
 
   return (
-    <Stack gap="2">
+    <Stack gap="2" onFocusOut={handleEditorFocusOut}>
       <Suspense fallback={null}>
         <Stack
           gap="2"
           onFocusIn={() => setIsFocused(true)}
-          onFocusOut={handleEditorFocusOut}
         >
           <Box
             borderWidth="1px"
@@ -197,6 +227,7 @@ export const PathEditor: VoidComponent<{
                     variant="outline"
                     borderRadius="full"
                     title={segment}
+                    disabled={isSavingCurrentDoc()}
                     onClick={() => handleTruncate(i())}
                   >
                     <Text
@@ -290,6 +321,7 @@ export const PathEditor: VoidComponent<{
                         size="xs"
                         variant="outline"
                         borderRadius="full"
+                        disabled={isSavingCurrentDoc()}
                         onClick={() => void handleSelectSuggestion(s.seg)}
                         title={`${s.seg} (${s.count})`}
                       >
@@ -323,16 +355,21 @@ export const PathEditor: VoidComponent<{
       </Suspense>
 
       <HStack justifyContent="flex-end" gap="1.5" alignItems="center">
-        <ClearButton onClick={clearAll} label="Clear path" />
+        <ClearButton
+          onClick={clearAll}
+          label="Clear path"
+          disabled={isSavingCurrentDoc()}
+        />
+        {props.actions}
 
         <Show when={props.docId}>
           <Button
             size="xs"
             variant="outline"
-            loading={saving()}
+            loading={isSavingCurrentDoc()}
             loadingText="Saving…"
             onClick={handleSave}
-            disabled={saving()}
+            disabled={isSavingCurrentDoc()}
           >
             Save
           </Button>

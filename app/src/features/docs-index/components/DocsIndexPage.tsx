@@ -1,5 +1,5 @@
 import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
-import { ErrorBoundary, Suspense, createMemo } from "solid-js";
+import { ErrorBoundary, Show, Suspense, createMemo } from "solid-js";
 import {
   fetchDocs,
   fetchDocsServerNow,
@@ -153,19 +153,34 @@ const DocsIndexPage = () => {
                 </HStack>
               }
             >
-              <ResultsSection
-                items={docs() || []}
-                query={q}
-                nowMs={docsServerNow()}
-                serverResults={serverResults() || []}
-                serverLoading={serverLoading()}
-                serverError={serverError()}
-                onSearchRetry={retryServerSearch}
-                onVisibleIdsChange={actions.setVisibleIds}
-                selectedIds={actions.selectedIds()}
-                onToggleSelect={actions.handleToggleSelect}
-                onResultOpen={actions.handleSearchResultOpen}
-              />
+              {/* Wait for docs before creating preview queries; keep latest rows during refresh. */}
+              <Show
+                when={docs.latest}
+                fallback={
+                  <HStack gap="0.5rem">
+                    <Spinner />
+                    <Text textStyle="sm" color="black.a7">
+                      Loading…
+                    </Text>
+                  </HStack>
+                }
+              >
+                {(items) => (
+                  <ResultsSection
+                    items={items()}
+                    query={q}
+                    nowMs={docsServerNow()}
+                    serverResults={serverResults() || []}
+                    serverLoading={serverLoading()}
+                    serverError={serverError()}
+                    onSearchRetry={retryServerSearch}
+                    onVisibleIdsChange={actions.setVisibleIds}
+                    selectedIds={actions.selectedIds()}
+                    onToggleSelect={actions.handleToggleSelect}
+                    onResultOpen={actions.handleSearchResultOpen}
+                  />
+                )}
+              </Show>
             </Suspense>
           </ErrorBoundary>
           <BulkMetaModal

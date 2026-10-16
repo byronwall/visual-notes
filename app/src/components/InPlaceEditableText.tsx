@@ -47,6 +47,10 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   const editableValue = () =>
     isEditing() || isSaving() || previewTransition() ? draft() : props.value;
+  const previewValue = () => {
+    const value = editableValue();
+    return value.trim() === "" ? props.placeholder ?? "" : value;
+  };
 
   createEffect(() => {
     const next = props.value;
@@ -264,7 +268,15 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               overflowWrap={props.wrapPreview ? "anywhere" : undefined}
               overflow={props.truncatePreview ? "hidden" : undefined}
               textOverflow={props.truncatePreview ? "ellipsis" : undefined}
-            />
+              onKeyDown={(event) => {
+                if (props.activationMode !== "dblclick" || event.key !== "Enter") return;
+                event.preventDefault();
+                event.stopPropagation();
+                startEditing();
+              }}
+            >
+              {previewValue()}
+            </Editable.Preview>
             <Editable.Input
               px="0"
               py="0"

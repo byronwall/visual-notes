@@ -1,6 +1,8 @@
 import { query } from "@solidjs/router";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { ServerSearchItem } from "./docs.types";
 import {
   buildDocsWhere,
@@ -97,47 +99,6 @@ export const searchDocs = query(
     });
     const afterTitlePathMs = Date.now();
 
-    const sectionsTake = Math.min(Math.max(take * 8, 320), 1200);
-    const sectionTokenAndClause = hasMultiTermQuery
-      ? terms.map((token) => ({
-          text: { contains: token, mode: "insensitive" as const },
-        }))
-      : [];
-    const sections = await prisma.docSection.findMany({
-      where: {
-        OR: [
-          { text: { contains: term, mode: "insensitive" } },
-          ...(hasMultiTermQuery
-            ? [{ AND: sectionTokenAndClause }]
-            : terms.map((token) => ({
-                text: { contains: token, mode: "insensitive" as const },
-              }))),
-        ],
-        ...(Object.keys(docFilters).length ? { doc: docFilters } : {}),
-      },
-      select: {
-        id: true,
-        text: true,
-        doc: {
-          select: {
-            id: true,
-            title: true,
-            updatedAt: true,
-            path: true,
-            share: {
-              select: {
-                slug: true,
-                shareUrl: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: [{ doc: { updatedAt: "desc" } }],
-      take: sectionsTake,
-    });
-    const afterSectionsMs = Date.now();
-
     type RankedHit = {
       item: ServerSearchItem;
       score: number;
@@ -175,17 +136,62 @@ export const searchDocs = query(
       });
     }
 
-    for (const s of sections) {
-      const d = s.doc;
-      if (!d) continue;
-      const text = s.text || "";
-      const sectionScore = scoreSectionText(text, termLower, terms);
-      if (sectionScore <= 0) continue;
+    const bodyScanStartMs = afterTitlePathMs;
+    const bodyPageSize = 250;
+    let bodyDocsScanned = 0;
+    let bodyBytesLoaded = 0;
+    let bodyPages = 0;
+    let cursorId: string | undefined;
 
-      const snippet = buildSnippet(text, termLower, terms);
-      const existing = hitsMap.get(d.id);
-      if (!existing) {
-        const textTokenHits = collectTokenHits(text, terms);
+    while (true) {
+      const docs = await prisma.doc.findMany({
+        where: docFilters,
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+          path: true,
+          html: true,
+          markdown: true,
+          share: {
+            select: {
+              slug: true,
+              shareUrl: true,
+            },
+          },
+        },
+        orderBy: { id: "asc" },
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+        take: bodyPageSize,
+      });
+      if (!docs.length) break;
+      bodyPages += 1;
+
+      for (const d of docs) {
+        bodyDocsScanned += 1;
+        bodyBytesLoaded +=
+          Buffer.byteLength(d.html, "utf8") +
+          Buffer.byteLength(d.markdown, "utf8");
+        const html = d.html || normalizeMarkdownToHtml(d.markdown);
+        const text = htmlToSearchText(html);
+        if (!text) continue;
+
+        const bodyScore = scoreBodyText(text, termLower, terms);
+        if (bodyScore <= 0) continue;
+
+        const snippet = buildSnippet(text, termLower, terms);
+        const titlePath = `${d.title ?? ""} ${d.path ?? ""}`;
+        const existing = hitsMap.get(d.id);
+        if (existing) {
+          if (snippet && !existing.item.snippet) existing.item.snippet = snippet;
+          existing.score += bodyScore;
+          mergeTokenHits(existing.tokenHits, collectTokenHits(text, terms));
+          if (!existing.hasExactTerm && includesNormalized(text, termLower)) {
+            existing.hasExactTerm = true;
+          }
+          continue;
+        }
+
         hitsMap.set(d.id, {
           item: {
             id: d.id,
@@ -195,10 +201,7 @@ export const searchDocs = query(
             path: d.path,
             snippet,
             share: d.share
-              ? {
-                  slug: d.share.slug,
-                  shareUrl: d.share.shareUrl,
-                }
+              ? { slug: d.share.slug, shareUrl: d.share.shareUrl }
               : null,
           },
           score:
@@ -207,26 +210,21 @@ export const searchDocs = query(
               path: d.path ?? "",
               termLower,
               terms,
-            }) + sectionScore,
+            }) + bodyScore,
           tokenHits: new Set([
-            ...collectTokenHits(`${d.title ?? ""} ${d.path ?? ""}`, terms),
-            ...textTokenHits,
+            ...collectTokenHits(titlePath, terms),
+            ...collectTokenHits(text, terms),
           ]),
           hasExactTerm:
             includesNormalized(d.title ?? "", termLower) ||
             includesNormalized(text, termLower),
         });
-        continue;
       }
 
-      if (snippet && !existing.item.snippet) existing.item.snippet = snippet;
-      existing.score += sectionScore;
-      mergeTokenHits(existing.tokenHits, collectTokenHits(text, terms));
-      if (!existing.hasExactTerm && includesNormalized(text, termLower)) {
-        existing.hasExactTerm = true;
-      }
-      hitsMap.set(d.id, existing);
+      cursorId = docs[docs.length - 1]?.id;
+      if (docs.length < bodyPageSize) break;
     }
+    const afterBodyScanMs = Date.now();
 
     const docIds = Array.from(hitsMap.keys());
     const snapshots = docIds.length
@@ -323,7 +321,7 @@ export const searchDocs = query(
     console.info("[docs.search] query processed", {
       msTotal: Date.now() - startMs,
       msTitlePath: afterTitlePathMs - startMs,
-      msSections: afterSectionsMs - afterTitlePathMs,
+      msBodyScan: afterBodyScanMs - bodyScanStartMs,
       take,
       term,
       terms,
@@ -331,9 +329,10 @@ export const searchDocs = query(
       titlePathTake,
       titlePathCount: titlePathDocs.length,
       titlePathCapped: titlePathDocs.length >= titlePathTake,
-      sectionsTake,
-      sectionsCount: sections.length,
-      sectionsCapped: sections.length >= sectionsTake,
+      bodyPageSize,
+      bodyPages,
+      bodyDocsScanned,
+      bodyBytesLoaded,
       hitsBeforeCoverageFilter: hitsMap.size,
       droppedByTokenCoverage,
       resultCount: items.length,
@@ -399,7 +398,7 @@ function scoreTitleAndPath(input: {
   return score;
 }
 
-function scoreSectionText(
+function scoreBodyText(
   text: string,
   termLower: string,
   terms: string[]
@@ -465,6 +464,33 @@ function normalizeForContains(value: string): string {
     .replace(/[_\-.]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function htmlToSearchText(html: string): string {
+  const blockTags =
+    /(<\/?(?:address|article|blockquote|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>)/gi;
+  const htmlWithSpacing = html
+    .replace(/(<br\b[^>]*\/?\s*>)/gi, " $1 ")
+    .replace(blockTags, " $1 ");
+  let text = "";
+
+  sanitizeHtml(
+    `<vn-search-root data-search-root="true">${htmlWithSpacing}</vn-search-root>`,
+    {
+      allowedTags: ["vn-search-root"],
+      exclusiveFilter: (frame) => {
+        if (
+          frame.tag === "vn-search-root" &&
+          frame.attribs["data-search-root"] === "true"
+        ) {
+          text = frame.text;
+        }
+        return false;
+      },
+    }
+  );
+
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function collectTokenHits(text: string, terms: string[]): Set<string> {

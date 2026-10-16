@@ -88,6 +88,7 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
             initialMarkdown={initialMarkdown()}
             onCreated={handleCreated}
             apiRef={(api) => setEditorApi(api)}
+            pathPopoverPortalled={false}
           />
         </Box>
       </Show>
