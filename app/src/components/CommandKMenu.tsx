@@ -24,11 +24,10 @@ import { Text } from "~/components/ui/text";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import {
-  fetchDocs,
-  searchDocs,
-  type DocListItem,
-  type ServerSearchItem,
-} from "~/features/docs-index/data/docs.service";
+  commandSearchKey,
+  loadCommandResults,
+  type CommandSearchParams,
+} from "~/components/command-search";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { pathToRoute } from "~/utils/path-links";
@@ -155,46 +154,30 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     });
   });
 
-  const searchParams = createMemo(() => ({
+  const searchParams = createMemo<CommandSearchParams>(() => ({
     q: debouncedQuery(),
     sortMode: sortMode(),
     activityClass: activityClass(),
   }));
 
-  const [results] = createResource(searchParams, async (params) => {
-    console.debug("[cmdk.search] request", {
-      q: params.q,
-      sortMode: params.sortMode,
-      activityClass: params.activityClass,
-    });
-    if (params.q) {
-      return searchDocs({
+  const [results, { refetch: retrySearch }] = createResource(
+    searchParams,
+    async (params) => {
+      console.debug("[cmdk.search] request", {
         q: params.q,
-        take: 25,
         sortMode: params.sortMode,
-        activityClass: params.activityClass || undefined,
+        activityClass: params.activityClass,
       });
-    }
-
-    // Empty-state feed: show likely next docs to open, activity-aware.
-    const emptySortMode =
-      params.sortMode === "relevance" ? "recent_activity" : params.sortMode;
-    const docs = await fetchDocs({
-      take: 25,
-      sortMode: emptySortMode,
-      activityClass: params.activityClass || undefined,
-    });
-    return docs.map((doc: DocListItem): ServerSearchItem => ({
-      ...doc,
-      snippet: undefined,
-    }));
-  });
+      return loadCommandResults(params);
+    },
+  );
   createEffect(() => {
-    const latest = (results.latest || []) as ServerSearchItem[];
+    const latest = results.latest;
     console.debug("[cmdk.search] response", {
       q: debouncedQuery(),
-      resultCount: latest.length,
-      topResultsPreview: latest.slice(0, 5).map((item) => ({
+      resultCount: latest?.items.length ?? 0,
+      failed: latest?.failed ?? false,
+      topResultsPreview: (latest?.items ?? []).slice(0, 5).map((item) => ({
         id: item.id,
         title: item.title,
       })),
@@ -220,6 +203,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     navigate(`/docs/${id}`);
   };
 
+  const currentResults = () => {
+    const latest = results.latest;
+    const currentKey = commandSearchKey({
+      q: qForSearch(),
+      sortMode: sortMode(),
+      activityClass: activityClass(),
+    });
+    return latest?.key === currentKey ? latest : undefined;
+  };
+
   const items = createMemo<CommandItem[]>(() => {
     const base: CommandItem[] = [
       {
@@ -232,7 +225,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     ];
 
     // Use `latest` to avoid Suspense re-triggering (UI flashing) on each query change.
-    const hits = (results.latest || []) as ServerSearchItem[];
+    const hits = currentResults()?.items ?? [];
     const mapped: CommandItem[] = hits.slice(0, 10).map((d) => ({
       kind: "doc",
       key: d.id,
@@ -389,7 +382,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   const resultsPanelHeight = "55vh";
-  const hitsLatest = () => (results.latest || []) as ServerSearchItem[];
+  const hitsLatest = () => currentResults()?.items ?? [];
   const handleDocLinkClick = (ev: MouseEvent, id: string) => {
     if (ev.defaultPrevented) return;
     if (ev.button !== 0) return;
@@ -663,11 +656,41 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                 )}
               </For>
 
+              <Show when={currentResults()?.failed && !results.loading}>
+                <Box
+                  role="alert"
+                  borderWidth="1px"
+                  borderColor="gray.outline.border"
+                  borderRadius="l2"
+                  px="0.75rem"
+                  py="0.65rem"
+                >
+                  <HStack
+                    justify="space-between"
+                    alignItems="center"
+                    gap="0.75rem"
+                  >
+                    <Text fontSize="sm" color="fg.muted">
+                      Could not load results. Try again.
+                    </Text>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void retrySearch()}
+                    >
+                      Retry
+                    </Button>
+                  </HStack>
+                </Box>
+              </Show>
+
               <Show
                 when={
                   isSearchingEnabled() &&
                   debouncedQuery().length > 0 &&
                   !results.loading &&
+                  currentResults()?.failed !== true &&
                   hitsLatest().length === 0
                 }
               >
