@@ -6,7 +6,7 @@ import {
   createMemo,
   createSignal,
 } from "solid-js";
-import type { VoidComponent } from "solid-js";
+import type { JSX, VoidComponent } from "solid-js";
 import { createAsync } from "@solidjs/router";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
@@ -33,9 +33,10 @@ export const PathEditor: VoidComponent<{
   initialPath?: string;
   onChange?: (path: string) => void;
   onChangeWhenSavedOnly?: boolean;
+  actions?: JSX.Element;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
-  let lastAppliedDocId = props.docId;
+  let lastAppliedDocId: string | undefined;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
   let saveVersion = 0;
 
@@ -65,6 +66,8 @@ export const PathEditor: VoidComponent<{
       saveVersion += 1;
       setSaving(false);
       setError(undefined);
+    } else if (incoming === serializePathDraft(draft()).trim()) {
+      return;
     }
     setDraft(parsePersistedPathDraft(incoming));
     setIsFocused(false);
@@ -184,12 +187,11 @@ export const PathEditor: VoidComponent<{
   };
 
   return (
-    <Stack gap="2">
+    <Stack gap="2" onFocusOut={handleEditorFocusOut}>
       <Suspense fallback={null}>
         <Stack
           gap="2"
           onFocusIn={() => setIsFocused(true)}
-          onFocusOut={handleEditorFocusOut}
         >
           <Box
             borderWidth="1px"
@@ -343,6 +345,7 @@ export const PathEditor: VoidComponent<{
 
       <HStack justifyContent="flex-end" gap="1.5" alignItems="center">
         <ClearButton onClick={clearAll} label="Clear path" />
+        {props.actions}
 
         <Show when={props.docId}>
           <Button

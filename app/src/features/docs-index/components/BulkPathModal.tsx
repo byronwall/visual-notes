@@ -58,22 +58,25 @@ export const BulkPathModal: VoidComponent<{
           <Text fontSize="xs" color="black.a7" mb="0.25rem">
             Path
           </Text>
-          <PathEditor onChange={(p) => setDraftPath(p)} />
+          <PathEditor
+            onChange={(p) => setDraftPath(p)}
+            actions={
+              <>
+                <Button size="sm" variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  colorPalette="grass"
+                  disabled={busy()}
+                  onClick={handleApply}
+                >
+                  Apply to {props.selectedCount} items
+                </Button>
+              </>
+            }
+          />
         </Box>
-
-        <HStack justifyContent="flex-end" gap="0.5rem">
-          <Button size="sm" variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            colorPalette="grass"
-            disabled={busy()}
-            onClick={handleApply}
-          >
-            Apply to {props.selectedCount} items
-          </Button>
-        </HStack>
       </Stack>
     </Modal>
   );

@@ -48,10 +48,12 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     const incomingDocId = props.docId;
     const incoming = initialPathValue();
     if (incomingDocId === prevDocId && incoming === prevIncomingPath) return;
+    const docChanged = incomingDocId !== prevDocId;
     prevDocId = incomingDocId;
     prevIncomingPath = incoming;
+    if (!docChanged && incoming === pathDraft()) return;
     setPathDraft(incoming);
-    setPathPopoverOpen(false);
+    if (docChanged) setPathPopoverOpen(false);
   });
 
   createEffect(() => {
