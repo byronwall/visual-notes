@@ -38,6 +38,15 @@ function getJobsDirPath() {
 class JobsDb {
   private writeQueue: Promise<void> = Promise.resolve();
 
+  private enqueueWrite<T>(write: () => Promise<T>): Promise<T> {
+    const operation = this.writeQueue.then(write);
+    this.writeQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
   private getJobFilePath(jobId: string) {
     return path.join(getJobsDirPath(), `${jobId}.json`);
   }
@@ -64,17 +73,15 @@ class JobsDb {
     jobId: string,
     fn: (data: Job) => T | Promise<T>
   ): Promise<T> {
-    let result!: T;
-    this.writeQueue = this.writeQueue.then(async () => {
+    return this.enqueueWrite(async () => {
       const data = await this.readJobFile(jobId);
       if (!data) throw new Error("Job not found");
-      result = await fn(data);
+      const result = await fn(data);
       await this.writeJobFile(jobId, data);
       notifyJobUpdate(data);
       publishJobUpdate(data);
+      return result;
     });
-    await this.writeQueue;
-    return result;
   }
 
   async createJob(
@@ -97,14 +104,13 @@ class JobsDb {
       resultSessionId: null,
     };
 
-    this.writeQueue = this.writeQueue.then(async () => {
+    return this.enqueueWrite(async () => {
       await this.writeJobFile(jobId, job);
+      console.log("jobs-db:createJob", { jobId, type, sessionId });
+      notifyJobUpdate(job);
+      publishJobUpdate(job);
+      return job;
     });
-    await this.writeQueue;
-    console.log("jobs-db:createJob", { jobId, type, sessionId });
-    notifyJobUpdate(job);
-    publishJobUpdate(job);
-    return job;
   }
 
   async getJob(jobId: string): Promise<Job | null> {
