@@ -167,7 +167,16 @@ describe("searchDocs current body search", () => {
     let bodyPage = 0;
     findDocs.mockImplementation(async (args) => {
       if (!args.select?.html) return [];
-      expect(args.where).toMatchObject({ path: { startsWith: "/keep" } });
+      expect(args.where).toMatchObject({
+        AND: [
+          {
+            OR: [
+              { path: "/keep" },
+              { path: { startsWith: "/keep." } },
+            ],
+          },
+        ],
+      });
       bodyPage += 1;
       return bodyPage === 1 ? firstPage : [lastDoc];
     });
