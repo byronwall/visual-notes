@@ -92,6 +92,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     "" | "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD"
   >("");
   let inputEl: HTMLInputElement | undefined;
+  let resultsViewportEl: HTMLDivElement | undefined;
 
   onMount(() => {
     setSelectsReady(true);
@@ -250,8 +251,15 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     return Math.max(0, Math.min(max, next));
   };
 
+  const scrollSelectedIntoView = () => {
+    resultsViewportEl
+      ?.querySelector<HTMLElement>(`[data-command-index="${selectedIndex()}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  };
+
   const moveSelected = (delta: number) => {
     setSelectedIndex((prev) => clampSelected(prev + delta));
+    scrollSelectedIntoView();
   };
 
   const runSelected = () => {
@@ -449,7 +457,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         | "recent_activity"
                         | "most_viewed_30d"
                         | "most_edited_30d";
-                      if (next !== sortMode()) setSelectedIndex(0);
+                      if (next !== sortMode()) {
+                        setSelectedIndex(0);
+                        scrollSelectedIntoView();
+                      }
                       setSortMode(next);
                     }}
                     size="sm"
@@ -469,7 +480,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                         | "EDIT_HEAVY"
                         | "BALANCED"
                         | "COLD";
-                      if (next !== activityClass()) setSelectedIndex(0);
+                      if (next !== activityClass()) {
+                        setSelectedIndex(0);
+                        scrollSelectedIntoView();
+                      }
                       setActivityClass(next);
                     }}
                     size="sm"
@@ -539,6 +553,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
           }
         >
           <Box
+            ref={resultsViewportEl}
             borderWidth="1px"
             borderColor="gray.outline.border"
             borderRadius="l2"
@@ -553,6 +568,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                   <Switch>
                     <Match when={it.kind === "action"}>
                       <Button
+                        data-command-index={idx()}
                         variant={idx() === selectedIndex() ? "subtle" : "plain"}
                         size="sm"
                         w="full"
@@ -599,6 +615,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                     </Match>
                     <Match when={it.kind === "doc"}>
                       <a
+                        data-command-index={idx()}
                         href={(it as Extract<CommandItem, { kind: "doc" }>).href}
                         class={docRowClass(idx() === selectedIndex())}
                         onMouseEnter={() => setSelectedIndex(idx())}
