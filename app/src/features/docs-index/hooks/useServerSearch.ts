@@ -95,6 +95,7 @@ export function useServerSearch(
       requestId,
       q,
       take: resolvedTake ?? null,
+      inFlight: inFlight.size,
       hasFilters: Object.values(f).some(
         (value) => value !== undefined && value !== "" && value !== false,
       ),
@@ -103,6 +104,7 @@ export function useServerSearch(
     let disposed = false;
     onCleanup(() => {
       disposed = true;
+      inFlight.delete(requestId);
       clearTimeout(slowTimer);
       clearTimeout(timeoutTimer);
     });
