@@ -68,6 +68,10 @@ const DocumentEditor: VoidComponent<{
   const [pendingRetry, setPendingRetry] = createSignal<(() => void) | null>(
     null,
   );
+  let isMounted = true;
+  onCleanup(() => {
+    isMounted = false;
+  });
 
   const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
@@ -296,6 +300,7 @@ const DocumentEditor: VoidComponent<{
           path: newPath() || undefined,
           meta: newMeta(),
         });
+        if (!isMounted) return;
         setDirty(false);
         shouldRestoreSelection = false;
         if (props.onCreated) props.onCreated(json.id);
