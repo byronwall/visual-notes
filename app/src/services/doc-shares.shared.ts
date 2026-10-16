@@ -1,5 +1,10 @@
 import type { DocShareSummary } from "./doc-shares.queries";
 
+export type DocShareSelection = {
+  docId: string;
+  generation: number;
+};
+
 export const DEFAULT_SHARE_PREFIX = "/share";
 
 const SHARE_SLUG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
@@ -43,6 +48,18 @@ export function isDocShareDeleteAcknowledged(
 
   const result = value as Record<string, unknown>;
   return result.ok === true && result.docId === submittedDocId;
+}
+
+export function isDocShareSelectionCurrent(
+  submitted: DocShareSelection,
+  current: DocShareSelection,
+  disposed: boolean,
+): boolean {
+  return (
+    !disposed &&
+    submitted.docId === current.docId &&
+    submitted.generation === current.generation
+  );
 }
 
 export function buildShareAbsoluteUrl(
