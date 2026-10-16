@@ -1,11 +1,26 @@
-function toIsoDateStart(dateOnly: string): string {
-  const d = new Date(dateOnly + "T00:00:00");
+function toIsoDate(dateOnly: string, time: string): string | undefined {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+  if (!parts) return undefined;
+
+  const d = new Date(`${dateOnly}T${time}`);
+  if (
+    !Number.isFinite(d.getTime()) ||
+    d.getFullYear() !== Number(parts[1]) ||
+    d.getMonth() !== Number(parts[2]) - 1 ||
+    d.getDate() !== Number(parts[3])
+  ) {
+    return undefined;
+  }
+
   return d.toISOString();
 }
 
-function toIsoDateEnd(dateOnly: string): string {
-  const d = new Date(dateOnly + "T23:59:59.999");
-  return d.toISOString();
+function toIsoDateStart(dateOnly: string): string | undefined {
+  return toIsoDate(dateOnly, "00:00:00");
+}
+
+function toIsoDateEnd(dateOnly: string): string | undefined {
+  return toIsoDate(dateOnly, "23:59:59.999");
 }
 
 function buildDocsWhere(q: {
@@ -23,9 +38,15 @@ function buildDocsWhere(q: {
 }) {
   const where: Record<string, any> = {};
   const andClauses: Record<string, unknown>[] = [];
-  if (q.pathPrefix) where.path = { startsWith: q.pathPrefix };
+  if (q.pathPrefix && !q.pathBlankOnly) {
+    andClauses.push({
+      OR: [
+        { path: q.pathPrefix },
+        { path: { startsWith: `${q.pathPrefix}.` } },
+      ],
+    });
+  }
   if (q.pathBlankOnly) {
-    delete where.path;
     andClauses.push({
       OR: [{ path: null }, { path: "" }],
     });

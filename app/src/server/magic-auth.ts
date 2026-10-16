@@ -79,9 +79,13 @@ export function parseCookie(
   for (const pair of pairs) {
     const idx = pair.indexOf("=");
     if (idx === -1) continue;
-    const name = decodeURIComponent(pair.slice(0, idx).trim());
-    const value = decodeURIComponent(pair.slice(idx + 1).trim());
-    jar[name] = value;
+    try {
+      const name = decodeURIComponent(pair.slice(0, idx).trim());
+      const value = decodeURIComponent(pair.slice(idx + 1).trim());
+      jar[name] = value;
+    } catch {
+      continue;
+    }
   }
   return jar;
 }

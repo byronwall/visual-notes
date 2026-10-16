@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { UmapDetailData } from "~/features/umap/detail-types";
 
@@ -28,7 +28,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     });
 
     ro.observe(canvasContainerEl);
-    return () => ro?.disconnect();
+    onCleanup(() => ro?.disconnect());
   });
 
   createEffect(() => {

@@ -61,7 +61,7 @@ export const DocRow = (props: {
               handleToggle(details.checked === true)
             }
           >
-            <Checkbox.HiddenInput />
+            <Checkbox.HiddenInput aria-label={`Select ${props.title}`} />
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>

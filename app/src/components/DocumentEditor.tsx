@@ -8,18 +8,14 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import { useAction, useBeforeLeave } from "@solidjs/router";
+import { useBeforeLeave } from "@solidjs/router";
 import { extractFirstH1FromHtml } from "~/utils/extractHeading";
 import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
 } from "~/server/lib/markdown";
-import {
-  createDoc,
-  fetchDoc,
-  type MetaRecord,
-  updateDoc,
-} from "~/services/docs.service";
+import { fetchDoc, type MetaRecord } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import { Button } from "~/components/ui/button";
@@ -28,7 +24,13 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 
-type DocData = { id: string; title: string; markdown?: string; html?: string };
+type DocData = {
+  id: string;
+  title: string;
+  markdown?: string;
+  html?: string;
+  updatedAt?: string;
+};
 
 export type DocumentEditorApi = {
   save: () => Promise<void>;
@@ -46,6 +48,7 @@ const DocumentEditor: VoidComponent<{
   initialMarkdown?: string;
   initialHTML?: string;
   onCreated?: (id: string) => void;
+  onSaved?: (result: { id: string; updatedAt: string }) => void;
   apiRef?: (api: DocumentEditorApi) => void;
   showTopBar?: boolean;
   showAiPromptsBar?: boolean;
@@ -59,28 +62,26 @@ const DocumentEditor: VoidComponent<{
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
-  const [savedAt, setSavedAt] = createSignal<Date | undefined>(undefined);
   const [dirty, setDirty] = createSignal(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = createSignal(false);
   const [pendingRetry, setPendingRetry] = createSignal<(() => void) | null>(
-    null
+    null,
   );
 
   const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<MetaRecord>({});
   const [newTitle, setNewTitle] = createSignal(
-    (props.initialTitle || "").trim() || "Untitled note"
+    (props.initialTitle || "").trim() || "Untitled note",
   );
-  const runCreateDoc = useAction(createDoc);
-  const runUpdateDoc = useAction(updateDoc);
+  const { create: runCreateDoc, update: runUpdateDoc } = useNoteMutations();
   let lastAppliedInitialTitle = (props.initialTitle || "").trim();
   let hasAppliedInitialLineSelection = false;
 
   const isNew = createMemo(() => !props.docId);
 
   const displayTitle = createMemo(
-    () => doc()?.title || newTitle().trim() || "Untitled note"
+    () => doc()?.title || newTitle().trim() || "Untitled note",
   );
 
   createEffect(() => {
@@ -103,7 +104,7 @@ const DocumentEditor: VoidComponent<{
     if (props.initialHTML) return props.initialHTML;
 
     const html = normalizeMarkdownToHtml(
-      props.initialMarkdown || "# Untitled\n\nStart writing..."
+      props.initialMarkdown || "# Untitled\n\nStart writing...",
     );
 
     return html;
@@ -115,9 +116,9 @@ const DocumentEditor: VoidComponent<{
     if (!ed) return;
     const handler = () => setDirty(true);
     ed.on("update", handler);
-    return () => {
+    onCleanup(() => {
       ed.off("update", handler);
-    };
+    });
   });
 
   // Intercept Cmd+S / Ctrl+S to save
@@ -221,7 +222,7 @@ const DocumentEditor: VoidComponent<{
 
   const restoreSelection = (
     ed: Editor,
-    snapshot: { from: number; to: number; wasFocused: boolean } | null
+    snapshot: { from: number; to: number; wasFocused: boolean } | null,
   ) => {
     if (!snapshot) return;
     if (!hasMountedEditorView(ed)) return;
@@ -265,15 +266,21 @@ const DocumentEditor: VoidComponent<{
       to: ed.state.selection.to,
       wasFocused: getEditorFocusState(ed),
     };
+    const submittedDocId = d?.id;
+    const submittedHtml = ed.getHTML();
     setSaving(true);
     setError(undefined);
     try {
-      const html = ed.getHTML();
+      const html = submittedHtml;
       if (isNew()) {
         // First save → create the note
         let title = newTitle().trim();
         const detected = extractFirstH1FromHtml(html);
-        if (props.preferH1TitleForNewDoc && detected && detected.trim().length > 0) {
+        if (
+          props.preferH1TitleForNewDoc &&
+          detected &&
+          detected.trim().length > 0
+        ) {
           title = detected.trim();
         }
         if (!title && detected && detected.trim().length > 0) {
@@ -288,23 +295,52 @@ const DocumentEditor: VoidComponent<{
           path: newPath() || undefined,
           meta: newMeta(),
         });
-        if (!json?.id) throw new Error("Failed to create note");
-        setSavedAt(new Date());
         setDirty(false);
         shouldRestoreSelection = false;
-        if (props.onCreated) props.onCreated(String(json.id));
+        if (props.onCreated) props.onCreated(json.id);
       } else {
         // Update existing
-        await runUpdateDoc({ id: d!.id, html });
-        setSavedAt(new Date());
-        setDirty(false);
-        mutate((current) => (current ? { ...current, html } : current));
+        const updated = await runUpdateDoc({ id: d!.id, html });
+        if (props.docId === updated.id && doc()?.id === updated.id) {
+          const draftUnchanged =
+            editor() === ed && !ed.isDestroyed && ed.getHTML() === html;
+          if (draftUnchanged) setDirty(false);
+          mutate((current) =>
+            current?.id === updated.id
+              ? {
+                  ...current,
+                  ...(draftUnchanged ? { html } : {}),
+                  updatedAt: updated.updatedAt,
+                }
+              : current,
+          );
+          props.onSaved?.(updated);
+        }
       }
     } catch (e) {
       setError((e as Error).message || "Failed to save");
     } finally {
       if (shouldRestoreSelection) {
-        queueMicrotask(() => restoreSelection(ed, selectionSnapshot));
+        queueMicrotask(() => {
+          const sameDoc =
+            !submittedDocId ||
+            (props.docId === submittedDocId && doc()?.id === submittedDocId);
+          if (
+            !sameDoc ||
+            editor() !== ed ||
+            ed.isDestroyed ||
+            ed.getHTML() !== submittedHtml
+          ) {
+            return;
+          }
+          if (
+            ed.state.selection.from === selectionSnapshot.from &&
+            ed.state.selection.to === selectionSnapshot.to &&
+            getEditorFocusState(ed) === selectionSnapshot.wasFocused
+          ) {
+            restoreSelection(ed, selectionSnapshot);
+          }
+        });
       }
       setSaving(false);
     }
