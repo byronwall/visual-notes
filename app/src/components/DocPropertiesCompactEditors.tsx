@@ -1,6 +1,13 @@
-import { type JSX, type VoidComponent, createEffect, createMemo, createSignal } from "solid-js";
+import {
+  type JSX,
+  type VoidComponent,
+  createEffect,
+  createMemo,
+  createSignal,
+} from "solid-js";
 import {
   normalizeMetaRecord,
+  shouldSyncMetaDraft,
   serializeMetaRecord,
   summarizeMeta,
   summarizePath,
@@ -23,15 +30,17 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   onMetaChange?: (meta: MetaRecord) => void;
   trailing?: JSX.Element;
 }> = (props) => {
-  let prevDocId = props.docId;
+  let prevDocId: string | undefined;
   const initialPathValue = () => (props.initialPath || "").trim();
   const initialMetaValue = () => normalizeMetaRecord(props.initialMeta);
 
   let prevIncomingPath = initialPathValue();
+  let prevMetaDocId: string | undefined;
   let prevIncomingMeta = serializeMetaRecord(initialMetaValue());
 
   const [pathDraft, setPathDraft] = createSignal(initialPathValue());
-  const [metaDraft, setMetaDraft] = createSignal<MetaRecord>(initialMetaValue());
+  const [metaDraft, setMetaDraft] =
+    createSignal<MetaRecord>(initialMetaValue());
   const [pathPopoverOpen, setPathPopoverOpen] = createSignal(false);
   const [metaPopoverOpen, setMetaPopoverOpen] = createSignal(false);
 
@@ -46,11 +55,24 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   });
 
   createEffect(() => {
+    const incomingDocId = props.docId;
     const incoming = initialMetaValue();
     const serialized = serializeMetaRecord(incoming);
-    if (serialized === prevIncomingMeta) return;
+    if (
+      !shouldSyncMetaDraft(
+        prevMetaDocId,
+        incomingDocId,
+        prevIncomingMeta,
+        serialized,
+      )
+    ) {
+      return;
+    }
+    const docChanged = incomingDocId !== prevMetaDocId;
+    prevMetaDocId = incomingDocId;
     prevIncomingMeta = serialized;
     setMetaDraft(incoming);
+    if (docChanged) setMetaPopoverOpen(false);
   });
 
   const handlePathChange = (nextPath: string) => {
@@ -140,7 +162,9 @@ export const DocPropertiesCompactEditors: VoidComponent<{
             <Text
               as="span"
               fontSize="xs"
-              color={Object.keys(metaDraft()).length > 0 ? "fg.default" : "fg.subtle"}
+              color={
+                Object.keys(metaDraft()).length > 0 ? "fg.default" : "fg.subtle"
+              }
               fontWeight="medium"
               maxW="24rem"
               overflow="hidden"
