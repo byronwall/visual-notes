@@ -2,10 +2,35 @@ import { createMiddleware } from "@solidjs/start/middleware";
 import { isArchiveIngestAuthorized } from "~/server/lib/archive/auth";
 import { isRequestAuthenticated } from "~/server/magic-auth";
 
+// SolidStart's pinned transform builds IDs from the root-relative module path
+// and exported function name. Keep these IDs in sync with those public functions.
+const publicServerFunctionIds = new Set([
+  "src_services_auth_magic-auth_actions_ts--magicLogin_action",
+  "src_services_auth_magic-auth_queries_ts--fetchMagicSession_query",
+  "src_services_doc-shares_queries_ts--fetchPublicSharedDoc_query",
+]);
+
+function getServerFunctionId(request: Request): string | null {
+  const url = new URL(request.url);
+  const serverId = request.headers.get("X-Server-Id");
+  if (serverId) return serverId.split("#", 1)[0] || null;
+  return url.searchParams.get("id");
+}
+
+function isPublicServerFunctionRequest(request: Request): boolean {
+  const pathname = new URL(request.url).pathname;
+  if (pathname !== "/_server" && pathname !== "/_server/") return false;
+  const functionId = getServerFunctionId(request);
+  return functionId !== null && publicServerFunctionIds.has(functionId);
+}
+
+function isServerFunctionPath(pathname: string): boolean {
+  return pathname === "/_server" || pathname.startsWith("/_server/");
+}
+
 function isAssetPath(pathname: string): boolean {
   if (
     pathname.startsWith("/_build/") ||
-    pathname.startsWith("/_server/") ||
     pathname.startsWith("/favicon") ||
     pathname === "/site.webmanifest"
   )
@@ -13,20 +38,16 @@ function isAssetPath(pathname: string): boolean {
   return /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|map)$/.test(pathname);
 }
 
-function isAllowedUnauthed(request: Request): boolean {
+export function isAllowedUnauthed(request: Request): boolean {
   const url = new URL(request.url);
   const pathname = url.pathname;
   if (pathname === "/login") return true;
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
-  // Allow action calls initiated from the login page
-  if (pathname.startsWith("/_server")) {
-    const referer = request.headers.get("referer");
-    if (referer) {
-      const refPath = new URL(referer).pathname;
-      if (refPath === "/login") return true;
-    }
+  // Server functions need an identity check before generic asset extensions.
+  if (isServerFunctionPath(pathname)) {
+    return isPublicServerFunctionRequest(request);
   }
   // Keep legacy auth endpoints reachable (not used by the app now)
   if (pathname.startsWith("/api/auth")) return true;
@@ -58,6 +79,15 @@ export default createMiddleware({
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (isServerFunctionPath(pathname)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Error": "Unauthorized",
+          },
         });
       }
       return Response.redirect(`${url.origin}/login`, 302);
