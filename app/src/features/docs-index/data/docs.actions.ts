@@ -34,7 +34,7 @@ const bulkMetaSchema = z.object({
 });
 
 const sourceSchema = z.object({
-  originalSource: z.string().min(1).max(128),
+  originalSource: z.string().trim().min(1).max(128),
 });
 
 type MetaValue = Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
