@@ -35,7 +35,7 @@ export const BulkMetaModal: VoidComponent<{
   open: boolean;
   onClose: () => void;
   selectedCount: number;
-  onApply: (actions: BulkMetaAction[]) => Promise<void>;
+  onApply: (actions: BulkMetaAction[]) => Promise<boolean>;
 }> = (props) => {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | undefined>(undefined);
@@ -118,7 +118,8 @@ export const BulkMetaModal: VoidComponent<{
     setBusy(true);
     setError(undefined);
     try {
-      await props.onApply(actions());
+      const applied = await props.onApply(actions());
+      if (!applied) return;
       setActions([]);
       props.onClose();
     } catch (e) {
@@ -131,6 +132,13 @@ export const BulkMetaModal: VoidComponent<{
   const handleClose = () => {
     if (busy()) return;
     setActions([]);
+    setError(undefined);
+    props.onClose();
+  };
+
+  const handleReviewSelection = () => {
+    if (busy()) return;
+    setError(undefined);
     props.onClose();
   };
 
@@ -147,9 +155,19 @@ export const BulkMetaModal: VoidComponent<{
         </HStack>
 
         <Show when={!!error()}>
-          <Text fontSize="xs" color="red.11">
-            {error()}
-          </Text>
+          <Stack gap="0.5rem" alignItems="flex-start">
+            <Text fontSize="xs" color="red.11">
+              {error()}
+            </Text>
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={busy()}
+              onClick={handleReviewSelection}
+            >
+              Review selection
+            </Button>
+          </Stack>
         </Show>
 
         <Grid
