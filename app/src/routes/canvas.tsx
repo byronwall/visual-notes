@@ -496,18 +496,17 @@ const CanvasRoute: VoidComponent = () => {
           open={!!selectedId()}
           docId={selectedId()}
           onEditorApiChange={handleEditorApiChange}
-          onClose={(shouldRefetch) => {
-            if (shouldRefetch) {
-              refetchDocs();
+          onClose={() => requestSelectedId(undefined)}
+          onDeleted={(deletedDocId) => {
+            refetchDocs();
+            if (selectedId() === deletedDocId) {
               // The note is already deleted, so preserve the delete flow without
               // prompting to discard edits from the now-removed editor.
               setPendingSelectedId(undefined);
               setDiscardDialogOpen(false);
               setSaveInProgressDialogOpen(false);
               setSelectedId(undefined);
-              return;
             }
-            requestSelectedId(undefined);
           }}
         />
         <ConfirmDialog

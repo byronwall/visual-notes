@@ -30,7 +30,8 @@ const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 export const DocumentSidePanel: VoidComponent<{
   open: boolean;
   docId?: string;
-  onClose: (shouldRefetch?: boolean) => void;
+  onClose: () => void;
+  onDeleted: (docId: string) => void;
   onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
 }> = (props) => {
   const [doc] = createResource(
@@ -47,15 +48,16 @@ export const DocumentSidePanel: VoidComponent<{
   });
 
   const handleTitleCommit = async (nextTitle: string) => {
-    if (!props.docId) return;
+    const editDocId = props.docId;
+    if (!editDocId) return;
     const previous = title();
     const normalized = nextTitle.trim();
     if (!normalized || normalized === previous) return;
     setTitle(normalized);
     try {
-      await runUpdateDoc({ id: props.docId, title: normalized });
+      await runUpdateDoc({ id: editDocId, title: normalized });
     } catch (error) {
-      setTitle(previous);
+      if (props.docId === editDocId) setTitle(previous);
       throw error;
     }
   };
@@ -63,7 +65,7 @@ export const DocumentSidePanel: VoidComponent<{
   return (
     <SidePanel
       open={props.open}
-      onClose={() => props.onClose(false)}
+      onClose={props.onClose}
       ariaLabel="Document details"
     >
       <Box
@@ -82,22 +84,24 @@ export const DocumentSidePanel: VoidComponent<{
       >
         <Flex align="flex-start" justify="space-between" gap="3">
           <Box flex="1" minW="0">
-            <InPlaceEditableText
-              value={title()}
-              placeholder="Untitled note"
-              onCommit={handleTitleCommit}
-              fontSize="2xl"
-              lineHeight="1.05"
-              fontWeight="semibold"
-              fillWidth
-              wrapPreview
-            />
+            <Show when={props.docId} keyed>
+              <InPlaceEditableText
+                value={title()}
+                placeholder="Untitled note"
+                onCommit={handleTitleCommit}
+                fontSize="2xl"
+                lineHeight="1.05"
+                fontWeight="semibold"
+                fillWidth
+                wrapPreview
+              />
+            </Show>
           </Box>
           <CloseButton
             size="xs"
             aria-label="Close panel"
             title="Close panel"
-            onClick={() => props.onClose(false)}
+            onClick={props.onClose}
           />
         </Flex>
       </Box>
@@ -116,7 +120,7 @@ export const DocumentSidePanel: VoidComponent<{
                 doc={{ ...d, title: title() || d.title }}
                 panelMode
                 fullPageHref={props.docId ? `/docs/${props.docId}` : undefined}
-                onDeleted={() => props.onClose(true)}
+                onDeleted={props.onDeleted}
                 onEditorApiChange={props.onEditorApiChange}
               />
             )}

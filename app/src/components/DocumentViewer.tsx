@@ -43,7 +43,7 @@ type DocumentData = {
 
 const DocumentViewer: VoidComponent<{
   doc: DocumentData;
-  onDeleted?: () => void;
+  onDeleted?: (docId: string) => void;
   onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
   compactChrome?: boolean;
   fullPageHref?: string;
@@ -114,6 +114,7 @@ const DocumentViewer: VoidComponent<{
   });
 
   const handleConfirmEdit = async (nextValue: string) => {
+    const editDocId = props.doc.id;
     const newTitle = nextValue.trim();
     const previousTitle = title();
     if (!newTitle) {
@@ -124,35 +125,37 @@ const DocumentViewer: VoidComponent<{
     }
     setTitle(newTitle);
     try {
-      await runUpdateDoc({ id: props.doc.id, title: newTitle });
+      await runUpdateDoc({ id: editDocId, title: newTitle });
     } catch (error) {
-      setTitle(previousTitle);
+      if (props.doc.id === editDocId) setTitle(previousTitle);
       throw error;
     }
   };
   const handleSync = async () => {
+    const syncDocId = props.doc.id;
     const newTitle = firstH1();
     if (!newTitle) return;
     try {
-      await runUpdateDoc({ id: props.doc.id, title: newTitle });
-      setTitle(newTitle);
+      await runUpdateDoc({ id: syncDocId, title: newTitle });
+      if (props.doc.id === syncDocId) setTitle(newTitle);
     } catch (e) {
       alert((e as Error).message || "Failed to sync title");
     }
   };
 
   const handleDeleteConfirm = async () => {
+    const deletedDocId = props.doc.id;
     try {
       setBusy(true);
-      await runDeleteDoc(props.doc.id);
+      await runDeleteDoc(deletedDocId);
       if (props.onDeleted) {
         try {
-          props.onDeleted();
+          props.onDeleted(deletedDocId);
         } catch (err) {
           console.error("[DocumentViewer] onDeleted threw", err);
         }
       } else {
-        navigate("/");
+        if (props.doc.id === deletedDocId) navigate("/");
       }
     } catch (e) {
       console.error(e);
