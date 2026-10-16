@@ -1,9 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@solidjs/router", () => ({ query: (fn: unknown) => fn }));
-vi.mock("~/server/db", () => ({ prisma: {} }));
+const { findMany } = vi.hoisted(() => ({
+  findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+    where.id.in.map((id) => ({
+      id,
+      markdown: `Preview for ${id}`,
+      html: "",
+      path: null,
+      meta: null,
+    }))),
+}));
 
-import { buildDocPreviewText } from "./docs.queries";
+vi.mock("@solidjs/router", () => ({ query: (fn: unknown) => fn }));
+vi.mock("~/server/db", () => ({ prisma: { doc: { findMany } } }));
+
+import { buildDocPreviewText, fetchDocPreviewsBatched } from "./docs.queries";
 
 describe("buildDocPreviewText", () => {
   it("uses current HTML when imported Markdown is stale", () => {
@@ -30,4 +41,37 @@ describe("buildDocPreviewText", () => {
       "Current"
     );
   });
+});
+
+describe("fetchDocPreviewsBatched", () => {
+  it.each([120, 121, 200])(
+    "returns every normalized unique preview for %i IDs in bounded ordered calls",
+    async (count) => {
+      findMany.mockClear();
+      const ids = Array.from({ length: count }, (_, i) => `doc-${i + 1}`);
+      const input = [
+        ...ids.slice(0, Math.min(119, count)),
+        ids[0],
+        "",
+        "   ",
+        ...(count > 119 ? [` ${ids[119]} `] : []),
+        ...ids.slice(120),
+      ];
+      const expected = Array.from(
+        new Set(input.map((id) => id.trim()).filter(Boolean))
+      );
+
+      const previews = await fetchDocPreviewsBatched(input);
+      const requested = findMany.mock.calls.flatMap(
+        ([args]) => args.where.id.in
+      );
+
+      expect(findMany).toHaveBeenCalledTimes(Math.ceil(expected.length / 120));
+      expect(
+        findMany.mock.calls.every(([args]) => args.where.id.in.length <= 120)
+      ).toBe(true);
+      expect(requested).toEqual(expected);
+      expect(previews.map((preview) => preview.id)).toEqual(expected);
+    }
+  );
 });

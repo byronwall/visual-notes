@@ -3,6 +3,7 @@ export type MetaRecord = Record<string, string | number | boolean | null>;
 export {
   fetchDoc,
   fetchDocPreviews,
+  fetchDocPreviewsBatched,
   fetchDocs,
   fetchMetaKeys,
   fetchMetaValues,
