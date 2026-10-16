@@ -7,7 +7,8 @@ const rowByText = (page: Page, text: string) =>
 const inlineCreateInput = (page: Page) =>
   page.getByTestId("task-inline-create-row").locator("input");
 
-const escapeForRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeForRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const detailsButtonForTask = (page: Page, text: string) =>
   rowByText(page, text).getByRole("button", {
@@ -34,7 +35,9 @@ test.describe("task lists", () => {
     await page.getByTestId("task-list-name-input").fill(listName);
     await page.getByRole("button", { name: /^save$/i }).click();
 
-    const listItem = page.locator("[data-testid^='task-list-item-']").filter({ hasText: listName });
+    const listItem = page
+      .locator("[data-testid^='task-list-item-']")
+      .filter({ hasText: listName });
     await expect(listItem).toBeVisible();
     await listItem.getByText(listName).click();
 
@@ -56,7 +59,7 @@ test.describe("task lists", () => {
         input.evaluate((el: HTMLInputElement) => ({
           start: el.selectionStart,
           end: el.selectionEnd,
-        }))
+        })),
       )
       .toEqual({ start: 4, end: 4 });
 
@@ -67,10 +70,9 @@ test.describe("task lists", () => {
         input.evaluate((el: HTMLInputElement) => ({
           start: el.selectionStart,
           end: el.selectionEnd,
-        }))
+        })),
       )
       .toEqual({ start: 4, end: 5 });
-
   });
 
   test("create/edit/delete lists and tasks with inline task editing and keyboard hierarchy moves", async ({
@@ -94,7 +96,9 @@ test.describe("task lists", () => {
     await page.getByTestId("task-list-name-input").fill(listName);
     await page.getByRole("button", { name: /^save$/i }).click();
 
-    const listItem = page.locator("[data-testid^='task-list-item-']").filter({ hasText: listName });
+    const listItem = page
+      .locator("[data-testid^='task-list-item-']")
+      .filter({ hasText: listName });
     await expect(listItem).toBeVisible();
 
     await listItem.getByText(listName).click();
@@ -102,7 +106,9 @@ test.describe("task lists", () => {
     await page.keyboard.type(renamedListName);
     await page.keyboard.press("Enter");
     await expect(
-      page.locator("[data-testid^='task-list-item-']").filter({ hasText: renamedListName })
+      page
+        .locator("[data-testid^='task-list-item-']")
+        .filter({ hasText: renamedListName }),
     ).toBeVisible();
     await page
       .locator("[data-testid^='task-list-item-']")
@@ -134,7 +140,9 @@ test.describe("task lists", () => {
     await expect(rowByText(page, rootB)).toContainText("1 child");
 
     await rowByText(page, rootA).getByText(rootA).click();
-    await page.locator("[data-testid^='task-inline-input-']").fill(`${rootARenamed} #planning`);
+    await page
+      .locator("[data-testid^='task-inline-input-']")
+      .fill(`${rootARenamed} #planning`);
     await page.keyboard.press("Enter");
     await expect(rowByText(page, rootARenamed)).toContainText("#planning");
 
@@ -169,7 +177,9 @@ test.describe("task lists", () => {
       .locator("[data-testid^='task-list-item-']")
       .filter({ hasText: renamedListName });
     await renamedList
-      .getByRole("button", { name: new RegExp(`delete list ${escapeForRegex(renamedListName)}`, "i") })
+      .getByRole("button", {
+        name: new RegExp(`delete list ${escapeForRegex(renamedListName)}`, "i"),
+      })
       .click();
     await expect(renamedList).toHaveCount(0);
   });

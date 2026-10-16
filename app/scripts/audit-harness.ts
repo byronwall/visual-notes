@@ -152,7 +152,7 @@ function makeChildEnv(
   const authSecret = source.AUTH_SECRET;
   if (!rawUrl || !authSecret || !auditMagicPassword) {
     throw new Error(
-      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD for this worktree.",
+      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD_FILE (or AUDIT_MAGIC_PASSWORD) for this worktree.",
     );
   }
 
@@ -314,11 +314,11 @@ async function start(options: Options) {
 
   const source = parseEnv(readFileSync(options.envFile, "utf8"));
   delete source.MAGIC_PASSWORD;
-  const childEnv = makeChildEnv(
-    source,
-    options,
-    process.env.AUDIT_MAGIC_PASSWORD,
-  );
+  const passwordFile = process.env.AUDIT_MAGIC_PASSWORD_FILE;
+  const auditMagicPassword = passwordFile
+    ? readFileSync(passwordFile, "utf8").trim()
+    : process.env.AUDIT_MAGIC_PASSWORD;
+  const childEnv = makeChildEnv(source, options, auditMagicPassword);
   await assertPortFree(options.port);
 
   const codegen = spawnSync(

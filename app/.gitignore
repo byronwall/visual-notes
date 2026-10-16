@@ -37,3 +37,5 @@ playwright/.cache
 ## Panda
 styled-system
 styled-system-studio
+
+playwright/.auth

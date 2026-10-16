@@ -40,7 +40,9 @@ test.describe("time blocks interactions", () => {
     expect(previewStyle.boxShadow).not.toBe("none");
     await page.mouse.up();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("button", { name: /close dialog/i }).click({ force: true });
+    await page
+      .getByRole("button", { name: /close dialog/i })
+      .click({ force: true });
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
     const firstBlock = page.getByTestId("time-block-item").first();
@@ -50,7 +52,7 @@ test.describe("time blocks interactions", () => {
     const resizeBottomBox = await getBox(resizeBottom);
     await page.mouse.move(
       resizeBottomBox.x + resizeBottomBox.width / 2,
-      resizeBottomBox.y + resizeBottomBox.height / 2
+      resizeBottomBox.y + resizeBottomBox.height / 2,
     );
     await page.mouse.down();
     await page.mouse.move(
@@ -58,7 +60,7 @@ test.describe("time blocks interactions", () => {
       resizeBottomBox.y + resizeBottomBox.height / 2 + 70,
       {
         steps: 10,
-      }
+      },
     );
     await expect(page.getByTestId("time-block-drag-ghost")).toBeVisible();
     await page.mouse.up();
@@ -66,11 +68,18 @@ test.describe("time blocks interactions", () => {
     await expect(firstBlock).toBeVisible();
 
     const beforeMove = await getBox(firstBlock);
-    await page.mouse.move(beforeMove.x + beforeMove.width / 2, beforeMove.y + 14);
+    await page.mouse.move(
+      beforeMove.x + beforeMove.width / 2,
+      beforeMove.y + 14,
+    );
     await page.mouse.down();
-    await page.mouse.move(beforeMove.x + beforeMove.width / 2 + 10, beforeMove.y + 95, {
-      steps: 12,
-    });
+    await page.mouse.move(
+      beforeMove.x + beforeMove.width / 2 + 10,
+      beforeMove.y + 95,
+      {
+        steps: 12,
+      },
+    );
     await expect(page.getByTestId("time-block-drag-ghost")).toBeVisible();
     await page.mouse.up();
     await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -98,7 +107,9 @@ test.describe("time blocks interactions", () => {
     expect(dialogBox.width).toBeLessThanOrEqual(760);
   });
 
-  test("blocks render inline dynamic geometry styles with distinct positions", async ({ page }) => {
+  test("blocks render inline dynamic geometry styles with distinct positions", async ({
+    page,
+  }) => {
     await ensureAuthed(page);
     await page.goto("/time-blocks");
 
@@ -118,7 +129,7 @@ test.describe("time blocks interactions", () => {
           const r = (node as HTMLElement).getBoundingClientRect();
           return { x: r.x, y: r.y, w: r.width, h: r.height };
         })(),
-      }))
+      })),
     );
 
     for (const sample of styleSamples) {
@@ -133,7 +144,9 @@ test.describe("time blocks interactions", () => {
     const uniqueTops = new Set(styleSamples.map((sample) => sample.top));
     expect(uniqueTops.size).toBeGreaterThan(1);
 
-    const uniqueYs = new Set(styleSamples.map((sample) => Math.round(sample.rect.y)));
+    const uniqueYs = new Set(
+      styleSamples.map((sample) => Math.round(sample.rect.y)),
+    );
     expect(uniqueYs.size).toBeGreaterThan(1);
   });
 });

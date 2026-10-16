@@ -14,7 +14,7 @@ test -s styled-system/css/index.mjs
 
 For a managed worktree outside the shared checkout, grant the requested scoped write access for dependency installation and code generation. Keep each worktree's `node_modules` independent. Use absolute worktree paths and explicit command working directories. Check `git status --short --branch` from the assigned worktree before and after edits.
 
-The launcher does not create a database, apply schema changes, reset data, or delete records. Ask the audit coordinator to provision a blank synthetic database and prepare its schema before starting the app. The env file must contain the local PostgreSQL connection and `AUTH_SECRET`. Pass the file by path; do not copy its contents into a worktree. Set a new local-only `AUDIT_MAGIC_PASSWORD` for the app and `PLAYWRIGHT_MAGIC_PASSWORD` for browser tests. Do not reuse a password from the env file or another running app.
+The launcher does not create a database, apply schema changes, reset data, or delete records. Ask the audit coordinator to provision a blank synthetic database and prepare its schema before starting the app. The env file must contain the local PostgreSQL connection and `AUTH_SECRET`. Pass the file by path; do not copy its contents into a worktree. Create a new test-only credential file for each run and point both the app and browser tests at it. Do not reuse a password from the env file or another running app.
 
 ## Start the app
 
@@ -36,12 +36,13 @@ Example for the harness owner:
 
 ```sh
 corepack pnpm audit:harness:check
-export AUDIT_MAGIC_PASSWORD='choose-a-new-test-only-value'
-export PLAYWRIGHT_MAGIC_PASSWORD="$AUDIT_MAGIC_PASSWORD"
+umask 077 && openssl rand -hex 16 > "$TMPDIR/vn-audit-<owner>.password"
+export AUDIT_MAGIC_PASSWORD_FILE="$TMPDIR/vn-audit-<owner>.password"
+export PLAYWRIGHT_MAGIC_PASSWORD_FILE="$TMPDIR/vn-audit-<owner>.password"
 corepack pnpm audit:harness -- --env-file /path/to/secure/local.env --port 3115 --database visual_notes_audit_harness --worktree /path/to/assigned-worktree --branch codex/assigned-branch
 ```
 
-Choose a fresh test-only password. The launcher ignores any `MAGIC_PASSWORD` from the env file and requires this explicit value.
+The launcher ignores any `MAGIC_PASSWORD` from the env file and requires this explicit value. Browser tests refuse a credential file that is readable by group or others, and they skip the local `.env` fallback whenever `PLAYWRIGHT_BASE_URL` is set. Delete the credential file when the owner stops the run.
 The `--worktree` and `--branch` values must match the app's current Git checkout. The launcher rejects another worktree, `main`, and detached worktrees.
 
 The app is available at `http://127.0.0.1:<port>`. Stop it with Ctrl+C. The launcher starts the app only when the port is free and forwards shutdown to its own child process group. It does not kill processes by name or reuse another server.
@@ -81,6 +82,8 @@ The manifest looks like this:
 ```
 
 Use each entity's actual app route in `route`. For example, open an `ArchivedPage` from the Archive Explorer at `/archive`; do not treat its ID as a `/docs/<id>` route. Before reporting a metric or defect, capture the source URL, the visible locator used, and the completed user action. Record the observed result and a screenshot or browser trace when it helps reproduce the finding. Keep those observations separate from guesses about the cause.
+
+Playwright global setup signs in once, outside the traced test run, and saves the session to `playwright/.auth/user.json`. Tests start from that session. `ensureAuthed(page)` never types the real credential inside a test, because traces record filled values; pass `{ password }` only for a mocked fixture page. Keep request headers and bodies out of reports unless a finding needs them.
 
 When browser code creates a Playwright `Browser` handle, close that handle in a `finally` block with `await browser.close()`. The MCP `browser_close` tool may close only the active page, so it is not a substitute for closing a browser handle created by test code.
 
