@@ -2,10 +2,11 @@ import { Show, For, createMemo, createEffect } from "solid-js";
 import { groupByUpdatedAt } from "../utils/grouping";
 import { DocRow } from "./DocRow";
 import { LoadMoreButton } from "./LoadMoreButton";
-import { createDocsQueryStore } from "../state/docsQuery";
+import { type createDocsQueryStore } from "../state/docsQuery";
 import type { DocListItem, ServerSearchItem } from "../data/docs.types";
 import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
 import { ClearButton } from "~/components/ui/clear-button";
+import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -16,6 +17,8 @@ export const ResultsSection = (props: {
   nowMs?: number;
   serverResults: ServerSearchItem[];
   serverLoading: boolean;
+  serverError?: "request" | "timeout";
+  onSearchRetry: () => void;
   onVisibleIdsChange?: (ids: string[]) => void;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string, next: boolean) => void;
@@ -74,7 +77,9 @@ export const ResultsSection = (props: {
                     }}
                   />
                 </Show>
-                <Show when={props.serverLoading && searchResults().length === 0}>
+                <Show
+                  when={props.serverLoading && searchResults().length === 0}
+                >
                   <HStack gap="0.5rem">
                     <Spinner size="xs" />
                     <Text fontSize="xs" color="black.a7">
@@ -86,33 +91,43 @@ export const ResultsSection = (props: {
             </HStack>
 
             <Show
-              when={searchResults().length > 0}
-              fallback={<EmptySearchState loading={props.serverLoading} />}
+              when={!props.serverError}
+              fallback={
+                <SearchErrorState
+                  error={props.serverError ?? "request"}
+                  onRetry={props.onSearchRetry}
+                />
+              }
             >
-              <Stack as="ul" gap="0.35rem">
-                <For each={searchResults().slice(0, q.serverShown())}>
-                  {(d) => (
-                    <DocRow
-                      {...d}
-                      query={q.searchText()}
-                      previewDoc={previewDocsById().get(d.id) || null}
-                      onResultOpen={props.onResultOpen}
-                      onFilterMeta={(k, v) => {
-                        q.setMetaKey(k);
-                        q.setMetaValue(v);
-                      }}
-                      selected={props.selectedIds?.has(d.id)}
-                      onToggleSelect={props.onToggleSelect}
-                    />
-                  )}
-                </For>
-              </Stack>
+              <Show
+                when={searchResults().length > 0}
+                fallback={<EmptySearchState loading={props.serverLoading} />}
+              >
+                <Stack as="ul" gap="0.35rem">
+                  <For each={searchResults().slice(0, q.serverShown())}>
+                    {(d) => (
+                      <DocRow
+                        {...d}
+                        query={q.searchText()}
+                        previewDoc={previewDocsById().get(d.id) || null}
+                        onResultOpen={props.onResultOpen}
+                        onFilterMeta={(k, v) => {
+                          q.setMetaKey(k);
+                          q.setMetaValue(v);
+                        }}
+                        selected={props.selectedIds?.has(d.id)}
+                        onToggleSelect={props.onToggleSelect}
+                      />
+                    )}
+                  </For>
+                </Stack>
 
-              <LoadMoreButton
-                shown={Math.min(q.serverShown(), searchResults().length)}
-                total={searchResults().length}
-                onClick={() => q.showMoreServer(25)}
-              />
+                <LoadMoreButton
+                  shown={Math.min(q.serverShown(), searchResults().length)}
+                  total={searchResults().length}
+                  onClick={() => q.showMoreServer(25)}
+                />
+              </Show>
             </Show>
           </Stack>
         }
@@ -160,6 +175,32 @@ export const ResultsSection = (props: {
     </Stack>
   );
 };
+
+const SearchErrorState = (props: {
+  error: "request" | "timeout";
+  onRetry: () => void;
+}) => (
+  <Box
+    role="alert"
+    borderWidth="1px"
+    borderColor="gray.outline.border"
+    borderRadius="l2"
+    px="0.75rem"
+    py="0.65rem"
+    bg="white"
+  >
+    <HStack justify="space-between" alignItems="center" gap="0.75rem">
+      <Text fontSize="sm" color="black.a7">
+        {props.error === "timeout"
+          ? "Search timed out. Try again."
+          : "Search failed. Try again."}
+      </Text>
+      <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
+        Retry
+      </Button>
+    </HStack>
+  </Box>
+);
 
 const EmptySearchState = (props: { loading: boolean }) => {
   return (
