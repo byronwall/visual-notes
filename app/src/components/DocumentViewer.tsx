@@ -1,6 +1,13 @@
 import { A, useAction, useNavigate } from "@solidjs/router";
 import { ExternalLinkIcon, SaveIcon, Trash2Icon } from "lucide-solid";
-import { Show, type VoidComponent, createEffect, createSignal } from "solid-js";
+import {
+  Show,
+  type VoidComponent,
+  createEffect,
+  createSignal,
+  onCleanup,
+  untrack,
+} from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
@@ -8,7 +15,7 @@ import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Link } from "~/components/ui/link";
 import { Tooltip } from "~/components/ui/tooltip";
 import { DocSharePanel } from "./DocSharePanel";
-import { deleteDoc, updateDoc } from "~/services/docs.service";
+import { useNoteMutations } from "~/hooks/useNoteMutations";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
 import { extractFirstHeading } from "~/utils/extractHeading";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
@@ -36,7 +43,8 @@ type DocumentData = {
 
 const DocumentViewer: VoidComponent<{
   doc: DocumentData;
-  onDeleted?: () => void;
+  onDeleted?: (docId: string) => void;
+  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
   compactChrome?: boolean;
   fullPageHref?: string;
   panelMode?: boolean;
@@ -47,11 +55,22 @@ const DocumentViewer: VoidComponent<{
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
+  const docId = untrack(() => props.doc.id);
+  let currentDocId = untrack(() => props.doc.id);
+  let docGeneration = 0;
+  let ownerActive = true;
+  onCleanup(() => {
+    ownerActive = false;
+    props.onEditorApiChange?.(docId);
+  });
   const [title, setTitle] = createSignal(props.doc.title);
-  const runUpdateDoc = useAction(updateDoc);
-  const runDeleteDoc = useAction(deleteDoc);
+  const [savedUpdatedAt, setSavedUpdatedAt] = createSignal(props.doc.updatedAt);
+  let savedDocId = props.doc.id;
+  const { update: runUpdateDoc, delete: runDeleteDoc } = useNoteMutations();
   const runLogDocViewEvent = useAction(logDocViewEvent);
   let lastLoggedDocId = "";
+  const isCurrentVisit = (id: string, generation: number) =>
+    ownerActive && props.doc.id === id && docGeneration === generation;
   const firstH1 = () =>
     extractFirstHeading({
       markdown: props.doc.markdown,
@@ -64,8 +83,40 @@ const DocumentViewer: VoidComponent<{
 
   // Keep local title state aligned when client-side navigation swaps docs.
   createEffect(() => {
+    const nextDocId = props.doc.id;
+    if (nextDocId !== currentDocId) {
+      currentDocId = nextDocId;
+      docGeneration += 1;
+    }
     setTitle(props.doc.title);
   });
+
+  createEffect(() => {
+    const id = props.doc.id;
+    const updatedAt = props.doc.updatedAt;
+    if (id !== savedDocId) {
+      savedDocId = id;
+      setSavedUpdatedAt(updatedAt);
+    } else if (updatedAt) {
+      const incomingTime = Date.parse(updatedAt);
+      const savedTime = Date.parse(savedUpdatedAt() || "");
+      if (
+        Number.isFinite(incomingTime) &&
+        (!Number.isFinite(savedTime) || incomingTime > savedTime)
+      ) {
+        setSavedUpdatedAt(updatedAt);
+      }
+    }
+  });
+
+  const handleContentSaved = (result: { id: string; updatedAt: string }) => {
+    if (props.doc.id !== result.id) return;
+    setSavedUpdatedAt((current) =>
+      Date.parse(current || "") >= Date.parse(result.updatedAt)
+        ? current
+        : result.updatedAt,
+    );
+  };
 
   createEffect(() => {
     const nextDocId = props.doc.id;
@@ -76,6 +127,8 @@ const DocumentViewer: VoidComponent<{
   });
 
   const handleConfirmEdit = async (nextValue: string) => {
+    const editDocId = props.doc.id;
+    const editGeneration = docGeneration;
     const newTitle = nextValue.trim();
     const previousTitle = title();
     if (!newTitle) {
@@ -86,39 +139,49 @@ const DocumentViewer: VoidComponent<{
     }
     setTitle(newTitle);
     try {
-      await runUpdateDoc({ id: props.doc.id, title: newTitle });
-    } catch (e) {
-      setTitle(previousTitle);
-      alert((e as Error).message || "Failed to update title");
+      await runUpdateDoc({ id: editDocId, title: newTitle });
+    } catch (error) {
+      if (isCurrentVisit(editDocId, editGeneration)) {
+        setTitle(previousTitle);
+      }
+      throw error;
     }
   };
   const handleSync = async () => {
+    const syncDocId = props.doc.id;
+    const syncGeneration = docGeneration;
     const newTitle = firstH1();
     if (!newTitle) return;
     try {
-      await runUpdateDoc({ id: props.doc.id, title: newTitle });
-      setTitle(newTitle);
+      await runUpdateDoc({ id: syncDocId, title: newTitle });
+      if (isCurrentVisit(syncDocId, syncGeneration)) setTitle(newTitle);
     } catch (e) {
-      alert((e as Error).message || "Failed to sync title");
+      if (isCurrentVisit(syncDocId, syncGeneration)) {
+        alert((e as Error).message || "Failed to sync title");
+      }
     }
   };
 
   const handleDeleteConfirm = async () => {
+    const deletedDocId = props.doc.id;
+    const deleteGeneration = docGeneration;
     try {
       setBusy(true);
-      await runDeleteDoc(props.doc.id);
+      await runDeleteDoc(deletedDocId);
       if (props.onDeleted) {
         try {
-          props.onDeleted();
+          props.onDeleted(deletedDocId);
         } catch (err) {
           console.error("[DocumentViewer] onDeleted threw", err);
         }
       } else {
-        navigate("/");
+        if (props.doc.id === deletedDocId) navigate("/");
       }
     } catch (e) {
       console.error(e);
-      alert((e as Error).message || "Failed to delete note");
+      if (isCurrentVisit(deletedDocId, deleteGeneration)) {
+        alert((e as Error).message || "Failed to delete note");
+      }
     } finally {
       setBusy(false);
     }
@@ -211,7 +274,7 @@ const DocumentViewer: VoidComponent<{
             <DocActivitySummaryPopover
               docId={props.doc.id}
               createdAt={props.doc.createdAt}
-              updatedAt={props.doc.updatedAt}
+              updatedAt={savedUpdatedAt()}
               iconOnly
             />
           </HStack>
@@ -361,7 +424,7 @@ const DocumentViewer: VoidComponent<{
                 <DocActivitySummaryPopover
                   docId={props.doc.id}
                   createdAt={props.doc.createdAt}
-                  updatedAt={props.doc.updatedAt}
+                  updatedAt={savedUpdatedAt()}
                 />
               </HStack>
             }
@@ -371,7 +434,11 @@ const DocumentViewer: VoidComponent<{
           docId={props.doc.id}
           showTitleInTopBar={false}
           showSaveButtonInTopBar={false}
-          apiRef={(api) => setEditorApi(api)}
+          apiRef={(api) => {
+            setEditorApi(api);
+            props.onEditorApiChange?.(props.doc.id, api);
+          }}
+          onSaved={handleContentSaved}
         />
       </Stack>
       <ConfirmDialog

@@ -54,7 +54,8 @@ const DocView: VoidComponent = () => {
     (id) => fetchDocDetail(id!)
   );
 
-  const handleDeleted = () => {
+  const handleDeleted = (deletedDocId: string) => {
+    if (params.id !== deletedDocId) return;
     console.log("[DocView] onDeleted → navigating to /");
     navigate("/");
   };
