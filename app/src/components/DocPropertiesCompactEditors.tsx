@@ -28,6 +28,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   initialMeta?: Record<string, unknown> | null;
   onPathChange?: (path: string) => void;
   onMetaChange?: (meta: MetaRecord) => void;
+  pathPopoverPortalled?: boolean;
   trailing?: JSX.Element;
 }> = (props) => {
   let prevDocId: string | undefined;
@@ -48,10 +49,12 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     const incomingDocId = props.docId;
     const incoming = initialPathValue();
     if (incomingDocId === prevDocId && incoming === prevIncomingPath) return;
+    const docChanged = incomingDocId !== prevDocId;
     prevDocId = incomingDocId;
     prevIncomingPath = incoming;
+    if (!docChanged && incoming === pathDraft()) return;
     setPathDraft(incoming);
-    setPathPopoverOpen(false);
+    if (docChanged) setPathPopoverOpen(false);
   });
 
   createEffect(() => {
@@ -99,6 +102,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         placement="bottom-start"
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
+        portalled={props.pathPopoverPortalled}
         anchor={
           <Button
             type="button"

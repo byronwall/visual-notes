@@ -58,6 +58,7 @@ const DocumentEditor: VoidComponent<{
   preferH1TitleForNewDoc?: boolean;
   placeNewDocPropertiesAfterEditor?: boolean;
   selectFirstLineOnMount?: boolean;
+  pathPopoverPortalled?: boolean;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -446,6 +447,7 @@ const DocumentEditor: VoidComponent<{
             initialMeta={newMeta()}
             onPathChange={(nextPath) => setNewPath(nextPath)}
             onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+            pathPopoverPortalled={props.pathPopoverPortalled}
           />
         </Stack>
       </Show>
@@ -462,6 +464,7 @@ const DocumentEditor: VoidComponent<{
             initialMeta={newMeta()}
             onPathChange={(nextPath) => setNewPath(nextPath)}
             onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+            pathPopoverPortalled={props.pathPopoverPortalled}
           />
         </Stack>
       </Show>

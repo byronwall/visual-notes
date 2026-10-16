@@ -1,7 +1,7 @@
 import { createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourcesResponse } from "../data/docs.service";
-import { bulkUpdateMeta } from "../data/docs.service";
+import { bulkSetSource, bulkUpdateMeta } from "../data/docs.service";
 import { updateDoc } from "~/services/docs.service";
 import { useDocsIndexBulkActions } from "./useDocsIndexBulkActions";
 
@@ -256,6 +256,48 @@ describe("useDocsIndexBulkActions bulk path", () => {
     ).resolves.toBe(false);
     expect(bulkUpdateMeta).not.toHaveBeenCalled();
     expect(refreshDocs).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it("does not set a blank source prompt", async () => {
+    vi.stubGlobal("prompt", vi.fn(() => " \t "));
+    const refreshDocs = vi.fn();
+    let dispose!: () => void;
+    const actions = createRoot((stop) => {
+      dispose = stop;
+      return useDocsIndexBulkActions({
+        q: { searchText: () => "" } as never,
+        sources: () => undefined as SourcesResponse | undefined,
+        refreshDocs,
+        refreshSources: vi.fn(),
+      });
+    });
+
+    await actions.handleBulkSetSource();
+
+    expect(bulkSetSource).not.toHaveBeenCalled();
+    expect(refreshDocs).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it("trims a padded source prompt before setting it", async () => {
+    vi.stubGlobal("prompt", vi.fn(() => "  importer  "));
+    const refreshDocs = vi.fn();
+    let dispose!: () => void;
+    const actions = createRoot((stop) => {
+      dispose = stop;
+      return useDocsIndexBulkActions({
+        q: { searchText: () => "" } as never,
+        sources: () => undefined as SourcesResponse | undefined,
+        refreshDocs,
+        refreshSources: vi.fn(),
+      });
+    });
+
+    await actions.handleBulkSetSource();
+
+    expect(bulkSetSource).toHaveBeenCalledWith("importer");
+    expect(refreshDocs).toHaveBeenCalledOnce();
     dispose();
   });
 
