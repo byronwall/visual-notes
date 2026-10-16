@@ -30,6 +30,8 @@ import { createCanvasStore } from "~/stores/canvas.store";
 import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
 import { DocumentSidePanel } from "~/components/DocumentSidePanel";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import type { DocumentEditorApi } from "~/components/DocumentEditor";
 import type { DocItem } from "~/types/notes";
 
 const SPREAD = 1000;
@@ -65,6 +67,39 @@ const CanvasRoute: VoidComponent = () => {
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     undefined
   );
+  const [activeEditor, setActiveEditor] = createSignal<{
+    docId: string;
+    api: DocumentEditorApi;
+  }>();
+  const [pendingSelectedId, setPendingSelectedId] = createSignal<
+    string | undefined
+  >();
+  const [discardDialogOpen, setDiscardDialogOpen] = createSignal(false);
+
+  const requestSelectedId = (nextId: string | undefined) => {
+    if (nextId === selectedId()) return;
+    const currentEditor = activeEditor();
+    if (
+      currentEditor &&
+      currentEditor.docId === selectedId() &&
+      currentEditor.api.dirty()
+    ) {
+      setPendingSelectedId(nextId);
+      setDiscardDialogOpen(true);
+      return;
+    }
+    setSelectedId(nextId);
+  };
+
+  const handleEditorApiChange = (docId: string, api?: DocumentEditorApi) => {
+    if (api) {
+      setActiveEditor({ docId, api });
+      return;
+    }
+    setActiveEditor((current) =>
+      current?.docId === docId ? undefined : current,
+    );
+  };
   // Panel fetches document internally
 
   // Stores
@@ -382,7 +417,7 @@ const CanvasRoute: VoidComponent = () => {
     getHoveredId: hover.hoveredId,
     getHoveredRegionId: hoveredRegionId,
     getPressedRegionId: pressedRegionId,
-    onOpenDoc: (id) => setSelectedId(id),
+    onOpenDoc: requestSelectedId,
     onActivateRegion: handleZoomToRegion,
     clearPressedRegion: () => setPressedRegionId(undefined),
     selection: selectionStore,
@@ -435,7 +470,7 @@ const CanvasRoute: VoidComponent = () => {
           onHoveredRegionChange={setHoveredRegionId}
           onPressedRegionChange={setPressedRegionId}
           suppressNextOpen={panZoomHandlers.blockNextOpen}
-          onSelectDoc={(id) => setSelectedId(id)}
+          onSelectDoc={requestSelectedId}
           onHoveredDocChange={setRailHoveredDocId}
           onZoomToRegion={handleZoomToRegion}
           selectedRegionId={selectedRegionId}
@@ -446,11 +481,33 @@ const CanvasRoute: VoidComponent = () => {
         <DocumentSidePanel
           open={!!selectedId()}
           docId={selectedId()}
+          onEditorApiChange={handleEditorApiChange}
           onClose={(shouldRefetch) => {
             if (shouldRefetch) {
               refetchDocs();
+              // The note is already deleted, so preserve the delete flow without
+              // prompting to discard edits from the now-removed editor.
+              setPendingSelectedId(undefined);
+              setDiscardDialogOpen(false);
+              setSelectedId(undefined);
+              return;
             }
-            setSelectedId(undefined);
+            requestSelectedId(undefined);
+          }}
+        />
+        <ConfirmDialog
+          open={discardDialogOpen()}
+          onOpenChange={(open) => {
+            setDiscardDialogOpen(open);
+            if (!open) setPendingSelectedId(undefined);
+          }}
+          title="Discard unsaved changes?"
+          description="Your unsaved changes will be lost if you leave this note."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          onConfirm={() => {
+            setSelectedId(pendingSelectedId());
+            setPendingSelectedId(undefined);
           }}
         />
         <Suspense fallback={null}>
@@ -472,7 +529,7 @@ const CanvasRoute: VoidComponent = () => {
           onHoveredDocChange={setRailHoveredDocId}
           onZoomToRegion={handleZoomToRegion}
           onClearRegion={clearSelectedRegion}
-          onOpenDoc={(id) => setSelectedId(id)}
+          onOpenDoc={requestSelectedId}
         />
       </Show>
     </Box>

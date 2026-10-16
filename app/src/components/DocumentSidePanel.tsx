@@ -14,6 +14,7 @@ import DocumentViewer from "./DocumentViewer";
 import { InPlaceEditableText } from "./InPlaceEditableText";
 import { fetchDoc } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
+import type { DocumentEditorApi } from "./DocumentEditor";
 
 type DocDetail = {
   id: string;
@@ -30,6 +31,7 @@ export const DocumentSidePanel: VoidComponent<{
   open: boolean;
   docId?: string;
   onClose: (shouldRefetch?: boolean) => void;
+  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
 }> = (props) => {
   const [doc] = createResource(
     () => props.docId,
@@ -115,6 +117,7 @@ export const DocumentSidePanel: VoidComponent<{
                 panelMode
                 fullPageHref={props.docId ? `/docs/${props.docId}` : undefined}
                 onDeleted={() => props.onClose(true)}
+                onEditorApiChange={props.onEditorApiChange}
               />
             )}
           </Show>

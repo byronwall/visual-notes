@@ -1,6 +1,13 @@
 import { A, useAction, useNavigate } from "@solidjs/router";
 import { ExternalLinkIcon, SaveIcon, Trash2Icon } from "lucide-solid";
-import { Show, type VoidComponent, createEffect, createSignal } from "solid-js";
+import {
+  Show,
+  type VoidComponent,
+  createEffect,
+  createSignal,
+  onCleanup,
+  untrack,
+} from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
@@ -37,6 +44,7 @@ type DocumentData = {
 const DocumentViewer: VoidComponent<{
   doc: DocumentData;
   onDeleted?: () => void;
+  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
   compactChrome?: boolean;
   fullPageHref?: string;
   panelMode?: boolean;
@@ -47,6 +55,8 @@ const DocumentViewer: VoidComponent<{
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
+  const docId = untrack(() => props.doc.id);
+  onCleanup(() => props.onEditorApiChange?.(docId));
   const [title, setTitle] = createSignal(props.doc.title);
   const [savedUpdatedAt, setSavedUpdatedAt] = createSignal(props.doc.updatedAt);
   let savedDocId = props.doc.id;
@@ -399,7 +409,10 @@ const DocumentViewer: VoidComponent<{
           docId={props.doc.id}
           showTitleInTopBar={false}
           showSaveButtonInTopBar={false}
-          apiRef={(api) => setEditorApi(api)}
+          apiRef={(api) => {
+            setEditorApi(api);
+            props.onEditorApiChange?.(props.doc.id, api);
+          }}
           onSaved={handleContentSaved}
         />
       </Stack>
