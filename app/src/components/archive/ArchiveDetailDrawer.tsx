@@ -266,6 +266,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
   const [newNoteText, setNewNoteText] = createSignal("");
   const [newNoteImageUrl, setNewNoteImageUrl] = createSignal("");
   const [newNoteError, setNewNoteError] = createSignal<string>();
+  const [isCreatingNote, setIsCreatingNote] = createSignal(false);
 
   const item = createMemo(() => detail.latest ?? detail());
 
@@ -313,25 +314,43 @@ export const ArchiveDetailDrawer: VoidComponent<{
   };
 
   const createNote = async () => {
-    if (!props.pageId) return;
-    const noteText = newNoteText().trim();
-    const imageUrl = newNoteImageUrl().trim();
+    const pageId = props.pageId;
+    if (!pageId || isCreatingNote()) return;
+    const draftText = newNoteText();
+    const draftImageUrl = newNoteImageUrl();
+    const noteText = draftText.trim();
+    const imageUrl = draftImageUrl.trim();
     if (!noteText && !imageUrl) {
       setNewNoteError("Add note text or an image URL.");
       return;
     }
+    setIsCreatingNote(true);
     setNewNoteError(undefined);
     try {
-      await runCreateArchivedPageNote({
-        pageId: props.pageId,
+      const created = await runCreateArchivedPageNote({
+        pageId,
         noteText,
         imageUrl: imageUrl || undefined,
       });
-      setNewNoteText("");
-      setNewNoteImageUrl("");
-      await refresh();
+      if (typeof created?.id !== "string" || !created.id || created.pageId !== pageId) {
+        throw new Error("Could not add note. Try again.");
+      }
+      if (props.pageId === pageId) {
+        if (newNoteText() === draftText && newNoteImageUrl() === draftImageUrl) {
+          setNewNoteText("");
+          setNewNoteImageUrl("");
+        }
+        await refresh();
+      } else {
+        props.onChanged?.(pageId);
+        await revalidate(fetchArchivedPageDetail.keyFor(pageId));
+      }
     } catch (error) {
-      setNewNoteError(error instanceof Error ? error.message : "Could not add note.");
+      if (props.pageId === pageId) {
+        setNewNoteError(error instanceof Error ? error.message : "Could not add note.");
+      }
+    } finally {
+      setIsCreatingNote(false);
     }
   };
 
@@ -479,7 +498,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
                         <Button
                           type="button"
                           size="sm"
-                          disabled={!newNoteText().trim() && !newNoteImageUrl().trim()}
+                          disabled={isCreatingNote() || (!newNoteText().trim() && !newNoteImageUrl().trim())}
                           onClick={() => void createNote()}
                         >
                           Add note
