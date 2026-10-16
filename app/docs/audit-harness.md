@@ -50,26 +50,37 @@ The persistent audit coordinator owns each long-lived server session and records
 
 ## Record fixtures and evidence
 
-Keep fixture ownership explicit. Each owner records only IDs returned by that owner's creation responses. Do not copy IDs from another audit or use fixtures from the original database.
+Keep fixture ownership explicit. Each owner records only IDs returned by that owner's creation responses. Do not copy IDs from another audit, infer ownership from titles or recent activity, or use fixtures from the original database.
+
+Record each fixture right after its create response, then clean up only through the same manifest:
+
+```sh
+corepack pnpm audit:fixtures record --manifest /abs/evidence/fixtures.json --owner harness --database visual_notes_audit_harness --kind Doc --id <id from create response> --route http://127.0.0.1:3115/docs/<id> --title "<synthetic title>"
+corepack pnpm audit:fixtures cleanup --manifest /abs/evidence/fixtures.json --owner harness --database visual_notes_audit_harness --id <id> --dry-run
+corepack pnpm audit:fixtures cleanup --manifest /abs/evidence/fixtures.json --owner harness --database visual_notes_audit_harness --id <id> --env-file /path/to/secure/local.env
+```
+
+Supported kinds are `Doc`, `ArchivedPage`, `TaskList`, and `TimeBlock`. Cleanup refuses an ID absent from the owner's manifest, a different owner or database, or a kind mismatch, and it checks all of these before connecting. It deletes one row by its exact ID from the loopback synthetic database and then removes the entry from the manifest. Cleanup still needs the coordinator's authorization; the command only limits what an authorized cleanup can touch.
+
+The manifest looks like this:
 
 ```json
 {
   "owner": "harness",
   "database": "visual_notes_audit_harness",
-  "port": 3115,
   "fixtures": [
     {
       "entityKind": "ArchivedPage",
       "id": "<id from this owner's create response>",
-      "createdBy": "<creation action or response>",
-      "startUrl": "http://127.0.0.1:3115/archive",
-      "title": "<synthetic title>"
+      "route": "http://127.0.0.1:3115/archive",
+      "title": "<synthetic title>",
+      "createdBy": "<creation action or response>"
     }
   ]
 }
 ```
 
-Use each entity's actual app route in `startUrl`. For example, open an `ArchivedPage` from the Archive Explorer at `/archive`; do not treat its ID as a `/docs/<id>` route. Before reporting a metric or defect, capture the source URL, the visible locator used, and the completed user action. Record the observed result and a screenshot or browser trace when it helps reproduce the finding. Keep those observations separate from guesses about the cause.
+Use each entity's actual app route in `route`. For example, open an `ArchivedPage` from the Archive Explorer at `/archive`; do not treat its ID as a `/docs/<id>` route. Before reporting a metric or defect, capture the source URL, the visible locator used, and the completed user action. Record the observed result and a screenshot or browser trace when it helps reproduce the finding. Keep those observations separate from guesses about the cause.
 
 When browser code creates a Playwright `Browser` handle, close that handle in a `finally` block with `await browser.close()`. The MCP `browser_close` tool may close only the active page, so it is not a substitute for closing a browser handle created by test code.
 
