@@ -31,6 +31,8 @@ import { createPositionsStore } from "~/stores/positions.store";
 import { createSelectionStore } from "~/stores/selection.store";
 import { DocumentSidePanel } from "~/components/DocumentSidePanel";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import { Button } from "~/components/ui/button";
+import { SimpleDialog } from "~/components/ui/simple-dialog";
 import type { DocumentEditorApi } from "~/components/DocumentEditor";
 import type { DocItem } from "~/types/notes";
 
@@ -75,18 +77,22 @@ const CanvasRoute: VoidComponent = () => {
     string | undefined
   >();
   const [discardDialogOpen, setDiscardDialogOpen] = createSignal(false);
+  const [saveInProgressDialogOpen, setSaveInProgressDialogOpen] =
+    createSignal(false);
 
   const requestSelectedId = (nextId: string | undefined) => {
     if (nextId === selectedId()) return;
     const currentEditor = activeEditor();
-    if (
-      currentEditor &&
-      currentEditor.docId === selectedId() &&
-      currentEditor.api.dirty()
-    ) {
-      setPendingSelectedId(nextId);
-      setDiscardDialogOpen(true);
-      return;
+    if (currentEditor && currentEditor.docId === selectedId()) {
+      if (currentEditor.api.saving()) {
+        setSaveInProgressDialogOpen(true);
+        return;
+      }
+      if (currentEditor.api.dirty()) {
+        setPendingSelectedId(nextId);
+        setDiscardDialogOpen(true);
+        return;
+      }
     }
     setSelectedId(nextId);
   };
@@ -100,6 +106,14 @@ const CanvasRoute: VoidComponent = () => {
       current?.docId === docId ? undefined : current,
     );
   };
+
+  createEffect(() => {
+    if (!saveInProgressDialogOpen()) return;
+    const currentEditor = activeEditor();
+    if (!currentEditor || !currentEditor.api.saving()) {
+      setSaveInProgressDialogOpen(false);
+    }
+  });
   // Panel fetches document internally
 
   // Stores
@@ -489,6 +503,7 @@ const CanvasRoute: VoidComponent = () => {
               // prompting to discard edits from the now-removed editor.
               setPendingSelectedId(undefined);
               setDiscardDialogOpen(false);
+              setSaveInProgressDialogOpen(false);
               setSelectedId(undefined);
               return;
             }
@@ -509,6 +524,20 @@ const CanvasRoute: VoidComponent = () => {
             setSelectedId(pendingSelectedId());
             setPendingSelectedId(undefined);
           }}
+        />
+        <SimpleDialog
+          open={saveInProgressDialogOpen()}
+          onOpenChange={setSaveInProgressDialogOpen}
+          title="Note is saving"
+          description="Wait for this save to finish before closing or opening another note."
+          footer={
+            <Button
+              variant="solid"
+              onClick={() => setSaveInProgressDialogOpen(false)}
+            >
+              Keep editing
+            </Button>
+          }
         />
         <Suspense fallback={null}>
           <ControlPanel
