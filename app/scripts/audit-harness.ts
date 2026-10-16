@@ -114,19 +114,15 @@ function expandEnvReferences(
   return expanded;
 }
 
-function makeChildEnv(
+/** Rewrites DATABASE_URL to a synthetic database on a loopback PostgreSQL host. */
+export function auditDatabaseUrl(
+  rawUrl: string,
   source: Record<string, string | undefined>,
-  options: Options,
-  auditMagicPassword: string | undefined,
+  database: string,
 ) {
-  const rawUrl = source.DATABASE_URL;
-  const authSecret = source.AUTH_SECRET;
-  if (!rawUrl || !authSecret || !auditMagicPassword) {
-    throw new Error(
-      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD for this worktree.",
-    );
+  if (!new RegExp(`^${databasePrefix}[a-z0-9_]+$`).test(database)) {
+    throw new Error(`Database must start with ${databasePrefix}.`);
   }
-
   let dbUrl: URL;
   const expandedUrl = expandEnvReferences(rawUrl, source);
   try {
@@ -143,7 +139,24 @@ function makeChildEnv(
   ) {
     throw new Error("DATABASE_URL must point to a loopback PostgreSQL server.");
   }
-  dbUrl.pathname = `/${options.database}`;
+  dbUrl.pathname = `/${database}`;
+  return dbUrl;
+}
+
+function makeChildEnv(
+  source: Record<string, string | undefined>,
+  options: Options,
+  auditMagicPassword: string | undefined,
+) {
+  const rawUrl = source.DATABASE_URL;
+  const authSecret = source.AUTH_SECRET;
+  if (!rawUrl || !authSecret || !auditMagicPassword) {
+    throw new Error(
+      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD for this worktree.",
+    );
+  }
+
+  const dbUrl = auditDatabaseUrl(rawUrl, source, options.database);
 
   const baseUrl = `http://127.0.0.1:${options.port}`;
   const childEnv: NodeJS.ProcessEnv = {};
