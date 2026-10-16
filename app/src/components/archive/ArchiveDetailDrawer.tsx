@@ -1,5 +1,6 @@
 import { revalidate, useAction } from "@solidjs/router";
 import { createEffect, createMemo, createResource, createSignal, For, Show, Suspense, type VoidComponent } from "solid-js";
+import { createStore } from "solid-js/store";
 import { PlusIcon } from "lucide-solid";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { openImagePreview } from "~/components/editor/ui/imagePreviewService";
@@ -242,6 +243,8 @@ const ArchiveNoteRow = (props: {
   );
 };
 
+type NoteDraft = { text: string; imageUrl: string; error?: string };
+
 export const ArchiveDetailDrawer: VoidComponent<{
   open: boolean;
   pageId?: string;
@@ -263,69 +266,69 @@ export const ArchiveDetailDrawer: VoidComponent<{
   const runUpdateArchivedPageNoteImage = useAction(updateArchivedPageNoteImage);
   const runDeleteArchivedPageNoteImage = useAction(deleteArchivedPageNoteImage);
 
-  const [newNoteText, setNewNoteText] = createSignal("");
-  const [newNoteImageUrl, setNewNoteImageUrl] = createSignal("");
-  const [newNoteError, setNewNoteError] = createSignal<string>();
+  const [newNoteDrafts, setNewNoteDrafts] = createStore<Record<string, NoteDraft>>({});
   const [isCreatingNote, setIsCreatingNote] = createSignal(false);
+  const updateNewNoteDraft = (pageId: string, patch: Partial<NoteDraft>) => {
+    const previous = newNoteDrafts[pageId] ?? { text: "", imageUrl: "" };
+    setNewNoteDrafts(pageId, { ...previous, ...patch });
+  };
 
   const item = createMemo(() => detail.latest ?? detail());
 
-  const refresh = async () => {
-    await refetch();
-    props.onChanged?.(props.pageId);
-    if (props.pageId) {
-      await revalidate(fetchArchivedPageDetail.keyFor(props.pageId));
-    }
+  const refresh = async (pageId: string) => {
+    if (props.pageId === pageId) await refetch();
+    props.onChanged?.(pageId);
+    await revalidate(fetchArchivedPageDetail.keyFor(pageId));
   };
 
-  const saveTitle = async (id: string, title: string) => {
-    await runUpdateArchivedPage({ id, title });
-    await refresh();
+  const saveTitle = async (pageId: string, title: string) => {
+    await runUpdateArchivedPage({ id: pageId, title });
+    await refresh(pageId);
   };
 
-  const saveGroup = async (id: string, groupName: string) => {
-    await runUpdateArchivedPage({ id, groupName });
-    await refresh();
+  const saveGroup = async (pageId: string, groupName: string) => {
+    await runUpdateArchivedPage({ id: pageId, groupName });
+    await refresh(pageId);
   };
 
-  const saveNoteText = async (noteId: string, noteText: string) => {
+  const saveNoteText = async (pageId: string, noteId: string, noteText: string) => {
     await runUpdateArchivedPageNote({ id: noteId, noteText });
-    await refresh();
+    await refresh(pageId);
   };
 
-  const removeNote = async (noteId: string) => {
+  const removeNote = async (pageId: string, noteId: string) => {
     await runDeleteArchivedPageNote({ id: noteId });
-    await refresh();
+    await refresh(pageId);
   };
 
-  const addNoteImage = async (noteId: string, imageUrl: string) => {
+  const addNoteImage = async (pageId: string, noteId: string, imageUrl: string) => {
     await runAddArchivedPageNoteImage({ noteId, imageUrl });
-    await refresh();
+    await refresh(pageId);
   };
 
-  const updateNoteImage = async (noteId: string, index: number, imageUrl: string) => {
+  const updateNoteImage = async (pageId: string, noteId: string, index: number, imageUrl: string) => {
     await runUpdateArchivedPageNoteImage({ noteId, index, imageUrl });
-    await refresh();
+    await refresh(pageId);
   };
 
-  const removeNoteImage = async (noteId: string, index: number) => {
+  const removeNoteImage = async (pageId: string, noteId: string, index: number) => {
     await runDeleteArchivedPageNoteImage({ noteId, index });
-    await refresh();
+    await refresh(pageId);
   };
 
-  const createNote = async () => {
-    const pageId = props.pageId;
+  const createNote = async (pageId: string) => {
     if (!pageId || isCreatingNote()) return;
-    const draftText = newNoteText();
-    const draftImageUrl = newNoteImageUrl();
+    const draft = newNoteDrafts[pageId] ?? { text: "", imageUrl: "" };
+    const draftText = draft.text;
+    const draftImageUrl = draft.imageUrl;
     const noteText = draftText.trim();
     const imageUrl = draftImageUrl.trim();
     if (!noteText && !imageUrl) {
-      setNewNoteError("Add note text or an image URL.");
+      updateNewNoteDraft(pageId, { error: "Add note text or an image URL." });
       return;
     }
     setIsCreatingNote(true);
-    setNewNoteError(undefined);
+    updateNewNoteDraft(pageId, { error: undefined });
     try {
       const created = await runCreateArchivedPageNote({
         pageId,
@@ -335,30 +338,24 @@ export const ArchiveDetailDrawer: VoidComponent<{
       if (typeof created?.id !== "string" || !created.id || created.pageId !== pageId) {
         throw new Error("Could not add note. Try again.");
       }
-      if (props.pageId === pageId) {
-        if (newNoteText() === draftText && newNoteImageUrl() === draftImageUrl) {
-          setNewNoteText("");
-          setNewNoteImageUrl("");
-        }
-        await refresh();
-      } else {
-        props.onChanged?.(pageId);
-        await revalidate(fetchArchivedPageDetail.keyFor(pageId));
+      const latestDraft = newNoteDrafts[pageId];
+      if (latestDraft?.text === draftText && latestDraft.imageUrl === draftImageUrl) {
+        updateNewNoteDraft(pageId, { text: "", imageUrl: "", error: undefined });
       }
+      await refresh(pageId);
     } catch (error) {
-      if (props.pageId === pageId) {
-        setNewNoteError(error instanceof Error ? error.message : "Could not add note.");
-      }
+      updateNewNoteDraft(pageId, { error: error instanceof Error ? error.message : "Could not add note." });
     } finally {
       setIsCreatingNote(false);
     }
   };
 
   const deleteEntry = async () => {
-    if (!props.pageId) return;
+    const pageId = props.pageId;
+    if (!pageId) return;
     if (!confirm("Delete this explorer entry and everything captured under it?")) return;
-    await runDeleteArchivedPage({ id: props.pageId });
-    props.onDeleted?.(props.pageId);
+    await runDeleteArchivedPage({ id: pageId });
+    props.onDeleted?.(pageId);
   };
 
   return (
@@ -478,36 +475,34 @@ export const ArchiveDetailDrawer: VoidComponent<{
 
                     <Stack gap="2" p="3" borderRadius="l3" bg="bg.subtle">
                       <Textarea
-                        value={newNoteText()}
+                        value={newNoteDrafts[current().id]?.text ?? ""}
                         placeholder="Add a note to this entry"
                         rows={2}
                         onInput={(event) => {
-                          setNewNoteText(event.currentTarget.value);
-                          setNewNoteError(undefined);
+                          updateNewNoteDraft(current().id, { text: event.currentTarget.value, error: undefined });
                         }}
                       />
                       <HStack gap="2">
                         <Input
-                          value={newNoteImageUrl()}
+                          value={newNoteDrafts[current().id]?.imageUrl ?? ""}
                           placeholder="Optional image URL"
                           onInput={(event) => {
-                            setNewNoteImageUrl(event.currentTarget.value);
-                            setNewNoteError(undefined);
+                            updateNewNoteDraft(current().id, { imageUrl: event.currentTarget.value, error: undefined });
                           }}
                         />
                         <Button
                           type="button"
                           size="sm"
-                          disabled={isCreatingNote() || (!newNoteText().trim() && !newNoteImageUrl().trim())}
-                          onClick={() => void createNote()}
+                          disabled={isCreatingNote() || (!(newNoteDrafts[current().id]?.text ?? "").trim() && !(newNoteDrafts[current().id]?.imageUrl ?? "").trim())}
+                          onClick={() => void createNote(current().id)}
                         >
                           Add note
                         </Button>
                       </HStack>
-                      <Show when={newNoteError()}>
+                      <Show when={newNoteDrafts[current().id]?.error}>
                         {(message) => <Text role="alert" fontSize="xs" color="fg.error">{message()}</Text>}
                       </Show>
-                      <Show when={!newNoteText().trim() && !newNoteImageUrl().trim() && !newNoteError()}>
+                      <Show when={!(newNoteDrafts[current().id]?.text ?? "").trim() && !(newNoteDrafts[current().id]?.imageUrl ?? "").trim() && !newNoteDrafts[current().id]?.error}>
                         <Text fontSize="xs" color="fg.muted">
                           Add text or an image URL to create a note.
                         </Text>
@@ -523,11 +518,11 @@ export const ArchiveDetailDrawer: VoidComponent<{
                           {(note) => (
                             <ArchiveNoteRow
                               note={note}
-                              onNoteCommit={saveNoteText}
-                              onDeleteNote={removeNote}
-                              onAddImage={addNoteImage}
-                              onUpdateImage={updateNoteImage}
-                              onDeleteImage={removeNoteImage}
+                              onNoteCommit={(noteId, text) => saveNoteText(current().id, noteId, text)}
+                              onDeleteNote={(noteId) => removeNote(current().id, noteId)}
+                              onAddImage={(noteId, url) => addNoteImage(current().id, noteId, url)}
+                              onUpdateImage={(noteId, index, url) => updateNoteImage(current().id, noteId, index, url)}
+                              onDeleteImage={(noteId, index) => removeNoteImage(current().id, noteId, index)}
                             />
                           )}
                         </For>
