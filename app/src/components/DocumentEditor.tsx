@@ -266,10 +266,12 @@ const DocumentEditor: VoidComponent<{
       to: ed.state.selection.to,
       wasFocused: getEditorFocusState(ed),
     };
+    const submittedDocId = d?.id;
+    const submittedHtml = ed.getHTML();
     setSaving(true);
     setError(undefined);
     try {
-      const html = ed.getHTML();
+      const html = submittedHtml;
       if (isNew()) {
         // First save → create the note
         let title = newTitle().trim();
@@ -300,10 +302,16 @@ const DocumentEditor: VoidComponent<{
         // Update existing
         const updated = await runUpdateDoc({ id: d!.id, html });
         if (props.docId === updated.id && doc()?.id === updated.id) {
-          setDirty(false);
+          const draftUnchanged =
+            editor() === ed && !ed.isDestroyed && ed.getHTML() === html;
+          if (draftUnchanged) setDirty(false);
           mutate((current) =>
             current?.id === updated.id
-              ? { ...current, html, updatedAt: updated.updatedAt }
+              ? {
+                  ...current,
+                  ...(draftUnchanged ? { html } : {}),
+                  updatedAt: updated.updatedAt,
+                }
               : current,
           );
           props.onSaved?.(updated);
@@ -313,7 +321,26 @@ const DocumentEditor: VoidComponent<{
       setError((e as Error).message || "Failed to save");
     } finally {
       if (shouldRestoreSelection) {
-        queueMicrotask(() => restoreSelection(ed, selectionSnapshot));
+        queueMicrotask(() => {
+          const sameDoc =
+            !submittedDocId ||
+            (props.docId === submittedDocId && doc()?.id === submittedDocId);
+          if (
+            !sameDoc ||
+            editor() !== ed ||
+            ed.isDestroyed ||
+            ed.getHTML() !== submittedHtml
+          ) {
+            return;
+          }
+          if (
+            ed.state.selection.from === selectionSnapshot.from &&
+            ed.state.selection.to === selectionSnapshot.to &&
+            getEditorFocusState(ed) === selectionSnapshot.wasFocused
+          ) {
+            restoreSelection(ed, selectionSnapshot);
+          }
+        });
       }
       setSaving(false);
     }
