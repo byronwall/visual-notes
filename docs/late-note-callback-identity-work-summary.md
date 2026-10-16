@@ -2,83 +2,71 @@
 
 ## 1. Scope and context
 
-This change fixes five proven cases where an asynchronous note callback for A affected the newly selected note B. The affected surfaces are the canvas detail panel and `/docs/[id]`.
+This work addresses late note callbacks in the canvas detail panel and `/docs/[id]`. The initial fix handled A→B changes. Later offline proof showed that ID checks alone still fail after A→B→A and that old failures can alert over B.
 
-The task was limited to identity checks and caller contracts. `DocumentEditor.tsx`, the note mutation helper, and the inline editor implementation were left unchanged. No app database, authentication flow, or real delete action was used during verification.
+The implementation is based on exact commit `125c8c16e3fbf70dc1a770e0ad35b8b3e316c834`. It changes only `DocumentSidePanel.tsx` and `DocumentViewer.tsx`. It does not change `DocumentEditor.tsx`, the mutation helper, route callbacks, or database code.
 
 ## 2. Major changes delivered
 
-- `app/src/components/DocumentViewer.tsx` captures the note ID before title, H1, and delete actions. After awaits, local title writes and fallback navigation apply only while that note remains current. `onDeleted` now receives the deleted ID.
-- `app/src/components/DocumentSidePanel.tsx` keys its title editor by `docId`, guards title rollback by the captured ID, and separates ordinary `onClose()` from `onDeleted(docId)`.
-- `app/src/routes/canvas.tsx` refreshes the note list after every successful delete. It clears pending selection, discard state, and selection only when the deleted ID is still selected.
-- `app/src/routes/docs/[id].tsx` navigates home after delete only when the route ID matches the deleted ID.
+- `app/src/components/DocumentSidePanel.tsx` tracks a local generation. It increments only when `docId` changes. Title rollback now requires both the same ID and the same generation.
+- `app/src/components/DocumentViewer.tsx` tracks the generation when `props.doc.id` changes. Title rollback and H1 success writes require the same note visit. H1 and delete failure alerts also require that viewer to remain active.
+- The existing `onCleanup` now marks the viewer inactive while preserving editor API cleanup.
+- Delete success remains independent of generation. It always calls `onDeleted(deletedDocId)` so the caller can refresh the list.
 
-The side panel continues to forward the editor API callback. The API and mutation validation remain unchanged.
+The caller contract is: ordinary close uses `onClose()`, and delete uses `onDeleted(docId)`. The parent should refresh after every successful delete. It should clear selection and pending/discard state only when the selected ID matches the deleted ID. The full-page route should navigate home when its current ID matches the deleted ID. These caller effects were represented by test shells; this work did not change the production `CanvasRoute` or route module.
 
 ## 3. Design decisions and tradeoffs
 
-Each asynchronous callback captures the ID at the start of the action. A direct equality check then protects local state after the await. This keeps identity logic at the affected callback sites.
+ID checks do not distinguish two visits to the same note. A local generation does. Each owner increments its generation only when the displayed note ID changes, so title updates and resource refreshes do not invalidate a valid same-note response.
 
-Delete handling has its own callback because list refresh and selection close have different conditions. A successful delete always refreshes the canvas list. Closing B after deleting A would lose current user context, so selection clears only for a matching ID.
+The keyed panel viewer needs an owner-lifetime check. After cleanup, its captured `props.doc.id` can still be A. The `ownerActive` check prevents that disposed viewer from showing A's late H1 or delete failure over B.
 
-The panel title editor remounts when `docId` changes. This resets A's draft and error state when B becomes selected. Same-note failures still retain their draft and error.
+Delete success must not use the generation guard. A successful background delete must reach the parent for list refresh. If selection returns to A before the acknowledgment, A has still been deleted; closing that selection is correct.
 
 ## 4. Problems encountered and resolutions
 
-TypeScript rejected a render-function child inside `<Show keyed>` for the string `docId` condition. The editor is now passed as a direct child, which matches the keyed string overload. Type checking then passed.
+The clean worktree had no generated `styled-system` files, so its first type check failed across the app. Running the repository's `pnpm panda codegen` restored those generated files. The next type check passed.
 
-The original baseline proof files were preserved. Verification used a separate copy at `/private/tmp/late-note-callback-patched`; its component copies match the changed worktree files by SHA-256.
+The initial generation snapshot read produced two new Solid reactivity warnings. Both snapshots now use `untrack`. Full lint returned to 128 warnings, with zero errors and no new snapshot warnings.
 
 ## 5. Verification and validation
 
-Independent Chromium verification passed all nine cases in `/private/tmp/late-note-callback-independent/REPORT.md` and `report.json`. The five cross-note cases were:
+Independent offline verification passed all 19 prepared cases against the current source. The first nine cover the original A→B and same-note cases. Five lifetime cases reproduce the additional A→B→A and stale-alert failures from the original source; all five invariants now pass:
 
-| Case | Before | After |
+| Lifetime case | Original behavior | Verified behavior |
 | --- | --- | --- |
-| Panel title rejection | A's draft/error could appear on B; Escape could restore A's title while B stayed selected. | B keeps its title; A's keyed editor and error do not remain visible. |
-| Panel delete success | A's late success could close selected B. | The list refreshes; B stays selected. |
-| Route title rejection | A's rollback could replace B's title. | B's title stays visible. |
-| Route H1 sync success | A's success could replace B's title. | B's title stays visible. |
-| Route delete success | Deleting A could navigate away from B. | B remains on the route. |
+| Panel A1 title rejection after A→B→A and a successful A2 title save | A1 rejection rolled the current A title back from `A2 newer title` to `Alpha title`. | Panel generation blocks the old A1 rollback. |
+| Route A1 H1 success after A→B→A and a successful A2 title save | A1 success replaced the current A title `A2 newer title` with `Alpha heading`. | Viewer generation blocks the old A1 title write. |
+| Route A H1 failure while B is visible | A's late failure alert appeared over B. | The stale alert is suppressed. |
+| Route A delete failure while B is visible | A's late failure alert appeared over B. | The stale alert is suppressed. |
+| Keyed panel A delete failure after B is visible | The disposed A viewer's alert appeared over B. | The disposed viewer's alert is suppressed. |
 
-The four same-note controls also passed. Panel title failure retained A's draft and error. A retry with a valid acknowledgment updated A and cleared the error. Panel deletion of A closed its selection and incremented the fixture's refetch count. Route H1 sync updated A, and route deletion of A navigated home.
+Five same-visit and delete-success controls also passed: current route H1 failure still alerts; current route and panel delete failures still alert; A deletion after panel A→B→A refreshes and closes current A while clearing pending/discard shell state; and A deletion after route A→B→A navigates home. The original nine cases passed too: panel late title failure; same-note title failure and retry; panel late delete acknowledgment; same-note panel delete; route late title failure; route late H1 success; same-note H1 success; route late delete acknowledgment; and same-note route delete. Together these are 19 of 19 passed. Panel mode has no H1 sync control, so no panel H1 failure handler was tested.
 
-The independent fixture copied the worktree's actual `DocumentViewer.tsx`, `DocumentSidePanel.tsx`, `InPlaceEditableText.tsx`, `extractHeading.ts`, and `createNoteMutations` helper. Their hashes matched the worktree files. Deferred local promises went through the actual mutation helper, which validated success acknowledgments. Requests remained addressed to A after B appeared. The run used Chromium and temporary Vite at `127.0.0.1:43931`. It had zero browser and console errors. The browser and server are closed.
+The verifier used observed request IDs and titles, plus valid acknowledgments for successful callbacks. Component hashes matched the worktree: `DocumentSidePanel.tsx` `8596c2347a8d7f27bdffb4dfe6c831a018dea097454323c466a579517f0b0de3`; `DocumentViewer.tsx` `4d63b24a13ae289cebf2c0d2178264f8e00d01da373eefcbf44bcca9fb760de3`; and the unchanged acknowledgment helper `noteMutationAcknowledgements.ts` `3f4d43c8f286e837c9cc7bc487e2d89aaf81dc6066ac66e95dfb11107fe9d148`. Full source fidelity details are in `/private/tmp/late-note-callback-lifetime-independent/SOURCE_FIDELITY.md`.
 
-The panel fixture used the actual persistent `DocumentSidePanel` and keyed `DocumentViewer`. Its side panel, dialog, editor, and other non-target children were shells. The route fixture used the actual unkeyed viewer beneath Solid `createResource` and `Switch`/`Match`, with fake A/B reads and router controls. It did not mount the actual `CanvasRoute` or its database-backed note list. Refetch, selection, and pending/discard results are shell observations of the actual callback contract. The fixture did not use the app server, authentication, database, or real deletion.
+Checks in the current worktree:
 
-Commands and outcomes:
-
-- `pnpm type-check` in `app/`: passed.
-- `pnpm lint` in `app/`: passed with zero errors and 128 warnings.
+- `pnpm panda codegen`: passed.
+- `pnpm type-check`: passed.
+- `pnpm lint`: passed with zero errors and 128 warnings.
 - `git diff --check`: passed.
-- Independent nine-case offline Chromium fixture: passed, with zero browser or console errors.
+- Independent offline browser verification: 19/19 passed with zero browser or page errors. The fixture server on port `43935` and browser process were closed after the run. Screenshot: `tmp/late-lifetime-final-panel.png` (SHA-256 `261875b80e9e9ea595078547ec0e9ee9831f2aa67c2109b780e6c70b81560300`).
 
-The original baseline source hashes remain unchanged: `DocumentViewer.tsx` `4d95da525f2ea0de255c61c6f32840836dc54a8cbfc2ba3ccf3bdf89c94be386`, `DocumentSidePanel.tsx` `65a5284375ebc69e83c14f1b8af22682a89e86fecb026ee4cc99acdd20abcb1c`, and `InPlaceEditableText.tsx` `feb880afbd228a1a93ffbfa8789a8bfb7f4cf3dbfb585b79249513b05d85d53a`.
-
-Independent fixture source hashes:
-
-- Worktree `DocumentViewer.tsx`: `916d6edf43e60cb051c9f8ae6b8fce8a44cc5fa4f6294ffc9805976998c74e30`.
-- Worktree `DocumentSidePanel.tsx`: `2e896e0f2e932f3680de8e601c90e15c7c921e6efeb9eb0bcdb5bdabbc671466`.
-- Worktree `InPlaceEditableText.tsx`: `feb880afbd228a1a93ffbfa8789a8bfb7f4cf3dbfb585b79249513b05d85d53a`.
-- Worktree `extractHeading.ts`: `9861e5cd3379afa9c1d5c6a6502a8084edbff5768d20b09d13130bea0904e069`.
-- Worktree `noteMutationAcknowledgements.ts`: `3f4d43c8f286e837c9cc7bc487e2d89aaf81dc6066ac66e95dfb11107fe9d148`.
-- `/private/tmp/late-note-callback-independent/REPORT.md`: `6fb7448417708eccb15bb01dc7dcfd8819f0b74c8ad783f8c013dd693b41a847`.
-- `/private/tmp/late-note-callback-independent/report.json`: `78d2ac2605904fb36d1cd129afcd977ff0a1549d200de8fb24fd94e6797f0299`.
-- Offline panel screenshot `tmp/late-identity-final-panel.png`: `a269a021b7c2c29da8fc981441c2dfb4dce146ba550c85aa7c1a80528cc45133`.
+The independent results are in `/private/tmp/late-note-callback-lifetime-independent/RESULTS.md` and `RESULTS.json`; original-source reproductions are in `/private/tmp/late-note-callback-scopes/`. The fixture mounted actual copied Panel, Viewer, inline title editor, editable wrapper, heading utility, and mutation acknowledgment helper sources. It used real Solid `createResource` and unkeyed `Switch`/`Match` in its route shell, with local A/B data, router controls, confirmation dialog, editor, alert recorder, and callback/refetch counters. It did not mount production `CanvasRoute`, a database-backed note list, authentication, or real deletion. Refetch and pending/discard results verify the represented parent callback contract only; they do not verify production list or database behavior.
 
 ## 6. Process improvements
 
-The caller audit found that one boolean close callback represented both ordinary close and delete success. Separate callbacks make the deleted identity and refresh behavior explicit. Keep this caller audit when porting the change into the pending-save integration branch.
+The callback test matrix should include A→B→A and late failure cases, not only A→B. Keep same-visit retry cases in that matrix to catch guards that suppress valid current errors. These checks belong in the offline callback fixture used for note mutation work.
 
 ## 7. Agent and skill improvements
 
-None. Existing Ponytail guidance already requires checking all callers. The type check caught the keyed-child mismatch during implementation.
+None. Existing Solid guidance was sufficient. `pnpm type-check` caught the missing generated style system, and lint caught the untracked initial prop reads.
 
 ## 8. Follow-ups and open risks
 
-Root owns the combined integration based on `707ef9e`, including the pending-save guard and API saving-state forwarding. Port the separate callback contract into that branch: ordinary `onClose()` and `onDeleted(docId)`. Keep the pending-save guard around the matching-ID selection clear. Preserve unconditional list refresh after successful deletion and editor API forwarding.
+No verification follow-up remains for this patch. The independent fixture passed all 19 cases. Production route and list integration were outside the fixture and remain unverified here.
 
-The source still uses global alerts for an A H1-sync or delete failure. Such an alert may appear after B becomes active. The nine cases did not test those failures. This remains an unverified source candidate with different product meaning; no speculative guard was added.
+When composing this patch with root's `707ef9e` pending-save and API saving-state work, keep the separate `onClose()` and `onDeleted(docId)` callbacks and preserve editor API forwarding. On delete success, always refetch. Clear selection, pending selection, discard state, and save-dialog state only when the current selected ID matches the deleted ID. Do not generation-gate delete success: deleting A during A→B→A means the current A must close even though it is a later visit.
 
-The fixture validates mocked callback behavior. It does not prove production server or database behavior. No PR was created in this worker task.
+No production route, app server, authentication, database, or real deletion was tested. The fixture did not test panel H1 failure because no panel H1 control exists. Test-shell parent callback effects are observations of the supplied contract, not proof of production `CanvasRoute` behavior. No PR was created by this task.

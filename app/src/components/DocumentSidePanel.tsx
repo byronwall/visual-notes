@@ -4,6 +4,7 @@ import {
   createResource,
   createEffect,
   createSignal,
+  untrack,
   type VoidComponent,
 } from "solid-js";
 import { Box, Flex } from "styled-system/jsx";
@@ -40,6 +41,16 @@ export const DocumentSidePanel: VoidComponent<{
   );
   const [title, setTitle] = createSignal("");
   const { update: runUpdateDoc } = useNoteMutations();
+  let currentDocId = untrack(() => props.docId);
+  let docGeneration = 0;
+
+  createEffect(() => {
+    const nextDocId = props.docId;
+    if (nextDocId !== currentDocId) {
+      currentDocId = nextDocId;
+      docGeneration += 1;
+    }
+  });
 
   createEffect(() => {
     const current = doc();
@@ -49,6 +60,7 @@ export const DocumentSidePanel: VoidComponent<{
 
   const handleTitleCommit = async (nextTitle: string) => {
     const editDocId = props.docId;
+    const editGeneration = docGeneration;
     if (!editDocId) return;
     const previous = title();
     const normalized = nextTitle.trim();
@@ -57,7 +69,9 @@ export const DocumentSidePanel: VoidComponent<{
     try {
       await runUpdateDoc({ id: editDocId, title: normalized });
     } catch (error) {
-      if (props.docId === editDocId) setTitle(previous);
+      if (props.docId === editDocId && docGeneration === editGeneration) {
+        setTitle(previous);
+      }
       throw error;
     }
   };

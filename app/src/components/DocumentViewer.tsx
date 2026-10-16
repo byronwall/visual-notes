@@ -56,13 +56,21 @@ const DocumentViewer: VoidComponent<{
     undefined,
   );
   const docId = untrack(() => props.doc.id);
-  onCleanup(() => props.onEditorApiChange?.(docId));
+  let currentDocId = untrack(() => props.doc.id);
+  let docGeneration = 0;
+  let ownerActive = true;
+  onCleanup(() => {
+    ownerActive = false;
+    props.onEditorApiChange?.(docId);
+  });
   const [title, setTitle] = createSignal(props.doc.title);
   const [savedUpdatedAt, setSavedUpdatedAt] = createSignal(props.doc.updatedAt);
   let savedDocId = props.doc.id;
   const { update: runUpdateDoc, delete: runDeleteDoc } = useNoteMutations();
   const runLogDocViewEvent = useAction(logDocViewEvent);
   let lastLoggedDocId = "";
+  const isCurrentVisit = (id: string, generation: number) =>
+    ownerActive && props.doc.id === id && docGeneration === generation;
   const firstH1 = () =>
     extractFirstHeading({
       markdown: props.doc.markdown,
@@ -75,6 +83,11 @@ const DocumentViewer: VoidComponent<{
 
   // Keep local title state aligned when client-side navigation swaps docs.
   createEffect(() => {
+    const nextDocId = props.doc.id;
+    if (nextDocId !== currentDocId) {
+      currentDocId = nextDocId;
+      docGeneration += 1;
+    }
     setTitle(props.doc.title);
   });
 
@@ -115,6 +128,7 @@ const DocumentViewer: VoidComponent<{
 
   const handleConfirmEdit = async (nextValue: string) => {
     const editDocId = props.doc.id;
+    const editGeneration = docGeneration;
     const newTitle = nextValue.trim();
     const previousTitle = title();
     if (!newTitle) {
@@ -127,24 +141,30 @@ const DocumentViewer: VoidComponent<{
     try {
       await runUpdateDoc({ id: editDocId, title: newTitle });
     } catch (error) {
-      if (props.doc.id === editDocId) setTitle(previousTitle);
+      if (isCurrentVisit(editDocId, editGeneration)) {
+        setTitle(previousTitle);
+      }
       throw error;
     }
   };
   const handleSync = async () => {
     const syncDocId = props.doc.id;
+    const syncGeneration = docGeneration;
     const newTitle = firstH1();
     if (!newTitle) return;
     try {
       await runUpdateDoc({ id: syncDocId, title: newTitle });
-      if (props.doc.id === syncDocId) setTitle(newTitle);
+      if (isCurrentVisit(syncDocId, syncGeneration)) setTitle(newTitle);
     } catch (e) {
-      alert((e as Error).message || "Failed to sync title");
+      if (isCurrentVisit(syncDocId, syncGeneration)) {
+        alert((e as Error).message || "Failed to sync title");
+      }
     }
   };
 
   const handleDeleteConfirm = async () => {
     const deletedDocId = props.doc.id;
+    const deleteGeneration = docGeneration;
     try {
       setBusy(true);
       await runDeleteDoc(deletedDocId);
@@ -159,7 +179,9 @@ const DocumentViewer: VoidComponent<{
       }
     } catch (e) {
       console.error(e);
-      alert((e as Error).message || "Failed to delete note");
+      if (isCurrentVisit(deletedDocId, deleteGeneration)) {
+        alert((e as Error).message || "Failed to delete note");
+      }
     } finally {
       setBusy(false);
     }
