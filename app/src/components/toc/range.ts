@@ -1,7 +1,7 @@
 export function resolveActiveRange(
   headingAbsTops: number[],
   visibleTopAbs: number,
-  visibleBottomAbs: number
+  visibleBottomAbs: number,
 ) {
   if (headingAbsTops.length === 0) {
     return { startIdx: 0, endIdx: 0 };
@@ -18,7 +18,9 @@ export function resolveActiveRange(
     startIdx = firstAfterTop - 1;
   }
 
-  const firstAfterBottom = headingAbsTops.findIndex((top) => top > visibleBottomAbs);
+  const firstAfterBottom = headingAbsTops.findIndex(
+    (top) => top > visibleBottomAbs,
+  );
 
   let endIdx = 0;
   if (firstAfterBottom === -1) {
@@ -33,4 +35,14 @@ export function resolveActiveRange(
   if (endIdx >= headingAbsTops.length) endIdx = headingAbsTops.length - 1;
 
   return { startIdx, endIdx };
+}
+
+export function getHeadingViewportTops(
+  rootContentTop: number,
+  headingOffsets: number[],
+  rootScrollTop: number,
+) {
+  return headingOffsets.map(
+    (offset) => rootContentTop + offset - rootScrollTop,
+  );
 }
