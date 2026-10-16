@@ -68,8 +68,9 @@ export const useDocsIndexBulkActions = (args: {
 
   const handleBulkSetSource = async () => {
     const value = prompt("Enter source to set on all notes (originalSource):");
-    if (!value) return;
-    await runBulkSetSource(value);
+    const source = value?.trim();
+    if (!source) return;
+    await runBulkSetSource(source);
     await args.refreshDocs();
   };
 
