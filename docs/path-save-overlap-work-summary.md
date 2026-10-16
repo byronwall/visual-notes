@@ -33,7 +33,7 @@ The fixture click helper did not settle its test-only Resolve and Fail controls.
 ## Verification and validation
 
 - `pnpm type-check`: passed with the repo's pinned pnpm 9.15.9.
-- ESLint on `app/src/components/PathEditor.tsx`: passed.
+- Full app lint: passed with zero errors and 125 warnings. ESLint on `PathEditor.tsx` also passed.
 - Actual compiled component handler proof: 2 focused tests passed. The tests covered disabled controls, blocked handler calls, retained newer typing, success, failure, and retry.
 - Independent rendered fixture proof: passed. It covered the same-note flow and A-to-B-to-A pending state. See `tmp/path-pending-verification.md` and `tmp/path-pending-verification.json`.
 - `git diff --check`: passed.
