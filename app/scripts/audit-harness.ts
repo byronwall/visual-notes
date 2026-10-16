@@ -18,6 +18,8 @@ type Options = {
   database: string;
   worktree: string;
   branch: string;
+  /** Build once and serve the production bundle instead of `vinxi dev`. */
+  production: boolean;
   run?: {
     owner: string;
     manifest: string;
@@ -41,6 +43,7 @@ function parseArgs(args: string[]): Options | null {
       "run-manifest": { type: "string" },
       fixtures: { type: "string" },
       evidence: { type: "string" },
+      production: { type: "boolean" },
       "self-check": { type: "boolean" },
     },
     strict: true,
@@ -70,7 +73,7 @@ function parseArgs(args: string[]): Options | null {
     !/^\d+$/.test(portText)
   ) {
     throw new Error(
-      "Use --env-file <path> --port <1024-65535> --database <synthetic-name> --worktree <absolute-path> --branch <name>.",
+      "Use --env-file <path> --port <1024-65535> --database <synthetic-name> --worktree <absolute-path> --branch <name> [--production].",
     );
   }
 
@@ -105,6 +108,7 @@ function parseArgs(args: string[]): Options | null {
     database,
     worktree,
     branch,
+    production: parsed.values.production ?? false,
     run:
       runManifest && owner
         ? {
@@ -222,7 +226,7 @@ function makeChildEnv(
     if (value !== undefined) childEnv[key] = value;
   }
   Object.assign(childEnv, {
-    NODE_ENV: "development",
+    NODE_ENV: options.production ? "production" : "development",
     DATABASE_URL: dbUrl.toString(),
     AUTH_SECRET: authSecret,
     AUTH_TRUST_HOST: source.AUTH_TRUST_HOST ?? "true",
@@ -269,6 +273,7 @@ function selfCheck() {
     database: "visual_notes_audit_test",
     worktree: "/worktree/a",
     branch: "codex/a",
+    production: false,
   };
   const env = makeChildEnv(
     {
@@ -283,6 +288,15 @@ function selfCheck() {
   assert.equal(new URL(env.DATABASE_URL!).pathname, "/visual_notes_audit_test");
   assert.equal(env.MAGIC_PASSWORD, "test-only-password");
   assert.equal(env.OPENAI_API_KEY, "");
+  assert.equal(env.NODE_ENV, "development");
+  assert.equal(
+    makeChildEnv(
+      { DATABASE_URL: "postgresql://localhost/db", AUTH_SECRET: "x" },
+      { ...options, production: true },
+      "test-only-password",
+    ).NODE_ENV,
+    "production",
+  );
   assert.throws(
     () =>
       makeChildEnv(
@@ -389,12 +403,26 @@ async function start(options: Options) {
     );
   }
 
-  const child = spawn(process.execPath, [pnpmPath, "exec", "vinxi", "dev"], {
-    cwd: dirname(packageJsonPath),
-    env: childEnv,
-    detached: true,
-    stdio: "inherit",
-  });
+  if (options.production) {
+    const build = spawnSync(
+      process.execPath,
+      [pnpmPath, "exec", "vinxi", "build"],
+      { cwd: dirname(packageJsonPath), env: childEnv, stdio: "inherit" },
+    );
+    if (build.status !== 0) throw new Error("Production build failed.");
+  }
+
+  const vinxiCommand = options.production ? "start" : "dev";
+  const child = spawn(
+    process.execPath,
+    [pnpmPath, "exec", "vinxi", vinxiCommand],
+    {
+      cwd: dirname(packageJsonPath),
+      env: childEnv,
+      detached: true,
+      stdio: "inherit",
+    },
+  );
   const run = options.run;
   let runManifest: RunManifest | null = null;
   if (run) {
@@ -407,6 +435,7 @@ async function start(options: Options) {
       ),
       port: options.port,
       database: options.database,
+      mode: options.production ? "production" : "development",
       ...paths,
       launcher: {
         pid: process.pid,
@@ -456,7 +485,7 @@ async function start(options: Options) {
   });
 
   console.info(
-    `[audit-harness] starting on http://127.0.0.1:${options.port} with synthetic database ${options.database}`,
+    `[audit-harness] starting ${options.production ? "production build" : "dev server"} on http://127.0.0.1:${options.port} with synthetic database ${options.database}`,
   );
 }
 
