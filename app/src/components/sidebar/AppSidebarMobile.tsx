@@ -19,12 +19,32 @@ type AppSidebarMobileProps = {
 };
 
 export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
+  let openButton: HTMLButtonElement | undefined;
+
   return (
-    <Box display={{ base: "block", md: "none" }} minH="100vh">
+    <Box display={{ base: "block", md: "none" }}>
       <Drawer.Root
         open={props.open}
         onOpenChange={(details) => props.onOpenChange(details.open)}
+        finalFocusEl={() => openButton ?? null}
       >
+        <Box position="fixed" top="4" left="4" zIndex="50">
+          <Drawer.Trigger
+            asChild={(triggerProps) => (
+              <IconButton
+                {...triggerProps}
+                variant="outline"
+                size="sm"
+                colorPalette="gray"
+                aria-label="Open sidebar"
+                title="Open sidebar"
+                ref={(element) => (openButton = element)}
+              >
+                <MenuIcon size={18} />
+              </IconButton>
+            )}
+          />
+        </Box>
         <Drawer.Backdrop />
         <Drawer.Positioner>
           <Drawer.Content
@@ -50,19 +70,6 @@ export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
           </Drawer.Content>
         </Drawer.Positioner>
       </Drawer.Root>
-
-      <Box position="fixed" top="4" left="4" zIndex="50">
-        <IconButton
-          variant="outline"
-          size="sm"
-          colorPalette="gray"
-          aria-label="Open sidebar"
-          title="Open sidebar"
-          onClick={() => props.onOpenChange(true)}
-        >
-          <MenuIcon size={18} />
-        </IconButton>
-      </Box>
     </Box>
   );
 };
