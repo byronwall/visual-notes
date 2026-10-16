@@ -13,7 +13,7 @@ import { holdNextServerAction, settled } from "./helpers/server-actions";
 type Note = { id: string; title: string };
 
 const createLinkedNotes = async (
-  request: Parameters<typeof createNoteFixture>[0],
+  page: Parameters<typeof createNoteFixture>[0],
   label: string,
 ) => {
   const suffix = uniqueSuffix();
@@ -21,7 +21,7 @@ const createLinkedNotes = async (
   const notes: Note[] = [];
   for (const name of ["A", "B"]) {
     const title = `Late ${label} ${name} ${suffix}`;
-    const id = await createNoteFixture(request, {
+    const id = await createNoteFixture(page, {
       title,
       markdown: `Body of ${title}`,
       path,
@@ -72,11 +72,8 @@ const openSharePopover = async (page: Page) => {
 };
 
 test.describe("late share responses", () => {
-  test("A's share result does not land on B (A→B)", async ({
-    page,
-    request,
-  }) => {
-    const { path, a, b } = await createLinkedNotes(request, "share");
+  test("A's share result does not land on B (A→B)", async ({ page }) => {
+    const { path, a, b } = await createLinkedNotes(page, "share");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 
@@ -100,9 +97,8 @@ test.describe("late share responses", () => {
 
   test("an old visit's share result keeps the new visit's draft (A→B→A)", async ({
     page,
-    request,
   }) => {
-    const { path, a, b } = await createLinkedNotes(request, "share-return");
+    const { path, a, b } = await createLinkedNotes(page, "share-return");
     const suffix = uniqueSuffix();
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
@@ -133,9 +129,8 @@ test.describe("late share responses", () => {
 test.describe("late note title responses", () => {
   test("A's failed title save does not roll B's title back (A→B)", async ({
     page,
-    request,
   }) => {
-    const { path, a, b } = await createLinkedNotes(request, "title");
+    const { path, a, b } = await createLinkedNotes(page, "title");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 
@@ -158,9 +153,8 @@ test.describe("late note title responses", () => {
 
   test("an old visit's failed title save keeps the newer title (A→B→A)", async ({
     page,
-    request,
   }) => {
-    const { path, a, b } = await createLinkedNotes(request, "title-return");
+    const { path, a, b } = await createLinkedNotes(page, "title-return");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 

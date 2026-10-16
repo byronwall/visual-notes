@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   existsSync,
   mkdirSync,
@@ -87,13 +87,26 @@ const recordAuditFixture = (entry: FixtureEntry) => {
 export const uniqueSuffix = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+/**
+ * Creates a note through POST /api/docs from inside the signed-in page. The
+ * production build marks the session cookie Secure, which Playwright's API
+ * client will not send over plain http, while the browser does on loopback.
+ */
 export const createNoteFixture = async (
-  request: APIRequestContext,
+  page: Page,
   note: { title: string; markdown: string; path?: string },
 ) => {
-  const response = await request.post("/api/docs", { data: note });
-  expect(response.status(), "note fixture should be created").toBe(201);
-  const { id } = (await response.json()) as { id: string };
+  if (!page.url().startsWith("http")) await page.goto("/login");
+  const { status, body } = await page.evaluate(async (data) => {
+    const response = await fetch("/api/docs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return { status: response.status, body: await response.text() };
+  }, note);
+  expect(status, "note fixture should be created").toBe(201);
+  const { id } = JSON.parse(body) as { id: string };
   expect(id).toBeTruthy();
   recordAuditFixture({
     entityKind: "Doc",

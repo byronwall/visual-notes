@@ -8,13 +8,10 @@ import { holdNextServerAction, settled } from "./helpers/server-actions";
 // the typed draft and closed the editor behind a native alert. The draft must
 // stay editable with an inline error, and a retry must save it.
 
-test("a failed title save keeps the draft for retry", async ({
-  page,
-  request,
-}) => {
+test("a failed title save keeps the draft for retry", async ({ page }) => {
   const title = `Inline title ${uniqueSuffix()}`;
   const draft = `${title} renamed`;
-  const noteId = await createNoteFixture(request, {
+  const noteId = await createNoteFixture(page, {
     title,
     markdown: "Body for the inline title regression.",
   });

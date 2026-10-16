@@ -66,15 +66,15 @@ test.describe("canvas note panel", () => {
   let noteId: string;
   let otherTitle: string;
 
-  test.beforeEach(async ({ page, request }) => {
+  test.beforeEach(async ({ page }) => {
     const suffix = uniqueSuffix();
     title = `Canvas guard ${suffix}`;
     otherTitle = `Canvas guard other ${suffix}`;
-    noteId = await createNoteFixture(request, {
+    noteId = await createNoteFixture(page, {
       title,
       markdown: `Body of ${title}`,
     });
-    const otherId = await createNoteFixture(request, {
+    const otherId = await createNoteFixture(page, {
       title: otherTitle,
       markdown: `Body of ${otherTitle}`,
     });
