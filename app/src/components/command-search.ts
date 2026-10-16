@@ -1,3 +1,4 @@
+import { revalidate } from "@solidjs/router";
 import {
   fetchDocs,
   searchDocs,
@@ -24,6 +25,35 @@ export type CommandSearchResult = {
 export const commandSearchKey = (params: CommandSearchParams) =>
   JSON.stringify([params.q, params.sortMode, params.activityClass]);
 
+function searchArgs(params: CommandSearchParams) {
+  return {
+    q: params.q,
+    take: 25,
+    sortMode: params.sortMode,
+    activityClass: params.activityClass || undefined,
+  };
+}
+
+function feedArgs(params: CommandSearchParams) {
+  return {
+    take: 25,
+    sortMode:
+      params.sortMode === "relevance" ? "recent_activity" : params.sortMode,
+    activityClass: params.activityClass || undefined,
+  };
+}
+
+export async function retryCommandResults(
+  params: CommandSearchParams,
+  refetch: () => unknown,
+) {
+  const key = params.q
+    ? searchDocs.keyFor(searchArgs(params))
+    : fetchDocs.keyFor(feedArgs(params));
+  await revalidate(key);
+  refetch();
+}
+
 export async function loadCommandResults(
   params: CommandSearchParams,
 ): Promise<CommandSearchResult> {
@@ -31,24 +61,13 @@ export async function loadCommandResults(
 
   try {
     if (params.q) {
-      const docs = await searchDocs({
-        q: params.q,
-        take: 25,
-        sortMode: params.sortMode,
-        activityClass: params.activityClass || undefined,
-      });
+      const docs = await searchDocs(searchArgs(params));
       if (!Array.isArray(docs))
         throw new TypeError("Search returned invalid results");
       return { key, items: docs as ServerSearchItem[], failed: false };
     }
 
-    const emptySortMode =
-      params.sortMode === "relevance" ? "recent_activity" : params.sortMode;
-    const docs = await fetchDocs({
-      take: 25,
-      sortMode: emptySortMode,
-      activityClass: params.activityClass || undefined,
-    });
+    const docs = await fetchDocs(feedArgs(params));
     if (!Array.isArray(docs))
       throw new TypeError("Search returned invalid results");
 
