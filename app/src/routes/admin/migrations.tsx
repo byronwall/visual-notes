@@ -281,7 +281,7 @@ const MigrationPanel: VoidComponent = () => {
             </Button>
           </Tooltip>
           <Tooltip
-            content="Transcode /api/doc-images/*.heic references to JPEG and rewrite note URLs."
+            content={<>Transcode /api/doc-images/*.heic references to JPEG and rewrite note URLs.</>}
             showArrow
           >
             <Button
