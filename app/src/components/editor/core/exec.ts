@@ -4,5 +4,7 @@ export type Chain = ReturnType<Editor["chain"]>;
 
 export function exec(editor: Editor, fn: (chain: Chain) => Chain): boolean {
   const ch = editor.chain().focus();
-  return fn(ch).run();
+  const result = fn(ch).run();
+  editor.view.focus();
+  return result;
 }
