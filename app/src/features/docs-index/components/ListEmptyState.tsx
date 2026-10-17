@@ -11,7 +11,6 @@ export const ListEmptyState = (props: {
   <HStack
     role={props.tone === "error" ? "alert" : "status"}
     gap="3"
-    px="2"
     py="6"
     fontSize="sm"
     color={props.tone === "error" ? "red.11" : "fg.muted"}

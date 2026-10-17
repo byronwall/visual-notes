@@ -33,13 +33,16 @@ export type DocRowProps = {
   } | null;
 };
 
+// Fixed columns so paths and times scan as columns; the title column always
+// keeps room. Meta shows only where there is width for it.
 const rowClass = css({
   display: "grid",
   gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
-  gridTemplateAreas: `"check title side" ". snippet snippet"`,
-  columnGap: "2",
+  gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
+  columnGap: "3",
   rowGap: "0.5",
-  alignItems: "center",
+  alignItems: "baseline",
+  "& > .row-check": { alignSelf: "start" },
   px: "2",
   py: "1.5",
   borderRadius: "l2",
@@ -59,50 +62,68 @@ const rowClass = css({
   },
   "&:hover .row-check, &[data-selected] .row-check, &[data-selection-mode] .row-check, & .row-check:focus-within":
     { opacity: 1 },
-  smDown: {
-    gridTemplateColumns: "1.5rem minmax(0, 1fr)",
-    gridTemplateAreas: `"check title" ". side" ". snippet"`,
+  "& .row-meta": { display: "none" },
+  sm: {
+    gridTemplateColumns: "1.5rem minmax(0, 1fr) 9rem 3.5rem",
+    gridTemplateAreas: `"check title path time" ". snippet snippet ."`,
   },
+  lg: { gridTemplateColumns: "1.5rem minmax(0, 1fr) 12rem 3.5rem" },
+  xl: {
+    gridTemplateColumns: "1.5rem minmax(12rem, 1fr) auto 14rem 3.5rem",
+    gridTemplateAreas: `"check title meta path time" ". snippet snippet . ."`,
+    "& .row-meta": { display: "flex" },
+  },
+});
+
+const checkCellClass = css({
+  gridArea: "check",
+  alignSelf: "center",
+  display: "flex",
+  // Grow the 18px box to a 26px hit target without moving it.
+  "& label": { p: "1", m: "-1", cursor: "pointer" },
 });
 
 const titleLinkClass = css({
   display: "inline",
-  minW: "0",
   color: "fg.default",
   fontSize: "sm",
   fontWeight: "medium",
   lineHeight: "1.35",
   textDecoration: "none",
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
   _hover: { textDecoration: "underline", textUnderlineOffset: "2px" },
 });
 
-const sideClass = css({
-  gridArea: "side",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  gap: "3",
+const cellTextClass = css({
   minW: "0",
   fontSize: "xs",
   color: "fg.muted",
   whiteSpace: "nowrap",
-  smDown: { justifyContent: "flex-start", flexWrap: "wrap", gap: "2" },
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+});
+
+const metaCellClass = css({
+  gridArea: "meta",
+  justifyContent: "flex-end",
+  gap: "3",
+  minW: "0",
+  maxW: "16rem",
+  overflow: "hidden",
 });
 
 const pathLinkClass = css({
+  gridArea: "path",
+  justifySelf: "start",
+  maxW: "full",
   fontFamily: "mono",
-  fontSize: "xs",
-  color: "fg.muted",
   textDecoration: "none",
-  maxW: "18rem",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
   _hover: { color: "fg.default", textDecoration: "underline" },
 });
 
 const metaButtonClass = css({
-  color: "fg.muted",
+  flexShrink: "1",
+  maxW: "10rem",
   cursor: "pointer",
   bg: "transparent",
   borderRadius: "l1",
@@ -110,15 +131,14 @@ const metaButtonClass = css({
   mx: "-1",
   transitionProperty: "color, background-color",
   transitionDuration: "120ms",
-  _hover: { color: "fg.default", bg: "gray.subtle.bg" },
-  smDown: { display: "none" },
+  _hover: { color: "fg.default", bg: "gray.a3" },
+  "& .meta-key": { color: "fg.subtle" },
 });
 
 const timeClass = css({
-  minW: "3.25rem",
+  gridArea: "time",
   textAlign: "right",
   fontVariantNumeric: "tabular-nums",
-  smDown: { minW: "0", textAlign: "left" },
 });
 
 export const DocRow = (props: DocRowProps) => {
@@ -144,7 +164,7 @@ export const DocRow = (props: DocRowProps) => {
         props.onActivate?.(props.id);
       }}
     >
-      <Box gridArea="check" display="flex" class="row-check" data-row-control>
+      <div class={`row-check ${checkCellClass}`} data-row-control>
         <Checkbox.Root
           size="sm"
           checked={!!props.selected}
@@ -161,7 +181,7 @@ export const DocRow = (props: DocRowProps) => {
             <Checkbox.Indicator />
           </Checkbox.Control>
         </Checkbox.Root>
-      </Box>
+      </div>
 
       <Box gridArea="title" minW="0">
         <DocHoverPreviewLink
@@ -179,14 +199,13 @@ export const DocRow = (props: DocRowProps) => {
             {(query) => renderHighlighted(props.title, query())}
           </Show>
         </DocHoverPreviewLink>
-      </Box>
-
-      <div class={sideClass}>
         <Show when={props.share}>
           {(share) => (
             <Box
               as="span"
               display="inline-flex"
+              verticalAlign="-2px"
+              ml="1.5"
               color="green.11"
               title={`Shared at ${share().shareUrl}`}
               aria-label="Shared"
@@ -195,41 +214,43 @@ export const DocRow = (props: DocRowProps) => {
             </Box>
           )}
         </Show>
+      </Box>
+
+      <div class={`row-meta ${metaCellClass}`}>
         <For each={getTopMetaEntries(props.meta as never)}>
           {([k, v]) => (
             <button
               type="button"
-              class={metaButtonClass}
-              title={`Filter by ${k} = ${v}`}
+              class={`${cellTextClass} ${metaButtonClass}`}
+              title={`Filter by ${k}: ${v}`}
               onClick={() => props.onFilterMeta?.(k, v)}
             >
-              <Box as="span" color="fg.subtle">
-                {k}:
-              </Box>{" "}
-              {v}
+              <span class="meta-key">{k}:</span> {v}
             </button>
           )}
         </For>
-        <Show when={props.path}>
-          {(path) => (
-            <a
-              href={pathToRoute(path())}
-              class={pathLinkClass}
-              title={`Open path ${path()}`}
-            >
-              <Show when={props.query} fallback={path()}>
-                {(query) => renderHighlighted(path(), query())}
-              </Show>
-            </a>
-          )}
-        </Show>
-        <span
-          class={timeClass}
-          title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
-        >
-          {formatRelativeTime(props.updatedAt)}
-        </span>
       </div>
+
+      <Show when={props.path}>
+        {(path) => (
+          <a
+            href={pathToRoute(path())}
+            class={`${cellTextClass} ${pathLinkClass}`}
+            title={path()}
+          >
+            <Show when={props.query} fallback={path()}>
+              {(query) => renderHighlighted(path(), query())}
+            </Show>
+          </a>
+        )}
+      </Show>
+
+      <span
+        class={`${cellTextClass} ${timeClass}`}
+        title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
+      >
+        {formatRelativeTime(props.updatedAt)}
+      </span>
 
       <Show when={snippet()}>
         {(text) => (

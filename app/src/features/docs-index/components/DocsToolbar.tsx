@@ -40,8 +40,10 @@ export const DocsToolbar = (props: {
 
   return (
     <HStack gap="1.5" minW="0" flex="1">
-      <HStack gap="1" color="fg.subtle" flexShrink="0">
-        <ArrowUpDownIcon size={13} />
+      <HStack gap="1" flexShrink="0">
+        <Box color="fg.subtle" display="flex">
+          <ArrowUpDownIcon size={13} />
+        </Box>
         <SimpleSelect
           items={sortItems()}
           value={q.sortMode()}
@@ -52,13 +54,10 @@ export const DocsToolbar = (props: {
           skipPortal={false}
         />
       </HStack>
-      <HStack
-        gap="1"
-        color="fg.subtle"
-        flexShrink="0"
-        smDown={{ display: "none" }}
-      >
-        <ActivityIcon size={13} />
+      <HStack gap="1" flexShrink="0" smDown={{ display: "none" }}>
+        <Box color="fg.subtle" display="flex">
+          <ActivityIcon size={13} />
+        </Box>
         <SimpleSelect
           items={activityClassItems}
           value={q.activityClass()}

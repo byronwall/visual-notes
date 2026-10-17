@@ -190,7 +190,7 @@ const DocsIndexPage = () => {
             </Show>
           }
         />
-        <Box px="2" pb="2">
+        <Box pb="2">
           <PathDiscoveryLinks data={pathDiscovery()} />
         </Box>
 
@@ -216,6 +216,10 @@ const DocsIndexPage = () => {
                   nowMs={docsServerNow()}
                   serverResults={search.results()}
                   serverLoading={search.loading()}
+                  serverStale={
+                    search.loading() &&
+                    search.resultsQuery() !== q.searchText().trim()
+                  }
                   serverError={search.error()}
                   onSearchRetry={search.refetch}
                   onVisibleIdsChange={actions.setVisibleIds}

@@ -1,4 +1,11 @@
-import { For, Show, createMemo } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import { css } from "styled-system/css";
 import { pathToRoute } from "~/utils/path-links";
 
@@ -58,8 +65,28 @@ export const PathDiscoveryLinks = (props: { data?: PathDiscoveryData }) => {
     return out;
   });
 
+  // Links that wrap onto the clipped lines stay out of view and tab order.
+  let nav: HTMLElement | undefined;
+  const hideWrapped = () => {
+    if (!nav) return;
+    const top = nav.offsetTop;
+    for (const el of Array.from(nav.children) as HTMLElement[]) {
+      el.style.visibility = el.offsetTop > top + 4 ? "hidden" : "";
+    }
+  };
+  onMount(() => {
+    if (!nav || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(hideWrapped);
+    observer.observe(nav);
+    onCleanup(() => observer.disconnect());
+  });
+  createEffect(() => {
+    merged();
+    queueMicrotask(hideWrapped);
+  });
+
   return (
-    <nav class={rowClass} aria-label="Frequent paths">
+    <nav ref={nav} class={rowClass} aria-label="Frequent paths">
       <a href="/path" class={labelClass}>
         Paths
       </a>

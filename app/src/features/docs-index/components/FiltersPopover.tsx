@@ -56,7 +56,8 @@ export const FiltersPopover = (props: {
           <Button
             {...triggerProps}
             size="xs"
-            variant={props.activeCount > 0 ? "subtle" : "plain"}
+            variant={props.activeCount > 0 ? "subtle" : "outline"}
+            fontWeight="normal"
           >
             <ListFilterIcon size={14} />
             Filter

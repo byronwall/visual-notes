@@ -11,11 +11,12 @@ import { css } from "styled-system/css";
 
 type Group = { label: string; items: (DocListItem | ServerSearchItem)[] };
 
+const sectionClass = css({ p: "0" });
+
 const groupLabelClass = css({
   display: "flex",
   alignItems: "baseline",
   gap: "2",
-  px: "2",
   pt: "4",
   pb: "1",
   fontSize: "xs",
@@ -24,7 +25,9 @@ const groupLabelClass = css({
   "&:first-child": { pt: "1" },
 });
 
+// Rows bleed into the gutter so checkboxes line up with the page's left edge.
 const listClass = css({
+  mx: "-2",
   display: "flex",
   flexDirection: "column",
   gap: "px",
@@ -39,6 +42,8 @@ export const ResultsSection = (props: {
   nowMs?: number;
   serverResults: ServerSearchItem[];
   serverLoading: boolean;
+  /** Results on screen answer an older query; dim them until the new ones land. */
+  serverStale?: boolean;
   serverError?: "request" | "timeout";
   onSearchRetry: () => void;
   onVisibleIdsChange?: (ids: string[]) => void;
@@ -131,7 +136,7 @@ export const ResultsSection = (props: {
         <Box>
           <For each={groups()}>
             {(g) => (
-              <section>
+              <section class={sectionClass}>
                 <Show when={g.label}>
                   <h2 class={groupLabelClass}>
                     {g.label}
@@ -143,7 +148,7 @@ export const ResultsSection = (props: {
                 <ul
                   class={listClass}
                   data-stale={
-                    isSearching() && props.serverLoading ? "" : undefined
+                    isSearching() && props.serverStale ? "" : undefined
                   }
                 >
                   <For each={g.items}>

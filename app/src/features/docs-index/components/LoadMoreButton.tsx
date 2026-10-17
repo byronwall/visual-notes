@@ -31,7 +31,6 @@ export const LoadMoreButton = (props: {
       <HStack
         ref={el}
         gap="3"
-        px="2"
         py="3"
         fontSize="xs"
         color="fg.muted"

@@ -37,7 +37,7 @@ export const SelectionBar = (props: {
       disabled={props.selectedCount >= props.visibleCount}
       onClick={props.onSelectAll}
     >
-      Select all {props.visibleCount}
+      Select all {props.visibleCount} shown
     </Button>
     <Box flex="1" />
     <Button size="xs" variant="plain" onClick={props.onBulkMeta}>
