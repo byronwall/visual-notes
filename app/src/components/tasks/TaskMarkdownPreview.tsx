@@ -1,8 +1,7 @@
-import { createMemo } from "solid-js";
-import { Box } from "styled-system/jsx";
+import { createMemo, splitProps, type JSX } from "solid-js";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
-type Props = {
+type Props = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onClick"> & {
   markdown: string;
   onClick: () => void;
 };
@@ -12,21 +11,20 @@ function normalizeTaskMarkdown(markdown: string): string {
 }
 
 export const TaskMarkdownPreview = (props: Props) => {
+  const [local, rest] = splitProps(props, ["markdown", "onClick"]);
   const html = createMemo(() =>
-    normalizeMarkdownToHtml(normalizeTaskMarkdown(props.markdown))
+    normalizeMarkdownToHtml(normalizeTaskMarkdown(local.markdown))
   );
 
   return (
-    <Box
-      class="task-markdown-preview"
-      flex="1"
-      minW="0"
-      cursor="text"
+    <div
+      {...rest}
+      class={`task-markdown-preview ${rest.class ?? ""}`}
       onClick={(event) => {
         event.stopPropagation();
         const target = event.target;
         if (target instanceof Element && target.closest("a")) return;
-        props.onClick();
+        local.onClick();
       }}
       innerHTML={html()}
     />
