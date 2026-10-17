@@ -112,7 +112,8 @@ const DocumentEditor: VoidComponent<{
   const [newTitle, setNewTitle] = createSignal(
     (props.initialTitle || "").trim() || "Untitled note",
   );
-  const { create: runCreateDoc, update: runUpdateDoc } = useNoteMutations();
+  const { create: runCreateDoc, saveContent: runSaveContent } =
+    useNoteMutations();
   let lastAppliedInitialTitle = (props.initialTitle || "").trim();
   let hasAppliedInitialLineSelection = false;
 
@@ -394,7 +395,7 @@ const DocumentEditor: VoidComponent<{
         const syncedTitle = props.syncTitleFromH1 ? firstH1Text(ed) : undefined;
         const titleChanged =
           !!syncedTitle && syncedTitle !== (d!.title || "").trim();
-        const updated = await runUpdateDoc({
+        const updated = await runSaveContent({
           id: d!.id,
           html,
           ...(titleChanged ? { title: syncedTitle } : {}),
