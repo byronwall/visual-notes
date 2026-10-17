@@ -232,6 +232,9 @@ function PathCrumbs(props: { path: string }) {
                 index() === ancestors().length - 1 ? "fg.default" : "fg.muted"
               }
               textDecoration="none"
+              bg="transparent"
+              fontWeight="normal"
+              display="block"
               px="1"
               py="0.5"
               borderRadius="l1"
