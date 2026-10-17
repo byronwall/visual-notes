@@ -10,7 +10,11 @@ import {
 } from "~/services/tasks/tasks.service";
 import type { TaskData } from "./createTaskData";
 import { isDoneStatus, toDateKey } from "./taskFormat";
-import { formatTaskTitle, parseTaskInput, type ParsedTaskInput } from "./taskTitle";
+import {
+  formatTaskTitle,
+  parseTaskInput,
+  type ParsedTaskInput,
+} from "./taskTitle";
 import {
   deleteTaskLocally,
   insertTaskLocally,
@@ -30,7 +34,7 @@ const errorMessage = (error: unknown, fallback: string) =>
 
 export const createTaskActions = (
   data: TaskData,
-  options: { focusQuickAdd: () => void; openDetails: (task: TaskItem) => void }
+  options: { focusQuickAdd: () => void; openDetails: (task: TaskItem) => void },
 ) => {
   const runCreateTask = useAction(createTask);
   const runUpdateTask = useAction(updateTask);
@@ -42,12 +46,17 @@ export const createTaskActions = (
   const [activeTaskId, setActiveTaskId] = createSignal<string | null>(null);
   const [focusTaskId, setFocusTaskId] = createSignal<string | null>(null);
   const [draggingTaskId, setDraggingTaskId] = createSignal<string | null>(null);
-  const [activeDrop, setActiveDrop] = createSignal<{ taskId: string; kind: DropKind } | null>(
-    null
+  const [activeDrop, setActiveDrop] = createSignal<{
+    taskId: string;
+    kind: DropKind;
+  } | null>(null);
+  const [inlineEdit, setInlineEdit] = createSignal<InlineEditState | null>(
+    null,
   );
-  const [inlineEdit, setInlineEdit] = createSignal<InlineEditState | null>(null);
-  const [inlineCreate, setInlineCreate] = createSignal<InlineCreateState | null>(null);
+  const [inlineCreate, setInlineCreate] =
+    createSignal<InlineCreateState | null>(null);
   const [error, setError] = createSignal<string | null>(null);
+  const [revealTaskId, setRevealTaskId] = createSignal<string | null>(null);
 
   // Drop selection/edit state for tasks that disappeared (deleted, list switch).
   createEffect(() => {
@@ -70,7 +79,9 @@ export const createTaskActions = (
     });
 
   const expand = (taskId: string) =>
-    setExpandedIds((current) => (current.has(taskId) ? current : new Set(current).add(taskId)));
+    setExpandedIds((current) =>
+      current.has(taskId) ? current : new Set(current).add(taskId),
+    );
   const collapse = (taskId: string) =>
     setExpandedIds((current) => {
       if (!current.has(taskId)) return current;
@@ -79,8 +90,10 @@ export const createTaskActions = (
       return next;
     });
 
-  const siblingsOf = (parentTaskId: string | null) => data.children().get(parentTaskId) ?? [];
-  const indexOf = (task: TaskItem) => siblingsOf(task.parentTaskId).findIndex((t) => t.id === task.id);
+  const siblingsOf = (parentTaskId: string | null) =>
+    data.children().get(parentTaskId) ?? [];
+  const indexOf = (task: TaskItem) =>
+    siblingsOf(task.parentTaskId).findIndex((t) => t.id === task.id);
 
   /** Ids in on-screen order, used for arrow-key selection. */
   const visibleIds = () => {
@@ -98,17 +111,20 @@ export const createTaskActions = (
 
   const patchTask = (taskId: string, patch: Partial<TaskItem>) =>
     data.mutateTasks((current) =>
-      current?.map((task) => (task.id === taskId ? { ...task, ...patch } : task))
+      current?.map((task) =>
+        task.id === taskId ? { ...task, ...patch } : task,
+      ),
     );
 
   // ---- status ----------------------------------------------------------
   const setStatus = (task: TaskItem, status: TaskStatus) => {
     if (task.status === status) return;
     setError(null);
-    if (isDoneStatus(status) && !data.showDone()) data.markRecentlyDone(task.id);
+    if (isDoneStatus(status) && !data.showDone())
+      data.markRecentlyDone(task.id);
     patchTask(task.id, { status });
     runUpdateTask({ id: task.id, status }).catch((err) =>
-      reportError("status update", err, "Could not update status")
+      reportError("status update", err, "Could not update status"),
     );
   };
 
@@ -119,7 +135,7 @@ export const createTaskActions = (
   const insertCreated = async (
     parsed: ParsedTaskInput,
     parentTaskId: string | null,
-    targetIndex: number
+    targetIndex: number,
   ) => {
     const listId = data.selectedListId();
     if (!listId) throw new Error("Pick a list first");
@@ -151,8 +167,8 @@ export const createTaskActions = (
           createdAt: now,
           updatedAt: now,
         },
-        targetIndex
-      )
+        targetIndex,
+      ),
     );
     data.refreshTasks();
     data.refreshLists();
@@ -162,11 +178,16 @@ export const createTaskActions = (
   const quickAdd = async (parsed: ParsedTaskInput) => {
     setError(null);
     const id = await insertCreated(parsed, null, siblingsOf(null).length);
-    setActiveTaskId(id);
+    batch(() => {
+      setActiveTaskId(id);
+      setRevealTaskId(id);
+    });
   };
 
   const startInlineCreate = () => {
-    const active = activeTaskId() ? data.tasksById().get(activeTaskId()!) : undefined;
+    const active = activeTaskId()
+      ? data.tasksById().get(activeTaskId()!)
+      : undefined;
     if (!active) {
       options.focusQuickAdd();
       return;
@@ -212,7 +233,11 @@ export const createTaskActions = (
     }
     setInlineCreate({ ...draft, saving: true, error: null });
     try {
-      const id = await insertCreated(parsed, draft.parentTaskId, draft.targetIndex);
+      const id = await insertCreated(
+        parsed,
+        draft.parentTaskId,
+        draft.targetIndex,
+      );
       // Stay in flow: the next draft opens right below the one just created.
       batch(() => {
         setActiveTaskId(id);
@@ -226,7 +251,11 @@ export const createTaskActions = (
         });
       });
     } catch (err) {
-      setInlineCreate({ ...draft, saving: false, error: errorMessage(err, "Could not add task") });
+      setInlineCreate({
+        ...draft,
+        saving: false,
+        error: errorMessage(err, "Could not add task"),
+      });
     }
   };
 
@@ -268,9 +297,13 @@ export const createTaskActions = (
       return;
     }
 
-    const patch: Partial<TaskItem> = { description: parsed.description, tags: parsed.tags };
+    const patch: Partial<TaskItem> = {
+      description: parsed.description,
+      tags: parsed.tags,
+    };
     if (parsed.dueDate !== undefined) patch.dueDate = parsed.dueDate;
-    if (parsed.durationMinutes !== undefined) patch.durationMinutes = parsed.durationMinutes;
+    if (parsed.durationMinutes !== undefined)
+      patch.durationMinutes = parsed.durationMinutes;
 
     const unchanged =
       patch.description === task.description &&
@@ -287,7 +320,7 @@ export const createTaskActions = (
     setError(null);
     patchTask(task.id, patch);
     runUpdateTask({ id: task.id, ...patch }).catch((err) =>
-      reportError("title update", err, "Could not save task")
+      reportError("title update", err, "Could not save task"),
     );
   };
 
@@ -295,7 +328,8 @@ export const createTaskActions = (
   const removeTask = (task: TaskItem) => {
     setError(null);
     const ids = visibleIds();
-    const nextId = ids[ids.indexOf(task.id) + 1] ?? ids[ids.indexOf(task.id) - 1] ?? null;
+    const nextId =
+      ids[ids.indexOf(task.id) + 1] ?? ids[ids.indexOf(task.id) - 1] ?? null;
     data.mutateTasks((current) => deleteTaskLocally(current ?? [], task.id));
     select(nextId);
     runDeleteTask({ id: task.id })
@@ -304,11 +338,17 @@ export const createTaskActions = (
   };
 
   // ---- moves -----------------------------------------------------------
-  const applyMove = (taskId: string, parentTaskId: string | null, targetIndex: number) => {
+  const applyMove = (
+    taskId: string,
+    parentTaskId: string | null,
+    targetIndex: number,
+  ) => {
     setError(null);
     if (parentTaskId) expand(parentTaskId);
     data.mutateTasks((current) =>
-      current ? moveTaskLocally(current, taskId, parentTaskId, targetIndex) : current
+      current
+        ? moveTaskLocally(current, taskId, parentTaskId, targetIndex)
+        : current,
     );
     select(taskId);
     runMoveTask({ taskId, targetParentTaskId: parentTaskId, targetIndex })
@@ -319,27 +359,44 @@ export const createTaskActions = (
   const moveByKeyboard = (taskId: string, direction: MoveDirection) => {
     const task = data.tasksById().get(taskId);
     if (!task) return;
-    const siblings = siblingsOf(task.parentTaskId);
     const index = indexOf(task);
     if (index < 0) return;
+    // Step over hidden (done) siblings so every press visibly moves the row.
+    const visible = data.visibleChildIds(task.parentTaskId);
+    const visibleIndex = visible.indexOf(taskId);
+    const neighbor = (offset: number) => {
+      const id = visible[visibleIndex + offset];
+      return id ? data.tasksById().get(id) : undefined;
+    };
 
-    if (direction === "up" && index > 0) return applyMove(taskId, task.parentTaskId, index - 1);
-    if (direction === "down" && index < siblings.length - 1) {
+    if (direction === "up") {
+      const previous = neighbor(-1);
+      if (previous) applyMove(taskId, task.parentTaskId, indexOf(previous));
+      return;
+    }
+    if (direction === "down") {
+      const next = neighbor(1);
       // moveTaskLocally/server both treat the index as pre-removal.
-      return applyMove(taskId, task.parentTaskId, index + 2);
+      if (next) applyMove(taskId, task.parentTaskId, indexOf(next) + 1);
+      return;
     }
-    if (direction === "right" && index > 0) {
-      const previous = siblings[index - 1];
-      return applyMove(taskId, previous.id, siblingsOf(previous.id).length);
+    if (direction === "right") {
+      const previous = neighbor(-1);
+      if (previous)
+        applyMove(taskId, previous.id, siblingsOf(previous.id).length);
+      return;
     }
-    if (direction === "left" && task.parentTaskId) {
+    if (task.parentTaskId) {
       const parent = data.tasksById().get(task.parentTaskId);
-      if (!parent) return;
-      return applyMove(taskId, parent.parentTaskId, indexOf(parent) + 1);
+      if (parent) applyMove(taskId, parent.parentTaskId, indexOf(parent) + 1);
     }
   };
 
-  const drop = (targetTaskId: string, kind: DropKind, draggedTaskId: string | null) => {
+  const drop = (
+    targetTaskId: string,
+    kind: DropKind,
+    draggedTaskId: string | null,
+  ) => {
     const movingId = draggedTaskId || draggingTaskId();
     batch(() => {
       setDraggingTaskId(null);
@@ -347,14 +404,19 @@ export const createTaskActions = (
     });
     if (!movingId || movingId === targetTaskId) return;
     const target = data.tasksById().get(targetTaskId);
-    if (!target || isDescendantOf(data.tasksById(), targetTaskId, movingId)) return;
+    if (!target || isDescendantOf(data.tasksById(), targetTaskId, movingId))
+      return;
 
     if (kind === "inside") {
       return applyMove(movingId, target.id, siblingsOf(target.id).length);
     }
     const index = indexOf(target);
     if (index < 0) return;
-    applyMove(movingId, target.parentTaskId, kind === "before" ? index : index + 1);
+    applyMove(
+      movingId,
+      target.parentTaskId,
+      kind === "before" ? index : index + 1,
+    );
   };
 
   const dropToRoot = (draggedTaskId: string | null) => {
@@ -414,6 +476,15 @@ export const createTaskActions = (
     progress: (taskId) => data.progress().get(taskId) ?? { done: 0, total: 0 },
     expandedIds,
     activeTaskId,
+    tabStopId: () => {
+      const active = activeTaskId();
+      if (active && data.tasksById().has(active)) return active;
+      return data.visibleChildIds(null)[0] ?? null;
+    },
+    revealTaskId,
+    revealSettled: (taskId) => {
+      if (revealTaskId() === taskId) setRevealTaskId(null);
+    },
     focusTaskId,
     draggingTaskId,
     activeDrop,
@@ -434,7 +505,8 @@ export const createTaskActions = (
       }),
     dragOver: (taskId, kind) => {
       const current = activeDrop();
-      if (current?.taskId !== taskId || current.kind !== kind) setActiveDrop({ taskId, kind });
+      if (current?.taskId !== taskId || current.kind !== kind)
+        setActiveDrop({ taskId, kind });
     },
     drop,
     activate: (taskId) => setActiveTaskId(taskId),
@@ -447,11 +519,15 @@ export const createTaskActions = (
     moveByKeyboard,
     openInlineEdit,
     inlineEditChange: (value) =>
-      setInlineEdit((current) => (current ? { ...current, value, error: null } : current)),
+      setInlineEdit((current) =>
+        current ? { ...current, value, error: null } : current,
+      ),
     inlineEditSubmit,
     inlineEditCancel,
     inlineCreateChange: (value) =>
-      setInlineCreate((current) => (current ? { ...current, value, error: null } : current)),
+      setInlineCreate((current) =>
+        current ? { ...current, value, error: null } : current,
+      ),
     inlineCreateSubmit: () => void inlineCreateSubmit(),
     inlineCreateCancel,
     openDetails: (task) => {

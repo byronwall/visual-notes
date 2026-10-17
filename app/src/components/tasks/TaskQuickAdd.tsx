@@ -28,6 +28,7 @@ const wrapClass = css({
   _focusWithin: {
     bg: "bg.default",
     boxShadow: "inset 0 0 0 1px token(colors.gray.a7)",
+    "& [data-hint]": { visibility: "hidden" },
   },
 });
 
@@ -61,8 +62,10 @@ export const TaskQuickAdd = (props: Props) => {
   const chips = createMemo(() => {
     const result = parsed();
     const items: string[] = [];
-    if (result.dueDate) items.push(formatDue(result.dueDate, props.todayKey).label);
-    if (result.durationMinutes) items.push(formatDuration(result.durationMinutes));
+    if (result.dueDate)
+      items.push(formatDue(result.dueDate, props.todayKey).label);
+    if (result.durationMinutes)
+      items.push(formatDuration(result.durationMinutes));
     for (const tag of result.tags) items.push(`#${tag}`);
     return items;
   });
@@ -88,7 +91,16 @@ export const TaskQuickAdd = (props: Props) => {
 
   return (
     <label class={wrapClass} data-testid="task-quick-add">
-      <span class={css({ display: "inline-flex", w: "6", justifyContent: "center" })}>
+      {/* Reserve the chevron column so + and text align with row status and titles. */}
+      <span class={css({ w: "6", flexShrink: 0 })} />
+      <span
+        class={css({
+          display: "inline-flex",
+          w: "6",
+          flexShrink: 0,
+          justifyContent: "center",
+        })}
+      >
         <PlusIcon size={16} />
       </span>
       <input
@@ -120,7 +132,11 @@ export const TaskQuickAdd = (props: Props) => {
           <Show
             when={chips().length > 0}
             fallback={
-              <Kbd size="sm" class={css({ display: { base: "none", md: "inline-flex" } })}>
+              <Kbd
+                size="sm"
+                data-hint
+                class={css({ display: { base: "none", md: "inline-flex" } })}
+              >
                 N
               </Kbd>
             }
@@ -132,7 +148,11 @@ export const TaskQuickAdd = (props: Props) => {
           </Show>
         }
       >
-        {(message) => <span class={css({ fontSize: "xs", color: "red.11" })}>{message()}</span>}
+        {(message) => (
+          <span class={css({ fontSize: "xs", color: "red.11" })}>
+            {message()}
+          </span>
+        )}
       </Show>
     </label>
   );

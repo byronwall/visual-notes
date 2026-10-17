@@ -56,21 +56,24 @@ const mapTaskItem = (row: {
 
 export const fetchTaskLists = query(
   async (_input?: { refresh?: number }): Promise<TaskListItem[]> => {
-  "use server";
-  const rows = await prisma.taskList.findMany({
-    include: {
-      _count: {
-        select: {
-          tasks: true,
+    "use server";
+    const rows = await prisma.taskList.findMany({
+      include: {
+        _count: {
+          select: {
+            // The rail shows open work, so finished tasks are not counted.
+            tasks: {
+              where: { status: { in: ["waiting", "started", "deferred"] } },
+            },
+          },
         },
       },
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-  });
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
 
-  return rows.map(mapTaskList);
+    return rows.map(mapTaskList);
   },
-  "task-lists"
+  "task-lists",
 );
 
 export const fetchTaskListById = query(
@@ -92,7 +95,7 @@ export const fetchTaskListById = query(
 
     return row ? mapTaskList(row) : null;
   },
-  "task-list-by-id"
+  "task-list-by-id",
 );
 
 export const fetchTaskTree = query(
@@ -112,5 +115,5 @@ export const fetchTaskTree = query(
 
     return rows.map(mapTaskItem);
   },
-  "task-tree"
+  "task-tree",
 );

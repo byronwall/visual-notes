@@ -30,6 +30,11 @@ export type TaskTreeContextValue = {
   progress: (taskId: string) => { done: number; total: number };
   expandedIds: () => Set<string>;
   activeTaskId: () => string | null;
+  /** The one row reachable with Tab: the active row, else the first visible row. */
+  tabStopId: () => string | null;
+  /** A row to scroll into view and flash once (e.g. just created from quick-add). */
+  revealTaskId: () => string | null;
+  revealSettled: (taskId: string) => void;
   focusTaskId: () => string | null;
   draggingTaskId: () => string | null;
   activeDrop: () => { taskId: string; kind: DropKind } | null;
@@ -40,7 +45,11 @@ export type TaskTreeContextValue = {
   dragStart: (taskId: string) => void;
   dragEnd: () => void;
   dragOver: (taskId: string, kind: DropKind) => void;
-  drop: (targetTaskId: string, kind: DropKind, draggedTaskId: string | null) => void;
+  drop: (
+    targetTaskId: string,
+    kind: DropKind,
+    draggedTaskId: string | null,
+  ) => void;
   activate: (taskId: string) => void;
   clearSelection: () => void;
   focusSettled: (taskId: string) => void;
@@ -70,6 +79,7 @@ export const TaskTreeProvider = TaskTreeContext.Provider;
 
 export const useTaskTree = () => {
   const value = useContext(TaskTreeContext);
-  if (!value) throw new Error("useTaskTree must be used inside TaskTreeProvider");
+  if (!value)
+    throw new Error("useTaskTree must be used inside TaskTreeProvider");
   return value;
 };

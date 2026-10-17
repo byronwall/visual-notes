@@ -25,7 +25,10 @@ const groupClass = css({
 export const TaskTree = (props: Props) => {
   const ctx = useTaskTree();
 
-  const draftAt = (parentTaskId: string | null, afterTaskId: string | null): JSX.Element => (
+  const draftAt = (
+    parentTaskId: string | null,
+    afterTaskId: string | null,
+  ): JSX.Element => (
     <Show
       when={(() => {
         if (!props.hostsDraft) return null;
@@ -37,11 +40,13 @@ export const TaskTree = (props: Props) => {
           : null;
       })()}
     >
-      {(draft) => (
+      {(_draft) => (
+        // Read the signal, not the Show accessor: the input's blur handler runs
+        // while this row unmounts, when the accessor is already stale.
         <TaskDraftRow
-          value={draft().value}
-          saving={draft().saving}
-          error={draft().error}
+          value={ctx.inlineCreate()?.value ?? ""}
+          saving={ctx.inlineCreate()?.saving ?? false}
+          error={ctx.inlineCreate()?.error ?? null}
           onChange={ctx.inlineCreateChange}
           onSubmit={ctx.inlineCreateSubmit}
           onCancel={ctx.inlineCreateCancel}
@@ -50,7 +55,10 @@ export const TaskTree = (props: Props) => {
     </Show>
   );
 
-  const renderIds = (ids: string[], parentTaskId: string | null): JSX.Element => (
+  const renderIds = (
+    ids: string[],
+    parentTaskId: string | null,
+  ): JSX.Element => (
     <>
       {draftAt(parentTaskId, null)}
       <For each={ids}>
@@ -68,7 +76,11 @@ export const TaskTree = (props: Props) => {
                     hasChildren={childIds().length > 0}
                     childProgress={ctx.progress(taskId)}
                   />
-                  <Show when={(childIds().length > 0 && expanded()) || draftInside()}>
+                  <Show
+                    when={
+                      (childIds().length > 0 && expanded()) || draftInside()
+                    }
+                  >
                     <div
                       class={groupClass}
                       role="group"

@@ -18,7 +18,8 @@ type Props = {
   onDelete: (list: TaskListItem) => Promise<void>;
 };
 
-const getDisplayName = (list: TaskListItem) => list.name.trim() || "Untitled list";
+const getDisplayName = (list: TaskListItem) =>
+  list.name.trim() || "Untitled list";
 
 const itemsClass = css({
   display: "flex",
@@ -31,25 +32,40 @@ const itemsClass = css({
 
 const itemClass = css({
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: "2",
-  h: "8",
+  minH: "8",
+  maxW: "full",
   pl: "2.5",
   pr: "1",
+  py: "1",
   borderRadius: "l2",
   fontSize: "sm",
+  lineHeight: "1.5rem",
   color: "fg.muted",
   cursor: "pointer",
   userSelect: "none",
   transitionProperty: "background-color, color",
   transitionDuration: "fast",
   _hover: { bg: "gray.a3", color: "fg.default" },
-  "&[data-selected=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
-  _focusVisible: { outline: "2px solid token(colors.gray.a8)", outlineOffset: "-2px" },
-  "& [data-reveal]": { opacity: 0, transitionProperty: "opacity", transitionDuration: "fast" },
-  "&:hover [data-reveal], & [data-reveal][data-state=open], & [data-reveal]:focus-visible": {
-    opacity: 1,
+  "&[data-selected=true]": {
+    bg: "gray.a4",
+    color: "fg.default",
+    fontWeight: "medium",
   },
+  _focusVisible: {
+    outline: "2px solid token(colors.gray.a8)",
+    outlineOffset: "-2px",
+  },
+  "& [data-reveal]": {
+    opacity: 0,
+    transitionProperty: "opacity",
+    transitionDuration: "fast",
+  },
+  "&:hover [data-reveal], & [data-reveal][data-state=open], & [data-reveal]:focus-visible":
+    {
+      opacity: 1,
+    },
   "@media (hover: none)": { "& [data-reveal]": { display: "none" } },
 });
 
@@ -64,7 +80,9 @@ const countClass = css({
 });
 
 export const TaskListSelector = (props: Props) => {
-  const [pendingDelete, setPendingDelete] = createSignal<TaskListItem | null>(null);
+  const [pendingDelete, setPendingDelete] = createSignal<TaskListItem | null>(
+    null,
+  );
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
 
@@ -72,9 +90,21 @@ export const TaskListSelector = (props: Props) => {
     <nav
       aria-label="Task lists"
       data-testid="task-lists-nav"
-      class={css({ display: "flex", flexDirection: "column", gap: "1", minH: "0" })}
+      class={css({
+        display: "flex",
+        flexDirection: "column",
+        gap: "1",
+        minH: "0",
+      })}
     >
-      <div class={css({ display: "flex", alignItems: "center", h: "8", pl: "2.5" })}>
+      <div
+        class={css({
+          display: "flex",
+          alignItems: "center",
+          h: "8",
+          pl: "2.5",
+        })}
+      >
         <span
           class={css({
             fontSize: "xs",
@@ -126,11 +156,20 @@ export const TaskListSelector = (props: Props) => {
                       }
                     }}
                   >
-                    <span class={css({ minW: "0", truncate: true })}>{getDisplayName(list)}</span>
-                    <span class={countClass} data-testid={`task-list-count-${list.id}`}>
-                      {selected() && props.selectedOpenCount !== null
-                        ? props.selectedOpenCount
-                        : list.taskCount}
+                    <span class={css({ minW: "0", overflowWrap: "anywhere" })}>
+                      {getDisplayName(list)}
+                    </span>
+                    <span
+                      class={countClass}
+                      data-testid={`task-list-count-${list.id}`}
+                    >
+                      {(() => {
+                        const count =
+                          selected() && props.selectedOpenCount !== null
+                            ? props.selectedOpenCount
+                            : list.taskCount;
+                        return count > 0 ? count : "";
+                      })()}
                     </span>
                     <span
                       class={css({ display: "inline-flex" })}

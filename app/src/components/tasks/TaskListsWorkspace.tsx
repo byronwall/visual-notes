@@ -18,10 +18,17 @@ import { TaskQuickAdd } from "./TaskQuickAdd";
 import { TaskTree } from "./TaskTree";
 import { TaskTreeProvider } from "./TaskTreeContext";
 import { summarizeTasks } from "./taskFormat";
+import { handleRowKeyDown } from "./taskRowKeys";
+import { isDescendantOf } from "./taskTreeOps";
 
 const isTextEntryTarget = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
-  (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+  (target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+
+const isInsideOverlay = (target: EventTarget | null) =>
+  target instanceof Element &&
+  !!target.closest('[role="menu"], [role="dialog"], [role="listbox"]');
 
 const sectionLabelClass = css({
   display: "flex",
@@ -52,7 +59,9 @@ export const TaskListsWorkspace = () => {
     openDetails: (task) => setEditingTask(task),
   });
 
-  const summary = createMemo(() => summarizeTasks(data.taskItems(), actions.context.todayKey()));
+  const summary = createMemo(() =>
+    summarizeTasks(data.taskItems(), actions.context.todayKey()),
+  );
   const activeRootIds = createMemo(() => data.visibleChildIds(null));
 
   const selectList = (listId: string) => {
@@ -69,20 +78,26 @@ export const TaskListsWorkspace = () => {
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isTextEntryTarget(event.target)) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (editingTask()) return;
-      const active = actions.activeTaskId();
-
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        if (active) actions.selectAdjacent(active, event.key === "ArrowUp" ? "up" : "down");
-        else actions.selectFirst();
-      } else if (event.key === "Escape" && active) {
-        event.preventDefault();
-        actions.clearSelection();
-      } else if (event.key.toLowerCase() === "n" && data.selectedListId()) {
+      if (isInsideOverlay(event.target) || editingTask()) return;
+      if (
+        event.key.toLowerCase() === "n" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        if (!data.selectedListId()) return;
         event.preventDefault();
         actions.startInlineCreate();
+        return;
+      }
+      // Row shortcuts also work when focus sits on a row's buttons or the page.
+      const active = actions.activeTaskId();
+      const task = active ? data.tasksById().get(active) : undefined;
+      if (task) {
+        handleRowKeyDown(event, task, actions.context);
+      } else if (event.key === "ArrowDown" && !event.altKey) {
+        event.preventDefault();
+        actions.selectFirst();
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -94,7 +109,10 @@ export const TaskListsWorkspace = () => {
       data-testid="tasks-page"
       class={css({
         display: "grid",
-        gridTemplateColumns: { base: "minmax(0, 1fr)", lg: "13rem minmax(0, 1fr)" },
+        gridTemplateColumns: {
+          base: "minmax(0, 1fr)",
+          lg: "13rem minmax(0, 1fr)",
+        },
         gridTemplateRows: { base: "auto minmax(0, 1fr)", lg: "minmax(0, 1fr)" },
         columnGap: "8",
         rowGap: "3",
@@ -105,12 +123,16 @@ export const TaskListsWorkspace = () => {
       <TaskListSelector
         lists={data.mergedLists()}
         selectedListId={data.selectedListId()}
-        selectedOpenCount={data.selectedListId() && data.tasks.latest ? summary().open : null}
+        selectedOpenCount={
+          data.selectedListId() && data.tasks.latest ? summary().open : null
+        }
         onSelect={selectList}
         onCreate={createList}
         onRename={(list, name) => {
           data.mutateLists((current) =>
-            current?.map((item) => (item.id === list.id ? { ...item, name } : item))
+            current?.map((item) =>
+              item.id === list.id ? { ...item, name } : item,
+            ),
           );
           runUpdateList({ id: list.id, name })
             .catch((err) => console.error("[tasks] list rename failed", err))
@@ -177,7 +199,12 @@ export const TaskListsWorkspace = () => {
                   pb: "6",
                 })}
               >
-                <TaskTree rootIds={activeRootIds()} label={`${list().name} tasks`} hostsDraft testId="task-tree-active" />
+                <TaskTree
+                  rootIds={activeRootIds()}
+                  label={`${list().name} tasks`}
+                  hostsDraft
+                  testId="task-tree-active"
+                />
 
                 <Show when={data.tasks.latest && data.taskItems().length === 0}>
                   <TaskEmptyState title="No tasks yet" compact />
@@ -214,7 +241,10 @@ export const TaskListsWorkspace = () => {
                       color: "fg.subtle",
                       transitionProperty: "background-color, color",
                       transitionDuration: "fast",
-                      "&[data-active=true]": { bg: "gray.a3", color: "fg.default" },
+                      "&[data-active=true]": {
+                        bg: "gray.a3",
+                        color: "fg.default",
+                      },
                     })}
                     onDragOver={(event) => {
                       event.preventDefault();
@@ -225,7 +255,10 @@ export const TaskListsWorkspace = () => {
                     onDrop={(event) => {
                       event.preventDefault();
                       setRootDropActive(false);
-                      actions.dropToRoot(event.dataTransfer?.getData("text/plain")?.trim() || null);
+                      actions.dropToRoot(
+                        event.dataTransfer?.getData("text/plain")?.trim() ||
+                          null,
+                      );
                     }}
                   >
                     Move to top level
@@ -233,13 +266,12 @@ export const TaskListsWorkspace = () => {
                 </Show>
 
                 <Show when={data.showDone() && data.doneRootIds().length > 0}>
-                  <div class={sectionLabelClass}>
-                    Done
-                    <span class={css({ fontVariantNumeric: "tabular-nums" })}>
-                      {data.doneRootIds().length}
-                    </span>
-                  </div>
-                  <TaskTree rootIds={data.doneRootIds()} label="Done tasks" testId="task-tree-done" />
+                  <div class={sectionLabelClass}>Done</div>
+                  <TaskTree
+                    rootIds={data.doneRootIds()}
+                    label="Done tasks"
+                    testId="task-tree-done"
+                  />
                 </Show>
               </div>
             </TaskTreeProvider>
@@ -254,8 +286,19 @@ export const TaskListsWorkspace = () => {
         parentTaskId={editingTask()?.parentTaskId ?? null}
         parentOptions={data
           .taskItems()
-          .filter((task) => task.id !== editingTask()?.id)
-          .map((task) => ({ id: task.id, label: task.description.slice(0, 80) }))}
+          .filter((task) => {
+            const editing = editingTask();
+            // A task cannot move under itself or its own subtasks.
+            return (
+              !editing ||
+              (task.id !== editing.id &&
+                !isDescendantOf(data.tasksById(), task.id, editing.id))
+            );
+          })
+          .map((task) => ({
+            id: task.id,
+            label: task.description.slice(0, 80),
+          }))}
         onClose={() => {
           const task = editingTask();
           setEditingTask(null);

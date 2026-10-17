@@ -1,4 +1,9 @@
-import { EllipsisIcon, ListPlusIcon, SquarePenIcon, Trash2Icon } from "lucide-solid";
+import {
+  EllipsisIcon,
+  ListPlusIcon,
+  SquarePenIcon,
+  Trash2Icon,
+} from "lucide-solid";
 import { For, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { HStack } from "styled-system/jsx";
@@ -6,7 +11,12 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Kbd } from "~/components/ui/kbd";
 import * as Menu from "~/components/ui/menu";
 import type { TaskStatus } from "~/services/tasks/tasks.service";
-import { STATUS_META, STATUS_ORDER, TaskStatusIcon, statusColorClass } from "./TaskStatusIcon";
+import {
+  STATUS_META,
+  STATUS_ORDER,
+  TaskStatusIcon,
+  statusColorClass,
+} from "./TaskStatusIcon";
 
 type Props = {
   taskLabel: string;
@@ -39,7 +49,9 @@ export const TaskRowMenu = (props: Props) => (
         <Menu.Content zIndex="popover">
           <Menu.RadioItemGroup
             value={props.status}
-            onValueChange={(details) => props.onStatus(details.value as TaskStatus)}
+            onValueChange={(details) =>
+              props.onStatus(details.value as TaskStatus)
+            }
           >
             <For each={STATUS_ORDER}>
               {(status) => (
@@ -53,6 +65,7 @@ export const TaskRowMenu = (props: Props) => (
                   <Show when={STATUS_META[status].shortcut}>
                     {(key) => <Kbd size="sm">{key()}</Kbd>}
                   </Show>
+                  <Menu.ItemIndicator />
                 </Menu.RadioItem>
               )}
             </For>

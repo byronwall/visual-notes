@@ -1,11 +1,15 @@
 import { ChevronRightIcon } from "lucide-solid";
-import { createEffect, createMemo, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { css } from "styled-system/css";
 import type { TaskItem } from "~/services/tasks/tasks.service";
 import { TaskMarkdownPreview } from "./TaskMarkdownPreview";
 import { TaskRowMenu } from "./TaskRowMenu";
 import { TaskRowMeta } from "./TaskRowMeta";
-import { STATUS_META, TaskStatusIcon, statusColorClass } from "./TaskStatusIcon";
+import {
+  STATUS_META,
+  TaskStatusIcon,
+  statusColorClass,
+} from "./TaskStatusIcon";
 import { isDoneStatus } from "./taskFormat";
 import { handleMoveKey, handleRowKeyDown } from "./taskRowKeys";
 import { useTaskTree, type DropKind } from "./TaskTreeContext";
@@ -47,6 +51,11 @@ export const rowClass = css({
   "&:hover [data-reveal], &[data-selected=true] [data-reveal], & [data-reveal]:focus-visible, & [data-reveal][data-state=open]":
     { opacity: 1 },
   "@media (hover: none)": { "& [data-reveal]": { opacity: 1 } },
+  "@media (pointer: coarse)": { minH: "11", py: "1.5" },
+  "&[data-flash=true]": { animation: "taskRowFlash 900ms ease-out" },
+  "@media (prefers-reduced-motion: reduce)": {
+    "&[data-flash=true]": { animation: "none" },
+  },
 });
 
 const iconButtonClass = css({
@@ -63,8 +72,12 @@ const iconButtonClass = css({
   _hover: { bg: "gray.a4" },
   _active: { transform: "scale(0.9)" },
   _disabled: { cursor: "default", bg: "transparent", transform: "none" },
-  _focusVisible: { outline: "2px solid token(colors.gray.a8)", outlineOffset: "-2px" },
+  _focusVisible: {
+    outline: "2px solid token(colors.gray.a8)",
+    outlineOffset: "-2px",
+  },
   "@media (prefers-reduced-motion: reduce)": { _active: { transform: "none" } },
+  "@media (pointer: coarse)": { w: "8", h: "8" },
 });
 
 const chevronClass = css({
@@ -82,6 +95,8 @@ const titleClass = css({
   color: "fg.default",
   cursor: "text",
   overflowWrap: "anywhere",
+  transitionProperty: "color",
+  transitionDuration: "fast",
   "& p": { m: "0" },
   "&[data-done=true]": { color: "fg.muted" },
   "&[data-status=cancelled]": { textDecoration: "line-through" },
@@ -101,7 +116,10 @@ const inlineInputClass = css({
   _placeholder: { color: "fg.subtle" },
 });
 
-const dropKindFromPointer = (event: DragEvent, element: HTMLElement): DropKind => {
+const dropKindFromPointer = (
+  event: DragEvent,
+  element: HTMLElement,
+): DropKind => {
   const rect = element.getBoundingClientRect();
   const offset = (event.clientY - rect.top) / Math.max(rect.height, 1);
   if (offset < 0.3) return "before";
@@ -147,6 +165,17 @@ export const TaskRow = (props: Props) => {
     });
   });
 
+  const [flash, setFlash] = createSignal(false);
+  createEffect(() => {
+    if (ctx.revealTaskId() !== props.task.id || !rowRef) return;
+    queueMicrotask(() => {
+      rowRef?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      setFlash(true);
+      setTimeout(() => setFlash(false), 900);
+      ctx.revealSettled(props.task.id);
+    });
+  });
+
   const readDraggedId = (event: DragEvent) =>
     event.dataTransfer?.getData("text/plain")?.trim() || null;
 
@@ -159,9 +188,12 @@ export const TaskRow = (props: Props) => {
       aria-expanded={props.hasChildren ? expanded() : undefined}
       data-testid={`task-row-${props.task.id}`}
       data-selected={isActive() ? "true" : "false"}
-      data-dragging={ctx.draggingTaskId() === props.task.id ? "true" : undefined}
+      data-dragging={
+        ctx.draggingTaskId() === props.task.id ? "true" : undefined
+      }
       data-drop={dropKind() ?? "none"}
-      tabIndex={isActive() ? 0 : -1}
+      tabIndex={ctx.tabStopId() === props.task.id ? 0 : -1}
+      data-flash={flash() ? "true" : undefined}
       draggable={!isEditing()}
       onFocus={() => ctx.activate(props.task.id)}
       onClick={() => ctx.activate(props.task.id)}
@@ -176,16 +208,20 @@ export const TaskRow = (props: Props) => {
       }}
       onDragEnd={() => ctx.dragEnd()}
       onDragOver={(event) => {
-        if (!ctx.draggingTaskId() || ctx.draggingTaskId() === props.task.id) return;
+        if (!ctx.draggingTaskId() || ctx.draggingTaskId() === props.task.id)
+          return;
         event.preventDefault();
-        ctx.dragOver(props.task.id, dropKindFromPointer(event, event.currentTarget));
+        ctx.dragOver(
+          props.task.id,
+          dropKindFromPointer(event, event.currentTarget),
+        );
       }}
       onDrop={(event) => {
         event.preventDefault();
         ctx.drop(
           props.task.id,
           dropKindFromPointer(event, event.currentTarget),
-          readDraggedId(event)
+          readDraggedId(event),
         );
       }}
     >
@@ -264,7 +300,9 @@ export const TaskRow = (props: Props) => {
               placeholder="Task title  #tag  @fri  ~30m"
               data-testid={`task-inline-input-${props.task.id}`}
               onClick={(event) => event.stopPropagation()}
-              onInput={(event) => ctx.inlineEditChange(event.currentTarget.value)}
+              onInput={(event) =>
+                ctx.inlineEditChange(event.currentTarget.value)
+              }
               onBlur={() => {
                 // Read the memo, not the Show accessor: blur also fires on unmount.
                 if (edit() && !edit()!.saving) ctx.inlineEditSubmit();
