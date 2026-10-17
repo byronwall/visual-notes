@@ -97,6 +97,36 @@ describe("useServerSearch request outcomes", () => {
     dispose();
   });
 
+  it("keeps previous results visible while the next query loads", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const first = [{ id: "a", title: "A", createdAt: "", updatedAt: "" }];
+    const next = deferred<Awaited<ReturnType<typeof searchDocs>>>();
+    vi.mocked(searchDocs)
+      .mockResolvedValueOnce(first)
+      .mockReturnValueOnce(next.promise);
+    let setQuery!: (value: string) => void;
+    let dispose!: () => void;
+    const state = createRoot((stop) => {
+      dispose = stop;
+      const [query, set] = createSignal("a");
+      setQuery = set;
+      return useServerSearch(query, filters);
+    });
+
+    await Promise.resolve();
+    expect(state.results()).toEqual(first);
+    setQuery("ab");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(state.loading()).toBe(true);
+    expect(state.results()).toEqual(first);
+    next.resolve([]);
+    await Promise.resolve();
+    expect(state.results()).toEqual([]);
+    expect(state.loading()).toBe(false);
+    dispose();
+  });
+
   it("exposes timeout and ignores a late response after disposal", async () => {
     vi.useFakeTimers();
     const pending = deferred<Awaited<ReturnType<typeof searchDocs>>>();

@@ -1,14 +1,45 @@
 import { For, Show, createMemo } from "solid-js";
-import { HStack, Stack } from "styled-system/jsx";
-import { Link } from "~/components/ui/link";
-import { PathPillLink } from "~/components/path/PathPillLink";
-import { Text } from "~/components/ui/text";
+import { css } from "styled-system/css";
 import { pathToRoute } from "~/utils/path-links";
 
 type PathDiscoveryData = {
   recentlyViewed: { path: string; count: number; lastViewedAt?: string }[];
   highCount: { path: string; count: number }[];
 };
+
+// One line only: items that do not fit wrap onto hidden lines instead of
+// pushing the list down or scrolling sideways.
+const rowClass = css({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  columnGap: "4",
+  h: "6",
+  overflow: "hidden",
+  fontSize: "xs",
+});
+
+const labelClass = css({
+  color: "fg.subtle",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  h: "6",
+  _hover: { color: "fg.default" },
+});
+
+const pathClass = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "1",
+  h: "6",
+  fontFamily: "mono",
+  color: "fg.muted",
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+  _hover: { color: "fg.default", textDecoration: "underline" },
+  "& .count": { color: "fg.subtle" },
+});
 
 export const PathDiscoveryLinks = (props: { data?: PathDiscoveryData }) => {
   const merged = createMemo(() => {
@@ -22,37 +53,26 @@ export const PathDiscoveryLinks = (props: { data?: PathDiscoveryData }) => {
       if (!item.path || seen.has(item.path)) continue;
       seen.add(item.path);
       out.push({ path: item.path, count: item.count });
-      if (out.length >= 10) break;
+      if (out.length >= 12) break;
     }
     return out;
   });
 
   return (
-    <Show when={merged().length > 0}>
-      <Stack gap="1">
-        <HStack gap="1.5" flexWrap="wrap" alignItems="center">
-          <Link
-            href="/path"
-            fontSize="xs"
-            color="fg.muted"
-            textTransform="uppercase"
-            textDecoration="none"
-            _hover={{ textDecoration: "underline" }}
-          >
-            Paths
-          </Link>
-          <For each={merged()}>
-            {(item) => (
-              <PathPillLink
-                href={pathToRoute(item.path)}
-                variant="subtle"
-              >
-                {item.path} ({item.count})
-              </PathPillLink>
-            )}
-          </For>
-        </HStack>
-      </Stack>
-    </Show>
+    <nav class={rowClass} aria-label="Frequent paths">
+      <a href="/path" class={labelClass}>
+        Paths
+      </a>
+      <Show when={merged().length > 0}>
+        <For each={merged()}>
+          {(item) => (
+            <a href={pathToRoute(item.path)} class={pathClass}>
+              {item.path}
+              <span class="count">{item.count}</span>
+            </a>
+          )}
+        </For>
+      </Show>
+    </nav>
   );
 };

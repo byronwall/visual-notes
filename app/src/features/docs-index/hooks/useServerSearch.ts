@@ -61,7 +61,8 @@ export function useServerSearch(
     latestRequestId = requestId;
     inFlight.add(requestId);
     setLoading(true);
-    setResults([]);
+    // Keep the previous results visible (dimmed by the list) until the new
+    // response lands, so typing never flashes an empty list.
     setError(undefined);
 
     const startMs = Date.now();

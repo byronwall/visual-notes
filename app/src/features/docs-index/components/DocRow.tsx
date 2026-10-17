@@ -1,160 +1,251 @@
+import { For, Show } from "solid-js";
+import { GlobeIcon } from "lucide-solid";
 import { formatAbsoluteTime, formatRelativeTime } from "../utils/time";
 import { renderHighlighted } from "../utils/highlight";
-import { MetaChips } from "./MetaChips";
-import { Show } from "solid-js";
+import { getTopMetaEntries } from "../utils/meta";
+import { stripLeadingTitle } from "../utils/snippet";
 import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
-import { PathPillLink } from "~/components/path/PathPillLink";
-import { Text } from "~/components/ui/text";
-import { Box, Flex, HStack, Stack } from "styled-system/jsx";
 import * as Checkbox from "~/components/ui/checkbox";
+import { Box } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import { pathToRoute } from "~/utils/path-links";
 
-export const DocRow = (props: {
+export type DocRowProps = {
   id: string;
   title: string;
   updatedAt: string;
   path?: string | null;
   meta?: Record<string, unknown> | null;
-  share?: {
-    slug: string;
-    shareUrl: string;
-  } | null;
+  share?: { slug: string; shareUrl: string } | null;
   snippet?: string | null;
   query?: string;
+  active?: boolean;
+  selected?: boolean;
+  selectionMode?: boolean;
   onFilterMeta?: (k: string, v: string) => void;
   onResultOpen?: (id: string) => void;
-  selected?: boolean;
-  onToggleSelect?: (id: string, next: boolean) => void;
+  onToggleSelect?: (id: string, next: boolean, shiftKey: boolean) => void;
+  onActivate?: (id: string) => void;
   previewDoc?: {
     previewText?: string;
     path?: string | null;
     meta?: Record<string, unknown> | null;
   } | null;
-}) => {
-  const titleLinkClass = css({
-    display: "block",
-    minWidth: "0",
-    color: "inherit",
-    textDecorationLine: "none",
-  });
+};
 
-  const handleToggle = (next: boolean) => {
-    props.onToggleSelect?.(props.id, next);
-  };
+const rowClass = css({
+  display: "grid",
+  gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
+  gridTemplateAreas: `"check title side" ". snippet snippet"`,
+  columnGap: "2",
+  rowGap: "0.5",
+  alignItems: "center",
+  px: "2",
+  py: "1.5",
+  borderRadius: "l2",
+  cursor: "pointer",
+  scrollMarginTop: "8rem",
+  scrollMarginBottom: "1rem",
+  transitionProperty: "background-color",
+  transitionDuration: "120ms",
+  _hover: { bg: "gray.surface.bg.hover" },
+  "&[data-active]": { bg: "gray.subtle.bg" },
+  "&[data-selected]": { bg: "blue.subtle.bg" },
+  "&[data-selected]:hover": { bg: "blue.subtle.bg.hover" },
+  "& .row-check": {
+    opacity: 0,
+    transitionProperty: "opacity",
+    transitionDuration: "120ms",
+  },
+  "&:hover .row-check, &[data-selected] .row-check, &[data-selection-mode] .row-check, & .row-check:focus-within":
+    { opacity: 1 },
+  smDown: {
+    gridTemplateColumns: "1.5rem minmax(0, 1fr)",
+    gridTemplateAreas: `"check title" ". side" ". snippet"`,
+  },
+});
+
+const titleLinkClass = css({
+  display: "inline",
+  minW: "0",
+  color: "fg.default",
+  fontSize: "sm",
+  fontWeight: "medium",
+  lineHeight: "1.35",
+  textDecoration: "none",
+  overflowWrap: "anywhere",
+  _hover: { textDecoration: "underline", textUnderlineOffset: "2px" },
+});
+
+const sideClass = css({
+  gridArea: "side",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "3",
+  minW: "0",
+  fontSize: "xs",
+  color: "fg.muted",
+  whiteSpace: "nowrap",
+  smDown: { justifyContent: "flex-start", flexWrap: "wrap", gap: "2" },
+});
+
+const pathLinkClass = css({
+  fontFamily: "mono",
+  fontSize: "xs",
+  color: "fg.muted",
+  textDecoration: "none",
+  maxW: "18rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  _hover: { color: "fg.default", textDecoration: "underline" },
+});
+
+const metaButtonClass = css({
+  color: "fg.muted",
+  cursor: "pointer",
+  bg: "transparent",
+  borderRadius: "l1",
+  px: "1",
+  mx: "-1",
+  transitionProperty: "color, background-color",
+  transitionDuration: "120ms",
+  _hover: { color: "fg.default", bg: "gray.subtle.bg" },
+  smDown: { display: "none" },
+});
+
+const timeClass = css({
+  minW: "3.25rem",
+  textAlign: "right",
+  fontVariantNumeric: "tabular-nums",
+  smDown: { minW: "0", textAlign: "left" },
+});
+
+export const DocRow = (props: DocRowProps) => {
+  const snippet = () => stripLeadingTitle(props.snippet, props.title);
+  const isInteractive = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest("a, button, input, label, [data-row-control]");
+
   return (
-    <Box
-      as="li"
-      borderWidth="1px"
-      borderColor="gray.outline.border"
-      borderRadius="l2"
-      px="0.75rem"
-      py="0.65rem"
-      bg="white"
-      _hover={{ bg: "gray.surface.bg.hover" }}
+    <li
+      class={rowClass}
+      data-doc-id={props.id}
+      data-active={props.active ? "" : undefined}
+      data-selected={props.selected ? "" : undefined}
+      data-selection-mode={props.selectionMode ? "" : undefined}
+      aria-selected={props.active ? "true" : undefined}
+      onClick={(e) => {
+        if (isInteractive(e.target)) return;
+        if (props.selectionMode) {
+          props.onToggleSelect?.(props.id, !props.selected, e.shiftKey);
+          return;
+        }
+        props.onActivate?.(props.id);
+      }}
     >
-      <Flex align="center" justify="space-between" gap="0.75rem">
-        <HStack gap="0.5rem" minW="0" alignItems="flex-start">
-          <Checkbox.Root
-            checked={!!props.selected}
-            onCheckedChange={(details) =>
-              handleToggle(details.checked === true)
-            }
-          >
-            <Checkbox.HiddenInput aria-label={`Select ${props.title}`} />
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-          </Checkbox.Root>
-          <Stack gap="0.15rem" minW="0">
-            <DocHoverPreviewLink
-              href={`/docs/${props.id}`}
-              title={props.title}
-              updatedAt={props.updatedAt}
-              path={props.path}
-              meta={props.meta}
-              snippet={props.snippet}
-              previewDoc={props.previewDoc}
-              triggerClass={titleLinkClass}
-              onNavigate={() => props.onResultOpen?.(props.id)}
+      <Box gridArea="check" display="flex" class="row-check" data-row-control>
+        <Checkbox.Root
+          size="sm"
+          checked={!!props.selected}
+          onCheckedChange={(details) =>
+            props.onToggleSelect?.(props.id, details.checked === true, false)
+          }
+          onClick={(e: MouseEvent) => {
+            e.preventDefault();
+            props.onToggleSelect?.(props.id, !props.selected, e.shiftKey);
+          }}
+        >
+          <Checkbox.HiddenInput aria-label={`Select ${props.title}`} />
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+        </Checkbox.Root>
+      </Box>
+
+      <Box gridArea="title" minW="0">
+        <DocHoverPreviewLink
+          href={`/docs/${props.id}`}
+          title={props.title}
+          updatedAt={props.updatedAt}
+          path={props.path}
+          meta={props.meta}
+          snippet={props.snippet}
+          previewDoc={props.previewDoc}
+          triggerClass={titleLinkClass}
+          onNavigate={() => props.onResultOpen?.(props.id)}
+        >
+          <Show when={props.query} fallback={props.title || "Untitled"}>
+            {(query) => renderHighlighted(props.title, query())}
+          </Show>
+        </DocHoverPreviewLink>
+      </Box>
+
+      <div class={sideClass}>
+        <Show when={props.share}>
+          {(share) => (
+            <Box
+              as="span"
+              display="inline-flex"
+              color="green.11"
+              title={`Shared at ${share().shareUrl}`}
+              aria-label="Shared"
             >
-              <Show when={props.query}>
-                {(query) => (
-                  <Text
-                    fontSize="sm"
-                    fontWeight="medium"
-                    overflow="hidden"
-                    textOverflow="ellipsis"
-                    whiteSpace="nowrap"
-                    _hover={{ textDecoration: "underline" }}
-                  >
-                    {renderHighlighted(props.title, query())}
-                  </Text>
-                )}
+              <GlobeIcon size={13} />
+            </Box>
+          )}
+        </Show>
+        <For each={getTopMetaEntries(props.meta as never)}>
+          {([k, v]) => (
+            <button
+              type="button"
+              class={metaButtonClass}
+              title={`Filter by ${k} = ${v}`}
+              onClick={() => props.onFilterMeta?.(k, v)}
+            >
+              <Box as="span" color="fg.subtle">
+                {k}:
+              </Box>{" "}
+              {v}
+            </button>
+          )}
+        </For>
+        <Show when={props.path}>
+          {(path) => (
+            <a
+              href={pathToRoute(path())}
+              class={pathLinkClass}
+              title={`Open path ${path()}`}
+            >
+              <Show when={props.query} fallback={path()}>
+                {(query) => renderHighlighted(path(), query())}
               </Show>
-              <Show when={!props.query}>
-                <Text
-                  fontSize="sm"
-                  fontWeight="medium"
-                  _hover={{ textDecoration: "underline" }}
-                >
-                  {props.title}
-                </Text>
-              </Show>
-            </DocHoverPreviewLink>
-            <Show when={props.snippet}>
-              {(snippet) => (
-                <Text fontSize="xs" color="black.a7" lineClamp="2">
-                  <Show when={props.query} fallback={snippet()}>
-                    {(query) => renderHighlighted(snippet(), query())}
-                  </Show>
-                </Text>
-              )}
-            </Show>
-          </Stack>
-        </HStack>
-        <HStack gap="0.5rem" flexWrap="wrap" justifyContent="flex-end">
-          <Show when={props.path}>
-            {(path) => (
-              <PathPillLink
-                href={pathToRoute(path())}
-                variant="subtle"
-                title={`Open path page: ${path()}`}
-              >
-                <Show when={props.query} fallback={path()}>
-                  {(query) => renderHighlighted(path(), query())}
-                </Show>
-              </PathPillLink>
-            )}
-          </Show>
-          <Show when={props.share}>
-            {(share) => (
-              <Box
-                as="span"
-                px="2"
-                py="1"
-                borderRadius="full"
-                bg="green.subtle"
-                color="green.fg"
-                fontSize="xs"
-                fontWeight="medium"
-                fontFamily="mono"
-                title={`Shared at ${share().shareUrl}`}
-              >
-                shared/{share().slug}
-              </Box>
-            )}
-          </Show>
-          <MetaChips meta={props.meta} onClick={props.onFilterMeta} />
-          <Text
-            fontSize="sm"
-            color="black.a7"
-            title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
+            </a>
+          )}
+        </Show>
+        <span
+          class={timeClass}
+          title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
+        >
+          {formatRelativeTime(props.updatedAt)}
+        </span>
+      </div>
+
+      <Show when={snippet()}>
+        {(text) => (
+          <Box
+            gridArea="snippet"
+            fontSize="xs"
+            color="fg.muted"
+            lineClamp="2"
+            minW="0"
           >
-            {formatRelativeTime(props.updatedAt)}
-          </Text>
-        </HStack>
-      </Flex>
-    </Box>
+            <Show when={props.query} fallback={text()}>
+              {(query) => renderHighlighted(text(), query())}
+            </Show>
+          </Box>
+        )}
+      </Show>
+    </li>
   );
 };
