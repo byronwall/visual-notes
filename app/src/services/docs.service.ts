@@ -13,4 +13,9 @@ export {
   fetchRelatedNotesByPath,
 } from "./docs.queries";
 
-export { createDoc, deleteDoc, updateDoc } from "./docs.actions";
+export {
+  createDoc,
+  deleteDoc,
+  saveDocContent,
+  updateDoc,
+} from "./docs.actions";
