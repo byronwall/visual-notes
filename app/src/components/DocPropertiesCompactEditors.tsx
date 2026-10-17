@@ -10,10 +10,15 @@ import {
   shouldSyncMetaDraft,
   serializeMetaRecord,
   summarizeMeta,
-  summarizePath,
 } from "~/components/doc-properties/meta-draft";
-import { HStack, Stack } from "styled-system/jsx";
-import { Button } from "~/components/ui/button";
+import { A } from "@solidjs/router";
+import { FolderIcon, PencilIcon, TagIcon } from "lucide-solid";
+import { For, Show } from "solid-js";
+import { Box, HStack, Stack, styled } from "styled-system/jsx";
+import { IconButton } from "~/components/ui/icon-button";
+import { Link } from "~/components/ui/link";
+import { Tooltip } from "~/components/ui/tooltip";
+import { buildPathAncestors, pathToRoute } from "~/utils/path-links";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
 import { type MetaRecord } from "~/services/docs.service";
@@ -91,11 +96,13 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     if (props.onMetaChange) props.onMetaChange(nextMeta);
   };
 
-  const pathSummary = createMemo(() => summarizePath(pathDraft()));
   const metaSummary = createMemo(() => summarizeMeta(metaDraft()));
 
+  const hasPath = () => pathDraft().trim().length > 0;
+  const hasMeta = () => Object.keys(metaDraft()).length > 0;
+
   return (
-    <HStack gap="2" alignItems="center" flexWrap="wrap">
+    <HStack gap="1" alignItems="center" flexWrap="wrap" minH="8">
       <SimplePopover
         open={pathPopoverOpen()}
         onClose={() => setPathPopoverOpen(false)}
@@ -104,29 +111,39 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         style={{ width: "min(36rem, 92vw)" }}
         portalled={props.pathPopoverPortalled}
         anchor={
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            colorPalette="gray"
-            borderRadius="full"
-            bg="bg.default"
-            onClick={() => setPathPopoverOpen((open) => !open)}
-          >
-            <Text
-              as="span"
-              fontSize="xs"
-              color={pathDraft().trim().length > 0 ? "fg.default" : "fg.subtle"}
-              fontFamily="mono"
-              fontWeight="medium"
-              maxW="24rem"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              whiteSpace="nowrap"
+          <HStack gap="0" alignItems="center" minW="0">
+            <Show
+              when={hasPath()}
+              fallback={
+                <PlainChip
+                  onClick={() => setPathPopoverOpen((open) => !open)}
+                  ariaLabel="Set path"
+                  muted
+                  mono
+                >
+                  <FolderIcon size={13} />
+                  Unfiled
+                </PlainChip>
+              }
             >
-              {pathSummary()}
-            </Text>
-          </Button>
+              <PathCrumbs path={pathDraft()} />
+              <Tooltip content="Edit path" showArrow>
+                <IconButton
+                  size="xs"
+                  variant="plain"
+                  colorPalette="gray"
+                  color="fg.subtle"
+                  minW="6"
+                  w="6"
+                  h="6"
+                  aria-label="Edit path"
+                  onClick={() => setPathPopoverOpen((open) => !open)}
+                >
+                  <PencilIcon size={12} />
+                </IconButton>
+              </Tooltip>
+            </Show>
+          </HStack>
         }
       >
         <Stack gap="2" p="3">
@@ -141,6 +158,8 @@ export const DocPropertiesCompactEditors: VoidComponent<{
       <PathRelatedNotesPopover path={pathDraft()} currentDocId={props.docId} />
       <NearbyNodesPopover docId={props.docId} />
 
+      <Box w="1px" h="4" bg="border" mx="1" aria-hidden="true" />
+
       <SimplePopover
         open={metaPopoverOpen()}
         onClose={() => setMetaPopoverOpen(false)}
@@ -148,36 +167,25 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
         anchor={
-          <Button
-            type="button"
-            size="sm"
-            variant="plain"
-            colorPalette="gray"
-            px="3"
-            py="1.5"
-            borderWidth="1px"
-            borderStyle="solid"
-            borderColor="gray.subtle"
-            borderRadius="full"
-            bg="gray.surface.bg"
-            _hover={{ bg: "gray.surface.bg.hover" }}
+          <PlainChip
             onClick={() => setMetaPopoverOpen((open) => !open)}
+            ariaLabel="Edit details"
+            muted={!hasMeta()}
           >
+            <Show when={!hasMeta()}>
+              <TagIcon size={13} />
+            </Show>
             <Text
               as="span"
               fontSize="xs"
-              color={
-                Object.keys(metaDraft()).length > 0 ? "fg.default" : "fg.subtle"
-              }
-              fontWeight="medium"
-              maxW="24rem"
+              maxW={{ base: "16rem", md: "28rem" }}
               overflow="hidden"
               textOverflow="ellipsis"
               whiteSpace="nowrap"
             >
-              {metaSummary()}
+              {hasMeta() ? metaSummary() : "Add details"}
             </Text>
-          </Button>
+          </PlainChip>
         }
       >
         <Stack gap="2" p="3">
@@ -193,3 +201,88 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     </HStack>
   );
 };
+
+/** Each ancestor segment links to its path page, as a breadcrumb should. */
+function PathCrumbs(props: { path: string }) {
+  const ancestors = () => buildPathAncestors(props.path);
+  return (
+    <HStack
+      as="nav"
+      aria-label="Note path"
+      gap="0"
+      alignItems="center"
+      fontFamily="mono"
+      fontSize="xs"
+      minW="0"
+      flexWrap="nowrap"
+      overflow="hidden"
+    >
+      <For each={ancestors()}>
+        {(ancestor, index) => (
+          <>
+            <Show when={index() > 0}>
+              <Box as="span" color="fg.subtle" px="0.5" aria-hidden="true">
+                /
+              </Box>
+            </Show>
+            <Link
+              as={A}
+              href={pathToRoute(ancestor)}
+              color={
+                index() === ancestors().length - 1 ? "fg.default" : "fg.muted"
+              }
+              textDecoration="none"
+              px="1"
+              py="0.5"
+              borderRadius="l1"
+              whiteSpace="nowrap"
+              // Ancestors give up space first; the note's own folder stays whole.
+              flexShrink={index() === ancestors().length - 1 ? 0 : 1}
+              minW="0"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              title={ancestor}
+              transitionProperty="background-color, color"
+              transitionDuration="140ms"
+              _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
+            >
+              {ancestor.split(".").pop()}
+            </Link>
+          </>
+        )}
+      </For>
+    </HStack>
+  );
+}
+
+function PlainChip(props: {
+  onClick: () => void;
+  ariaLabel: string;
+  muted?: boolean;
+  mono?: boolean;
+  children: JSX.Element;
+}) {
+  return (
+    <styled.button
+      type="button"
+      aria-label={props.ariaLabel}
+      onClick={() => props.onClick()}
+      display="inline-flex"
+      alignItems="center"
+      gap="1.5"
+      h="7"
+      px="1.5"
+      borderRadius="l2"
+      fontSize="xs"
+      fontFamily={props.mono ? "mono" : undefined}
+      color={props.muted ? "fg.subtle" : "fg.muted"}
+      cursor="pointer"
+      minW="0"
+      transitionProperty="background-color, color"
+      transitionDuration="140ms"
+      _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
+    >
+      {props.children}
+    </styled.button>
+  );
+}
