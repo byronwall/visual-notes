@@ -9,8 +9,11 @@ export {
   fetchMetaValues,
   fetchPathDiscovery,
   fetchPathPageData,
+  fetchPathStats,
   fetchPathSuggestions,
   fetchRelatedNotesByPath,
 } from "./docs.queries";
 
 export { createDoc, deleteDoc, updateDoc } from "./docs.actions";
+
+export type { PathStat } from "./docs.queries";

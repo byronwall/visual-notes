@@ -1,14 +1,5 @@
-import { useNavigate } from "@solidjs/router";
-import { onMount } from "solid-js";
+import { Navigate } from "@solidjs/router";
 
-const LegacyPathsRedirect = () => {
-  const navigate = useNavigate();
-
-  onMount(() => {
-    navigate("/path", { replace: true });
-  });
-
-  return null;
-};
+const LegacyPathsRedirect = () => <Navigate href="/path" />;
 
 export default LegacyPathsRedirect;
