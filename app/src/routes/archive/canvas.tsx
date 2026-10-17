@@ -31,7 +31,7 @@ const ArchiveCanvasOverviewRoute = () => {
             <Grid
               gap="3"
               gridTemplateColumns={{
-                base: "1fr",
+                base: "minmax(0, 1fr)",
                 sm: "repeat(2, minmax(0, 1fr))",
                 lg: "repeat(3, minmax(0, 1fr))",
               }}

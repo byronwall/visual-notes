@@ -10,6 +10,7 @@ import { archiveGroupCanvasHref } from "./ArchiveCanvasBreadcrumb";
 const tileClass = css({
   display: "flex",
   flexDirection: "column",
+  minW: "0",
   gap: "3",
   p: "3",
   borderRadius: "l3",
