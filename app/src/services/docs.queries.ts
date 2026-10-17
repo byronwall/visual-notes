@@ -291,6 +291,36 @@ export const fetchPathSuggestions = query(
   "docs-paths"
 );
 
+export type PathStat = {
+  path: string;
+  count: number;
+  lastUpdatedAt: string | null;
+};
+
+// Per-path note counts plus the newest update, so the path browser can show
+// recency rollups for every subtree without loading the notes themselves.
+export const fetchPathStats = query(
+  async (): Promise<PathStat[]> => {
+    "use server";
+    const groups = await prisma.doc.groupBy({
+      by: ["path"],
+      _count: { _all: true },
+      _max: { updatedAt: true },
+      where: { path: { not: null } },
+    });
+    const items = groups
+      .filter((g) => typeof g.path === "string" && g.path.trim().length > 0)
+      .map((g) => ({
+        path: g.path as string,
+        count: g._count._all,
+        lastUpdatedAt: g._max.updatedAt?.toISOString() ?? null,
+      }));
+    console.log(`[services] fetchPathStats: count=${items.length}`);
+    return items;
+  },
+  "docs-path-stats"
+);
+
 export const fetchPathPageData = query(
   async (
     input: { path: string; take?: number } | undefined

@@ -1,0 +1,119 @@
+import { A } from "@solidjs/router";
+import { ChevronRightIcon } from "lucide-solid";
+import { For, Show } from "solid-js";
+import { css, cx } from "styled-system/css";
+import { renderHighlighted } from "~/features/docs-index/utils/highlight";
+import { pathToRoute } from "~/utils/path-links";
+import type { PathTreeNode } from "../utils/path-tree";
+
+const rowClass = css({
+  display: "grid",
+  gridTemplateColumns: "16px minmax(0, 1fr) auto",
+  alignItems: "center",
+  gap: "1",
+  minH: "7",
+  pr: "2",
+  borderRadius: "l2",
+  color: "fg.muted",
+  transitionProperty: "background-color, color",
+  transitionDuration: "fast",
+  _hover: { bg: "bg.muted", color: "fg.default" },
+  "&[data-active]": {
+    bg: "gray.a3",
+    color: "fg.default",
+    fontWeight: "semibold",
+  },
+});
+
+const toggleClass = css({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  w: "4",
+  h: "4",
+  borderRadius: "l1",
+  color: "fg.subtle",
+  cursor: "pointer",
+  transitionProperty: "transform, color, background-color",
+  transitionDuration: "fast",
+  _hover: { color: "fg.default", bg: "gray.a4" },
+  "&[data-expanded]": { transform: "rotate(90deg)" },
+  _motionReduce: { transition: "none" },
+});
+
+const labelClass = css({
+  minW: "0",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontFamily: "mono",
+  fontSize: "13px",
+  lineHeight: "1.4",
+  color: "inherit",
+  textDecoration: "none",
+  py: "1",
+  _focusVisible: { outline: "2px solid", outlineColor: "gray.8", outlineOffset: "1px", borderRadius: "l1" },
+});
+
+const countClass = css({
+  fontSize: "xs",
+  color: "fg.subtle",
+  fontVariantNumeric: "tabular-nums",
+});
+
+export type PathTreeRailNodeProps = {
+  node: PathTreeNode;
+  activePath: string;
+  query: string;
+  isExpanded: (path: string) => boolean;
+  onToggle: (path: string) => void;
+  onNavigate?: () => void;
+};
+
+export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
+  const hasChildren = () => props.node.children.length > 0;
+  const expanded = () => hasChildren() && props.isExpanded(props.node.path);
+  const active = () => props.activePath === props.node.path;
+
+  return (
+    <li>
+      <div
+        class={rowClass}
+        data-active={active() ? "" : undefined}
+        style={{ "padding-left": `${(props.node.depth - 1) * 14 + 4}px` }}
+      >
+        <Show when={hasChildren()} fallback={<span />}>
+          <button
+            type="button"
+            class={toggleClass}
+            data-expanded={expanded() ? "" : undefined}
+            aria-label={`${expanded() ? "Collapse" : "Expand"} ${props.node.path}`}
+            aria-expanded={expanded()}
+            onClick={() => props.onToggle(props.node.path)}
+          >
+            <ChevronRightIcon size={12} />
+          </button>
+        </Show>
+        <A
+          href={pathToRoute(props.node.path)}
+          class={labelClass}
+          title={props.node.path}
+          aria-current={active() ? "page" : undefined}
+          onClick={() => props.onNavigate?.()}
+        >
+          {props.query
+            ? renderHighlighted(props.node.segment, props.query)
+            : props.node.segment}
+        </A>
+        <span class={countClass}>{props.node.totalCount}</span>
+      </div>
+      <Show when={expanded()}>
+        <ul class={cx(css({ listStyle: "none" }))}>
+          <For each={props.node.children}>
+            {(child) => <PathTreeRailNode {...props} node={child} />}
+          </For>
+        </ul>
+      </Show>
+    </li>
+  );
+};
