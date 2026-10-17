@@ -1680,7 +1680,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               const visibleNoteLabelLayouts = createMemo(() => {
                 const selectedRegionId = props.selectedRegionId?.();
                 if (!notesInteractive()) return [] as NoteLabelLayout[];
-                const occupiedBoxes = regionLabelLayouts().map((item) => ({
+                const fixedRegionLayout = fixedSelectedRegionLayout();
+                const regionBoxes = fixedRegionLayout
+                  ? [...regionLabelLayouts(), fixedRegionLayout]
+                  : regionLabelLayouts();
+                const occupiedBoxes = regionBoxes.map((item) => ({
                   minX: item.minX,
                   minY: item.minY,
                   maxX: item.maxX,

@@ -533,8 +533,8 @@ const CanvasRoute: VoidComponent = () => {
       bg="bg.default"
       overflow="hidden"
       position="relative"
-      minH="100vh"
-      h="100vh"
+      // The phone shell reserves 4rem above the page for its menu button.
+      h={{ base: "calc(100dvh - 4rem)", md: "100dvh" }}
       w="full"
     >
       <Show
@@ -670,14 +670,15 @@ const CanvasRoute: VoidComponent = () => {
           right="3"
           bottom="3"
           display={{ base: mobileRailOpen() ? "block" : "none", md: "block" }}
-          w={{ base: "calc(100vw - 1.5rem)", md: `${CANVAS_SIDE_RAIL_WIDTH_PX}px` }}
-          maxH={{ base: "60vh", md: "none" }}
+          // Keep in sync with CANVAS_SIDE_RAIL_WIDTH_PX (Panda needs a literal).
+          w={{ base: "auto", md: "248px" }}
+          left={{ base: "3", md: "auto" }}
+          mt={{ base: "12", md: "0" }}
           bg="bg.default"
           borderRadius="l2"
           boxShadow="md"
           overflow="hidden"
-          style={{ top: `calc(${overlayTop()} + var(--rail-mobile-offset, 0px))` }}
-          css={{ "--rail-mobile-offset": { base: "48px", md: "0px" } }}
+          style={{ top: overlayTop() }}
           onWheel={(e) => e.stopPropagation()}
         >
           <CanvasSideRail
