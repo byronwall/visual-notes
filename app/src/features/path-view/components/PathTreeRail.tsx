@@ -1,10 +1,11 @@
-import { A } from "@solidjs/router";
-import { SearchIcon } from "lucide-solid";
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { A, useNavigate } from "@solidjs/router";
+import { SearchIcon, XIcon } from "lucide-solid";
+import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import { css } from "styled-system/css";
 import { buildPathAncestors } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
-import { filterPathTree } from "../utils/path-tree";
+import { filterPathTree, firstPathMatch } from "../utils/path-tree";
+import { pathToRoute } from "~/utils/path-links";
 import { PathTreeRailNode } from "./PathTreeRailNode";
 
 // Manual expand/collapse choices survive navigation between path pages.
@@ -56,6 +57,18 @@ const filterInputClass = css({
   transitionDuration: "fast",
   _placeholder: { color: "fg.subtle" },
   _focusVisible: { bg: "bg.default", boxShadow: "0 0 0 1px token(colors.gray.7)" },
+  "&::-webkit-search-cancel-button": { display: "none" },
+});
+
+const clearButtonClass = css({
+  position: "absolute",
+  right: "1",
+  display: "inline-flex",
+  p: "1",
+  borderRadius: "l1",
+  color: "fg.subtle",
+  cursor: "pointer",
+  _hover: { color: "fg.default", bg: "gray.a3" },
 });
 
 export const PathTreeRail = (props: {
@@ -63,6 +76,7 @@ export const PathTreeRail = (props: {
   activePath: string;
   onNavigate?: () => void;
 }) => {
+  const navigate = useNavigate();
   const [query, setQuery] = createSignal("");
 
   const autoExpanded = createMemo(() => new Set(buildPathAncestors(props.activePath)));
@@ -77,8 +91,20 @@ export const PathTreeRail = (props: {
   const toggle = (path: string) =>
     setManualExpanded((prev) => ({ ...prev, [path]: !isExpanded(path) }));
 
+  let navEl: HTMLElement | undefined;
+  // Keep the current path visible in long trees after each navigation.
+  createEffect(
+    on(
+      () => props.activePath,
+      () =>
+        requestAnimationFrame(() =>
+          navEl?.querySelector("[aria-current=page]")?.scrollIntoView({ block: "nearest" }),
+        ),
+    ),
+  );
+
   return (
-    <nav class={railClass} aria-label="Path tree">
+    <nav ref={navEl} class={railClass} aria-label="Path tree">
       <A
         href="/path"
         class={rootLinkClass}
@@ -98,11 +124,27 @@ export const PathTreeRail = (props: {
           value={query()}
           onInput={(event) => setQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
-            if (event.key === "Escape") setQuery("");
+            if (event.key === "Escape" && query()) {
+              event.stopPropagation();
+              setQuery("");
+            }
+            if (event.key === "Enter") {
+              const match = firstPathMatch(props.tree, query());
+              if (!match) return;
+              event.preventDefault();
+              setQuery("");
+              props.onNavigate?.();
+              navigate(pathToRoute(match));
+            }
           }}
           placeholder="Find a path"
           aria-label="Find a path"
         />
+        <Show when={query()}>
+          <button type="button" class={clearButtonClass} aria-label="Clear path search" onClick={() => setQuery("")}>
+            <XIcon size={12} />
+          </button>
+        </Show>
       </label>
       <Show
         when={filtered()?.children.length}

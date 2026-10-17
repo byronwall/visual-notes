@@ -47,6 +47,16 @@ export const PathNoteList = (props: {
   const [limit, setLimit] = createSignal(PAGE_SIZE);
   const [activeIndex, setActiveIndex] = createSignal(-1);
   let filterInput: HTMLInputElement | undefined;
+  // The keyboard cursor yields to the mouse, but only to real pointer movement:
+  // Chrome sends a synthetic mousemove (same coordinates) after scrollIntoView.
+  let lastPointer = "";
+  const onListMouseMove = (event: MouseEvent) => {
+    const at = `${event.clientX},${event.clientY}`;
+    if (at === lastPointer) return;
+    const first = lastPointer === "";
+    lastPointer = at;
+    if (!first && activeIndex() >= 0) setActiveIndex(-1);
+  };
 
   const hasNestedNotes = createMemo(() =>
     props.notes.some((note) => relativeNotePath(note.path, props.path) !== ""),
@@ -131,7 +141,10 @@ export const PathNoteList = (props: {
   });
 
   return (
-    <section class={css({ display: "flex", flexDirection: "column", gap: "2" })}>
+    <section
+      class={css({ display: "flex", flexDirection: "column", gap: "2", p: "0", containerType: "inline-size" })}
+      onMouseMove={onListMouseMove}
+    >
       <PathNoteToolbar
         query={params.query()}
         onQueryChange={params.setQuery}
@@ -147,16 +160,14 @@ export const PathNoteList = (props: {
       <Show
         when={ordered().length > 0}
         fallback={
-          <p class={css({ py: "6", fontSize: "sm", color: "fg.muted" })}>
-            No notes match “{params.query().trim()}”.{" "}
-            <button
-              type="button"
-              class={css({ color: "fg.default", textDecoration: "underline", cursor: "pointer" })}
-              onClick={() => params.setQuery("")}
-            >
+          <div class={css({ display: "flex", alignItems: "center", gap: "3", py: "6", fontSize: "sm", color: "fg.muted" })}>
+            <span>
+              No notes match <span class={css({ color: "fg.default" })}>“{params.query().trim()}”</span>
+            </span>
+            <Button size="xs" variant="outline" onClick={() => params.setQuery("")}>
               Clear filter
-            </button>
-          </p>
+            </Button>
+          </div>
         }
       >
         <For each={sections()}>
@@ -185,9 +196,8 @@ export const PathNoteList = (props: {
                       basePath={grouped() ? section.groupPath || props.path : props.path}
                       query={params.query().trim()}
                       active={indexById().get(note.id) === activeIndex()}
-                      showSubpath={true}
+                      showSubpath={hasNestedNotes()}
                       preview={() => previewFor(note)}
-                      onHover={() => setActiveIndex(indexById().get(note.id) ?? -1)}
                     />
                   )}
                 </For>

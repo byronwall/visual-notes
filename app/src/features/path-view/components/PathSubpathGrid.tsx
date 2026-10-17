@@ -13,7 +13,10 @@ const MAX_NESTED = 4;
 
 const gridClass = css({
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+  gridTemplateColumns: {
+    base: "repeat(auto-fill, minmax(150px, 1fr))",
+    md: "repeat(auto-fill, minmax(220px, 1fr))",
+  },
   gap: "2",
 });
 
@@ -69,6 +72,7 @@ const nestedClass = css({
 const nestedLinkClass = css({
   position: "relative",
   zIndex: 1,
+  py: "0.5",
   color: "fg.muted",
   textDecoration: "none",
   _hover: { color: "fg.default", textDecoration: "underline" },

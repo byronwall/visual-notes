@@ -1,6 +1,7 @@
 import { SearchIcon, XIcon } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
+import { Kbd } from "~/components/ui/kbd";
 import type { PathNoteSort } from "../hooks/usePathViewParams";
 
 const toolbarClass = css({
@@ -14,7 +15,7 @@ const searchWrapClass = css({
   position: "relative",
   display: "flex",
   alignItems: "center",
-  flex: "1 1 240px",
+  flex: "1 1 200px",
   maxW: "420px",
   color: "fg.subtle",
 });
@@ -34,6 +35,14 @@ const searchInputClass = css({
   _placeholder: { color: "fg.subtle" },
   _focusVisible: { bg: "bg.default", boxShadow: "0 0 0 1px token(colors.gray.7)" },
   "&::-webkit-search-cancel-button": { display: "none" },
+});
+
+const kbdHintClass = css({
+  position: "absolute",
+  right: "2",
+  pointerEvents: "none",
+  display: { base: "none", md: "inline-flex" },
+  "input:focus ~ &": { display: "none" },
 });
 
 const iconButtonClass = css({
@@ -116,6 +125,11 @@ export const PathNoteToolbar = (props: {
         placeholder={`Filter ${props.total} notes`}
         aria-label="Filter notes in this path"
       />
+      <Show when={!props.query}>
+        <Kbd size="sm" class={kbdHintClass} aria-hidden="true">
+          /
+        </Kbd>
+      </Show>
       <Show when={props.query}>
         <button
           type="button"
@@ -161,9 +175,11 @@ export const PathNoteToolbar = (props: {
         </button>
       </div>
     </Show>
-    <span class={countClass}>
-      {props.shown === props.total ? `${props.total}` : `${props.shown} of ${props.total}`}{" "}
-      {props.total === 1 ? "note" : "notes"}
-    </span>
+    {/* The header already states the total; only call out the filtered count. */}
+    <Show when={props.shown !== props.total}>
+      <span class={countClass} aria-live="polite">
+        {props.shown} of {props.total} notes
+      </span>
+    </Show>
   </div>
 );

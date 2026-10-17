@@ -7,6 +7,7 @@ import { pathToRoute } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
 
 const rowClass = css({
+  position: "relative",
   display: "grid",
   gridTemplateColumns: "16px minmax(0, 1fr) auto",
   alignItems: "center",
@@ -33,6 +34,8 @@ const toggleClass = css({
   h: "4",
   borderRadius: "l1",
   color: "fg.subtle",
+  position: "relative",
+  zIndex: 1,
   cursor: "pointer",
   transitionProperty: "transform, color, background-color",
   transitionDuration: "fast",
@@ -52,7 +55,10 @@ const labelClass = css({
   color: "inherit",
   textDecoration: "none",
   py: "1",
-  _focusVisible: { outline: "2px solid", outlineColor: "gray.8", outlineOffset: "1px", borderRadius: "l1" },
+  outline: "none",
+  // Stretch the link so the whole row (count included) navigates.
+  _after: { content: '""', position: "absolute", inset: "0", borderRadius: "l2" },
+  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.gray.8)" } },
 });
 
 const countClass = css({

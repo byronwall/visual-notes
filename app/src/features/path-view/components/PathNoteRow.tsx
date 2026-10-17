@@ -9,11 +9,19 @@ import { relativeNotePath, type PathNote } from "../utils/path-notes";
 const rowClass = css({
   position: "relative",
   display: "grid",
-  gridTemplateColumns: { base: "minmax(0, 1fr) auto", md: "minmax(0, 1fr) minmax(0, 200px) 64px" },
-  gridTemplateAreas: { base: '"main time" "main sub"', md: '"main sub time"' },
+  // Fixed time column so titles wrap at the same width on every row.
+  gridTemplateColumns: "minmax(0, 1fr) 64px",
+  gridTemplateAreas: '"main time" "sub sub"',
+  // Lay out against the list width, not the viewport, so the rail never squeezes titles.
+  "@container (min-width: 640px)": {
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 180px) 64px",
+    gridTemplateAreas: '"main sub time"',
+    // No row in this list lives in a subpath: give the title the space.
+    "&[data-nosub]": { gridTemplateColumns: "minmax(0, 1fr) 64px", gridTemplateAreas: '"main time"' },
+  },
   alignItems: "start",
   columnGap: "4",
-  rowGap: "0.5",
+  rowGap: "0",
   px: "3",
   py: "2",
   mx: "-3",
@@ -51,9 +59,9 @@ const subpathClass = css({
   gridArea: "sub",
   position: "relative",
   zIndex: 1,
-  justifySelf: { base: "end", md: "start" },
+  justifySelf: "start",
   maxW: "full",
-  pt: "0.5",
+  "@container (min-width: 640px)": { pt: "0.5" },
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
@@ -81,7 +89,6 @@ export const PathNoteRow = (props: {
   active: boolean;
   showSubpath: boolean;
   preview: Accessor<string | undefined>;
-  onHover: () => void;
 }) => {
   const subpath = () => relativeNotePath(props.note.path, props.basePath);
   const title = () => props.note.title || "Untitled";
@@ -91,9 +98,7 @@ export const PathNoteRow = (props: {
       class={rowClass}
       data-active={props.active ? "" : undefined}
       data-note-id={props.note.id}
-      onMouseMove={() => {
-        if (!props.active) props.onHover();
-      }}
+      data-nosub={props.showSubpath ? undefined : ""}
     >
       <div class={css({ gridArea: "main", minW: "0" })}>
         <A href={`/docs/${props.note.id}`} class={titleLinkClass}>
@@ -105,7 +110,7 @@ export const PathNoteRow = (props: {
           </Suspense>
         </p>
       </div>
-      <Show when={props.showSubpath && subpath()} fallback={<span class={css({ gridArea: "sub" })} />}>
+      <Show when={props.showSubpath && subpath()}>
         <A
           href={pathToRoute(props.note.path || "")}
           class={subpathClass}

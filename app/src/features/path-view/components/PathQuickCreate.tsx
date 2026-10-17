@@ -11,7 +11,8 @@ const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const inputClass = css({
-  w: "full",
+  w: "320px",
+  maxW: "full",
   h: "9",
   px: "2.5",
   borderRadius: "l2",
@@ -67,16 +68,18 @@ export const PathQuickCreate = (props: {
       onClose={close}
       placement="bottom-end"
       offset={6}
-      class={css({ p: "3", w: "min(360px, calc(100vw - 32px))" })}
+      class={css({ p: "3", maxW: "calc(100vw - 32px)" })}
       anchor={
         <Button
           size="sm"
           variant="outline"
           onClick={() => props.onOpenChange(!props.open)}
           title="New note at this path (N)"
+          aria-label="New note"
         >
           <PlusIcon size={14} />
-          New note
+          {/* Icon-only on phones so the path title keeps the row. */}
+          <span class={css({ display: { base: "none", sm: "inline" } })}>New note</span>
           <Kbd size="sm" display={{ base: "none", md: "inline-flex" }}>
             N
           </Kbd>
@@ -90,11 +93,12 @@ export const PathQuickCreate = (props: {
           void submit();
         }}
       >
-        <label class={css({ fontSize: "xs", color: "fg.muted" })}>
+        <label for="path-quick-create-title" class={css({ fontSize: "xs", color: "fg.muted" })}>
           New note in{" "}
           <span class={css({ fontFamily: "mono", color: "fg.default" })}>{props.path}</span>
         </label>
         <input
+          id="path-quick-create-title"
           class={inputClass}
           value={title()}
           onInput={(event) => setTitle(event.currentTarget.value)}
@@ -102,7 +106,6 @@ export const PathQuickCreate = (props: {
             if (event.key === "Escape") close();
           }}
           placeholder="Title"
-          aria-label="New note title"
           maxLength={200}
         />
         <div class={css({ display: "flex", alignItems: "center", gap: "2" })}>

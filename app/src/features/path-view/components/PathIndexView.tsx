@@ -33,7 +33,6 @@ export const PathIndexView = () => {
   const recentlyViewed = createMemo<PathRecentItem[]>(() =>
     (discovery()?.recentlyViewed ?? []).slice(0, RECENT_LIMIT).map((item) => ({
       path: item.path,
-      count: item.count,
       at: item.lastViewedAt ?? null,
     })),
   );
@@ -41,14 +40,14 @@ export const PathIndexView = () => {
   return (
     <PathBrowserShell tree={tree()} activePath="">
       <div class={css({ display: "flex", flexDirection: "column", gap: "7" })}>
-        <header>
+        <div>
           <h1 class={css({ fontSize: { base: "xl", md: "2xl" }, fontWeight: "semibold", lineHeight: "1.25" })}>
             Paths
           </h1>
           <p class={css({ mt: "1", fontSize: "sm", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
             {tree().totalCount} notes across {pathCount()} paths
           </p>
-        </header>
+        </div>
 
         <Show when={recentlyUpdated().length > 0 || recentlyViewed().length > 0}>
           <div
@@ -67,7 +66,7 @@ export const PathIndexView = () => {
           </div>
         </Show>
 
-        <section>
+        <section class={css({ p: "0" })}>
           <h2 class={css({ mb: "2", fontSize: "sm", fontWeight: "semibold", color: "fg.muted" })}>
             All areas
           </h2>

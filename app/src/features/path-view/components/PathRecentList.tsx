@@ -4,7 +4,8 @@ import { css } from "styled-system/css";
 import { formatAbsoluteTime, formatRelativeTime } from "~/features/docs-index/utils/time";
 import { pathToRoute } from "~/utils/path-links";
 
-export type PathRecentItem = { path: string; count: number; at: string | null };
+/** `count` is the number of notes at the path; omit it when it would mean something else. */
+export type PathRecentItem = { path: string; count?: number; at: string | null };
 
 const rowClass = css({
   display: "grid",
@@ -49,7 +50,7 @@ export const PathRecentList = (props: {
   items: PathRecentItem[];
   verb: string;
 }) => (
-  <section class={css({ minW: "0" })}>
+  <section class={css({ minW: "0", p: "0" })}>
     <h2 class={css({ mb: "1", fontSize: "sm", fontWeight: "semibold", color: "fg.muted" })}>
       {props.title}
     </h2>
@@ -64,7 +65,9 @@ export const PathRecentList = (props: {
                   <span data-parent>{parent}</span>
                   {leaf}
                 </span>
-                <span class={metaClass}>{item.count}</span>
+                <span class={metaClass}>
+                  {item.count === undefined ? "" : `${item.count} ${item.count === 1 ? "note" : "notes"}`}
+                </span>
                 <span
                   class={css({ fontSize: "xs", color: "fg.subtle", whiteSpace: "nowrap", minW: "14", textAlign: "right" })}
                   title={item.at ? `${props.verb} ${formatAbsoluteTime(item.at)}` : undefined}

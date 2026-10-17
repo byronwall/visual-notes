@@ -104,3 +104,20 @@ export const filterPathTree = (
   }
   return null;
 };
+
+/** The first path (tree order) whose full path contains the query, preferring segment matches. */
+export const firstPathMatch = (root: PathTreeNode, query: string): string | null => {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  let fallback: string | null = null;
+  const visit = (node: PathTreeNode): string | null => {
+    for (const child of node.children) {
+      if (child.segment.toLowerCase().includes(q)) return child.path;
+      if (!fallback && child.path.toLowerCase().includes(q)) fallback = child.path;
+      const found = visit(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(root) ?? fallback;
+};

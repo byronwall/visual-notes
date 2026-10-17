@@ -39,7 +39,8 @@ export const usePathKeyboard = (handlers: {
           break;
         case "Enter":
           if (!handlers.hasActive()) return;
-          if (event.target instanceof HTMLAnchorElement) return;
+          // Let a focused link or button do its own thing.
+          if (event.target instanceof Element && event.target.closest("a, button, [role=button]")) return;
           event.preventDefault();
           handlers.open(event.metaKey);
           break;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPathTree, filterPathTree, findPathNode } from "./path-tree";
+import { buildPathTree, filterPathTree, findPathNode, firstPathMatch } from "./path-tree";
 
 const stats = [
   { path: "work.visual-notes.design", count: 3, lastUpdatedAt: "2026-10-10T00:00:00.000Z" },
@@ -34,5 +34,18 @@ describe("filterPathTree", () => {
     expect(filtered?.children[0].children.map((child) => child.path)).toEqual([
       "work.visual-notes",
     ]);
+  });
+});
+
+describe("firstPathMatch", () => {
+  const root = buildPathTree(stats);
+  it("returns the first segment match in tree order", () => {
+    expect(firstPathMatch(root, "meet")).toBe("work.meetings");
+    expect(firstPathMatch(root, "DESIGN")).toBe("work.visual-notes.design");
+  });
+  it("matches across a dot and returns null for no match", () => {
+    expect(firstPathMatch(root, "notes.des")).toBe("work.visual-notes.design");
+    expect(firstPathMatch(root, "zzz")).toBeNull();
+    expect(firstPathMatch(root, " ")).toBeNull();
   });
 });

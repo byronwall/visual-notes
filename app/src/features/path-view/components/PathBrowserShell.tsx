@@ -3,16 +3,18 @@ import { css } from "styled-system/css";
 import type { PathTreeNode } from "../utils/path-tree";
 import { PathTreeRail } from "./PathTreeRail";
 
+// The rail only fits beside the app sidebar on wide screens; below `xl` the
+// header's tree button opens the same rail in a popover.
 const shellClass = css({
   display: "grid",
-  gridTemplateColumns: { base: "minmax(0, 1fr)", md: "248px minmax(0, 1fr)" },
+  gridTemplateColumns: { base: "minmax(0, 1fr)", xl: "248px minmax(0, 1fr)" },
   minH: "100vh",
   bg: "bg.default",
   color: "fg.default",
 });
 
 const railClass = css({
-  display: { base: "none", md: "block" },
+  display: { base: "none", xl: "block" },
   position: "sticky",
   top: "0",
   alignSelf: "start",
@@ -27,8 +29,16 @@ const railClass = css({
 const mainClass = css({
   minW: "0",
   px: { base: "4", md: "8" },
-  pt: { base: "4", md: "5" },
+  pt: "4",
   pb: "16",
+  // Undo the legacy global `header`/`section` rules in panda.css (padding,
+  // border, and a white translucent background) for this view only.
+  "& header, & section": {
+    p: "0",
+    borderBottom: "none",
+    bg: "transparent",
+    backdropFilter: "none",
+  },
 });
 
 export const PathBrowserShell = (props: {

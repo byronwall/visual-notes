@@ -5,6 +5,7 @@ import { fetchPathPageData } from "~/services/docs.service";
 import { usePathTree } from "../hooks/usePathTree";
 import { findPathNode } from "../utils/path-tree";
 import { PathBrowserShell } from "./PathBrowserShell";
+import { PathEmptyState } from "./PathEmptyState";
 import { PathHeader } from "./PathHeader";
 import { PathNoteList } from "./PathNoteList";
 import { PathNoteListSkeleton } from "./PathNoteListSkeleton";
@@ -29,6 +30,7 @@ export const PathDetailView = (props: { path: string }) => {
       <div class={css({ display: "flex", flexDirection: "column", gap: "6" })}>
         <PathHeader
           path={props.path}
+          tree={tree()}
           node={node()}
           actions={
             <PathQuickCreate path={props.path} open={createOpen()} onOpenChange={setCreateOpen} />
@@ -36,7 +38,7 @@ export const PathDetailView = (props: { path: string }) => {
         />
 
         <Show when={(node()?.children.length ?? 0) > 0}>
-          <section>
+          <section class={css({ p: "0" })}>
             <h2 class={sectionTitleClass}>Subpaths</h2>
             <PathSubpathGrid nodes={node()?.children ?? []} />
           </section>
@@ -46,20 +48,7 @@ export const PathDetailView = (props: { path: string }) => {
           <Show
             when={(data()?.notes.length ?? 0) > 0}
             fallback={
-              <div class={css({ py: "10", textAlign: "center", color: "fg.muted", fontSize: "sm" })}>
-                <p>
-                  Nothing is filed under{" "}
-                  <span class={css({ fontFamily: "mono", color: "fg.default" })}>{props.path}</span>{" "}
-                  yet.
-                </p>
-                <button
-                  type="button"
-                  class={css({ mt: "2", color: "fg.default", textDecoration: "underline", cursor: "pointer" })}
-                  onClick={() => setCreateOpen(true)}
-                >
-                  Create the first note here
-                </button>
-              </div>
+              <PathEmptyState path={props.path} onCreateNote={() => setCreateOpen(true)} />
             }
           >
             <PathNoteList

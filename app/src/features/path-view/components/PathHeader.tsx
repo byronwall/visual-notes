@@ -4,13 +4,14 @@ import { css } from "styled-system/css";
 import { formatAbsoluteTime, formatRelativeTime } from "~/features/docs-index/utils/time";
 import { buildPathAncestors, pathToRoute } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
+import { PathTreePopover } from "./PathTreePopover";
 
+// A div, not <header>: panda.css styles bare <header> as the sticky app bar.
 const headerClass = css({
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: "4",
-  flexWrap: "wrap",
 });
 
 const titleClass = css({
@@ -32,9 +33,20 @@ const crumbLinkClass = css({
   transitionProperty: "color",
   transitionDuration: "fast",
   _hover: { color: "fg.default" },
+  _focusVisible: { outline: "2px solid", outlineColor: "gray.8", outlineOffset: "2px" },
 });
 
-const sepClass = css({ color: "fg.subtle", opacity: 0.6, px: "0.5" });
+const sepClass = css({ color: "fg.subtle" });
+
+const titleRowClass = css({ display: "flex", alignItems: "flex-start", gap: "1" });
+
+// Pull the button left so its icon, not its hit area, lines up with the content edge.
+const treeButtonClass = css({
+  display: { base: "block", xl: "none" },
+  flexShrink: 0,
+  ml: "-2",
+  mt: { base: "-1", md: "-0.5" },
+});
 
 const statsClass = css({
   display: "flex",
@@ -51,6 +63,7 @@ const plural = (count: number, word: string) =>
 
 export const PathHeader = (props: {
   path: string;
+  tree: PathTreeNode;
   node?: PathTreeNode;
   actions?: JSX.Element;
 }) => {
@@ -58,33 +71,26 @@ export const PathHeader = (props: {
   const leaf = () => props.path.split(".").pop() || props.path;
 
   return (
-    <header class={headerClass}>
-      <div class={css({ minW: "0" })}>
-        <A
-          href="/path"
-          class={css({
-            display: { base: "inline-block", md: "none" },
-            mb: "1",
-            fontSize: "sm",
-            color: "fg.muted",
-            textDecoration: "none",
-          })}
-        >
-          ← All paths
-        </A>
-        <h1 class={titleClass}>
-          <For each={ancestors()}>
-            {(ancestor) => (
-              <>
-                <A href={pathToRoute(ancestor)} class={crumbLinkClass}>
-                  {ancestor.split(".").pop()}
-                </A>
-                <span class={sepClass}>.</span>
-              </>
-            )}
-          </For>
-          <span>{leaf()}</span>
-        </h1>
+    <div class={headerClass}>
+      <div class={css({ minW: "0", flex: "1" })}>
+        <div class={titleRowClass}>
+          <div class={treeButtonClass}>
+            <PathTreePopover tree={props.tree} activePath={props.path} />
+          </div>
+          <h1 class={titleClass}>
+            <For each={ancestors()}>
+              {(ancestor) => (
+                <>
+                  <A href={pathToRoute(ancestor)} class={crumbLinkClass}>
+                    {ancestor.split(".").pop()}
+                  </A>
+                  <span class={sepClass}>.</span>
+                </>
+              )}
+            </For>
+            <span>{leaf()}</span>
+          </h1>
+        </div>
         <Show when={props.node}>
           {(node) => (
             <p class={statsClass}>
@@ -109,6 +115,6 @@ export const PathHeader = (props: {
       </div>
       {/* Read `actions` once: a JSX prop getter re-creates its elements on every read. */}
       <div class={css({ display: "flex", gap: "2", flexShrink: 0 })}>{props.actions}</div>
-    </header>
+    </div>
   );
 };
