@@ -16,6 +16,7 @@ import {
   fetchArchivedPageDetail,
   fetchArchivedPageGroupSummaries,
   fetchArchivedPageGroups,
+  fetchArchivedPageTotals,
   fetchArchivedPages,
 } from "~/services/archive/archive.service";
 
@@ -50,6 +51,7 @@ const ArchivePage = () => {
   const items = createAsync(() => fetchArchivedPages(filters()));
   const groups = createAsync(() => fetchArchivedPageGroups());
   const groupSummaries = createAsync(() => fetchArchivedPageGroupSummaries());
+  const totals = createAsync(() => fetchArchivedPageTotals());
 
   const visibleItems = createMemo(() => {
     const list = items.latest ?? [];
@@ -87,6 +89,7 @@ const ArchivePage = () => {
       revalidate(fetchArchivedPages.keyFor(filters())),
       revalidate(fetchArchivedPageGroups.key),
       revalidate(fetchArchivedPageGroupSummaries.key),
+      revalidate(fetchArchivedPageTotals.key),
       ...(pageId ? [revalidate(fetchArchivedPageDetail.keyFor(pageId))] : []),
     ]);
   };
@@ -123,6 +126,7 @@ const ArchivePage = () => {
         <ArchiveListToolbar
           group={group()}
           groups={groupSummaries.latest ?? []}
+          totals={totals.latest}
           totalCount={visibleItems().length}
           search={search()}
           since={since()}

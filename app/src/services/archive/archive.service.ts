@@ -6,6 +6,7 @@ export {
   fetchArchivedPageDetail,
   fetchArchivedPageGroups,
   fetchArchivedPageGroupSummaries,
+  fetchArchivedPageTotals,
   fetchArchivedPages,
   lookupArchivedPageByUrl,
 } from "./archive.queries";

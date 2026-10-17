@@ -34,6 +34,7 @@ const countClass = css({ fontSize: "xs", color: "fg.subtle", fontVariantNumeric:
 export type ArchiveListToolbarProps = {
   group: string;
   groups: ArchivedPageGroupSummary[];
+  totals?: { total: number; ungrouped: number };
   totalCount: number;
   search: string;
   since: string;
@@ -125,6 +126,7 @@ export const ArchiveListToolbar = (props: ArchiveListToolbarProps) => {
       <HStack gap="1" flexWrap="wrap" alignItems="center" as="nav" aria-label="Explorer groups" ml="-2.5">
         <a href={props.groupHref("")} class={groupTabClass} aria-current={!props.group ? "page" : undefined}>
           All
+          <Show when={props.totals}>{(totals) => <span class={countClass}>{totals().total}</span>}</Show>
         </a>
         <For each={props.groups}>
           {(group) => (
@@ -138,13 +140,16 @@ export const ArchiveListToolbar = (props: ArchiveListToolbarProps) => {
             </a>
           )}
         </For>
+        <Show when={props.group === UNGROUPED_FILTER || (props.totals?.ungrouped ?? 0) > 0}>
         <a
           href={props.groupHref(UNGROUPED_FILTER)}
           class={groupTabClass}
           aria-current={props.group === UNGROUPED_FILTER ? "page" : undefined}
         >
           Ungrouped
+          <Show when={props.totals}>{(totals) => <span class={countClass}>{totals().ungrouped}</span>}</Show>
         </a>
+        </Show>
 
         <Show when={props.hostname}>
           <FilterChip label="Host" value={props.hostname} mono onClear={props.onClearHostname} />
