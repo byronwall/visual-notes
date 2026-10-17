@@ -1,239 +1,179 @@
-import { PencilIcon, Trash2Icon } from "lucide-solid";
-import { batch, For, Show, createEffect, createSignal } from "solid-js";
+import { PlusIcon } from "lucide-solid";
+import { createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
-import { Box, HStack, Stack } from "styled-system/jsx";
-import { Button } from "~/components/ui/button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { IconButton } from "~/components/ui/icon-button";
-import { Text } from "~/components/ui/text";
 import type { TaskListItem } from "~/services/tasks/tasks.service";
+import { TaskListNameInput } from "./TaskListNameInput";
+import { TaskListRowMenu } from "./TaskListRowMenu";
 
 type Props = {
   lists: TaskListItem[];
   selectedListId: string | null;
+  /** Open-task count for the selected list, which is known client-side. */
+  selectedOpenCount: number | null;
   onSelect: (id: string) => void;
-  onCreate: () => void;
-  onRename: (list: TaskListItem, nextName: string) => void | Promise<void>;
+  onCreate: (name: string) => Promise<void>;
+  onRename: (list: TaskListItem, nextName: string) => void;
   onDelete: (list: TaskListItem) => Promise<void>;
 };
 
 const getDisplayName = (list: TaskListItem) => list.name.trim() || "Untitled list";
 
+const itemsClass = css({
+  display: "flex",
+  flexDirection: { base: "row", lg: "column" },
+  flexWrap: { base: "wrap", lg: "nowrap" },
+  gap: { base: "1", lg: "0.5" },
+  overflowY: { lg: "auto" },
+  minH: "0",
+});
+
+const itemClass = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2",
+  h: "8",
+  pl: "2.5",
+  pr: "1",
+  borderRadius: "l2",
+  fontSize: "sm",
+  color: "fg.muted",
+  cursor: "pointer",
+  userSelect: "none",
+  transitionProperty: "background-color, color",
+  transitionDuration: "fast",
+  _hover: { bg: "gray.a3", color: "fg.default" },
+  "&[data-selected=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
+  _focusVisible: { outline: "2px solid token(colors.gray.a8)", outlineOffset: "-2px" },
+  "& [data-reveal]": { opacity: 0, transitionProperty: "opacity", transitionDuration: "fast" },
+  "&:hover [data-reveal], & [data-reveal][data-state=open], & [data-reveal]:focus-visible": {
+    opacity: 1,
+  },
+  "@media (hover: none)": { "& [data-reveal]": { display: "none" } },
+});
+
+const countClass = css({
+  ml: "auto",
+  minW: "5",
+  textAlign: "right",
+  fontSize: "xs",
+  fontWeight: "normal",
+  color: "fg.subtle",
+  fontVariantNumeric: "tabular-nums",
+});
+
 export const TaskListSelector = (props: Props) => {
   const [pendingDelete, setPendingDelete] = createSignal<TaskListItem | null>(null);
-  const [hoveredListId, setHoveredListId] = createSignal<string | null>(null);
-  const [editingListId, setEditingListId] = createSignal<string | null>(null);
-  const [draftName, setDraftName] = createSignal("");
-  const [savingListId, setSavingListId] = createSignal<string | null>(null);
-  let editingInputRef: HTMLInputElement | undefined;
-  let editTriggerRef: HTMLButtonElement | undefined;
-  let suppressBlurSubmit = false;
-
-  createEffect(() => {
-    if (!editingListId() || !editingInputRef) return;
-    queueMicrotask(() => {
-      editingInputRef?.focus();
-      editingInputRef?.select();
-    });
-  });
-
-  const startEditing = (list: TaskListItem) => {
-    setDraftName(list.name);
-    setEditingListId(list.id);
-  };
-
-  const cancelEditing = () => {
-    batch(() => {
-      setDraftName("");
-      setEditingListId(null);
-      setSavingListId(null);
-    });
-  };
-
-  const submitEditing = (list: TaskListItem) => {
-    suppressBlurSubmit = false;
-    const nextName = draftName().trim();
-    if (!nextName) {
-      setDraftName(list.name);
-      setEditingListId(list.id);
-      return;
-    }
-    if (nextName === list.name) {
-      cancelEditing();
-      return;
-    }
-
-    setSavingListId(list.id);
-    void props.onRename(list, nextName);
-    cancelEditing();
-  };
-
-  const closeEditingFromEscape = () => {
-    suppressBlurSubmit = true;
-    cancelEditing();
-    queueMicrotask(() => {
-      editingInputRef?.blur();
-      editTriggerRef?.focus();
-    });
-  };
+  const [renamingId, setRenamingId] = createSignal<string | null>(null);
+  const [creating, setCreating] = createSignal(false);
 
   return (
-    <Stack gap="2" minH="0" flex="1" overflow="hidden" data-testid="task-lists-nav">
-      <HStack justifyContent="space-between" alignItems="center">
-        <Text fontWeight="semibold">Task Lists</Text>
-        <Button size="xs" onClick={props.onCreate} data-testid="task-list-create-button">
-          New List
-        </Button>
-      </HStack>
+    <nav
+      aria-label="Task lists"
+      data-testid="task-lists-nav"
+      class={css({ display: "flex", flexDirection: "column", gap: "1", minH: "0" })}
+    >
+      <div class={css({ display: "flex", alignItems: "center", h: "8", pl: "2.5" })}>
+        <span
+          class={css({
+            fontSize: "xs",
+            fontWeight: "medium",
+            color: "fg.subtle",
+            textTransform: "uppercase",
+            letterSpacing: "wider",
+          })}
+        >
+          Lists
+        </span>
+        <IconButton
+          size="2xs"
+          variant="plain"
+          ml="auto"
+          aria-label="New list"
+          data-testid="task-list-create-button"
+          onClick={() => setCreating(true)}
+        >
+          <PlusIcon size={14} />
+        </IconButton>
+      </div>
 
-      <Stack gap="1" overflowY="auto" minH="0" pr="1" flex="1">
+      <div class={itemsClass}>
         <For each={props.lists}>
           {(list) => {
-            const isEditing = () => editingListId() === list.id;
-            const isRenameVisible = () => hoveredListId() === list.id && !isEditing();
-            const isSaving = () => savingListId() === list.id;
-
+            const selected = () => props.selectedListId === list.id;
             return (
-              <Box
-                data-testid={`task-list-item-${list.id}`}
-                position="relative"
-                borderWidth="1px"
-                borderColor={props.selectedListId === list.id ? "blue.500" : "border"}
-                borderRadius="md"
-                px="2"
-                pl="10"
-                py="2"
-                bg={props.selectedListId === list.id ? "bg.subtle" : "bg"}
-                onMouseEnter={() => setHoveredListId(list.id)}
-                onMouseLeave={() => {
-                  if (hoveredListId() === list.id) setHoveredListId(null);
-                }}
-              >
-                <HStack
-                  justifyContent="space-between"
-                  alignItems="center"
-                  gap="2"
-                  minW="0"
-                  onClick={() => props.onSelect(list.id)}
-                >
-                  <Box
-                    position="absolute"
-                    left="2"
-                    top="50%"
-                    zIndex="1"
-                    style={{
-                      transform: "translateY(-50%)",
+              <Show
+                when={renamingId() === list.id}
+                fallback={
+                  <div
+                    class={itemClass}
+                    role="button"
+                    tabIndex={0}
+                    aria-current={selected() ? "page" : undefined}
+                    data-selected={selected() ? "true" : "false"}
+                    data-testid={`task-list-item-${list.id}`}
+                    onClick={() => props.onSelect(list.id)}
+                    onDblClick={() => setRenamingId(list.id)}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        props.onSelect(list.id);
+                      } else if (event.key === "F2") {
+                        event.preventDefault();
+                        setRenamingId(list.id);
+                      }
                     }}
                   >
-                    <IconButton
-                      size="2xs"
-                      variant="plain"
-                      aria-label={`Rename list ${getDisplayName(list)}`}
-                      opacity={isRenameVisible() ? 1 : 0}
-                      pointerEvents={isRenameVisible() ? "auto" : "none"}
-                      transitionDuration="fast"
-                      transitionProperty="common"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        editTriggerRef = event.currentTarget;
-                        startEditing(list);
-                      }}
+                    <span class={css({ minW: "0", truncate: true })}>{getDisplayName(list)}</span>
+                    <span class={countClass} data-testid={`task-list-count-${list.id}`}>
+                      {selected() && props.selectedOpenCount !== null
+                        ? props.selectedOpenCount
+                        : list.taskCount}
+                    </span>
+                    <span
+                      class={css({ display: "inline-flex" })}
+                      onClick={(event) => event.stopPropagation()}
+                      onDblClick={(event) => event.stopPropagation()}
                     >
-                      <PencilIcon size={14} />
-                    </IconButton>
-                  </Box>
-                  <HStack flex="1" minW="0" gap="2" alignItems="center">
-                    <Show
-                      when={isEditing()}
-                      fallback={
-                        <Text
-                          fontSize="md"
-                          fontWeight="medium"
-                          flex="1"
-                          minW="0"
-                          cursor="pointer"
-                          truncate
-                        >
-                          {getDisplayName(list)}
-                        </Text>
-                      }
-                    >
-                      <input
-                        ref={(node) => {
-                          editingInputRef = node;
-                        }}
-                        value={draftName()}
-                        onInput={(event) => setDraftName(event.currentTarget.value)}
-                        onClick={(event) => event.stopPropagation()}
-                        onBlur={() => {
-                          if (suppressBlurSubmit) {
-                            suppressBlurSubmit = false;
-                            return;
-                          }
-                          submitEditing(list);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            submitEditing(list);
-                            return;
-                          }
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            closeEditingFromEscape();
-                          }
-                        }}
-                        disabled={isSaving()}
-                        class={css({
-                          appearance: "none",
-                          bg: "transparent",
-                          borderWidth: "0",
-                          borderRadius: "0",
-                          boxShadow: "none",
-                          color: "fg.default",
-                          flex: "1",
-                          fontSize: "md",
-                          fontWeight: "medium",
-                          h: "auto",
-                          lineHeight: "1.2",
-                          minW: "0",
-                          outline: "none",
-                          p: "0",
-                          w: "full",
-                          _focus: {
-                            outline: "none",
-                          },
-                          _focusVisible: {
-                            outline: "none",
-                          },
-                          _placeholder: {
-                            color: "fg.muted",
-                          },
-                        })}
+                      <TaskListRowMenu
+                        listName={getDisplayName(list)}
+                        onRename={() => setRenamingId(list.id)}
+                        onDelete={() => setPendingDelete(list)}
                       />
-                    </Show>
-                    <Text color="fg.muted" fontSize="xs" whiteSpace="nowrap">
-                      {list.taskCount}
-                    </Text>
-                  </HStack>
-                  <HStack gap="1">
-                    <IconButton
-                      size="2xs"
-                      variant="plain"
-                      colorPalette="red"
-                      aria-label={`Delete list ${getDisplayName(list)}`}
-                      onClick={() => setPendingDelete(list)}
-                    >
-                      <Trash2Icon size={14} />
-                    </IconButton>
-                  </HStack>
-                </HStack>
-              </Box>
+                    </span>
+                  </div>
+                }
+              >
+                <TaskListNameInput
+                  initialValue={list.name}
+                  ariaLabel={`Rename ${getDisplayName(list)}`}
+                  onCommit={(name) => {
+                    setRenamingId(null);
+                    if (name && name !== list.name) props.onRename(list, name);
+                  }}
+                  onCancel={() => setRenamingId(null)}
+                />
+              </Show>
             );
           }}
         </For>
-      </Stack>
+
+        <Show when={creating()}>
+          <TaskListNameInput
+            initialValue=""
+            placeholder="List name"
+            ariaLabel="New list name"
+            onCommit={(name) => {
+              setCreating(false);
+              if (name) void props.onCreate(name);
+            }}
+            onCancel={() => setCreating(false)}
+          />
+        </Show>
+      </div>
+
       <ConfirmDialog
         open={!!pendingDelete()}
         onOpenChange={(open) => {
@@ -253,6 +193,6 @@ export const TaskListSelector = (props: Props) => {
           setPendingDelete(null);
         }}
       />
-    </Stack>
+    </nav>
   );
 };
