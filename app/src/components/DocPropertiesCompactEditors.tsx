@@ -12,6 +12,7 @@ import {
   summarizeMeta,
 } from "~/components/doc-properties/meta-draft";
 import { A } from "@solidjs/router";
+import { css } from "styled-system/css";
 import { FolderIcon, PencilIcon, TagIcon } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { Box, HStack, Stack, styled } from "styled-system/jsx";
@@ -102,7 +103,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   const hasMeta = () => Object.keys(metaDraft()).length > 0;
 
   return (
-    <HStack gap="1" alignItems="center" flexWrap="wrap" minH="8">
+    <HStack gap="1" alignItems="center" flexWrap="wrap" minH="7" minW="0">
       <SimplePopover
         open={pathPopoverOpen()}
         onClose={() => setPathPopoverOpen(false)}
@@ -110,6 +111,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
         portalled={props.pathPopoverPortalled}
+        anchorClass={shrinkAnchorClass}
         anchor={
           <HStack gap="0" alignItems="center" minW="0">
             <Show
@@ -127,15 +129,16 @@ export const DocPropertiesCompactEditors: VoidComponent<{
               }
             >
               <PathCrumbs path={pathDraft()} />
-              <Tooltip content="Edit path" showArrow>
+              <Tooltip content="Edit path" showArrow openDelay={300}>
                 <IconButton
                   size="xs"
                   variant="plain"
                   colorPalette="gray"
                   color="fg.subtle"
-                  minW="6"
-                  w="6"
-                  h="6"
+                  flexShrink="0"
+                  minW="7"
+                  w="7"
+                  h="7"
                   aria-label="Edit path"
                   onClick={() => setPathPopoverOpen((open) => !open)}
                 >
@@ -166,6 +169,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         placement="bottom-start"
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
+        anchorClass={shrinkAnchorClass}
         anchor={
           <PlainChip
             onClick={() => setMetaPopoverOpen((open) => !open)}
@@ -178,7 +182,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
             <Text
               as="span"
               fontSize="xs"
-              maxW={{ base: "16rem", md: "28rem" }}
+              maxW={{ base: "full", md: "28rem" }}
               overflow="hidden"
               textOverflow="ellipsis"
               whiteSpace="nowrap"
@@ -201,6 +205,10 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     </HStack>
   );
 };
+
+// Popover anchors wrap their trigger in a div; let it shrink so long paths
+// and details truncate instead of pushing the header actions aside.
+const shrinkAnchorClass = css({ minW: "0", maxW: "full" });
 
 /** Each ancestor segment links to its path page, as a breadcrumb should. */
 function PathCrumbs(props: { path: string }) {
@@ -248,6 +256,7 @@ function PathCrumbs(props: { path: string }) {
               transitionProperty="background-color, color"
               transitionDuration="140ms"
               _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
+              focusVisibleRing="outside"
             >
               {ancestor.split(".").pop()}
             </Link>
@@ -281,6 +290,8 @@ function PlainChip(props: {
       color={props.muted ? "fg.subtle" : "fg.muted"}
       cursor="pointer"
       minW="0"
+      maxW="full"
+      focusVisibleRing="outside"
       transitionProperty="background-color, color"
       transitionDuration="140ms"
       _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}

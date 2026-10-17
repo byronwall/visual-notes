@@ -5,6 +5,7 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 import { PathHeadingLink } from "~/components/path/PathHeadingLink";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
+import { Tooltip } from "~/components/ui/tooltip";
 import { PathPillLink } from "~/components/path/PathPillLink";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
@@ -41,20 +42,22 @@ export const PathRelatedNotesPopover = (props: {
       offset={8}
       style={{ width: "min(26rem, 92vw)" }}
       anchor={
-        <IconButton
-          size="xs"
-          variant="plain"
-          colorPalette="gray"
-          color="fg.muted"
-          minW="7"
-          w="7"
-          h="7"
-          aria-label="Related notes in this path"
-          onClick={() => setOpen((value) => !value)}
-          disabled={normalizedPath().length === 0}
-        >
-          <FolderSearchIcon size={14} />
-        </IconButton>
+        <Tooltip content="Notes in this path" showArrow openDelay={300}>
+          <IconButton
+            size="xs"
+            variant="plain"
+            colorPalette="gray"
+            color="fg.muted"
+            minW="7"
+            w="7"
+            h="7"
+            aria-label="Related notes in this path"
+            onClick={() => setOpen((value) => !value)}
+            disabled={normalizedPath().length === 0}
+          >
+            <FolderSearchIcon size={14} />
+          </IconButton>
+        </Tooltip>
       }
     >
       <Stack

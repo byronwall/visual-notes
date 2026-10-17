@@ -323,7 +323,7 @@ const DocumentViewer: VoidComponent<{
           gap="2"
           alignItems="flex-start"
           justifyContent="space-between"
-          mb={titleLinked() ? "2" : "1"}
+          mb="2"
         >
           <Box flex="1" minW="0">
             <DocPropertiesCompactEditors
@@ -368,7 +368,7 @@ const DocumentViewer: VoidComponent<{
                   value={title()}
                   placeholder={firstH1() || "Untitled note"}
                   onCommit={handleConfirmEdit}
-                  fontSize="4xl"
+                  fontSize="3xl"
                   lineHeight="1.15"
                   fontWeight="bold"
                   fillWidth

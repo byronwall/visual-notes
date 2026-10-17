@@ -91,13 +91,22 @@ export const documentContentStyles = {
   "& .ProseMirror li::marker, & .vn-doc-content li::marker": {
     color: "fg.subtle",
   },
+  // The global `.prose blockquote` adds a blue wash; quotes here stay
+  // typographic: a thin rule and muted text.
   "& .ProseMirror blockquote, & .vn-doc-content blockquote": {
-    borderLeftWidth: "3px",
-    borderLeftColor: "gray.outline.border",
+    borderLeftWidth: "2px",
+    borderLeftStyle: "solid",
+    borderLeftColor: "gray.a6",
+    bg: "transparent",
     paddingLeft: "4",
+    py: "0",
     color: "fg.muted",
     marginTop: "0",
     marginBottom: "4",
+    borderRadius: "0",
+  },
+  "& .ProseMirror blockquote p, & .vn-doc-content blockquote p": {
+    marginBottom: "2",
   },
   // Links read as colored text only; the global `.prose a` highlight is
   // reset so long notes with many links stay calm.
@@ -125,7 +134,16 @@ export const documentContentStyles = {
   },
   "& .ProseMirror code, & .vn-doc-content code": {
     fontFamily: "mono",
-    fontSize: "0.92em",
+    fontSize: "0.875em",
+  },
+  // Inline code: a soft tint, no border box around a single word.
+  "& .ProseMirror :not(pre) > code, & .vn-doc-content :not(pre) > code": {
+    bg: "gray.a3",
+    borderWidth: "0",
+    borderRadius: "l1",
+    px: "0.3em",
+    py: "0.1em",
+    color: "fg.default",
   },
   "& .ProseMirror pre, & .vn-doc-content pre": {
     overflowX: "auto",
@@ -214,6 +232,10 @@ export const documentContentStyles = {
   },
   "& .ProseMirror table, & .vn-doc-content table": {
     width: "100%",
+    marginTop: "2",
+    marginBottom: "5",
+    borderRadius: "0",
+    fontSize: "sm",
     borderCollapse: "collapse",
     borderSpacing: 0,
     borderWidth: "1px",
@@ -232,17 +254,14 @@ export const documentContentStyles = {
       color: "fg.default",
     },
   "& .ProseMirror th, & .vn-doc-content th": {
-    bg: "gray.surface.bg",
+    bg: "bg.subtle",
+    fontSize: "sm",
     fontWeight: "semibold",
+    textAlign: "left",
   },
-  "& .ProseMirror tbody tr:nth-of-type(odd) td, & .vn-doc-content tbody tr:nth-of-type(odd) td":
-    {
-      bg: "bg.default",
-    },
-  "& .ProseMirror tbody tr:nth-of-type(even) td, & .vn-doc-content tbody tr:nth-of-type(even) td":
-    {
-      bg: "gray.surface.bg.hover",
-    },
+  "& .ProseMirror :is(th, td) > p, & .vn-doc-content :is(th, td) > p": {
+    marginBottom: "0",
+  },
   "& .ProseMirror .vn-codeblock-wrap, & .vn-doc-content .vn-codeblock-wrap": {
     position: "relative",
     marginTop: "3",
@@ -310,8 +329,6 @@ export const documentContentStyles = {
       fontSize: "sm",
       lineHeight: "1.6em",
       zIndex: "0",
-      transform: "translateY(-12px)",
-      paddingTop: "2px",
     },
   "& .ProseMirror .vn-codeblock-line-number, & .vn-doc-content .vn-codeblock-line-number":
     {

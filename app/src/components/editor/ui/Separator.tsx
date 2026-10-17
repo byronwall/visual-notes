@@ -7,7 +7,7 @@ export function Separator() {
       alignItems="center"
       aria-hidden="true"
     >
-      <Box h="full" borderLeftWidth="1px" borderColor="gray.outline.border" />
+      <Box h="4" mx="1" borderLeftWidth="1px" borderColor="border" />
     </Box>
   );
 }

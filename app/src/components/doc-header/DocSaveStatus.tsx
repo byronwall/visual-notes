@@ -61,6 +61,7 @@ export const DocSaveStatus: VoidComponent<{
           cursor="pointer"
           whiteSpace="nowrap"
           fontVariantNumeric="tabular-nums"
+          focusVisibleRing="outside"
           transitionProperty="background-color, color"
           transitionDuration="140ms"
           _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
@@ -82,6 +83,7 @@ export const DocSaveStatus: VoidComponent<{
           borderRadius="l2"
           cursor="pointer"
           whiteSpace="nowrap"
+          focusVisibleRing="outside"
           _hover={{ bg: "red.a3" }}
         >
           Couldn't save · Retry
