@@ -321,18 +321,26 @@ const DocumentViewer: VoidComponent<{
       >
         <HStack
           gap="2"
+          rowGap="1"
           alignItems="flex-start"
           justifyContent="space-between"
+          flexWrap={{ base: "wrap", md: "nowrap" }}
           mb="2"
         >
-          <Box flex="1" minW="0">
+          <Box flex="1" minW="0" display={{ base: "contents", md: "block" }}>
             <DocPropertiesCompactEditors
               docId={props.doc.id}
               initialPath={props.doc.path}
               initialMeta={props.doc.meta}
             />
           </Box>
-          <HStack gap="0.5" flexShrink="0" alignItems="center">
+          <HStack
+            gap="0.5"
+            flexShrink="0"
+            alignItems="center"
+            order="1"
+            ml="auto"
+          >
             <DocActivitySummaryPopover
               docId={props.doc.id}
               createdAt={props.doc.createdAt}

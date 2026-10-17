@@ -103,7 +103,16 @@ export const DocPropertiesCompactEditors: VoidComponent<{
   const hasMeta = () => Object.keys(metaDraft()).length > 0;
 
   return (
-    <HStack gap="1" alignItems="center" flexWrap="wrap" minH="7" minW="0">
+    // On phones the root dissolves (display: contents) so the path can share
+    // the first line with the header actions and the rest wraps beneath.
+    <HStack
+      gap="1"
+      alignItems="center"
+      flexWrap="wrap"
+      minH="7"
+      minW="0"
+      display={{ base: "contents", md: "flex" }}
+    >
       <SimplePopover
         open={pathPopoverOpen()}
         onClose={() => setPathPopoverOpen(false)}
@@ -111,7 +120,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         offset={8}
         style={{ width: "min(36rem, 92vw)" }}
         portalled={props.pathPopoverPortalled}
-        anchorClass={shrinkAnchorClass}
+        anchorClass={pathAnchorClass}
         anchor={
           <HStack gap="0" alignItems="center" minW="0">
             <Show
@@ -158,50 +167,62 @@ export const DocPropertiesCompactEditors: VoidComponent<{
           />
         </Stack>
       </SimplePopover>
-      <PathRelatedNotesPopover path={pathDraft()} currentDocId={props.docId} />
-      <NearbyNodesPopover docId={props.docId} />
-
-      <Box w="1px" h="4" bg="border" mx="1" aria-hidden="true" />
-
-      <SimplePopover
-        open={metaPopoverOpen()}
-        onClose={() => setMetaPopoverOpen(false)}
-        placement="bottom-start"
-        offset={8}
-        style={{ width: "min(36rem, 92vw)" }}
-        anchorClass={shrinkAnchorClass}
-        anchor={
-          <PlainChip
-            onClick={() => setMetaPopoverOpen((open) => !open)}
-            ariaLabel="Edit details"
-            muted={!hasMeta()}
-          >
-            <Show when={!hasMeta()}>
-              <TagIcon size={13} />
-            </Show>
-            <Text
-              as="span"
-              fontSize="xs"
-              maxW={{ base: "full", md: "28rem" }}
-              overflow="hidden"
-              textOverflow="ellipsis"
-              whiteSpace="nowrap"
-            >
-              {hasMeta() ? metaSummary() : "Add details"}
-            </Text>
-          </PlainChip>
-        }
+      <HStack
+        gap="1"
+        alignItems="center"
+        minW="0"
+        order="2"
+        flexBasis={{ base: "100%", md: "auto" }}
+        flexWrap="wrap"
       >
-        <Stack gap="2" p="3">
-          <MetaKeyValueEditor
-            docId={props.docId}
-            initialMeta={metaDraft()}
-            onChange={handleMetaChange}
-          />
-        </Stack>
-      </SimplePopover>
+        <PathRelatedNotesPopover
+          path={pathDraft()}
+          currentDocId={props.docId}
+        />
+        <NearbyNodesPopover docId={props.docId} />
 
-      <>{props.trailing}</>
+        <Box w="1px" h="4" bg="border" mx="1" aria-hidden="true" />
+
+        <SimplePopover
+          open={metaPopoverOpen()}
+          onClose={() => setMetaPopoverOpen(false)}
+          placement="bottom-start"
+          offset={8}
+          style={{ width: "min(36rem, 92vw)" }}
+          anchorClass={shrinkAnchorClass}
+          anchor={
+            <PlainChip
+              onClick={() => setMetaPopoverOpen((open) => !open)}
+              ariaLabel="Edit details"
+              muted={!hasMeta()}
+            >
+              <Show when={!hasMeta()}>
+                <TagIcon size={13} />
+              </Show>
+              <Text
+                as="span"
+                fontSize="xs"
+                maxW={{ base: "full", md: "28rem" }}
+                overflow="hidden"
+                textOverflow="ellipsis"
+                whiteSpace="nowrap"
+              >
+                {hasMeta() ? metaSummary() : "Add details"}
+              </Text>
+            </PlainChip>
+          }
+        >
+          <Stack gap="2" p="3">
+            <MetaKeyValueEditor
+              docId={props.docId}
+              initialMeta={metaDraft()}
+              onChange={handleMetaChange}
+            />
+          </Stack>
+        </SimplePopover>
+
+        <>{props.trailing}</>
+      </HStack>
     </HStack>
   );
 };
@@ -209,6 +230,12 @@ export const DocPropertiesCompactEditors: VoidComponent<{
 // Popover anchors wrap their trigger in a div; let it shrink so long paths
 // and details truncate instead of pushing the header actions aside.
 const shrinkAnchorClass = css({ minW: "0", maxW: "full" });
+const pathAnchorClass = css({
+  minW: "0",
+  maxW: "full",
+  order: "0",
+  flex: { base: "1 1 0", md: "0 1 auto" },
+});
 
 /** Each ancestor segment links to its path page, as a breadcrumb should. */
 function PathCrumbs(props: { path: string }) {
