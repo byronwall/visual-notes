@@ -11,6 +11,7 @@ export type ArchiveListProps = {
   isFiltered: boolean;
   selectedId?: string;
   groupOptions: string[];
+  query: string;
   onSelect: (id: string | undefined) => void;
   onFilterHost: (hostname: string) => void;
   onGroupCommit: (id: string, groupName: string) => Promise<void>;
@@ -91,6 +92,7 @@ export const ArchiveList = (props: ArchiveListProps) => {
                   item={item}
                   selected={props.selectedId === item.id}
                   groupOptions={props.groupOptions}
+                  query={props.query}
                   onOpen={() => props.onSelect(item.id)}
                   onFilterHost={props.onFilterHost}
                   onGroupCommit={(groupName) => props.onGroupCommit(item.id, groupName)}

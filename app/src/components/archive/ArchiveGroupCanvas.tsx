@@ -303,7 +303,7 @@ export const ArchiveGroupCanvas = (props: Props) => {
     const navHeight = canvasStore.navHeight();
     const usableWidth = Math.max(320, viewportSnapshot.width);
     const usableHeight = Math.max(240, viewportSnapshot.height - navHeight);
-    const padding = 260;
+    const padding = 96;
 
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
@@ -322,7 +322,7 @@ export const ArchiveGroupCanvas = (props: Props) => {
     const contentHeight = Math.max(280, maxY - minY + padding);
     const scale = Math.max(
       0.2,
-      Math.min(1.15, 0.92 * Math.min(usableWidth / contentWidth, usableHeight / contentHeight)),
+      Math.min(1, 0.94 * Math.min(usableWidth / contentWidth, usableHeight / contentHeight)),
     );
 
     canvasStore.animateToView({

@@ -7,7 +7,8 @@ import { ArchiveThumb } from "~/components/archive/ArchiveThumb";
 import { Text } from "~/components/ui/text";
 import { formatRelativeTime } from "~/features/docs-index/utils/time";
 import type { ArchivedPageListItem } from "~/services/archive/archive.types";
-import { displayHostname } from "./archive-list-filters";
+import { displayHostname, formatExactTime } from "./archive-list-filters";
+import { HighlightMatch } from "./HighlightMatch";
 
 export const ARCHIVE_LIST_COLUMNS = {
   base: "56px minmax(0, 1fr)",
@@ -37,6 +38,8 @@ const hostButtonClass = css({
   cursor: "pointer",
   whiteSpace: "nowrap",
   flexShrink: 0,
+  py: "1",
+  my: "-1",
   transitionProperty: "color",
   transitionDuration: "fast",
   _hover: { color: "colorPalette.default", textDecoration: "none" },
@@ -46,6 +49,7 @@ export type ArchiveListRowProps = {
   item: ArchivedPageListItem;
   selected: boolean;
   groupOptions: string[];
+  query: string;
   onOpen: () => void;
   onFilterHost: (hostname: string) => void;
   onGroupCommit: (groupName: string) => Promise<void>;
@@ -61,7 +65,8 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
       role="row"
       aria-selected={props.selected}
       data-archive-row={props.item.id}
-      tabIndex={-1}
+      tabIndex={0}
+      mx={{ base: "-2", md: "-3" }}
       display="grid"
       gridTemplateColumns={ARCHIVE_LIST_COLUMNS}
       columnGap="3"
@@ -71,12 +76,20 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
       borderRadius="l2"
       cursor="pointer"
       outline="none"
+      _focusVisible={{ boxShadow: "inset 0 0 0 2px var(--colors-gray-a8)" }}
       class="group"
       transitionProperty="background-color"
       transitionDuration="fast"
       bg={props.selected ? "gray.a3" : undefined}
       _hover={{ bg: props.selected ? "gray.a3" : "gray.a2" }}
       onClick={props.onOpen}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onOpen();
+        }
+      }}
     >
       <Box role="cell">
         <ArchiveThumb
@@ -95,7 +108,7 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
           color="fg.default"
           title={props.item.title}
         >
-          {props.item.title}
+          <HighlightMatch text={props.item.title} query={props.query} />
         </Text>
         <HStack gap="1.5" minW="0" fontSize="xs" color="fg.muted" lineHeight="normal">
           <Show when={host()}>
@@ -108,7 +121,7 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
                 props.onFilterHost(props.item.siteHostname || host());
               }}
             >
-              {host()}
+              <HighlightMatch text={host()} query={props.query} />
             </button>
           </Show>
           <Show when={props.item.description}>
@@ -118,7 +131,7 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
                   ·
                 </Box>
                 <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
-                  {description()}
+                  <HighlightMatch text={description()} query={props.query} />
                 </Box>
               </>
             )}
@@ -132,7 +145,11 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
             </Box>
           </Show>
           <Show when={props.item.lastCapturedAt}>
-            {(captured) => <Box as="span" flexShrink="0">{formatRelativeTime(captured())}</Box>}
+            {(captured) => (
+              <Box as="span" flexShrink="0" title={formatExactTime(captured())}>
+                {formatRelativeTime(captured())}
+              </Box>
+            )}
           </Show>
           <Show when={props.item.notesCount > 0}>
             <NotesCount count={props.item.notesCount} />
@@ -150,7 +167,13 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
       </Box>
 
       <Box role="cell" hideBelow="md" display="flex" flexDirection="column" alignItems="flex-end" gap="0.5">
-        <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
+        <Text
+          fontSize="xs"
+          color="fg.muted"
+          fontVariantNumeric="tabular-nums"
+          whiteSpace="nowrap"
+          title={props.item.lastCapturedAt ? formatExactTime(props.item.lastCapturedAt) : undefined}
+        >
           {props.item.lastCapturedAt ? formatRelativeTime(props.item.lastCapturedAt) : "—"}
         </Text>
         <Show when={props.item.notesCount > 0}>

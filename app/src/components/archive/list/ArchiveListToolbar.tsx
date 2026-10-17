@@ -122,7 +122,7 @@ export const ArchiveListToolbar = (props: ArchiveListToolbarProps) => {
         </HStack>
       </HStack>
 
-      <HStack gap="1" flexWrap="wrap" alignItems="center" as="nav" aria-label="Explorer groups">
+      <HStack gap="1" flexWrap="wrap" alignItems="center" as="nav" aria-label="Explorer groups" ml="-2.5">
         <a href={props.groupHref("")} class={groupTabClass} aria-current={!props.group ? "page" : undefined}>
           All
         </a>

@@ -25,7 +25,7 @@ import { ArchiveGroupSwitcher } from "./ArchiveGroupSwitcher";
 import { ArchiveNoteComposer, type NoteDraft } from "./detail/ArchiveNoteComposer";
 import { ArchiveNoteItem } from "./detail/ArchiveNoteItem";
 import { ArchiveSnapshotList } from "./detail/ArchiveSnapshotList";
-import { displayUrl } from "./list/archive-list-filters";
+import { displayUrl, formatExactTime } from "./list/archive-list-filters";
 
 const sectionLabelClass = css({
   fontSize: "xs",
@@ -108,7 +108,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
   const deleteEntry = async () => {
     const pageId = item()?.id;
     if (!pageId) return;
-    if (!confirm("Delete this page and everything captured under it?")) return;
+    if (!confirm(`Delete “${item()?.title}” with its captures and notes?`)) return;
     await runDeleteArchivedPage({ id: pageId });
     props.onDeleted?.(pageId);
   };
@@ -208,7 +208,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
                     }}
                   />
                   <Show when={current().lastCapturedAt}>
-                    {(captured) => <span>Captured {formatRelativeTime(captured())}</span>}
+                    {(captured) => <span title={formatExactTime(captured())}>Captured {formatRelativeTime(captured())}</span>}
                   </Show>
                   <HStack as="span" gap="0" ml="auto">
                     <IconButton

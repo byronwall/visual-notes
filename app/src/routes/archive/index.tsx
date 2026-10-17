@@ -97,7 +97,8 @@ const ArchivePage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this page and its snapshots and notes?")) return;
+    const title = visibleItems().find((item) => item.id === id)?.title ?? "this page";
+    if (!confirm(`Delete “${title}” with its captures and notes?`)) return;
     await runDeleteArchivedPage({ id });
     if (selectedId() === id) setSelectedId(undefined);
     await refreshData();
@@ -143,6 +144,7 @@ const ArchivePage = () => {
           isFiltered={isFiltered()}
           selectedId={selectedId()}
           groupOptions={groups.latest ?? []}
+          query={search()}
           onSelect={setSelectedId}
           onFilterHost={(host) => setParams({ hostname: host })}
           onGroupCommit={handleGroupCommit}

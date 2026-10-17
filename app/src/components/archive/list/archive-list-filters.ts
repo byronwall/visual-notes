@@ -60,3 +60,8 @@ function safeHostname(url: string) {
 export function displayUrl(url: string) {
   return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 }
+
+/** Absolute timestamp for hover titles; the visible label stays relative. */
+export function formatExactTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}

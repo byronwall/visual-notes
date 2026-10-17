@@ -27,7 +27,7 @@ const tileClass = css({
 export const ArchiveGroupTile = (props: { group: ArchivedPageCanvasOverviewGroup }) => (
   <A href={archiveGroupCanvasHref(props.group.name)} class={tileClass}>
     <Box
-      display="grid"
+      display={props.group.previewImages.length ? "grid" : "none"}
       gridTemplateColumns="repeat(3, minmax(0, 1fr))"
       gap="1.5"
       aspectRatio="3 / 1"
