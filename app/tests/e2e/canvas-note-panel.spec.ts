@@ -55,8 +55,9 @@ const clickBackdrop = (page: Page) =>
   panel(page).click({ position: { x: 10, y: 200 } });
 
 test.describe("canvas note panel", () => {
-  // The canvas reads the newest UMAP run, so these tests take turns.
-  test.describe.configure({ mode: "serial" });
+  // The canvas reads the newest UMAP run, so these tests run one at a time in
+  // one worker; "default" (unlike "serial") still runs the rest after a failure.
+  test.describe.configure({ mode: "default" });
   test.skip(
     !canSeedAuditDatabase(),
     "needs AUDIT_RUN_MANIFEST and AUDIT_ENV_FILE to seed a canvas region",
