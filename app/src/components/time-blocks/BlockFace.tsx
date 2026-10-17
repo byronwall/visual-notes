@@ -1,10 +1,20 @@
 import { type JSX, Show } from "solid-js";
+import { css, cx } from "styled-system/css";
 import { Box } from "styled-system/jsx";
 import { FileTextIcon, LockIcon } from "lucide-solid";
 import { formatClock, formatDuration } from "./date-utils";
 
 /** Below this height a block shows title and start time on a single line. */
 export const COMPACT_BLOCK_PX = 34;
+
+// Blocks are size containers (see blockShell); narrow overlap lanes drop the
+// time and icons and reclaim padding so titles never spill out of the lane.
+const faceRoot = css({
+  minW: "0",
+  "@container (max-width: 56px)": { mx: "-1" },
+});
+const faceTime = css({ "@container (max-width: 56px)": { display: "none" } });
+const faceIcons = css({ "@container (max-width: 44px)": { display: "none" } });
 
 type Props = {
   title: JSX.Element;
@@ -32,6 +42,7 @@ export const BlockFace = (props: Props) => {
     <Show when={props.isFixedTime || props.hasNote}>
       <Box
         as="span"
+        class={faceIcons}
         display="inline-flex"
         gap="1"
         flexShrink={0}
@@ -53,11 +64,11 @@ export const BlockFace = (props: Props) => {
       when={!compact()}
       fallback={
         <Box
+          class={faceRoot}
           display="flex"
           alignItems="center"
           gap="1"
           h="full"
-          minW="0"
           fontSize="11px"
           lineHeight="1"
           whiteSpace="nowrap"
@@ -67,6 +78,7 @@ export const BlockFace = (props: Props) => {
           </Box>
           <Box
             as="span"
+            class={faceTime}
             opacity={0.85}
             flexShrink={0}
             style={{ "font-variant-numeric": "tabular-nums" }}
@@ -78,7 +90,7 @@ export const BlockFace = (props: Props) => {
         </Box>
       }
     >
-      <Box display="flex" gap="1" minW="0">
+      <Box class={faceRoot} display="flex" gap="1">
         <Box
           flex="1"
           minW="0"
@@ -100,6 +112,7 @@ export const BlockFace = (props: Props) => {
         {icons}
       </Box>
       <Box
+        class={cx(faceRoot, faceTime)}
         fontSize="11px"
         lineHeight="1.3"
         opacity={0.85}

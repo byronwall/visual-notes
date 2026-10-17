@@ -21,6 +21,8 @@ type SimpleDialogProps = {
   skipPortal?: boolean;
   initialFocusEl?: () => HTMLElement | null;
   restoreFocus?: boolean;
+  /** Set false for dialogs holding typed input so a stray click can't drop it. */
+  closeOnInteractOutside?: boolean;
 };
 
 export function SimpleDialog(props: SimpleDialogProps) {
@@ -72,6 +74,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
       onOpenChange={handleOpenChange}
       initialFocusEl={props.initialFocusEl}
       restoreFocus={props.restoreFocus}
+      closeOnInteractOutside={props.closeOnInteractOutside}
     >
       <WrapWhen when={props.skipPortal !== true} component={Portal}>
         <Dialog.Backdrop />

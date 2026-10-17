@@ -1,6 +1,6 @@
 import { createSignal, onCleanup, onMount } from "solid-js";
 import type { TimeBlockItem } from "~/services/time-blocks/time-blocks.service";
-import { addDays, MS_PER_MINUTE } from "./date-utils";
+import { addDays, MS_PER_DAY, MS_PER_MINUTE, startOfDay } from "./date-utils";
 
 const DRAG_THRESHOLD_PX = 4;
 /** Length of a block created with a click (or tap) instead of a drag. */
@@ -40,6 +40,9 @@ export type DragState =
 
 type Options = {
   grid: () => HTMLElement | undefined;
+  scroller: () => HTMLElement | undefined;
+  /** Height of the sticky day header covering the top of the scroller. */
+  headerHeight: () => number;
   days: () => number;
   rangeStart: () => Date;
   startHour: () => number;
@@ -80,6 +83,10 @@ export const useBlockDrag = (options: Options) => {
   let touchTap: { x: number; y: number; dayIndex: number; time: Date } | null =
     null;
   let pendingTap: Date | null = null;
+  // Grid position at drag start, so deltas stay right while the grid scrolls.
+  let origin = { left: 0, top: 0 };
+  let lastPointer: PointerEvent | null = null;
+  let autoScrollFrame = 0;
 
   const snapMs = () => options.snapMinutes() * MS_PER_MINUTE;
 
@@ -128,6 +135,7 @@ export const useBlockDrag = (options: Options) => {
     }
     event.preventDefault();
     setHover(null);
+    rememberOrigin();
     setState({
       type: "create",
       anchor: slot.time,
@@ -138,6 +146,29 @@ export const useBlockDrag = (options: Options) => {
       didDrag: false,
       color: options.pickColor(),
     });
+  };
+
+  const rememberOrigin = () => {
+    const rect = options.grid()?.getBoundingClientRect();
+    origin = { left: rect?.left ?? 0, top: rect?.top ?? 0 };
+  };
+
+  /** Pointer travel since drag start, in grid coordinates. */
+  const gridDelta = (event: PointerEvent, startX: number, startY: number) => {
+    const rect = options.grid()?.getBoundingClientRect();
+    return {
+      dx: event.clientX - startX + (origin.left - (rect?.left ?? origin.left)),
+      dy: event.clientY - startY + (origin.top - (rect?.top ?? origin.top)),
+    };
+  };
+
+  const dayBounds = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(options.startHour(), 0, 0, 0);
+    const end = new Date(date);
+    end.setHours(0, 0, 0, 0);
+    end.setMinutes(options.endHour() * 60);
+    return { start: start.getTime(), end: end.getTime() };
   };
 
   const onBlockPointerDown = (
@@ -154,6 +185,7 @@ export const useBlockDrag = (options: Options) => {
         preventScroll: true,
       });
     setHover(null);
+    rememberOrigin();
     const range = original(block);
     if (edge) {
       setState({
@@ -192,8 +224,44 @@ export const useBlockDrag = (options: Options) => {
     return { start: lo, end: new Date(hi.getTime() + snapMs()) };
   };
 
+  /** Scrolls the grid while a drag holds the pointer near an edge. */
+  const autoScroll = () => {
+    autoScrollFrame = 0;
+    const scroller = options.scroller();
+    const event = lastPointer;
+    if (!scroller || !event || state().type === "idle") return;
+    const rect = scroller.getBoundingClientRect();
+    const edge = 36;
+    const speed = (distance: number) =>
+      Math.ceil(((edge - distance) / edge) * 14);
+    const top = rect.top + options.headerHeight();
+    let dy = 0;
+    let dx = 0;
+    if (event.clientY < top + edge)
+      dy = -speed(Math.max(0, event.clientY - top));
+    else if (event.clientY > rect.bottom - edge)
+      dy = speed(Math.max(0, rect.bottom - event.clientY));
+    if (state().type === "move") {
+      if (event.clientX < rect.left + 52 + edge)
+        dx = -speed(Math.max(0, event.clientX - rect.left - 52));
+      else if (event.clientX > rect.right - edge)
+        dx = speed(Math.max(0, rect.right - event.clientX));
+    }
+    if (!dx && !dy) return;
+    const before = [scroller.scrollLeft, scroller.scrollTop];
+    scroller.scrollBy(dx, dy);
+    if (before[0] === scroller.scrollLeft && before[1] === scroller.scrollTop)
+      return;
+    handleMove(event);
+    autoScrollFrame = requestAnimationFrame(autoScroll);
+  };
+
   const handleMove = (event: PointerEvent) => {
     const s = state();
+    if (s.type !== "idle") {
+      lastPointer = event;
+      if (!autoScrollFrame) autoScrollFrame = requestAnimationFrame(autoScroll);
+    }
     if (s.type === "idle") {
       if (event.pointerType === "touch") return;
       const target = event.target as HTMLElement | null;
@@ -220,38 +288,56 @@ export const useBlockDrag = (options: Options) => {
       const grid = options.grid();
       if (!grid) return;
       const dayWidth = grid.getBoundingClientRect().width / options.days();
-      const minutes = snappedDelta(event.clientY - s.startY);
-      const days = Math.round((event.clientX - s.startX) / dayWidth);
+      const { dx, dy } = gridDelta(event, s.startX, s.startY);
       const base = original(s.block);
-      const shift = (date: Date) => {
-        const next = addDays(date, days);
-        next.setMinutes(next.getMinutes() + minutes);
-        return next;
-      };
+      // Keep the block inside the visible days and hours.
+      const baseDay = Math.round(
+        (startOfDay(base.start).getTime() -
+          startOfDay(options.rangeStart()).getTime()) /
+          MS_PER_DAY,
+      );
+      const days = Math.max(
+        -baseDay,
+        Math.min(options.days() - 1 - baseDay, Math.round(dx / dayWidth)),
+      );
+      const duration = base.end.getTime() - base.start.getTime();
+      let start =
+        addDays(base.start, days).getTime() + snappedDelta(dy) * MS_PER_MINUTE;
+      const bounds = dayBounds(addDays(base.start, days));
+      if (duration <= bounds.end - bounds.start) {
+        start = Math.max(bounds.start, Math.min(bounds.end - duration, start));
+      }
       setState({
         ...s,
-        start: shift(base.start),
-        end: shift(base.end),
+        start: new Date(start),
+        end: new Date(start + duration),
         didDrag: s.didDrag || moved(event, s.startX, s.startY),
       });
       return;
     }
     const base = original(s.block);
-    const minutes = snappedDelta(event.clientY - s.startY);
+    const minutes = snappedDelta(gridDelta(event, 0, s.startY).dy);
+    const bounds = dayBounds(base.start);
     const minLength = snapMs();
     let { start, end } = base;
     if (s.edge === "top") {
       start = new Date(
-        Math.min(
-          base.start.getTime() + minutes * MS_PER_MINUTE,
-          end.getTime() - minLength,
+        Math.max(
+          Math.min(bounds.start, base.start.getTime()),
+          Math.min(
+            base.start.getTime() + minutes * MS_PER_MINUTE,
+            end.getTime() - minLength,
+          ),
         ),
       );
     } else {
       end = new Date(
-        Math.max(
-          base.end.getTime() + minutes * MS_PER_MINUTE,
-          start.getTime() + minLength,
+        Math.min(
+          Math.max(bounds.end, base.end.getTime()),
+          Math.max(
+            base.end.getTime() + minutes * MS_PER_MINUTE,
+            start.getTime() + minLength,
+          ),
         ),
       );
     }
@@ -325,6 +411,7 @@ export const useBlockDrag = (options: Options) => {
     window.addEventListener("keydown", onKeyDown);
     document.documentElement.addEventListener("pointerleave", onLeave);
     onCleanup(() => {
+      cancelAnimationFrame(autoScrollFrame);
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
       window.removeEventListener("pointercancel", onCancel);

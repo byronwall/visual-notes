@@ -62,6 +62,10 @@ export const BlockQuickPopover = (props: Props) => {
       positioning={{
         placement: "right-start",
         gutter: 8,
+        // Phones and right-edge days have no room beside the block.
+        flip: ["left-start", "bottom-start", "top-start"],
+        slide: true,
+        overflowPadding: 8,
         getAnchorElement: () => props.anchor,
       }}
     >

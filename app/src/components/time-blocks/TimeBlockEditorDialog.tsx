@@ -21,9 +21,8 @@ import {
   formatTime24,
   setDateTimeFromInputs,
 } from "./date-utils";
+import { HueSwatches } from "./HueSwatches";
 import {
-  createTimeBlockColorFromHue,
-  extractHueFromColor,
   normalizeTimeBlockColor,
   randomTimeBlockColor,
 } from "./time-block-colors";
@@ -61,10 +60,14 @@ export const TimeBlockEditorDialog = (props: Props) => {
   const [endTime, setEndTime] = createSignal("10:00");
   const [saving, setSaving] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
+  const [confirmingDelete, setConfirmingDelete] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
   let titleInputRef: HTMLInputElement | undefined;
 
   createEffect(() => {
     if (!props.open) return;
+    setError(null);
+    setConfirmingDelete(false);
     const block = props.block;
     const range = props.seed;
 
@@ -120,6 +123,11 @@ export const TimeBlockEditorDialog = (props: Props) => {
 
   const handleSubmit = async () => {
     if (saving()) return;
+    setError(null);
+    if (activeEnd().getTime() <= activeStart().getTime()) {
+      setError("End must be after start.");
+      return;
+    }
     setSaving(true);
     try {
       const start = activeStart();
@@ -148,8 +156,8 @@ export const TimeBlockEditorDialog = (props: Props) => {
       props.onSaved();
       props.onClose();
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Failed to save time block",
+      setError(
+        error instanceof Error ? error.message : "Couldn’t save this block.",
       );
     } finally {
       setSaving(false);
@@ -158,18 +166,19 @@ export const TimeBlockEditorDialog = (props: Props) => {
 
   const handleDelete = async () => {
     if (!props.block || deleting()) return;
-    const confirmed = confirm(
-      "Are you sure you want to delete this time block?",
-    );
-    if (!confirmed) return;
+    if (!confirmingDelete()) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setError(null);
     setDeleting(true);
     try {
       await runDelete({ id: props.block.id });
       props.onSaved();
       props.onClose();
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Failed to delete time block",
+      setError(
+        error instanceof Error ? error.message : "Couldn’t delete this block.",
       );
     } finally {
       setDeleting(false);
@@ -182,6 +191,8 @@ export const TimeBlockEditorDialog = (props: Props) => {
       onOpenChange={(open) => !open && props.onClose()}
       initialFocusEl={() => titleInputRef ?? null}
       restoreFocus={false}
+      title={props.block ? "Edit block" : "New block"}
+      closeOnInteractOutside={false}
       maxW="calc(100vw - 32px)"
       contentClass={css({ width: "fit-content" })}
       footer={
@@ -190,12 +201,29 @@ export const TimeBlockEditorDialog = (props: Props) => {
             <Button
               type="button"
               colorPalette="red"
-              variant="subtle"
+              variant={confirmingDelete() ? "solid" : "plain"}
               onClick={() => void handleDelete()}
+              onBlur={() => setConfirmingDelete(false)}
               disabled={deleting()}
             >
-              {deleting() ? "Deleting..." : "Delete"}
+              {deleting()
+                ? "Deleting…"
+                : confirmingDelete()
+                  ? "Confirm delete"
+                  : "Delete"}
             </Button>
+          </Show>
+          <Show when={error()}>
+            <Text
+              role="alert"
+              fontSize="sm"
+              color="red.11"
+              flex="1"
+              textAlign="right"
+              px="2"
+            >
+              {error()}
+            </Text>
           </Show>
           <Button
             type="button"
@@ -262,7 +290,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
               <Switch.Label>
                 <HStack gap="1.5" alignItems="center">
                   <LockIcon size={13} />
-                  <Text>Fixed Time</Text>
+                  <Text>Fixed time</Text>
                 </HStack>
               </Switch.Label>
             </Switch.Root>
@@ -280,7 +308,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
         >
           <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
-              Start Date
+              Start date
             </Text>
             <Input
               type="date"
@@ -290,7 +318,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           </Stack>
           <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
-              Start Time
+              Start time
             </Text>
             <Input
               type="time"
@@ -300,7 +328,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           </Stack>
           <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
-              End Date
+              End date
             </Text>
             <Input
               type="date"
@@ -310,7 +338,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           </Stack>
           <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
-              End Time
+              End time
             </Text>
             <Input
               type="time"
@@ -322,7 +350,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
 
         <Stack gap="1.5">
           <Text fontSize="sm" fontWeight="medium">
-            Quick Duration
+            Duration
           </Text>
           <HStack gap="2" flexWrap="wrap">
             <For each={[15, 30, 45, 60, 90, 120, 180, 240]}>
@@ -353,38 +381,15 @@ export const TimeBlockEditorDialog = (props: Props) => {
           />
         </Stack>
 
-        <Stack gap="1.5">
-          <Text fontSize="sm" fontWeight="medium">
+        <Stack gap="1">
+          <Text id="tb-editor-color" fontSize="sm" fontWeight="medium">
             Color
           </Text>
-          <HStack gap="3" w="full">
-            <Input
-              type="range"
-              flex="1"
-              min="0"
-              max="360"
-              value={String(extractHueFromColor(color()) ?? 0)}
-              onInput={(event) =>
-                setColor(
-                  createTimeBlockColorFromHue(
-                    Number.parseFloat(event.currentTarget.value),
-                  ),
-                )
-              }
-              style={{
-                background:
-                  "linear-gradient(90deg, hsl(0 52% 50%) 0%, hsl(35 52% 50%) 16%, hsl(85 52% 50%) 32%, hsl(150 52% 50%) 48%, hsl(190 52% 50%) 64%, hsl(220 52% 50%) 80%, hsl(280 52% 50%) 100%)",
-              }}
-            />
-            <Box
-              w="14"
-              h="8"
-              borderRadius="md"
-              borderWidth="1px"
-              borderColor="border"
-              style={{ "background-color": color() }}
-            />
-          </HStack>
+          <HueSwatches
+            value={color()}
+            onChange={setColor}
+            labelledBy="tb-editor-color"
+          />
         </Stack>
       </Stack>
     </SimpleDialog>

@@ -35,6 +35,10 @@ const metaLine = css({
   borderRadius: "sm",
   transition: "color 140ms ease",
   _hover: { color: "fg.default" },
+  _focusVisible: {
+    outline: "2px solid var(--colors-fg-default)",
+    outlineOffset: "-2px",
+  },
 });
 
 const compactButton = css({

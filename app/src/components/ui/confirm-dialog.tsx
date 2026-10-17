@@ -11,6 +11,8 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
+  /** Paints the confirm button red for irreversible actions. */
+  destructive?: boolean;
   children?: JSX.Element;
 };
 
@@ -40,7 +42,11 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
           <Button variant="outline" onClick={handleCancel}>
             {cancelLabel()}
           </Button>
-          <Button variant="solid" onClick={handleConfirm}>
+          <Button
+            variant="solid"
+            colorPalette={props.destructive ? "red" : undefined}
+            onClick={handleConfirm}
+          >
             {confirmLabel()}
           </Button>
         </HStack>

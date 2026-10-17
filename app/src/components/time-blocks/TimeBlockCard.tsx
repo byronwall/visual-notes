@@ -1,7 +1,10 @@
 import { css, cx } from "styled-system/css";
 import type { TimeBlockItem } from "~/services/time-blocks/time-blocks.service";
 import { BlockFace, formatBlockRange } from "./BlockFace";
-import { normalizeTimeBlockColor } from "./time-block-colors";
+import {
+  normalizeTimeBlockColor,
+  readableTextColor,
+} from "./time-block-colors";
 
 export type BlockGeometry = {
   left: string;
@@ -13,11 +16,11 @@ export type BlockGeometry = {
 /** Shared look for anything drawn as a block on the grid. */
 export const blockShell = css({
   position: "absolute",
-  px: "1.5",
+  px: "1",
   py: "0.5",
   borderRadius: "sm",
-  color: "white",
   overflow: "hidden",
+  containerType: "inline-size",
   boxShadow: "0 0 0 1px var(--colors-bg-default)",
   userSelect: "none",
 });
@@ -68,6 +71,7 @@ export const TimeBlockCard = (props: Props) => {
   const start = () => new Date(props.block.startTime);
   const end = () => new Date(props.block.endTime);
   const title = () => props.block.title || "Untitled";
+  const fill = () => normalizeTimeBlockColor(props.block.color);
 
   return (
     <div
@@ -80,7 +84,8 @@ export const TimeBlockCard = (props: Props) => {
       tabIndex={0}
       aria-label={`${title()}, ${formatBlockRange(start(), end())}`}
       style={{
-        "background-color": normalizeTimeBlockColor(props.block.color),
+        "background-color": fill(),
+        color: readableTextColor(fill()),
         opacity: props.dimmed ? 0.35 : 1,
         left: props.geometry.left,
         width: props.geometry.width,

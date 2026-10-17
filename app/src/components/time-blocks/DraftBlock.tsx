@@ -1,6 +1,7 @@
 import { onMount } from "solid-js";
 import { css, cx } from "styled-system/css";
 import { BlockFace } from "./BlockFace";
+import { readableTextColor } from "./time-block-colors";
 import { blockShell, type BlockGeometry } from "./TimeBlockCard";
 
 export type DraftRange = { start: Date; end: Date; color: string };
@@ -26,8 +27,8 @@ const titleInput = css({
   w: "full",
   minW: "0",
   fontWeight: "semibold",
-  color: "white",
-  "&::placeholder": { color: "white", opacity: 0.7 },
+  color: "inherit",
+  "&::placeholder": { color: "currentColor", opacity: 0.7 },
 });
 
 /** A freshly drawn block waiting for its title; Enter saves, Esc discards. */
@@ -85,6 +86,7 @@ export const DraftBlock = (props: Props) => {
       data-testid="time-block-draft"
       style={{
         "background-color": props.draft.color,
+        color: readableTextColor(props.draft.color),
         left: props.geometry.left,
         width: props.geometry.width,
         top: `${props.geometry.top}px`,

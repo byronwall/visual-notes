@@ -10,7 +10,18 @@ type Props = {
   now: { top: number; label: string } | null;
 };
 
+/** Hour labels this close to the now label are hidden so they never collide. */
+const NOW_LABEL_CLEARANCE_PX = 14;
+
 export const TimeGutter = (props: Props) => {
+  const hiddenByNow = (index: number) => {
+    const now = props.now;
+    if (!now) return false;
+    return (
+      Math.abs(index * props.hourHeight - now.top) < NOW_LABEL_CLEARANCE_PX
+    );
+  };
+
   const hours = () =>
     Array.from(
       { length: props.endHour - props.startHour },
@@ -43,6 +54,7 @@ export const TimeGutter = (props: Props) => {
               top: `${index() * props.hourHeight}px`,
               transform: index() === 0 ? "translateY(3px)" : "translateY(-50%)",
               "font-variant-numeric": "tabular-nums",
+              visibility: hiddenByNow(index()) ? "hidden" : undefined,
             }}
           >
             {hour}:00

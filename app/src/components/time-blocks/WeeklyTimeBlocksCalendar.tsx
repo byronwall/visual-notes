@@ -10,7 +10,8 @@ import {
   Show,
 } from "solid-js";
 import { css } from "styled-system/css";
-import { Box, Stack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { Button } from "~/components/ui/button";
 import {
   fetchDateRangeTimeBlockMeta,
   fetchWeeklyTimeBlocks,
@@ -30,7 +31,11 @@ import {
   getVisibleSegmentForDay,
   toGridY,
 } from "./weekly-geometry";
-import { randomTimeBlockColor } from "./time-block-colors";
+import {
+  normalizeTimeBlockColor,
+  randomTimeBlockColor,
+  readableTextColor,
+} from "./time-block-colors";
 import { compactDayBlocks } from "./compact-day";
 import { BlockFace } from "./BlockFace";
 import { BlockQuickPopover } from "./BlockQuickPopover";
@@ -153,7 +158,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     const byDay: Array<Array<{ key: string; value: string }>> = dayDates().map(
       () => [],
     );
-    for (const entry of dayMeta.latest ?? []) {
+    for (const entry of dayMeta.error ? [] : dayMeta.latest ?? []) {
       const dayIndex = dayIndexOf(new Date(entry.date));
       if (dayIndex !== null)
         byDay[dayIndex].push({ key: entry.key, value: entry.value });
@@ -161,7 +166,10 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     return byDay;
   });
 
-  const mutations = useTimeBlockMutations(() => weeklyBlocks.latest, refresh);
+  const mutations = useTimeBlockMutations(
+    () => (weeklyBlocks.error ? undefined : weeklyBlocks.latest),
+    refresh,
+  );
   const blocks = mutations.blocks;
 
   const blocksByDay = createMemo(() => {
@@ -235,6 +243,11 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
 
   const drag = useBlockDrag({
     grid: () => gridRef,
+    scroller: () => scrollerRef,
+    headerHeight: () =>
+      scrollerRef?.querySelector<HTMLElement>(
+        "[data-testid=time-blocks-day-header]",
+      )?.offsetHeight ?? 0,
     days: numberOfDays,
     rangeStart,
     startHour,
@@ -279,7 +292,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
           start: state.start,
           end: state.end,
           geometry,
-          color: state.block.color,
+          color: normalizeTimeBlockColor(state.block.color),
           title: state.block.title || "Untitled",
           id: state.block.id,
         }
@@ -437,7 +450,14 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       : firstBlock
         ? yOf(firstBlock) - hourHeight() / 2
         : 0;
-    scrollerRef.scrollTo({ top: Math.max(0, focusTop), left: 0, behavior });
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    scrollerRef.scrollTo({
+      top: Math.max(0, focusTop),
+      left: 0,
+      behavior: reduceMotion ? "auto" : behavior,
+    });
   };
 
   const goToday = () => {
@@ -491,7 +511,11 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   let didInitialScroll = false;
   createEffect(
     on(
-      () => [weeklyBlocks.latest, settings.hydrated()] as const,
+      () =>
+        [
+          weeklyBlocks.error ? undefined : weeklyBlocks.latest,
+          settings.hydrated(),
+        ] as const,
       ([loaded, hydrated]) => {
         if (didInitialScroll || !loaded || !hydrated) return;
         didInitialScroll = true;
@@ -514,6 +538,30 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         onOpenList={() => setListOpen(true)}
         onOpenSummary={() => setSummaryOpen(true)}
       />
+
+      <Show when={weeklyBlocks.error}>
+        <HStack
+          role="alert"
+          gap="2"
+          px="3"
+          py="1.5"
+          mb="2"
+          borderRadius="md"
+          bg="red.a3"
+          color="red.11"
+          fontSize="sm"
+        >
+          Couldn’t load time blocks for this range.
+          <Button
+            size="2xs"
+            variant="outline"
+            colorPalette="red"
+            onClick={refresh}
+          >
+            Retry
+          </Button>
+        </HStack>
+      </Show>
 
       <div
         ref={scrollerRef}
@@ -692,8 +740,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                         : "time-block-create-preview"
                     }
                     style={{
-                      "background-color":
-                        preview().color ?? "var(--colors-gray-9)",
+                      "background-color": preview().color,
+                      color: readableTextColor(preview().color),
                       "z-index": "3",
                       "pointer-events": "none",
                       "box-shadow":

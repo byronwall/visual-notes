@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { HStack } from "styled-system/jsx";
+import { Box, HStack } from "styled-system/jsx";
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -31,22 +31,34 @@ type Props = {
   onOpenSummary: () => void;
 };
 
+// Anchors the native picker under the range label without showing the field.
 const visuallyHidden = css({
   position: "absolute",
+  left: "0",
+  bottom: "0",
   w: "1px",
   h: "1px",
   opacity: 0,
   pointerEvents: "none",
 });
 
-const labelOnWide = css({ display: { base: "none", md: "inline" } });
+const labelOnWide = css({ display: { base: "none", lg: "inline" } });
 
-export const formatRangeLabel = (start: Date, days: number) => {
+/** "Oct 17 – 23"; the year only appears when the range leaves this year. */
+export const formatRangeLabel = (
+  start: Date,
+  days: number,
+  currentYear = new Date().getFullYear(),
+) => {
   const end = addDays(start, days - 1);
   const month = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const year = end.getFullYear();
+  const yearSuffix =
+    start.getFullYear() === currentYear && year === currentYear
+      ? ""
+      : `, ${year}`;
   if (days === 1) {
-    return `${start.toLocaleString("en-US", { weekday: "short" })} ${month(start)} ${start.getDate()}, ${year}`;
+    return `${start.toLocaleString("en-US", { weekday: "short" })} ${month(start)} ${start.getDate()}${yearSuffix}`;
   }
   const sameMonth = start.getMonth() === end.getMonth();
   const sameYear = start.getFullYear() === year;
@@ -55,7 +67,7 @@ export const formatRangeLabel = (start: Date, days: number) => {
     sameMonth && sameYear
       ? `${end.getDate()}`
       : `${month(end)} ${end.getDate()}`;
-  return `${startLabel} – ${endLabel}, ${year}`;
+  return `${startLabel} – ${endLabel}${yearSuffix}`;
 };
 
 export const TimeBlocksToolbar = (props: Props) => {
@@ -80,6 +92,7 @@ export const TimeBlocksToolbar = (props: Props) => {
       pb="2"
     >
       <Heading
+        display={{ base: "none", md: "block" }}
         as="h1"
         fontSize="lg"
         fontWeight="semibold"
@@ -119,23 +132,24 @@ export const TimeBlocksToolbar = (props: Props) => {
         </IconButton>
       </HStack>
 
-      <Button
-        size="sm"
-        variant="plain"
-        px="2"
-        title="Pick a start date"
-        onClick={openDatePicker}
-        position="relative"
-      >
-        <Text
-          as="span"
-          fontSize="md"
-          fontWeight="semibold"
-          style={{ "font-variant-numeric": "tabular-nums" }}
+      <Box position="relative">
+        <Button
+          size="sm"
+          variant="plain"
+          px="2"
+          title="Pick a start date"
+          onClick={openDatePicker}
         >
-          {formatRangeLabel(props.rangeStart, props.settings.numberOfDays())}
-        </Text>
-        <CalendarDaysIcon />
+          <Text
+            as="span"
+            fontSize="md"
+            fontWeight="semibold"
+            style={{ "font-variant-numeric": "tabular-nums" }}
+          >
+            {formatRangeLabel(props.rangeStart, props.settings.numberOfDays())}
+          </Text>
+          <CalendarDaysIcon />
+        </Button>
         <input
           ref={dateInputRef}
           type="date"
@@ -148,7 +162,7 @@ export const TimeBlocksToolbar = (props: Props) => {
             if (next) props.onPickDate(next);
           }}
         />
-      </Button>
+      </Box>
 
       <Show when={props.noteFilterLabel}>
         {(label) => (
@@ -185,6 +199,7 @@ export const TimeBlocksToolbar = (props: Props) => {
           size="sm"
           variant="plain"
           onClick={() => props.onOpenList()}
+          aria-label="List view"
           title="List view"
         >
           <ListIcon />
@@ -194,7 +209,8 @@ export const TimeBlocksToolbar = (props: Props) => {
           size="sm"
           variant="plain"
           onClick={() => props.onOpenSummary()}
-          title="Day metadata summary"
+          aria-label="Day summary"
+          title="Day summary"
         >
           <TableIcon />
           <span class={labelOnWide}>Summary</span>
