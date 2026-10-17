@@ -102,6 +102,25 @@ When browser code creates a Playwright `Browser` handle, close that handle in a 
 
 Never use the original app database for audit writes. Do not add an OpenAI key to this harness. The launcher sets OPENAI_API_KEY to an empty value.
 
+## Real-component regression specs
+
+`tests/e2e/` holds Playwright regressions that drive the actual routes instead of copied handlers: `late-note-share-responses`, `inline-title-failed-save`, `canvas-note-panel`, and `archive-title-cancel`. They hold one real server-action request (`helpers/server-actions.ts`) until the next note or visit is on screen, then let it finish or fail. They create their own fixtures through app endpoints and record each ID in the run's fixture manifest (`helpers/fixtures.ts`).
+
+Run them against a launcher-started app. Add `--production` when the failure under test only shows in a built app (the Archive cancel case did):
+
+```sh
+corepack pnpm audit:harness -- <launcher options> --production --owner <owner> --run-manifest /abs/run.json --fixtures /abs/fixtures.json --evidence /abs/evidence
+AUDIT_RUN_MANIFEST=/abs/run.json AUDIT_ENV_FILE=/path/to/secure/local.env \
+  PLAYWRIGHT_BASE_URL=http://127.0.0.1:<port> PLAYWRIGHT_MAGIC_PASSWORD_FILE=<credential file> \
+  corepack pnpm exec playwright test archive-title-cancel inline-title-failed-save late-note-share-responses canvas-note-panel
+```
+
+Then clean up every recorded ID with `audit:fixtures cleanup`. Do not delete a fixture manifest before its cleanup has run; the IDs in it are the only cleanup authority.
+
+`AUDIT_ENV_FILE` is needed only by `canvas-note-panel`: Canvas lists notes only inside a UMAP region, and no endpoint can build one without OpenAI and the Python UMAP step, so the spec seeds a one-region projection directly into the run manifest's synthetic database and records its `EmbeddingRun`. Without an audit run the canvas file skips. The canvas reads the newest UMAP run, so its cases run one at a time. Do not run two canvas suites against one database at once.
+
+These specs need a running app and database, so CI does not run them. They do not cover native clipboard (share Copy) or OS drag-and-drop.
+
 ## Hand off work
 
 Give each accepted change one current handoff instead of a stream of status messages. Update it when the source, proof, or limits change.
