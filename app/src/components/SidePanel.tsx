@@ -80,7 +80,6 @@ export const SidePanel = (props: SidePanelProps) => {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: props.width || "min(94vw, 560px)",
-              background: "rgba(255,255,255,0.98)",
               "backdrop-filter": "blur(10px)",
             }}
           >
