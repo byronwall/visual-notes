@@ -1,15 +1,37 @@
-import { Show, For, createMemo, createEffect } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo } from "solid-js";
 import { groupByUpdatedAt } from "../utils/grouping";
 import { DocRow } from "./DocRow";
 import { LoadMoreButton } from "./LoadMoreButton";
+import { ListEmptyState } from "./ListEmptyState";
 import { type createDocsQueryStore } from "../state/docsQuery";
 import type { DocListItem, ServerSearchItem } from "../data/docs.types";
 import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
-import { ClearButton } from "~/components/ui/clear-button";
-import { Button } from "~/components/ui/button";
-import { Text } from "~/components/ui/text";
-import { Spinner } from "~/components/ui/spinner";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
+import { css } from "styled-system/css";
+
+type Group = { label: string; items: (DocListItem | ServerSearchItem)[] };
+
+const groupLabelClass = css({
+  display: "flex",
+  alignItems: "baseline",
+  gap: "2",
+  px: "2",
+  pt: "4",
+  pb: "1",
+  fontSize: "xs",
+  fontWeight: "semibold",
+  color: "fg.muted",
+  "&:first-child": { pt: "1" },
+});
+
+const listClass = css({
+  display: "flex",
+  flexDirection: "column",
+  gap: "px",
+  transitionProperty: "opacity",
+  transitionDuration: "160ms",
+  "&[data-stale]": { opacity: 0.55 },
+});
 
 export const ResultsSection = (props: {
   items: DocListItem[];
@@ -21,12 +43,18 @@ export const ResultsSection = (props: {
   onSearchRetry: () => void;
   onVisibleIdsChange?: (ids: string[]) => void;
   selectedIds?: Set<string>;
-  onToggleSelect?: (id: string, next: boolean) => void;
+  activeId?: string | null;
+  hasFilters: boolean;
+  onClearFilters: () => void;
+  onToggleSelect?: (id: string, next: boolean, shiftKey: boolean) => void;
+  onActivate?: (id: string) => void;
   onResultOpen?: (id: string) => void;
 }) => {
   const q = props.query;
   const nowMs = () => props.nowMs ?? Date.now();
   const isSearching = () => q.searchText().trim().length > 0;
+  // Only "relevance" browses by last update, so date buckets match the order.
+  const isGrouped = () => !isSearching() && q.sortMode() === "relevance";
 
   const searchResults = createMemo(() => {
     const seen = new Set<string>();
@@ -39,182 +67,122 @@ export const ResultsSection = (props: {
     return out;
   });
 
-  const visibleIds = createMemo(() => {
+  const groups = createMemo<Group[]>(() => {
     if (isSearching()) {
-      return searchResults()
-        .slice(0, q.serverShown())
-        .map((x) => x.id);
+      return [{ label: "", items: searchResults().slice(0, q.serverShown()) }];
     }
-    return groupByUpdatedAt(props.items.slice(0, q.clientShown()), nowMs())
-      .flatMap((g) => g.items)
-      .map((x) => x.id);
+    const shown = props.items.slice(0, q.clientShown());
+    if (!isGrouped()) return [{ label: "", items: shown }];
+    return groupByUpdatedAt(shown, nowMs()).filter((g) => g.items.length);
   });
-  const previewDocsById = useDocPreviewMap(visibleIds);
 
-  createEffect(() => {
-    try {
-      if (props.onVisibleIdsChange) props.onVisibleIdsChange(visibleIds());
-    } catch {}
-  });
+  const visibleIds = createMemo(() =>
+    groups().flatMap((g) => g.items.map((x) => x.id)),
+  );
+  const previewDocsById = useDocPreviewMap(visibleIds);
+  const selectionMode = () => (props.selectedIds?.size ?? 0) > 0;
+
+  createEffect(() => props.onVisibleIdsChange?.(visibleIds()));
+
+  const totalCount = () =>
+    isSearching() ? searchResults().length : props.items.length;
+  const shownCount = () =>
+    Math.min(isSearching() ? q.serverShown() : q.clientShown(), totalCount());
+
+  const onFilterMeta = (k: string, v: string) => {
+    q.setMetaKey(k);
+    q.setMetaValue(v);
+  };
 
   return (
-    <Stack gap="0.4rem" mt="0">
-      <Show
-        when={!isSearching()}
-        fallback={
-          <Stack gap="0.4rem">
-            <HStack justify="space-between" alignItems="center" minH="1.5rem">
-              <Text fontSize="sm" fontWeight="semibold" color="black.a8">
-                Search results
-              </Text>
-              <HStack gap="0.5rem" alignItems="center">
-                <Show when={q.searchText().trim().length > 0}>
-                  <ClearButton
-                    label="Clear search"
-                    onClick={() => {
-                      q.setSearchText("");
-                      q.resetPaging();
-                    }}
-                  />
+    <Switch>
+      <Match when={isSearching() && props.serverError}>
+        {(error) => (
+          <ListEmptyState
+            tone="error"
+            message={
+              error() === "timeout" ? "Search timed out." : "Search failed."
+            }
+            actionLabel="Retry"
+            onAction={props.onSearchRetry}
+          />
+        )}
+      </Match>
+      <Match when={totalCount() === 0}>
+        <ListEmptyState
+          message={
+            isSearching()
+              ? props.serverLoading
+                ? "Searching…"
+                : `No notes match “${q.searchText().trim()}”.`
+              : props.hasFilters
+                ? "No notes match these filters."
+                : "No notes yet."
+          }
+          actionLabel={
+            !props.serverLoading && props.hasFilters
+              ? "Clear filters"
+              : undefined
+          }
+          onAction={props.onClearFilters}
+        />
+      </Match>
+      <Match when={true}>
+        <Box>
+          <For each={groups()}>
+            {(g) => (
+              <section>
+                <Show when={g.label}>
+                  <h2 class={groupLabelClass}>
+                    {g.label}
+                    <Box as="span" fontWeight="normal" color="fg.subtle">
+                      {g.items.length}
+                    </Box>
+                  </h2>
                 </Show>
-                <Show
-                  when={props.serverLoading && searchResults().length === 0}
+                <ul
+                  class={listClass}
+                  data-stale={
+                    isSearching() && props.serverLoading ? "" : undefined
+                  }
                 >
-                  <HStack gap="0.5rem">
-                    <Spinner size="xs" />
-                    <Text fontSize="xs" color="black.a7">
-                      Searching…
-                    </Text>
-                  </HStack>
-                </Show>
-              </HStack>
-            </HStack>
-
-            <Show
-              when={!props.serverError}
-              fallback={
-                <SearchErrorState
-                  error={props.serverError ?? "request"}
-                  onRetry={props.onSearchRetry}
-                />
-              }
-            >
-              <Show
-                when={searchResults().length > 0}
-                fallback={<EmptySearchState loading={props.serverLoading} />}
-              >
-                <Stack as="ul" gap="0.35rem">
-                  <For each={searchResults().slice(0, q.serverShown())}>
+                  <For each={g.items}>
                     {(d) => (
                       <DocRow
-                        {...d}
-                        query={q.searchText()}
+                        id={d.id}
+                        title={d.title}
+                        updatedAt={d.updatedAt}
+                        path={d.path}
+                        meta={d.meta}
+                        share={d.share}
+                        snippet={"snippet" in d ? d.snippet : undefined}
+                        query={isSearching() ? q.searchText() : undefined}
                         previewDoc={previewDocsById().get(d.id) || null}
-                        onResultOpen={props.onResultOpen}
-                        onFilterMeta={(k, v) => {
-                          q.setMetaKey(k);
-                          q.setMetaValue(v);
-                        }}
+                        active={props.activeId === d.id}
                         selected={props.selectedIds?.has(d.id)}
+                        selectionMode={selectionMode()}
+                        onResultOpen={
+                          isSearching() ? props.onResultOpen : undefined
+                        }
+                        onFilterMeta={onFilterMeta}
                         onToggleSelect={props.onToggleSelect}
+                        onActivate={props.onActivate}
                       />
                     )}
                   </For>
-                </Stack>
-
-                <LoadMoreButton
-                  shown={Math.min(q.serverShown(), searchResults().length)}
-                  total={searchResults().length}
-                  onClick={() => q.showMoreServer(25)}
-                />
-              </Show>
-            </Show>
-          </Stack>
-        }
-      >
-        <Stack gap="0.4rem">
-          <For
-            each={groupByUpdatedAt(
-              props.items.slice(0, q.clientShown()),
-              nowMs(),
-            )}
-          >
-            {(g) => (
-              <Show when={g.items.length}>
-                <Box as="section" p={0}>
-                  <Text fontSize="sm" fontWeight="semibold" color="black.a7">
-                    {g.label}
-                  </Text>
-                  <Stack as="ul" gap="0.35rem" mt="0.1rem">
-                    <For each={g.items}>
-                      {(d) => (
-                        <DocRow
-                          {...d}
-                          previewDoc={previewDocsById().get(d.id) || null}
-                          onFilterMeta={(k, v) => {
-                            q.setMetaKey(k);
-                            q.setMetaValue(v);
-                          }}
-                          selected={props.selectedIds?.has(d.id)}
-                          onToggleSelect={props.onToggleSelect}
-                        />
-                      )}
-                    </For>
-                  </Stack>
-                </Box>
-              </Show>
+                </ul>
+              </section>
             )}
           </For>
           <LoadMoreButton
-            shown={Math.min(q.clientShown(), props.items.length)}
-            total={props.items.length}
-            onClick={() => q.showMoreClient(100)}
+            shown={shownCount()}
+            total={totalCount()}
+            onLoadMore={() =>
+              isSearching() ? q.showMoreServer(25) : q.showMoreClient(100)
+            }
           />
-        </Stack>
-      </Show>
-    </Stack>
-  );
-};
-
-const SearchErrorState = (props: {
-  error: "request" | "timeout";
-  onRetry: () => void;
-}) => (
-  <Box
-    role="alert"
-    borderWidth="1px"
-    borderColor="gray.outline.border"
-    borderRadius="l2"
-    px="0.75rem"
-    py="0.65rem"
-    bg="white"
-  >
-    <HStack justify="space-between" alignItems="center" gap="0.75rem">
-      <Text fontSize="sm" color="black.a7">
-        {props.error === "timeout"
-          ? "Search timed out. Try again."
-          : "Search failed. Try again."}
-      </Text>
-      <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
-        Retry
-      </Button>
-    </HStack>
-  </Box>
-);
-
-const EmptySearchState = (props: { loading: boolean }) => {
-  return (
-    <Box
-      borderWidth="1px"
-      borderColor="gray.outline.border"
-      borderRadius="l2"
-      px="0.75rem"
-      py="0.65rem"
-      bg="white"
-    >
-      <Text fontSize="sm" color="black.a7">
-        {props.loading ? "Searching notes..." : "No matching notes found."}
-      </Text>
-    </Box>
+        </Box>
+      </Match>
+    </Switch>
   );
 };

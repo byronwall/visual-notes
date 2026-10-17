@@ -1,45 +1,79 @@
 import type { VoidComponent } from "solid-js";
 import { Show } from "solid-js";
+import { SearchIcon } from "lucide-solid";
 import { ClearButton } from "~/components/ui/clear-button";
 import { Input } from "~/components/ui/input";
-import { Text } from "~/components/ui/text";
-import { HStack, Stack } from "styled-system/jsx";
+import { Kbd } from "~/components/ui/kbd";
+import { Spinner } from "~/components/ui/spinner";
+import { Box } from "styled-system/jsx";
 
 export const SearchInput: VoidComponent<{
   value: string;
+  loading?: boolean;
   onChange: (v: string) => void;
+  onKeyDown?: (e: KeyboardEvent) => void;
+  ref?: (el: HTMLInputElement) => void;
 }> = (props) => {
-  const handleChange = (e: Event) => {
-    const target = e.currentTarget as HTMLInputElement;
-    props.onChange(target.value);
-  };
   return (
-    <Stack gap="1">
-      <HStack justify="space-between" alignItems="center">
-        <Text fontSize="xs" color="black.a7" fontWeight="medium">
-          Search
-        </Text>
-        <HStack gap="2" alignItems="center">
-          <Text fontSize="xs" color="black.a7">
-            Title, path, and note content
-          </Text>
-          <Show when={props.value.trim().length > 0}>
-            <ClearButton label="Clear search" onClick={() => props.onChange("")} />
-          </Show>
-        </HStack>
-      </HStack>
+    <Box position="relative" flex="1" minW="0">
+      <Box
+        position="absolute"
+        left="2.5"
+        top="50%"
+        transform="translateY(-50%)"
+        color="fg.subtle"
+        display="flex"
+        pointerEvents="none"
+      >
+        <SearchIcon size={15} />
+      </Box>
       <Input
+        ref={props.ref}
+        type="search"
         size="sm"
-        w="full"
-        minW="0"
-        placeholder="Search notes..."
+        ps="8"
+        pe="16"
+        bg="bg.default"
+        placeholder="Search titles, paths, and content"
+        aria-label="Search notes"
         value={props.value}
-        onInput={handleChange}
+        onInput={(e) => props.onChange(e.currentTarget.value)}
+        onKeyDown={(e) => props.onKeyDown?.(e)}
         autocomplete="off"
         autocapitalize="none"
         autocorrect="off"
         spellcheck={false}
+        css={{ "&::-webkit-search-cancel-button": { display: "none" } }}
       />
-    </Stack>
+      {/* Fixed-width end slot so spinner/clear/kbd never shift the text. */}
+      <Box
+        position="absolute"
+        right="1.5"
+        top="50%"
+        transform="translateY(-50%)"
+        display="flex"
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="1"
+        w="14"
+      >
+        <Show when={props.loading}>
+          <Spinner size="xs" />
+        </Show>
+        <Show
+          when={props.value.length > 0}
+          fallback={
+            <Kbd size="sm" color="fg.subtle" title="Press / to search">
+              /
+            </Kbd>
+          }
+        >
+          <ClearButton
+            label="Clear search"
+            onClick={() => props.onChange("")}
+          />
+        </Show>
+      </Box>
+    </Box>
   );
 };

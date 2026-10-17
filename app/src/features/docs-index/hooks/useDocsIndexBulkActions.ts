@@ -55,6 +55,18 @@ export const useDocsIndexBulkActions = (args: {
     });
   };
 
+  const handleSetSelected = (ids: string[], next: boolean) => {
+    if (!ids.length) return;
+    setSelectedIds((prev) => {
+      const nextSet = new Set(prev);
+      for (const id of ids) {
+        if (next) nextSet.add(id);
+        else nextSet.delete(id);
+      }
+      return nextSet;
+    });
+  };
+
   const handleSelectAllVisible = () => {
     const ids = visibleIds();
     if (!ids.length) return;
@@ -120,7 +132,9 @@ export const useDocsIndexBulkActions = (args: {
   const handleProcessPathRound = async () => {
     const res = await runProcessPathRound();
     await Promise.all([args.refreshDocs(), args.refreshSources()]);
-    alert(`Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`);
+    alert(
+      `Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`,
+    );
   };
 
   const handleDeleteAll = async () => {
@@ -169,7 +183,9 @@ export const useDocsIndexBulkActions = (args: {
     if (!count) {
       throw new Error("No selected visible notes. Review the selection.");
     }
-    if (!confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`))
+    if (
+      !confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`)
+    )
       return false;
     setBulkBusy(true);
     try {
@@ -231,12 +247,10 @@ export const useDocsIndexBulkActions = (args: {
           results[index].status === "fulfilled" &&
           results[index].value?.id === id,
       );
-      const failedIds = ids.filter(
-        (id, index) => {
-          const result = results[index];
-          return result.status === "rejected" || result.value?.id !== id;
-        },
-      );
+      const failedIds = ids.filter((id, index) => {
+        const result = results[index];
+        return result.status === "rejected" || result.value?.id !== id;
+      });
       setSelectedIds((prev) => {
         const next = new Set(prev);
         for (const id of succeededIds) next.delete(id);
@@ -292,6 +306,7 @@ export const useDocsIndexBulkActions = (args: {
     showBulkPath,
     setVisibleIds,
     handleToggleSelect,
+    handleSetSelected,
     handleSelectAllVisible,
     handleSelectNone,
     handleBulkSetSource,
