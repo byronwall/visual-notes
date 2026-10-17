@@ -37,9 +37,28 @@ export type DocumentEditorApi = {
   canSave: () => boolean;
   saving: () => boolean;
   dirty: () => boolean;
+  error: () => string | undefined;
 };
 
+// Quiet period after the last keystroke before an autosave fires.
+const AUTOSAVE_DELAY_MS = 1500;
+
 const fetchDocData = (id: string) => fetchDoc(id) as Promise<DocData>;
+
+// Reads the first H1 straight from the editor state so entities and marks
+// never leak into the title the way regex-on-HTML would.
+const firstH1Text = (ed: Editor) => {
+  let text: string | undefined;
+  ed.state.doc.descendants((node) => {
+    if (text !== undefined) return false;
+    if (node.type.name === "heading" && node.attrs.level === 1) {
+      text = node.textContent.replace(/\s+/g, " ").trim();
+      return false;
+    }
+    return true;
+  });
+  return text || undefined;
+};
 
 const DocumentEditor: VoidComponent<{
   docId?: string;
@@ -58,7 +77,21 @@ const DocumentEditor: VoidComponent<{
   preferH1TitleForNewDoc?: boolean;
   placeNewDocPropertiesAfterEditor?: boolean;
   selectFirstLineOnMount?: boolean;
+  /** Focus the start of the document once the editor mounts. */
+  focusOnMount?: boolean;
   pathPopoverPortalled?: boolean;
+  /** Save existing docs automatically after a short pause in typing. */
+  autosave?: boolean;
+  /** Hide the inline error box when the host renders save errors itself. */
+  hideInlineError?: boolean;
+  /**
+   * When true, saves also send the leading H1 as the title so a note whose
+   * title mirrors its first heading stays in sync while editing.
+   */
+  syncTitleFromH1?: boolean;
+  onTitleSynced?: (title: string) => void;
+  minEditorHeight?: string;
+  borderless?: boolean;
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -115,14 +148,63 @@ const DocumentEditor: VoidComponent<{
     return html;
   });
 
+  let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearAutosave = () => {
+    if (!autosaveTimer) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = undefined;
+  };
+  const scheduleAutosave = () => {
+    if (!props.autosave || isNew()) return;
+    clearAutosave();
+    autosaveTimer = setTimeout(() => {
+      autosaveTimer = undefined;
+      if (!dirty()) return;
+      if (saving()) {
+        scheduleAutosave();
+        return;
+      }
+      void onSave();
+    }, AUTOSAVE_DELAY_MS);
+  };
+  onCleanup(clearAutosave);
+
   // Track editor updates to mark dirty
   createEffect(() => {
     const ed = editor();
     if (!ed) return;
-    const handler = () => setDirty(true);
+    const handler = () => {
+      setDirty(true);
+      scheduleAutosave();
+    };
     ed.on("update", handler);
     onCleanup(() => {
       ed.off("update", handler);
+    });
+  });
+
+  // Flush pending edits when the tab is hidden so switching away never
+  // strands unsaved text.
+  createEffect(() => {
+    if (!props.autosave) return;
+    const onVisibility = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (!dirty() || saving() || isNew()) return;
+      clearAutosave();
+      void onSave();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    onCleanup(() =>
+      document.removeEventListener("visibilitychange", onVisibility),
+    );
+  });
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed || !props.focusOnMount) return;
+    queueMicrotask(() => {
+      if (ed.isDestroyed) return;
+      ed.commands.focus("start");
     });
   });
 
@@ -134,8 +216,11 @@ const DocumentEditor: VoidComponent<{
         (isMac && e.metaKey && e.key.toLowerCase() === "s") ||
         (!isMac && e.ctrlKey && e.key.toLowerCase() === "s");
       if (isSave) {
-        if (!isEditorFocused(e.target)) return;
+        // With autosave on, Cmd+S anywhere on the page flushes the draft
+        // instead of opening the browser's "Save page" dialog.
+        if (!props.autosave && !isEditorFocused(e.target)) return;
         e.preventDefault();
+        clearAutosave();
         void onSave();
       }
     };
@@ -306,7 +391,22 @@ const DocumentEditor: VoidComponent<{
         if (props.onCreated) props.onCreated(json.id);
       } else {
         // Update existing
-        const updated = await runUpdateDoc({ id: d!.id, html });
+        const syncedTitle = props.syncTitleFromH1 ? firstH1Text(ed) : undefined;
+        const titleChanged =
+          !!syncedTitle && syncedTitle !== (d!.title || "").trim();
+        const updated = await runUpdateDoc({
+          id: d!.id,
+          html,
+          ...(titleChanged ? { title: syncedTitle } : {}),
+        });
+        if (titleChanged && syncedTitle) {
+          mutate((current) =>
+            current?.id === updated.id
+              ? { ...current, title: syncedTitle }
+              : current,
+          );
+          props.onTitleSynced?.(syncedTitle);
+        }
         if (props.docId === updated.id && doc()?.id === updated.id) {
           const draftUnchanged =
             editor() === ed && !ed.isDestroyed && ed.getHTML() === html;
@@ -349,6 +449,8 @@ const DocumentEditor: VoidComponent<{
         });
       }
       setSaving(false);
+      // Edits made while the request was in flight still need a save.
+      if (dirty() && !error()) scheduleAutosave();
     }
   }
 
@@ -358,6 +460,7 @@ const DocumentEditor: VoidComponent<{
       canSave,
       saving,
       dirty,
+      error,
     });
   }
 
@@ -411,7 +514,7 @@ const DocumentEditor: VoidComponent<{
           </HStack>
         </HStack>
       </Show>
-      <Show when={error()}>
+      <Show when={!props.hideInlineError && error()}>
         {(e) => (
           <Box
             mb="2"
@@ -461,6 +564,8 @@ const DocumentEditor: VoidComponent<{
         onEditor={(ed) => setEditor(ed)}
         noteId={props.docId || doc()?.id}
         showAiPromptsMenu={shouldShowAiPromptsBar()}
+        minEditorHeight={props.minEditorHeight}
+        borderless={props.borderless}
       />
       <Show when={shouldShowNewDocPropertiesAfterEditor()}>
         <Stack gap="2" mt="3">
