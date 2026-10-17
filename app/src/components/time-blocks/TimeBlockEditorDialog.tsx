@@ -28,10 +28,20 @@ import {
   randomTimeBlockColor,
 } from "./time-block-colors";
 
+/** Starting values for a block that does not exist yet. */
+export type NewBlockSeed = {
+  start: Date;
+  end: Date;
+  title?: string;
+  color?: string;
+};
+
 type Props = {
   open: boolean;
   block: TimeBlockItem | null;
-  newRange: { start: Date; end: Date } | null;
+  seed: NewBlockSeed | null;
+  /** Links new blocks to this note (the calendar is filtered to it). */
+  noteId?: string;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -56,7 +66,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
   createEffect(() => {
     if (!props.open) return;
     const block = props.block;
-    const range = props.newRange;
+    const range = props.seed;
 
     if (block) {
       const start = new Date(block.startTime);
@@ -73,9 +83,9 @@ export const TimeBlockEditorDialog = (props: Props) => {
     }
 
     if (range) {
-      setTitle("");
+      setTitle(range.title ?? "");
       setIsFixedTime(false);
-      setColor(randomTimeBlockColor());
+      setColor(range.color ?? randomTimeBlockColor());
       setComments("");
       setStartDate(formatDateOnly(range.start));
       setEndDate(formatDateOnly(range.end));
@@ -132,6 +142,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           color: color(),
           isFixedTime: isFixedTime(),
           comments: comments() || undefined,
+          noteId: props.noteId ?? null,
         });
       }
       props.onSaved();
@@ -171,11 +182,8 @@ export const TimeBlockEditorDialog = (props: Props) => {
       onOpenChange={(open) => !open && props.onClose()}
       initialFocusEl={() => titleInputRef ?? null}
       restoreFocus={false}
-      maxW="calc(100vw - 48px)"
-      contentClass={css({
-        width: "fit-content",
-        minW: "660px",
-      })}
+      maxW="calc(100vw - 32px)"
+      contentClass={css({ width: "fit-content" })}
       footer={
         <HStack justifyContent="space-between" w="full">
           <Show when={props.block} fallback={<Box />}>
@@ -194,32 +202,21 @@ export const TimeBlockEditorDialog = (props: Props) => {
             onClick={() => void handleSubmit()}
             disabled={saving()}
           >
-            <HStack gap="2" alignItems="baseline">
-              <Text>
-                {saving()
-                  ? "Saving..."
-                  : props.block
-                    ? "Save Changes"
-                    : "Create Block"}
-              </Text>
-              <Text
-                fontSize="xs"
-                color="fg.muted"
-                style={{
-                  "font-family":
-                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace",
-                  "letter-spacing": "0.02em",
-                }}
-              >
-                Enter (Title) / Cmd Enter
-              </Text>
-            </HStack>
+            {saving()
+              ? "Saving…"
+              : props.block
+                ? "Save changes"
+                : "Create block"}
+            <Text as="span" fontSize="xs" opacity={0.7} fontFamily="mono">
+              ⌘↵
+            </Text>
           </Button>
         </HStack>
       }
     >
       <Stack
         gap="4"
+        w={{ base: "full", md: "640px" }}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
           if (!event.metaKey && !event.ctrlKey) return;
@@ -235,7 +232,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
             ref={(el) => {
               titleInputRef = el;
             }}
-            w="640px"
+            w="full"
             value={title()}
             placeholder="Deep work"
             onInput={(event) => setTitle(event.currentTarget.value)}
@@ -272,13 +269,16 @@ export const TimeBlockEditorDialog = (props: Props) => {
           </HStack>
         </HStack>
 
-        <HStack
+        <Box
+          display="grid"
+          gridTemplateColumns={{
+            base: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, 152px)",
+          }}
           gap="2.5"
           alignItems="flex-end"
-          flexWrap="nowrap"
-          w="fit-content"
         >
-          <Stack gap="1.5" w="152px">
+          <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
               Start Date
             </Text>
@@ -288,7 +288,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
               onInput={(event) => setStartDate(event.currentTarget.value)}
             />
           </Stack>
-          <Stack gap="1.5" w="152px">
+          <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
               Start Time
             </Text>
@@ -298,7 +298,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
               onInput={(event) => setStartTime(event.currentTarget.value)}
             />
           </Stack>
-          <Stack gap="1.5" w="152px">
+          <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
               End Date
             </Text>
@@ -308,7 +308,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
               onInput={(event) => setEndDate(event.currentTarget.value)}
             />
           </Stack>
-          <Stack gap="1.5" w="152px">
+          <Stack gap="1.5">
             <Text fontSize="sm" fontWeight="medium">
               End Time
             </Text>
@@ -318,7 +318,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
               onInput={(event) => setEndTime(event.currentTarget.value)}
             />
           </Stack>
-        </HStack>
+        </Box>
 
         <Stack gap="1.5">
           <Text fontSize="sm" fontWeight="medium">
@@ -345,7 +345,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
             Comments
           </Text>
           <Textarea
-            w="640px"
+            w="full"
             rows={2}
             value={comments()}
             onInput={(event) => setComments(event.currentTarget.value)}
@@ -357,7 +357,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
           <Text fontSize="sm" fontWeight="medium">
             Color
           </Text>
-          <HStack gap="3" w="640px">
+          <HStack gap="3" w="full">
             <Input
               type="range"
               flex="1"

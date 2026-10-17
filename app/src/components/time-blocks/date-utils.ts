@@ -97,7 +97,7 @@ export const parseTimeInput = (value: string) => {
 export const setDateTimeFromInputs = (
   date: Date,
   dateInputValue: string,
-  timeInputValue: string
+  timeInputValue: string,
 ) => {
   const parsedDate = parseDateInput(dateInputValue);
   const base = parsedDate ?? new Date(date);
@@ -108,3 +108,22 @@ export const setDateTimeFromInputs = (
 
 export const durationMinutes = (start: Date, end: Date) =>
   Math.max(0, Math.round((end.getTime() - start.getTime()) / MS_PER_MINUTE));
+
+/** `9:05`, `14:30` — compact 24h clock without a leading zero. */
+export const formatClock = (date: Date) =>
+  `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+/** `45m`, `1h`, `1h 30m`. */
+export const formatDuration = (minutesTotal: number) => {
+  const total = Math.max(0, Math.round(minutesTotal));
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+};
+
+export const isSameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
