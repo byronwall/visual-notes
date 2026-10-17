@@ -1,34 +1,52 @@
-import { JSX } from "solid-js";
+import { type JSX, splitProps } from "solid-js";
 import { Button } from "~/components/ui/button";
 
-export function Toggle(props: {
+type ToggleProps = {
   title?: string;
+  ariaLabel?: string;
   pressed?: boolean;
-  onChange?: () => void;
+  onPress?: () => void;
   children: JSX.Element;
-}) {
+} & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "title">;
+
+export function Toggle(props: ToggleProps) {
+  const [local, rest] = splitProps(props, [
+    "title",
+    "ariaLabel",
+    "pressed",
+    "onPress",
+    "children",
+  ]);
   return (
     <Button
       type="button"
-      title={props.title}
+      {...rest}
+      title={local.title || undefined}
+      aria-label={local.ariaLabel}
+      aria-pressed={local.pressed === undefined ? undefined : local.pressed}
       size="xs"
       variant="plain"
       colorPalette="gray"
-      data-state={props.pressed ? "on" : "off"}
-      minW="6"
-      h="6"
+      data-state={local.pressed ? "on" : "off"}
+      minW="7"
+      h="7"
       px="0"
-      borderWidth="1px"
-      borderColor={props.pressed ? "gray.outline.border" : "transparent"}
-      bg={props.pressed ? "gray.surface.bg" : "transparent"}
-      color={props.pressed ? "fg.default" : "fg.muted"}
+      borderRadius="l2"
+      bg={local.pressed ? "gray.subtle.bg" : "transparent"}
+      color={local.pressed ? "fg.default" : "fg.muted"}
+      transitionProperty="background-color, color"
+      transitionDuration="140ms"
       _hover={{
-        bg: "gray.surface.bg.hover",
+        bg: local.pressed ? "gray.subtle.bg.hover" : "gray.plain.bg.hover",
         color: "fg.default",
       }}
-      onClick={props.onChange}
+      _active={{ bg: "gray.subtle.bg.active" }}
+      onClick={(event) => {
+        if (typeof rest.onClick === "function") rest.onClick(event);
+        local.onPress?.();
+      }}
     >
-      {props.children}
+      {local.children}
     </Button>
   );
 }

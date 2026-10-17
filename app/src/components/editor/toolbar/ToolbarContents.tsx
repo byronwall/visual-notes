@@ -1,13 +1,22 @@
 import type { Editor } from "@tiptap/core";
-import { Show } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
+import { Dynamic } from "solid-js/web";
+import { createEditorTransaction } from "solid-tiptap";
 import { Control } from "./Control";
-import { blocks, marks, listsBlocks, type Btn } from "./toolbarConfig";
+import {
+  blocks,
+  formatShortcut,
+  marks,
+  listsBlocks,
+  type Btn,
+} from "./toolbarConfig";
 import { exec } from "../core/exec";
 import { csvTextToTableJson } from "../csv/csvUtils";
 import { insertContentOrText } from "../core/insertContentOrText";
 import { Separator } from "../ui/Separator";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { Tooltip } from "~/components/ui/tooltip";
+import * as Menu from "~/components/ui/menu";
 import { AIPromptsMenu } from "../ui/AIPromptsMenu";
 import { Box, HStack } from "styled-system/jsx";
 import {
@@ -15,12 +24,106 @@ import {
   Columns2Icon,
   FileCode2Icon,
   FileSpreadsheetIcon,
+  PlusIcon,
   Rows3Icon,
   TableColumnsSplitIcon,
   TableIcon,
   TableRowsSplitIcon,
   Trash2Icon,
 } from "lucide-solid";
+import { Toggle } from "./Toggle";
+
+// TODO:AS_ANY, table chain commands come from the table extension at runtime
+type TableChain = Record<string, (...args: unknown[]) => unknown>;
+const tableCommand =
+  (command: string, ...args: unknown[]) =>
+  (ch: Parameters<Btn["run"]>[0]) => {
+    (ch as unknown as TableChain)[command](...args);
+    return ch;
+  };
+
+// Table tools only make sense with the caret inside a table, so they appear
+// on demand instead of crowding the toolbar for every note.
+const tableTools: Btn[] = [
+  {
+    name: "addRowAfter",
+    title: "Add row below",
+    label: "+R",
+    icon: TableRowsSplitIcon,
+    isActive: () => false,
+    run: tableCommand("addRowAfter"),
+  },
+  {
+    name: "addColumnAfter",
+    title: "Add column right",
+    label: "+C",
+    icon: TableColumnsSplitIcon,
+    isActive: () => false,
+    run: tableCommand("addColumnAfter"),
+  },
+  {
+    name: "deleteRow",
+    title: "Delete row",
+    label: "-R",
+    icon: Rows3Icon,
+    isActive: () => false,
+    run: tableCommand("deleteRow"),
+  },
+  {
+    name: "deleteColumn",
+    title: "Delete column",
+    label: "-C",
+    icon: Columns2Icon,
+    isActive: () => false,
+    run: tableCommand("deleteColumn"),
+  },
+  {
+    name: "deleteTable",
+    title: "Delete table",
+    label: "-T",
+    icon: Trash2Icon,
+    isActive: () => false,
+    run: tableCommand("deleteTable"),
+  },
+];
+
+function TooltipLabel(props: { title: string; shortcut?: string }) {
+  return (
+    <HStack gap="2" alignItems="center">
+      <span>{props.title}</span>
+      <Show when={props.shortcut}>
+        {(shortcut) => (
+          <Box as="span" opacity="0.7" fontFamily="mono" fontSize="xs">
+            {formatShortcut(shortcut())}
+          </Box>
+        )}
+      </Show>
+    </HStack>
+  );
+}
+
+function BtnIcon(props: { btn: Btn }) {
+  return (
+    <Show
+      when={props.btn.icon}
+      fallback={
+        <Box as="span" m="1" {...props.btn.labelStyle}>
+          {props.btn.label}
+        </Box>
+      }
+    >
+      {(icon) => <Dynamic component={icon()} size={16} />}
+    </Show>
+  );
+}
+
+function Group(props: { children: JSX.Element }) {
+  return (
+    <HStack gap="0.5" flexShrink="0" alignItems="center">
+      {props.children}
+    </HStack>
+  );
+}
 
 export function ToolbarContents(props: {
   editor: Editor;
@@ -30,28 +133,32 @@ export function ToolbarContents(props: {
   let csvInputRef: HTMLInputElement | undefined;
 
   const run = (fn: Btn["run"]) => exec(props.editor, fn);
-  const renderControl = (b: Btn) => {
-    const Icon = b.icon;
-    if (Icon) {
-      return (
-        <Box
-          as="span"
-          w="full"
-          h="full"
-          display="inline-flex"
-          alignItems="center"
-          justifyContent="center"
+  const inTable = createEditorTransaction(
+    () => props.editor,
+    (instance) => instance.isActive("table"),
+  );
+
+  const renderButtons = (list: Btn[]) => (
+    <For each={list}>
+      {(b) => (
+        <Tooltip
+          content={<TooltipLabel title={b.title} shortcut={b.shortcut} />}
+          showArrow
         >
-          <Icon size={16} />
-        </Box>
-      );
-    }
-    return (
-      <Box as="span" w="full" h="full" m="1" {...b.labelStyle}>
-        {b.label}
-      </Box>
-    );
-  };
+          <Control
+            name={b.name}
+            editor={props.editor}
+            onChange={() => run(b.run)}
+            title=""
+            ariaLabel={b.title}
+            isActive={b.isActive}
+          >
+            <BtnIcon btn={b} />
+          </Control>
+        </Tooltip>
+      )}
+    </For>
+  );
 
   const onCsvFileChange = async (e: Event) => {
     const input = e.currentTarget as HTMLInputElement;
@@ -75,13 +182,19 @@ export function ToolbarContents(props: {
     props.editor.chain().focus().insertContent(html).run();
   };
 
+  const insertTable = () =>
+    run(tableCommand("insertTable", { rows: 3, cols: 3, withHeaderRow: true }));
+
   return (
     <HStack
       gap="1"
-      p={{ base: "1.5", md: "2" }}
-      flexWrap="wrap"
-      rowGap="1"
+      px="2"
+      py="1.5"
       alignItems="center"
+      flexWrap={{ base: "nowrap", md: "wrap" }}
+      rowGap="1"
+      overflowX={{ base: "auto", md: "visible" }}
+      css={{ scrollbarWidth: "none" }}
     >
       <input
         ref={(el) => (csvInputRef = el)}
@@ -91,274 +204,60 @@ export function ToolbarContents(props: {
         onChange={onCsvFileChange}
       />
 
-      <HStack gap="1" flexWrap="wrap" rowGap="1" alignItems="center">
-        {blocks.map((b) => (
-          <Tooltip content={b.title} showArrow>
-            <Control
-              name={b.name}
-              editor={props.editor}
-              onChange={() => run(b.run)}
-              title=""
-              isActive={b.isActive}
-            >
-              {renderControl(b)}
-            </Control>
-          </Tooltip>
-        ))}
-      </HStack>
-
+      <Group>{renderButtons(blocks)}</Group>
       <Separator />
-
-      <HStack gap="1" flexWrap="wrap" rowGap="1" alignItems="center">
-        {marks.map((b) => (
-          <Tooltip content={b.title} showArrow>
-            <Control
-              name={b.name}
-              editor={props.editor}
-              onChange={() => run(b.run)}
-              title=""
-            >
-              {renderControl(b)}
-            </Control>
-          </Tooltip>
-        ))}
-      </HStack>
-
+      <Group>{renderButtons(marks)}</Group>
       <Separator />
-
-      <HStack gap="1" flexWrap="wrap" rowGap="1" alignItems="center">
-        {listsBlocks.map((b) => (
-          <Tooltip content={b.title} showArrow>
-            <Control
-              name={b.name}
-              editor={props.editor}
-              onChange={() => run(b.run)}
-              title=""
-            >
-              {renderControl(b)}
-            </Control>
-          </Tooltip>
-        ))}
-      </HStack>
-
+      <Group>{renderButtons(listsBlocks)}</Group>
       <Separator />
-
-      <HStack gap="1" flexWrap="wrap" rowGap="1" alignItems="center">
-        <Tooltip content="Insert Table" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).insertTable({
-                  rows: 3,
-                  cols: 3,
-                  withHeaderRow: true,
-                });
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <TableIcon size={16} />
-            </Box>
-          </Control>
+      <Group>
+        <Tooltip content="Insert table" showArrow>
+          <Toggle ariaLabel="Insert table" onPress={insertTable}>
+            <TableIcon size={16} />
+          </Toggle>
         </Tooltip>
-        <Tooltip content="Import CSV as Table" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() => csvInputRef?.click()}
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <FileSpreadsheetIcon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Add Row" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).addRowAfter();
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <TableRowsSplitIcon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Add Column" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).addColumnAfter();
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <TableColumnsSplitIcon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Delete Row" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).deleteRow();
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Rows3Icon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Delete Column" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).deleteColumn();
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Columns2Icon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Delete Table" showArrow>
-          <Control
-            name="table"
-            editor={props.editor}
-            title=""
-            onChange={() =>
-              run((ch) => {
-                // TODO:AS_ANY, table chain commands come from table extension
-                (ch as unknown as any).deleteTable();
-                return ch;
-              })
-            }
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Trash2Icon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Paste Clipboard as Table (CSV/TSV)" showArrow>
-          <Control
-            name="forceCsvPaste"
-            editor={props.editor}
-            title=""
-            onChange={onForceCsvPasteFromClipboard}
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <ClipboardPasteIcon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-        <Tooltip content="Paste Clipboard as Markdown" showArrow>
-          <Control
-            name="forceMarkdownPaste"
-            editor={props.editor}
-            title=""
-            onChange={onForceMarkdownPasteFromClipboard}
-          >
-            <Box
-              as="span"
-              w="full"
-              h="full"
-              display="inline-flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <FileCode2Icon size={16} />
-            </Box>
-          </Control>
-        </Tooltip>
-      </HStack>
-      <Show when={props.showAiPromptsMenu}>
+        <Menu.Root size="sm" positioning={{ placement: "bottom-start" }}>
+          <Tooltip content="More ways to insert" showArrow>
+            <Menu.Trigger
+              asChild={(triggerProps) => (
+                <Toggle {...triggerProps} ariaLabel="More ways to insert">
+                  <PlusIcon size={16} />
+                </Toggle>
+              )}
+            />
+          </Tooltip>
+          <Menu.Positioner>
+            <Menu.Content>
+              <Menu.Item value="csv-file" onSelect={() => csvInputRef?.click()}>
+                <FileSpreadsheetIcon size={14} />
+                Import CSV file as table
+              </Menu.Item>
+              <Menu.Item
+                value="csv-paste"
+                onSelect={() => void onForceCsvPasteFromClipboard()}
+              >
+                <ClipboardPasteIcon size={14} />
+                Paste clipboard as table
+              </Menu.Item>
+              <Menu.Item
+                value="md-paste"
+                onSelect={() => void onForceMarkdownPasteFromClipboard()}
+              >
+                <FileCode2Icon size={14} />
+                Paste clipboard as Markdown
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Menu.Root>
+      </Group>
+      <Show when={inTable()}>
         <Separator />
-        <AIPromptsMenu editor={props.editor} noteId={props.noteId} />
+        <Group>{renderButtons(tableTools)}</Group>
+      </Show>
+      <Show when={props.showAiPromptsMenu}>
+        <Box ml="auto" flexShrink="0" pl="1">
+          <AIPromptsMenu editor={props.editor} noteId={props.noteId} />
+        </Box>
       </Show>
     </HStack>
   );
