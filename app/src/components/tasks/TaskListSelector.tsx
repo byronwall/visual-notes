@@ -43,8 +43,8 @@ const itemClass = css({
   userSelect: "none",
   transitionProperty: "background-color, color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a2", color: "fg.default" },
-  "&[data-selected=true]": { bg: "gray.a3", color: "fg.default", fontWeight: "medium" },
+  _hover: { bg: "gray.a3", color: "fg.default" },
+  "&[data-selected=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
   _focusVisible: { outline: "2px solid token(colors.gray.a8)", outlineOffset: "-2px" },
   "& [data-reveal]": { opacity: 0, transitionProperty: "opacity", transitionDuration: "fast" },
   "&:hover [data-reveal], & [data-reveal][data-state=open], & [data-reveal]:focus-visible": {
