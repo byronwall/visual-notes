@@ -1,6 +1,12 @@
 import { createAsync, useNavigate } from "@solidjs/router";
 import { WaypointsIcon } from "lucide-solid";
-import { For, Show, createMemo, createSignal, type VoidComponent } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  type VoidComponent,
+} from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { PathPillLink } from "~/components/path/PathPillLink";
 import { Button } from "~/components/ui/button";
@@ -36,7 +42,9 @@ const formatDistance = (distance: number) => {
   return distance.toFixed(1);
 };
 
-export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => {
+export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (
+  props,
+) => {
   const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
   const [hoveredDocId, setHoveredDocId] = createSignal<string | undefined>();
@@ -44,10 +52,14 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
   const nearby = createAsync(() =>
     open() && props.docId
       ? fetchNearbyUmapDocs({ docId: props.docId, take: 36 })
-      : Promise.resolve({ points: [] })
+      : Promise.resolve({ points: [] }),
   );
-  const nearbyData = createMemo(() => nearby.latest ?? nearby() ?? { points: [] });
-  const isInitialLoading = createMemo(() => open() && !nearby.latest && !nearby());
+  const nearbyData = createMemo(
+    () => nearby.latest ?? nearby() ?? { points: [] },
+  );
+  const isInitialLoading = createMemo(
+    () => open() && !nearby.latest && !nearby(),
+  );
 
   const plotPoints = createMemo<PlotPoint[]>(() => {
     const points = nearbyData().points || [];
@@ -92,7 +104,9 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
   const nearbyDocs = createMemo(() =>
     plotPoints()
       .filter((point) => !point.isCurrent)
-      .sort((a, b) => a.distance - b.distance || a.title.localeCompare(b.title))
+      .sort(
+        (a, b) => a.distance - b.distance || a.title.localeCompare(b.title),
+      ),
   );
 
   const commonPaths = createMemo(() => {
@@ -122,13 +136,18 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
       offset={8}
       anchor={
         <IconButton
-          size="sm"
-          variant="outline"
+          size="xs"
+          variant="plain"
+          colorPalette="gray"
+          color="fg.muted"
+          minW="7"
+          w="7"
+          h="7"
           aria-label="Nearby notes via UMAP"
           onClick={() => setOpen((value) => !value)}
           disabled={!props.docId}
         >
-          <WaypointsIcon size={16} />
+          <WaypointsIcon size={14} />
         </IconButton>
       }
     >
@@ -167,11 +186,18 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
               role="img"
               aria-label="Nearby notes scatter plot"
             >
-              <rect x="0" y="0" width={PLOT_WIDTH} height={PLOT_HEIGHT} fill="transparent" />
+              <rect
+                x="0"
+                y="0"
+                width={PLOT_WIDTH}
+                height={PLOT_HEIGHT}
+                fill="transparent"
+              />
               <For each={plotPoints()}>
                 {(point) => {
                   const hovered = () => hoveredDocId() === point.id;
-                  const radius = () => (point.isCurrent ? 6.5 : hovered() ? 6 : 5);
+                  const radius = () =>
+                    point.isCurrent ? 6.5 : hovered() ? 6 : 5;
                   return (
                     <circle
                       cx={point.plotX}
@@ -216,7 +242,12 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
                   transform: "translateY(-100%)",
                 }}
               >
-                <Text fontSize="xs" color="fg.default" fontWeight="medium" truncate>
+                <Text
+                  fontSize="xs"
+                  color="fg.default"
+                  fontWeight="medium"
+                  truncate
+                >
                   {point().title || "Untitled"}
                 </Text>
               </Box>
@@ -224,12 +255,16 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
           </Show>
         </Box>
 
-        <Show when={!isInitialLoading()} fallback={<SkeletonText noOfLines={5} gap="2" />}>
+        <Show
+          when={!isInitialLoading()}
+          fallback={<SkeletonText noOfLines={5} gap="2" />}
+        >
           <Show
             when={nearbyDocs().length > 0}
             fallback={
               <Text fontSize="sm" color="fg.muted">
-                No nearby documents available in the latest UMAP run for this note.
+                No nearby documents available in the latest UMAP run for this
+                note.
               </Text>
             }
           >
@@ -279,7 +314,12 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (props) => 
                             background: colorFor(item.path || item.title),
                           }}
                         />
-                        <Stack gap="0.5" alignItems="flex-start" minW="0" flex="1">
+                        <Stack
+                          gap="0.5"
+                          alignItems="flex-start"
+                          minW="0"
+                          flex="1"
+                        >
                           <HStack
                             w="full"
                             minW="0"

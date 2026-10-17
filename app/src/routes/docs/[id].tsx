@@ -5,7 +5,6 @@ import {
   type VoidComponent,
   type Accessor,
   Match,
-  Show,
   Switch,
   Suspense,
   createResource,
@@ -15,7 +14,8 @@ import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
-import { Box, Container, HStack, Stack } from "styled-system/jsx";
+import { Box, Container, Stack } from "styled-system/jsx";
+import { Skeleton } from "~/components/ui/skeleton";
 
 type DocDetail = {
   id: string;
@@ -46,12 +46,26 @@ const isNotFoundError = (error: unknown) => {
   return message.toLowerCase().includes("not found");
 };
 
+// Comfortable reading measure (~70 characters of body text).
+const NOTE_MEASURE = "46rem";
+const NoteSkeleton: VoidComponent = () => (
+  <Stack gap="4" aria-busy="true" aria-label="Loading note">
+    <Skeleton h="5" w="16rem" />
+    <Skeleton h="9" w="70%" />
+    <Stack gap="2.5">
+      <Skeleton h="4" w="full" />
+      <Skeleton h="4" w="full" />
+      <Skeleton h="4" w="85%" />
+    </Stack>
+  </Stack>
+);
+
 const DocView: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
   const [doc] = createResource(
     () => params.id,
-    (id) => fetchDocDetail(id!)
+    (id) => fetchDocDetail(id!),
   );
 
   const handleDeleted = (deletedDocId: string) => {
@@ -64,13 +78,17 @@ const DocView: VoidComponent = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container pt="4" pb={{ base: "24", md: "32" }} px="4">
-        <Box mx="auto" maxW="900px" position="relative">
+      <Container
+        pt={{ base: "3", md: "4" }}
+        pb="24"
+        px={{ base: "4", md: "6" }}
+      >
+        <Box position="relative">
           <Suspense
             fallback={
-              <Text textStyle="sm" color="fg.muted">
-                Loading…
-              </Text>
+              <Box mx="auto" maxW={NOTE_MEASURE}>
+                <NoteSkeleton />
+              </Box>
             }
           >
             <Switch>
@@ -78,7 +96,12 @@ const DocView: VoidComponent = () => {
                 {(error) => {
                   const notFound = isNotFoundError(error());
                   return (
-                    <Stack gap="3" alignItems="flex-start">
+                    <Stack
+                      gap="3"
+                      alignItems="flex-start"
+                      mx="auto"
+                      maxW={NOTE_MEASURE}
+                    >
                       <HttpStatusCode code={notFound ? 404 : 500} />
                       <Title>
                         {notFound
@@ -137,35 +160,14 @@ const DocView: VoidComponent = () => {
                       property="og:description"
                       content={`Open note: ${d().title}`}
                     />
-                    <Stack gap="4">
-                      <Box as="article" ref={(el) => (articleEl = el)}>
-                        <DocumentViewer doc={d()} onDeleted={handleDeleted} />
-                        <Show when={d().originalContentId}>
-                          {(cid) => (
-                            <HStack
-                              gap="2"
-                              alignItems="center"
-                              mt="6"
-                              pt="3"
-                              borderTopWidth="1px"
-                              borderColor="gray.outline.border"
-                            >
-                              <Text as="span" fontSize="xs" color="black.a7">
-                                Original content ID:
-                              </Text>
-                              <Box
-                                as="code"
-                                fontSize="xs"
-                                color="black.a7"
-                                display="inline"
-                              >
-                                {cid()}
-                              </Box>
-                            </HStack>
-                          )}
-                        </Show>
-                      </Box>
-                    </Stack>
+                    <Box
+                      as="article"
+                      ref={(el) => (articleEl = el)}
+                      mx="auto"
+                      maxW={NOTE_MEASURE}
+                    >
+                      <DocumentViewer doc={d()} onDeleted={handleDeleted} />
+                    </Box>
                   </>
                 )}
               </Match>
@@ -177,7 +179,7 @@ const DocView: VoidComponent = () => {
               const root = articleEl as HTMLElement | undefined;
               if (!root) return null;
               const pm = root.querySelector(
-                ".ProseMirror"
+                ".ProseMirror",
               ) as HTMLElement | null;
               return pm || root;
             }}

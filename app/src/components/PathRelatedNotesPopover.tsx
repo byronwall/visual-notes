@@ -30,7 +30,7 @@ export const PathRelatedNotesPopover = (props: {
           path: normalizedPath(),
           currentDocId: props.currentDocId,
         })
-      : Promise.resolve({ path: "", notes: [] })
+      : Promise.resolve({ path: "", notes: [] }),
   );
 
   return (
@@ -42,17 +42,27 @@ export const PathRelatedNotesPopover = (props: {
       style={{ width: "min(26rem, 92vw)" }}
       anchor={
         <IconButton
-          size="sm"
-          variant="outline"
+          size="xs"
+          variant="plain"
+          colorPalette="gray"
+          color="fg.muted"
+          minW="7"
+          w="7"
+          h="7"
           aria-label="Related notes in this path"
           onClick={() => setOpen((value) => !value)}
           disabled={normalizedPath().length === 0}
         >
-          <FolderSearchIcon size={16} />
+          <FolderSearchIcon size={14} />
         </IconButton>
       }
     >
-      <Stack gap="3" p="3" maxH="min(34rem, calc(100vh - 7rem))" overflow="hidden">
+      <Stack
+        gap="3"
+        p="3"
+        maxH="min(34rem, calc(100vh - 7rem))"
+        overflow="hidden"
+      >
         <Show when={normalizedPath().length > 0}>
           <Stack gap="2">
             <PathHeadingLink

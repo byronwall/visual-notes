@@ -1,8 +1,14 @@
 import type { Editor } from "@tiptap/core";
-import { Show, createEffect, createMemo, createSignal } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import type { Component } from "solid-js";
 import { createEditor } from "./editor/core/createEditor";
-import { documentContentStyles } from "./document-content-styles";
+import { documentContentClass } from "./document-content-styles";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
 import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
@@ -32,6 +38,18 @@ type TiptapEditorProps = {
 
 const TiptapEditor: Component<TiptapEditorProps> = (props) => {
   const [container, setContainer] = createSignal<HTMLDivElement>();
+  const [sentinel, setSentinel] = createSignal<HTMLDivElement>();
+  const [stuck, setStuck] = createSignal(false);
+
+  createEffect(() => {
+    const el = sentinel();
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setStuck(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    observer.observe(el);
+    onCleanup(() => observer.disconnect());
+  });
   // Capture the first non-null editor instance and keep it stable to avoid
   // transaction-driven reactive churn in the view layer.
   const [stableEditor, setStableEditor] = createSignal<Editor | null>(null);
@@ -40,13 +58,13 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
   // Register markdown prompt for the MarkdownPaste extension
   setMarkdownPrompt((text: string, _src: "paste" | "drop" | "file") =>
-    mdPrompt(text)
+    mdPrompt(text),
   );
 
   const editor = createEditor(
     () => container(),
     props.initialHTML ?? DEFAULT_HTML,
-    (text: string, _src: "paste" | "drop" | "file") => prompt(text)
+    (text: string, _src: "paste" | "drop" | "file") => prompt(text),
   );
 
   // Set stable editor instance once when available
@@ -69,7 +87,7 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
   // Track the last applied prop value to avoid redundant setContent calls.
   let lastAppliedFromProps: string | undefined = undefined;
   const initialHtmlFromProps = createMemo(
-    () => props.initialHTML ?? DEFAULT_HTML
+    () => props.initialHTML ?? DEFAULT_HTML,
   );
   createEffect(() => {
     const ed = stableEditor();
@@ -94,19 +112,27 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
       gap="2"
     >
       <Show when={props.showToolbar !== false}>
+        {/* Sentinel: once it scrolls out of view the toolbar is stuck. */}
+        <Box ref={setSentinel} h="0" mb="-2" aria-hidden="true" />
         <Box
           flexShrink="0"
           position="sticky"
           top="0"
           zIndex="20"
-          borderWidth="1px"
-          borderColor="gray.outline.border"
-          borderRadius="l2"
-          bg="gray.surface.bg"
+          bg="bg.default"
           color="fg.default"
-          style={{
-            background: "rgba(255,255,255,0.95)",
-            "backdrop-filter": "blur(10px)",
+          data-stuck={stuck() ? "true" : "false"}
+          borderWidth={props.borderless ? "0" : "1px"}
+          borderColor="gray.outline.border"
+          borderRadius={props.borderless ? "0" : "l2"}
+          mx={props.borderless ? "-2" : undefined}
+          transitionProperty="box-shadow"
+          transitionDuration="140ms"
+          _motionReduce={{ transition: "none" }}
+          css={{
+            "&[data-stuck=true]": {
+              boxShadow: "0 1px 0 0 var(--colors-border)",
+            },
           }}
         >
           <Show when={stableEditor()}>
@@ -127,11 +153,14 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         borderWidth={props.borderless ? "0" : "1px"}
         borderColor={props.borderless ? undefined : "gray.outline.border"}
         borderRadius={props.borderless ? undefined : "l2"}
-        css={documentContentStyles}
+        data-borderless={props.borderless ? "true" : undefined}
+        class={documentContentClass}
       >
         <Box
           minH={props.minEditorHeight ?? "200px"}
           h={props.fillHeight ? "full" : undefined}
+          display="flex"
+          flexDirection="column"
           ref={setContainer}
         />
       </Box>
