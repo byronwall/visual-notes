@@ -32,6 +32,7 @@ import {
   Trash2Icon,
 } from "lucide-solid";
 import { Toggle } from "./Toggle";
+import { LinkControl } from "./LinkControl";
 
 // TODO:AS_ANY, table chain commands come from the table extension at runtime
 type TableChain = Record<string, (...args: unknown[]) => unknown>;
@@ -214,7 +215,10 @@ export function ToolbarContents(props: {
 
       <Group>{renderButtons(blocks)}</Group>
       <Separator />
-      <Group>{renderButtons(marks)}</Group>
+      <Group>
+        {renderButtons(marks)}
+        <LinkControl editor={props.editor} />
+      </Group>
       <Separator />
       <Group>{renderButtons(listsBlocks)}</Group>
       <Separator />
