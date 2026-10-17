@@ -1,60 +1,95 @@
-import type { Accessor, VoidComponent } from "solid-js";
+import { SearchIcon, XIcon } from "lucide-solid";
+import { Show, type Accessor, type VoidComponent } from "solid-js";
 import { Box, Flex } from "styled-system/jsx";
 import { Input } from "~/components/ui/input";
-import { Text } from "~/components/ui/text";
+import { InputGroup } from "~/components/ui/input-group";
+import { Kbd } from "~/components/ui/kbd";
 
 export type ControlPanelProps = {
-  navHeight: Accessor<number>;
   searchQuery: Accessor<string>;
   setSearchQuery: (value: string) => void;
+  matchCount: Accessor<number>;
+  totalCount: Accessor<number>;
+  onSubmitSearch: () => void;
+  inputRef?: (el: HTMLInputElement) => void;
 };
 
+/** Floating search for the canvas; matches light up on the map and in the rail. */
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
-  const handleSearchInput = (event: Event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    props.setSearchQuery(target.value);
-  };
+  const hasQuery = () => props.searchQuery().trim().length > 0;
 
   return (
     <Box
-      position="absolute"
-      zIndex="10"
-      left="4"
-      top="4"
-      maxW="sm"
-      w="calc(100vw - 2rem)"
-      style={{
-        transform: `translateY(${props.navHeight()}px)`,
-      }}
+      bg="bg.default"
+      borderRadius="l2"
+      boxShadow="md"
+      w="min(22rem, calc(100vw - 6rem))"
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      <Flex
-        align="center"
-        gap="3"
-        bg="bg.default"
-        borderWidth="1px"
-        borderColor="border"
-        borderRadius="l3"
-        boxShadow="lg"
-        px="4"
-        py="3"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          "backdrop-filter": "blur(12px)",
-        }}
+      <InputGroup
+        size="sm"
+        startElement={<SearchIcon />}
+        endElement={
+          <Show
+            when={hasQuery()}
+            fallback={
+              <Kbd size="sm" display={{ base: "none", md: "inline-flex" }}>
+                /
+              </Kbd>
+            }
+          >
+            <Flex align="center" gap="1" pointerEvents="auto">
+              <Box
+                fontSize="xs"
+                color={props.matchCount() === 0 ? "fg.error" : "fg.muted"}
+                fontVariantNumeric="tabular-nums"
+                whiteSpace="nowrap"
+              >
+                {props.matchCount()} of {props.totalCount()}
+              </Box>
+              <Box
+                as="button"
+                aria-label="Clear search"
+                display="inline-flex"
+                alignItems="center"
+                justifyContent="center"
+                boxSize="5"
+                borderRadius="l1"
+                color="fg.muted"
+                cursor="pointer"
+                transitionProperty="background-color, color"
+                transitionDuration="fast"
+                _hover={{ bg: "bg.muted", color: "fg.default" }}
+                onClick={() => props.setSearchQuery("")}
+              >
+                <XIcon size={14} />
+              </Box>
+            </Flex>
+          </Show>
+        }
       >
-        <Text fontSize="lg" fontWeight="semibold">
-          Canvas
-        </Text>
-        <Box flex="0 1 19rem" minW="12rem">
-          <Input
-            size="sm"
-            type="search"
-            placeholder="Search notes"
-            value={props.searchQuery()}
-            onInput={handleSearchInput}
-          />
-        </Box>
-      </Flex>
+        <Input
+          ref={props.inputRef}
+          type="search"
+          aria-label="Search notes on the canvas"
+          placeholder="Search notes"
+          borderColor="transparent"
+          pe={hasQuery() ? "24" : "8"}
+          value={props.searchQuery()}
+          onInput={(event) => props.setSearchQuery(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              props.onSubmitSearch();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (hasQuery()) props.setSearchQuery("");
+              else event.currentTarget.blur();
+            }
+          }}
+        />
+      </InputGroup>
     </Box>
   );
 };

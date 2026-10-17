@@ -34,6 +34,9 @@ export const DocumentSidePanel: VoidComponent<{
   onClose: () => void;
   onDeleted: (docId: string) => void;
   onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
+  /** Leave the page behind interactive (default: modal). */
+  modal?: boolean;
+  width?: string;
 }> = (props) => {
   const [doc] = createResource(
     () => props.docId,
@@ -81,6 +84,8 @@ export const DocumentSidePanel: VoidComponent<{
       open={props.open}
       onClose={props.onClose}
       ariaLabel="Document details"
+      modal={props.modal}
+      width={props.width}
     >
       <Box
         position="sticky"

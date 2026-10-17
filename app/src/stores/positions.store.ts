@@ -3,6 +3,10 @@ import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
 import { normalizeUmap } from "~/layout/umap-normalize";
 import { seededPositionFor } from "~/layout/seeded";
 import { buildKdTree, type KDNode } from "~/spatial/kdtree";
+import {
+  docMatchesCanvasQuery,
+  normalizeCanvasQuery,
+} from "~/components/visual/canvas-search";
 
 const SPREAD = 1000;
 const NODE_RADIUS = 10;
@@ -75,13 +79,11 @@ export function createPositionsStore(deps: {
       map.set(unknown[i]!.id, { x, y });
     }
 
-    try {
-      console.log(
-        `[positions.store] Clustered ${count} unknown points at top-center (startY=${startY.toFixed(
-          1
-        )})`
-      );
-    } catch {}
+    console.debug(
+      `[positions.store] Clustered ${count} unknown points at top-center (startY=${startY.toFixed(
+        1
+      )})`
+    );
 
     return map;
   });
@@ -89,9 +91,9 @@ export function createPositionsStore(deps: {
   // Filtered docs for layout/interaction based on search
   const filteredDocs = createMemo(() => {
     const list = docs() || [];
-    const q = deps.searchQuery().trim().toLowerCase();
+    const q = normalizeCanvasQuery(deps.searchQuery());
     if (!q) return list;
-    return list.filter((d) => d.title.toLowerCase().includes(q));
+    return list.filter((d) => docMatchesCanvasQuery(d, q));
   });
 
   const positions = createMemo(() => {

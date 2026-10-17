@@ -1,3 +1,5 @@
+import { useSearchParams } from "@solidjs/router";
+import { ListIcon, XIcon } from "lucide-solid";
 import {
   type VoidComponent,
   createEffect,
@@ -8,18 +10,31 @@ import {
   onMount,
   createResource,
   Suspense,
+  untrack,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import { ControlPanel } from "~/components/visual/ControlPanel";
+import { CanvasZoomControls } from "~/components/visual/CanvasZoomControls";
 import {
   CANVAS_SIDE_RAIL_WIDTH_PX,
   CanvasSideRail,
+  type CanvasRailMode,
 } from "~/components/visual/CanvasSideRail";
 import { VisualCanvas } from "~/components/visual/VisualCanvas";
+import {
+  boundsOfPoints,
+  fitBoundsView,
+  unionBounds,
+  type CanvasViewport,
+} from "~/components/visual/canvas-view";
+import {
+  docMatchesCanvasQuery,
+  normalizeCanvasQuery,
+} from "~/components/visual/canvas-search";
+import { useCanvasKeyboard } from "~/components/visual/useCanvasKeyboard";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
-import { seededPositionFor } from "~/layout/seeded";
 import { normalizeUmapRegions } from "~/layout/umap-normalize";
 import {
   useUmapPointsResource,
@@ -39,26 +54,21 @@ import type { DocItem } from "~/types/notes";
 const SPREAD = 1000;
 const isBrowser = typeof window !== "undefined";
 const FULL_VIEW_PADDING = 120;
-const DESKTOP_RAIL_BREAKPOINT = 700;
-const RAIL_GUTTER_PX = 40;
+// Matches Panda's `md` breakpoint, where the rail docks beside the map.
+const DESKTOP_RAIL_BREAKPOINT = 768;
+const RAIL_GUTTER_PX = 24;
+const PANEL_MAX_WIDTH_PX = 520;
+const PANEL_WIDTH = `min(94vw, ${PANEL_MAX_WIDTH_PX}px)`;
 
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  const tagName = target.tagName.toLowerCase();
-  return (
-    target.isContentEditable ||
-    tagName === "input" ||
-    tagName === "textarea" ||
-    tagName === "select"
-  );
-}
-
-function getRailInset(viewportWidth: number) {
-  if (viewportWidth < DESKTOP_RAIL_BREAKPOINT) return 0;
-  return CANVAS_SIDE_RAIL_WIDTH_PX + RAIL_GUTTER_PX;
+function panelWidthPx(viewportWidth: number) {
+  return Math.min(viewportWidth * 0.94, PANEL_MAX_WIDTH_PX);
 }
 
 const CanvasRoute: VoidComponent = () => {
+  const [searchParams, setSearchParams] = useSearchParams<{
+    region?: string;
+    doc?: string;
+  }>();
   const [docs, { refetch: refetchDocs }] = createResource(
     () => true,
     () => fetchDocs({})
@@ -67,7 +77,7 @@ const CanvasRoute: VoidComponent = () => {
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
   const umapPoints = useUmapPointsResource(() => umapRun()?.id);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
-    undefined
+    untrack(() => searchParams.doc) || undefined
   );
   const [activeEditor, setActiveEditor] = createSignal<{
     docId: string;
@@ -114,7 +124,6 @@ const CanvasRoute: VoidComponent = () => {
       setSaveInProgressDialogOpen(false);
     }
   });
-  // Panel fetches document internally
 
   // Stores
   const canvasStore = createCanvasStore();
@@ -133,9 +142,13 @@ const CanvasRoute: VoidComponent = () => {
   >(undefined);
   const [selectedRegionId, setSelectedRegionId] = createSignal<
     string | undefined
-  >(undefined);
+  >(untrack(() => searchParams.region) || undefined);
   const [regionsOnly, setRegionsOnly] = createSignal(false);
-  const [hasAutoFit, setHasAutoFit] = createSignal(false);
+  const [mobileRailOpen, setMobileRailOpen] = createSignal(false);
+  const [coarsePointer, setCoarsePointer] = createSignal(false);
+  let userMovedView = false;
+  let searchInput: HTMLInputElement | undefined;
+
   const positionsStore = createPositionsStore({
     docs,
     umapRun,
@@ -148,19 +161,40 @@ const CanvasRoute: VoidComponent = () => {
     searchQuery,
   });
 
-  // Positions and transform via stores
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
-  const scheduleTransform = () => canvasStore.scheduleTransform();
   const umapRegions = createMemo(() =>
     normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD)
   );
+  const regionList = createMemo(() => umapRegions()?.regions ?? []);
+  const hasRegions = createMemo(() => regionList().length > 0);
+  const selectedRegion = createMemo(() => {
+    const regionId = selectedRegionId();
+    if (!regionId) return null;
+    return regionList().find((item) => item.id === regionId) ?? null;
+  });
+
 
   // Selection store (brush + isolation)
   const selectionStore = createSelectionStore({
     getScale: canvasStore.scale,
     getOffset: canvasStore.offset,
     getPositions: positions,
+  });
+
+  // Keep the open region and note in the URL so a refresh lands in the same place.
+  createEffect(() => {
+    const region = selectedRegionId();
+    const doc = selectedId();
+    untrack(() => {
+      if (
+        (searchParams.region || undefined) === region &&
+        (searchParams.doc || undefined) === doc
+      ) {
+        return;
+      }
+      setSearchParams({ region, doc }, { replace: true, scroll: false });
+    });
   });
 
   function measureNav() {
@@ -174,10 +208,7 @@ const CanvasRoute: VoidComponent = () => {
   function measureCanvasViewport() {
     const main = document.querySelector("main");
     if (!(main instanceof HTMLElement)) {
-      return {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      };
+      return { width: window.innerWidth, height: window.innerHeight };
     }
     const rect = main.getBoundingClientRect();
     return {
@@ -186,85 +217,53 @@ const CanvasRoute: VoidComponent = () => {
     };
   }
 
-  function measureFullViewBounds() {
-    const snapshot = umapRegions();
-    if (snapshot && snapshot.regions.length > 0) {
-      let minX = Number.POSITIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
+  /** Width covered on the right by the docked rail or the open note panel. */
+  function rightInset(viewportWidth: number) {
+    if (selectedId()) return panelWidthPx(viewportWidth);
+    if (viewportWidth < DESKTOP_RAIL_BREAKPOINT) return 0;
+    return CANVAS_SIDE_RAIL_WIDTH_PX + RAIL_GUTTER_PX;
+  }
 
-      for (const region of snapshot.regions) {
-        minX = Math.min(minX, region.bounds.minX);
-        minY = Math.min(minY, region.bounds.minY);
-        maxX = Math.max(maxX, region.bounds.maxX);
-        maxY = Math.max(maxY, region.bounds.maxY);
-      }
-
-      return {
-        minX: minX - FULL_VIEW_PADDING,
-        minY: minY - FULL_VIEW_PADDING,
-        maxX: maxX + FULL_VIEW_PADDING,
-        maxY: maxY + FULL_VIEW_PADDING,
-      };
-    }
-
-    const positionMap = positions();
-    if (positionMap.size > 0) {
-      let minX = Number.POSITIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-
-      for (const point of positionMap.values()) {
-        minX = Math.min(minX, point.x);
-        minY = Math.min(minY, point.y);
-        maxX = Math.max(maxX, point.x);
-        maxY = Math.max(maxY, point.y);
-      }
-
-      return {
-        minX: minX - FULL_VIEW_PADDING,
-        minY: minY - FULL_VIEW_PADDING,
-        maxX: maxX + FULL_VIEW_PADDING,
-        maxY: maxY + FULL_VIEW_PADDING,
-      };
-    }
-
+  /** The unobstructed part of the canvas used for fitting and centering. */
+  function availableViewport(): CanvasViewport {
+    const viewport = measureCanvasViewport();
     return {
-      minX: -SPREAD,
-      minY: -SPREAD,
-      maxX: SPREAD,
-      maxY: SPREAD,
+      width: Math.max(240, viewport.width - rightInset(viewport.width)),
+      height: Math.max(100, viewport.height - canvasStore.navHeight()),
     };
+  }
+
+  function measureFullViewBounds() {
+    const regionBounds = unionBounds(regionList().map((region) => region.bounds));
+    if (regionBounds) {
+      return {
+        minX: regionBounds.minX - FULL_VIEW_PADDING,
+        minY: regionBounds.minY - FULL_VIEW_PADDING,
+        maxX: regionBounds.maxX + FULL_VIEW_PADDING,
+        maxY: regionBounds.maxY + FULL_VIEW_PADDING,
+      };
+    }
+    return (
+      boundsOfPoints(positions().values(), FULL_VIEW_PADDING) ?? {
+        minX: -SPREAD,
+        minY: -SPREAD,
+        maxX: SPREAD,
+        maxY: SPREAD,
+      }
+    );
   }
 
   function fitToSpread() {
     if (!isBrowser) return;
-    const viewport = measureCanvasViewport();
-    const railInset = getRailInset(viewport.width);
-    const availableWidth = Math.max(240, viewport.width - railInset);
-    const availH = Math.max(100, viewport.height - canvasStore.navHeight());
-    const bounds = measureFullViewBounds();
-    const contentWidth = Math.max(240, bounds.maxX - bounds.minX);
-    const contentHeight = Math.max(240, bounds.maxY - bounds.minY);
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
-    const targetScale = Math.max(
-      0.2,
-      Math.min(
-        2,
-        0.92 * Math.min(availableWidth / contentWidth, availH / contentHeight)
-      )
-    );
     canvasStore.animateToView({
-      scale: targetScale,
-      offset: {
-        x: availableWidth / 2 - centerX * targetScale,
-        y: availH / 2 - centerY * targetScale,
-      },
+      ...fitBoundsView(measureFullViewBounds(), availableViewport()),
       durationMs: 420,
     });
+  }
+
+  function viewportCenter() {
+    const viewport = availableViewport();
+    return { x: viewport.width / 2, y: viewport.height / 2 };
   }
 
   function clearSelectedRegion() {
@@ -273,36 +272,75 @@ const CanvasRoute: VoidComponent = () => {
   }
 
   function handleZoomToRegion(regionId: string) {
-    const snapshot = umapRegions();
-    if (!snapshot || typeof window === "undefined") return;
-    const region = snapshot.regions.find((item) => item.id === regionId);
-    if (!region) return;
+    const region = regionList().find((item) => item.id === regionId);
+    if (!region || !isBrowser) return;
 
     setRegionsOnly(false);
     setSelectedRegionId(region.id);
     selectionStore.setSelection(region.docIds);
+    setMobileRailOpen(false);
 
-    const viewport = measureCanvasViewport();
-    const railInset = getRailInset(viewport.width);
-    const viewportWidth = Math.max(240, viewport.width - railInset);
-    const viewportHeight = Math.max(
-      240,
-      viewport.height - canvasStore.navHeight()
-    );
+    const viewport = availableViewport();
     const regionWidth = Math.max(120, region.bounds.maxX - region.bounds.minX);
     const regionHeight = Math.max(120, region.bounds.maxY - region.bounds.minY);
     const fitScale = Math.min(
-      (viewportWidth * 0.56) / regionWidth,
-      (viewportHeight * 0.56) / regionHeight
+      (viewport.width * 0.56) / regionWidth,
+      (viewport.height * 0.56) / regionHeight
     );
     const targetScale = Math.max(0.55, Math.min(2.8, fitScale));
 
     canvasStore.animateToView({
       scale: targetScale,
       offset: {
-        x: viewportWidth / 2 - region.centroid.x * targetScale,
-        y: viewportHeight / 2 - region.centroid.y * targetScale,
+        x: viewport.width / 2 - region.centroid.x * targetScale,
+        y: viewport.height / 2 - region.centroid.y * targetScale,
       },
+    });
+  }
+
+  const visibleDocs = createMemo<DocItem[]>(() => {
+    const list: DocItem[] = (docs() || []) as DocItem[];
+    const region = selectedRegion();
+    if (region) {
+      const docIds = new Set(region.docIds);
+      return list.filter((doc: DocItem) => docIds.has(doc.id));
+    }
+    const iso = selectionStore.isolatedIdSet();
+    if (!iso) return list;
+    return list.filter((d: DocItem) => iso.has(d.id));
+  });
+
+  const normalizedQuery = createMemo(() => normalizeCanvasQuery(searchQuery()));
+  const matchingDocs = createMemo(() => {
+    const q = normalizedQuery();
+    if (!q) return null;
+    return visibleDocs().filter((doc) => docMatchesCanvasQuery(doc, q));
+  });
+  const matchingDocIds = createMemo(() => {
+    const matches = matchingDocs();
+    return matches ? new Set(matches.map((doc) => doc.id)) : null;
+  });
+
+  function fitToMatches() {
+    const matches = matchingDocs();
+    if (!matches || matches.length === 0) return;
+    if (matches.length === 1) {
+      requestSelectedId(matches[0]!.id);
+      return;
+    }
+    const map = positions();
+    const bounds = boundsOfPoints(
+      matches.flatMap((doc) => {
+        const pos = map.get(doc.id);
+        return pos ? [pos] : [];
+      }),
+      40
+    );
+    if (!bounds) return;
+    userMovedView = true;
+    canvasStore.animateToView({
+      ...fitBoundsView(bounds, availableViewport(), { fill: 0.8, maxScale: 3 }),
+      durationMs: 360,
     });
   }
 
@@ -316,115 +354,121 @@ const CanvasRoute: VoidComponent = () => {
       x: viewport.width / 2,
       y: (viewport.height - canvasStore.navHeight()) / 2,
     });
-    scheduleTransform();
+    const coarseQuery = window.matchMedia?.("(pointer: coarse)");
+    setCoarsePointer(!!coarseQuery?.matches);
     const handleResize = () => {
       measureNav();
       const nextViewport = measureCanvasViewport();
       setViewportW(nextViewport.width);
       setViewportH(nextViewport.height);
-      scheduleTransform();
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
-      if (
-        event.key === "Escape" &&
-        (selectedId() ||
-          (typeof document !== "undefined" &&
-            document.querySelector('[role="dialog"][aria-label="Document details"]')))
-      ) {
-        return;
-      }
-      if (event.key === "Escape") {
-        if (!selectedRegionId()) return;
-        event.preventDefault();
-        clearSelectedRegion();
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        clearSelectedRegion();
-        fitToSpread();
-        return;
-      }
-      if (event.key.toLowerCase() === "r") {
-        event.preventDefault();
-        if (selectedRegionId()) {
-          clearSelectedRegion();
-          setRegionsOnly(true);
-          return;
-        }
-        setRegionsOnly((current) => !current);
-      }
-    };
-
     window.addEventListener("resize", handleResize);
-    window.addEventListener("keydown", handleKeyDown);
+    onCleanup(() => window.removeEventListener("resize", handleResize));
+  });
 
-    onCleanup(() => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("keydown", handleKeyDown);
+  useCanvasKeyboard({
+    focusSearch: () => searchInput?.focus(),
+    fit: () => {
+      clearSelectedRegion();
+      fitToSpread();
+    },
+    zoomBy: (factor) => {
+      userMovedView = true;
+      canvasStore.animateZoomAt(viewportCenter(), factor);
+    },
+    resetZoom: () => {
+      userMovedView = true;
+      canvasStore.animateZoomAt(viewportCenter(), 1 / canvasStore.scale());
+    },
+    panBy: (dx, dy) => {
+      userMovedView = true;
+      const t = canvasStore.offset();
+      canvasStore.animateToView({
+        scale: canvasStore.scale(),
+        offset: { x: t.x + dx, y: t.y + dy },
+        durationMs: 140,
+      });
+    },
+    toggleRegionsOnly: () => {
+      if (!hasRegions()) return;
+      if (selectedRegionId()) {
+        clearSelectedRegion();
+        setRegionsOnly(true);
+        return;
+      }
+      setRegionsOnly((current) => !current);
+    },
+    escape: () => {
+      // The open note panel handles Escape itself.
+      if (selectedId()) return false;
+      if (searchQuery()) {
+        setSearchQuery("");
+        return true;
+      }
+      if (selectedRegionId()) {
+        clearSelectedRegion();
+        return true;
+      }
+      return false;
+    },
+  });
+
+  // Fit once notes arrive, then again when regions load, unless the user has
+  // already moved the view. A region from the URL wins over the full fit.
+  let initialRegionApplied = false;
+  createEffect(() => {
+    const list = docs();
+    const snapshot = umapRegions();
+    if (!isMounted() || !list || list.length === 0) return;
+    untrack(() => {
+      const regionId = selectedRegionId();
+      if (!initialRegionApplied && regionId && snapshot) {
+        initialRegionApplied = true;
+        userMovedView = true;
+        handleZoomToRegion(regionId);
+        return;
+      }
+      if (userMovedView) return;
+      fitToSpread();
     });
   });
 
-  createEffect(() => {
-    const list = docs();
-    if (list) {
-      console.log(`[canvas] loaded ${list.length} notes`);
-      const sample = list.slice(0, Math.min(5, list.length));
-      console.log(
-        "[canvas] sample positions",
-        sample.map((d, i) => ({
-          id: d.id,
-          title: d.title,
-          pos: seededPositionFor(d.title, i, SPREAD),
-        }))
-      );
-      if (isBrowser && list.length > 0 && !hasAutoFit()) {
-        fitToSpread();
-        setHasAutoFit(true);
-      }
-    }
-  });
-
-  const selectedRegion = createMemo(() => {
-    const regionId = selectedRegionId();
-    const snapshot = umapRegions();
-    if (!regionId || !snapshot) return null;
-    return snapshot.regions.find((item) => item.id === regionId) ?? null;
-  });
-
-  const visibleDocs = createMemo<DocItem[]>(() => {
-    const list: DocItem[] = (docs() || []) as DocItem[];
-    const region = selectedRegion();
-    if (region) {
-      const docIds = new Set(region.docIds);
-      return list.filter((doc: DocItem) => docIds.has(doc.id));
-    }
-    const iso = selectionStore.isolatedIdSet();
-    if (!iso) return list;
-    return list.filter((d: DocItem) => iso.has(d.id));
-  });
-  const visibleDocIds = createMemo(() => new Set(visibleDocs().map((d) => d.id)));
-  const canHoverNotes = createMemo(
+  const notesInteractive = createMemo(
     () =>
       !regionsOnly() &&
-      !!selectedRegionId() &&
-      canvasStore.scale() >= 0.96
+      (!hasRegions() ||
+        !!selectedRegionId() ||
+        !!matchingDocIds() ||
+        canvasStore.scale() >= 0.9)
   );
-  const visibleDocsSorted = createMemo(() =>
-    visibleDocs()
+
+  const railMode = createMemo<CanvasRailMode>(() => {
+    if (selectedRegion()) return "region";
+    if (matchingDocIds()) return "matches";
+    if (!hasRegions()) return "notes";
+    return "regions";
+  });
+  const railDocs = createMemo(() => {
+    const mode = railMode();
+    if (mode === "regions") return [] as DocItem[];
+    if (mode === "notes") {
+      return visibleDocs()
+        .slice()
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return (matchingDocs() ?? visibleDocs())
       .slice()
-      .sort((a, b) => a.title.localeCompare(b.title))
-  );
+      .sort((a, b) => a.title.localeCompare(b.title));
+  });
 
   // Hover derivations
   const hover = createHoverDerivations({
     positionsStore,
     canvasStore,
     docs,
-    canHoverNotes,
-    visibleDocIds: () => visibleDocIds(),
+    canHoverNotes: notesInteractive,
+    candidateDocs: () => matchingDocs() ?? visibleDocs(),
+    coarsePointer,
   });
   const panZoomHandlers = createPanZoomHandlers(canvasStore, {
     getCanOpen: hover.showHoverLabel,
@@ -435,7 +479,53 @@ const CanvasRoute: VoidComponent = () => {
     onActivateRegion: handleZoomToRegion,
     clearPressedRegion: () => setPressedRegionId(undefined),
     selection: selectionStore,
+    inertia: true,
   });
+  const canvasEventHandlers = {
+    ...panZoomHandlers,
+    onWheel: (e: WheelEvent) => {
+      userMovedView = true;
+      panZoomHandlers.onWheel(e);
+    },
+    onPointerDown: (e: PointerEvent) => {
+      userMovedView = true;
+      panZoomHandlers.onPointerDown(e);
+    },
+  };
+
+  // Bring a note opened from the rail or search into view beside the panel.
+  createEffect(() => {
+    const id = selectedId();
+    if (!id || !isMounted()) return;
+    untrack(() => {
+      const pos = positions().get(id);
+      if (!pos) return;
+      const viewport = availableViewport();
+      const s = canvasStore.scale();
+      const t = canvasStore.offset();
+      const sx = pos.x * s + t.x;
+      const sy = pos.y * s + t.y;
+      const margin = 48;
+      if (
+        sx >= margin &&
+        sx <= viewport.width - margin &&
+        sy >= margin &&
+        sy <= viewport.height - margin
+      ) {
+        return;
+      }
+      canvasStore.animateToView({
+        scale: s,
+        offset: {
+          x: viewport.width / 2 - pos.x * s,
+          y: viewport.height / 2 - pos.y * s,
+        },
+        durationMs: 320,
+      });
+    });
+  });
+
+  const overlayTop = () => `calc(${canvasStore.navHeight()}px + 12px)`;
 
   return (
     <Box
@@ -443,8 +533,8 @@ const CanvasRoute: VoidComponent = () => {
       bg="bg.default"
       overflow="hidden"
       position="relative"
-      minH="100vh"
-      h="100vh"
+      // The phone shell reserves 4rem above the page for its menu button.
+      h={{ base: "calc(100dvh - 4rem)", md: "100dvh" }}
       w="full"
     >
       <Show
@@ -464,37 +554,158 @@ const CanvasRoute: VoidComponent = () => {
         }
       >
         <Suspense fallback={null}>
-        <VisualCanvas
-          docs={visibleDocs()}
-          positions={positions}
-          umapRegions={umapRegions}
-          viewportWidth={() => Math.max(1, viewportW() - getRailInset(viewportW()))}
-          viewportHeight={() =>
-            Math.max(1, viewportH() - canvasStore.navHeight())
-          }
-          hoveredId={hover.hoveredId}
-          railHoveredId={railHoveredDocId}
-          viewTransform={viewTransform}
-          offset={canvasStore.offset}
-          navHeight={canvasStore.navHeight}
-          scale={canvasStore.scale}
-          searchQuery={searchQuery}
-          eventHandlers={panZoomHandlers}
-          hoveredRegionId={hoveredRegionId}
-          onHoveredRegionChange={setHoveredRegionId}
-          onPressedRegionChange={setPressedRegionId}
-          suppressNextOpen={panZoomHandlers.blockNextOpen}
-          onSelectDoc={requestSelectedId}
-          onHoveredDocChange={setRailHoveredDocId}
-          onZoomToRegion={handleZoomToRegion}
-          selectedRegionId={selectedRegionId}
-          regionsOnly={regionsOnly}
-          selection={selectionStore}
-        />
+          <VisualCanvas
+            docs={visibleDocs()}
+            positions={positions}
+            umapRegions={umapRegions}
+            viewportWidth={() =>
+              Math.max(1, viewportW() - rightInset(viewportW()))
+            }
+            viewportHeight={() =>
+              Math.max(1, viewportH() - canvasStore.navHeight())
+            }
+            hoveredId={hover.hoveredId}
+            railHoveredId={railHoveredDocId}
+            viewTransform={viewTransform}
+            offset={canvasStore.offset}
+            navHeight={canvasStore.navHeight}
+            scale={canvasStore.scale}
+            isPanning={canvasStore.isPanning}
+            searchQuery={searchQuery}
+            matchingDocIds={matchingDocIds}
+            notesInteractive={notesInteractive}
+            activeDocId={selectedId}
+            eventHandlers={canvasEventHandlers}
+            hoveredRegionId={hoveredRegionId}
+            onHoveredRegionChange={setHoveredRegionId}
+            onPressedRegionChange={setPressedRegionId}
+            suppressNextOpen={panZoomHandlers.blockNextOpen}
+            onSelectDoc={requestSelectedId}
+            onHoveredDocChange={setRailHoveredDocId}
+            onZoomToRegion={handleZoomToRegion}
+            selectedRegionId={selectedRegionId}
+            regionsOnly={regionsOnly}
+            selection={selectionStore}
+          />
         </Suspense>
+
+        <Show when={docs() && docs()!.length === 0}>
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            pointerEvents="none"
+          >
+            <Text fontSize="sm" color="fg.muted">
+              No notes yet — new notes appear here as dots.
+            </Text>
+          </Box>
+        </Show>
+
+        <Box position="absolute" zIndex="10" left="3" style={{ top: overlayTop() }}>
+          <ControlPanel
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            matchCount={() => matchingDocs()?.length ?? 0}
+            totalCount={() => visibleDocs().length}
+            onSubmitSearch={fitToMatches}
+            inputRef={(el) => (searchInput = el)}
+          />
+        </Box>
+
+        <Box position="absolute" zIndex="10" left="3" bottom="3">
+          <CanvasZoomControls
+            scale={canvasStore.scale}
+            onZoomIn={() => {
+              userMovedView = true;
+              canvasStore.animateZoomAt(viewportCenter(), 1.4);
+            }}
+            onZoomOut={() => {
+              userMovedView = true;
+              canvasStore.animateZoomAt(viewportCenter(), 1 / 1.4);
+            }}
+            onResetZoom={() => {
+              userMovedView = true;
+              canvasStore.animateZoomAt(
+                viewportCenter(),
+                1 / canvasStore.scale()
+              );
+            }}
+            onFit={() => {
+              clearSelectedRegion();
+              fitToSpread();
+            }}
+          />
+        </Box>
+
+        <Box
+          as="button"
+          aria-label={mobileRailOpen() ? "Hide list" : "Show list"}
+          aria-expanded={mobileRailOpen()}
+          position="absolute"
+          zIndex="12"
+          right="3"
+          display={{ base: "inline-flex", md: "none" }}
+          alignItems="center"
+          justifyContent="center"
+          boxSize="9"
+          bg="bg.default"
+          borderRadius="l2"
+          boxShadow="md"
+          color="fg.default"
+          cursor="pointer"
+          style={{ top: overlayTop() }}
+          onClick={() => setMobileRailOpen((open) => !open)}
+        >
+          <Show when={mobileRailOpen()} fallback={<ListIcon size={18} />}>
+            <XIcon size={18} />
+          </Show>
+        </Box>
+
+        <Box
+          position="absolute"
+          zIndex="11"
+          right="3"
+          bottom="3"
+          display={{ base: mobileRailOpen() ? "block" : "none", md: "block" }}
+          // Keep in sync with CANVAS_SIDE_RAIL_WIDTH_PX (Panda needs a literal).
+          w={{ base: "auto", md: "248px" }}
+          left={{ base: "3", md: "auto" }}
+          mt={{ base: "12", md: "0" }}
+          bg="bg.default"
+          borderRadius="l2"
+          boxShadow="md"
+          overflow="hidden"
+          style={{ top: overlayTop() }}
+          onWheel={(e) => e.stopPropagation()}
+        >
+          <CanvasSideRail
+            mode={railMode}
+            regions={regionList}
+            selectedRegion={selectedRegion}
+            docs={railDocs}
+            searchQuery={searchQuery}
+            hoveredRegionId={hoveredRegionId}
+            hoveredDocId={() => railHoveredDocId() ?? hover.hoveredId()}
+            selectedDocId={selectedId}
+            onHoveredRegionChange={setHoveredRegionId}
+            onHoveredDocChange={setRailHoveredDocId}
+            onZoomToRegion={handleZoomToRegion}
+            onClearRegion={clearSelectedRegion}
+            onOpenDoc={(id) => {
+              setMobileRailOpen(false);
+              requestSelectedId(id);
+            }}
+          />
+        </Box>
+
         <DocumentSidePanel
           open={!!selectedId()}
           docId={selectedId()}
+          modal={false}
+          width={PANEL_WIDTH}
           onEditorApiChange={handleEditorApiChange}
           onClose={() => requestSelectedId(undefined)}
           onDeleted={(deletedDocId) => {
@@ -537,27 +748,6 @@ const CanvasRoute: VoidComponent = () => {
               Keep editing
             </Button>
           }
-        />
-        <Suspense fallback={null}>
-          <ControlPanel
-            navHeight={canvasStore.navHeight}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
-        </Suspense>
-        <CanvasSideRail
-          navHeight={canvasStore.navHeight}
-          regions={() => umapRegions()?.regions ?? []}
-          selectedRegion={selectedRegion}
-          visibleDocs={visibleDocsSorted}
-          searchQuery={searchQuery}
-          hoveredRegionId={hoveredRegionId}
-          selectedDocId={selectedId}
-          onHoveredRegionChange={setHoveredRegionId}
-          onHoveredDocChange={setRailHoveredDocId}
-          onZoomToRegion={handleZoomToRegion}
-          onClearRegion={clearSelectedRegion}
-          onOpenDoc={requestSelectedId}
         />
       </Show>
     </Box>
