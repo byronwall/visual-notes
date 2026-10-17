@@ -144,6 +144,7 @@ export function ToolbarContents(props: {
         <Tooltip
           content={<TooltipLabel title={b.title} shortcut={b.shortcut} />}
           showArrow
+          openDelay={300}
         >
           <Control
             name={b.name}
@@ -194,7 +195,14 @@ export function ToolbarContents(props: {
       flexWrap={{ base: "nowrap", md: "wrap" }}
       rowGap="1"
       overflowX={{ base: "auto", md: "visible" }}
-      css={{ scrollbarWidth: "none" }}
+      css={{
+        scrollbarWidth: "none",
+        // Fade the trailing edge on phones so the row reads as scrollable.
+        maskImage: {
+          base: "linear-gradient(to right, black calc(100% - 2rem), transparent)",
+          md: "none",
+        },
+      }}
     >
       <input
         ref={(el) => (csvInputRef = el)}
@@ -211,13 +219,13 @@ export function ToolbarContents(props: {
       <Group>{renderButtons(listsBlocks)}</Group>
       <Separator />
       <Group>
-        <Tooltip content="Insert table" showArrow>
+        <Tooltip content="Insert table" showArrow openDelay={300}>
           <Toggle ariaLabel="Insert table" onPress={insertTable}>
             <TableIcon size={16} />
           </Toggle>
         </Tooltip>
         <Menu.Root size="sm" positioning={{ placement: "bottom-start" }}>
-          <Tooltip content="More ways to insert" showArrow>
+          <Tooltip content="More ways to insert" showArrow openDelay={300}>
             <Menu.Trigger
               asChild={(triggerProps) => (
                 <Toggle {...triggerProps} ariaLabel="More ways to insert">

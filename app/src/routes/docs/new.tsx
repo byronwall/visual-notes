@@ -37,8 +37,12 @@ export const NewDocRoute: VoidComponent = () => {
             mb="2"
             minH="8"
           >
-            <Text fontSize="xs" color="fg.subtle">
-              {api()?.error() ?? "New note · not saved yet"}
+            <Text
+              fontSize="xs"
+              color={api()?.error() ? "red.11" : "fg.subtle"}
+              role={api()?.error() ? "alert" : undefined}
+            >
+              {api()?.error() ?? "Draft · not saved yet"}
             </Text>
             <Button
               size="sm"

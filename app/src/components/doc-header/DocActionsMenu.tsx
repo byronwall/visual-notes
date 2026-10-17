@@ -18,17 +18,17 @@ export const DocActionsMenu: VoidComponent<{
 }> = (props) => {
   return (
     <Menu.Root size="sm" positioning={{ placement: "bottom-end" }}>
-      <Tooltip content="More actions" showArrow>
+      <Tooltip content="More actions" showArrow openDelay={300}>
         <Menu.Trigger
           asChild={(triggerProps) => (
             <IconButton
               {...triggerProps}
-              size="sm"
+              size="xs"
               variant="plain"
               colorPalette="gray"
-              minW="8"
-              w="8"
-              h="8"
+              minW="7"
+              w="7"
+              h="7"
               color="fg.muted"
               aria-label="More note actions"
               disabled={props.disabled}

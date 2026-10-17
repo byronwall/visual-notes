@@ -70,14 +70,43 @@ function eventPayloadSummary(
   payload?: Record<string, unknown> | null,
 ): string | null {
   if (!payload) return null;
-  const keys = ["docTitle", "queryPreview", "source", "lengthDeltaBucket"];
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === "string" && value.trim().length > 0)
-      return value.trim();
-  }
+  // Only the search query reads as human text; source and size buckets are
+  // internal identifiers.
+  const value = payload.queryPreview;
+  if (typeof value === "string" && value.trim().length > 0)
+    return `“${value.trim()}”`;
   return null;
 }
+
+type ActivityEvent = {
+  eventType: string;
+  createdAt: string;
+  payload?: Record<string, unknown> | null;
+};
+
+type ActivityRun = ActivityEvent & { count: number };
+
+/** Collapse back-to-back events of the same kind ("Opened ×4"). */
+function groupConsecutive(events: ActivityEvent[]): ActivityRun[] {
+  const runs: ActivityRun[] = [];
+  for (const event of events) {
+    const last = runs[runs.length - 1];
+    if (
+      last &&
+      last.eventType === event.eventType &&
+      !eventPayloadSummary(event.payload) &&
+      !eventPayloadSummary(last.payload)
+    ) {
+      last.count += 1;
+      continue;
+    }
+    runs.push({ ...event, count: 1 });
+  }
+  return runs;
+}
+
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count} ${count === 1 ? one : many}`;
 
 export const DocActivitySummaryPopover: VoidComponent<{
   docId: string;
@@ -214,64 +243,39 @@ export const DocActivitySummaryPopover: VoidComponent<{
             }
           >
             <Stack gap="2" p="2.5">
-              <HStack gap="2" alignItems="center" flexWrap="wrap">
+              <Stack gap="0.5" px="2">
                 <Text fontSize="sm" fontWeight="semibold" color="fg.default">
                   Activity
                 </Text>
                 <Text fontSize="xs" color="fg.muted">
-                  Events {data().events.length}
+                  {plural(data().viewCount, "view")} ·{" "}
+                  {plural(data().editCount, "edit")} ·{" "}
+                  {data().searchOpenedCount} from search
                 </Text>
-                <HStack gap="1" alignItems="center">
-                  <EyeIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().viewCount}
-                  </Text>
-                </HStack>
-                <HStack gap="1" alignItems="center">
-                  <PencilIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().editCount}
-                  </Text>
-                </HStack>
-                <HStack gap="1" alignItems="center">
-                  <SearchIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().searchOpenedCount}
-                  </Text>
-                </HStack>
-              </HStack>
-
-              <HStack gap="3" flexWrap="wrap">
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(data().lastViewBeforeThisOne)}
-                >
-                  Prev view{" "}
-                  {formatRelativeTimestamp(
-                    data().generatedAt,
-                    data().lastViewBeforeThisOne,
-                  )}
+                <Text fontSize="xs" color="fg.muted">
+                  <span title={formatAbsoluteTimestamp(props.createdAt)}>
+                    Created{" "}
+                    {formatRelativeTimestamp(
+                      new Date().toISOString(),
+                      props.createdAt,
+                    )}
+                  </span>
+                  <Show when={data().lastViewBeforeThisOne}>
+                    {" · "}
+                    <span
+                      title={formatAbsoluteTimestamp(
+                        data().lastViewBeforeThisOne,
+                      )}
+                    >
+                      last opened{" "}
+                      {formatRelativeTimestamp(
+                        new Date().toISOString(),
+                        data().lastViewBeforeThisOne,
+                      )}
+                    </span>
+                  </Show>
                 </Text>
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(props.createdAt)}
-                >
-                  Created{" "}
-                  {formatRelativeTimestamp(data().generatedAt, props.createdAt)}
-                </Text>
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(props.updatedAt)}
-                >
-                  Saved{" "}
-                  {formatRelativeTimestamp(data().generatedAt, props.updatedAt)}
-                </Text>
-              </HStack>
-
-              <Box borderTopWidth="1px" borderColor="border" />
+              </Stack>
 
               <Box maxH="16rem" overflowY="auto" overflowX="hidden" pr="0.5">
                 <Show
@@ -283,7 +287,7 @@ export const DocActivitySummaryPopover: VoidComponent<{
                   }
                 >
                   <Stack gap="0">
-                    <For each={data().events}>
+                    <For each={groupConsecutive(data().events)}>
                       {(event) => (
                         <Box
                           borderRadius="l1"
@@ -304,6 +308,11 @@ export const DocActivitySummaryPopover: VoidComponent<{
                                 fontWeight="medium"
                               >
                                 {eventTypeLabel(event.eventType)}
+                                <Show when={event.count > 1}>
+                                  <Box as="span" color="fg.subtle" ml="1">
+                                    ×{event.count}
+                                  </Box>
+                                </Show>
                               </Text>
                             </HStack>
                             <Text
@@ -312,7 +321,7 @@ export const DocActivitySummaryPopover: VoidComponent<{
                               title={formatAbsoluteTimestamp(event.createdAt)}
                             >
                               {formatRelativeTimestamp(
-                                data().generatedAt,
+                                new Date().toISOString(),
                                 event.createdAt,
                               )}
                             </Text>

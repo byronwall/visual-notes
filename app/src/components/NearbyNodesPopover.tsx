@@ -13,6 +13,7 @@ import { Button } from "~/components/ui/button";
 import { fetchNearbyUmapDocs } from "~/services/umap.service";
 import { colorFor } from "~/utils/colors";
 import { IconButton } from "~/components/ui/icon-button";
+import { Tooltip } from "~/components/ui/tooltip";
 import { Skeleton, SkeletonText } from "~/components/ui/skeleton";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
@@ -135,20 +136,22 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (
       placement="bottom-start"
       offset={8}
       anchor={
-        <IconButton
-          size="xs"
-          variant="plain"
-          colorPalette="gray"
-          color="fg.muted"
-          minW="7"
-          w="7"
-          h="7"
-          aria-label="Nearby notes via UMAP"
-          onClick={() => setOpen((value) => !value)}
-          disabled={!props.docId}
-        >
-          <WaypointsIcon size={14} />
-        </IconButton>
+        <Tooltip content="Nearby notes" showArrow openDelay={300}>
+          <IconButton
+            size="xs"
+            variant="plain"
+            colorPalette="gray"
+            color="fg.muted"
+            minW="7"
+            w="7"
+            h="7"
+            aria-label="Nearby notes via UMAP"
+            onClick={() => setOpen((value) => !value)}
+            disabled={!props.docId}
+          >
+            <WaypointsIcon size={14} />
+          </IconButton>
+        </Tooltip>
       }
     >
       <Stack gap="2.5" p="3">

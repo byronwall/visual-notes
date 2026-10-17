@@ -97,10 +97,11 @@ const DocView: VoidComponent = () => {
                   const notFound = isNotFoundError(error());
                   return (
                     <Stack
-                      gap="3"
+                      gap="4"
                       alignItems="flex-start"
                       mx="auto"
                       maxW={NOTE_MEASURE}
+                      pt="10"
                     >
                       <HttpStatusCode code={notFound ? 404 : 500} />
                       <Title>
@@ -132,12 +133,21 @@ const DocView: VoidComponent = () => {
                             : "There was a problem loading this note."
                         }
                       />
-                      <Text fontSize="sm" color="fg.muted">
-                        {notFound
-                          ? "This note could not be found."
-                          : "Unable to load this note right now."}
-                      </Text>
-                      <Button variant="outline" onClick={() => navigate("/")}>
+                      <Stack gap="1">
+                        <Text fontSize="xl" fontWeight="semibold">
+                          {notFound ? "Note not found" : "Couldn't load note"}
+                        </Text>
+                        <Text fontSize="sm" color="fg.muted">
+                          {notFound
+                            ? "It may have been deleted, or the link is wrong."
+                            : "Something went wrong on our side. Try again in a moment."}
+                        </Text>
+                      </Stack>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/")}
+                      >
                         Go home
                       </Button>
                     </Stack>
