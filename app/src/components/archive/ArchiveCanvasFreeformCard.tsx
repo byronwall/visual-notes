@@ -34,6 +34,8 @@ type Props = {
   onDelete: () => void;
 };
 
+const NEW_NOTE_TEXT = "New note";
+
 export const ArchiveCanvasFreeformCard = (props: Props) => {
   const [editor, setEditor] = createSignal<Editor>();
   const [saving, setSaving] = createSignal(false);
@@ -105,9 +107,20 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
 
   // Entering edit mode (including a freshly added note) should put the caret in the
   // editor so typing works immediately instead of landing on the toolbar button.
+  // The editor instance is destroyed when edit mode ends, so drop it then; a later
+  // edit session hands back a fresh instance.
   createEffect(
     on([() => props.isEditing, editor], ([editing, current]) => {
-      if (editing && current && !current.isFocused) current.commands.focus("end");
+      if (!editing) {
+        if (current) setEditor(undefined);
+        return;
+      }
+      if (!current || current.isDestroyed) return;
+      requestAnimationFrame(() => {
+        if (current.isDestroyed) return;
+        // A just-added note holds placeholder copy; select it so typing replaces it.
+        current.commands.focus(current.getText().trim() === NEW_NOTE_TEXT ? "all" : "end");
+      });
     }),
   );
 
@@ -259,6 +272,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
             size="xs"
             variant="plain"
             aria-label="Cancel editing free text"
+            title="Cancel (Esc)"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -272,6 +286,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
             size="xs"
             variant="solid"
             aria-label="Save free text"
+            title="Save (⌘↵)"
             disabled={saving()}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
@@ -377,6 +392,16 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
               }}
               onPointerDown={(event) => event.stopPropagation()}
               onDblClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  props.onCancelEditing();
+                } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void saveNote();
+                }
+              }}
             >
               <TiptapEditor
                 initialHTML={props.item.contentHtml || "<p></p>"}
