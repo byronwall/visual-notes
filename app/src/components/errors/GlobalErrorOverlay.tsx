@@ -70,11 +70,12 @@ export function GlobalErrorOverlay(props: GlobalErrorOverlayProps) {
     } catch {
       setCopyStatus("error");
     }
+    window.setTimeout(() => setCopyStatus("idle"), 1600);
   };
 
   return (
     <Show when={isOpen()}>
-      <Box position="fixed" inset="0" zIndex="tooltip" bg="bg.canvas/80">
+      <Box position="fixed" inset="0" zIndex="tooltip" bg="black.a5" role="alertdialog" aria-modal="true" aria-label={props.title}>
         <Flex h="full" w="full" align="center" justify="center" p="4">
           <Box
             w="full"
@@ -147,8 +148,24 @@ export function GlobalErrorOverlay(props: GlobalErrorOverlayProps) {
 
               <Flex justify="flex-end" gap="2">
                 <Show when={hasCopyData()}>
-                  <Button variant="plain" onClick={() => void copyErrorJson()}>
-                    Copy JSON
+                  <Button
+                    variant="plain"
+                    mr="auto"
+                    minW="7.5rem"
+                    color={
+                      copyStatus() === "success"
+                        ? "green.11"
+                        : copyStatus() === "error"
+                          ? "red.11"
+                          : undefined
+                    }
+                    onClick={() => void copyErrorJson()}
+                  >
+                    {copyStatus() === "success"
+                      ? "Copied"
+                      : copyStatus() === "error"
+                        ? "Copy failed"
+                        : "Copy details"}
                   </Button>
                 </Show>
                 <Show when={props.onSecondaryAction && props.secondaryActionLabel}>
@@ -163,16 +180,6 @@ export function GlobalErrorOverlay(props: GlobalErrorOverlayProps) {
                 </Show>
               </Flex>
 
-              <Show when={copyStatus() === "success"}>
-                <Text fontSize="xs" color="fg.success">
-                  Copied error details as JSON.
-                </Text>
-              </Show>
-              <Show when={copyStatus() === "error"}>
-                <Text fontSize="xs" color="fg.danger">
-                  Unable to copy error details.
-                </Text>
-              </Show>
             </Stack>
           </Box>
         </Flex>

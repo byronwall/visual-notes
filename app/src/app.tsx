@@ -24,6 +24,7 @@ import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
+import { sectionTitleForPath } from "~/components/sidebar/nav-items";
 
 type ClientExceptionState = {
   source: "error" | "unhandledrejection";
@@ -121,10 +122,16 @@ export default function App() {
 const DefaultMetadata = () => {
   const location = useLocation();
   const isPublicShareRoute = () => location.pathname.startsWith("/share/");
+  // Route modules may set a more specific <Title>; this is the fallback so
+  // every tab names its section instead of a generic "Visual Notes".
+  const defaultTitle = () => {
+    const section = sectionTitleForPath(location.pathname);
+    return section ? `${section} • Visual Notes` : "Visual Notes";
+  };
 
   return (
     <Show when={!isPublicShareRoute()}>
-      <Title>Visual Notes</Title>
+      <Title>{defaultTitle()}</Title>
       <Meta
         name="description"
         content="Visual Notes is a workspace for writing, organizing, and exploring your notes."
