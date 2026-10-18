@@ -9,11 +9,26 @@ import { PathTreeRail } from "./PathTreeRail";
 /** The tree rail as a popover, for widths where the rail itself is hidden. */
 export const PathTreePopover = (props: { tree: PathTreeNode; activePath: string }) => {
   const [open, setOpen] = createSignal(false);
+  let railEl: HTMLElement | undefined;
+  let buttonEl: HTMLButtonElement | undefined;
+  // The popover hangs off an Anchor (not a Trigger), so Ark does not hand
+  // focus back on close; do it here when focus would otherwise drop to body.
+  const close = () => {
+    const hadFocus = !!railEl?.contains(document.activeElement);
+    setOpen(false);
+    requestAnimationFrame(() => {
+      if (hadFocus || document.activeElement === document.body) buttonEl?.focus();
+    });
+  };
 
   return (
     <SimplePopover
       open={open()}
-      onClose={() => setOpen(false)}
+      onClose={close}
+      // Open on the current row so arrows and typeahead work right away.
+      initialFocusEl={() =>
+        railEl?.querySelector<HTMLElement>("[role=treeitem][tabindex='0']") ?? null
+      }
       placement="bottom-start"
       offset={6}
       class={css({
@@ -26,6 +41,7 @@ export const PathTreePopover = (props: { tree: PathTreeNode; activePath: string 
       })}
       anchor={
         <IconButton
+          ref={buttonEl}
           size="sm"
           variant="plain"
           aria-label="Browse paths"
@@ -39,7 +55,12 @@ export const PathTreePopover = (props: { tree: PathTreeNode; activePath: string 
         </IconButton>
       }
     >
-      <PathTreeRail tree={props.tree} activePath={props.activePath} onNavigate={() => setOpen(false)} />
+      <PathTreeRail
+        ref={(el) => (railEl = el)}
+        tree={props.tree}
+        activePath={props.activePath}
+        onNavigate={close}
+      />
     </SimplePopover>
   );
 };

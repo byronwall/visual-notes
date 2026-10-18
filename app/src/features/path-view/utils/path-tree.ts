@@ -76,10 +76,7 @@ export const buildPathTree = (stats: PathStat[]): PathTreeNode => {
   return root;
 };
 
-export const findPathNode = (
-  root: PathTreeNode,
-  path: string,
-): PathTreeNode | undefined => {
+export const findPathNode = (root: PathTreeNode, path: string): PathTreeNode | undefined => {
   if (!path) return root;
   let node: PathTreeNode | undefined = root;
   for (const segment of path.split(".")) {
@@ -90,10 +87,7 @@ export const findPathNode = (
 };
 
 /** Keep nodes whose path matches the query, plus the ancestors leading to them. */
-export const filterPathTree = (
-  node: PathTreeNode,
-  query: string,
-): PathTreeNode | null => {
+export const filterPathTree = (node: PathTreeNode, query: string): PathTreeNode | null => {
   const q = query.trim().toLowerCase();
   if (!q) return node;
   const children = node.children
@@ -120,4 +114,58 @@ export const firstPathMatch = (root: PathTreeNode, query: string): string | null
     return null;
   };
   return visit(root) ?? fallback;
+};
+
+export type VisiblePathItem = {
+  path: string;
+  segment: string;
+  depth: number;
+  parentPath: string;
+  hasChildren: boolean;
+};
+
+/** Tree rows in on-screen order, skipping the children of collapsed nodes. */
+export const flattenVisiblePaths = (
+  root: PathTreeNode,
+  isExpanded: (path: string) => boolean,
+): VisiblePathItem[] => {
+  const items: VisiblePathItem[] = [];
+  const visit = (node: PathTreeNode) => {
+    for (const child of node.children) {
+      const hasChildren = child.children.length > 0;
+      items.push({
+        path: child.path,
+        segment: child.segment,
+        depth: child.depth,
+        parentPath: node.path,
+        hasChildren,
+      });
+      if (hasChildren && isExpanded(child.path)) visit(child);
+    }
+  };
+  visit(root);
+  return items;
+};
+
+/**
+ * Typeahead target: the next row (after `fromIndex`, wrapping) whose segment
+ * starts with `prefix`. A repeated single letter ("ccc") cycles through rows
+ * starting with that letter, like a native select.
+ */
+export const typeaheadMatch = (
+  items: VisiblePathItem[],
+  fromIndex: number,
+  prefix: string,
+): number => {
+  const q = prefix.toLowerCase();
+  if (!q || items.length === 0) return -1;
+  const repeated = q.length > 1 && [...q].every((ch) => ch === q[0]);
+  const needle = repeated ? q[0] : q;
+  // A fresh multi-letter prefix may still match the current row.
+  const start = needle.length > 1 ? fromIndex : fromIndex + 1;
+  for (let i = 0; i < items.length; i += 1) {
+    const index = (start + i + items.length) % items.length;
+    if (items[index].segment.toLowerCase().startsWith(needle)) return index;
+  }
+  return -1;
 };

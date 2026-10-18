@@ -10,7 +10,7 @@ export const PathEmptyState = (props: { path: string; onCreateNote: () => void }
     hasActive: () => false,
     open: () => {},
     focusFilter: () => {},
-    createNote: props.onCreateNote,
+    createNote: () => props.onCreateNote(),
   });
 
   return (

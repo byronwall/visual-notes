@@ -57,8 +57,19 @@ const labelClass = css({
   py: "1",
   outline: "none",
   // Stretch the link so the whole row (count included) navigates.
-  _after: { content: '""', position: "absolute", inset: "0", borderRadius: "l2" },
-  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.gray.8)" } },
+  _after: {
+    content: '""',
+    position: "absolute",
+    inset: "0",
+    borderRadius: "l2",
+  },
+});
+
+const itemClass = css({
+  outline: "none",
+  "&:focus-visible > [data-row]": {
+    boxShadow: "inset 0 0 0 2px token(colors.gray.8)",
+  },
 });
 
 const countClass = css({
@@ -70,6 +81,8 @@ const countClass = css({
 export type PathTreeRailNodeProps = {
   node: PathTreeNode;
   activePath: string;
+  /** The one row in the tab order (roving tabindex). */
+  tabbablePath: string;
   query: string;
   isExpanded: (path: string) => boolean;
   onToggle: (path: string) => void;
@@ -82,39 +95,50 @@ export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
   const active = () => props.activePath === props.node.path;
 
   return (
-    <li>
+    <li
+      role="treeitem"
+      class={itemClass}
+      data-tree-path={props.node.path}
+      tabIndex={props.tabbablePath === props.node.path ? 0 : -1}
+      aria-level={props.node.depth}
+      aria-expanded={hasChildren() ? expanded() : undefined}
+      aria-selected={active()}
+      aria-current={active() ? "page" : undefined}
+      aria-label={`${props.node.segment}, ${props.node.totalCount} ${props.node.totalCount === 1 ? "note" : "notes"}`}
+    >
       <div
+        data-row
         class={rowClass}
         data-active={active() ? "" : undefined}
         style={{ "padding-left": `${(props.node.depth - 1) * 14 + 4}px` }}
       >
         <Show when={hasChildren()} fallback={<span />}>
-          <button
-            type="button"
+          {/* Mouse affordance only; keyboard users expand with Left/Right on the row. */}
+          <span
+            aria-hidden="true"
             class={toggleClass}
             data-expanded={expanded() ? "" : undefined}
-            aria-label={`${expanded() ? "Collapse" : "Expand"} ${props.node.path}`}
-            aria-expanded={expanded()}
+            data-tree-toggle
             onClick={() => props.onToggle(props.node.path)}
           >
             <ChevronRightIcon size={12} />
-          </button>
+          </span>
         </Show>
         <A
           href={pathToRoute(props.node.path)}
           class={labelClass}
           title={props.node.path}
-          aria-current={active() ? "page" : undefined}
+          tabIndex={-1}
           onClick={() => props.onNavigate?.()}
         >
-          {props.query
-            ? renderHighlighted(props.node.segment, props.query)
-            : props.node.segment}
+          {props.query ? renderHighlighted(props.node.segment, props.query) : props.node.segment}
         </A>
-        <span class={countClass}>{props.node.totalCount}</span>
+        <span class={countClass} aria-hidden="true">
+          {props.node.totalCount}
+        </span>
       </div>
       <Show when={expanded()}>
-        <ul class={cx(css({ listStyle: "none" }))}>
+        <ul role="group" class={cx(css({ listStyle: "none" }))}>
           <For each={props.node.children}>
             {(child) => <PathTreeRailNode {...props} node={child} />}
           </For>

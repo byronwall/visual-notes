@@ -6,6 +6,7 @@ import { buildPathAncestors } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
 import { filterPathTree, firstPathMatch } from "../utils/path-tree";
 import { pathToRoute } from "~/utils/path-links";
+import { usePathTreeFocus } from "../hooks/usePathTreeFocus";
 import { PathTreeRailNode } from "./PathTreeRailNode";
 
 // Manual expand/collapse choices survive navigation between path pages.
@@ -56,7 +57,10 @@ const filterInputClass = css({
   transitionProperty: "background-color, box-shadow",
   transitionDuration: "fast",
   _placeholder: { color: "fg.subtle" },
-  _focusVisible: { bg: "bg.default", boxShadow: "0 0 0 1px token(colors.gray.7)" },
+  _focusVisible: {
+    bg: "bg.default",
+    boxShadow: "0 0 0 1px token(colors.gray.7)",
+  },
   "&::-webkit-search-cancel-button": { display: "none" },
 });
 
@@ -75,6 +79,7 @@ export const PathTreeRail = (props: {
   tree: PathTreeNode;
   activePath: string;
   onNavigate?: () => void;
+  ref?: (el: HTMLElement) => void;
 }) => {
   const navigate = useNavigate();
   const [query, setQuery] = createSignal("");
@@ -88,8 +93,28 @@ export const PathTreeRail = (props: {
     if (manual !== undefined) return manual;
     return autoExpanded().has(path);
   };
-  const toggle = (path: string) =>
-    setManualExpanded((prev) => ({ ...prev, [path]: !isExpanded(path) }));
+  const setExpanded = (path: string, expanded: boolean) =>
+    setManualExpanded((prev) => ({ ...prev, [path]: expanded }));
+  const toggle = (path: string) => setExpanded(path, !isExpanded(path));
+
+  const openPath = (path: string, newTab: boolean) => {
+    if (newTab) {
+      window.open(pathToRoute(path), "_blank", "noopener");
+      return;
+    }
+    setQuery("");
+    props.onNavigate?.();
+    navigate(pathToRoute(path));
+  };
+
+  const focus = usePathTreeFocus({
+    tree: filtered,
+    activePath: () => props.activePath,
+    isExpanded,
+    setExpanded,
+    filtering: () => !!query().trim(),
+    open: openPath,
+  });
 
   let navEl: HTMLElement | undefined;
   // Keep the current path visible in long trees after each navigation.
@@ -98,13 +123,22 @@ export const PathTreeRail = (props: {
       () => props.activePath,
       () =>
         requestAnimationFrame(() =>
-          navEl?.querySelector("[aria-current=page]")?.scrollIntoView({ block: "nearest" }),
+          navEl
+            ?.querySelector("[aria-current=page] > [data-row], a[aria-current=page]")
+            ?.scrollIntoView({ block: "nearest" }),
         ),
     ),
   );
 
   return (
-    <nav ref={navEl} class={railClass} aria-label="Path tree">
+    <nav
+      ref={(el) => {
+        navEl = el;
+        props.ref?.(el);
+      }}
+      class={railClass}
+      aria-label="Path tree"
+    >
       <A
         href="/path"
         class={rootLinkClass}
@@ -112,7 +146,13 @@ export const PathTreeRail = (props: {
         onClick={() => props.onNavigate?.()}
       >
         <span>All paths</span>
-        <span class={css({ fontSize: "xs", fontWeight: "normal", color: "fg.subtle" })}>
+        <span
+          class={css({
+            fontSize: "xs",
+            fontWeight: "normal",
+            color: "fg.subtle",
+          })}
+        >
           {props.tree.totalCount}
         </span>
       </A>
@@ -132,16 +172,23 @@ export const PathTreeRail = (props: {
               const match = firstPathMatch(props.tree, query());
               if (!match) return;
               event.preventDefault();
-              setQuery("");
-              props.onNavigate?.();
-              navigate(pathToRoute(match));
+              openPath(match, false);
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              focus.focusFirst();
             }
           }}
           placeholder="Find a path"
           aria-label="Find a path"
         />
         <Show when={query()}>
-          <button type="button" class={clearButtonClass} aria-label="Clear path search" onClick={() => setQuery("")}>
+          <button
+            type="button"
+            class={clearButtonClass}
+            aria-label="Clear path search"
+            onClick={() => setQuery("")}
+          >
             <XIcon size={12} />
           </button>
         </Show>
@@ -154,12 +201,20 @@ export const PathTreeRail = (props: {
           </p>
         }
       >
-        <ul class={css({ listStyle: "none" })}>
+        <ul
+          ref={focus.setTreeRef}
+          role="tree"
+          aria-label="Paths"
+          class={css({ listStyle: "none" })}
+          onKeyDown={focus.onKeyDown}
+          onFocusIn={focus.onFocusIn}
+        >
           <For each={filtered()?.children ?? []}>
             {(node) => (
               <PathTreeRailNode
                 node={node}
                 activePath={props.activePath}
+                tabbablePath={focus.tabbablePath()}
                 query={query().trim()}
                 isExpanded={isExpanded}
                 onToggle={toggle}
