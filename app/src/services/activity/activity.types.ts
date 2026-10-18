@@ -16,6 +16,8 @@ export type ActivityTimelineFilter = {
   take?: number;
   cursor?: string;
   eventType?: string;
+  /** Event family prefix such as "doc" or "search" (matches "doc.*"). */
+  eventDomain?: string;
   entityType?: string;
   actorId?: string;
   relatedDocId?: string;
