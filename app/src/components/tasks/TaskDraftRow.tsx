@@ -50,7 +50,7 @@ export const TaskDraftRow = (props: Props) => {
         data-testid="task-inline-create-row"
         gap="2"
         borderWidth="1px"
-        borderColor="blue.500"
+        borderColor="blue.9"
         borderRadius="md"
         px="2"
         py="1"

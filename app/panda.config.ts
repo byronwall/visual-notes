@@ -3,6 +3,7 @@ import { green } from "~/theme/colors/green";
 import { red } from "~/theme/colors/red";
 import { olive } from "~/theme/colors/olive";
 import { grass } from "~/theme/colors/grass";
+import { blue } from "~/theme/colors/blue";
 import { animationStyles } from "~/theme/animation-styles";
 import { zIndex } from "~/theme/tokens/z-index";
 import { shadows } from "~/theme/tokens/shadows";
@@ -121,6 +122,7 @@ export default defineConfig({
           gray: olive,
           red: red,
           green: green,
+          blue: blue,
           amber: amber
         },
 

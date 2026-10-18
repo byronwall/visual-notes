@@ -1476,7 +1476,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
                           position="absolute"
                           opacity={0.85}
                           borderWidth="2px"
-                          borderColor="blue.800"
+                          borderColor="blue.10"
                           borderStyle="solid"
                           boxShadow="0 0 0 1px rgba(255,255,255,0.5) inset, 0 8px 22px rgba(0, 0, 0, 0.18)"
                           pointerEvents="none"

@@ -98,7 +98,7 @@ export const TaskListSelector = (props: Props) => {
                 data-testid={`task-list-item-${list.id}`}
                 position="relative"
                 borderWidth="1px"
-                borderColor={props.selectedListId === list.id ? "blue.500" : "border"}
+                borderColor={props.selectedListId === list.id ? "blue.9" : "border"}
                 borderRadius="md"
                 px="2"
                 pl="10"
