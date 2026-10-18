@@ -1,29 +1,16 @@
-import {
-  type VoidComponent,
-  For,
-  Show,
-  Suspense,
-} from "solid-js";
-import { A, createAsync, useParams } from "@solidjs/router";
-import { Badge } from "~/components/ui/badge";
-import * as Card from "~/components/ui/card";
+import { createAsync, useParams } from "@solidjs/router";
+import { type VoidComponent, For, Show, Suspense } from "solid-js";
+import { Box, Grid, HStack, Stack, styled } from "styled-system/jsx";
+import { RunStatusIcon } from "~/components/ai-dashboard/RunStatusIcon";
+import type { RunStatus } from "~/components/ai-dashboard/ai-dashboard-model";
+import { KeyValueList, PlainCodeBlock } from "~/components/secondary/DataBlocks";
+import { EmptyState } from "~/components/secondary/EmptyState";
+import { SecondaryBreadcrumb } from "~/components/secondary/SecondaryBreadcrumb";
+import { SecondarySection } from "~/components/secondary/SecondarySection";
 import { Heading } from "~/components/ui/heading";
-import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
-import {
-  Box,
-  Container,
-  Flex,
-  Grid,
-  HStack,
-  Spacer,
-  Stack,
-} from "styled-system/jsx";
-import { styled } from "styled-system/jsx";
-import { link } from "styled-system/recipes";
+import { formatRelativeTimestamp } from "~/features/umap/format";
 import { fetchPromptRun } from "~/services/ai/ai-runs.queries";
-
-type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
 
 type PromptRunFull = {
   id: string;
@@ -31,7 +18,6 @@ type PromptRunFull = {
   model: string;
   createdAt: string;
   error?: string | null;
-  promptVersionId: string;
   compiledPrompt: string;
   systemUsed?: string | null;
   outputHtml?: string | null;
@@ -50,13 +36,11 @@ type PromptRunFull = {
   }>;
 };
 
-const statusColorPalette = (status: RunStatus) => {
-  if (status === "SUCCESS") return "green";
-  if (status === "ERROR") return "red";
-  return "gray";
+const statusWord: Record<RunStatus, string> = {
+  SUCCESS: "Succeeded",
+  ERROR: "Failed",
+  PARTIAL: "Partial",
 };
-
-const RouterLink = styled(A, link);
 
 const RunDetailPage: VoidComponent = () => {
   const params = useParams();
@@ -65,324 +49,148 @@ const RunDetailPage: VoidComponent = () => {
     return fetchPromptRun(params.id) as Promise<PromptRunFull | null>;
   });
 
-  const LoadingInline = (props: { label?: string | undefined }) => {
-    return (
-      <HStack gap="2">
-        <Spinner />
-        <Text textStyle="sm" color="fg.muted">
-          {props.label || "Loading…"}
-        </Text>
-      </HStack>
-    );
-  };
-
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container py="6" px="4" maxW="1200px">
-        <Stack gap="6">
-          <Box>
-            <RouterLink href="/ai">← Back to AI Dashboard</RouterLink>
-          </Box>
+      <Stack gap="6" maxW="1200px" mx="auto" px={{ base: "3", md: "6" }} pt="5" pb="24">
+        <Suspense fallback={<Text px="3" fontSize="sm" color="fg.muted">Loading run…</Text>}>
+          <Show
+            when={run()}
+            fallback={
+              <Stack gap="3" px="3">
+                <SecondaryBreadcrumb items={[{ label: "AI", href: "/ai" }, { label: "Run" }]} />
+                <EmptyState title="Run not found">
+                  It may have been deleted along with its prompt.
+                </EmptyState>
+              </Stack>
+            }
+          >
+            {(runItem) => {
+              const r = () => runItem();
+              const prompt = () => r().promptVersion?.Prompt ?? null;
+              const feedback = () => r().HumanFeedback ?? [];
+              return (
+                <>
+                  <Stack gap="2" px="3">
+                    <SecondaryBreadcrumb
+                      items={[
+                        { label: "AI", href: "/ai" },
+                        ...(prompt()
+                          ? [{ label: prompt()!.task, href: `/ai/prompts/${prompt()!.id}`, mono: true }]
+                          : []),
+                        { label: `Run ${r().id.slice(0, 8)}`, mono: true },
+                      ]}
+                    />
+                    <HStack gap="2.5" alignItems="center">
+                      <RunStatusIcon status={r().status} />
+                      <Heading as="h1" fontSize="2xl" fontFamily="mono" fontWeight="semibold">
+                        {prompt()?.task ?? "Prompt run"}
+                      </Heading>
+                    </HStack>
+                    <Text fontSize="sm" color="fg.muted">
+                      {statusWord[r().status]} · <styled.span fontFamily="mono">{r().model}</styled.span> ·{" "}
+                      <time datetime={r().createdAt} title={new Date(r().createdAt).toISOString()}>
+                        {formatRelativeTimestamp(r().createdAt)}
+                      </time>
+                    </Text>
+                  </Stack>
 
-          <Suspense fallback={<LoadingInline label="Loading run…" />}>
-            <Show when={run()}>
-              {(runItem) => {
-                const r = () => runItem();
-                const feedbackItems = () => r().HumanFeedback ?? [];
+                  <Show when={r().error}>
+                    {(error) => (
+                      <Box mx="3" px="4" py="3" borderRadius="l2" bg="red.subtle.bg" color="red.11" fontSize="sm">
+                        <Text fontWeight="semibold" mb="0.5">
+                          Error
+                        </Text>
+                        <Text overflowWrap="anywhere">{error()}</Text>
+                      </Box>
+                    )}
+                  </Show>
 
-                return (
-                  <Stack gap="6">
-                    <Flex
-                      align="center"
-                      justify="space-between"
-                      gap="3"
-                      flexWrap="wrap"
-                    >
-                      <Stack gap="1">
-                        <Heading as="h1" fontSize="2xl">
-                          Run{" "}
-                          <Text as="span" fontFamily="mono" color="fg.default">
-                            {r().id.slice(0, 8)}
-                          </Text>
-                        </Heading>
-                        <HStack gap="2" flexWrap="wrap" alignItems="center">
-                          <Text textStyle="sm" color="fg.muted">
-                            {new Date(r().createdAt).toLocaleString()} ·{" "}
-                            <Text as="span" color="fg.default">
-                              {r().model}
-                            </Text>
-                          </Text>
-                          <Badge
-                            size="sm"
-                            variant="subtle"
-                            colorPalette={statusColorPalette(r().status)}
-                          >
-                            {r().status}
-                          </Badge>
-                        </HStack>
-                      </Stack>
-
-                      <Show when={r().promptVersion?.Prompt}>
-                        {(p) => (
-                          <RouterLink href={`/ai/prompts/${p().id}`}>
-                            View Prompt:{" "}
-                            <Text as="span" fontWeight="semibold">
-                              {p().task}
-                            </Text>
-                          </RouterLink>
+                  <Grid gap="8" gridTemplateColumns={{ base: "1fr", lg: "minmax(0, 3fr) minmax(0, 2fr)" }}>
+                    <SecondarySection title="Output">
+                      <Show
+                        when={r().outputHtml}
+                        fallback={<EmptyState title="No output">The model returned nothing for this run.</EmptyState>}
+                      >
+                        {(html) => (
+                          <Box
+                            px="3"
+                            fontSize="sm"
+                            lineHeight="1.7"
+                            class="ai-html prose"
+                            innerHTML={html()}
+                          />
                         )}
                       </Show>
-                    </Flex>
+                    </SecondarySection>
 
-                    <Grid
-                      gap="6"
-                      gridTemplateColumns={{
-                        base: "1fr",
-                        lg: "repeat(2, minmax(0, 1fr))",
-                      }}
-                    >
-                      <Stack gap="4">
-                        <Card.Root>
-                          <Card.Header>
-                            <HStack>
-                              <Text textStyle="sm" fontWeight="semibold">
-                                Compiled Prompt
-                              </Text>
-                              <Spacer />
-                            </HStack>
-                          </Card.Header>
-                          <Card.Body>
-                            <Box
-                              as="pre"
-                              fontFamily="mono"
-                              fontSize="xs"
-                              bg="bg.subtle"
-                              borderWidth="1px"
-                              borderColor="border"
-                              borderRadius="l2"
-                              p="3"
-                              whiteSpace="pre-wrap"
-                            >
-                              {r().compiledPrompt}
+                    <Stack gap="6">
+                      <SecondarySection title="Inputs">
+                        <Box px="3">
+                          <KeyValueList record={r().inputVars} />
+                        </Box>
+                      </SecondarySection>
+                      <SecondarySection title="Prompt sent">
+                        <Box px="3">
+                          <PlainCodeBlock maxH="24rem">{r().compiledPrompt}</PlainCodeBlock>
+                        </Box>
+                      </SecondarySection>
+                      <Show when={r().systemUsed}>
+                        {(system) => (
+                          <SecondarySection title="System">
+                            <Box px="3">
+                              <PlainCodeBlock>{system()}</PlainCodeBlock>
                             </Box>
-                          </Card.Body>
-                        </Card.Root>
+                          </SecondarySection>
+                        )}
+                      </Show>
+                      <Show when={r().rawResponse}>
+                        <Box px="3">
+                          <styled.details>
+                            <styled.summary
+                              cursor="pointer"
+                              fontSize="sm"
+                              color="fg.muted"
+                              _hover={{ color: "fg.default" }}
+                              mb="2"
+                            >
+                              Raw response
+                            </styled.summary>
+                            <PlainCodeBlock maxH="28rem">
+                              {JSON.stringify(r().rawResponse, null, 2)}
+                            </PlainCodeBlock>
+                          </styled.details>
+                        </Box>
+                      </Show>
+                    </Stack>
+                  </Grid>
 
-                        <Show when={r().systemUsed}>
-                          {(s) => (
-                            <Card.Root>
-                              <Card.Header>
-                                <HStack>
-                                  <Text textStyle="sm" fontWeight="semibold">
-                                    System
-                                  </Text>
-                                  <Spacer />
-                                </HStack>
-                              </Card.Header>
-                              <Card.Body>
-                                <Box
-                                  as="pre"
-                                  fontFamily="mono"
-                                  fontSize="xs"
-                                  bg="bg.subtle"
-                                  borderWidth="1px"
-                                  borderColor="border"
-                                  borderRadius="l2"
-                                  p="3"
-                                  whiteSpace="pre-wrap"
-                                >
-                                  {s()}
-                                </Box>
-                              </Card.Body>
-                            </Card.Root>
+                  <Show when={feedback().length > 0}>
+                    <SecondarySection title="Feedback" meta={String(feedback().length)}>
+                      <Stack gap="2" px="3">
+                        <For each={feedback()}>
+                          {(item) => (
+                            <HStack gap="3" alignItems="baseline" fontSize="sm">
+                              <Text fontVariantNumeric="tabular-nums" fontWeight="medium" w="10">
+                                {typeof item.rating === "number" ? String(item.rating) : "—"}
+                              </Text>
+                              <Text flex="1" color={item.comment ? "fg.default" : "fg.subtle"}>
+                                {item.comment || "No comment"}
+                              </Text>
+                              <Text fontSize="xs" color="fg.subtle" whiteSpace="nowrap">
+                                {formatRelativeTimestamp(item.createdAt)}
+                              </Text>
+                            </HStack>
                           )}
-                        </Show>
-
-                        <Card.Root>
-                          <Card.Header>
-                            <HStack>
-                              <Text textStyle="sm" fontWeight="semibold">
-                                Input Vars
-                              </Text>
-                              <Spacer />
-                            </HStack>
-                          </Card.Header>
-                          <Card.Body>
-                            <Box
-                              as="pre"
-                              fontFamily="mono"
-                              fontSize="xs"
-                              bg="bg.subtle"
-                              borderWidth="1px"
-                              borderColor="border"
-                              borderRadius="l2"
-                              p="3"
-                              whiteSpace="pre-wrap"
-                            >
-                              {JSON.stringify(r().inputVars ?? {}, null, 2)}
-                            </Box>
-                          </Card.Body>
-                        </Card.Root>
+                        </For>
                       </Stack>
-
-                      <Stack gap="4">
-                        <Card.Root>
-                          <Card.Header>
-                            <HStack>
-                              <Text textStyle="sm" fontWeight="semibold">
-                                Output (HTML)
-                              </Text>
-                              <Spacer />
-                            </HStack>
-                          </Card.Header>
-                          <Card.Body>
-                            <Box
-                              fontSize="xs"
-                              bg="bg.subtle"
-                              borderWidth="1px"
-                              borderColor="border"
-                              borderRadius="l2"
-                              p="3"
-                              whiteSpace="pre-wrap"
-                            >
-                              <Show
-                                when={r().outputHtml}
-                                fallback={<Text as="span">—</Text>}
-                              >
-                                {(h) => <Box innerHTML={h()} />}
-                              </Show>
-                            </Box>
-                          </Card.Body>
-                        </Card.Root>
-
-                        <Card.Root>
-                          <Card.Header>
-                            <HStack>
-                              <Text textStyle="sm" fontWeight="semibold">
-                                Raw Response
-                              </Text>
-                              <Spacer />
-                            </HStack>
-                          </Card.Header>
-                          <Card.Body>
-                            <Box
-                              as="pre"
-                              fontFamily="mono"
-                              fontSize="xs"
-                              bg="bg.subtle"
-                              borderWidth="1px"
-                              borderColor="border"
-                              borderRadius="l2"
-                              p="3"
-                              whiteSpace="pre-wrap"
-                            >
-                              {JSON.stringify(r().rawResponse ?? {}, null, 2)}
-                            </Box>
-                          </Card.Body>
-                        </Card.Root>
-
-                        <Show when={r().error}>
-                          {(e) => (
-                            <Card.Root>
-                              <Card.Header>
-                                <HStack>
-                                  <Text textStyle="sm" fontWeight="semibold">
-                                    Error
-                                  </Text>
-                                  <Spacer />
-                                </HStack>
-                              </Card.Header>
-                              <Card.Body>
-                                <Text as="div" textStyle="sm" color="error">
-                                  {e()}
-                                </Text>
-                              </Card.Body>
-                            </Card.Root>
-                          )}
-                        </Show>
-                      </Stack>
-                    </Grid>
-
-                    <Show when={feedbackItems().length > 0}>
-                      <Card.Root>
-                        <Card.Header>
-                          <HStack>
-                            <Text textStyle="sm" fontWeight="semibold">
-                              Human Feedback
-                            </Text>
-                            <Spacer />
-                            <Text textStyle="xs" color="fg.muted">
-                              {feedbackItems().length}
-                            </Text>
-                          </HStack>
-                        </Card.Header>
-                        <Card.Body>
-                          <Stack gap="3">
-                            <For each={feedbackItems()}>
-                              {(f) => (
-                                <Box
-                                  borderWidth="1px"
-                                  borderColor="border"
-                                  borderRadius="l2"
-                                  p="3"
-                                >
-                                  <Stack gap="1">
-                                    <HStack gap="2">
-                                      <Text
-                                        as="span"
-                                        textStyle="sm"
-                                        color="fg.muted"
-                                      >
-                                        Rating:
-                                      </Text>
-                                      <Text
-                                        as="span"
-                                        textStyle="sm"
-                                        color="fg.default"
-                                      >
-                                        {typeof f.rating === "number"
-                                          ? f.rating
-                                          : "—"}
-                                      </Text>
-                                    </HStack>
-                                    <HStack gap="2" alignItems="flex-start">
-                                      <Text
-                                        as="span"
-                                        textStyle="sm"
-                                        color="fg.muted"
-                                      >
-                                        Comment:
-                                      </Text>
-                                      <Text
-                                        as="span"
-                                        textStyle="sm"
-                                        color="fg.default"
-                                      >
-                                        {f.comment || "—"}
-                                      </Text>
-                                    </HStack>
-                                    <Text
-                                      as="div"
-                                      textStyle="xs"
-                                      color="fg.muted"
-                                    >
-                                      {new Date(f.createdAt).toLocaleString()}
-                                    </Text>
-                                  </Stack>
-                                </Box>
-                              )}
-                            </For>
-                          </Stack>
-                        </Card.Body>
-                      </Card.Root>
-                    </Show>
-                  </Stack>
-                );
-              }}
-            </Show>
-          </Suspense>
-        </Stack>
-      </Container>
+                    </SecondarySection>
+                  </Show>
+                </>
+              );
+            }}
+          </Show>
+        </Suspense>
+      </Stack>
     </Box>
   );
 };

@@ -43,10 +43,9 @@ export function formatRelativeTimestamp(iso: string, nowMs = Date.now()): string
 
   if (absMs < minuteMs) return "just now";
 
-  const plural = (value: number, unit: string) =>
-    `${value}${unit}${value === 1 ? "" : "s"}`;
-  const ago = (value: number, unit: string) => `${plural(value, unit)} ago`;
-  const inTime = (value: number, unit: string) => `in ${plural(value, unit)}`;
+  // Compact units ("5m", "3h", "2mo") never take a plural "s".
+  const ago = (value: number, unit: string) => `${value}${unit} ago`;
+  const inTime = (value: number, unit: string) => `in ${value}${unit}`;
   const render = (value: number, unit: string) =>
     deltaMs < 0 ? ago(value, unit) : inTime(value, unit);
 
