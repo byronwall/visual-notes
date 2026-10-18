@@ -20,6 +20,8 @@ import type { CalendarSettings } from "./useCalendarSettings";
 
 type Props = {
   rangeStart: Date;
+  /** Day scrolled into view; phones show one day per screen. */
+  focusDay: Date;
   settings: CalendarSettings;
   isAtToday: boolean;
   noteFilterLabel: string | null;
@@ -30,6 +32,17 @@ type Props = {
   onOpenList: () => void;
   onOpenSummary: () => void;
 };
+
+// Phones need the toolbar on one row: 32px icon buttons with no padding.
+const tightOnNarrow = css({
+  "& > button, & button[aria-label='Calendar settings']": {
+    minW: { base: "8", md: "9" },
+    px: { base: "0", md: "3" },
+  },
+});
+
+const onlyNarrow = css({ display: { base: "inline", md: "none" } });
+const onlyWide = css({ display: { base: "none", md: "inline" } });
 
 // Anchors the native picker under the range label without showing the field.
 const visuallyHidden = css({
@@ -146,9 +159,17 @@ export const TimeBlocksToolbar = (props: Props) => {
             fontWeight="semibold"
             style={{ "font-variant-numeric": "tabular-nums" }}
           >
-            {formatRangeLabel(props.rangeStart, props.settings.numberOfDays())}
+            <span class={onlyNarrow}>
+              {formatRangeLabel(props.focusDay, 1)}
+            </span>
+            <span class={onlyWide}>
+              {formatRangeLabel(
+                props.rangeStart,
+                props.settings.numberOfDays(),
+              )}
+            </span>
           </Text>
-          <CalendarDaysIcon />
+          <CalendarDaysIcon class={onlyWide} />
         </Button>
         <input
           ref={dateInputRef}
@@ -194,7 +215,7 @@ export const TimeBlocksToolbar = (props: Props) => {
         )}
       </Show>
 
-      <HStack gap="0.5" ml="auto">
+      <HStack gap="0" ml="auto" class={tightOnNarrow}>
         <Button
           size="sm"
           variant="plain"

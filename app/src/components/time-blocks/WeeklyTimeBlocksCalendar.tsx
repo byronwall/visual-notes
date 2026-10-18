@@ -114,6 +114,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
   const [draft, setDraft] = createSignal<DraftRange | null>(null);
   const [draftSaving, setDraftSaving] = createSignal<string | null>(null);
 
+  const [focusDayIndex, setFocusDayIndex] = createSignal(0);
   let gridRef: HTMLDivElement | undefined;
   let scrollerRef: HTMLDivElement | undefined;
 
@@ -465,6 +466,17 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     queueMicrotask(() => scrollToFocus("smooth"));
   };
 
+  createEffect(
+    on(
+      rangeStart,
+      () => {
+        setFocusDayIndex(0);
+        scrollerRef?.scrollTo({ left: 0 });
+      },
+      { defer: true },
+    ),
+  );
+
   const navigate = (direction: -1 | 1) =>
     setRangeStart(addDays(rangeStart(), direction * numberOfDays()));
 
@@ -528,6 +540,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     <Stack gap="0" flex="1" minH="0" overflow="hidden">
       <TimeBlocksToolbar
         rangeStart={rangeStart()}
+        focusDay={addDays(rangeStart(), focusDayIndex())}
         settings={settings}
         isAtToday={isSameDay(rangeStart(), now() ?? rangeStart())}
         noteFilterLabel={noteFilterLabel()}
@@ -567,6 +580,12 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         ref={scrollerRef}
         class={scroller}
         data-testid="time-blocks-scroller"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const dayWidth = (el.scrollWidth - GUTTER_PX) / numberOfDays();
+          const index = Math.round(el.scrollLeft / Math.max(1, dayWidth));
+          setFocusDayIndex(Math.max(0, Math.min(numberOfDays() - 1, index)));
+        }}
       >
         <Box
           style={{
