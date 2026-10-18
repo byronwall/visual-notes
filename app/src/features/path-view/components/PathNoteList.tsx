@@ -1,10 +1,10 @@
 import { A, useNavigate } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createResource, createSignal, on } from "solid-js";
+import { For, Show, createEffect, createMemo, createSelector, createSignal, on } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
-import { fetchDocPreviewsBatched } from "~/services/docs.service";
 import { pathToRoute } from "~/utils/path-links";
 import { usePathKeyboard } from "../hooks/usePathKeyboard";
+import { usePathNotePreviews } from "../hooks/usePathNotePreviews";
 import { usePathViewParams } from "../hooks/usePathViewParams";
 import {
   filterPathNotes,
@@ -17,7 +17,6 @@ import { PathNoteRow } from "./PathNoteRow";
 import { PathNoteToolbar } from "./PathNoteToolbar";
 
 const PAGE_SIZE = 60;
-const NO_PREVIEW = "No preview available.";
 
 const groupHeaderClass = css({
   display: "flex",
@@ -78,27 +77,12 @@ export const PathNoteList = (props: {
     return totals;
   });
   const sections = createMemo(() =>
-    grouped()
-      ? groupPathNotes(visible(), props.path)
-      : [{ groupPath: "", notes: visible() }],
+    grouped() ? groupPathNotes(visible(), props.path) : [{ groupPath: "", notes: visible() }],
   );
-  const indexById = createMemo(
-    () => new Map(visible().map((note, index) => [note.id, index])),
-  );
+  const indexById = createMemo(() => new Map(visible().map((note, index) => [note.id, index])));
 
-  const visibleIdsKey = createMemo(() => visible().map((note) => note.id).join(","));
-  const [previews] = createResource(visibleIdsKey, (key) =>
-    key ? fetchDocPreviewsBatched(key.split(",")) : Promise.resolve([]),
-  );
-  // Read inside each row's Suspense so slow previews never hold back the list.
-  const previewFor = (note: PathNote) => {
-    const text = previews.latest?.find((item) => item.id === note.id)?.previewText;
-    if (!text || text === NO_PREVIEW) return undefined;
-    // Most notes open with their title as an H1; skip it so the snippet adds information.
-    const title = (note.title || "").trim();
-    const body = title && text.startsWith(title) ? text.slice(title.length).trim() : text;
-    return body || undefined;
-  };
+  const previewFor = usePathNotePreviews(() => visible());
+  const isActive = createSelector(activeIndex);
 
   createEffect(
     on(
@@ -114,9 +98,7 @@ export const PathNoteList = (props: {
   const scrollActiveIntoView = (index: number) => {
     const note = visible()[index];
     if (!note) return;
-    document
-      .querySelector(`[data-note-id="${note.id}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    document.querySelector(`[data-note-id="${note.id}"]`)?.scrollIntoView({ block: "nearest" });
   };
 
   usePathKeyboard({
@@ -126,7 +108,11 @@ export const PathNoteList = (props: {
       if (count === 0) return;
       const current = activeIndex();
       const next =
-        current < 0 ? (delta > 0 ? 0 : count - 1) : Math.max(0, Math.min(count - 1, current + delta));
+        current < 0
+          ? delta > 0
+            ? 0
+            : count - 1
+          : Math.max(0, Math.min(count - 1, current + delta));
       setActiveIndex(next);
       scrollActiveIntoView(next);
     },
@@ -142,7 +128,13 @@ export const PathNoteList = (props: {
 
   return (
     <section
-      class={css({ display: "flex", flexDirection: "column", gap: "2", p: "0", containerType: "inline-size" })}
+      class={css({
+        display: "flex",
+        flexDirection: "column",
+        gap: "2",
+        p: "0",
+        containerType: "inline-size",
+      })}
       onMouseMove={onListMouseMove}
     >
       <PathNoteToolbar
@@ -160,9 +152,19 @@ export const PathNoteList = (props: {
       <Show
         when={ordered().length > 0}
         fallback={
-          <div class={css({ display: "flex", alignItems: "center", gap: "3", py: "6", fontSize: "sm", color: "fg.muted" })}>
+          <div
+            class={css({
+              display: "flex",
+              alignItems: "center",
+              gap: "3",
+              py: "6",
+              fontSize: "sm",
+              color: "fg.muted",
+            })}
+          >
             <span>
-              No notes match <span class={css({ color: "fg.default" })}>“{params.query().trim()}”</span>
+              No notes match{" "}
+              <span class={css({ color: "fg.default" })}>“{params.query().trim()}”</span>
             </span>
             <Button size="xs" variant="outline" onClick={() => params.setQuery("")}>
               Clear filter
@@ -177,7 +179,11 @@ export const PathNoteList = (props: {
                 <h3 class={groupHeaderClass}>
                   <Show
                     when={section.groupPath}
-                    fallback={<span class={css({ fontWeight: "semibold", color: "fg.default" })}>Filed here</span>}
+                    fallback={
+                      <span class={css({ fontWeight: "semibold", color: "fg.default" })}>
+                        Filed here
+                      </span>
+                    }
                   >
                     <A href={pathToRoute(section.groupPath)} class={groupLinkClass}>
                       {relativeNotePath(section.groupPath, props.path)}
@@ -195,7 +201,7 @@ export const PathNoteList = (props: {
                       note={note}
                       basePath={grouped() ? section.groupPath || props.path : props.path}
                       query={params.query().trim()}
-                      active={indexById().get(note.id) === activeIndex()}
+                      active={isActive(indexById().get(note.id) ?? -2)}
                       showSubpath={hasNestedNotes()}
                       preview={() => previewFor(note)}
                     />

@@ -1,6 +1,6 @@
 import { A, useNavigate } from "@solidjs/router";
 import { SearchIcon, XIcon } from "lucide-solid";
-import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
+import { For, Show, createEffect, createMemo, createSelector, createSignal, on } from "solid-js";
 import { css } from "styled-system/css";
 import { buildPathAncestors } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
@@ -86,6 +86,21 @@ export const PathTreeRail = (props: {
 
   const autoExpanded = createMemo(() => new Set(buildPathAncestors(props.activePath)));
   const filtered = createMemo(() => filterPathTree(props.tree, query()));
+  // Render the original nodes (filtered by path) so <For> keeps existing rows
+  // while typing instead of rebuilding the whole tree on every keystroke.
+  const visiblePaths = createMemo(() => {
+    const root = filtered();
+    if (!query().trim() || !root) return null;
+    const paths = new Set<string>();
+    const visit = (node: PathTreeNode) =>
+      node.children.forEach((child) => (paths.add(child.path), visit(child)));
+    visit(root);
+    return paths;
+  });
+  const childrenOf = (node: PathTreeNode) => {
+    const visible = visiblePaths();
+    return visible ? node.children.filter((child) => visible.has(child.path)) : node.children;
+  };
 
   const isExpanded = (path: string) => {
     if (query().trim()) return true;
@@ -129,6 +144,8 @@ export const PathTreeRail = (props: {
         ),
     ),
   );
+
+  const isTabbable = createSelector(focus.tabbablePath);
 
   return (
     <nav
@@ -209,12 +226,13 @@ export const PathTreeRail = (props: {
           onKeyDown={focus.onKeyDown}
           onFocusIn={focus.onFocusIn}
         >
-          <For each={filtered()?.children ?? []}>
+          <For each={childrenOf(props.tree)}>
             {(node) => (
               <PathTreeRailNode
                 node={node}
                 activePath={props.activePath}
-                tabbablePath={focus.tabbablePath()}
+                isTabbable={isTabbable}
+                childrenOf={childrenOf}
                 query={query().trim()}
                 isExpanded={isExpanded}
                 onToggle={toggle}

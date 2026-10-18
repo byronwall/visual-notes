@@ -34,6 +34,9 @@ const rowClass = css({
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
   "&[data-active]": { bg: "gray.a3" },
+  // Long lists ("Show more" up to thousands): skip layout/paint for rows off screen.
+  contentVisibility: "auto",
+  containIntrinsicSize: "auto 61px",
 });
 
 const titleLinkClass = css({

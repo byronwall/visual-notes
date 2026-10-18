@@ -1,16 +1,27 @@
-import { For, Show, createSignal, createUniqueId, type JSX } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { css } from "styled-system/css";
-import * as HoverCard from "~/components/ui/hover-card";
+import { css, cx } from "styled-system/css";
+import { hoverCard } from "styled-system/recipes";
+import {
+  PathHoverCardContext,
+  createPathHoverCard,
+  usePathHoverTrigger,
+  type PathHoverInfo,
+  type PathHoverState,
+  type PathHoverTriggerProps,
+} from "../hooks/usePathHoverCard";
 
-type Placement = "bottom-start" | "right-start" | "top-start";
+const GAP = 6;
+const EDGE = 8;
 
 const contentClass = css({
+  position: "fixed",
   // Content-sized, capped to the viewport for very long paths.
   maxW: "min(420px, calc(100vw - 32px))",
   px: "3",
   py: "2",
   gap: "1",
+  pointerEvents: "auto",
 });
 
 const pathClass = css({
@@ -28,77 +39,121 @@ const metaClass = css({
   fontVariantNumeric: "tabular-nums",
 });
 
-/** Pointer/focus handlers and ARIA wiring to spread onto the trigger link. */
-export type PathHoverTriggerProps = JSX.HTMLAttributes<HTMLAnchorElement>;
+/** Place the card beside its anchor, flipping/clamping to stay on screen. */
+const placeCard = (state: PathHoverState, card: DOMRect) => {
+  const a = state.anchor.getBoundingClientRect();
+  const maxLeft = innerWidth - card.width - EDGE;
+  const maxTop = innerHeight - card.height - EDGE;
+  if (state.placement === "right-start" && a.right + GAP + card.width <= innerWidth - EDGE) {
+    return { top: Math.max(EDGE, Math.min(a.top, maxTop)), left: a.right + GAP };
+  }
+  const below = a.bottom + GAP;
+  const top = below + card.height <= innerHeight - EDGE ? below : a.top - GAP - card.height;
+  return {
+    top: Math.max(EDGE, Math.min(top, maxTop)),
+    left: Math.max(EDGE, Math.min(a.left, maxLeft)),
+  };
+};
 
-const isClipped = (el: HTMLElement | null) => !!el && el.scrollWidth > el.clientWidth + 1;
+const PathHoverCardSurface = (props: {
+  state: PathHoverState;
+  onEnter: () => void;
+  onLeave: () => void;
+}) => {
+  const [pos, setPos] = createSignal<{ top: number; left: number } | null>(null);
+  let cardEl: HTMLDivElement | undefined;
+  const segments = () => props.state.path.split(".");
+
+  createEffect(() => {
+    const state = props.state;
+    setPos(null);
+    queueMicrotask(() => cardEl && setPos(placeCard(state, cardEl.getBoundingClientRect())));
+  });
+
+  return (
+    <div
+      ref={cardEl}
+      role="tooltip"
+      data-state="open"
+      class={cx(hoverCard().content, contentClass)}
+      // Runtime geometry goes inline (AGENTS: no dynamic classes for positions).
+      style={{
+        top: `${pos()?.top ?? 0}px`,
+        left: `${pos()?.left ?? 0}px`,
+        visibility: pos() ? "visible" : "hidden",
+      }}
+      data-path-hover-card
+      onPointerEnter={() => props.onEnter()}
+      onPointerLeave={() => props.onLeave()}
+    >
+      <p class={pathClass}>
+        <For each={segments()}>
+          {(segment, index) => (
+            <>
+              <Show when={index() > 0}>
+                .<wbr />
+              </Show>
+              <span data-leaf={index() === segments().length - 1 ? "" : undefined}>{segment}</span>
+            </>
+          )}
+        </For>
+      </p>
+      <Show when={props.state.meta}>
+        <p class={metaClass}>{props.state.meta}</p>
+      </Show>
+    </div>
+  );
+};
+
+/** Hosts the single shared path hover card for everything rendered inside it. */
+export const PathHoverCardProvider = (props: { children: JSX.Element }) => {
+  const api = createPathHoverCard();
+
+  createEffect(() => {
+    if (!api.state()) return;
+    const close = () => api.hide(true);
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && close();
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    window.addEventListener("pointerdown", close, { capture: true });
+    window.addEventListener("keydown", onKey);
+    onCleanup(() => {
+      window.removeEventListener("scroll", close, { capture: true });
+      window.removeEventListener("pointerdown", close, { capture: true });
+      window.removeEventListener("keydown", onKey);
+    });
+  });
+
+  return (
+    <PathHoverCardContext.Provider value={api}>
+      {props.children}
+      {/* Only ever set by pointer/focus after hydration, so SSR renders nothing here. */}
+      <Show when={api.state()}>
+        {(state) => (
+          <Portal>
+            <PathHoverCardSurface
+              state={state()}
+              onEnter={api.keepOpen}
+              onLeave={() => api.hide()}
+            />
+          </Portal>
+        )}
+      </Show>
+    </PathHoverCardContext.Provider>
+  );
+};
 
 /**
  * Shows the full dotted path when a mono path is clipped by an ellipsis.
  * Untruncated paths never open the card, so short rows stay quiet.
  */
-export const PathHoverCard = (props: {
-  path: string;
-  meta?: JSX.Element;
-  placement?: Placement;
-  /** The clipped element, when it is not the trigger itself. */
-  clippedSelector?: string;
-  children: (triggerProps: PathHoverTriggerProps) => JSX.Element;
-}) => {
-  const [open, setOpen] = createSignal(false);
-  const triggerId = `path-hover-${createUniqueId()}`;
-  const segments = () => props.path.split(".");
-
-  const needsCard = () => {
-    const trigger = document.getElementById(triggerId);
-    const clipped = props.clippedSelector
-      ? trigger?.querySelector<HTMLElement>(props.clippedSelector) ?? null
-      : trigger;
-    return isClipped(clipped);
-  };
-
-  return (
-    <HoverCard.Root
-      ids={{ trigger: triggerId }}
-      open={open()}
-      onOpenChange={(details) => setOpen(details.open && needsCard())}
-      openDelay={350}
-      closeDelay={100}
-      positioning={{
-        placement: props.placement ?? "bottom-start",
-        offset: { mainAxis: 6 },
-        strategy: "fixed",
-      }}
-    >
-      <HoverCard.Trigger
-        asChild={(triggerProps) => props.children(triggerProps as PathHoverTriggerProps)}
-      />
-      {/* Only mounted once opened by a pointer/focus, which never happens during SSR. */}
-      <Show when={open()}>
-        <Portal>
-          <HoverCard.Positioner>
-            <HoverCard.Content class={contentClass} data-path-hover-card>
-              <p class={pathClass}>
-                <For each={segments()}>
-                  {(segment, index) => (
-                    <>
-                      <Show when={index() > 0}>
-                        .<wbr />
-                      </Show>
-                      <span data-leaf={index() === segments().length - 1 ? "" : undefined}>
-                        {segment}
-                      </span>
-                    </>
-                  )}
-                </For>
-              </p>
-              <Show when={props.meta}>
-                <p class={metaClass}>{props.meta}</p>
-              </Show>
-            </HoverCard.Content>
-          </HoverCard.Positioner>
-        </Portal>
-      </Show>
-    </HoverCard.Root>
-  );
+export const PathHoverCard = (
+  props: PathHoverInfo & { children: (triggerProps: PathHoverTriggerProps) => JSX.Element },
+) => {
+  const triggerProps = usePathHoverTrigger(() => ({
+    path: props.path,
+    meta: props.meta,
+    placement: props.placement,
+    clippedSelector: props.clippedSelector,
+  }));
+  return <>{props.children(triggerProps)}</>;
 };

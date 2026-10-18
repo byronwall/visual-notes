@@ -1,6 +1,7 @@
 import type { JSX } from "solid-js";
 import { css } from "styled-system/css";
 import type { PathTreeNode } from "../utils/path-tree";
+import { PathHoverCardProvider } from "./PathHoverCard";
 import { PathTreeRail } from "./PathTreeRail";
 
 // The rail only fits beside the app sidebar on wide screens; below `xl` the
@@ -46,12 +47,14 @@ export const PathBrowserShell = (props: {
   activePath: string;
   children: JSX.Element;
 }) => (
-  <div class={shellClass}>
-    <aside class={railClass}>
-      <PathTreeRail tree={props.tree} activePath={props.activePath} />
-    </aside>
-    <main class={mainClass}>
-      <div class={css({ maxW: "1080px" })}>{props.children}</div>
-    </main>
-  </div>
+  <PathHoverCardProvider>
+    <div class={shellClass}>
+      <aside class={railClass}>
+        <PathTreeRail tree={props.tree} activePath={props.activePath} />
+      </aside>
+      <main class={mainClass}>
+        <div class={css({ maxW: "1080px" })}>{props.children}</div>
+      </main>
+    </div>
+  </PathHoverCardProvider>
 );

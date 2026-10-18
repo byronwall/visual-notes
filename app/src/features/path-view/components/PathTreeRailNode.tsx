@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
 import { ChevronRightIcon } from "lucide-solid";
-import { For, Show } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
 import { css, cx } from "styled-system/css";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { pathToRoute } from "~/utils/path-links";
@@ -83,7 +83,9 @@ export type PathTreeRailNodeProps = {
   node: PathTreeNode;
   activePath: string;
   /** The one row in the tab order (roving tabindex). */
-  tabbablePath: string;
+  isTabbable: (path: string) => boolean;
+  /** Children to render (narrowed while the tree filter is active). */
+  childrenOf: (node: PathTreeNode) => PathTreeNode[];
   query: string;
   isExpanded: (path: string) => boolean;
   onToggle: (path: string) => void;
@@ -91,7 +93,8 @@ export type PathTreeRailNodeProps = {
 };
 
 export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
-  const hasChildren = () => props.node.children.length > 0;
+  const children = createMemo(() => props.childrenOf(props.node));
+  const hasChildren = () => children().length > 0;
   const expanded = () => hasChildren() && props.isExpanded(props.node.path);
   const active = () => props.activePath === props.node.path;
 
@@ -100,7 +103,7 @@ export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
       role="treeitem"
       class={itemClass}
       data-tree-path={props.node.path}
-      tabIndex={props.tabbablePath === props.node.path ? 0 : -1}
+      tabIndex={props.isTabbable(props.node.path) ? 0 : -1}
       aria-level={props.node.depth}
       aria-expanded={hasChildren() ? expanded() : undefined}
       aria-selected={active()}
@@ -146,7 +149,7 @@ export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
       </div>
       <Show when={expanded()}>
         <ul role="group" class={cx(css({ listStyle: "none" }))}>
-          <For each={props.node.children}>
+          <For each={children()}>
             {(child) => <PathTreeRailNode {...props} node={child} />}
           </For>
         </ul>
