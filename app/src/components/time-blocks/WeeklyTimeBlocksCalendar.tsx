@@ -802,6 +802,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         title="Delete time block"
         description={`Delete “${pendingDelete()?.title || "Untitled"}”?`}
         confirmLabel="Delete"
+        destructive
         onConfirm={() => {
           const block = pendingDelete();
           if (block) void mutations.remove(block);
@@ -822,6 +823,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         onClose={() => setListOpen(false)}
         weekStart={rangeStart()}
         numberOfDays={numberOfDays()}
+        noteId={props.initialNoteId}
         onEdit={(block) => openEditor(block)}
         refreshKey={refreshNonce()}
         onChanged={refresh}
@@ -831,6 +833,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         open={summaryOpen()}
         onClose={() => setSummaryOpen(false)}
         weekStart={rangeStart()}
+        numberOfDays={numberOfDays()}
         refreshKey={refreshNonce()}
         onChanged={refresh}
       />

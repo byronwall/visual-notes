@@ -1,10 +1,10 @@
 import { createAsync, useAction } from "@solidjs/router";
-import { createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
-import { HStack, Stack } from "styled-system/jsx";
-import { PencilIcon, Trash2Icon } from "lucide-solid";
-import { Button } from "~/components/ui/button";
+import { Box, HStack, Stack } from "styled-system/jsx";
+import { FileTextIcon, LockIcon, Trash2Icon } from "lucide-solid";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Text } from "~/components/ui/text";
 import {
@@ -13,215 +13,272 @@ import {
   fetchWeeklyTimeBlocks,
   type TimeBlockItem,
 } from "~/services/time-blocks/time-blocks.service";
+import { formatBlockRange } from "./BlockFace";
 import {
   addDays,
   endOfDay,
+  formatDuration,
   formatMonthDay,
-  formatTime12,
-  formatWeekdayLong,
+  formatWeekdayShort,
+  isSameDay,
+  MS_PER_MINUTE,
   startOfDay,
 } from "./date-utils";
 import { normalizeTimeBlockColor } from "./time-block-colors";
+import { useNestedDialogGuard } from "./useNestedDialogGuard";
+import { formatRangeLabel } from "./TimeBlocksToolbar";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   weekStart: Date;
   numberOfDays: number;
+  noteId?: string;
   onEdit: (block: TimeBlockItem) => void;
   refreshKey: number;
   onChanged: () => void;
 };
 
+const row = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "3",
+  px: "2",
+  py: "1.5",
+  borderRadius: "md",
+  cursor: "pointer",
+  w: "full",
+  transition: "background-color 140ms ease",
+  _hover: { bg: "bg.muted" },
+  _focusVisible: {
+    outline: "2px solid var(--colors-fg-default)",
+    outlineOffset: "-2px",
+  },
+  "& [data-row-action]": { opacity: 0, transition: "opacity 140ms ease" },
+  "&:hover [data-row-action], &:focus-within [data-row-action]": {
+    opacity: 1,
+  },
+  "@media (hover: none)": { "& [data-row-action]": { opacity: 1 } },
+});
+
+const tabular = { "font-variant-numeric": "tabular-nums" } as const;
+
+const minutesOf = (block: TimeBlockItem) =>
+  (new Date(block.endTime).getTime() - new Date(block.startTime).getTime()) /
+  MS_PER_MINUTE;
+
+const dayLabel = (date: Date) =>
+  `${formatWeekdayShort(date)} ${formatMonthDay(date)}`;
+
+/** The visible range as a list: one compact row per block, grouped by day. */
 export const TimeBlocksListDialog = (props: Props) => {
   const blocks = createAsync(() => {
-    // Re-run after mutations initiated by parent.
+    // Re-run after mutations initiated by the calendar.
     void props.refreshKey;
     return fetchWeeklyTimeBlocks({
       weekStartIso: props.weekStart.toISOString(),
       numberOfDays: props.numberOfDays,
-      noteId: undefined,
+      noteId: props.noteId,
     });
   });
 
   const runDelete = useAction(deleteTimeBlock);
   const runDeleteRange = useAction(deleteTimeBlocksByDateRange);
-  const [deleteBlockId, setDeleteBlockId] = createSignal<string | null>(null);
-  const [deleteDayDate, setDeleteDayDate] = createSignal<Date | null>(null);
+  const [deleteBlock, setDeleteBlock] = createSignal<TimeBlockItem | null>(
+    null,
+  );
+  const [deleteDay, setDeleteDay] = createSignal<Date | null>(null);
 
-  const dates = () =>
-    Array.from({ length: props.numberOfDays }, (_, index) =>
-      addDays(props.weekStart, index)
-    );
+  const nestedGuard = useNestedDialogGuard(
+    () => deleteBlock() !== null || deleteDay() !== null,
+  );
 
-  const blocksByDate = () => {
-    const map = new Map<string, TimeBlockItem[]>();
-    for (const block of blocks() || []) {
-      const key = startOfDay(new Date(block.startTime)).toISOString();
-      const existing = map.get(key) ?? [];
-      existing.push(block);
-      map.set(key, existing);
-    }
-    map.forEach((items) => {
-      items.sort(
-        (a, b) =>
-          new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-      );
-    });
-    return map;
-  };
+  const days = createMemo(() =>
+    Array.from({ length: props.numberOfDays }, (_, index) => {
+      const date = addDays(props.weekStart, index);
+      const items = (blocks() ?? [])
+        .filter((block) => isSameDay(new Date(block.startTime), date))
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
+      const minutes = items.reduce((sum, block) => sum + minutesOf(block), 0);
+      return { date, items, minutes };
+    }).filter((day) => day.items.length > 0),
+  );
 
-  const handleDelete = async (id: string) => {
-    await runDelete({ id });
-    props.onChanged();
-  };
-
-  const handleDeleteDay = async (date: Date) => {
-    await runDeleteRange({
-      startIso: startOfDay(date).toISOString(),
-      endIso: endOfDay(date).toISOString(),
-    });
-    props.onChanged();
+  const deleteDayDescription = () => {
+    const date = deleteDay();
+    if (!date) return "";
+    const count =
+      days().find((day) => isSameDay(day.date, date))?.items.length ?? 0;
+    return `Delete all ${count} ${count === 1 ? "block" : "blocks"} on ${dayLabel(date)}?`;
   };
 
   return (
     <SimpleDialog
       open={props.open}
       onOpenChange={(open) => !open && props.onClose()}
-      title="Time Blocks"
-      description="Review and edit your week in list form."
-      maxW="calc(100vw - 48px)"
-      contentClass={css({
-        width: "fit-content",
-        minW: "760px",
-      })}
+      title={formatRangeLabel(props.weekStart, props.numberOfDays)}
+      // A click inside a nested confirm must not dismiss this dialog.
+      closeOnInteractOutside={!nestedGuard()}
+      maxW="calc(100vw - 32px)"
+      contentClass={css({ width: "min(640px, calc(100vw - 32px))" })}
     >
-      <Stack gap="5" w="760px">
-        <Show when={(blocks() || []).length > 0} fallback={<Text color="fg.muted">No blocks in this range.</Text>}>
-          <For each={dates()}>
-            {(date) => {
-              const key = startOfDay(date).toISOString();
-              const dayBlocks = blocksByDate().get(key) || [];
-              return (
-                <Show when={dayBlocks.length > 0}>
-                  <Stack gap="2">
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text fontWeight="semibold">
-                        {formatWeekdayLong(date)}, {formatMonthDay(date)}
+      <Show
+        when={days().length > 0}
+        fallback={
+          <Text color="fg.muted" fontSize="sm" py="6" textAlign="center">
+            No blocks in this range.
+          </Text>
+        }
+      >
+        <Stack gap="4">
+          <For each={days()}>
+            {(day) => (
+              <Stack gap="0.5" data-testid="time-blocks-list-day">
+                <HStack gap="2" px="2" h="8">
+                  <Text fontSize="sm" fontWeight="semibold">
+                    {dayLabel(day.date)}
+                  </Text>
+                  <Text fontSize="xs" color="fg.muted" style={tabular}>
+                    {day.items.length}{" "}
+                    {day.items.length === 1 ? "block" : "blocks"} ·{" "}
+                    {formatDuration(day.minutes)}
+                  </Text>
+                  <Box flex="1" />
+                  <IconButton
+                    size="xs"
+                    variant="plain"
+                    colorPalette="red"
+                    aria-label={`Delete all blocks on ${dayLabel(day.date)}`}
+                    title="Delete all blocks on this day"
+                    onClick={() => setDeleteDay(day.date)}
+                  >
+                    <Trash2Icon />
+                  </IconButton>
+                </HStack>
+                <For each={day.items}>
+                  {(block) => (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      class={row}
+                      data-testid="time-blocks-list-row"
+                      onClick={() => props.onEdit(block)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        props.onEdit(block);
+                      }}
+                    >
+                      <Box
+                        w="2.5"
+                        h="2.5"
+                        borderRadius="full"
+                        flexShrink={0}
+                        style={{
+                          "background-color": normalizeTimeBlockColor(
+                            block.color,
+                          ),
+                        }}
+                      />
+                      <Text
+                        as="span"
+                        fontSize="sm"
+                        color="fg.muted"
+                        flexShrink={0}
+                        w="24"
+                        style={tabular}
+                      >
+                        {formatBlockRange(
+                          new Date(block.startTime),
+                          new Date(block.endTime),
+                        )}
                       </Text>
-                      <Button
-                        size="xs"
+                      <Stack gap="0" flex="1" minW="0">
+                        <Text
+                          as="span"
+                          fontSize="sm"
+                          fontWeight="medium"
+                          style={{ "overflow-wrap": "anywhere" }}
+                        >
+                          {block.title || "Untitled"}
+                        </Text>
+                        <Show when={block.noteTitle}>
+                          {(noteTitle) => (
+                            <HStack gap="1" color="fg.muted" minW="0">
+                              <FileTextIcon size={12} />
+                              <Text as="span" fontSize="xs" truncate>
+                                {noteTitle()}
+                              </Text>
+                            </HStack>
+                          )}
+                        </Show>
+                      </Stack>
+                      <Show when={block.isFixedTime}>
+                        <Box color="fg.muted" flexShrink={0} title="Fixed time">
+                          <LockIcon size={13} />
+                        </Box>
+                      </Show>
+                      <Text
+                        as="span"
+                        fontSize="xs"
+                        color="fg.muted"
+                        flexShrink={0}
+                        style={tabular}
+                      >
+                        {formatDuration(minutesOf(block))}
+                      </Text>
+                      <IconButton
+                        data-row-action
+                        size="2xs"
                         variant="plain"
                         colorPalette="red"
-                        onClick={() => setDeleteDayDate(date)}
-                        aria-label={`Delete all blocks for ${formatWeekdayLong(date)}`}
-                        title="Delete Day"
+                        aria-label={`Delete ${block.title || "Untitled"}`}
+                        title="Delete block"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDeleteBlock(block);
+                        }}
                       >
-                        <Trash2Icon size={15} />
-                      </Button>
-                    </HStack>
-                    <For each={dayBlocks}>
-                      {(block) => (
-                        <HStack
-                          justifyContent="space-between"
-                          alignItems="stretch"
-                          borderWidth="1px"
-                          borderColor="border"
-                          borderRadius="md"
-                          px="3"
-                          py="2"
-                          w="760px"
-                          style={{
-                            "border-left-width": "4px",
-                            "border-left-color": normalizeTimeBlockColor(
-                              block.color,
-                            ),
-                          }}
-                        >
-                          <Stack gap="0.5" flex="1" minW="0" pr="2">
-                            <Text
-                              fontWeight="medium"
-                              style={{
-                                overflow: "hidden",
-                                display: "-webkit-box",
-                                "-webkit-box-orient": "vertical",
-                                "-webkit-line-clamp": "3",
-                                "word-break": "break-word",
-                                "line-height": "1.25",
-                              }}
-                            >
-                              {block.title || "Untitled Block"}
-                            </Text>
-                            <Text fontSize="sm" color="fg.muted">
-                              {formatTime12(new Date(block.startTime))} - {formatTime12(new Date(block.endTime))}
-                            </Text>
-                            <Show when={block.noteTitle}>
-                              {(noteTitle) => (
-                                <Text fontSize="xs" color="fg.subtle">Linked note: {noteTitle()}</Text>
-                              )}
-                            </Show>
-                          </Stack>
-                          <HStack gap="1" alignSelf="center">
-                            <Button
-                              size="xs"
-                              variant="plain"
-                              onClick={() => props.onEdit(block)}
-                              aria-label="Edit block"
-                              title="Edit"
-                            >
-                              <PencilIcon size={15} />
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="plain"
-                              colorPalette="red"
-                              onClick={() => setDeleteBlockId(block.id)}
-                              aria-label="Delete block"
-                              title="Delete"
-                            >
-                              <Trash2Icon size={15} />
-                            </Button>
-                          </HStack>
-                        </HStack>
-                      )}
-                    </For>
-                  </Stack>
-                </Show>
-              );
-            }}
+                        <Trash2Icon />
+                      </IconButton>
+                    </div>
+                  )}
+                </For>
+              </Stack>
+            )}
           </For>
-        </Show>
-      </Stack>
+        </Stack>
+      </Show>
 
       <ConfirmDialog
-        open={deleteBlockId() !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteBlockId(null);
-        }}
-        title="Delete Time Block"
-        description="Delete this time block?"
+        open={deleteBlock() !== null}
+        onOpenChange={(open) => !open && setDeleteBlock(null)}
+        title="Delete time block"
+        description={`Delete “${deleteBlock()?.title || "Untitled"}”?`}
         confirmLabel="Delete"
-        cancelLabel="Cancel"
+        destructive
         onConfirm={() => {
-          const id = deleteBlockId();
-          if (!id) return;
-          void handleDelete(id);
+          const block = deleteBlock();
+          if (!block) return;
+          void runDelete({ id: block.id }).then(() => props.onChanged());
         }}
       />
 
       <ConfirmDialog
-        open={deleteDayDate() !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteDayDate(null);
-        }}
-        title="Delete Day"
-        description="Delete all time blocks for this day?"
-        confirmLabel="Delete Day"
-        cancelLabel="Cancel"
+        open={deleteDay() !== null}
+        onOpenChange={(open) => !open && setDeleteDay(null)}
+        title="Delete day"
+        description={deleteDayDescription()}
+        confirmLabel="Delete day"
+        destructive
         onConfirm={() => {
-          const day = deleteDayDate();
-          if (!day) return;
-          void handleDeleteDay(day);
+          const date = deleteDay();
+          if (!date) return;
+          void runDeleteRange({
+            startIso: startOfDay(date).toISOString(),
+            endIso: endOfDay(date).toISOString(),
+          }).then(() => props.onChanged());
         }}
       />
     </SimpleDialog>
