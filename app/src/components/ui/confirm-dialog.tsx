@@ -10,7 +10,10 @@ type ConfirmDialogProps = {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** e.g. "red" for destructive confirmations. */
+  confirmColorPalette?: string;
   onConfirm: () => void;
+  initialFocusEl?: () => HTMLElement | null;
   children?: JSX.Element;
 };
 
@@ -35,12 +38,17 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       title={props.title}
       description={props.description}
       maxW="480px"
+      initialFocusEl={props.initialFocusEl}
       footer={
         <HStack justify="flex-end" gap="2" w="full">
           <Button variant="outline" onClick={handleCancel}>
             {cancelLabel()}
           </Button>
-          <Button variant="solid" onClick={handleConfirm}>
+          <Button
+            variant="solid"
+            colorPalette={props.confirmColorPalette}
+            onClick={handleConfirm}
+          >
             {confirmLabel()}
           </Button>
         </HStack>

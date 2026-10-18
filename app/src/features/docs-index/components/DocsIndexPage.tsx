@@ -31,6 +31,8 @@ import { PathDiscoveryLinks } from "./PathDiscoveryLinks";
 import { useDocsIndexUrlSync } from "../hooks/useDocsIndexUrlSync";
 import { useDocsIndexBulkActions } from "../hooks/useDocsIndexBulkActions";
 import { useDocsListKeyboard } from "../hooks/useDocsListKeyboard";
+import { useAskDialog } from "../hooks/useAskDialog";
+import { Toaster, toaster } from "~/components/ui/toast";
 import { fetchPathDiscovery } from "~/services/docs.service";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, Container, HStack } from "styled-system/jsx";
@@ -78,11 +80,17 @@ const DocsIndexPage = () => {
   const search = useServerSearch(q.searchText, filterArgs, () =>
     Math.max(50, Math.min(200, q.serverShown() + 50)),
   );
+  const ask = useAskDialog();
   const actions = useDocsIndexBulkActions({
     q,
     sources,
     refreshDocs,
     refreshSources,
+    ui: {
+      confirm: ask.confirm,
+      promptText: ask.promptText,
+      notify: (title, type = "info") => toaster.create({ title, type }),
+    },
   });
 
   const isSearching = createMemo(() => q.searchText().trim().length > 0);
@@ -247,6 +255,9 @@ const DocsIndexPage = () => {
           selectedCount={actions.selectedVisibleCount()}
           onApply={actions.handleApplyBulkPath}
         />
+        <ask.AskDialogHost />
+        {/* No app-level Toaster is mounted yet; drop this if the shell adds one. */}
+        <Toaster />
       </Container>
     </Box>
   );
