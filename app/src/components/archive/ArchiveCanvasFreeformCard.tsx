@@ -175,7 +175,6 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
       // Drag start captures the pointer on this root, so the follow-up click and
       // dblclick events retarget here rather than to inner content boxes.
       onDblClick={(event) => {
-        console.log("EV handler", props.isEditing, isNote());
         if (props.isEditing) return;
         const target = event.target;
         if (target instanceof Element && target.closest("button")) return;
