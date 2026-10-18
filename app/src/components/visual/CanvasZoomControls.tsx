@@ -48,7 +48,7 @@ export const CanvasZoomControls: VoidComponent<CanvasZoomControlsProps> = (
       onPointerDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <ControlTip label="Zoom out" keys="−">
+      <ControlTip label="Zoom out" keys="-">
         <IconButton
           size="xs"
           variant="plain"
@@ -62,17 +62,19 @@ export const CanvasZoomControls: VoidComponent<CanvasZoomControlsProps> = (
         <Box
           as="button"
           aria-label="Reset zoom to 100%"
-          minW="11"
-          h="7"
+          minW="12"
+          h="8"
           px="1"
-          borderRadius="l1"
+          borderRadius="l2"
+          focusVisibleRing="outside"
           fontSize="xs"
           fontVariantNumeric="tabular-nums"
           color="fg.muted"
           cursor="pointer"
           transitionProperty="background-color, color"
           transitionDuration="fast"
-          _hover={{ bg: "bg.muted", color: "fg.default" }}
+          _hover={{ bg: "gray.a3", color: "fg.default" }}
+          _active={{ bg: "gray.a5" }}
           onClick={props.onResetZoom}
         >
           {percent()}

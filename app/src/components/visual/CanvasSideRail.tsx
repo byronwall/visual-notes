@@ -42,7 +42,7 @@ const RailHeader = (props: { label: string; count: number; children?: JSX.Elemen
       {props.label}
     </Text>
     <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums">
-      {props.count}
+      {props.count.toLocaleString()}
     </Text>
   </Flex>
 );
@@ -55,8 +55,8 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
       .sort((a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title))
   );
   const listedDocs = createMemo(() => props.docs().slice(0, RAIL_LIST_LIMIT));
-  const docsLabel = () =>
-    props.mode() === "matches" ? "Matches" : props.mode() === "notes" ? "Notes" : "Notes";
+  const docsLabel = () => (props.mode() === "matches" ? "Matches" : "Notes");
+  const hiddenCount = () => props.docs().length - RAIL_LIST_LIMIT;
 
   return (
     <Flex direction="column" h="full" minH="0">
@@ -74,21 +74,25 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
               fontSize="xs"
               color="fg.muted"
               cursor="pointer"
+              focusVisibleRing="inside"
               transitionProperty="background-color, color"
               transitionDuration="fast"
-              _hover={{ bg: "bg.muted", color: "fg.default" }}
+              _hover={{ bg: "gray.a3", color: "fg.default" }}
+              _active={{ bg: "gray.a5" }}
               onClick={props.onClearRegion}
             >
               <ChevronLeftIcon size={14} />
               All regions
             </Box>
             <Box px="1.5" pt="1">
-              <Flex align="baseline" justify="space-between" gap="2">
+              <Flex align="flex-start" justify="space-between" gap="2">
                 <Text fontSize="sm" fontWeight="semibold" lineHeight="tight">
                   {region().title}
                 </Text>
-                <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0">
-                  {region().docCount}
+                <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0" mt="0.5">
+                  {props.searchQuery().trim()
+                    ? `${props.docs().length} / ${region().docCount}`
+                    : region().docCount}
                 </Text>
               </Flex>
               <Show when={region().summary}>
@@ -127,7 +131,9 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
               </For>
               <Show when={props.docs().length > RAIL_LIST_LIMIT}>
                 <Text fontSize="xs" color="fg.muted" px="2" py="2">
-                  {props.docs().length - RAIL_LIST_LIMIT} more — refine the search to narrow the list
+                  {props.searchQuery().trim()
+                    ? `${hiddenCount().toLocaleString()} more — refine the search to narrow the list`
+                    : `${hiddenCount().toLocaleString()} more — search to find the rest`}
                 </Text>
               </Show>
               <Show when={props.docs().length === 0}>
@@ -155,10 +161,12 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
                   py="1.5"
                   borderRadius="l2"
                   cursor="pointer"
+                  focusVisibleRing="inside"
                   transitionProperty="background-color"
                   transitionDuration="fast"
-                  bg={isHovered() ? "bg.muted" : "transparent"}
-                  _hover={{ bg: "bg.muted" }}
+                  bg={isHovered() ? "gray.a3" : "transparent"}
+                  _hover={{ bg: "gray.a3" }}
+                  _active={{ bg: "gray.a5" }}
                   onMouseEnter={() => props.onHoveredRegionChange(region.id)}
                   onMouseLeave={() => props.onHoveredRegionChange(undefined)}
                   onFocus={() => props.onHoveredRegionChange(region.id)}

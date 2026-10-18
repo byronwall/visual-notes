@@ -67,7 +67,7 @@ export function createSelectionStore(params: {
     setBrushEndWorld(w);
     setIsBrushing(true);
     try {
-      console.log("[selection] beginBrush", { w });
+      console.debug("[selection] beginBrush", { w });
     } catch {}
   }
 
@@ -84,7 +84,7 @@ export function createSelectionStore(params: {
   function setSelection(ids: string[]) {
     setSelectedIds(new Set<string>(ids));
     try {
-      console.log(`[selection] setSelection count=${ids.length}`);
+      console.debug(`[selection] setSelection count=${ids.length}`);
     } catch {}
   }
 

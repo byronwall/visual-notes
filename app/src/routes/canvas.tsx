@@ -73,6 +73,9 @@ const CanvasRoute: VoidComponent = () => {
     () => true,
     () => fetchDocs({})
   );
+  // Reading an errored resource throws; the canvas shows its own error state.
+  const loadedDocs = () =>
+    docs.state === "errored" ? undefined : (docs.latest as DocItem[] | undefined);
   const umapRun = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
   const umapPoints = useUmapPointsResource(() => umapRun()?.id);
@@ -150,7 +153,7 @@ const CanvasRoute: VoidComponent = () => {
   let searchInput: HTMLInputElement | undefined;
 
   const positionsStore = createPositionsStore({
-    docs,
+    docs: loadedDocs,
     umapRun,
     umapPoints,
     aspectRatio: () => {
@@ -299,7 +302,7 @@ const CanvasRoute: VoidComponent = () => {
   }
 
   const visibleDocs = createMemo<DocItem[]>(() => {
-    const list: DocItem[] = (docs() || []) as DocItem[];
+    const list: DocItem[] = loadedDocs() ?? [];
     const region = selectedRegion();
     if (region) {
       const docIds = new Set(region.docIds);
@@ -413,11 +416,26 @@ const CanvasRoute: VoidComponent = () => {
     },
   });
 
+  // Drop a region or note from the URL once we know it no longer exists.
+  createEffect(() => {
+    const regionId = selectedRegionId();
+    if (regionId && umapRegions() && !selectedRegion()) {
+      setSelectedRegionId(undefined);
+    }
+  });
+  createEffect(() => {
+    const docId = selectedId();
+    const list = loadedDocs();
+    if (docId && list && !list.some((doc) => doc.id === docId)) {
+      setSelectedId(undefined);
+    }
+  });
+
   // Fit once notes arrive, then again when regions load, unless the user has
   // already moved the view. A region from the URL wins over the full fit.
   let initialRegionApplied = false;
   createEffect(() => {
-    const list = docs();
+    const list = loadedDocs();
     const snapshot = umapRegions();
     if (!isMounted() || !list || list.length === 0) return;
     untrack(() => {
@@ -465,7 +483,7 @@ const CanvasRoute: VoidComponent = () => {
   const hover = createHoverDerivations({
     positionsStore,
     canvasStore,
-    docs,
+    docs: loadedDocs,
     canHoverNotes: notesInteractive,
     candidateDocs: () => matchingDocs() ?? visibleDocs(),
     coarsePointer,
@@ -537,6 +555,9 @@ const CanvasRoute: VoidComponent = () => {
       h={{ base: "calc(100dvh - 4rem)", md: "100dvh" }}
       w="full"
     >
+      {/* The canvas depends on viewport geometry and on note
+          data that resolves differently on server and client, so it mounts on
+          the client. SSR-ing the floating chrome caused a hydration mismatch. */}
       <Show
         when={isMounted()}
         fallback={
@@ -553,57 +574,6 @@ const CanvasRoute: VoidComponent = () => {
           </Box>
         }
       >
-        <Suspense fallback={null}>
-          <VisualCanvas
-            docs={visibleDocs()}
-            positions={positions}
-            umapRegions={umapRegions}
-            viewportWidth={() =>
-              Math.max(1, viewportW() - rightInset(viewportW()))
-            }
-            viewportHeight={() =>
-              Math.max(1, viewportH() - canvasStore.navHeight())
-            }
-            hoveredId={hover.hoveredId}
-            railHoveredId={railHoveredDocId}
-            viewTransform={viewTransform}
-            offset={canvasStore.offset}
-            navHeight={canvasStore.navHeight}
-            scale={canvasStore.scale}
-            isPanning={canvasStore.isPanning}
-            searchQuery={searchQuery}
-            matchingDocIds={matchingDocIds}
-            notesInteractive={notesInteractive}
-            activeDocId={selectedId}
-            eventHandlers={canvasEventHandlers}
-            hoveredRegionId={hoveredRegionId}
-            onHoveredRegionChange={setHoveredRegionId}
-            onPressedRegionChange={setPressedRegionId}
-            suppressNextOpen={panZoomHandlers.blockNextOpen}
-            onSelectDoc={requestSelectedId}
-            onHoveredDocChange={setRailHoveredDocId}
-            onZoomToRegion={handleZoomToRegion}
-            selectedRegionId={selectedRegionId}
-            regionsOnly={regionsOnly}
-            selection={selectionStore}
-          />
-        </Suspense>
-
-        <Show when={docs() && docs()!.length === 0}>
-          <Box
-            position="absolute"
-            inset="0"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            pointerEvents="none"
-          >
-            <Text fontSize="sm" color="fg.muted">
-              No notes yet — new notes appear here as dots.
-            </Text>
-          </Box>
-        </Show>
-
         <Box position="absolute" zIndex="10" left="3" style={{ top: overlayTop() }}>
           <ControlPanel
             searchQuery={searchQuery}
@@ -650,12 +620,16 @@ const CanvasRoute: VoidComponent = () => {
           display={{ base: "inline-flex", md: "none" }}
           alignItems="center"
           justifyContent="center"
-          boxSize="9"
+          boxSize="10"
           bg="bg.default"
           borderRadius="l2"
           boxShadow="md"
           color="fg.default"
           cursor="pointer"
+          focusVisibleRing="outside"
+          transitionProperty="background-color"
+          transitionDuration="fast"
+          _hover={{ bg: "bg.subtle" }}
           style={{ top: overlayTop() }}
           onClick={() => setMobileRailOpen((open) => !open)}
         >
@@ -663,6 +637,88 @@ const CanvasRoute: VoidComponent = () => {
             <XIcon size={18} />
           </Show>
         </Box>
+
+        <Suspense fallback={null}>
+          <VisualCanvas
+            docs={visibleDocs()}
+            positions={positions}
+            umapRegions={umapRegions}
+            viewportWidth={() =>
+              Math.max(1, viewportW() - rightInset(viewportW()))
+            }
+            viewportHeight={() =>
+              Math.max(1, viewportH() - canvasStore.navHeight())
+            }
+            hoveredId={hover.hoveredId}
+            railHoveredId={railHoveredDocId}
+            viewTransform={viewTransform}
+            offset={canvasStore.offset}
+            navHeight={canvasStore.navHeight}
+            scale={canvasStore.scale}
+            isPanning={canvasStore.isPanning}
+            searchQuery={searchQuery}
+            matchingDocIds={matchingDocIds}
+            notesInteractive={notesInteractive}
+            activeDocId={selectedId}
+            eventHandlers={canvasEventHandlers}
+            hoveredRegionId={hoveredRegionId}
+            onHoveredRegionChange={setHoveredRegionId}
+            onPressedRegionChange={setPressedRegionId}
+            suppressNextOpen={panZoomHandlers.blockNextOpen}
+            onSelectDoc={requestSelectedId}
+            onHoveredDocChange={setRailHoveredDocId}
+            onZoomToRegion={handleZoomToRegion}
+            selectedRegionId={selectedRegionId}
+            regionsOnly={regionsOnly}
+            selection={selectionStore}
+          />
+        </Suspense>
+
+        <Show when={docs.error}>
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            gap="3"
+          >
+            <Text fontSize="sm" color="fg.muted">
+              Couldn’t load notes.
+            </Text>
+            <Button size="xs" variant="outline" onClick={() => refetchDocs()}>
+              Retry
+            </Button>
+          </Box>
+        </Show>
+        <Show when={docs.loading && !loadedDocs()}>
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            pointerEvents="none"
+          >
+            <Text fontSize="sm" color="fg.muted">
+              Loading notes…
+            </Text>
+          </Box>
+        </Show>
+        <Show when={loadedDocs()?.length === 0}>
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            pointerEvents="none"
+          >
+            <Text fontSize="sm" color="fg.muted">
+              No notes yet — new notes appear here as dots.
+            </Text>
+          </Box>
+        </Show>
 
         <Box
           position="absolute"

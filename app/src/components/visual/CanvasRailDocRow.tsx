@@ -42,10 +42,12 @@ export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (props) =>
           py="1.5"
           borderRadius="l2"
           cursor="pointer"
+          focusVisibleRing="inside"
           transitionProperty="background-color"
           transitionDuration="fast"
-          bg={props.active ? "bg.emphasized" : props.highlighted ? "bg.muted" : "transparent"}
-          _hover={{ bg: props.active ? "bg.emphasized" : "bg.muted" }}
+          bg={props.active ? "gray.a4" : props.highlighted ? "gray.a3" : "transparent"}
+          _hover={{ bg: props.active ? "gray.a4" : "gray.a3" }}
+          _active={{ bg: "gray.a5" }}
           aria-current={props.active ? "true" : undefined}
           onMouseEnter={() => props.onHover(props.doc.id)}
           onMouseLeave={() => props.onHover(undefined)}

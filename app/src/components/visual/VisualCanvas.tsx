@@ -105,6 +105,7 @@ export type VisualCanvasProps = {
 
 const SPREAD = 1000;
 const SELECTED_REGION_INSIDE_LABEL_ZOOM = 4.25;
+const LABEL_CHROME_INSET_PX = 52;
 const isBrowser = typeof window !== "undefined";
 
 function trackCanvasPerf(name: string, duration: number) {
@@ -1186,6 +1187,17 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       maxY: (height - offset.y - padding) / scale,
     };
   });
+  // Labels avoid the floating search bar (top) and zoom controls (bottom).
+  const labelViewportBounds = createMemo(() => {
+    const bounds = viewportBounds();
+    if (!bounds) return undefined;
+    const scale = Math.max(0.001, props.scale?.() ?? 1);
+    return {
+      ...bounds,
+      minY: bounds.minY + LABEL_CHROME_INSET_PX / scale,
+      maxY: bounds.maxY - LABEL_CHROME_INSET_PX / scale,
+    };
+  });
   const handlePointerMove = (e: PointerEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const scale = Math.max(0.001, props.scale?.() ?? 1);
@@ -1444,7 +1456,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 const labelOrder = labeledRegionOrder();
                 const currentZoomScale = zoomScale();
                 const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = viewportBounds();
+                const currentViewportBounds = labelViewportBounds();
                 return measureCanvasWork("baseRegionLabelLayouts", () =>
                   buildRegionLabelLayouts({
                     regions,
@@ -1471,7 +1483,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 }));
                 const currentZoomScale = zoomScale();
                 const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = viewportBounds();
+                const currentViewportBounds = labelViewportBounds();
                 const layout = measureCanvasWork("hoveredRegionLabelLayout", () =>
                   buildRegionLabelLayouts({
                     regions,
@@ -1533,7 +1545,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   labelHeight,
                   labelFontSize,
                 });
-                const bounds = viewportBounds();
+                const bounds = labelViewportBounds();
                 if (bounds) {
                   const shiftX =
                     (box.minX < bounds.minX ? bounds.minX - box.minX : 0) +
@@ -1612,7 +1624,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   position,
                   zoomScale: zoomScale(),
                   labelFontSize: noteLabelFontSize(),
-                  viewportBounds: viewportBounds(),
+                  viewportBounds: labelViewportBounds(),
                 });
               });
               createEffect(() => {
@@ -1667,7 +1679,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   buildStableNoteLabelOrder({
                     docs: labelCandidateDocs(),
                     positions: props.positions(),
-                    viewportBounds: viewportBounds(),
+                    viewportBounds: labelViewportBounds(),
                     // Extra candidates cover labels that fail placement.
                     limit: count * 3 + 1,
                   })
@@ -1715,7 +1727,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         radius: Math.max(18, selectedRegion.radius),
                       }
                     : undefined,
-                  viewportBounds: viewportBounds(),
+                  viewportBounds: labelViewportBounds(),
                   occupiedBoxes,
                 });
                 return anchoredLayout ? [anchoredLayout, ...layouts] : layouts;

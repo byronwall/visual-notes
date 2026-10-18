@@ -1,5 +1,12 @@
 import { SearchIcon, XIcon } from "lucide-solid";
-import { Show, type Accessor, type VoidComponent } from "solid-js";
+import {
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  type Accessor,
+  type VoidComponent,
+} from "solid-js";
 import { Box, Flex } from "styled-system/jsx";
 import { Input } from "~/components/ui/input";
 import { InputGroup } from "~/components/ui/input-group";
@@ -17,6 +24,25 @@ export type ControlPanelProps = {
 /** Floating search for the canvas; matches light up on the map and in the rail. */
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
   const hasQuery = () => props.searchQuery().trim().length > 0;
+  // The count + clear group grows with the numbers, so the input reserves
+  // exactly that much room and typed text never runs underneath it.
+  const [endWidth, setEndWidth] = createSignal(0);
+  const observeEndGroup = (el: HTMLDivElement) => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setEndWidth(el.offsetWidth));
+    observer.observe(el);
+    onCleanup(() => {
+      observer.disconnect();
+      setEndWidth(0);
+    });
+  };
+  let input: HTMLInputElement | undefined;
+  createEffect(() => {
+    const width = hasQuery() ? endWidth() : 0;
+    // InputGroup pins input padding with !important, so match its priority.
+    if (width) input?.style.setProperty("padding-inline-end", `${width + 16}px`, "important");
+    else input?.style.removeProperty("padding-inline-end");
+  });
 
   return (
     <Box
@@ -38,14 +64,15 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
               </Kbd>
             }
           >
-            <Flex align="center" gap="1" pointerEvents="auto">
+            <Flex ref={observeEndGroup} align="center" gap="1" pointerEvents="auto">
               <Box
                 fontSize="xs"
-                color={props.matchCount() === 0 ? "fg.error" : "fg.muted"}
+                color={props.matchCount() === 0 ? "error" : "fg.muted"}
                 fontVariantNumeric="tabular-nums"
                 whiteSpace="nowrap"
               >
-                {props.matchCount()} of {props.totalCount()}
+                {props.matchCount().toLocaleString()} of{" "}
+                {props.totalCount().toLocaleString()}
               </Box>
               <Box
                 as="button"
@@ -57,9 +84,10 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 borderRadius="l1"
                 color="fg.muted"
                 cursor="pointer"
+                focusVisibleRing="outside"
                 transitionProperty="background-color, color"
                 transitionDuration="fast"
-                _hover={{ bg: "bg.muted", color: "fg.default" }}
+                _hover={{ bg: "gray.a3", color: "fg.default" }}
                 onClick={() => props.setSearchQuery("")}
               >
                 <XIcon size={14} />
@@ -69,12 +97,14 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
         }
       >
         <Input
-          ref={props.inputRef}
+          ref={(el: HTMLInputElement) => {
+            input = el;
+            props.inputRef?.(el);
+          }}
           type="search"
           aria-label="Search notes on the canvas"
           placeholder="Search notes"
           borderColor="transparent"
-          pe={hasQuery() ? "24" : "8"}
           value={props.searchQuery()}
           onInput={(event) => props.setSearchQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
