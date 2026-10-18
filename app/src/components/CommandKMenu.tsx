@@ -32,24 +32,53 @@ import {
 import { fetchPathSuggestions } from "~/services/docs.service";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { pathToRoute } from "~/utils/path-links";
+import {
+  PaletteActionRow,
+  PaletteGroupLabel,
+  PaletteNavRow,
+} from "~/components/command-palette/PaletteRows";
 import { ActivityIcon, ArrowUpDownIcon, RouteIcon } from "lucide-solid";
+import {
+  matchActions,
+  matchDestinations,
+  type PaletteAction,
+  type PaletteIcon,
+} from "~/components/command-palette/palette-commands";
+import { ALL_DESTINATIONS } from "~/components/sidebar/nav-items";
 
 type CommandKMenuProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateNewNote: (initialTitle: string | undefined) => void;
+  /** Shell-level commands (chat, sidebar, logs) matched by name while typing. */
+  actions?: PaletteAction[];
 };
+
+type CommandGroup = "Actions" | "Go to" | "Notes" | "Recent";
 
 type CommandItem =
   | {
       kind: "action";
+      group: CommandGroup;
       key: string;
       label: string;
       hint?: string;
+      shortcut?: string;
+      icon?: PaletteIcon;
+      run: () => void;
+    }
+  | {
+      kind: "nav";
+      group: CommandGroup;
+      key: string;
+      href: string;
+      label: string;
+      icon: PaletteIcon;
       run: () => void;
     }
   | {
       kind: "doc";
+      group: CommandGroup;
       key: string;
       href: string;
       title: string;
@@ -57,27 +86,6 @@ type CommandItem =
       snippet?: string | null;
       run: () => void;
     };
-
-const NewNoteIcon: VoidComponent<{ size?: number }> = (props) => {
-  const size = () => props.size ?? 16;
-  return (
-    <svg
-      width={size()}
-      height={size()}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      class={css({ color: "fg.muted", flexShrink: "0" })}
-    >
-      <path
-        d="M12 6v12M6 12h12"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-      />
-    </svg>
-  );
-};
 
 export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const navigate = useNavigate();
@@ -103,13 +111,14 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
 
   const snippetClass = css({
     fontSize: "xs",
-    color: "black.a7",
+    color: "fg.muted",
     lineClamp: "2",
     mt: "0.1rem",
   });
   const secondaryRowClass = css({
     fontSize: "xs",
-    color: "black.a7",
+    fontFamily: "mono",
+    color: "fg.muted",
     mt: "0.1rem",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -117,11 +126,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
   const docRowClass = (active: boolean) =>
     css({
-      padding: "0.6rem 0.75rem",
-      borderBottomWidth: "1px",
-      borderColor: "gray.outline.border",
+      padding: "0.5rem 0.75rem",
+      borderRadius: "l2",
       background: rowBg(active),
-      transition: "background 120ms ease",
+      transitionProperty: "background-color",
+      transitionDuration: "120ms",
       display: "flex",
       flexDirection: "column",
       alignItems: "stretch",
@@ -132,7 +141,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       textDecorationLine: "none",
       _hover: {
         textDecorationLine: "none",
-        background: active ? "black.a2" : "black.a1",
+        background: active ? "gray.a3" : "gray.a2",
       },
     });
 
@@ -218,17 +227,49 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     const base: CommandItem[] = [
       {
         kind: "action",
+        group: "Actions",
         key: "new-note",
-        label: "New note",
-        hint: qTrim().length ? `Title: “${qTrim()}”` : undefined,
+        label: qTrim().length ? `New note “${qTrim()}”` : "New note",
+        shortcut: "⌘D",
         run: handleCreateNewNote,
       },
     ];
+    const q = qTrim();
+    const actionHits: CommandItem[] = matchActions(q, props.actions ?? []).map(
+      (action) => ({
+        kind: "action",
+        group: "Actions",
+        key: `action:${action.key}`,
+        label: action.label,
+        shortcut: action.shortcut,
+        icon: action.icon,
+        run: () => {
+          close();
+          action.run();
+        },
+      }),
+    );
+    const navHits: CommandItem[] = matchDestinations(q, ALL_DESTINATIONS).map(
+      (dest) => ({
+        kind: "nav",
+        group: "Go to",
+        key: `nav:${dest.href}`,
+        href: dest.href,
+        label: dest.label,
+        icon: dest.icon,
+        run: () => {
+          close();
+          navigate(dest.href);
+        },
+      }),
+    );
 
     // Use `latest` to avoid Suspense re-triggering (UI flashing) on each query change.
     const hits = currentResults()?.items ?? [];
+    const docGroup: CommandGroup = q ? "Notes" : "Recent";
     const mapped: CommandItem[] = hits.slice(0, 10).map((d) => ({
       kind: "doc",
+      group: docGroup,
       key: d.id,
       href: `/docs/${d.id}`,
       title: d.title,
@@ -237,7 +278,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       run: () => handleOpenDoc(d.id),
     }));
 
-    return [...base, ...mapped];
+    return [...base, ...actionHits, ...navHits, ...mapped];
   });
 
   const clampSelected = (next: number) => {
@@ -313,7 +354,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const isSearchingEnabled = () => qForSearch().length > 0;
   const isSearching = () => results.loading;
 
-  const rowBg = (active: boolean) => (active ? "black.a2" : "transparent");
+  const rowBg = (active: boolean) => (active ? "gray.a3" : "transparent");
   const sortModeItems: SimpleSelectItem[] = [
     { label: "Relevance", value: "relevance" },
     { label: "Recent activity", value: "recent_activity" },
@@ -392,6 +433,14 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     ev.preventDefault();
     handleOpenDoc(id);
   };
+  const handleNavLinkClick = (ev: MouseEvent, href: string) => {
+    if (ev.defaultPrevented) return;
+    if (ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    close();
+    navigate(href);
+  };
   const handlePathLinkClick = (ev: MouseEvent, path: string) => {
     if (ev.defaultPrevented) return;
     if (ev.button !== 0) return;
@@ -414,7 +463,8 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             size="sm"
             flex="1"
             minW="0"
-            placeholder="Type to search…"
+            placeholder="Search notes, sections, and actions…"
+            aria-label="Search"
             value={query()}
             onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
             onKeyDown={(e) => handleInputKeyDown(e as unknown as KeyboardEvent)}
@@ -432,11 +482,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
               when={selectsReady()}
               fallback={
                 <HStack gap="2" alignItems="center" flexShrink="0">
-                  <Text fontSize="xs" color="black.a7" whiteSpace="nowrap">
+                  <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
                     {sortModeItems.find((item) => item.value === sortMode())
                       ?.label ?? "Relevance"}
                   </Text>
-                  <Text fontSize="xs" color="black.a7" whiteSpace="nowrap">
+                  <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
                     {activityClassItems.find(
                       (item) => item.value === activityClass(),
                     )?.label ?? "All activity"}
@@ -544,7 +594,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
               minW="0"
             >
               <Box px="0.75rem" py="0.6rem">
-                <Text fontSize="sm" color="black.a7">
+                <Text fontSize="sm" color="fg.muted">
                   Loading…
                 </Text>
               </Box>
@@ -553,9 +603,12 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
         >
           <Box
             ref={resultsViewportEl}
+            role="listbox"
+            aria-label="Results"
             borderWidth="1px"
-            borderColor="gray.outline.border"
+            borderColor="border"
             borderRadius="l2"
+            p="1"
             h={resultsPanelHeight}
             overflowY="auto"
             w="full"
@@ -564,99 +617,70 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             <Stack gap="0">
               <For each={items()}>
                 {(it, idx) => (
-                  <Switch>
-                    <Match when={it.kind === "action"}>
-                      <Button
-                        data-command-index={idx()}
-                        variant={idx() === selectedIndex() ? "subtle" : "plain"}
-                        size="sm"
-                        w="full"
-                        h="auto"
-                        px="0.75rem"
-                        py="0.6rem"
-                        borderRadius="0"
-                        borderBottomWidth="1px"
-                        borderColor="gray.outline.border"
-                        bg={rowBg(idx() === selectedIndex())}
-                        display="flex"
-                        flexDirection="column"
-                        alignItems="stretch"
-                        justifyContent="flex-start"
-                        textAlign="left"
-                        minW="0"
-                        onMouseEnter={() => setSelectedIndex(idx())}
-                        onClick={it.run}
-                      >
-                        <HStack gap="2" alignItems="center" minW="0">
-                          <Show
-                            when={
-                              (it as Extract<CommandItem, { kind: "action" }>)
-                                .key === "new-note"
-                            }
+                  <>
+                    <Show when={idx() === 0 || items()[idx() - 1]?.group !== it.group}>
+                      <PaletteGroupLabel>{it.group}</PaletteGroupLabel>
+                    </Show>
+                    <Switch>
+                      <Match when={it.kind === "action" ? it : undefined}>
+                        {(action) => (
+                          <PaletteActionRow
+                            index={idx()}
+                            selected={idx() === selectedIndex()}
+                            label={action().label}
+                            icon={action().icon}
+                            trailing={action().shortcut}
+                            onHover={() => setSelectedIndex(idx())}
+                            onRun={action().run}
+                          />
+                        )}
+                      </Match>
+                      <Match when={it.kind === "nav" ? it : undefined}>
+                        {(nav) => (
+                          <PaletteNavRow
+                            index={idx()}
+                            selected={idx() === selectedIndex()}
+                            label={renderHighlighted(nav().label, qTrim())}
+                            icon={nav().icon}
+                            href={nav().href}
+                            onHover={() => setSelectedIndex(idx())}
+                            onActivate={(ev) => handleNavLinkClick(ev, nav().href)}
+                          />
+                        )}
+                      </Match>
+                      <Match when={it.kind === "doc" ? it : undefined}>
+                        {(doc) => (
+                          <a
+                            data-command-index={idx()}
+                            href={doc().href}
+                            role="option"
+                            aria-selected={idx() === selectedIndex()}
+                            class={docRowClass(idx() === selectedIndex())}
+                            onMouseMove={() => setSelectedIndex(idx())}
+                            onClick={(e) => handleDocLinkClick(e, doc().key)}
                           >
-                            <NewNoteIcon />
-                          </Show>
-                          <Text fontSize="sm" fontWeight="semibold" truncate minW="0" flex="1">
-                            {(it as Extract<CommandItem, { kind: "action" }>).label}
-                          </Text>
-                        </HStack>
-                        <Show
-                          when={
-                            (it as Extract<CommandItem, { kind: "action" }>)
-                              .hint
-                          }
-                        >
-                          {(hint) => (
-                            <Box class={secondaryRowClass}>{hint()}</Box>
-                          )}
-                        </Show>
-                      </Button>
-                    </Match>
-                    <Match when={it.kind === "doc"}>
-                      <a
-                        data-command-index={idx()}
-                        href={(it as Extract<CommandItem, { kind: "doc" }>).href}
-                        class={docRowClass(idx() === selectedIndex())}
-                        onMouseEnter={() => setSelectedIndex(idx())}
-                        onClick={(e) =>
-                          handleDocLinkClick(
-                            e as unknown as MouseEvent,
-                            (it as Extract<CommandItem, { kind: "doc" }>).key,
-                          )
-                        }
-                      >
-                        <Text fontSize="sm" fontWeight="semibold" truncate>
-                          {renderHighlighted(
-                            (it as Extract<CommandItem, { kind: "doc" }>).title,
-                            qTrim()
-                          )}
-                        </Text>
-                        <Show
-                          when={
-                            (it as Extract<CommandItem, { kind: "doc" }>).path
-                          }
-                        >
-                          {(path) => (
-                            <Box class={secondaryRowClass}>
-                              {renderHighlighted(path(), qTrim())}
-                            </Box>
-                          )}
-                        </Show>
-                        <Show
-                          when={formatSnippet(
-                            (it as Extract<CommandItem, { kind: "doc" }>)
-                              .snippet
-                          )}
-                        >
-                          {(snippet) => (
-                            <Box class={snippetClass}>
-                              {renderHighlighted(snippet(), qTrim())}
-                            </Box>
-                          )}
-                        </Show>
-                      </a>
-                    </Match>
-                  </Switch>
+                            <Text fontSize="sm" fontWeight="medium" truncate>
+                              {renderHighlighted(doc().title, qTrim())}
+                            </Text>
+                            <Show when={doc().path}>
+                              {(path) => (
+                                <Box class={secondaryRowClass}>
+                                  {renderHighlighted(path(), qTrim())}
+                                </Box>
+                              )}
+                            </Show>
+                            <Show when={formatSnippet(doc().snippet)}>
+                              {(snippet) => (
+                                <Box class={snippetClass}>
+                                  {renderHighlighted(snippet(), qTrim())}
+                                </Box>
+                              )}
+                            </Show>
+                          </a>
+                        )}
+                      </Match>
+                    </Switch>
+                  </>
                 )}
               </For>
 
@@ -701,7 +725,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
                 }
               >
                 <Box px="0.75rem" py="0.6rem">
-                  <Text fontSize="sm" color="black.a7">
+                  <Text fontSize="sm" color="fg.muted">
                     No results.
                   </Text>
                 </Box>
