@@ -8,6 +8,7 @@ import {
 } from "~/features/docs-index/utils/time";
 import { pathToRoute } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
+import { PathHoverCard } from "./PathHoverCard";
 
 const MAX_NESTED = 4;
 
@@ -78,17 +79,28 @@ const nestedLinkClass = css({
   _hover: { color: "fg.default", textDecoration: "underline" },
 });
 
-const isFresh = (iso: string | null) =>
-  !!iso && Date.now() - new Date(iso).getTime() < ONE_DAY_MS;
+const isFresh = (iso: string | null) => !!iso && Date.now() - new Date(iso).getTime() < ONE_DAY_MS;
+
+const nodeMeta = (node: PathTreeNode) =>
+  [
+    `${node.totalCount} ${node.totalCount === 1 ? "note" : "notes"}`,
+    node.lastUpdatedAt ? `updated ${formatRelativeTime(node.lastUpdatedAt)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
 export const PathSubpathGrid = (props: { nodes: PathTreeNode[] }) => (
   <ul class={gridClass} aria-label="Subpaths">
     <For each={props.nodes}>
       {(node) => (
         <li class={tileClass}>
-          <A href={pathToRoute(node.path)} class={tileLinkClass} title={node.path}>
-            {node.segment}
-          </A>
+          <PathHoverCard path={node.path} meta={nodeMeta(node)}>
+            {(triggerProps) => (
+              <A {...triggerProps} href={pathToRoute(node.path)} class={tileLinkClass}>
+                {node.segment}
+              </A>
+            )}
+          </PathHoverCard>
           <span class={metaClass}>
             {node.totalCount} {node.totalCount === 1 ? "note" : "notes"}
             <Show when={node.lastUpdatedAt}>

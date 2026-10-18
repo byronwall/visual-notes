@@ -5,6 +5,7 @@ import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { formatAbsoluteTime, formatRelativeTime } from "~/features/docs-index/utils/time";
 import { pathToRoute } from "~/utils/path-links";
 import { relativeNotePath, type PathNote } from "../utils/path-notes";
+import { PathHoverCard } from "./PathHoverCard";
 
 const rowClass = css({
   position: "relative",
@@ -17,7 +18,10 @@ const rowClass = css({
     gridTemplateColumns: "minmax(0, 1fr) minmax(0, 180px) 64px",
     gridTemplateAreas: '"main sub time"',
     // No row in this list lives in a subpath: give the title the space.
-    "&[data-nosub]": { gridTemplateColumns: "minmax(0, 1fr) 64px", gridTemplateAreas: '"main time"' },
+    "&[data-nosub]": {
+      gridTemplateColumns: "minmax(0, 1fr) 64px",
+      gridTemplateAreas: '"main time"',
+    },
   },
   alignItems: "start",
   columnGap: "4",
@@ -105,19 +109,17 @@ export const PathNoteRow = (props: {
           {props.query ? renderHighlighted(title(), props.query) : title()}
         </A>
         <p class={snippetClass}>
-          <Suspense fallback={" "}>
-            {props.preview() || " "}
-          </Suspense>
+          <Suspense fallback={" "}>{props.preview() || " "}</Suspense>
         </p>
       </div>
       <Show when={props.showSubpath && subpath()}>
-        <A
-          href={pathToRoute(props.note.path || "")}
-          class={subpathClass}
-          title={`Open ${props.note.path}`}
-        >
-          {props.query ? renderHighlighted(subpath(), props.query) : subpath()}
-        </A>
+        <PathHoverCard path={props.note.path || ""}>
+          {(triggerProps) => (
+            <A {...triggerProps} href={pathToRoute(props.note.path || "")} class={subpathClass}>
+              {props.query ? renderHighlighted(subpath(), props.query) : subpath()}
+            </A>
+          )}
+        </PathHoverCard>
       </Show>
       <span class={timeClass} title={`Updated ${formatAbsoluteTime(props.note.updatedAt)}`}>
         {formatRelativeTime(props.note.updatedAt)}

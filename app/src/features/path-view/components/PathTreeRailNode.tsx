@@ -5,6 +5,7 @@ import { css, cx } from "styled-system/css";
 import { renderHighlighted } from "~/features/docs-index/utils/highlight";
 import { pathToRoute } from "~/utils/path-links";
 import type { PathTreeNode } from "../utils/path-tree";
+import { PathHoverCard } from "./PathHoverCard";
 
 const rowClass = css({
   position: "relative",
@@ -124,15 +125,21 @@ export const PathTreeRailNode = (props: PathTreeRailNodeProps) => {
             <ChevronRightIcon size={12} />
           </span>
         </Show>
-        <A
-          href={pathToRoute(props.node.path)}
-          class={labelClass}
-          title={props.node.path}
-          tabIndex={-1}
-          onClick={() => props.onNavigate?.()}
-        >
-          {props.query ? renderHighlighted(props.node.segment, props.query) : props.node.segment}
-        </A>
+        <PathHoverCard path={props.node.path} placement="right-start">
+          {(triggerProps) => (
+            <A
+              {...triggerProps}
+              href={pathToRoute(props.node.path)}
+              class={labelClass}
+              tabIndex={-1}
+              onClick={() => props.onNavigate?.()}
+            >
+              {props.query
+                ? renderHighlighted(props.node.segment, props.query)
+                : props.node.segment}
+            </A>
+          )}
+        </PathHoverCard>
         <span class={countClass} aria-hidden="true">
           {props.node.totalCount}
         </span>
