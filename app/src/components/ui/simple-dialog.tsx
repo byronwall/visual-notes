@@ -23,6 +23,8 @@ type SimpleDialogProps = {
   restoreFocus?: boolean;
   /** Set false for dialogs holding typed input so a stray click can't drop it. */
   closeOnInteractOutside?: boolean;
+  /** Call `event.preventDefault()` to keep the dialog open, e.g. for an inner combobox. */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
 
 export function SimpleDialog(props: SimpleDialogProps) {
@@ -75,6 +77,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
       initialFocusEl={props.initialFocusEl}
       restoreFocus={props.restoreFocus}
       closeOnInteractOutside={props.closeOnInteractOutside}
+      onEscapeKeyDown={props.onEscapeKeyDown}
     >
       <WrapWhen when={props.skipPortal !== true} component={Portal}>
         <Dialog.Backdrop />

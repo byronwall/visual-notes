@@ -55,7 +55,7 @@ export const TimeBlockBacklinks = (props: Props) => {
                 >
                   <Stack gap="0">
                     <Text fontSize="sm" fontWeight="medium">
-                      {block.title || "Untitled Block"}
+                      {block.title || "Untitled"}
                     </Text>
                     <Text fontSize="xs" color="fg.muted">
                       {formatDateOnly(new Date(block.startTime))} · {formatTime12(new Date(block.startTime))} - {formatTime12(new Date(block.endTime))}

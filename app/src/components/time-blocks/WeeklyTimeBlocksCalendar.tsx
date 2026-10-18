@@ -814,6 +814,7 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         block={editor()?.block ?? null}
         seed={editor()?.seed ?? null}
         noteId={props.initialNoteId}
+        noteTitle={noteFilterLabel()}
         onClose={() => setEditor(null)}
         onSaved={refresh}
       />

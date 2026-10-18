@@ -22,6 +22,7 @@ import {
   setDateTimeFromInputs,
 } from "./date-utils";
 import { HueSwatches } from "./HueSwatches";
+import { NoteLinkField, type LinkedNote } from "./NoteLinkField";
 import {
   normalizeTimeBlockColor,
   randomTimeBlockColor,
@@ -41,6 +42,7 @@ type Props = {
   seed: NewBlockSeed | null;
   /** Links new blocks to this note (the calendar is filtered to it). */
   noteId?: string;
+  noteTitle?: string | null;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -54,6 +56,7 @@ export const TimeBlockEditorDialog = (props: Props) => {
   const [isFixedTime, setIsFixedTime] = createSignal(false);
   const [color, setColor] = createSignal(randomTimeBlockColor());
   const [comments, setComments] = createSignal("");
+  const [linkedNote, setLinkedNote] = createSignal<LinkedNote | null>(null);
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
   const [startTime, setStartTime] = createSignal("09:00");
@@ -78,6 +81,11 @@ export const TimeBlockEditorDialog = (props: Props) => {
       setIsFixedTime(block.isFixedTime);
       setColor(normalizeTimeBlockColor(block.color, randomTimeBlockColor()));
       setComments(block.comments || "");
+      setLinkedNote(
+        block.noteId
+          ? { id: block.noteId, title: block.noteTitle || "Untitled" }
+          : null,
+      );
       setStartDate(formatDateOnly(start));
       setEndDate(formatDateOnly(end));
       setStartTime(formatTime24(start));
@@ -90,6 +98,11 @@ export const TimeBlockEditorDialog = (props: Props) => {
       setIsFixedTime(false);
       setColor(range.color ?? randomTimeBlockColor());
       setComments("");
+      setLinkedNote(
+        props.noteId
+          ? { id: props.noteId, title: props.noteTitle || "Linked note" }
+          : null,
+      );
       setStartDate(formatDateOnly(range.start));
       setEndDate(formatDateOnly(range.end));
       setStartTime(formatTime24(range.start));
@@ -135,22 +148,23 @@ export const TimeBlockEditorDialog = (props: Props) => {
       if (props.block) {
         await runUpdate({
           id: props.block.id,
-          title: title() || "Untitled Block",
+          title: title() || "Untitled",
           startTimeIso: start.toISOString(),
           endTimeIso: end.toISOString(),
           color: color(),
           isFixedTime: isFixedTime(),
           comments: comments() || null,
+          noteId: linkedNote()?.id ?? null,
         });
       } else {
         await runCreate({
-          title: title() || "Untitled Block",
+          title: title() || "Untitled",
           startTimeIso: start.toISOString(),
           endTimeIso: end.toISOString(),
           color: color(),
           isFixedTime: isFixedTime(),
           comments: comments() || undefined,
-          noteId: props.noteId ?? null,
+          noteId: linkedNote()?.id ?? null,
         });
       }
       props.onSaved();
@@ -193,6 +207,11 @@ export const TimeBlockEditorDialog = (props: Props) => {
       restoreFocus={false}
       title={props.block ? "Edit block" : "New block"}
       closeOnInteractOutside={false}
+      onEscapeKeyDown={(event) => {
+        // Esc in the note search closes the search, not the dialog.
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("[data-note-search]")) event.preventDefault();
+      }}
       maxW="calc(100vw - 32px)"
       contentClass={css({ width: "fit-content" })}
       footer={
@@ -366,6 +385,13 @@ export const TimeBlockEditorDialog = (props: Props) => {
               )}
             </For>
           </HStack>
+        </Stack>
+
+        <Stack gap="1">
+          <Text fontSize="sm" fontWeight="medium">
+            Linked note
+          </Text>
+          <NoteLinkField value={linkedNote()} onChange={setLinkedNote} />
         </Stack>
 
         <Stack gap="1.5">
