@@ -6,6 +6,12 @@ import {
 } from "~/server/lib/markdown";
 import { buildDocPreviewText } from "./docs.queries";
 
+// Keep checklist state visible on public shares (read-only presentation).
+const SHARE_EXTRA_ALLOWED_ATTRIBUTES = {
+  ul: ["data-type"],
+  li: ["data-type", "data-checked"],
+};
+
 export type DocShareSummary = {
   id: string;
   slug: string;
@@ -83,6 +89,7 @@ export const fetchPublicSharedDoc = query(
 
     const html = sanitizeHtmlContent(
       share.doc.html || normalizeMarkdownToHtml(share.doc.markdown),
+      SHARE_EXTRA_ALLOWED_ATTRIBUTES,
     );
 
     return {
