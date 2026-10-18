@@ -13,10 +13,12 @@ import { Box } from "styled-system/jsx";
 import {
   BotMessageSquareIcon,
   PanelLeftIcon,
+  SunMoonIcon,
   TerminalIcon,
 } from "lucide-solid";
 import type { PaletteAction } from "~/components/command-palette/palette-commands";
 import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
+import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
 import { RouteProgressBar } from "./RouteProgressBar";
 import {
   readSidebarCollapsed,
@@ -110,6 +112,15 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       run: () => handleCollapseToggle(),
     },
     {
+      key: "theme",
+      label: "Change theme",
+      keywords: "dark light mode appearance system",
+      icon: SunMoonIcon,
+      run: () => {
+        cycleThemePreference();
+      },
+    },
+    {
       key: "logs",
       label: "Console logs",
       keywords: "debug errors",
@@ -121,6 +132,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
 
   onMount(() => {
     initializeConsoleLogCapture();
+    syncThemePreference();
 
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {

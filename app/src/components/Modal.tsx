@@ -72,7 +72,7 @@ export default function Modal(props: {
               pointerEvents="auto"
               maxH="90vh"
               overflow="auto"
-              bg="white"
+              bg="bg.default"
               borderWidth="1px"
               borderColor="gray.outline.border"
               borderRadius="l2"

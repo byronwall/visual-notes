@@ -1,7 +1,18 @@
 import type { Accessor, JSX } from "solid-js";
-import { For, Show } from "solid-js";
+import { For, Match, Show, Switch } from "solid-js";
 import { useLocation } from "@solidjs/router";
-import { LogInIcon, LogOutIcon } from "lucide-solid";
+import {
+  LogInIcon,
+  LogOutIcon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+} from "lucide-solid";
+import {
+  cycleThemePreference,
+  themePreference,
+  themePreferenceLabel,
+} from "~/lib/theme-mode";
 import { css } from "styled-system/css";
 import { Box } from "styled-system/jsx";
 import { Tooltip } from "~/components/ui/tooltip";
@@ -78,6 +89,26 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
         )}
       </For>
       <Box flex={props.expanded ? "1" : undefined} />
+      <FooterTip label={themePreferenceLabel(themePreference())}>
+        <button
+          type="button"
+          class={footerIconClass}
+          aria-label={`${themePreferenceLabel(themePreference())} (click to change)`}
+          onClick={() => cycleThemePreference()}
+        >
+          <Switch>
+            <Match when={themePreference() === "light"}>
+              <SunIcon size={16} strokeWidth={1.8} />
+            </Match>
+            <Match when={themePreference() === "dark"}>
+              <MoonIcon size={16} strokeWidth={1.8} />
+            </Match>
+            <Match when={themePreference() === "system"}>
+              <MonitorIcon size={16} strokeWidth={1.8} />
+            </Match>
+          </Switch>
+        </button>
+      </FooterTip>
       <Show
         when={props.authed()}
         fallback={
