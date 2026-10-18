@@ -1,45 +1,23 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
-import { LayoutGridIcon, MapIcon, NetworkIcon, ChevronRightIcon } from "lucide-solid";
+import { ChevronRightIcon } from "lucide-solid";
 import * as Menu from "~/components/ui/menu";
-import { Button } from "~/components/ui/button";
-import { Box, VisuallyHidden } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
 import {
-  sidebarNavButtonStyle,
-  type SidebarNavIcon,
-} from "./SidebarNavButton";
+  CANVAS_CHILD_DESTINATIONS,
+  CANVAS_DESTINATION,
+  isCanvasSectionActive,
+} from "./nav-items";
+import { sidebarRowClass, sidebarRowLabelClass } from "./SidebarNavLink";
 
-type CanvasMenuItem = {
-  label: string;
-  href: string;
-  icon: SidebarNavIcon;
-};
-
-const canvasChildren: CanvasMenuItem[] = [
-  {
-    label: "Embeddings",
-    href: "/embeddings",
-    icon: NetworkIcon,
-  },
-  {
-    label: "UMAP",
-    href: "/umap",
-    icon: MapIcon,
-  },
-];
-
-export const isCanvasSectionActive = (pathname: string) =>
-  pathname === "/canvas" ||
-  pathname.startsWith("/canvas/") ||
-  pathname === "/embeddings" ||
-  pathname.startsWith("/embeddings/") ||
-  pathname === "/umap" ||
-  pathname.startsWith("/umap/");
-
+/**
+ * Canvas row: a real link to /canvas plus a hover flyout with the other
+ * spatial views (Embeddings, UMAP). Controlled `Menu.Root` + `Portal` per
+ * AGENTS.md so the flyout escapes the sidebar stacking context.
+ */
 export const AppSidebarCanvasMenu = (props: {
   expanded: boolean;
   pathname: string;
-  onNavigate: (href: string) => void;
 }) => {
   const [open, setOpen] = createSignal(false);
   let closeTimer: number | undefined;
@@ -65,53 +43,71 @@ export const AppSidebarCanvasMenu = (props: {
 
   onCleanup(() => clearCloseTimer());
 
+  const active = () => isCanvasSectionActive(props.pathname);
+  const activeChild = () =>
+    CANVAS_CHILD_DESTINATIONS.find((item) => item.isActive(props.pathname));
+
   return (
     <Box onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
       <Menu.Root
         size="sm"
         open={open()}
         onOpenChange={(details) => setOpen(details.open)}
-        positioning={{ placement: "right-start", gutter: 4 }}
+        positioning={{ placement: "right-start", gutter: 6 }}
       >
         <Menu.Trigger
           asChild={(triggerProps) => (
-            <Button
+            <a
               {...triggerProps}
-              variant="plain"
-              size="sm"
-              aria-current={isCanvasSectionActive(props.pathname) ? "page" : undefined}
-              px={props.expanded ? "3" : "2"}
-              py="2"
-              w="full"
-              display="flex"
-              alignItems="center"
-              justifyContent={props.expanded ? "flex-start" : "center"}
-              gap={props.expanded ? "2" : "0"}
-              onClick={() => props.onNavigate("/canvas")}
-              title="Canvas"
-              {...sidebarNavButtonStyle(isCanvasSectionActive(props.pathname))}
+              href={CANVAS_DESTINATION.href}
+              class={sidebarRowClass}
+              aria-current={active() ? "page" : undefined}
+              aria-label={props.expanded ? undefined : "Canvas"}
+              data-collapsed={props.expanded ? undefined : ""}
             >
-              <LayoutGridIcon size={18} strokeWidth={1.8} aria-hidden="true" />
+              <CANVAS_DESTINATION.icon size={16} strokeWidth={1.8} />
               <Show when={props.expanded}>
-                <Box as="span">Canvas</Box>
-                <Box as="span" ml="auto">
-                  <ChevronRightIcon size={14} />
+                <Box as="span" class={sidebarRowLabelClass}>
+                  {CANVAS_DESTINATION.label}
+                  <Show when={activeChild()}>
+                    {(child) => (
+                      <Box as="span" color="fg.subtle" fontWeight="normal">
+                        {" / "}
+                        {child().label}
+                      </Box>
+                    )}
+                  </Show>
                 </Box>
+                <ChevronRightIcon size={14} />
               </Show>
-              <Show when={!props.expanded}>
-                <VisuallyHidden>Canvas menu</VisuallyHidden>
-              </Show>
-            </Button>
+            </a>
           )}
         />
         <Portal>
           <Menu.Positioner zIndex="tooltip">
-            <Menu.Content zIndex="tooltip" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
-              <For each={canvasChildren}>
+            <Menu.Content
+              zIndex="tooltip"
+              minW="40"
+              onMouseEnter={openMenu}
+              onMouseLeave={scheduleClose}
+            >
+              <For each={[CANVAS_DESTINATION, ...CANVAS_CHILD_DESTINATIONS]}>
                 {(item) => (
-                  <Menu.Item value={item.href} onSelect={() => props.onNavigate(item.href)}>
-                    {item.label}
-                  </Menu.Item>
+                  <Menu.Item
+                    value={item.href}
+                    asChild={(itemProps) => (
+                      <a
+                        {...itemProps}
+                        href={item.href}
+                        aria-current={
+                          item.isActive(props.pathname) ? "page" : undefined
+                        }
+                      >
+                        <item.icon size={14} strokeWidth={1.8} />
+                        {item.label}
+                      </a>
+                    )}
+                  />
                 )}
               </For>
             </Menu.Content>

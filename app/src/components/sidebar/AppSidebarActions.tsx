@@ -1,8 +1,14 @@
-import type { Accessor } from "solid-js";
-import { Show, Suspense } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
+import { Show } from "solid-js";
 import { BotMessageSquareIcon, FilePlusIcon, SearchIcon } from "lucide-solid";
-import { Button } from "~/components/ui/button";
-import { Box, HStack, Stack, VisuallyHidden } from "styled-system/jsx";
+import { Box, Stack } from "styled-system/jsx";
+import type { SidebarNavIcon } from "./nav-items";
+import {
+  SidebarRailTooltip,
+  sidebarRowClass,
+  sidebarRowLabelClass,
+  sidebarShortcutClass,
+} from "./SidebarNavLink";
 
 type AppSidebarActionsProps = {
   expanded: boolean;
@@ -13,118 +19,97 @@ type AppSidebarActionsProps = {
   hasLoadingAny: Accessor<boolean>;
 };
 
+const SidebarActionButton = (props: {
+  expanded: boolean;
+  label: string;
+  shortcut: string;
+  icon: SidebarNavIcon;
+  onClick: () => void;
+  status?: JSX.Element;
+}) => (
+  <SidebarRailTooltip
+    expanded={props.expanded}
+    label={`${props.label}  ${props.shortcut}`}
+  >
+    <button
+      type="button"
+      class={sidebarRowClass}
+      data-collapsed={props.expanded ? undefined : ""}
+      aria-label={props.label}
+      aria-keyshortcuts={props.shortcut.replace("⌘", "Meta+")}
+      onClick={() => props.onClick()}
+    >
+      <props.icon size={16} strokeWidth={1.8} />
+      <Show when={props.expanded}>
+        <Box as="span" class={sidebarRowLabelClass}>
+          {props.label}
+        </Box>
+      </Show>
+      {props.status}
+      <Show when={props.expanded}>
+        <Box as="kbd" class={sidebarShortcutClass}>
+          {props.shortcut}
+        </Box>
+      </Show>
+    </button>
+  </SidebarRailTooltip>
+);
+
 export const AppSidebarActions = (props: AppSidebarActionsProps) => {
+  const chatStatus = () =>
+    props.hasUnreadAny()
+      ? "unread"
+      : props.hasLoadingAny()
+        ? "loading"
+        : undefined;
+
   return (
-    <Stack gap="1">
-      <Button
-        variant="plain"
-        size="sm"
-        w="full"
-        justifyContent={props.expanded ? "flex-start" : "center"}
-        onClick={props.onNewNoteOpen}
-        title="New Note (⌘D)"
-        color="fg.muted"
-        _hover={{ bg: "bg.muted", color: "fg.default" }}
-      >
-        <FilePlusIcon size={18} strokeWidth={1.8} aria-hidden="true" />
-        <Show when={props.expanded}>
-          <HStack w="full" justify="space-between">
-            <Box as="span">New Note</Box>
-            <Box as="span" fontSize="xs" color="fg.subtle">
-              ⌘D
-            </Box>
-          </HStack>
-        </Show>
-        <Show when={!props.expanded}>
-          <VisuallyHidden>New Note</VisuallyHidden>
-        </Show>
-      </Button>
-      <Button
-        variant="plain"
-        size="sm"
-        w="full"
-        justifyContent={props.expanded ? "flex-start" : "center"}
+    <Stack gap="0.5">
+      <SidebarActionButton
+        expanded={props.expanded}
+        label="Search"
+        shortcut="⌘K"
+        icon={SearchIcon}
         onClick={props.onSearchOpen}
-        title="Search (⌘K)"
-        color="fg.muted"
-        _hover={{ bg: "bg.muted", color: "fg.default" }}
-      >
-        <SearchIcon size={18} strokeWidth={1.8} aria-hidden="true" />
-        <Show when={props.expanded}>
-          <HStack w="full" justify="space-between">
-            <Box as="span">Search</Box>
-            <Box as="span" fontSize="xs" color="fg.subtle">
-              ⌘K
-            </Box>
-          </HStack>
-        </Show>
-        <Show when={!props.expanded}>
-          <VisuallyHidden>Search</VisuallyHidden>
-        </Show>
-      </Button>
-      <Button
-        variant="plain"
-        size="sm"
-        w="full"
-        justifyContent={props.expanded ? "flex-start" : "center"}
+      />
+      <SidebarActionButton
+        expanded={props.expanded}
+        label="New note"
+        shortcut="⌘D"
+        icon={FilePlusIcon}
+        onClick={props.onNewNoteOpen}
+      />
+      <SidebarActionButton
+        expanded={props.expanded}
+        label="Chat"
+        shortcut="⌘I"
+        icon={BotMessageSquareIcon}
         onClick={props.onChatOpen}
-        title="Chat (⌘I)"
-        color="fg.muted"
-        _hover={{ bg: "bg.muted", color: "fg.default" }}
-      >
-        <BotMessageSquareIcon
-          size={18}
-          strokeWidth={1.8}
-          aria-hidden="true"
-        />
-        <Show when={props.expanded}>
-          <HStack w="full" justify="space-between" minW="0">
-            <Box as="span">Chat</Box>
-            <HStack gap="2" alignItems="center">
-              <Suspense fallback={null}>
-                <Box as="span" display="inline-flex" alignItems="center">
-                  <VisuallyHidden>Chat status</VisuallyHidden>
-                  <Show when={props.hasUnreadAny()}>
-                    <Box as="span" boxSize="2" borderRadius="full" bg="blue.9" />
-                  </Show>
-                  <Show when={!props.hasUnreadAny() && props.hasLoadingAny()}>
-                    <Box as="span" boxSize="2" borderRadius="full" bg="amber.9" />
-                  </Show>
-                </Box>
-              </Suspense>
-              <Box as="span" fontSize="xs" color="fg.subtle">
-                ⌘I
-              </Box>
-            </HStack>
-          </HStack>
-        </Show>
-        <Show when={!props.expanded}>
-          <VisuallyHidden>Chat</VisuallyHidden>
-          <Suspense fallback={null}>
-            <Box as="span" display="inline-flex" alignItems="center">
-              <VisuallyHidden>Chat status</VisuallyHidden>
-              <Show when={props.hasUnreadAny()}>
-                <Box
-                  as="span"
-                  ml="1"
-                  boxSize="2"
-                  borderRadius="full"
-                  bg="blue.9"
-                />
-              </Show>
-              <Show when={!props.hasUnreadAny() && props.hasLoadingAny()}>
-                <Box
-                  as="span"
-                  ml="1"
-                  boxSize="2"
-                  borderRadius="full"
-                  bg="amber.9"
-                />
-              </Show>
-            </Box>
-          </Suspense>
-        </Show>
-      </Button>
+        status={
+          <Show when={chatStatus()}>
+            {(status) => (
+              <Box
+                as="span"
+                role="status"
+                aria-label={
+                  status() === "unread" ? "Unread chat replies" : "Chat is responding"
+                }
+                title={
+                  status() === "unread" ? "Unread chat replies" : "Chat is responding"
+                }
+                boxSize="2"
+                borderRadius="full"
+                flexShrink="0"
+                bg={status() === "unread" ? "blue.9" : "amber.9"}
+                position={props.expanded ? "static" : "absolute"}
+                top="1.5"
+                right="3"
+                animation={status() === "loading" ? "pulse 1.6s ease-in-out infinite" : undefined}
+              />
+            )}
+          </Show>
+        }
+      />
     </Stack>
   );
 };

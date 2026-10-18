@@ -1,15 +1,11 @@
-import type { Accessor } from "solid-js";
-import { Show } from "solid-js";
-import { useLocation, useNavigate } from "@solidjs/router";
-import {
-  ActivityIcon,
-  LogInIcon,
-  LogOutIcon,
-  ShieldIcon,
-  SparklesIcon,
-} from "lucide-solid";
-import { HStack } from "styled-system/jsx";
-import { SidebarFooterIconLink } from "./SidebarFooterIconLink";
+import type { Accessor, JSX } from "solid-js";
+import { For, Show } from "solid-js";
+import { useLocation } from "@solidjs/router";
+import { LogInIcon, LogOutIcon } from "lucide-solid";
+import { css } from "styled-system/css";
+import { Box } from "styled-system/jsx";
+import { Tooltip } from "~/components/ui/tooltip";
+import { UTILITY_DESTINATIONS } from "./nav-items";
 
 type AppSidebarFooterProps = {
   expanded: boolean;
@@ -17,58 +13,93 @@ type AppSidebarFooterProps = {
   onLogout: () => void;
 };
 
+const footerIconClass = css({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxSize: "8",
+  borderRadius: "l2",
+  color: "fg.muted",
+  bg: "transparent",
+  cursor: "pointer",
+  transitionProperty: "background-color, color",
+  transitionDuration: "140ms",
+  transitionTimingFunction: "ease-out",
+  _hover: { bg: "gray.a3", color: "fg.default" },
+  _active: { bg: "gray.a4" },
+  _focusVisible: {
+    outline: "2px solid",
+    outlineColor: "blue.9",
+    outlineOffset: "-2px",
+  },
+  "&[aria-current=page]": { bg: "gray.a3", color: "fg.default" },
+  "&[data-danger]:hover": { bg: "red.a3", color: "red.11" },
+});
+
+const FooterTip = (props: { label: string; children: JSX.Element }) => (
+  <Tooltip
+    content={props.label}
+    openDelay={150}
+    closeDelay={0}
+    positioning={{ placement: "top" }}
+  >
+    {props.children}
+  </Tooltip>
+);
+
 export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
-  const navigate = useNavigate();
   const location = useLocation();
-  const pathname = () => location.pathname;
-  const isAdminActive = () =>
-    pathname() === "/admin/archive" || pathname().startsWith("/admin/");
-  const isAiActive = () => pathname() === "/ai" || pathname().startsWith("/ai/");
-  const isActivityActive = () =>
-    pathname() === "/activity" || pathname().startsWith("/activity/");
+  const visibleDestinations = () =>
+    UTILITY_DESTINATIONS.filter(
+      (item) => item.href !== "/admin" || props.authed()
+    );
 
   return (
-    <HStack
-      gap="1"
-      justifyContent="center"
-      flexWrap={props.expanded ? "nowrap" : "wrap"}
+    <Box
+      display="flex"
+      flexDirection={props.expanded ? "row" : "column"}
+      alignItems="center"
+      gap="0.5"
+      pt="2"
+      px={props.expanded ? "1" : "0"}
     >
-      <SidebarFooterIconLink
-        label="AI Dashboard"
-        onClick={() => navigate("/ai")}
-        active={isAiActive()}
-        icon={<SparklesIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
-      />
-      <SidebarFooterIconLink
-        label="Activity"
-        onClick={() => navigate("/activity")}
-        active={isActivityActive()}
-        icon={<ActivityIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
-      />
+      <For each={visibleDestinations()}>
+        {(item) => (
+          <FooterTip label={item.label}>
+            <a
+              href={item.href}
+              class={footerIconClass}
+              aria-label={item.label}
+              aria-current={item.isActive(location.pathname) ? "page" : undefined}
+            >
+              <item.icon size={16} strokeWidth={1.8} />
+            </a>
+          </FooterTip>
+        )}
+      </For>
+      <Box flex={props.expanded ? "1" : undefined} />
       <Show
         when={props.authed()}
         fallback={
-          <SidebarFooterIconLink
-            label="Sign in"
-            onClick={() => navigate("/login")}
-            icon={<LogInIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
-          />
+          <FooterTip label="Sign in">
+            <a href="/login" class={footerIconClass} aria-label="Sign in">
+              <LogInIcon size={16} strokeWidth={1.8} />
+            </a>
+          </FooterTip>
         }
       >
-        <SidebarFooterIconLink
-          label="Admin"
-          onClick={() => navigate("/admin")}
-          active={isAdminActive()}
-          icon={<ShieldIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
-        />
-        <SidebarFooterIconLink
-          label="Sign out"
-          onClick={props.onLogout}
-          variant="outline"
-          colorPalette="red"
-          icon={<LogOutIcon size={18} strokeWidth={1.8} aria-hidden="true" />}
-        />
+        <FooterTip label="Sign out">
+          <button
+            type="button"
+            class={footerIconClass}
+            data-danger=""
+            aria-label="Sign out"
+            onClick={() => props.onLogout()}
+          >
+            <LogOutIcon size={16} strokeWidth={1.8} />
+          </button>
+        </FooterTip>
       </Show>
-    </HStack>
+    </Box>
   );
 };

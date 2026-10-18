@@ -122,4 +122,13 @@ export const keyframes = defineKeyframes({
       insetBlockStart: 'var(--animate-to-y)',
     },
   },
+  pulse: {
+    "0%, 100%": { opacity: "1" },
+    "50%": { opacity: "0.35" },
+  },
+  "route-progress": {
+    "0%": { transform: "translateX(-100%) scaleX(0.4)" },
+    "60%": { transform: "translateX(30%) scaleX(0.6)" },
+    "100%": { transform: "translateX(110%) scaleX(0.4)" },
+  },
 })
