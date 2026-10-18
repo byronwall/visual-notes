@@ -22,7 +22,7 @@ import { clientEnv } from "~/env/client";
 import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { ToastProvider, ToastViewport } from "~/components/Toast";
+import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
 
 type ClientExceptionState = {
@@ -53,7 +53,10 @@ export default function App() {
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
     onCleanup(() => {
       window.removeEventListener("error", handleError);
-      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
     });
   });
 
@@ -65,47 +68,45 @@ export default function App() {
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
-                <ToastProvider>
-                  <ErrorBoundary
-                    fallback={(error, reset) => (
-                      <GlobalErrorOverlay
-                        title="Something went wrong"
-                        message="An unexpected error interrupted the app. You can retry or reload the page."
-                        error={error}
-                        secondaryActionLabel="Reload page"
-                        onSecondaryAction={() => {
-                          window.location.reload();
-                        }}
-                        primaryActionLabel="Try again"
-                        onPrimaryAction={() => {
-                          setClientException(null);
-                          reset();
-                        }}
-                      />
-                    )}
-                  >
-                    <Suspense fallback={null}>
-                      <AuthGate>
-                        <Suspense>{props.children}</Suspense>
-                      </AuthGate>
-                    </Suspense>
-                  </ErrorBoundary>
-                  <ToastViewport />
-                  <GlobalErrorOverlay
-                    title="Client exception"
-                    message="The page resumed with a stale connection and hit an uncaught client error."
-                    error={clientException()?.error}
-                    open={() => clientException() !== null}
-                    secondaryActionLabel="Dismiss"
-                    onSecondaryAction={() => {
-                      setClientException(null);
-                    }}
-                    primaryActionLabel="Reload page"
-                    onPrimaryAction={() => {
-                      window.location.reload();
-                    }}
-                  />
-                </ToastProvider>
+                <ErrorBoundary
+                  fallback={(error, reset) => (
+                    <GlobalErrorOverlay
+                      title="Something went wrong"
+                      message="An unexpected error interrupted the app. You can retry or reload the page."
+                      error={error}
+                      secondaryActionLabel="Reload page"
+                      onSecondaryAction={() => {
+                        window.location.reload();
+                      }}
+                      primaryActionLabel="Try again"
+                      onPrimaryAction={() => {
+                        setClientException(null);
+                        reset();
+                      }}
+                    />
+                  )}
+                >
+                  <Suspense fallback={null}>
+                    <AuthGate>
+                      <Suspense>{props.children}</Suspense>
+                    </AuthGate>
+                  </Suspense>
+                </ErrorBoundary>
+                <Toaster />
+                <GlobalErrorOverlay
+                  title="Client exception"
+                  message="The page resumed with a stale connection and hit an uncaught client error."
+                  error={clientException()?.error}
+                  open={() => clientException() !== null}
+                  secondaryActionLabel="Dismiss"
+                  onSecondaryAction={() => {
+                    setClientException(null);
+                  }}
+                  primaryActionLabel="Reload page"
+                  onPrimaryAction={() => {
+                    window.location.reload();
+                  }}
+                />
               </MagicAuthProvider>
             </QueryClientProvider>
           </SessionProvider>
