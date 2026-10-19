@@ -410,7 +410,8 @@
         "rollback": "Flag off; migration is additive",
         "status": "completed",
         "evidence": [
-          "scripts/mcp-smoke.ts all PASS against local audit DB; vitest src/server/mcp (handler, paths, note-content, notes-write); SDK web-standard transport works in SolidStart route (spike resolved: use SDK)"
+          "scripts/mcp-smoke.ts all PASS against local audit DB; vitest src/server/mcp (handler, paths, note-content, notes-write); SDK web-standard transport works in SolidStart route (spike resolved: use SDK)",
+          "PR byronwall/visual-notes#100"
         ]
       },
       {
@@ -423,7 +424,8 @@
         "rollback": "Flag off; rotate MCP_TOKEN_SECRET",
         "status": "completed",
         "evidence": [
-          "Playwright OAuth flow locally: DCR → login?next → consent → code (state+iss) → token (aud=/mcp) → code replay invalid_grant → refresh rotation → old refresh invalid_grant; mcp-smoke all PASS with OAuth bearer; revoked grant → 401 + WWW-Authenticate; src/server/oauth/oauth.test.ts (16 tests). Deviation: MCP_DEV_TOKEN kept for local runs (ignored in production)."
+          "Playwright OAuth flow locally: DCR → login?next → consent → code (state+iss) → token (aud=/mcp) → code replay invalid_grant → refresh rotation → old refresh invalid_grant; mcp-smoke all PASS with OAuth bearer; revoked grant → 401 + WWW-Authenticate; src/server/oauth/oauth.test.ts (16 tests). Deviation: MCP_DEV_TOKEN kept for local runs (ignored in production).",
+          "PR byronwall/visual-notes#101"
         ]
       },
       {
@@ -438,7 +440,8 @@
         "rollback": "Flag off; rotate secret",
         "status": "active",
         "evidence": [
-          "Production build (NODE_ENV=production) verified locally: metadata, OAuth flow with https redirect, mcp-smoke 10/10, dev token ignored (401), http redirect refused; compose/env wiring + ChatGPT checklist in app/docs/mcp-connector.md. Live ChatGPT smoke pending user deploy."
+          "Production build (NODE_ENV=production) verified locally: metadata, OAuth flow with https redirect, mcp-smoke 10/10, dev token ignored (401), http redirect refused; compose/env wiring + ChatGPT checklist in app/docs/mcp-connector.md. Live ChatGPT smoke pending user deploy.",
+          "PR byronwall/visual-notes#102"
         ]
       },
       {
@@ -451,7 +454,8 @@
         "rollback": "Revert UI",
         "status": "completed",
         "evidence": [
-          "Playwright: ChatGPT chip + versions popover anchored under trigger, restore reloads with prior title and adds 'Before restore' row, user-authored note shows no chip, /admin/connections lists grants (active first) and revoke via confirm dialog drops access; mobile 390px checked; src/services/doc-revisions.test.ts"
+          "Playwright: ChatGPT chip + versions popover anchored under trigger, restore reloads with prior title and adds 'Before restore' row, user-authored note shows no chip, /admin/connections lists grants (active first) and revoke via confirm dialog drops access; mobile 390px checked; src/services/doc-revisions.test.ts",
+          "PR byronwall/visual-notes#103"
         ]
       },
       {
@@ -466,7 +470,8 @@
         "rollback": "Disable semantic branch",
         "status": "active",
         "evidence": [
-          "Implemented: in-process cosine over latest run's DocEmbedding vectors (cached, signature-invalidated), RRF fusion with keyword search, debounced processEmbeddingRun refresh after connector writes; unit tests (semantic.test.ts, rank-fusion.test.ts); live keyword fallback verified. Pending: 10-question recall eval on prod corpus with OPENAI_API_KEY (not available locally)."
+          "Implemented: in-process cosine over latest run's DocEmbedding vectors (cached, signature-invalidated), RRF fusion with keyword search, debounced processEmbeddingRun refresh after connector writes; unit tests (semantic.test.ts, rank-fusion.test.ts); live keyword fallback verified. Pending: 10-question recall eval on prod corpus with OPENAI_API_KEY (not available locally).",
+          "PR byronwall/visual-notes#104"
         ]
       }
     ],
