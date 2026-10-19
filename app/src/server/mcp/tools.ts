@@ -115,7 +115,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     {
       title: "Search notes",
       description:
-        "Keyword search over note titles, paths, and bodies. Returns summaries with snippets; use get_notes for full content.",
+        "Search notes by keywords and, when embeddings are configured, by meaning. Each result says how it matched; use get_notes for full content.",
       inputSchema: {
         query: z.string().min(1).describe("Keywords to look for"),
         path: z

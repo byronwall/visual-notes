@@ -10,32 +10,56 @@ import {
   type NoteSummary,
 } from "./notes-shared";
 import { buildPathTree, normalizeNotePath, type PathCount } from "./paths";
+import { fuseRankings, type FusedHit } from "./rank-fusion";
+import { semanticSearch } from "./semantic";
 
 export const MAX_NOTES_PER_GET = 10;
 
-export type SearchResult = NoteSummary & { snippet: string | null };
+export type SearchResult = NoteSummary & {
+  snippet: string | null;
+  match: FusedHit["match"];
+};
 
 export async function searchNotes(
   ctx: ConnectorContext,
   input: { query: string; path?: string; limit?: number },
 ): Promise<SearchResult[]> {
   const limit = clampLimit(input.limit, 10, 25);
-  const hits = await searchDocs({
-    q: input.query,
-    pathPrefix: normalizeNotePath(input.path) ?? undefined,
-    take: limit,
-  });
-  if (!hits.length) return [];
+  const path = normalizeNotePath(input.path);
+  const [keywordHits, semanticHits] = await Promise.all([
+    searchDocs({ q: input.query, pathPrefix: path ?? undefined, take: limit }),
+    semanticSearch(input.query, limit * 3),
+  ]);
+  const snippetById = new Map(
+    keywordHits.map((hit) => [hit.id, hit.snippet ?? null]),
+  );
+  const candidates = fuseRankings(
+    keywordHits.map((hit) => hit.id),
+    (semanticHits ?? []).map((hit) => hit.id),
+    limit * 3,
+  );
+  if (!candidates.length) return [];
   const rows = await prisma.doc.findMany({
-    where: { id: { in: hits.map((hit) => hit.id) } },
+    where: {
+      id: { in: candidates.map((hit) => hit.id) },
+      ...(path ? { OR: [{ path }, { path: { startsWith: `${path}.` } }] } : {}),
+    },
     select: summarySelect,
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
-  return hits.flatMap((hit) => {
-    const row = rowById.get(hit.id);
-    if (!row) return [];
-    return [{ ...toSummary(ctx, row), snippet: hit.snippet ?? null }];
-  });
+  return candidates
+    .flatMap((hit) => {
+      const row = rowById.get(hit.id);
+      if (!row) return [];
+      return [
+        {
+          ...toSummary(ctx, row),
+          snippet: snippetById.get(hit.id) ?? null,
+          match: hit.match,
+        },
+      ];
+    })
+    .slice(0, limit);
 }
 
 export async function listRecentNotes(

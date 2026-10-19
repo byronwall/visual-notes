@@ -8,7 +8,7 @@
     "last_updated": "2026-10-19",
     "summary": "Expose MCP tools on the prod site so ChatGPT can store notes in Visual Notes and retrieve them later, authenticated via OAuth.",
     "status": "active",
-    "next_action": "M3: deploy wiring + ChatGPT smoke checklist"
+    "next_action": "User: deploy, connect ChatGPT (m3 smoke), run m5 recall eval"
   },
   "artifacts": {
     "intent_brief": {
@@ -464,8 +464,10 @@
         "proof": "10-question recall eval vs keyword",
         "valid_intermediate_state": "Keyword search unchanged when embeddings unavailable",
         "rollback": "Disable semantic branch",
-        "status": "planned",
-        "evidence": []
+        "status": "active",
+        "evidence": [
+          "Implemented: in-process cosine over latest run's DocEmbedding vectors (cached, signature-invalidated), RRF fusion with keyword search, debounced processEmbeddingRun refresh after connector writes; unit tests (semantic.test.ts, rank-fusion.test.ts); live keyword fallback verified. Pending: 10-question recall eval on prod corpus with OPENAI_API_KEY (not available locally)."
+        ]
       }
     ],
     "cut_line": [

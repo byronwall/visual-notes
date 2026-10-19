@@ -14,6 +14,7 @@ import {
   type ConnectorContext,
 } from "./notes-shared";
 import { normalizeNotePath } from "./paths";
+import { scheduleEmbeddingRefresh } from "./semantic";
 
 export type WriteResult = {
   id: string;
@@ -104,6 +105,7 @@ export async function createNote(
     payload: { source: CHATGPT_SOURCE, hasPath: Boolean(path), pathIsNew },
     context: eventContext(ctx),
   });
+  scheduleEmbeddingRefresh();
   return {
     ...created,
     url: noteUrl(ctx, created.id),
@@ -187,6 +189,7 @@ async function applyOwnedEdit(
     },
     context: eventContext(ctx),
   });
+  scheduleEmbeddingRefresh();
   return {
     ...updated,
     url: noteUrl(ctx, doc.id),

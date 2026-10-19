@@ -6,7 +6,7 @@ The app serves an MCP endpoint at `/mcp` (Streamable HTTP, stateless, JSON respo
 
 | Tool | Kind | Notes |
 | --- | --- | --- |
-| `search` | read | Reuses the app's server search (`searchDocs`) over titles, paths, and bodies |
+| `search` | read | Keyword search (the app's `searchDocs`) fused with meaning-based matches. Each result carries `match: keyword | semantic | both`. |
 | `list_recent` | read | Newest first; filter by `since`, `path`, `createdBy: "chatgpt"` |
 | `list_paths` | read | Dot-path tree with direct and total counts |
 | `get_notes` | read | Up to 10 notes as markdown; editor HTML is converted with turndown |
@@ -24,6 +24,15 @@ A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don'
 | `MCP_TOKEN_SECRET` | HMAC secret for access tokens. Rotating it invalidates every issued access token. |
 | `MCP_DEV_TOKEN` | Static bearer for local MCP Inspector runs. Ignored when `NODE_ENV=production`. |
 | `PUBLIC_BASE_URL` | Origin used for note links in tool results. |
+
+## Meaning-based search
+
+When `OPENAI_API_KEY` is set and at least one embedding run exists (`/embeddings`), `search` also embeds the query with the newest run's model. It then ranks notes by cosine similarity against that run's doc vectors and merges the two lists with reciprocal rank fusion. Hits below a 0.25 similarity are dropped.
+
+- Doc vectors are loaded into memory once and reloaded only when the run's embedding count or newest row changes.
+- After any connector write, the app waits 10 seconds and then embeds up to 25 missing and 25 changed notes into the newest run, using the same pipeline as a manual run. A note ChatGPT just saved therefore becomes findable by meaning shortly after the save.
+- Without a key or a run, or if the provider call fails, `search` falls back to keyword-only results.
+- Evaluating it: ask ChatGPT (or call `search`) with about 10 real recall questions whose answer notes don't contain the query words. If `semantic`/`both` matches surface notes that keyword search misses, keep it. If not, the semantic branch can be removed without changing the tool contract.
 
 ## OAuth
 
