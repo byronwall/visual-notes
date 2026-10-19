@@ -23,6 +23,13 @@ const ADMIN_SECTIONS = [
     href: "/admin/migrations",
     cta: "Open image migrations",
   },
+  {
+    title: "Connected Apps",
+    description:
+      "See which apps (such as ChatGPT) can read and save notes through the MCP connector, and revoke access.",
+    href: "/admin/connections",
+    cta: "Open connected apps",
+  },
 ] as const;
 
 const AdminIndexRoute = () => {
@@ -43,12 +50,19 @@ const AdminIndexRoute = () => {
               Admin
             </Text>
             <Text color="fg.muted" fontSize="sm" maxW="720px">
-              Pick the admin surface you want to inspect. Explorer and migration tools are
-              split so snapshot review and maintenance work do not compete for space.
+              Pick the admin surface you want to inspect. Explorer and migration
+              tools are split so snapshot review and maintenance work do not
+              compete for space.
             </Text>
           </Stack>
 
-          <Grid gap="3" gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}>
+          <Grid
+            gap="3"
+            gridTemplateColumns={{
+              base: "1fr",
+              md: "repeat(2, minmax(0, 1fr))",
+            }}
+          >
             <For each={ADMIN_SECTIONS}>
               {(section) => (
                 <Stack
@@ -67,7 +81,12 @@ const AdminIndexRoute = () => {
                       {section.description}
                     </Text>
                   </Stack>
-                  <RouterButtonLink href={section.href} variant="solid" size="sm" w="fit-content">
+                  <RouterButtonLink
+                    href={section.href}
+                    variant="solid"
+                    size="sm"
+                    w="fit-content"
+                  >
                     {section.cta}
                   </RouterButtonLink>
                 </Stack>
@@ -85,8 +104,8 @@ const AdminIndexRoute = () => {
           >
             <Text fontWeight="semibold">Extension package</Text>
             <Text color="fg.muted" fontSize="sm">
-              Until the Chrome extension is in the web store, download the local package from the
-              Explorer admin tools.
+              Until the Chrome extension is in the web store, download the local
+              package from the Explorer admin tools.
             </Text>
             <Link href="/api/archive/extension-package" w="fit-content">
               Open extension download page

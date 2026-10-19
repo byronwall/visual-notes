@@ -65,7 +65,7 @@ export async function verifyBearerAccessToken(
   }
   const grant = await prisma.oAuthGrant.findUnique({
     where: { id: claims.gid },
-    select: { id: true, revokedAt: true },
+    select: { id: true, revokedAt: true, lastUsedAt: true },
   });
   if (!grant || grant.revokedAt) {
     return {
@@ -74,6 +74,7 @@ export async function verifyBearerAccessToken(
       description: "Connection was revoked",
     };
   }
+  touchGrant(grant);
   return {
     ok: true,
     grant: {
@@ -82,6 +83,17 @@ export async function verifyBearerAccessToken(
       grantId: grant.id,
     },
   };
+}
+
+const LAST_USED_RESOLUTION_MS = 5 * 60 * 1000;
+
+/** Keeps "last used" roughly current without a write on every call. */
+function touchGrant(grant: { id: string; lastUsedAt: Date | null }): void {
+  const last = grant.lastUsedAt?.getTime() ?? 0;
+  if (Date.now() - last < LAST_USED_RESOLUTION_MS) return;
+  void prisma.oAuthGrant
+    .update({ where: { id: grant.id }, data: { lastUsedAt: new Date() } })
+    .catch((error) => console.warn("[oauth] lastUsedAt update failed", error));
 }
 
 export function wwwAuthenticateHeader(

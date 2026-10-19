@@ -14,6 +14,7 @@ const db = vi.hoisted(() => ({
   oAuthGrant: {
     create: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn().mockResolvedValue({}),
     updateMany: vi.fn(),
   },
 }));
@@ -68,6 +69,7 @@ function claims(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  db.oAuthGrant.update.mockResolvedValue({});
   env.serverEnv.NODE_ENV = "development";
 });
 

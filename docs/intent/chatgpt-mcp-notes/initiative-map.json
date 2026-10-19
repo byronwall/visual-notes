@@ -5,7 +5,7 @@
     "slug": "chatgpt-mcp-notes",
     "scale": "capability",
     "current_phase": "execution",
-    "last_updated": "2026-10-18",
+    "last_updated": "2026-10-19",
     "summary": "Expose MCP tools on the prod site so ChatGPT can store notes in Visual Notes and retrieve them later, authenticated via OAuth.",
     "status": "active",
     "next_action": "M3: deploy wiring + ChatGPT smoke checklist"
@@ -436,8 +436,10 @@
         "proof": "Deployed developer-mode smoke script + logs",
         "valid_intermediate_state": "Connector live behind flag",
         "rollback": "Flag off; rotate secret",
-        "status": "planned",
-        "evidence": []
+        "status": "active",
+        "evidence": [
+          "Production build (NODE_ENV=production) verified locally: metadata, OAuth flow with https redirect, mcp-smoke 10/10, dev token ignored (401), http redirect refused; compose/env wiring + ChatGPT checklist in app/docs/mcp-connector.md. Live ChatGPT smoke pending user deploy."
+        ]
       },
       {
         "id": "m4",
@@ -447,8 +449,10 @@
         "proof": "Playwright pass",
         "valid_intermediate_state": "Connector unchanged; UI additive",
         "rollback": "Revert UI",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "Playwright: ChatGPT chip + versions popover anchored under trigger, restore reloads with prior title and adds 'Before restore' row, user-authored note shows no chip, /admin/connections lists grants (active first) and revoke via confirm dialog drops access; mobile 390px checked; src/services/doc-revisions.test.ts"
+        ]
       },
       {
         "id": "m5",
