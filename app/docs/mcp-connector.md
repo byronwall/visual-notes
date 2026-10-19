@@ -53,3 +53,21 @@ ChatGPT connects with OAuth 2.1, served by the app itself for its single user:
    ```
 
 3. Or explore interactively: `pnpm dlx @modelcontextprotocol/inspector` and connect to the same URL with the bearer header.
+
+## Deploying and connecting ChatGPT
+
+1. Set these on the production app, then deploy. The migrations run at container start.
+   - `MCP_CONNECTOR_ENABLED=true`
+   - `MCP_TOKEN_SECRET=$(openssl rand -hex 32)`
+   - `PUBLIC_BASE_URL=https://<your notes origin>`. Tokens are issued for `<origin>/mcp`, so this must be the public HTTPS URL.
+2. Check from outside:
+   - `curl https://<origin>/.well-known/oauth-protected-resource/mcp` returns `resource: https://<origin>/mcp`.
+   - `curl -i -X POST https://<origin>/mcp` returns `401` with a `WWW-Authenticate` header that has `resource_metadata`.
+3. In ChatGPT, turn on developer mode (Settings → Apps & Connectors → Advanced). Create a connector with the URL `https://<origin>/mcp` and OAuth authentication. ChatGPT registers itself, then opens the Visual Notes login and consent page. Approve it.
+4. Smoke test in a chat:
+   - "Save a short plan about X to my notes." Expect a title, a path (possibly new), and a link that opens in the app.
+   - In a new chat: "Find what we saved about X and add a next step." Expect `search` → `get_notes` → `update_note`/`append_to_note`, and a version row for the edit.
+   - "Rename my note <title of a note you wrote>." Expect a refusal and an offer to create a linked note.
+5. Watch the `[mcp]` and `[oauth]` log lines during the run.
+
+Rollback: set `MCP_CONNECTOR_ENABLED=false`. `/mcp`, `/oauth/*`, and the metadata routes then return 404, and ChatGPT reports the connector unavailable. Notes that were already saved stay as normal notes.

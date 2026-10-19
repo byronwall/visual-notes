@@ -29,6 +29,14 @@ afterEach(() => {
 });
 
 describe("handleMcpRequest", () => {
+  it("warns once, without recursing, when enabled without a token secret", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await handleMcpRequest(post());
+    await handleMcpRequest(post());
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
   it("is invisible when the connector flag is off", async () => {
     env.serverEnv.MCP_CONNECTOR_ENABLED = undefined;
     expect((await handleMcpRequest(post())).status).toBe(404);
