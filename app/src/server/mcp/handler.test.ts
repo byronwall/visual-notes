@@ -8,7 +8,10 @@ const env = vi.hoisted(() => ({
   },
 }));
 vi.mock("~/env/server", () => env);
-vi.mock("./tools", () => ({ createNotesMcpServer: vi.fn() }));
+vi.mock("./tools", () => ({ createNotesMcpServer: vi.fn(), TOOL_SCOPES: {} }));
+vi.mock("~/server/db", () => ({
+  prisma: { oAuthGrant: { findUnique: vi.fn() } },
+}));
 
 import { handleMcpRequest } from "./handler";
 
@@ -31,8 +34,12 @@ describe("handleMcpRequest", () => {
     expect((await handleMcpRequest(post())).status).toBe(404);
   });
 
-  it("rejects missing and wrong bearer tokens", async () => {
-    expect((await handleMcpRequest(post())).status).toBe(401);
+  it("rejects missing and wrong bearer tokens with an OAuth challenge", async () => {
+    const missing = await handleMcpRequest(post());
+    expect(missing.status).toBe(401);
+    expect(missing.headers.get("WWW-Authenticate")).toContain(
+      'resource_metadata="http://notes.test/.well-known/oauth-protected-resource/mcp"',
+    );
     expect(
       (await handleMcpRequest(post({ Authorization: "Bearer nope" }))).status,
     ).toBe(401);

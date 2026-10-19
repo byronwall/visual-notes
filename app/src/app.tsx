@@ -25,6 +25,7 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
 import { sectionTitleForPath } from "~/components/sidebar/nav-items";
+import { loginPathFor } from "~/utils/safe-next";
 
 type ClientExceptionState = {
   source: "error" | "unhandledrejection";
@@ -159,6 +160,8 @@ const AuthGate = (props: { children: JSX.Element }) => {
 
   const isLoginRoute = () => location.pathname === "/login";
   const isPublicShareRoute = () => location.pathname.startsWith("/share/");
+  // OAuth consent renders without the app chrome but still requires login.
+  const isOAuthRoute = () => location.pathname.startsWith("/oauth/");
 
   createEffect(() => {
     if (typeof window === "undefined") return;
@@ -168,7 +171,7 @@ const AuthGate = (props: { children: JSX.Element }) => {
     const path = location.pathname;
     if (!authed() && path !== "/login" && !path.startsWith("/share/")) {
       console.log("[auth-gate] redirecting to /login from", path);
-      navigate("/login", { replace: true });
+      navigate(loginPathFor(path + location.search), { replace: true });
       return;
     }
   });
@@ -179,6 +182,8 @@ const AuthGate = (props: { children: JSX.Element }) => {
       <Match when={isLoginRoute() || isPublicShareRoute()}>
         {props.children}
       </Match>
+
+      <Match when={authed() && isOAuthRoute()}>{props.children}</Match>
 
       {/* Hide navbar and content flash when not authed (non-login pages) */}
       <Match when={authed()}>

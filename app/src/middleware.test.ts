@@ -124,3 +124,23 @@ describe("MCP connector boundary", () => {
     expect(isAllowedUnauthed(serverRequest("/mcp/other"))).toBe(false);
   });
 });
+
+describe("OAuth endpoints", () => {
+  it("leaves metadata, registration, and token public but keeps consent behind login", () => {
+    expect(
+      isAllowedUnauthed(
+        serverRequest("/.well-known/oauth-protected-resource/mcp"),
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedUnauthed(
+        serverRequest("/.well-known/oauth-authorization-server"),
+      ),
+    ).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/oauth/register"))).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/oauth/token"))).toBe(true);
+    expect(
+      isAllowedUnauthed(serverRequest("/oauth/authorize?client_id=x")),
+    ).toBe(false);
+  });
+});

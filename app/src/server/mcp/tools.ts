@@ -53,6 +53,46 @@ async function run(
   }
 }
 
+export const TOOL_SCOPES: Record<string, string> = {
+  search: "notes:read",
+  list_recent: "notes:read",
+  list_paths: "notes:read",
+  get_notes: "notes:read",
+  create_note: "notes:write",
+  update_note: "notes:write",
+  append_to_note: "notes:write",
+};
+
+/** ChatGPT shows its account-linking UI only for this result shape. */
+function insufficientScope(
+  ctx: ConnectorContext,
+  scope: string,
+): CallToolResult {
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text",
+        text: `This action needs the ${scope} permission. Reconnect Visual Notes to grant it.`,
+      },
+    ],
+    _meta: { "mcp/www_authenticate": [ctx.scopeChallenge] },
+  };
+}
+
+function guarded(
+  ctx: ConnectorContext,
+  tool: string,
+  fn: () => Promise<unknown>,
+): Promise<CallToolResult> {
+  const scope = TOOL_SCOPES[tool];
+  if (scope && !ctx.scopes.includes(scope)) {
+    console.info(`${LOG_PREFIX} ${tool} refused: missing ${scope}`);
+    return Promise.resolve(insufficientScope(ctx, scope));
+  }
+  return run(tool, fn);
+}
+
 const readOnly = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -86,7 +126,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: readOnly,
     },
-    (args) => run("search", () => searchNotes(ctx, args)),
+    (args) => guarded(ctx, "search", () => searchNotes(ctx, args)),
   );
 
   server.registerTool(
@@ -112,7 +152,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: readOnly,
     },
-    (args) => run("list_recent", () => listRecentNotes(ctx, args)),
+    (args) => guarded(ctx, "list_recent", () => listRecentNotes(ctx, args)),
   );
 
   server.registerTool(
@@ -129,7 +169,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: readOnly,
     },
-    (args) => run("list_paths", () => listNotePaths(args)),
+    (args) => guarded(ctx, "list_paths", () => listNotePaths(args)),
   );
 
   server.registerTool(
@@ -142,7 +182,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: readOnly,
     },
-    (args) => run("get_notes", () => getNotes(ctx, args)),
+    (args) => guarded(ctx, "get_notes", () => getNotes(ctx, args)),
   );
 
   server.registerTool(
@@ -167,7 +207,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: write,
     },
-    (args) => run("create_note", () => createNote(ctx, args)),
+    (args) => guarded(ctx, "create_note", () => createNote(ctx, args)),
   );
 
   server.registerTool(
@@ -188,7 +228,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       },
       annotations: { ...write, idempotentHint: true },
     },
-    (args) => run("update_note", () => updateNote(ctx, args)),
+    (args) => guarded(ctx, "update_note", () => updateNote(ctx, args)),
   );
 
   server.registerTool(
@@ -200,7 +240,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       inputSchema: { id: z.string().min(1), markdown: z.string().min(1) },
       annotations: write,
     },
-    (args) => run("append_to_note", () => appendToNote(ctx, args)),
+    (args) => guarded(ctx, "append_to_note", () => appendToNote(ctx, args)),
   );
 
   return server;

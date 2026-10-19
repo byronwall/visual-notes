@@ -21,8 +21,26 @@ A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don'
 | Variable | Purpose |
 | --- | --- |
 | `MCP_CONNECTOR_ENABLED` | `true` serves `/mcp` (and the OAuth routes). Anything else returns 404. This is the kill switch. |
+| `MCP_TOKEN_SECRET` | HMAC secret for access tokens. Rotating it invalidates every issued access token. |
 | `MCP_DEV_TOKEN` | Static bearer for local MCP Inspector runs. Ignored when `NODE_ENV=production`. |
 | `PUBLIC_BASE_URL` | Origin used for note links in tool results. |
+
+## OAuth
+
+ChatGPT connects with OAuth 2.1, served by the app itself for its single user:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `/.well-known/oauth-protected-resource[/mcp]` | RFC 9728 metadata. Served from middleware, because the file router skips dot-folders. |
+| `/.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 PKCE, dynamic registration, `iss` on responses |
+| `/oauth/register` | RFC 7591 dynamic client registration. Public clients only. Redirects must be HTTPS (loopback HTTP is allowed outside production). |
+| `/oauth/authorize` | Requires the normal login (via `/login?next=…`), then shows a consent page |
+| `/oauth/token` | `authorization_code` with PKCE, and rotating `refresh_token` |
+
+- Access tokens are HS256 JWTs. They live for one hour, have `aud` set to `<origin>/mcp`, and carry the grant id. `/mcp` checks the signature, `iss`, `aud`, `exp`, and that the grant is not revoked, on every call.
+- Codes and refresh tokens are stored only as SHA-256 hashes. Codes are single use. A refresh token that has already been rotated is refused.
+- Scopes: `notes:read` covers the read tools and `notes:write` covers the write tools. `tools/list` adds a per-tool `securitySchemes` entry, which ChatGPT reads and the MCP SDK doesn't emit.
+- To revoke one connection, set `OAuthGrant.revokedAt` (the admin UI comes later). To revoke everything, rotate `MCP_TOKEN_SECRET`.
 
 ## Local loop
 

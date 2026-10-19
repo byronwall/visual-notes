@@ -6,6 +6,10 @@ export type ConnectorContext = {
   origin: string;
   /** Who is calling; recorded on activity events. */
   actorId: string;
+  /** OAuth scopes granted to the caller, e.g. notes:read notes:write. */
+  scopes: string[];
+  /** WWW-Authenticate challenge returned when a tool needs more scope. */
+  scopeChallenge: string;
 };
 
 export type ConnectorErrorCode = "not_found" | "not_owner" | "invalid";

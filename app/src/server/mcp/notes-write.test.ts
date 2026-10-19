@@ -20,7 +20,12 @@ vi.mock("~/server/events/action-events", () => ({
 import { appendToNote, createNote, updateNote } from "./notes-write";
 import { ConnectorError } from "./notes-shared";
 
-const ctx = { origin: "https://notes.test", actorId: "chatgpt:test" };
+const ctx = {
+  origin: "https://notes.test",
+  actorId: "chatgpt:test",
+  scopes: ["notes:read", "notes:write"],
+  scopeChallenge: 'Bearer error="insufficient_scope"',
+};
 
 const chatgptNote = {
   id: "n1",

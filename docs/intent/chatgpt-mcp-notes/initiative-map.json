@@ -8,7 +8,7 @@
     "last_updated": "2026-10-18",
     "summary": "Expose MCP tools on the prod site so ChatGPT can store notes in Visual Notes and retrieve them later, authenticated via OAuth.",
     "status": "active",
-    "next_action": "M2: local OAuth server"
+    "next_action": "M3: deploy wiring + ChatGPT smoke checklist"
   },
   "artifacts": {
     "intent_brief": {
@@ -421,8 +421,10 @@
         "proof": "vitest token checks + Inspector OAuth mode",
         "valid_intermediate_state": "Connector secure but not deployed",
         "rollback": "Flag off; rotate MCP_TOKEN_SECRET",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "Playwright OAuth flow locally: DCR → login?next → consent → code (state+iss) → token (aud=/mcp) → code replay invalid_grant → refresh rotation → old refresh invalid_grant; mcp-smoke all PASS with OAuth bearer; revoked grant → 401 + WWW-Authenticate; src/server/oauth/oauth.test.ts (16 tests). Deviation: MCP_DEV_TOKEN kept for local runs (ignored in production)."
+        ]
       },
       {
         "id": "m3",

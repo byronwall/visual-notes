@@ -618,3 +618,46 @@ model ChatMessage {
 
   @@index([threadId, createdAt])
 }
+
+/// OAuth client registered by an MCP client (e.g. ChatGPT) via dynamic
+/// client registration. Public clients only; PKCE is mandatory.
+model OAuthClient {
+  id           String   @id
+  clientName   String?
+  redirectUris String[]
+  createdAt    DateTime @default(now())
+
+  codes  OAuthAuthorizationCode[]
+  grants OAuthGrant[]
+}
+
+/// Single-use authorization code, stored hashed; valid for a few minutes.
+model OAuthAuthorizationCode {
+  codeHash      String   @id
+  clientId      String
+  redirectUri   String
+  codeChallenge String
+  resource      String
+  scope         String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+/// An approved connection. Access tokens carry its id, so revoking the grant
+/// cuts off the client immediately. The refresh token rotates on every use.
+model OAuthGrant {
+  id               String    @id @default(cuid())
+  clientId         String
+  scope            String
+  resource         String
+  refreshTokenHash String    @unique
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
