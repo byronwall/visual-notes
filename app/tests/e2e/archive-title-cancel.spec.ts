@@ -5,19 +5,27 @@ import { countServerActionPosts } from "./helpers/server-actions";
 
 // Regression for PR #45: on the real Archive route, Escape after an unsaved
 // title edit left the visible preview blank while every saved value was intact.
+// The explicit preview child that fixed it later crashed while typing key by
+// key, so each case types one character at a time.
+// Since the Archive list redesign, the title is edited in the detail drawer.
 // No observers or reactive probes are attached; the spec reads only the DOM.
 
 const openArchiveRow = async (page: Page, title: string, host: string) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(`/archive?hostname=${host}`);
   await waitForAppReady(page);
   // Locate by host so a blank preview still resolves to the same row.
   const row = page.getByRole("row").filter({ hasText: host });
   await expect(row).toHaveCount(1);
-  const preview = row.locator('[data-scope="editable"][data-part="preview"]');
+  await row.click();
+  const drawer = page.getByRole("dialog");
+  const preview = drawer.locator('[data-scope="editable"][data-part="preview"]').first();
   await expect(preview).toHaveText(title);
   return {
+    pageErrors,
     preview,
-    input: row.locator('[data-scope="editable"][data-part="input"]'),
+    input: drawer.locator('[data-scope="editable"][data-part="input"]').first(),
   };
 };
 
@@ -53,36 +61,35 @@ test.describe("archive title cancel", () => {
   test("Escape after a pointer edit restores the visible title", async ({
     page,
   }) => {
-    const { preview, input } = await openArchiveRow(page, title, host);
+    const { pageErrors, preview, input } = await openArchiveRow(page, title, host);
     const posts = countServerActionPosts(page);
 
-    // A single click selects nothing and keeps focus; a double click edits.
     await preview.click();
-    await expect(input).toBeHidden();
-    await preview.dblclick();
     await expect(input).toBeFocused();
-    await input.pressSequentially(" unsaved draft");
+    await input.pressSequentially(" unsaved draft", { delay: 30 });
     await expect(input).not.toHaveValue(title);
     await input.press("Escape");
 
     await expectRestored(page, preview, input, title);
     expect(posts, "cancel must not save").toEqual([]);
+    expect(pageErrors, "typing must not crash the route").toEqual([]);
   });
 
   test("Escape after a keyboard edit restores the visible title", async ({
     page,
   }) => {
-    const { preview, input } = await openArchiveRow(page, title, host);
+    const { pageErrors, preview, input } = await openArchiveRow(page, title, host);
     const posts = countServerActionPosts(page);
 
     await preview.focus();
     await preview.press("Enter");
     await expect(input).toBeFocused();
-    await input.pressSequentially(" keyboard draft");
+    await input.pressSequentially(" keyboard draft", { delay: 30 });
     await expect(input).not.toHaveValue(title);
     await input.press("Escape");
 
     await expectRestored(page, preview, input, title);
     expect(posts, "cancel must not save").toEqual([]);
+    expect(pageErrors, "typing must not crash the route").toEqual([]);
   });
 });

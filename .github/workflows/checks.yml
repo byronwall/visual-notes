@@ -59,3 +59,76 @@ jobs:
 
       - name: Lockfile unchanged
         run: git diff --exit-code -- pnpm-lock.yaml package.json
+
+  e2e:
+    name: Browser regressions
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: visual_notes_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/visual_notes_ci?schema=public
+      AUTH_URL: http://127.0.0.1:3100
+      AUTH_TRUST_HOST: "true"
+      OPENAI_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Fresh throwaway values per run; masked so they never reach the log.
+      - name: Generate test secrets
+        run: |
+          for key in AUTH_SECRET MAGIC_PASSWORD ARCHIVE_INGEST_TOKEN; do
+            value=$(openssl rand -hex 24)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+
+      # Playwright's webServer sources .env before `pnpm build && pnpm start`.
+      - name: Write .env
+        run: |
+          env | grep -E '^(DATABASE_URL|AUTH_URL|AUTH_TRUST_HOST|AUTH_SECRET|MAGIC_PASSWORD|ARCHIVE_INGEST_TOKEN|OPENAI_API_KEY)=' > .env
+          chmod 600 .env
+
+      - name: Apply schema
+        run: pnpm prisma migrate deploy
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Only specs that pass on main today. Add a spec here once it passes.
+      - name: Playwright
+        run: pnpm exec playwright test archive-title-cancel auth-helper
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            app/playwright-report
+            app/test-results
+          retention-days: 7

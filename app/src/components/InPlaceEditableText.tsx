@@ -269,13 +269,15 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               overflow={props.truncatePreview ? "hidden" : undefined}
               textOverflow={props.truncatePreview ? "ellipsis" : undefined}
               onKeyDown={(event) => {
-                if (props.activationMode !== "dblclick" || event.key !== "Enter") return;
+                if (props.activationMode === "focus" || event.key !== "Enter") return;
                 event.preventDefault();
                 event.stopPropagation();
                 startEditing();
               }}
             >
-              {previewValue()}
+              {/* Own element for the text: a bare reactive text child of Preview
+                  crashes while typing ("Cannot set properties of null"). */}
+              <span>{previewValue()}</span>
             </Editable.Preview>
             <Editable.Input
               px="0"
