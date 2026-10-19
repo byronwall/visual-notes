@@ -1,5 +1,6 @@
 import type { JSX } from "solid-js";
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLLMSidebar } from "~/components/ai/LLMSidebar";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
@@ -9,10 +10,20 @@ import { ConsoleLogsPanel } from "~/components/ConsoleLogsPanel";
 import { AppSidebarDesktop } from "./AppSidebarDesktop";
 import { AppSidebarMobile } from "./AppSidebarMobile";
 import { Box } from "styled-system/jsx";
+import {
+  BotMessageSquareIcon,
+  PanelLeftIcon,
+  SunMoonIcon,
+  TerminalIcon,
+} from "lucide-solid";
+import type { PaletteAction } from "~/components/command-palette/palette-commands";
 import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
-
-const COLLAPSED_WIDTH = "100px";
-const EXPANDED_WIDTH = "300px";
+import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
+import { RouteProgressBar } from "./RouteProgressBar";
+import {
+  readSidebarCollapsed,
+  writeSidebarCollapsed,
+} from "./sidebar-collapse-cookie";
 
 type AppSidebarClientProps = {
   children: JSX.Element;
@@ -27,7 +38,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     hasLoadingAny,
   } = useLLMSidebar();
 
-  const [collapsed, setCollapsed] = createSignal(false);
+  const [collapsed, setCollapsed] = createSignal(readSidebarCollapsed());
   const [cmdkOpen, setCmdkOpen] = createSignal(false);
   const [logsOpen, setLogsOpen] = createSignal(false);
   const [newNoteOpen, setNewNoteOpen] = createSignal(false);
@@ -37,6 +48,18 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   const [mobileOpen, setMobileOpen] = createSignal(false);
 
   const isExpanded = () => !collapsed();
+
+  // Close the mobile drawer after any navigation (links inside it, palette,
+  // back/forward) instead of in each link's click handler, which would
+  // unmount the anchor before the router handles the click.
+  const location = useLocation();
+  createEffect(
+    on(
+      () => location.pathname,
+      () => setMobileOpen(false),
+      { defer: true }
+    )
+  );
 
   const handleChatOpen = () => {
     openLLM();
@@ -66,11 +89,50 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   };
 
   const handleCollapseToggle = () => {
-    setCollapsed((prev) => !prev);
+    const next = !collapsed();
+    setCollapsed(next);
+    writeSidebarCollapsed(next);
   };
+
+  const paletteActions: PaletteAction[] = [
+    {
+      key: "chat",
+      label: "Open chat",
+      keywords: "ai assistant llm ask",
+      shortcut: "⌘I",
+      icon: BotMessageSquareIcon,
+      run: () => handleChatOpen(),
+    },
+    {
+      key: "sidebar",
+      label: "Toggle sidebar",
+      keywords: "collapse expand navigation",
+      shortcut: "⌘\\",
+      icon: PanelLeftIcon,
+      run: () => handleCollapseToggle(),
+    },
+    {
+      key: "theme",
+      label: "Change theme",
+      keywords: "dark light mode appearance system",
+      icon: SunMoonIcon,
+      run: () => {
+        cycleThemePreference();
+      },
+    },
+    {
+      key: "logs",
+      label: "Console logs",
+      keywords: "debug errors",
+      shortcut: "⌘P",
+      icon: TerminalIcon,
+      run: () => setLogsOpen(true),
+    },
+  ];
 
   onMount(() => {
     initializeConsoleLogCapture();
+    syncThemePreference();
 
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {
@@ -99,6 +161,11 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && key === "i") {
         ev.preventDefault();
         handleChatOpen();
+        return;
+      }
+      if (!ev.altKey && !ev.ctrlKey && !ev.shiftKey && ev.key === "\\") {
+        ev.preventDefault();
+        handleCollapseToggle();
       }
     };
     window.addEventListener("keydown", onWindowKeyDown);
@@ -110,7 +177,8 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
 
   return (
     <>
-      <Box minH="100vh" bg="bg.default">
+      <RouteProgressBar />
+      <Box minH="100dvh" bg="bg.default">
         <AppSidebarMobile
           open={mobileOpen()}
           onOpenChange={setMobileOpen}
@@ -125,10 +193,6 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         />
         <AppSidebarDesktop
           expanded={isExpanded()}
-          collapsedWidth={COLLAPSED_WIDTH}
-          expandedWidth={EXPANDED_WIDTH}
-          onSidebarMouseEnter={() => {}}
-          onSidebarMouseLeave={() => {}}
           onToggleCollapse={handleCollapseToggle}
           onClose={() => setCollapsed(true)}
           onChatOpen={handleChatOpen}
@@ -148,6 +212,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         open={cmdkOpen()}
         onOpenChange={setCmdkOpen}
         onCreateNewNote={handleCreateNewNoteFromCmdk}
+        actions={paletteActions}
       />
       <ConsoleLogsPanel open={logsOpen()} onClose={() => setLogsOpen(false)} />
       <NewNoteModal

@@ -32,7 +32,10 @@ export const red = defineSemanticTokens.colors({
     },
     fg: { DEFAULT: { value: { _light: 'white', _dark: 'white' } } },
   },
+  // Shorthand aliases: `<palette>.subtle` (tinted bg) and `<palette>.fg` (readable text).
+  fg: { DEFAULT: { value: { _light: '{colors.red.a11}', _dark: '{colors.red.a11}' } } },
   subtle: {
+    DEFAULT: { value: { _light: '{colors.red.a3}', _dark: '{colors.red.a3}' } },
     bg: {
       DEFAULT: { value: { _light: '{colors.red.a3}', _dark: '{colors.red.a3}' } },
       hover: { value: { _light: '{colors.red.a4}', _dark: '{colors.red.a4}' } },

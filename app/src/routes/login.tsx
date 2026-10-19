@@ -3,13 +3,11 @@ import type { VoidComponent } from "solid-js";
 import { createSignal, Show } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { magicLogin } from "~/services/auth/magic-auth.actions";
-import { Box, Container, Stack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
-import * as Card from "~/components/ui/card";
 import * as Field from "~/components/ui/field";
 import { Heading } from "~/components/ui/heading";
 import { Input } from "~/components/ui/input";
-import { Text } from "~/components/ui/text";
 
 const LoginPage: VoidComponent = () => {
   const [password, setPassword] = createSignal("");
@@ -30,7 +28,7 @@ const LoginPage: VoidComponent = () => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    console.log("Submitting magic login");
+    console.info("[login] submitting");
     try {
       await runLogin({ password: password() });
       await refresh();
@@ -43,55 +41,63 @@ const LoginPage: VoidComponent = () => {
   };
 
   return (
-    <Box as="main" minH="100vh" bg="bg.default">
-      <Container py="4rem" px="1rem" maxW="420px">
-        <Card.Root>
-          <Card.Header>
-            <Stack gap="0.25rem">
-              <Heading as="h1" fontSize="lg" m="0">
-                Sign in
-              </Heading>
-              <Text fontSize="sm" color="fg.muted" m="0">
-                Enter the password to continue.
-              </Text>
-            </Stack>
-          </Card.Header>
-          <Card.Body>
-            <Box as="form" onSubmit={onSubmit}>
-              <Stack gap="0.75rem">
-                <Field.Root invalid={Boolean(error())} required>
-                  <Field.Label>Password</Field.Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password()}
-                    onInput={handlePasswordInput}
-                    autocomplete="current-password"
-                    required
-                  />
-                </Field.Root>
-
-                <Show when={error()}>
-                  {(msg) => (
-                    <Text fontSize="xs" color="red.11" m="0">
-                      {msg()}
-                    </Text>
-                  )}
-                </Show>
-
-                <Button
-                  type="submit"
-                  w="full"
-                  loading={submitting()}
-                  loadingText="Signing in..."
-                >
-                  Sign in
-                </Button>
-              </Stack>
-            </Box>
-          </Card.Body>
-        </Card.Root>
-      </Container>
+    <Box
+      as="main"
+      minH="100dvh"
+      bg="bg.subtle"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      px="4"
+      py="10"
+    >
+      <Stack gap="5" w="full" maxW="sm">
+        <HStack gap="2.5" justifyContent="center">
+          <img src="/favicon-32x32.png" alt="" width="28" height="28" />
+          <Box fontSize="lg" fontWeight="semibold" letterSpacing="tight">
+            Visual Notes
+          </Box>
+        </HStack>
+        <Box
+          as="form"
+          onSubmit={onSubmit}
+          bg="bg.default"
+          borderWidth="1px"
+          borderColor="border"
+          borderRadius="l3"
+          boxShadow="sm"
+          p="5"
+        >
+          <Stack gap="4">
+            <Heading as="h1" fontSize="md" m="0">
+              Sign in
+            </Heading>
+            <Field.Root invalid={Boolean(error())} required>
+              <Field.Label>Password</Field.Label>
+              <Input
+                id="password"
+                type="password"
+                value={password()}
+                onInput={handlePasswordInput}
+                autocomplete="current-password"
+                autofocus
+                required
+              />
+              <Show when={error()}>
+                {(msg) => <Field.ErrorText>{msg()}</Field.ErrorText>}
+              </Show>
+            </Field.Root>
+            <Button
+              type="submit"
+              w="full"
+              loading={submitting()}
+              loadingText="Signing in…"
+            >
+              Sign in
+            </Button>
+          </Stack>
+        </Box>
+      </Stack>
     </Box>
   );
 };

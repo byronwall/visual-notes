@@ -32,7 +32,10 @@ export const grass = defineSemanticTokens.colors({
     },
     fg: { DEFAULT: { value: { _light: 'white', _dark: 'white' } } },
   },
+  // Shorthand aliases: `<palette>.subtle` (tinted bg) and `<palette>.fg` (readable text).
+  fg: { DEFAULT: { value: { _light: '{colors.grass.a11}', _dark: '{colors.grass.a11}' } } },
   subtle: {
+    DEFAULT: { value: { _light: '{colors.grass.a3}', _dark: '{colors.grass.a3}' } },
     bg: {
       DEFAULT: { value: { _light: '{colors.grass.a3}', _dark: '{colors.grass.a3}' } },
       hover: { value: { _light: '{colors.grass.a4}', _dark: '{colors.grass.a4}' } },

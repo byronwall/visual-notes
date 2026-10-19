@@ -25,6 +25,7 @@ type DocHoverPreviewLinkProps = {
     meta?: Record<string, unknown> | null;
   } | null;
   triggerClass: string;
+  ariaCurrent?: "page";
   onNavigate?: () => void;
   children: JSX.Element;
 };
@@ -77,6 +78,7 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
         id={triggerId}
         href={props.href}
         class={props.triggerClass}
+        aria-current={props.ariaCurrent}
         onClick={() => {
           clearTimeout(timer);
           setOpen(false);

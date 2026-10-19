@@ -3,6 +3,7 @@ import { green } from "~/theme/colors/green";
 import { red } from "~/theme/colors/red";
 import { olive } from "~/theme/colors/olive";
 import { grass } from "~/theme/colors/grass";
+import { blue } from "~/theme/colors/blue";
 import { animationStyles } from "~/theme/animation-styles";
 import { zIndex } from "~/theme/tokens/z-index";
 import { shadows } from "~/theme/tokens/shadows";
@@ -60,6 +61,8 @@ export default defineConfig({
       semanticTokens: {
         colors: {
           bg: {
+            canvas: { value: "{colors.gray.1}" },
+            emphasized: { value: "{colors.gray.a4}" },
             default: {
               value: {
                 _light: "{colors.gray.surface.bg}",
@@ -81,6 +84,9 @@ export default defineConfig({
           },
 
           fg: {
+            error: { value: "{colors.red.11}" },
+            danger: { value: "{colors.red.11}" },
+            success: { value: "{colors.green.11}" },
             default: {
               value: {
                 _light: "{colors.gray.12}",
@@ -104,10 +110,18 @@ export default defineConfig({
           },
 
           border: {
-            value: {
-              _light: "{colors.gray.4}",
-              _dark: "{colors.gray.4}",
+            DEFAULT: {
+              value: {
+                _light: "{colors.gray.4}",
+                _dark: "{colors.gray.4}",
+              },
             },
+            // Aliases used across pages; previously resolved to nothing.
+            default: { value: "{colors.gray.4}" },
+            subtle: { value: "{colors.gray.3}" },
+            muted: { value: "{colors.gray.4}" },
+            emphasized: { value: "{colors.gray.6}" },
+            accent: { value: "{colors.blue.8}" },
           },
 
           error: {
@@ -121,6 +135,7 @@ export default defineConfig({
           gray: olive,
           red: red,
           green: green,
+          blue: blue,
           amber: amber
         },
 

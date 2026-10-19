@@ -1,21 +1,9 @@
 import { For } from "solid-js";
-import { useLocation, useNavigate } from "@solidjs/router";
-import {
-  CalendarClockIcon,
-  CompassIcon,
-  ListTodoIcon,
-  WaypointsIcon,
-} from "lucide-solid";
+import { useLocation } from "@solidjs/router";
 import { Stack } from "styled-system/jsx";
 import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
-import { SidebarNavButton, type SidebarNavIcon } from "./SidebarNavButton";
-
-type NavItem = {
-  label: string;
-  href: string;
-  icon: SidebarNavIcon;
-  isActive: (pathname: string) => boolean;
-};
+import { NOTES_DESTINATION, PRIMARY_DESTINATIONS } from "./nav-items";
+import { SidebarNavLink } from "./SidebarNavLink";
 
 type AppSidebarNavProps = {
   expanded: boolean;
@@ -24,55 +12,35 @@ type AppSidebarNavProps = {
 export const AppSidebarNav = (props: AppSidebarNavProps) => {
   const location = useLocation();
   const pathname = () => location.pathname;
-  const navigate = useNavigate();
-
-  const isActiveSection = (href: string, path: string) =>
-    path === href || path.startsWith(`${href}/`);
-
-  const navItems: NavItem[] = [
-    {
-      label: "Paths",
-      href: "/path",
-      icon: WaypointsIcon,
-      isActive: (path) => isActiveSection("/path", path),
-    },
-    {
-      label: "Time Blocks",
-      href: "/time-blocks",
-      icon: CalendarClockIcon,
-      isActive: (path) => isActiveSection("/time-blocks", path),
-    },
-    {
-      label: "Tasks",
-      href: "/tasks",
-      icon: ListTodoIcon,
-      isActive: (path) => isActiveSection("/tasks", path),
-    },
-    {
-      label: "Explorer",
-      href: "/archive",
-      icon: CompassIcon,
-      isActive: (path) => isActiveSection("/archive", path),
-    },
-  ];
 
   return (
-    <Stack gap="1">
-      <AppSidebarCanvasMenu
-        expanded={props.expanded}
-        pathname={pathname()}
-        onNavigate={navigate}
-      />
-
-      <For each={navItems}>
+    <Stack as="ul" gap="0.5" listStyle="none" m="0" p="0" aria-label="Sections">
+      <li>
+        <SidebarNavLink
+          expanded={props.expanded}
+          active={NOTES_DESTINATION.isActive(pathname())}
+          label={NOTES_DESTINATION.label}
+          href={NOTES_DESTINATION.href}
+          icon={NOTES_DESTINATION.icon}
+        />
+      </li>
+      <li>
+        <AppSidebarCanvasMenu
+          expanded={props.expanded}
+          pathname={pathname()}
+        />
+      </li>
+      <For each={PRIMARY_DESTINATIONS}>
         {(item) => (
-          <SidebarNavButton
-            expanded={props.expanded}
-            active={item.isActive(pathname())}
-            label={item.label}
-            icon={item.icon}
-            onClick={() => navigate(item.href)}
-          />
+          <li>
+            <SidebarNavLink
+              expanded={props.expanded}
+              active={item.isActive(pathname())}
+              label={item.label}
+              href={item.href}
+              icon={item.icon}
+            />
+          </li>
         )}
       </For>
     </Stack>
