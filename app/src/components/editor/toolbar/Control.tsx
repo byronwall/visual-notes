@@ -5,6 +5,7 @@ import { Toggle } from "./Toggle";
 export function Control(props: {
   editor: Editor;
   title: string;
+  ariaLabel?: string;
   name: string;
   onChange: () => void;
   isActive?: (editor: Editor) => boolean;
@@ -13,13 +14,14 @@ export function Control(props: {
   const active = createEditorTransaction(
     () => props.editor,
     (instance) =>
-      props.isActive ? props.isActive(instance) : instance.isActive(props.name)
+      props.isActive ? props.isActive(instance) : instance.isActive(props.name),
   );
   return (
     <Toggle
       title={props.title}
+      ariaLabel={props.ariaLabel}
       pressed={active()}
-      onChange={props.onChange}
+      onPress={props.onChange}
     >
       {props.children}
     </Toggle>

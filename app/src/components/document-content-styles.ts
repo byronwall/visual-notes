@@ -1,11 +1,34 @@
+import { css } from "styled-system/css";
+
 export const documentContentStyles = {
   "& .ProseMirror, & .vn-doc-content": {
     color: "fg.default",
     fontSize: "md",
-    lineHeight: "1.75",
+    lineHeight: "1.7",
     outline: "none",
     minWidth: "0",
+    textRendering: "optimizeLegibility",
+    fontKerning: "normal",
+    overflowWrap: "break-word",
   },
+  // Empty-state hints for a blank note: the leading H1 and the paragraph
+  // after it show placeholders until the user types.
+  "& .ProseMirror > h1:first-child:has(> br.ProseMirror-trailingBreak:only-child)::before":
+    {
+      content: '"Untitled"',
+      color: "fg.subtle",
+      float: "left",
+      height: "0",
+      pointerEvents: "none",
+    },
+  "& .ProseMirror > h1:first-child + p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before":
+    {
+      content: '"Start writing…"',
+      color: "fg.subtle",
+      float: "left",
+      height: "0",
+      pointerEvents: "none",
+    },
   "& .ProseMirror > *:first-child, & .vn-doc-content > *:first-child": {
     marginTop: "0",
   },
@@ -20,23 +43,39 @@ export const documentContentStyles = {
     fontSize: "3xl",
     lineHeight: "1.15",
     fontWeight: "700",
+    letterSpacing: "-0.02em",
     marginTop: "8",
     marginBottom: "4",
   },
   "& .ProseMirror h2, & .vn-doc-content h2": {
     fontSize: "2xl",
-    lineHeight: "1.2",
-    fontWeight: "700",
-    marginTop: "7",
+    lineHeight: "1.25",
+    fontWeight: "650",
+    letterSpacing: "-0.015em",
+    marginTop: "8",
     marginBottom: "3",
   },
   "& .ProseMirror h3, & .vn-doc-content h3": {
-    fontSize: "xl",
-    lineHeight: "1.3",
+    fontSize: "lg",
+    lineHeight: "1.35",
     fontWeight: "600",
+    letterSpacing: "-0.01em",
     marginTop: "6",
-    marginBottom: "3",
+    marginBottom: "2",
   },
+  "& .ProseMirror h4, & .vn-doc-content h4": {
+    fontSize: "md",
+    lineHeight: "1.4",
+    fontWeight: "600",
+    marginTop: "5",
+    marginBottom: "2",
+  },
+  // Headings carry their own top margin, so text that follows another
+  // heading should not double the gap.
+  "& .ProseMirror :is(h1,h2,h3,h4) + :is(h2,h3,h4), & .vn-doc-content :is(h1,h2,h3,h4) + :is(h2,h3,h4)":
+    {
+      marginTop: "3",
+    },
   "& .ProseMirror ul, & .ProseMirror ol, & .vn-doc-content ul, & .vn-doc-content ol":
     {
       paddingLeft: "6",
@@ -44,20 +83,47 @@ export const documentContentStyles = {
       marginBottom: "4",
     },
   "& .ProseMirror li, & .vn-doc-content li": {
-    marginBottom: "1.5",
+    marginBottom: "1",
   },
+  "& .ProseMirror li > p, & .vn-doc-content li > p": {
+    marginBottom: "1",
+  },
+  "& .ProseMirror li::marker, & .vn-doc-content li::marker": {
+    color: "fg.subtle",
+  },
+  // The global `.prose blockquote` adds a blue wash; quotes here stay
+  // typographic: a thin rule and muted text.
   "& .ProseMirror blockquote, & .vn-doc-content blockquote": {
-    borderLeftWidth: "3px",
-    borderLeftColor: "gray.outline.border",
+    borderLeftWidth: "2px",
+    borderLeftStyle: "solid",
+    borderLeftColor: "gray.a6",
+    bg: "transparent",
     paddingLeft: "4",
+    py: "0",
     color: "fg.muted",
     marginTop: "0",
     marginBottom: "4",
+    borderRadius: "0",
   },
+  "& .ProseMirror blockquote p, & .vn-doc-content blockquote p": {
+    marginBottom: "2",
+  },
+  // Links read as colored text only; the global `.prose a` highlight is
+  // reset so long notes with many links stay calm.
   "& .ProseMirror a, & .vn-doc-content a": {
-    color: "blue.10",
-    textDecorationLine: "underline",
-    textUnderlineOffset: "2px",
+    color: "amber.11",
+    textDecorationLine: "none",
+    borderBottomWidth: "0",
+    bg: "transparent",
+    boxShadow: "none",
+    borderRadius: "l1",
+    transitionProperty: "color, background-color",
+    transitionDuration: "140ms",
+  },
+  "& .ProseMirror a:hover, & .vn-doc-content a:hover": {
+    color: "amber.12",
+    bg: "amber.a3",
+    boxShadow: "none",
   },
   "& .ProseMirror hr, & .vn-doc-content hr": {
     border: "0",
@@ -68,7 +134,16 @@ export const documentContentStyles = {
   },
   "& .ProseMirror code, & .vn-doc-content code": {
     fontFamily: "mono",
-    fontSize: "0.92em",
+    fontSize: "0.875em",
+  },
+  // Inline code: a soft tint, no border box around a single word.
+  "& .ProseMirror :not(pre) > code, & .vn-doc-content :not(pre) > code": {
+    bg: "gray.a3",
+    borderWidth: "0",
+    borderRadius: "l1",
+    px: "0.3em",
+    py: "0.1em",
+    color: "fg.default",
   },
   "& .ProseMirror pre, & .vn-doc-content pre": {
     overflowX: "auto",
@@ -83,7 +158,7 @@ export const documentContentStyles = {
   "& .ProseMirror img.ProseMirror-selectednode": {
     outlineWidth: "2px",
     outlineStyle: "solid",
-    outlineColor: "blue.9",
+    outlineColor: "amber.9",
     outlineOffset: "2px",
     borderRadius: "l2",
   },
@@ -91,7 +166,7 @@ export const documentContentStyles = {
     {
       outlineWidth: "2px",
       outlineStyle: "solid",
-      outlineColor: "blue.9",
+      outlineColor: "amber.9",
       outlineOffset: "2px",
       borderRadius: "l2",
     },
@@ -157,6 +232,10 @@ export const documentContentStyles = {
   },
   "& .ProseMirror table, & .vn-doc-content table": {
     width: "100%",
+    marginTop: "2",
+    marginBottom: "5",
+    borderRadius: "0",
+    fontSize: "sm",
     borderCollapse: "collapse",
     borderSpacing: 0,
     borderWidth: "1px",
@@ -175,17 +254,14 @@ export const documentContentStyles = {
       color: "fg.default",
     },
   "& .ProseMirror th, & .vn-doc-content th": {
-    bg: "gray.surface.bg",
+    bg: "bg.subtle",
+    fontSize: "sm",
     fontWeight: "semibold",
+    textAlign: "left",
   },
-  "& .ProseMirror tbody tr:nth-of-type(odd) td, & .vn-doc-content tbody tr:nth-of-type(odd) td":
-    {
-      bg: "bg.default",
-    },
-  "& .ProseMirror tbody tr:nth-of-type(even) td, & .vn-doc-content tbody tr:nth-of-type(even) td":
-    {
-      bg: "gray.surface.bg.hover",
-    },
+  "& .ProseMirror :is(th, td) > p, & .vn-doc-content :is(th, td) > p": {
+    marginBottom: "0",
+  },
   "& .ProseMirror .vn-codeblock-wrap, & .vn-doc-content .vn-codeblock-wrap": {
     position: "relative",
     marginTop: "3",
@@ -226,15 +302,16 @@ export const documentContentStyles = {
       pointerEvents: "auto",
       transition: "opacity 140ms ease",
     },
-  "& .ProseMirror .vn-codeblock-content, & .vn-doc-content .vn-codeblock-content": {
-    display: "block",
-    whiteSpace: "pre",
-    position: "relative",
-    zIndex: "1",
-    fontFamily: "mono",
-    fontSize: "sm",
-    lineHeight: "1.6em",
-  },
+  "& .ProseMirror .vn-codeblock-content, & .vn-doc-content .vn-codeblock-content":
+    {
+      display: "block",
+      whiteSpace: "pre",
+      position: "relative",
+      zIndex: "1",
+      fontFamily: "mono",
+      fontSize: "sm",
+      lineHeight: "1.6em",
+    },
   "& .ProseMirror .vn-codeblock-line-gutter, & .vn-doc-content .vn-codeblock-line-gutter":
     {
       position: "absolute",
@@ -252,8 +329,6 @@ export const documentContentStyles = {
       fontSize: "sm",
       lineHeight: "1.6em",
       zIndex: "0",
-      transform: "translateY(-12px)",
-      paddingTop: "2px",
     },
   "& .ProseMirror .vn-codeblock-line-number, & .vn-doc-content .vn-codeblock-line-number":
     {
@@ -261,4 +336,17 @@ export const documentContentStyles = {
       height: "1.6em",
       lineHeight: "1.6em",
     },
+  // Borderless editors read as the page itself: no inset padding so text
+  // lines up with the header, and the editable area fills the min height so
+  // clicking below the last line still places the caret.
+  "&[data-borderless=true] .ProseMirror": {
+    px: "0",
+    py: "2",
+    flex: "1",
+  },
 } as const;
+
+// Panda only extracts style objects it can evaluate statically in the same
+// file, so the shared document styles are compiled here once. Passing the
+// imported object to a `css` prop elsewhere silently generated no CSS.
+export const documentContentClass = css(documentContentStyles);

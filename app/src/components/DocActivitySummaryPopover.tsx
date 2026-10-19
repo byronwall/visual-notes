@@ -5,6 +5,7 @@ import {
   Show,
   Suspense,
   createSignal,
+  type JSX,
   type VoidComponent,
 } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -69,38 +70,80 @@ function eventPayloadSummary(
   payload?: Record<string, unknown> | null,
 ): string | null {
   if (!payload) return null;
-  const keys = ["docTitle", "queryPreview", "source", "lengthDeltaBucket"];
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === "string" && value.trim().length > 0)
-      return value.trim();
-  }
+  // Only the search query reads as human text; source and size buckets are
+  // internal identifiers.
+  const value = payload.queryPreview;
+  if (typeof value === "string" && value.trim().length > 0)
+    return `“${value.trim()}”`;
   return null;
 }
+
+type ActivityEvent = {
+  eventType: string;
+  createdAt: string;
+  payload?: Record<string, unknown> | null;
+};
+
+type ActivityRun = ActivityEvent & { count: number };
+
+/** Collapse back-to-back events of the same kind ("Opened ×4"). */
+function groupConsecutive(events: ActivityEvent[]): ActivityRun[] {
+  const runs: ActivityRun[] = [];
+  for (const event of events) {
+    const last = runs[runs.length - 1];
+    if (
+      last &&
+      last.eventType === event.eventType &&
+      !eventPayloadSummary(event.payload) &&
+      !eventPayloadSummary(last.payload)
+    ) {
+      last.count += 1;
+      continue;
+    }
+    runs.push({ ...event, count: 1 });
+  }
+  return runs;
+}
+
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count} ${count === 1 ? one : many}`;
 
 export const DocActivitySummaryPopover: VoidComponent<{
   docId: string;
   createdAt?: string;
   updatedAt?: string;
   iconOnly?: boolean;
+  /**
+   * Custom trigger. Rendered while activity loads too, so the anchor never
+   * swaps size once the history arrives.
+   */
+  renderTrigger?: (trigger: {
+    onClick: () => void;
+    ariaLabel: string;
+  }) => JSX.Element;
 }> = (props) => {
   const [open, setOpen] = createSignal(false);
   const history = createAsync(() => fetchDocActivityHistory(props.docId));
+  const toggle = () => setOpen((value) => !value);
 
   return (
     <Suspense
       fallback={
-        <Box
-          borderWidth="1px"
-          borderColor="gray.outline.border"
-          borderRadius="l2"
-          px="3"
-          py="2"
-        >
-          <Text fontSize="xs" color="fg.muted">
-            Loading activity...
-          </Text>
-        </Box>
+        props.renderTrigger ? (
+          props.renderTrigger({ onClick: () => {}, ariaLabel: "Activity" })
+        ) : (
+          <Box
+            borderWidth="1px"
+            borderColor="gray.outline.border"
+            borderRadius="l2"
+            px="3"
+            py="2"
+          >
+            <Text fontSize="xs" color="fg.muted">
+              Loading activity...
+            </Text>
+          </Box>
+        )
       }
     >
       <Show when={history()}>
@@ -112,145 +155,127 @@ export const DocActivitySummaryPopover: VoidComponent<{
             offset={8}
             style={{ width: "min(24rem, 86vw)" }}
             anchor={
-              <Show
-                when={props.iconOnly}
-                fallback={
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    colorPalette="gray"
-                    bg="bg.subtle"
-                    borderColor="gray.subtle"
-                    h="auto"
-                    px="2.5"
-                    py="1.5"
-                    onClick={() => setOpen((value) => !value)}
-                  >
-                    <HStack gap="2" alignItems="center">
-                      <HStack gap="1.5" alignItems="center">
-                        <Clock3Icon size={12} />
+              props.renderTrigger ? (
+                props.renderTrigger({
+                  onClick: toggle,
+                  ariaLabel: `Activity: ${data().viewCount} views, ${data().editCount} edits`,
+                })
+              ) : (
+                <Show
+                  when={props.iconOnly}
+                  fallback={
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      colorPalette="gray"
+                      bg="bg.subtle"
+                      borderColor="gray.subtle"
+                      h="auto"
+                      px="2.5"
+                      py="1.5"
+                      onClick={() => setOpen((value) => !value)}
+                    >
+                      <HStack gap="2" alignItems="center">
+                        <HStack gap="1.5" alignItems="center">
+                          <Clock3Icon size={12} />
+                          <Text
+                            as="span"
+                            fontSize="xs"
+                            color="fg.default"
+                            fontWeight="medium"
+                          >
+                            Activity
+                          </Text>
+                        </HStack>
+                        <HStack gap="1" alignItems="center">
+                          <EyeIcon size={12} />
+                          <Text as="span" fontSize="xs" color="fg.muted">
+                            {data().viewCount}
+                          </Text>
+                        </HStack>
+                        <HStack gap="1" alignItems="center">
+                          <PencilIcon size={12} />
+                          <Text as="span" fontSize="xs" color="fg.muted">
+                            {data().editCount}
+                          </Text>
+                        </HStack>
                         <Text
                           as="span"
                           fontSize="xs"
-                          color="fg.default"
-                          fontWeight="medium"
+                          color="fg.muted"
+                          title={formatAbsoluteTimestamp(props.updatedAt)}
                         >
-                          Activity
+                          Saved{" "}
+                          {formatRelativeTimestamp(
+                            data().generatedAt,
+                            props.updatedAt,
+                          )}
                         </Text>
                       </HStack>
-                      <HStack gap="1" alignItems="center">
-                        <EyeIcon size={12} />
-                        <Text as="span" fontSize="xs" color="fg.muted">
-                          {data().viewCount}
-                        </Text>
-                      </HStack>
-                      <HStack gap="1" alignItems="center">
-                        <PencilIcon size={12} />
-                        <Text as="span" fontSize="xs" color="fg.muted">
-                          {data().editCount}
-                        </Text>
-                      </HStack>
-                      <Text
-                        as="span"
-                        fontSize="xs"
-                        color="fg.muted"
-                        title={formatAbsoluteTimestamp(props.updatedAt)}
-                      >
-                        Saved{" "}
-                        {formatRelativeTimestamp(
-                          data().generatedAt,
-                          props.updatedAt,
-                        )}
-                      </Text>
-                    </HStack>
-                  </Button>
-                }
-              >
-                <Tooltip
-                  content="Activity"
-                  showArrow
-                  portalled={false}
-                  contentProps={{ zIndex: "tooltip" }}
+                    </Button>
+                  }
                 >
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    colorPalette="gray"
-                    bg="bg.subtle"
-                    borderColor="gray.subtle"
-                    minW="9"
-                    w="9"
-                    px="0"
-                    aria-label={`Activity: ${data().viewCount} views, ${data().editCount} edits`}
-                    onClick={() => setOpen((value) => !value)}
+                  <Tooltip
+                    content="Activity"
+                    showArrow
+                    portalled={false}
+                    contentProps={{ zIndex: "tooltip" }}
                   >
-                    <Clock3Icon size={14} />
-                  </Button>
-                </Tooltip>
-              </Show>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      colorPalette="gray"
+                      bg="bg.subtle"
+                      borderColor="gray.subtle"
+                      minW="9"
+                      w="9"
+                      px="0"
+                      aria-label={`Activity: ${data().viewCount} views, ${data().editCount} edits`}
+                      onClick={() => setOpen((value) => !value)}
+                    >
+                      <Clock3Icon size={14} />
+                    </Button>
+                  </Tooltip>
+                </Show>
+              )
             }
           >
             <Stack gap="2" p="2.5">
-              <HStack gap="2" alignItems="center" flexWrap="wrap">
+              <Stack gap="0.5" px="2">
                 <Text fontSize="sm" fontWeight="semibold" color="fg.default">
                   Activity
                 </Text>
                 <Text fontSize="xs" color="fg.muted">
-                  Events {data().events.length}
+                  {plural(data().viewCount, "view")} ·{" "}
+                  {plural(data().editCount, "edit")} ·{" "}
+                  {data().searchOpenedCount} from search
                 </Text>
-                <HStack gap="1" alignItems="center">
-                  <EyeIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().viewCount}
-                  </Text>
-                </HStack>
-                <HStack gap="1" alignItems="center">
-                  <PencilIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().editCount}
-                  </Text>
-                </HStack>
-                <HStack gap="1" alignItems="center">
-                  <SearchIcon size={12} />
-                  <Text fontSize="xs" color="fg.muted">
-                    {data().searchOpenedCount}
-                  </Text>
-                </HStack>
-              </HStack>
-
-              <HStack gap="3" flexWrap="wrap">
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(data().lastViewBeforeThisOne)}
-                >
-                  Prev view{" "}
-                  {formatRelativeTimestamp(
-                    data().generatedAt,
-                    data().lastViewBeforeThisOne,
-                  )}
+                <Text fontSize="xs" color="fg.muted">
+                  <span title={formatAbsoluteTimestamp(props.createdAt)}>
+                    Created{" "}
+                    {formatRelativeTimestamp(
+                      new Date().toISOString(),
+                      props.createdAt,
+                    )}
+                  </span>
+                  <Show when={data().lastViewBeforeThisOne}>
+                    {" · "}
+                    <span
+                      title={formatAbsoluteTimestamp(
+                        data().lastViewBeforeThisOne,
+                      )}
+                    >
+                      last opened{" "}
+                      {formatRelativeTimestamp(
+                        new Date().toISOString(),
+                        data().lastViewBeforeThisOne,
+                      )}
+                    </span>
+                  </Show>
                 </Text>
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(props.createdAt)}
-                >
-                  Created{" "}
-                  {formatRelativeTimestamp(data().generatedAt, props.createdAt)}
-                </Text>
-                <Text
-                  fontSize="xs"
-                  color="fg.muted"
-                  title={formatAbsoluteTimestamp(props.updatedAt)}
-                >
-                  Saved{" "}
-                  {formatRelativeTimestamp(data().generatedAt, props.updatedAt)}
-                </Text>
-              </HStack>
-
-              <Box borderTopWidth="1px" borderColor="border" />
+              </Stack>
 
               <Box maxH="16rem" overflowY="auto" overflowX="hidden" pr="0.5">
                 <Show
@@ -261,15 +286,14 @@ export const DocActivitySummaryPopover: VoidComponent<{
                     </Text>
                   }
                 >
-                  <Stack gap="1.5">
-                    <For each={data().events}>
+                  <Stack gap="0">
+                    <For each={groupConsecutive(data().events)}>
                       {(event) => (
                         <Box
-                          borderWidth="1px"
-                          borderColor="border"
                           borderRadius="l1"
                           px="2"
-                          py="1.5"
+                          py="1"
+                          _hover={{ bg: "bg.subtle" }}
                         >
                           <HStack
                             justify="space-between"
@@ -284,6 +308,11 @@ export const DocActivitySummaryPopover: VoidComponent<{
                                 fontWeight="medium"
                               >
                                 {eventTypeLabel(event.eventType)}
+                                <Show when={event.count > 1}>
+                                  <Box as="span" color="fg.subtle" ml="1">
+                                    ×{event.count}
+                                  </Box>
+                                </Show>
                               </Text>
                             </HStack>
                             <Text
@@ -292,33 +321,24 @@ export const DocActivitySummaryPopover: VoidComponent<{
                               title={formatAbsoluteTimestamp(event.createdAt)}
                             >
                               {formatRelativeTimestamp(
-                                data().generatedAt,
+                                new Date().toISOString(),
                                 event.createdAt,
                               )}
                             </Text>
                           </HStack>
-                          <HStack gap="1.5" mt="0.5" flexWrap="wrap">
-                            <Text fontSize="xs" color="fg.muted">
-                              {event.eventType}
-                            </Text>
-                            <Show when={event.actorType}>
-                              <Text fontSize="xs" color="fg.muted">
-                                {event.actorType}
+                          <Show when={eventPayloadSummary(event.payload)}>
+                            {(summary) => (
+                              <Text
+                                fontSize="xs"
+                                color="fg.muted"
+                                maxW="28rem"
+                                truncate
+                                pl="5"
+                              >
+                                {summary()}
                               </Text>
-                            </Show>
-                            <Show when={eventPayloadSummary(event.payload)}>
-                              {(summary) => (
-                                <Text
-                                  fontSize="xs"
-                                  color="fg.muted"
-                                  maxW="28rem"
-                                  truncate
-                                >
-                                  {summary()}
-                                </Text>
-                              )}
-                            </Show>
-                          </HStack>
+                            )}
+                          </Show>
                         </Box>
                       )}
                     </For>

@@ -19,6 +19,8 @@ type PopoverProps = {
   portalRef?: HTMLElement | undefined;
   /** Element to focus when the popover opens (defaults to the first focusable). */
   initialFocusEl?: () => HTMLElement | null;
+  /** Class for the anchor wrapper, e.g. to let it shrink inside a flex row. */
+  anchorClass?: string;
 };
 
 export const SimplePopover = (props: PopoverProps) => {
@@ -34,6 +36,7 @@ export const SimplePopover = (props: PopoverProps) => {
     "portalled",
     "portalRef",
     "initialFocusEl",
+    "anchorClass",
   ]);
 
   const portalled = () => local.portalled ?? true;
@@ -57,7 +60,7 @@ export const SimplePopover = (props: PopoverProps) => {
       positioning={positioning()}
       initialFocusEl={local.initialFocusEl}
     >
-      <Popover.Anchor>{local.anchor}</Popover.Anchor>
+      <Popover.Anchor class={local.anchorClass}>{local.anchor}</Popover.Anchor>
       <WrapWhen when={portalled()} component={Portal}>
         <Popover.Positioner>
           <Popover.Content class={local.class} style={local.style}>

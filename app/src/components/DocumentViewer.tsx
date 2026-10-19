@@ -8,8 +8,7 @@ import {
   onCleanup,
   untrack,
 } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
-import { Button } from "~/components/ui/button";
+import { Box, HStack } from "styled-system/jsx";
 import { IconButton } from "~/components/ui/icon-button";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Link } from "~/components/ui/link";
@@ -22,6 +21,11 @@ import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { InPlaceEditableText } from "./InPlaceEditableText";
+import { useToasts } from "./Toast";
+import { DocActionsMenu } from "./doc-header/DocActionsMenu";
+import { DocSaveStatus, type SaveState } from "./doc-header/DocSaveStatus";
+import { leadingH1Text, titlesMatch } from "./doc-header/leading-heading";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
 type DocumentData = {
   id: string;
@@ -45,7 +49,6 @@ const DocumentViewer: VoidComponent<{
   doc: DocumentData;
   onDeleted?: (docId: string) => void;
   onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
-  compactChrome?: boolean;
   fullPageHref?: string;
   panelMode?: boolean;
 }> = (props) => {
@@ -68,6 +71,7 @@ const DocumentViewer: VoidComponent<{
   let savedDocId = props.doc.id;
   const { update: runUpdateDoc, delete: runDeleteDoc } = useNoteMutations();
   const runLogDocViewEvent = useAction(logDocViewEvent);
+  const { show: showToast } = useToasts();
   let lastLoggedDocId = "";
   const isCurrentVisit = (id: string, generation: number) =>
     ownerActive && props.doc.id === id && docGeneration === generation;
@@ -80,6 +84,22 @@ const DocumentViewer: VoidComponent<{
     const heading = firstH1();
     return heading.length > 0 && heading !== title();
   };
+  const leadingHeading = () =>
+    leadingH1Text(
+      props.doc.html || normalizeMarkdownToHtml(props.doc.markdown || ""),
+    );
+  // When the note opens with an H1 that matches its title, that heading *is*
+  // the title: the page skips the duplicate display title and edits to the
+  // heading keep the stored title in sync.
+  const [titleLinked, setTitleLinked] = createSignal(
+    titlesMatch(leadingHeading(), props.doc.title),
+  );
+  const saveState = (): SaveState => ({
+    saving: editorApi()?.saving() ?? false,
+    dirty: editorApi()?.dirty() ?? false,
+    error: editorApi()?.error(),
+    updatedAt: savedUpdatedAt(),
+  });
 
   // Keep local title state aligned when client-side navigation swaps docs.
   createEffect(() => {
@@ -87,6 +107,12 @@ const DocumentViewer: VoidComponent<{
     if (nextDocId !== currentDocId) {
       currentDocId = nextDocId;
       docGeneration += 1;
+      setTitleLinked(
+        titlesMatch(
+          leadingHeading(),
+          untrack(() => props.doc.title),
+        ),
+      );
     }
     setTitle(props.doc.title);
   });
@@ -154,11 +180,24 @@ const DocumentViewer: VoidComponent<{
     if (!newTitle) return;
     try {
       await runUpdateDoc({ id: syncDocId, title: newTitle });
-      if (isCurrentVisit(syncDocId, syncGeneration)) setTitle(newTitle);
+      if (isCurrentVisit(syncDocId, syncGeneration)) {
+        setTitle(newTitle);
+        if (titlesMatch(leadingHeading(), newTitle)) setTitleLinked(true);
+      }
     } catch (e) {
       if (isCurrentVisit(syncDocId, syncGeneration)) {
         alert((e as Error).message || "Failed to sync title");
       }
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = `${window.location.origin}/docs/${props.doc.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast({ title: "Link copied", message: url });
+    } catch (error) {
+      console.warn("[DocumentViewer] copy link failed", error);
     }
   };
 
@@ -281,166 +320,88 @@ const DocumentViewer: VoidComponent<{
         }
       >
         <HStack
-          gap="3"
+          gap="2"
+          rowGap="1"
           alignItems="flex-start"
-          flexWrap={
-            props.compactChrome ? "wrap" : { base: "wrap", md: "nowrap" }
-          }
+          justifyContent="space-between"
+          flexWrap={{ base: "wrap", md: "nowrap" }}
+          mb="2"
         >
-          <Box flex="1" minW="0">
-            <Show when={props.doc.id} keyed>
-              {(_docId) => (
+          <Box flex="1" minW="0" display={{ base: "contents", md: "block" }}>
+            <DocPropertiesCompactEditors
+              docId={props.doc.id}
+              initialPath={props.doc.path}
+              initialMeta={props.doc.meta}
+            />
+          </Box>
+          <HStack
+            gap="0.5"
+            flexShrink="0"
+            alignItems="center"
+            order="1"
+            ml="auto"
+          >
+            <DocActivitySummaryPopover
+              docId={props.doc.id}
+              createdAt={props.doc.createdAt}
+              updatedAt={savedUpdatedAt()}
+              renderTrigger={(trigger) => (
+                <DocSaveStatus
+                  state={saveState()}
+                  onClick={trigger.onClick}
+                  ariaLabel={trigger.ariaLabel}
+                  onRetry={() => void editorApi()?.save()}
+                />
+              )}
+            />
+            <DocSharePanel
+              docId={props.doc.id}
+              initialShare={props.doc.share}
+              iconOnly
+            />
+            <DocActionsMenu
+              disabled={busy()}
+              onDelete={() => setDeleteDialogOpen(true)}
+              onCopyLink={() => void handleCopyLink()}
+              headingTitle={showSync() ? firstH1() : undefined}
+              onUseHeadingTitle={() => void handleSync()}
+            />
+          </HStack>
+        </HStack>
+        <Show when={!titleLinked()}>
+          <Show when={props.doc.id} keyed>
+            {(_docId) => (
+              <Box mb="4">
                 <InPlaceEditableText
                   value={title()}
                   placeholder={firstH1() || "Untitled note"}
                   onCommit={handleConfirmEdit}
-                  fontSize="4xl"
-                  lineHeight="1.1"
-                  fontWeight="semibold"
+                  fontSize="3xl"
+                  lineHeight="1.15"
+                  fontWeight="bold"
                   fillWidth
                   wrapPreview
-                  showLeadingAction={showSync()}
-                  leadingAction={() => (
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="outline"
-                      colorPalette="gray"
-                      onClick={handleSync}
-                      title={`Match H1: ${firstH1()}`}
-                    >
-                      Match H1
-                    </Button>
-                  )}
                 />
-              )}
-            </Show>
-          </Box>
-          <Stack
-            gap="2"
-            alignItems={{ base: "stretch", md: "flex-start" }}
-            flexShrink="0"
-            w={props.compactChrome ? "full" : { base: "full", md: "auto" }}
-            flexDirection={
-              props.compactChrome ? "column" : { base: "column", md: "row" }
-            }
-          >
-            <DocSharePanel
-              docId={props.doc.id}
-              initialShare={props.doc.share}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              colorPalette="gray"
-              disabled={!editorApi()?.canSave() || busy()}
-              onClick={() => void editorApi()?.save()}
-              w={props.compactChrome ? "full" : { base: "full", md: "auto" }}
-            >
-              {editorApi()?.saving()
-                ? "Saving…"
-                : editorApi()?.dirty()
-                  ? "Save*"
-                  : "Save"}
-            </Button>
-            <Show
-              when={props.compactChrome}
-              fallback={
-                <>
-                  <Button
-                    size="sm"
-                    variant="subtle"
-                    colorPalette="red"
-                    disabled={busy()}
-                    onClick={() => setDeleteDialogOpen(true)}
-                    display={{ base: "inline-flex", md: "none" }}
-                    w="full"
-                  >
-                    <Trash2Icon size={16} />
-                    Delete
-                  </Button>
-                  <IconButton
-                    size="sm"
-                    variant="subtle"
-                    colorPalette="red"
-                    aria-label="Delete note"
-                    disabled={busy()}
-                    onClick={() => setDeleteDialogOpen(true)}
-                    display={{ base: "none", md: "inline-flex" }}
-                  >
-                    <Trash2Icon size={16} />
-                  </IconButton>
-                </>
-              }
-            >
-              <Button
-                size="sm"
-                variant="subtle"
-                colorPalette="red"
-                disabled={busy()}
-                onClick={() => setDeleteDialogOpen(true)}
-                w="full"
-              >
-                <Trash2Icon size={16} />
-                Delete
-              </Button>
-            </Show>
-          </Stack>
-        </HStack>
-      </Show>
-      <Stack gap="3">
-        <Show when={!props.panelMode}>
-          <DocPropertiesCompactEditors
-            docId={props.doc.id}
-            initialPath={props.doc.path}
-            initialMeta={props.doc.meta}
-            trailing={
-              <HStack gap="2" alignItems="center" flexWrap="wrap">
-                <Show when={props.fullPageHref}>
-                  {(href) => (
-                    <Link
-                      as={A}
-                      href={href()}
-                      fontSize="xs"
-                      fontWeight="medium"
-                      color="fg.default"
-                      display="inline-flex"
-                      alignItems="center"
-                      gap="1.5"
-                      px="3"
-                      py="1.5"
-                      borderWidth="1px"
-                      borderColor="border"
-                      borderRadius="full"
-                      textDecoration="none"
-                      bg="bg.default"
-                      _hover={{ bg: "bg.subtle" }}
-                    >
-                      <ExternalLinkIcon size={12} />
-                      Open full page
-                    </Link>
-                  )}
-                </Show>
-                <DocActivitySummaryPopover
-                  docId={props.doc.id}
-                  createdAt={props.doc.createdAt}
-                  updatedAt={savedUpdatedAt()}
-                />
-              </HStack>
-            }
-          />
+              </Box>
+            )}
+          </Show>
         </Show>
-        <DocumentEditor
-          docId={props.doc.id}
-          showTitleInTopBar={false}
-          showSaveButtonInTopBar={false}
-          apiRef={(api) => {
-            setEditorApi(api);
-            props.onEditorApiChange?.(props.doc.id, api);
-          }}
-          onSaved={handleContentSaved}
-        />
-      </Stack>
+      </Show>
+      <DocumentEditor
+        docId={props.doc.id}
+        showTopBar={false}
+        borderless
+        autosave
+        hideInlineError={!props.panelMode}
+        syncTitleFromH1={titleLinked()}
+        onTitleSynced={setTitle}
+        minEditorHeight={props.panelMode ? undefined : "50vh"}
+        apiRef={(api) => {
+          setEditorApi(api);
+          props.onEditorApiChange?.(props.doc.id, api);
+        }}
+        onSaved={handleContentSaved}
+      />
       <ConfirmDialog
         open={deleteDialogOpen()}
         onOpenChange={setDeleteDialogOpen}
@@ -450,8 +411,6 @@ const DocumentViewer: VoidComponent<{
         cancelLabel="Cancel"
         onConfirm={() => void handleDeleteConfirm()}
       />
-
-      {/* Inline properties moved to page-level top section in docs/[id].tsx */}
     </Box>
   );
 };
