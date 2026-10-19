@@ -70,6 +70,37 @@ export function createDocsQueryStore() {
       updatedTo: "",
     });
   };
+  const resetFilters = () => {
+    setState({
+      pathPrefix: "",
+      blankPathOnly: false,
+      metaKey: "",
+      metaValue: "",
+      source: "",
+      originalContentId: "",
+      createdFrom: "",
+      createdTo: "",
+      updatedFrom: "",
+      updatedTo: "",
+      activityClass: "",
+    });
+  };
+  const hasFilters = createMemo(
+    () =>
+      !!(
+        state.pathPrefix.trim() ||
+        state.blankPathOnly ||
+        state.metaKey.trim() ||
+        state.metaValue.trim() ||
+        state.source.trim() ||
+        state.originalContentId.trim() ||
+        state.createdFrom ||
+        state.createdTo ||
+        state.updatedFrom ||
+        state.updatedTo ||
+        state.activityClass
+      ),
+  );
   const resetPaging = () => {
     setState({ clientShown: 100, serverShown: 25 });
   };
@@ -111,6 +142,8 @@ export function createDocsQueryStore() {
     setSortMode,
     resetMeta,
     resetDatesAndSource,
+    resetFilters,
+    hasFilters,
     resetPaging,
     showMoreClient,
     showMoreServer,

@@ -1,7 +1,11 @@
 import { createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourcesResponse } from "../data/docs.service";
-import { bulkSetSource, bulkUpdateMeta } from "../data/docs.service";
+import {
+  bulkDeleteDocs,
+  bulkSetSource,
+  bulkUpdateMeta,
+} from "../data/docs.service";
 import { updateDoc } from "~/services/docs.service";
 import { useDocsIndexBulkActions } from "./useDocsIndexBulkActions";
 
@@ -149,7 +153,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
 
   it("reports partial metadata counts and clears selection for review", async () => {
     const refreshDocs = vi.fn();
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     vi.mocked(bulkUpdateMeta).mockResolvedValueOnce({
       ok: true,
       updated: 1,
@@ -179,7 +186,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
   });
 
   it("keeps the metadata write count when results cannot refresh", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     vi.mocked(bulkUpdateMeta).mockResolvedValueOnce({
       ok: true,
       updated: 1,
@@ -211,7 +221,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
     const refreshDocs = vi
       .fn()
       .mockRejectedValueOnce(new Error("refresh failed"));
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     vi.mocked(bulkUpdateMeta).mockRejectedValueOnce(actionError);
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -236,7 +249,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
   });
 
   it("keeps the metadata draft unapplied when confirmation is canceled", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => false));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => false),
+    );
     const refreshDocs = vi.fn();
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -260,7 +276,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
   });
 
   it("does not set a blank source prompt", async () => {
-    vi.stubGlobal("prompt", vi.fn(() => " \t "));
+    vi.stubGlobal(
+      "prompt",
+      vi.fn(() => " \t "),
+    );
     const refreshDocs = vi.fn();
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -281,7 +300,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
   });
 
   it("trims a padded source prompt before setting it", async () => {
-    vi.stubGlobal("prompt", vi.fn(() => "  importer  "));
+    vi.stubGlobal(
+      "prompt",
+      vi.fn(() => "  importer  "),
+    );
     const refreshDocs = vi.fn();
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -302,7 +324,10 @@ describe("useDocsIndexBulkActions bulk path", () => {
   });
 
   it("rejects metadata apply when no visible notes are selected", async () => {
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     let dispose!: () => void;
     const actions = createRoot((stop) => {
       dispose = stop;
@@ -336,6 +361,58 @@ describe("useDocsIndexBulkActions bulk path", () => {
     await expect(actions.handleApplyBulkPath("/new/path")).rejects.toThrow(
       "No selected visible notes.",
     );
+    dispose();
+  });
+});
+
+describe("useDocsIndexBulkActions dialog ui", () => {
+  const makeActions = (
+    ui: Parameters<typeof useDocsIndexBulkActions>[0]["ui"],
+  ) => {
+    let dispose!: () => void;
+    const actions = createRoot((stop) => {
+      dispose = stop;
+      return useDocsIndexBulkActions({
+        q: { searchText: () => "" } as never,
+        sources: () => undefined as SourcesResponse | undefined,
+        refreshDocs: vi.fn(),
+        refreshSources: vi.fn(),
+        ui,
+      });
+    });
+    return { actions, dispose };
+  };
+
+  it("asks through the injected dialog and keeps notes when declined", async () => {
+    const confirm = vi.fn(async () => false);
+    const { actions, dispose } = makeActions({
+      confirm,
+      promptText: vi.fn(),
+      notify: vi.fn(),
+    });
+    actions.setVisibleIds(["a", "b"]);
+    actions.handleSetSelected(["a", "b"], true);
+    await actions.handleDeleteSelected();
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Delete 2 selected notes?",
+        danger: true,
+      }),
+    );
+    expect(vi.mocked(bulkDeleteDocs)).not.toHaveBeenCalled();
+    expect(actions.selectedIds()).toEqual(new Set(["a", "b"]));
+    dispose();
+  });
+
+  it("uses the prompt dialog value for set source", async () => {
+    const promptText = vi.fn(async () => "evernote");
+    const { actions, dispose } = makeActions({
+      confirm: vi.fn(),
+      promptText,
+      notify: vi.fn(),
+    });
+    await actions.handleBulkSetSource();
+    expect(vi.mocked(bulkSetSource)).toHaveBeenCalledWith("evernote");
     dispose();
   });
 });

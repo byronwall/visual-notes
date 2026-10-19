@@ -19,7 +19,8 @@ export function formatRelativeTime(iso: string): string {
 export function formatAbsoluteTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toISOString();
+  // UTC keeps server and client renders identical.
+  return `${d.toISOString().replace("T", " ").slice(0, 16)} UTC`;
 }
 
 export const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -27,4 +28,3 @@ export const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 export const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 export const ONE_MONTH_MS = 30 * ONE_DAY_MS;
 export const ONE_YEAR_MS = 365 * ONE_DAY_MS;
-

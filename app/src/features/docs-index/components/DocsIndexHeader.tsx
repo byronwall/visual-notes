@@ -1,59 +1,73 @@
-import { type Accessor } from "solid-js";
-import type { SourcesResponse } from "../data/docs.service";
-import { ActionsPopover } from "./ActionsPopover";
-import { SelectionPopover } from "./SelectionPopover";
+import { createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { Heading } from "~/components/ui/heading";
-import { Text } from "~/components/ui/text";
-import { Flex, HStack } from "styled-system/jsx";
+import { Box, HStack } from "styled-system/jsx";
 
+/**
+ * Sticky page header: title + count + search on one row, then a fixed-height
+ * toolbar row whose content swaps between filters and bulk selection actions.
+ */
 export const DocsIndexHeader = (props: {
-  visibleCount: number;
-  selectedCount: number;
-  totalResultsCount: number;
-  sources: Accessor<SourcesResponse | undefined>;
-  onSelectAll: () => void;
-  onClearSelection: () => void;
-  onDeleteSelected: () => Promise<void>;
-  onBulkMeta: () => void;
-  onBulkPath: () => void;
-  onBulkSetSource: () => Promise<void>;
-  onCleanupTitles: () => Promise<void>;
-  onProcessPathRound: () => Promise<void>;
-  onScanRelativeImages: () => Promise<void>;
-  onDeleteBySource: (source: string, count: number) => Promise<void>;
-  onDeleteAll: () => Promise<void>;
+  countLabel: string;
+  search: JSX.Element;
+  actions: JSX.Element;
+  toolbar: JSX.Element;
 }) => {
+  // Show a hairline under the header only once content scrolls beneath it.
+  const [stuck, setStuck] = createSignal(false);
+  let sentinel: HTMLDivElement | undefined;
+  onMount(() => {
+    if (!sentinel || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setStuck(!entry.isIntersecting),
+    );
+    observer.observe(sentinel);
+    onCleanup(() => observer.disconnect());
+  });
+
   return (
-    <Flex align="center" justify="space-between" gap="0.75rem" flexWrap="wrap">
-      <HStack gap="3" alignItems="center" flexWrap="wrap">
-        <Heading as="h1" fontSize="2xl">
-          Notes
-        </Heading>
-        <Text fontSize="sm" color="fg.muted">
-          Selected {props.selectedCount} · Visible {props.visibleCount} · Results{" "}
-          {props.totalResultsCount}
-        </Text>
-      </HStack>
-      <HStack gap="2" alignItems="center">
-        <SelectionPopover
-          visibleCount={props.visibleCount}
-          selectedCount={props.selectedCount}
-          onSelectAll={props.onSelectAll}
-          onClearSelection={props.onClearSelection}
-          onDeleteSelected={props.onDeleteSelected}
-          onBulkMeta={props.onBulkMeta}
-          onBulkPath={props.onBulkPath}
-        />
-        <ActionsPopover
-          sources={props.sources}
-          onBulkSetSource={props.onBulkSetSource}
-          onCleanupTitles={props.onCleanupTitles}
-          onProcessPathRound={props.onProcessPathRound}
-          onScanRelativeImages={props.onScanRelativeImages}
-          onDeleteBySource={props.onDeleteBySource}
-          onDeleteAll={props.onDeleteAll}
-        />
-      </HStack>
-    </Flex>
+    <>
+      <div ref={sentinel} aria-hidden="true" />
+      <Box
+        position="sticky"
+        top="0"
+        zIndex="sticky"
+        bg="bg.default"
+        mx="-2"
+        px="2"
+        pt="4"
+        pb="1.5"
+        transitionProperty="box-shadow"
+        transitionDuration="160ms"
+        style={{
+          "box-shadow": stuck() ? "0 1px 0 var(--colors-gray-a4)" : "none",
+        }}
+      >
+        <HStack gap="3" alignItems="center">
+          <HStack
+            gap="2"
+            alignItems="baseline"
+            flexShrink="0"
+            smDown={{ display: "none" }}
+          >
+            <Heading as="h1" fontSize="xl" lineHeight="1">
+              Notes
+            </Heading>
+            <Box
+              fontSize="sm"
+              color="fg.subtle"
+              fontVariantNumeric="tabular-nums"
+              minW="5rem"
+            >
+              {props.countLabel}
+            </Box>
+          </HStack>
+          {props.search}
+          {props.actions}
+        </HStack>
+        <HStack gap="1.5" h="9" mt="1.5" minW="0" overflowX="clip">
+          {props.toolbar}
+        </HStack>
+      </Box>
+    </>
   );
 };

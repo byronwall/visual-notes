@@ -1,44 +1,29 @@
-import { ONE_DAY_MS, ONE_HOUR_MS, ONE_MONTH_MS, ONE_WEEK_MS, ONE_YEAR_MS } from "./time";
+import {
+  ONE_DAY_MS,
+  ONE_HOUR_MS,
+  ONE_MONTH_MS,
+  ONE_WEEK_MS,
+  ONE_YEAR_MS,
+} from "./time";
 
-export type DocListItem = {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  path?: string | null;
-  meta?: Record<string, unknown> | null;
-};
+const BUCKETS = [
+  { label: "Last hour", maxAgeMs: ONE_HOUR_MS },
+  { label: "Last day", maxAgeMs: ONE_DAY_MS },
+  { label: "Last week", maxAgeMs: ONE_WEEK_MS },
+  { label: "Last month", maxAgeMs: ONE_MONTH_MS },
+  { label: "Last year", maxAgeMs: ONE_YEAR_MS },
+  { label: "Older", maxAgeMs: Number.POSITIVE_INFINITY },
+];
 
-export function groupByUpdatedAt(items: DocListItem[], nowMs: number = Date.now()) {
-  const now = nowMs;
-
-  const buckets: Record<string, DocListItem[]> = {
-    hour: [],
-    day: [],
-    week: [],
-    month: [],
-    year: [],
-    older: [],
-  };
-
+export function groupByUpdatedAt<T extends { updatedAt: string }>(
+  items: T[],
+  nowMs: number = Date.now(),
+): { label: string; items: T[] }[] {
+  const groups = BUCKETS.map((b) => ({ label: b.label, items: [] as T[] }));
   for (const d of items) {
-    const t = new Date(d.updatedAt).getTime();
-    const dt = now - t;
-    if (dt <= ONE_HOUR_MS) buckets.hour.push(d);
-    else if (dt <= ONE_DAY_MS) buckets.day.push(d);
-    else if (dt <= ONE_WEEK_MS) buckets.week.push(d);
-    else if (dt <= ONE_MONTH_MS) buckets.month.push(d);
-    else if (dt <= ONE_YEAR_MS) buckets.year.push(d);
-    else buckets.older.push(d);
+    const age = nowMs - new Date(d.updatedAt).getTime();
+    const index = BUCKETS.findIndex((b) => age <= b.maxAgeMs);
+    groups[index < 0 ? groups.length - 1 : index].items.push(d);
   }
-
-  return [
-    { label: "Last hour", items: buckets.hour },
-    { label: "Last day", items: buckets.day },
-    { label: "Last week", items: buckets.week },
-    { label: "Last month", items: buckets.month },
-    { label: "Last year", items: buckets.year },
-    { label: "Older", items: buckets.older },
-  ];
+  return groups;
 }
-
