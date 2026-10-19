@@ -121,7 +121,19 @@ Then clean up every recorded ID with `audit:fixtures cleanup`. Do not delete a f
 
 CI's `Browser regressions` job runs `archive-title-cancel` and `auth-helper` against a production build and a throwaway Postgres. The other specs fail on main since the October UI redesign; add each one to that job's list in `.github/workflows/checks.yml` once it passes. They do not cover native clipboard (share Copy) or OS drag-and-drop.
 
+## Screenshots and layout report
+
+`pnpm audit:shoot` screenshots routes at several widths and prints one line per shot: load time, console and page errors, horizontal overflow, elements past the viewport edge, clipped text, overlapping controls, and small tap targets below 600 px. Details go to `<out>/report.json`. Use it instead of a one-off Playwright script, and treat its report as the layout check when you can't view images.
+
+```sh
+corepack pnpm audit:shoot -- --base http://127.0.0.1:<port> --routes "/,/tasks" --widths 1440,800,390 --out tmp/shots/after
+```
+
+Keep `--out` under `tmp/`. The session cache it writes there is a credential.
+
 ## Hand off work
+
+One writer per worktree. Never send a second agent into a worktree another session owns, even if it looks idle: quiet git history doesn't mean the session has stopped. To take over, cut a new worktree from the owner's pushed branch.
 
 Give each accepted change one current handoff instead of a stream of status messages. Update it when the source, proof, or limits change.
 

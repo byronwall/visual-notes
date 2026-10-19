@@ -20,6 +20,7 @@
     "audit:harness:check": "node --experimental-strip-types scripts/audit-harness.ts --self-check",
     "audit:fixtures": "node --experimental-strip-types scripts/audit-fixtures.ts",
     "audit:run": "node --experimental-strip-types scripts/audit-run.ts",
+    "audit:shoot": "node scripts/audit-shoot.mjs",
     "pgm:report": "node --experimental-strip-types scripts/pgm-report.ts",
     "mcp:playwright": "pnpm dlx @playwright/mcp@latest --isolated",
     "umap:setup:local": "node scripts/setup-umap-local.mjs",
