@@ -366,6 +366,18 @@ export const fetchArchivedPageGroupSummaries = query(
   "archive-group-summaries",
 );
 
+export const fetchArchivedPageTotals = query(
+  async (): Promise<{ total: number; ungrouped: number }> => {
+    "use server";
+    const [total, ungrouped] = await Promise.all([
+      prisma.archivedPage.count(),
+      prisma.archivedPage.count({ where: { groupName: null } }),
+    ]);
+    return { total, ungrouped };
+  },
+  "archive-page-totals",
+);
+
 export const fetchArchiveGroupCanvasItems = query(
   async (groupName: string): Promise<ArchiveGroupCanvasItem[]> => {
     "use server";

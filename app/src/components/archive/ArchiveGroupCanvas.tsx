@@ -10,11 +10,12 @@ import {
   type JSX,
 } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+import { LayoutGridIcon, ScanIcon, StickyNoteIcon } from "lucide-solid";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { ArchiveCanvasFreeformCard } from "~/components/archive/ArchiveCanvasFreeformCard";
 import { ArchiveDetailDrawer } from "~/components/archive/ArchiveDetailDrawer";
 import { Button } from "~/components/ui/button";
-import { Text } from "~/components/ui/text";
+import { Kbd } from "~/components/ui/kbd";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { toaster } from "~/components/ui/toast";
 import {
@@ -40,6 +41,7 @@ type Props = {
   items: ArchiveGroupCanvasItem[];
   groupOptions: string[];
   toolbarPrefix?: JSX.Element;
+  toolbarSuffix?: JSX.Element;
 };
 
 type CanvasNodeState = {
@@ -206,6 +208,19 @@ export const ArchiveGroupCanvas = (props: Props) => {
 
   const panZoomHandlers = createPanZoomHandlers(canvasStore);
 
+  // Trackpad two-finger scroll pans; pinch (ctrl+wheel) or cmd+wheel zooms.
+  const handleWheel = (event: WheelEvent) => {
+    if (event.ctrlKey || event.metaKey) {
+      panZoomHandlers.onWheel(event);
+      return;
+    }
+    event.preventDefault();
+    const offset = canvasStore.offset();
+    const dx = event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX;
+    const dy = event.shiftKey && !event.deltaX ? 0 : event.deltaY;
+    canvasStore.setOffset({ x: offset.x - dx, y: offset.y - dy });
+  };
+
   const itemsWithState = createMemo(() =>
     props.items.map((item) => {
       const node = nodes[item.id];
@@ -288,7 +303,7 @@ export const ArchiveGroupCanvas = (props: Props) => {
     const navHeight = canvasStore.navHeight();
     const usableWidth = Math.max(320, viewportSnapshot.width);
     const usableHeight = Math.max(240, viewportSnapshot.height - navHeight);
-    const padding = 260;
+    const padding = 96;
 
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
@@ -307,7 +322,7 @@ export const ArchiveGroupCanvas = (props: Props) => {
     const contentHeight = Math.max(280, maxY - minY + padding);
     const scale = Math.max(
       0.2,
-      Math.min(1.15, 0.92 * Math.min(usableWidth / contentWidth, usableHeight / contentHeight)),
+      Math.min(1, 0.94 * Math.min(usableWidth / contentWidth, usableHeight / contentHeight)),
     );
 
     canvasStore.animateToView({
@@ -644,9 +659,15 @@ export const ArchiveGroupCanvas = (props: Props) => {
     await persistNodeState(id, { ...current, mode });
   };
 
-  const beginCardDrag = (event: PointerEvent, itemId: string) => {
+  const DRAG_THRESHOLD_PX = 4;
+
+  /**
+   * Starts a potential drag. Movement under the threshold counts as a click and
+   * calls `onClick` instead, so a whole card can be both draggable and clickable.
+   */
+  const beginCardDrag = (event: PointerEvent, itemId: string, onClick?: () => void) => {
+    if (event.button !== 0) return;
     event.stopPropagation();
-    event.preventDefault();
 
     const currentTarget = event.currentTarget;
     if (!(currentTarget instanceof HTMLElement)) return;
@@ -671,8 +692,9 @@ export const ArchiveGroupCanvas = (props: Props) => {
     } catch (_) {}
 
     setActiveId(itemId);
-    setDraggingId(itemId);
     let latest = origin;
+    let moved = false;
+    const startClient = { x: event.clientX, y: event.clientY };
     const startCanvasPoint = screenToCanvas(event.clientX, event.clientY);
     const dragOffset = {
       x: startCanvasPoint.x - origin.x,
@@ -681,21 +703,21 @@ export const ArchiveGroupCanvas = (props: Props) => {
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== event.pointerId) return;
+      if (!moved) {
+        const distance = Math.hypot(moveEvent.clientX - startClient.x, moveEvent.clientY - startClient.y);
+        if (distance < DRAG_THRESHOLD_PX) return;
+        moved = true;
+        setDraggingId(itemId);
+        window.getSelection()?.removeAllRanges();
+      }
+      moveEvent.preventDefault();
       const nextCanvasPoint = screenToCanvas(moveEvent.clientX, moveEvent.clientY);
       latest = {
+        ...latest,
         x: nextCanvasPoint.x - dragOffset.x,
         y: nextCanvasPoint.y - dragOffset.y,
-        mode: latest.mode,
-        width: latest.width,
-        height: latest.height,
       };
-      setNodes(itemId, {
-        x: latest.x,
-        y: latest.y,
-        mode: latest.mode,
-        width: latest.width,
-        height: latest.height,
-      });
+      setNodes(itemId, { x: latest.x, y: latest.y });
     };
 
     const finish = async (upEvent: PointerEvent) => {
@@ -706,6 +728,10 @@ export const ArchiveGroupCanvas = (props: Props) => {
       try {
         currentTarget.releasePointerCapture(event.pointerId);
       } catch (_) {}
+      if (!moved) {
+        if (upEvent.type === "pointerup") onClick?.();
+        return;
+      }
       setDraggingId((value) => (value === itemId ? undefined : value));
       await persistNodeState(itemId, latest);
     };
@@ -853,35 +879,25 @@ export const ArchiveGroupCanvas = (props: Props) => {
   return (
     <>
       <Stack gap="3" h="full" minH="0">
-        <HStack
-          justify="space-between"
-          alignItems="center"
-          gap="2"
-          flexShrink="0"
-          minW="0"
-          flexWrap="wrap"
-        >
-          <HStack gap="3" minW="0" flex="1" overflow="hidden" flexWrap="wrap">
+        <HStack justify="space-between" alignItems="center" gap="2" flexShrink="0" minW="0">
+          <Box minW="0" overflow="hidden">
             {props.toolbarPrefix}
-            <HStack gap="2" minW="0" overflow="hidden">
-              <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="semibold" lineClamp="1">
-                {props.groupName}
-              </Text>
-              <Text color="fg.muted" fontSize="sm" lineClamp="1" hideBelow="md">
-                Drag, resize, and edit notes inline. Paste an image anywhere on the canvas.
-              </Text>
-            </HStack>
-          </HStack>
-
-          <HStack gap="2" flexWrap="wrap">
-            <Button type="button" variant="solid" onClick={() => void createNoteNode()}>
-              Add note
+          </Box>
+          <HStack gap="1" flexShrink="0">
+            {props.toolbarSuffix}
+            <Button type="button" variant="plain" size="sm" onClick={() => void arrangeGrid()} title="Arrange cards in a grid (G)">
+              <LayoutGridIcon size={15} />
+              <Box as="span" hideBelow="md">Arrange</Box>
+              <Kbd size="sm" hideBelow="lg">G</Kbd>
             </Button>
-            <Button type="button" variant="outline" onClick={() => void arrangeGrid()}>
-              Arrange grid (G)
+            <Button type="button" variant="plain" size="sm" onClick={fitToContent} title="Fit everything in view (F)">
+              <ScanIcon size={15} />
+              <Box as="span" hideBelow="md">Fit</Box>
+              <Kbd size="sm" hideBelow="lg">F</Kbd>
             </Button>
-            <Button type="button" variant="outline" onClick={fitToContent}>
-              Fit view (F)
+            <Button type="button" variant="outline" size="sm" onClick={() => void createNoteNode()}>
+              <StickyNoteIcon size={15} />
+              <Box as="span" hideBelow="sm">Add note</Box>
             </Button>
           </HStack>
         </HStack>
@@ -891,18 +907,18 @@ export const ArchiveGroupCanvas = (props: Props) => {
           flex="1"
           minH="0"
           borderRadius="l3"
-          borderWidth="1px"
-          borderColor="border"
           overflow="hidden"
-          bg="bg.default"
+          bg="bg.subtle"
+          userSelect="none"
+          boxShadow="inset 0 0 0 1px var(--colors-gray-a3)"
           style={{
             "touch-action": "none",
-            "background-image":
-              "linear-gradient(to right, rgba(80,80,80,0.035) 1px, transparent 1px), linear-gradient(to bottom, rgba(80,80,80,0.035) 1px, transparent 1px)",
-            "background-size": "32px 32px",
+            "background-image": "radial-gradient(var(--colors-gray-a5) 1px, transparent 1px)",
+            "background-size": `${24 * canvasStore.scale()}px ${24 * canvasStore.scale()}px`,
+            "background-position": `${canvasStore.offset().x}px ${canvasStore.offset().y}px`,
             cursor: canvasStore.isPanning() ? "grabbing" : "grab",
           }}
-          onWheel={panZoomHandlers.onWheel}
+          onWheel={handleWheel}
           onPointerDown={panZoomHandlers.onPointerDown}
           onPointerMove={panZoomHandlers.onPointerMove}
           onPointerUp={panZoomHandlers.onPointerUp}
@@ -973,7 +989,9 @@ export const ArchiveGroupCanvas = (props: Props) => {
                               cardElements.delete(itemId);
                             }}
                             onActivate={() => setActiveId(itemId)}
-                            onDragStart={(event) => beginCardDrag(event, itemId)}
+                            onDragStart={(event) =>
+                              beginCardDrag(event, itemId, () => setSelectedId(itemId))
+                            }
                             onModeChange={(mode) => void handleModeChange(itemId, mode)}
                             onOpenDetails={() => setSelectedId(itemId)}
                           />

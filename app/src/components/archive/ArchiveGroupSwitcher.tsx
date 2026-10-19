@@ -1,20 +1,16 @@
 import { ChevronDownIcon } from "lucide-solid";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Box, HStack, Stack } from "styled-system/jsx";
-import { A } from "@solidjs/router";
+import { Box, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import * as Popover from "~/components/ui/popover";
-import { styled } from "styled-system/jsx";
-
-const GroupCanvasLink = styled(A);
 
 export const ArchiveGroupSwitcher = (props: {
   value: string;
   options: string[];
-  canvasHref?: string;
+  placeholder?: string;
   onCommit: (value: string) => void | Promise<void>;
 }) => {
   const [open, setOpen] = createSignal(false);
@@ -46,77 +42,66 @@ export const ArchiveGroupSwitcher = (props: {
   };
 
   return (
-    <HStack gap="1.5" minW="0" onClick={(event) => event.stopPropagation()}>
-      <Show
-        when={props.value}
-        fallback={
-          <Text fontSize="sm" color="fg.muted" fontFamily="mono">
-            {"<no group>"}
-          </Text>
-        }
-      >
-        {(groupName) => (
-          <GroupCanvasLink
-            href={props.canvasHref || "#"}
-            onClick={(event) => event.stopPropagation()}
-            minW="0"
-            maxW="12rem"
-            overflow="hidden"
-            textOverflow="ellipsis"
-            whiteSpace="nowrap"
-            textDecoration="underline"
-            borderRadius="l1"
-            px="1"
-            py="0.5"
-            color="fg.default"
-            _hover={{ bg: "bg.subtle" }}
-          >
-            {groupName()}
-          </GroupCanvasLink>
-        )}
-      </Show>
-
+    <Box minW="0" maxW="full" flexShrink="0" onClick={(event) => event.stopPropagation()}>
       <Popover.Root
         open={open()}
         onOpenChange={(details) => setOpen(details.open)}
-        positioning={{ placement: "bottom-start", gutter: 6 }}
+        positioning={{ placement: "bottom-start", gutter: 4 }}
       >
         <Popover.Trigger
           type="button"
-          aria-label={props.value ? `Change group for ${props.value}` : "Assign group"}
+          aria-label={props.value ? `Change group (${props.value})` : "Assign group"}
           onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
           display="inline-flex"
           alignItems="center"
-          justifyContent="center"
-          w="6"
-          h="6"
-          borderRadius="l1"
-          color="fg.muted"
-          _hover={{ bg: "bg.subtle", color: "fg.default" }}
+          gap="1"
+          maxW="full"
+          minW="0"
+          h="7"
+          px="2"
+          ml="-2"
+          borderRadius="l2"
+          fontSize="sm"
+          color={props.value ? "fg.default" : "fg.subtle"}
+          cursor="pointer"
+          transitionProperty="background-color, color"
+          transitionDuration="fast"
+          _hover={{ bg: "gray.a3", color: "fg.default" }}
+          _expanded={{ bg: "gray.a3", color: "fg.default" }}
+          class="group"
         >
-          <ChevronDownIcon size={14} />
+          <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+            {props.value || props.placeholder || "No group"}
+          </Box>
+          <Box
+            as="span"
+            display="inline-flex"
+            flexShrink="0"
+            color="fg.subtle"
+            opacity={props.value ? 0 : 1}
+            transitionProperty="opacity"
+            transitionDuration="fast"
+            _groupHover={{ opacity: 1 }}
+            _groupExpanded={{ opacity: 1 }}
+          >
+            <ChevronDownIcon size={13} />
+          </Box>
         </Popover.Trigger>
         <Portal>
           <Popover.Positioner>
             <Popover.Content
-              style={{
-                width: "min(20rem, calc(100vw - 2rem))",
-              }}
+              minW="14rem"
+              maxW="calc(100vw - 2rem)"
               onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
             >
-              <Stack gap="3" p="3">
-                <Stack gap="1">
-                  <Text fontSize="sm" fontWeight="semibold">
-                    {props.value ? "Change group" : "Assign group"}
-                  </Text>
-                  <Text fontSize="xs" color="fg.muted">
-                    Choose an existing group or create a new label.
-                  </Text>
-                </Stack>
-
+              <Stack gap="2" p="2">
                 <Input
+                  size="sm"
+                  autofocus
                   value={draft()}
-                  placeholder="Group name"
+                  placeholder="Find or create group"
                   onInput={(event) => setDraft(event.currentTarget.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -185,6 +170,6 @@ export const ArchiveGroupSwitcher = (props: {
           </Popover.Positioner>
         </Portal>
       </Popover.Root>
-    </HStack>
+    </Box>
   );
 };

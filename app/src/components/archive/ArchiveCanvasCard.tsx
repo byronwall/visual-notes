@@ -1,4 +1,4 @@
-import { GripHorizontalIcon, PanelRightOpenIcon } from "lucide-solid";
+import { MessageSquareTextIcon, PanelRightOpenIcon, TextQuoteIcon } from "lucide-solid";
 import { For, Show, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { ArchiveFavicon } from "~/components/archive/ArchiveFavicon";
@@ -30,22 +30,28 @@ function truncateUrl(url: string, maxLength = 46) {
 const MODE_OPTIONS: Array<{
   label: string;
   value: ArchivedPageCanvasCardMode;
+  title: string;
 }> = [
-  { label: "C", value: "compact" },
-  { label: "S", value: "summary" },
-  { label: "R", value: "rich" },
+  { label: "C", value: "compact", title: "Compact: title and link" },
+  { label: "S", value: "summary", title: "Summary: description and notes" },
+  { label: "R", value: "rich", title: "Rich: longer text and images" },
 ];
 
-const SOURCE_STYLES = {
-  meta: {
-    label: "OG",
-    colorPalette: "blue",
-  },
-  note: {
-    label: "Note",
-    colorPalette: "green",
-  },
-} as const;
+const SourceLine = (props: { kind: "meta" | "note"; text: string; lines: number }) => (
+  <HStack alignItems="flex-start" gap="2" title={props.kind === "note" ? "Your note" : "Page description"}>
+    <Box pt="0.5" color={props.kind === "note" ? "green.10" : "fg.subtle"} flexShrink="0" display="flex">
+      {props.kind === "note" ? <MessageSquareTextIcon size={13} /> : <TextQuoteIcon size={13} />}
+    </Box>
+    <Text
+      fontSize="sm"
+      color={props.kind === "note" ? "fg.default" : "fg.muted"}
+      lineHeight="snug"
+      lineClamp={props.lines}
+    >
+      {props.text}
+    </Text>
+  </HStack>
+);
 
 export const ArchiveCanvasCard = (props: Props) => {
   const [showChrome, setShowChrome] = createSignal(false);
@@ -57,14 +63,22 @@ export const ArchiveCanvasCard = (props: Props) => {
       maxW="320px"
       borderRadius="l3"
       borderWidth="1px"
-      borderColor={props.isDragging || props.isActive ? "border.accent" : "border"}
+      borderColor={props.isDragging || props.isActive ? "gray.a7" : "border"}
       bg="bg.default"
       boxShadow={props.isDragging ? "lg" : props.isActive ? "md" : "sm"}
       overflow="visible"
       transitionDuration="normal"
       transitionProperty="box-shadow, border-color, transform"
+      cursor={props.isDragging ? "grabbing" : "pointer"}
+      userSelect="none"
       style={{
         "touch-action": "none",
+      }}
+      onPointerDown={(event) => {
+        const target = event.target;
+        if (target instanceof Element && target.closest("button, a, input, textarea, [data-no-drag]")) return;
+        props.onActivate();
+        props.onDragStart(event);
       }}
       onPointerEnter={() => {
         setShowChrome(true);
@@ -80,44 +94,11 @@ export const ArchiveCanvasCard = (props: Props) => {
     >
       <HStack
         position="absolute"
-        top="2"
-        left="4"
+        top="-4"
+        right="3"
         zIndex="3"
-        gap="1"
-        p="1"
-        borderRadius="full"
-        borderWidth="1px"
-        borderColor="border"
-        bg="bg.default"
-        boxShadow="sm"
-        opacity={showChrome() ? 1 : 0}
-        pointerEvents={showChrome() ? "auto" : "none"}
-        transitionDuration="normal"
-        transitionProperty="opacity"
-      >
-        <Button
-          type="button"
-          size="xs"
-          variant="plain"
-          aria-label={`Move ${props.item.title}`}
-          cursor={props.isDragging ? "grabbing" : "grab"}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            props.onActivate();
-            props.onDragStart(event);
-          }}
-        >
-          <GripHorizontalIcon size={14} />
-        </Button>
-      </HStack>
-
-      <HStack
-        position="absolute"
-        top="2"
-        right="4"
-        zIndex="3"
-        gap="1"
-        p="1"
+        gap="0.5"
+        p="0.5"
         borderRadius="full"
         borderWidth="1px"
         borderColor="border"
@@ -135,6 +116,7 @@ export const ArchiveCanvasCard = (props: Props) => {
               size="xs"
               variant={props.item.canvasCardMode === option.value ? "solid" : "plain"}
               aria-label={`Show ${option.value} card`}
+              title={option.title}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
@@ -162,124 +144,55 @@ export const ArchiveCanvasCard = (props: Props) => {
         </Button>
       </HStack>
 
-      <Stack gap="3" px="4" py="4" overflow="hidden" borderRadius="inherit">
-        <HStack gap="2.5" minW="0">
-          <ArchiveFavicon src={props.item.faviconUrl} title={props.item.title} size="18px" />
-          <Text fontSize="sm" fontWeight="semibold" lineClamp="2">
-            {props.item.title}
-          </Text>
+      <Stack gap="2.5" px="4" py="3.5" overflow="hidden" borderRadius="inherit">
+        <HStack gap="2.5" minW="0" alignItems="flex-start">
+          <Box pt="0.5">
+            <ArchiveFavicon src={props.item.faviconUrl} title={props.item.title} size="18px" />
+          </Box>
+          <Stack gap="0.5" minW="0">
+            <Text fontSize="sm" fontWeight="semibold" lineHeight="snug" lineClamp="2">
+              {props.item.title}
+            </Text>
+            <Link
+              href={props.item.originalUrl}
+              target="_blank"
+              rel="noreferrer"
+              fontSize="xs"
+              fontFamily="mono"
+              color="fg.muted"
+              textDecoration="none"
+              whiteSpace="nowrap"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              maxW="full"
+              display="block"
+              _hover={{ color: "colorPalette.default" }}
+              title={props.item.originalUrl}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {props.item.siteHostname?.replace(/^www\./, "") || truncateUrl(props.item.originalUrl)}
+            </Link>
+          </Stack>
         </HStack>
 
-          <Link
-            href={props.item.originalUrl}
-            target="_blank"
-            rel="noreferrer"
-            display="inline-flex"
-            alignItems="center"
-            fontSize="sm"
-            fontFamily="mono"
-            color="fg.default"
-            lineClamp="1"
-            title={props.item.originalUrl}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {truncateUrl(props.item.originalUrl)}
-          </Link>
-
-          <Show when={props.item.canvasCardMode !== "compact"}>
-            <Stack gap="2">
-              <Show when={props.item.metaDescription}>
-                {(description) => (
-                  <HStack alignItems="flex-start" gap="2">
-                    <Box
-                      px="1.5"
-                      py="0.5"
-                      borderRadius="full"
-                      bg="blue.subtle"
-                      color="blue.fg"
-                      flexShrink="0"
-                    >
-                      <Text fontSize="2xs" fontWeight="medium">
-                        {SOURCE_STYLES.meta.label}
-                      </Text>
-                    </Box>
-                    <Text
-                      fontSize="sm"
-                      color="fg.default"
-                      lineClamp={props.item.canvasCardMode === "rich" ? 4 : 2}
-                    >
-                      {description()}
-                    </Text>
-                  </HStack>
-                )}
-              </Show>
-
-              <For each={props.item.noteSnippets}>
-                {(noteText) => (
-                  <HStack alignItems="flex-start" gap="2">
-                    <Box
-                      px="1.5"
-                      py="0.5"
-                      borderRadius="full"
-                      bg="green.subtle"
-                      color="green.fg"
-                      flexShrink="0"
-                    >
-                      <Text fontSize="2xs" fontWeight="medium">
-                        {SOURCE_STYLES.note.label}
-                      </Text>
-                    </Box>
-                    <Text
-                      fontSize="sm"
-                      color="fg.default"
-                      lineClamp={props.item.canvasCardMode === "rich" ? 3 : 2}
-                    >
-                      {noteText}
-                    </Text>
-                  </HStack>
-                )}
-              </For>
-
-              <Show
-                when={
-                  !props.item.metaDescription &&
-                  props.item.noteSnippets.length === 0 &&
-                  props.item.description
-                }
-              >
-                {(description) => (
-                  <HStack alignItems="flex-start" gap="2">
-                    <Box
-                      px="1.5"
-                      py="0.5"
-                      borderRadius="full"
-                      bg={
-                        props.item.descriptionSource === "note" ? "green.subtle" : "blue.subtle"
-                      }
-                      color={
-                        props.item.descriptionSource === "note" ? "green.fg" : "blue.fg"
-                      }
-                      flexShrink="0"
-                    >
-                      <Text fontSize="2xs" fontWeight="medium">
-                        {props.item.descriptionSource === "note"
-                          ? SOURCE_STYLES.note.label
-                          : SOURCE_STYLES.meta.label}
-                      </Text>
-                    </Box>
-                    <Text
-                      fontSize="sm"
-                      color="fg.default"
-                      lineClamp={props.item.canvasCardMode === "rich" ? 4 : 2}
-                    >
-                      {description()}
-                    </Text>
-                  </HStack>
-                )}
-              </Show>
-            </Stack>
-          </Show>
+        <Show when={props.item.canvasCardMode !== "compact"}>
+          <Stack gap="1.5">
+            <Show when={props.item.metaDescription || (props.item.noteSnippets.length === 0 && props.item.description)}>
+              {(description) => (
+                <SourceLine
+                  kind={props.item.metaDescription ? "meta" : props.item.descriptionSource ?? "meta"}
+                  text={description()}
+                  lines={props.item.canvasCardMode === "rich" ? 4 : 2}
+                />
+              )}
+            </Show>
+            <For each={props.item.noteSnippets}>
+              {(noteText) => (
+                <SourceLine kind="note" text={noteText} lines={props.item.canvasCardMode === "rich" ? 3 : 2} />
+              )}
+            </For>
+          </Stack>
+        </Show>
 
           <Show when={props.item.canvasCardMode === "rich" && props.item.preferredImages.length > 0}>
             <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
