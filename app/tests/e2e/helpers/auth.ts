@@ -1,29 +1,13 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
 import { waitForAppReady } from "./readiness";
 
-const parseEnvPassword = () => {
-  if (process.env.PLAYWRIGHT_MAGIC_PASSWORD) {
-    return process.env.PLAYWRIGHT_MAGIC_PASSWORD;
-  }
-  if (process.env.MAGIC_PASSWORD) {
-    return process.env.MAGIC_PASSWORD;
-  }
-
-  try {
-    const envText = readFileSync(join(process.cwd(), ".env"), "utf8");
-    const line = envText
-      .split(/\r?\n/)
-      .find((entry) => entry.trim().startsWith("MAGIC_PASSWORD="));
-    if (!line) return null;
-    return line.split("=").slice(1).join("=").trim().replace(/^"|"$/g, "");
-  } catch {
-    return null;
-  }
-};
-
-export const ensureAuthed = async (page: Page) => {
+// Tests start signed in from the session saved by global-setup.ts. Only
+// global setup passes the real test credential here; inside a traced test the
+// typed value would be recorded, so tests may pass only a fixture password.
+export const ensureAuthed = async (
+  page: Page,
+  options: { password?: string } = {},
+) => {
   await page.goto("/");
   await waitForAppReady(page);
   await page.waitForLoadState("networkidle");
@@ -32,14 +16,13 @@ export const ensureAuthed = async (page: Page) => {
 
   if (!needsLogin) return;
 
-  const password = parseEnvPassword();
-  if (!password) {
+  if (!options.password) {
     throw new Error(
-      "No MAGIC_PASSWORD available for Playwright auth. Set PLAYWRIGHT_MAGIC_PASSWORD or MAGIC_PASSWORD."
+      "Not signed in. Global setup signs in when PLAYWRIGHT_MAGIC_PASSWORD_FILE (preferred) or PLAYWRIGHT_MAGIC_PASSWORD is set.",
     );
   }
 
-  await page.getByRole("textbox").first().fill(password);
+  await page.getByRole("textbox").first().fill(options.password);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForLoadState("networkidle");
   await expect(page).not.toHaveURL((url) => url.pathname === "/login");

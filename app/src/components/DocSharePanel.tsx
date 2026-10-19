@@ -200,18 +200,22 @@ export function DocSharePanel(props: DocSharePanelProps) {
           >
             <Button
               type="button"
-              size="sm"
-              variant="outline"
+              size="xs"
+              variant="plain"
               colorPalette={share() ? "green" : "gray"}
-              borderColor={share() ? "green.7" : "gray.outline.border"}
-              bg={share() ? "green.subtle" : "bg.default"}
-              color={share() ? "green.fg" : "fg.default"}
+              bg={share() ? "green.subtle.bg" : "transparent"}
+              color={share() ? "green.11" : "fg.muted"}
+              _hover={{
+                bg: share() ? "green.subtle.bg.hover" : "gray.plain.bg.hover",
+                color: share() ? "green.12" : "fg.default",
+              }}
               aria-label={
                 share() ? "Manage shared note link" : "Create a share link"
               }
               onClick={() => setOpen((value) => !value)}
-              minW="9"
-              w="9"
+              minW="7"
+              w="7"
+              h="7"
               px="0"
             >
               <Globe2Icon size={14} />

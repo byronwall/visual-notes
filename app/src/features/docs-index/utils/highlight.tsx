@@ -13,7 +13,7 @@ export function renderHighlighted(text: string, query: string) {
   const parts = text.split(pattern);
   const markClass = css({
     bg: "amber.3",
-    color: "black",
+    color: "fg.default",
   });
   return (
     <>

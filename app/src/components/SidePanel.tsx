@@ -13,10 +13,16 @@ type SidePanelProps = {
   ariaLabel?: string;
   /** Optional width override */
   width?: string;
+  /**
+   * Modal panels dim and block the page behind them (default). Non-modal
+   * panels leave the page interactive, e.g. to keep exploring a canvas.
+   */
+  modal?: boolean;
 };
 
 export const SidePanel = (props: SidePanelProps) => {
   const shouldCloseOnEsc = () => props.closeOnEsc !== false;
+  const isModal = () => props.modal !== false;
   let panelElement: HTMLDivElement | undefined;
 
   createEffect(() => {
@@ -37,7 +43,7 @@ export const SidePanel = (props: SidePanelProps) => {
 
   // Lock background scroll while panel is open
   createEffect(() => {
-    if (!props.open) return;
+    if (!props.open || !isModal()) return;
     const release = acquireBodyScrollLock();
     onCleanup(release);
   });
@@ -51,18 +57,21 @@ export const SidePanel = (props: SidePanelProps) => {
           zIndex="50"
           overflow="hidden"
           overscrollBehavior="contain"
+          pointerEvents={isModal() ? "auto" : "none"}
           role="dialog"
-          aria-modal="true"
+          aria-modal={isModal() ? "true" : "false"}
           aria-label={props.ariaLabel || "Side panel"}
           ref={panelElement}
         >
-          <Box
-            position="absolute"
-            inset="0"
-            bg="black.a3"
-            onClick={props.onClose}
-            style={{ "backdrop-filter": "blur(6px)" }}
-          />
+          <Show when={isModal()}>
+            <Box
+              position="absolute"
+              inset="0"
+              bg="black.a3"
+              onClick={props.onClose}
+              style={{ "backdrop-filter": "blur(6px)" }}
+            />
+          </Show>
           <Box
             position="absolute"
             insetY="0"
@@ -77,10 +86,10 @@ export const SidePanel = (props: SidePanelProps) => {
             borderLeftWidth="1px"
             borderColor="border"
             boxShadow="2xl"
+            pointerEvents="auto"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: props.width || "min(94vw, 560px)",
-              background: "rgba(255,255,255,0.98)",
               "backdrop-filter": "blur(10px)",
             }}
           >

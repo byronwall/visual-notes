@@ -13,6 +13,7 @@ import { MarkdownPaste } from "./MarkdownPaste";
 import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { SelectionMarkShortcuts } from "./SelectionMarkShortcuts";
 import { createEmojiSuggestion } from "./emojiSuggestion";
+import { SlashCommands } from "./SlashCommands";
 
 export function buildExtensions(
   csvPrompt: (
@@ -45,6 +46,7 @@ export function buildExtensions(
     CustomTableCell,
     ListItemReorderShortcuts,
     SelectionMarkShortcuts,
+    SlashCommands,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here
     MarkdownPaste.configure({}),

@@ -8,6 +8,7 @@ import { Input } from "~/components/ui/input";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Textarea } from "~/components/ui/textarea";
+import { STATUS_META } from "./TaskStatusIcon";
 import {
   TASK_STATUSES,
   type TaskItem,
@@ -86,7 +87,7 @@ export const TaskEditorDialog = (props: Props) => {
   let descriptionRef: HTMLTextAreaElement | undefined;
 
   const dialogTitle = createMemo(() =>
-    props.mode === "create" ? "Create Task" : "Edit Task"
+    props.mode === "create" ? "New task" : "Edit task",
   );
 
   createEffect(() => {
@@ -105,7 +106,10 @@ export const TaskEditorDialog = (props: Props) => {
   });
 
   const statusItems = createMemo(() =>
-    TASK_STATUSES.map((item) => ({ label: item, value: item }))
+    TASK_STATUSES.map((item) => ({
+      label: STATUS_META[item].label,
+      value: item,
+    })),
   );
 
   const parentItems = createMemo(() => [
@@ -190,10 +194,18 @@ export const TaskEditorDialog = (props: Props) => {
             </Button>
           </Show>
           <HStack gap="2" ml="auto">
-            <Button variant="outline" onClick={props.onClose} disabled={submitting() || deleting()}>
+            <Button
+              variant="outline"
+              onClick={props.onClose}
+              disabled={submitting() || deleting()}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSave} loading={submitting()} data-testid="task-save-button">
+            <Button
+              onClick={handleSave}
+              loading={submitting()}
+              data-testid="task-save-button"
+            >
               Save
             </Button>
           </HStack>
@@ -210,7 +222,8 @@ export const TaskEditorDialog = (props: Props) => {
               value={description()}
               onInput={(event) => setDescription(event.currentTarget.value)}
               placeholder="What needs to get done?"
-              rows={3}
+              rows={2}
+              autoresize
             />
           </Stack>
         </Field.Root>
@@ -256,7 +269,9 @@ export const TaskEditorDialog = (props: Props) => {
                 type="number"
                 min="1"
                 value={durationMinutes()}
-                onInput={(event) => setDurationMinutes(event.currentTarget.value)}
+                onInput={(event) =>
+                  setDurationMinutes(event.currentTarget.value)
+                }
                 placeholder="30"
                 data-testid="task-duration-input"
               />
@@ -277,28 +292,38 @@ export const TaskEditorDialog = (props: Props) => {
           </Stack>
         </Field.Root>
 
-        <Collapsible.Root open={showAdvanced()} onOpenChange={(details) => setShowAdvanced(details.open)}>
+        <Collapsible.Root
+          open={showAdvanced()}
+          onOpenChange={(details) => setShowAdvanced(details.open)}
+        >
           <Stack gap="2">
-            <Collapsible.Trigger asChild={(triggerProps) => (
-              <Button
-                {...triggerProps()}
-                type="button"
-                variant="plain"
-                justifyContent="space-between"
-                px="0"
-              >
-                <span>Advanced details</span>
-                <Show when={showAdvanced()} fallback={<ChevronRightIcon size={16} />}>
-                  <ChevronDownIcon size={16} />
-                </Show>
-              </Button>
-            )} />
+            <Collapsible.Trigger
+              asChild={(triggerProps) => (
+                <Button
+                  {...triggerProps()}
+                  type="button"
+                  variant="plain"
+                  justifyContent="space-between"
+                  px="0"
+                >
+                  <span>Advanced details</span>
+                  <Show
+                    when={showAdvanced()}
+                    fallback={<ChevronRightIcon size={16} />}
+                  >
+                    <ChevronDownIcon size={16} />
+                  </Show>
+                </Button>
+              )}
+            />
 
             <Collapsible.Content>
               <Stack gap="3" pt="1">
                 <Field.Root>
                   <Stack gap="1.5">
-                    <Field.Label for="task-tags">Tags (comma separated)</Field.Label>
+                    <Field.Label for="task-tags">
+                      Tags (comma separated)
+                    </Field.Label>
                     <Input
                       id="task-tags"
                       value={tags()}
@@ -318,7 +343,9 @@ export const TaskEditorDialog = (props: Props) => {
                       id="task-meta"
                       rows={4}
                       value={metaText()}
-                      onInput={(event) => setMetaText(event.currentTarget.value)}
+                      onInput={(event) =>
+                        setMetaText(event.currentTarget.value)
+                      }
                       placeholder="owner: byron\npriority: high"
                       data-testid="task-meta-input"
                     />

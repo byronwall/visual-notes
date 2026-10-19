@@ -1,4 +1,5 @@
 import { createHandler, StartServer } from "@solidjs/start/server";
+import { THEME_BOOT_SCRIPT } from "~/lib/theme-mode";
 
 export default createHandler(() => (
   <StartServer
@@ -22,7 +23,18 @@ export default createHandler(() => (
             sizes="16x16"
             href="/favicon-16x16.png"
           />
-          <meta name="theme-color" content="#ffffff" />
+          <meta
+            name="theme-color"
+            media="(prefers-color-scheme: light)"
+            content="#f8faf8"
+          />
+          <meta
+            name="theme-color"
+            media="(prefers-color-scheme: dark)"
+            content="#181917"
+          />
+          {/* Must run before CSS paints so dark mode never flashes light. */}
+          <script innerHTML={THEME_BOOT_SCRIPT} />
           {assets}
         </head>
         <body>

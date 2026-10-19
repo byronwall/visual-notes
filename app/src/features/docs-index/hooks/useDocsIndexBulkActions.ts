@@ -15,12 +15,36 @@ import type { DocsQueryStore } from "../state/docsQuery";
 import { logSearchResultOpened } from "~/services/activity/activity.actions";
 import { updateDoc } from "~/services/docs.service";
 
+type ConfirmOptions = {
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  danger?: boolean;
+};
+
+export type DocsIndexUi = {
+  confirm: (opts: ConfirmOptions) => Promise<boolean>;
+  promptText: (
+    opts: ConfirmOptions & { input?: { placeholder?: string } },
+  ) => Promise<string | null>;
+  notify: (title: string, type?: "success" | "info" | "error") => void;
+};
+
+const nativeUi: DocsIndexUi = {
+  confirm: async (o) => confirm(o.description),
+  promptText: async (o) => prompt(o.description)?.trim() || null,
+  notify: (title) => alert(title),
+};
+
 export const useDocsIndexBulkActions = (args: {
   q: DocsQueryStore;
   sources: Accessor<SourcesResponse | undefined>;
   refreshDocs: () => Promise<unknown> | unknown;
   refreshSources: () => Promise<unknown> | unknown;
+  /** Dialog-backed prompts; default to the browser's native ones. */
+  ui?: DocsIndexUi;
 }) => {
+  const ui: DocsIndexUi = args.ui ?? nativeUi;
   const [visibleIds, setVisibleIds] = createSignal<string[]>([]);
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
   const [showBulkMeta, setShowBulkMeta] = createSignal(false);
@@ -55,6 +79,18 @@ export const useDocsIndexBulkActions = (args: {
     });
   };
 
+  const handleSetSelected = (ids: string[], next: boolean) => {
+    if (!ids.length) return;
+    setSelectedIds((prev) => {
+      const nextSet = new Set(prev);
+      for (const id of ids) {
+        if (next) nextSet.add(id);
+        else nextSet.delete(id);
+      }
+      return nextSet;
+    });
+  };
+
   const handleSelectAllVisible = () => {
     const ids = visibleIds();
     if (!ids.length) return;
@@ -67,8 +103,12 @@ export const useDocsIndexBulkActions = (args: {
   };
 
   const handleBulkSetSource = async () => {
-    const value = prompt("Enter source to set on all notes (originalSource):");
-    const source = value?.trim();
+    const source = await ui.promptText({
+      title: "Set source on all notes",
+      description: "Every note's original source will be set to this value.",
+      confirmLabel: "Set source",
+      input: { placeholder: "originalSource" },
+    });
     if (!source) return;
     await runBulkSetSource(source);
     await args.refreshDocs();
@@ -93,13 +133,16 @@ export const useDocsIndexBulkActions = (args: {
     const pre = await cleanupTitlesDryRun();
     const count = Number(pre.candidates || 0);
     if (!count) {
-      alert("No titles to clean.");
+      ui.notify("No titles need cleaning.", "info");
       return;
     }
     if (
-      !confirm(
-        `Clean bad titles for ${count} notes? This will remove long hex-like blocks.`,
-      )
+      !(await ui.confirm({
+        title: `Clean ${count} titles?`,
+        description:
+          "Long hex-like blocks will be removed from these note titles.",
+        confirmLabel: "Clean titles",
+      }))
     )
       return;
     await runCleanupTitles();
@@ -108,9 +151,13 @@ export const useDocsIndexBulkActions = (args: {
 
   const handleDeleteBySource = async (source: string, count: number) => {
     if (
-      !confirm(
-        `Delete all notes for "${source}" (${count})? This cannot be undone.`,
-      )
+      !(await ui.confirm({
+        title: `Delete ${count} notes from ${source}?`,
+        description:
+          "Every note imported from this source is deleted. This cannot be undone.",
+        confirmLabel: "Delete notes",
+        danger: true,
+      }))
     )
       return;
     await runDeleteBySource(source);
@@ -120,12 +167,23 @@ export const useDocsIndexBulkActions = (args: {
   const handleProcessPathRound = async () => {
     const res = await runProcessPathRound();
     await Promise.all([args.refreshDocs(), args.refreshSources()]);
-    alert(`Processed path round. Updated: ${res.updated}, Failed: ${res.failed}.`);
+    ui.notify(
+      `Path round done: ${res.updated} updated, ${res.failed} failed.`,
+      res.failed ? "error" : "success",
+    );
   };
 
   const handleDeleteAll = async () => {
     const total = args.sources()?.total ?? 0;
-    if (!confirm(`Delete ALL notes (${total})? This cannot be undone.`)) return;
+    if (
+      !(await ui.confirm({
+        title: `Delete all ${total} notes?`,
+        description: "Every note is deleted. This cannot be undone.",
+        confirmLabel: "Delete all notes",
+        danger: true,
+      }))
+    )
+      return;
     await runDeleteAllDocs();
     await Promise.all([args.refreshDocs(), args.refreshSources()]);
   };
@@ -134,10 +192,17 @@ export const useDocsIndexBulkActions = (args: {
     const ids = visibleIds().filter((id) => selectedIds().has(id));
     const count = ids.length;
     if (!count) {
-      alert("No selected visible notes to delete.");
+      ui.notify("Select notes to delete first.", "info");
       return;
     }
-    if (!confirm(`Delete the ${count} selected notes? This cannot be undone.`))
+    if (
+      !(await ui.confirm({
+        title: `Delete ${count} selected ${count === 1 ? "note" : "notes"}?`,
+        description: "This cannot be undone.",
+        confirmLabel: "Delete",
+        danger: true,
+      }))
+    )
       return;
     await runBulkDeleteDocs(ids);
     setSelectedIds((prev) => {
@@ -169,7 +234,13 @@ export const useDocsIndexBulkActions = (args: {
     if (!count) {
       throw new Error("No selected visible notes. Review the selection.");
     }
-    if (!confirm(`Apply ${actions.length} action(s) to ${count} selected notes?`))
+    if (
+      !(await ui.confirm({
+        title: `Update meta on ${count} ${count === 1 ? "note" : "notes"}?`,
+        description: `${actions.length} ${actions.length === 1 ? "change" : "changes"} will be applied to each selected note.`,
+        confirmLabel: "Apply",
+      }))
+    )
       return false;
     setBulkBusy(true);
     try {
@@ -231,12 +302,10 @@ export const useDocsIndexBulkActions = (args: {
           results[index].status === "fulfilled" &&
           results[index].value?.id === id,
       );
-      const failedIds = ids.filter(
-        (id, index) => {
-          const result = results[index];
-          return result.status === "rejected" || result.value?.id !== id;
-        },
-      );
+      const failedIds = ids.filter((id, index) => {
+        const result = results[index];
+        return result.status === "rejected" || result.value?.id !== id;
+      });
       setSelectedIds((prev) => {
         const next = new Set(prev);
         for (const id of succeededIds) next.delete(id);
@@ -270,18 +339,23 @@ export const useDocsIndexBulkActions = (args: {
     const pre = await runScanRelativeImages({ dryRun: true });
     const count = Number(pre.matches || 0);
     if (!count) {
-      alert("No notes found with relative image links.");
+      ui.notify("No notes have relative image links.", "info");
       return;
     }
     if (
-      !confirm(
-        `Mark ${count} notes with meta has_relative_image=true? This updates note metadata.`,
-      )
+      !(await ui.confirm({
+        title: `Mark ${count} notes with relative images?`,
+        description: "Sets meta has_relative_image=true on each matching note.",
+        confirmLabel: "Mark notes",
+      }))
     )
       return;
     const res = await runScanRelativeImages({});
     await Promise.all([args.refreshDocs(), args.refreshSources()]);
-    alert(`Updated: ${res.updated ?? 0}, Failed: ${res.failed ?? 0}.`);
+    ui.notify(
+      `Marked ${res.updated ?? 0} notes, ${res.failed ?? 0} failed.`,
+      res.failed ? "error" : "success",
+    );
   };
 
   return {
@@ -292,6 +366,7 @@ export const useDocsIndexBulkActions = (args: {
     showBulkPath,
     setVisibleIds,
     handleToggleSelect,
+    handleSetSelected,
     handleSelectAllVisible,
     handleSelectNone,
     handleBulkSetSource,

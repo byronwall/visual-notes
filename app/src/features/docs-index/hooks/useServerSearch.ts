@@ -32,6 +32,8 @@ export function useServerSearch(
 ) {
   const debounced = useDebouncedSignal(qSig, { leadMs: 100, trailMs: 500 });
   const [results, setResults] = createSignal<ServerSearchItem[]>([]);
+  // The query the current results answer; lets the UI dim only stale results.
+  const [resultsQuery, setResultsQuery] = createSignal("");
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<"request" | "timeout">();
   const [reloadTick, setReloadTick] = createSignal(0);
@@ -61,7 +63,8 @@ export function useServerSearch(
     latestRequestId = requestId;
     inFlight.add(requestId);
     setLoading(true);
-    setResults([]);
+    // Keep the previous results visible (dimmed by the list) until the new
+    // response lands, so typing never flashes an empty list.
     setError(undefined);
 
     const startMs = Date.now();
@@ -127,6 +130,7 @@ export function useServerSearch(
           count: items.length,
         });
         setResults(items);
+        setResultsQuery(q);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -154,5 +158,5 @@ export function useServerSearch(
     setReloadTick((x) => x + 1);
   };
 
-  return { results, loading, error, refetch };
+  return { results, resultsQuery, loading, error, refetch };
 }

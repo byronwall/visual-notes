@@ -32,7 +32,10 @@ export const amber = defineSemanticTokens.colors({
     },
     fg: { DEFAULT: { value: { _light: '{colors.gray.12}', _dark: '{colors.gray.1}' } } },
   },
+  // Shorthand aliases: `<palette>.subtle` (tinted bg) and `<palette>.fg` (readable text).
+  fg: { DEFAULT: { value: { _light: '{colors.amber.a11}', _dark: '{colors.amber.a11}' } } },
   subtle: {
+    DEFAULT: { value: { _light: '{colors.amber.a3}', _dark: '{colors.amber.a3}' } },
     bg: {
       DEFAULT: { value: { _light: '{colors.amber.a3}', _dark: '{colors.amber.a3}' } },
       hover: { value: { _light: '{colors.amber.a4}', _dark: '{colors.amber.a4}' } },

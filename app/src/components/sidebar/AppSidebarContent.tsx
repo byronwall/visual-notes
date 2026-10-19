@@ -1,15 +1,13 @@
 import type { Accessor } from "solid-js";
 import { Show } from "solid-js";
-import { Box, HStack, VisuallyHidden } from "styled-system/jsx";
-import { AppSidebarNav } from "./AppSidebarNav";
-import { CloseButton } from "~/components/ui/close-button";
-import { IconButton } from "~/components/ui/icon-button";
-import { Image } from "~/components/ui/image";
-import { Link } from "~/components/ui/link";
+import { PanelLeftCloseIcon, PanelLeftOpenIcon, XIcon } from "lucide-solid";
+import { css } from "styled-system/css";
+import { Box, HStack } from "styled-system/jsx";
+import { Tooltip } from "~/components/ui/tooltip";
 import { AppSidebarActions } from "./AppSidebarActions";
 import { AppSidebarFooter } from "./AppSidebarFooter";
+import { AppSidebarNav } from "./AppSidebarNav";
 import { AppSidebarRecentDocs } from "./AppSidebarRecentDocs";
-import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-solid";
 
 export type AppSidebarContentProps = {
   expanded: boolean;
@@ -25,126 +23,155 @@ export type AppSidebarContentProps = {
   authed: Accessor<boolean>;
 };
 
-const AppSidebarSeparator = () => {
-  return <Box borderTopWidth="1px" borderColor="border" mx="2" my="1" />;
-};
+const headerIconButtonClass = css({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxSize: "8",
+  flexShrink: "0",
+  borderRadius: "l2",
+  color: "fg.subtle",
+  bg: "transparent",
+  cursor: "pointer",
+  transitionProperty: "background-color, color",
+  transitionDuration: "140ms",
+  transitionTimingFunction: "ease-out",
+  _hover: { bg: "gray.a3", color: "fg.default" },
+  _active: { bg: "gray.a4" },
+  _focusVisible: {
+    outline: "2px solid",
+    outlineColor: "blue.9",
+    outlineOffset: "-2px",
+  },
+});
+
+const brandLinkClass = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2",
+  minW: "0",
+  flex: "1",
+  h: "8",
+  px: "1.5",
+  borderRadius: "l2",
+  color: "fg.default",
+  fontWeight: "semibold",
+  fontSize: "sm",
+  letterSpacing: "tight",
+  textDecorationLine: "none",
+  _hover: { bg: "gray.a3", textDecorationLine: "none" },
+  _focusVisible: {
+    outline: "2px solid",
+    outlineColor: "blue.9",
+    outlineOffset: "-2px",
+  },
+});
 
 export const AppSidebarContent = (props: AppSidebarContentProps) => {
+  const isMobile = () => props.mode === "mobile";
+  const closeIfMobile = () => {
+    if (isMobile()) props.onClose();
+  };
+
   return (
     <Box
       as="nav"
-      position="relative"
+      aria-label="Main"
+      display="flex"
+      flexDirection="column"
       h="100%"
-      maxH="100vh"
+      maxH="100dvh"
       minH="0"
-      overflow="visible"
+      overflowX="hidden"
+      px="2"
+      pt="2"
+      pb="2"
+      gap="3"
     >
-      <Show when={props.mode === "desktop"}>
-        <Box
-          position="absolute"
-          top="4"
-          right="-14px"
-          zIndex="3"
-        >
-          <IconButton
-            variant="outline"
-            size="xs"
-            bg="bg.default"
-            aria-label={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
-            title={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
-            onClick={props.onToggleCollapse}
-          >
-            <Show
-              when={props.expanded}
-              fallback={<PanelLeftOpenIcon size={16} />}
-            >
-              <PanelLeftCloseIcon size={16} />
-            </Show>
-          </IconButton>
-        </Box>
-      </Show>
-      <Box
-        display="flex"
-        flexDirection="column"
-        h="100%"
-        maxH="100vh"
-        minH="0"
-        overflowY="auto"
-        overflowX="hidden"
-        px="2"
-        py="3"
+      <HStack
         gap="1"
+        alignItems="center"
+        justifyContent={props.expanded ? "space-between" : "center"}
       >
-        <HStack gap="2" px="2" alignItems="center">
-          <Link
-            href="/"
-            variant="plain"
-            textDecorationLine="none"
-            color="fg.default"
-            borderRadius="l2"
-            px="2"
-            py="1"
-            _hover={{
-              textDecorationLine: "none",
-              bg: "bg.muted",
-              color: "fg.default",
-            }}
-            title="Visual Notes"
-          >
-            <HStack gap="2" alignItems="center">
-              <Image
-                src="/favicon-32x32.png"
-                alt=""
-                boxSize="7"
-                fit="contain"
-                borderRadius="l2"
-              />
-              <Show when={props.expanded}>
-                <Box as="span" fontWeight="semibold" letterSpacing="tight">
-                  Visual Notes
-                </Box>
-              </Show>
-              <Show when={!props.expanded}>
-                <VisuallyHidden>Visual Notes</VisuallyHidden>
-              </Show>
-            </HStack>
-          </Link>
-          <Box flex="1" />
-          <Show when={props.mode === "mobile"}>
-            <CloseButton
-              size="xs"
-              aria-label="Close sidebar"
-              title="Close sidebar"
-              onClick={props.onClose}
+        <Show when={props.expanded}>
+          <a href="/" class={brandLinkClass}>
+            <img
+              src="/favicon-32x32.png"
+              alt=""
+              width="20"
+              height="20"
+              class={css({ borderRadius: "l1", flexShrink: "0" })}
             />
-          </Show>
-        </HStack>
+            <span>Visual Notes</span>
+          </a>
+        </Show>
+        <Show
+          when={isMobile()}
+          fallback={
+            <Tooltip
+              content={props.expanded ? "Collapse sidebar  ⌘\\" : "Expand sidebar  ⌘\\"}
+              openDelay={300}
+              closeDelay={0}
+              positioning={{ placement: "right", gutter: 8 }}
+            >
+              <button
+                type="button"
+                class={headerIconButtonClass}
+                aria-label={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
+                aria-keyshortcuts="Meta+\\"
+                aria-expanded={props.expanded}
+                onClick={() => props.onToggleCollapse()}
+              >
+                <Show
+                  when={props.expanded}
+                  fallback={<PanelLeftOpenIcon size={16} strokeWidth={1.8} />}
+                >
+                  <PanelLeftCloseIcon size={16} strokeWidth={1.8} />
+                </Show>
+              </button>
+            </Tooltip>
+          }
+        >
+          <button
+            type="button"
+            class={headerIconButtonClass}
+            aria-label="Close menu"
+            onClick={() => props.onClose()}
+          >
+            <XIcon size={16} strokeWidth={1.8} />
+          </button>
+        </Show>
+      </HStack>
 
-        <AppSidebarNav expanded={props.expanded} />
+      <AppSidebarActions
+        expanded={props.expanded}
+        onChatOpen={() => {
+          closeIfMobile();
+          props.onChatOpen();
+        }}
+        onNewNoteOpen={() => {
+          closeIfMobile();
+          props.onNewNoteOpen();
+        }}
+        onSearchOpen={() => {
+          closeIfMobile();
+          props.onSearchOpen();
+        }}
+        hasUnreadAny={props.hasUnreadAny}
+        hasLoadingAny={props.hasLoadingAny}
+      />
 
-        <AppSidebarSeparator />
+      <AppSidebarNav expanded={props.expanded} />
 
-        <AppSidebarActions
-          expanded={props.expanded}
-          onChatOpen={props.onChatOpen}
-          onNewNoteOpen={props.onNewNoteOpen}
-          onSearchOpen={props.onSearchOpen}
-          hasUnreadAny={props.hasUnreadAny}
-          hasLoadingAny={props.hasLoadingAny}
-        />
-
-        <AppSidebarSeparator />
-
-        <Box flex="1" minH="0">
-          <AppSidebarRecentDocs expanded={props.expanded} />
-        </Box>
-
-        <AppSidebarFooter
-          expanded={props.expanded}
-          authed={props.authed}
-          onLogout={props.onLogout}
-        />
+      <Box flex="1" minH="0" display="flex" flexDirection="column">
+        <AppSidebarRecentDocs expanded={props.expanded} />
       </Box>
+
+      <AppSidebarFooter
+        expanded={props.expanded}
+        authed={props.authed}
+        onLogout={props.onLogout}
+      />
     </Box>
   );
 };

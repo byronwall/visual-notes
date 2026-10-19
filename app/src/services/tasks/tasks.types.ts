@@ -14,6 +14,7 @@ export type TaskListItem = {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  /** fetchTaskLists: open (not complete/cancelled) tasks; fetchTaskListById: all tasks. */
   taskCount: number;
 };
 

@@ -5,6 +5,7 @@ import {
   CodeIcon,
   Heading1Icon,
   Heading2Icon,
+  Heading3Icon,
   HighlighterIcon,
   ItalicIcon,
   ListIcon,
@@ -28,12 +29,15 @@ export type Btn = {
     textDecoration?: "none" | "line-through";
   };
   label: string;
+  /** Keyboard shortcut shown in the tooltip, in `Mod-Shift-x` form. */
+  shortcut?: string;
 };
 
 export const blocks: Btn[] = [
   {
     name: "paragraph",
     title: "Paragraph",
+    shortcut: "Mod-Alt-0",
     label: "P",
     icon: PilcrowIcon,
     labelStyle: { fontWeight: "semibold" },
@@ -46,6 +50,7 @@ export const blocks: Btn[] = [
   {
     name: "heading",
     title: "Heading 1",
+    shortcut: "Mod-Alt-1",
     label: "H1",
     icon: Heading1Icon,
     labelStyle: { fontWeight: "semibold" },
@@ -59,6 +64,7 @@ export const blocks: Btn[] = [
   {
     name: "heading",
     title: "Heading 2",
+    shortcut: "Mod-Alt-2",
     label: "H2",
     icon: Heading2Icon,
     labelStyle: { fontWeight: "semibold" },
@@ -69,12 +75,29 @@ export const blocks: Btn[] = [
       return ch;
     },
   },
+  {
+    name: "heading",
+    title: "Heading 3",
+    shortcut: "Mod-Alt-3",
+    label: "H3",
+    icon: Heading3Icon,
+    labelStyle: { fontWeight: "semibold" },
+    isActive: (e) => e.isActive("heading", { level: 3 }),
+    run: (ch) => {
+      // TODO:AS_ANY, chain commands are augmented by extensions at runtime
+      (ch as unknown as any).setHeading({ level: 3 });
+      return ch;
+    },
+  },
 ];
+
+export { formatShortcut } from "./shortcuts";
 
 export const marks: Btn[] = [
   {
     name: "bold",
     title: "Bold",
+    shortcut: "Mod-B",
     label: "B",
     icon: BoldIcon,
     labelStyle: { fontWeight: "semibold" },
@@ -87,6 +110,7 @@ export const marks: Btn[] = [
   {
     name: "italic",
     title: "Italic",
+    shortcut: "Mod-I",
     label: "I",
     icon: ItalicIcon,
     labelStyle: { fontStyle: "italic" },
@@ -98,7 +122,8 @@ export const marks: Btn[] = [
   },
   {
     name: "strike",
-    title: "Strike Through",
+    title: "Strikethrough",
+    shortcut: "Mod-Shift-S",
     label: "S",
     icon: StrikethroughIcon,
     labelStyle: { textDecoration: "line-through" },
@@ -111,6 +136,7 @@ export const marks: Btn[] = [
   {
     name: "highlight",
     title: "Highlight",
+    shortcut: "Mod-Shift-H",
     label: "HL",
     icon: HighlighterIcon,
     run: (ch) => {
@@ -121,7 +147,8 @@ export const marks: Btn[] = [
   },
   {
     name: "code",
-    title: "Code",
+    title: "Inline code",
+    shortcut: "Mod-E",
     label: "</>",
     icon: CodeIcon,
     run: (ch) => {
@@ -135,7 +162,8 @@ export const marks: Btn[] = [
 export const listsBlocks: Btn[] = [
   {
     name: "bulletList",
-    title: "Bullet List",
+    title: "Bulleted list",
+    shortcut: "Mod-Shift-8",
     label: "••",
     icon: ListIcon,
     run: (ch) => {
@@ -146,7 +174,8 @@ export const listsBlocks: Btn[] = [
   },
   {
     name: "orderedList",
-    title: "Ordered List",
+    title: "Numbered list",
+    shortcut: "Mod-Shift-7",
     label: "1.",
     icon: ListOrderedIcon,
     run: (ch) => {
@@ -157,7 +186,8 @@ export const listsBlocks: Btn[] = [
   },
   {
     name: "blockquote",
-    title: "Blockquote",
+    title: "Quote",
+    shortcut: "Mod-Shift-B",
     label: "“",
     icon: QuoteIcon,
     run: (ch) => {
@@ -168,7 +198,8 @@ export const listsBlocks: Btn[] = [
   },
   {
     name: "codeBlock",
-    title: "Code Block",
+    title: "Code block",
+    shortcut: "Mod-Alt-C",
     label: "{ }",
     icon: SquareCodeIcon,
     run: (ch) => {

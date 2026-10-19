@@ -11,6 +11,8 @@ test.describe("visual notes app", () => {
     await ensureAuthed(page);
     await expect(page.getByRole("button", { name: /^canvas$/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /paths/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /time blocks/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /time blocks/i }),
+    ).toBeVisible();
   });
 });

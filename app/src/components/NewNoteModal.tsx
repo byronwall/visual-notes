@@ -52,9 +52,10 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
       onOpenChange={handleOpenChange}
       onClose={handleCancel}
       maxW="900px"
+      closeOnInteractOutside={false}
       skipPortal={props.skipPortal}
       footer={
-        <HStack justifyContent="flex-end" gap="2" w="full">
+        <HStack justifyContent="space-between" gap="2" w="full">
           <Button
             size="sm"
             variant="outline"
@@ -67,10 +68,11 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
             size="sm"
             variant="solid"
             colorPalette="gray"
+            minW="5.5rem"
             onClick={handleSave}
             disabled={!canSave()}
           >
-            {isSaving() ? "Saving…" : "Save"}
+            {isSaving() ? "Creating…" : "Create note"}
           </Button>
         </HStack>
       }

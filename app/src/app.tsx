@@ -22,8 +22,9 @@ import { clientEnv } from "~/env/client";
 import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
-import { ToastProvider, ToastViewport } from "~/components/Toast";
+import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
+import { sectionTitleForPath } from "~/components/sidebar/nav-items";
 
 type ClientExceptionState = {
   source: "error" | "unhandledrejection";
@@ -53,7 +54,10 @@ export default function App() {
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
     onCleanup(() => {
       window.removeEventListener("error", handleError);
-      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
     });
   });
 
@@ -65,47 +69,45 @@ export default function App() {
           <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
             <QueryClientProvider client={queryClient}>
               <MagicAuthProvider>
-                <ToastProvider>
-                  <ErrorBoundary
-                    fallback={(error, reset) => (
-                      <GlobalErrorOverlay
-                        title="Something went wrong"
-                        message="An unexpected error interrupted the app. You can retry or reload the page."
-                        error={error}
-                        secondaryActionLabel="Reload page"
-                        onSecondaryAction={() => {
-                          window.location.reload();
-                        }}
-                        primaryActionLabel="Try again"
-                        onPrimaryAction={() => {
-                          setClientException(null);
-                          reset();
-                        }}
-                      />
-                    )}
-                  >
-                    <Suspense fallback={null}>
-                      <AuthGate>
-                        <Suspense>{props.children}</Suspense>
-                      </AuthGate>
-                    </Suspense>
-                  </ErrorBoundary>
-                  <ToastViewport />
-                  <GlobalErrorOverlay
-                    title="Client exception"
-                    message="The page resumed with a stale connection and hit an uncaught client error."
-                    error={clientException()?.error}
-                    open={() => clientException() !== null}
-                    secondaryActionLabel="Dismiss"
-                    onSecondaryAction={() => {
-                      setClientException(null);
-                    }}
-                    primaryActionLabel="Reload page"
-                    onPrimaryAction={() => {
-                      window.location.reload();
-                    }}
-                  />
-                </ToastProvider>
+                <ErrorBoundary
+                  fallback={(error, reset) => (
+                    <GlobalErrorOverlay
+                      title="Something went wrong"
+                      message="An unexpected error interrupted the app. You can retry or reload the page."
+                      error={error}
+                      secondaryActionLabel="Reload page"
+                      onSecondaryAction={() => {
+                        window.location.reload();
+                      }}
+                      primaryActionLabel="Try again"
+                      onPrimaryAction={() => {
+                        setClientException(null);
+                        reset();
+                      }}
+                    />
+                  )}
+                >
+                  <Suspense fallback={null}>
+                    <AuthGate>
+                      <Suspense>{props.children}</Suspense>
+                    </AuthGate>
+                  </Suspense>
+                </ErrorBoundary>
+                <Toaster />
+                <GlobalErrorOverlay
+                  title="Client exception"
+                  message="The page resumed with a stale connection and hit an uncaught client error."
+                  error={clientException()?.error}
+                  open={() => clientException() !== null}
+                  secondaryActionLabel="Dismiss"
+                  onSecondaryAction={() => {
+                    setClientException(null);
+                  }}
+                  primaryActionLabel="Reload page"
+                  onPrimaryAction={() => {
+                    window.location.reload();
+                  }}
+                />
               </MagicAuthProvider>
             </QueryClientProvider>
           </SessionProvider>
@@ -120,10 +122,16 @@ export default function App() {
 const DefaultMetadata = () => {
   const location = useLocation();
   const isPublicShareRoute = () => location.pathname.startsWith("/share/");
+  // Route modules may set a more specific <Title>; this is the fallback so
+  // every tab names its section instead of a generic "Visual Notes".
+  const defaultTitle = () => {
+    const section = sectionTitleForPath(location.pathname);
+    return section ? `${section} • Visual Notes` : "Visual Notes";
+  };
 
   return (
     <Show when={!isPublicShareRoute()}>
-      <Title>Visual Notes</Title>
+      <Title>{defaultTitle()}</Title>
       <Meta
         name="description"
         content="Visual Notes is a workspace for writing, organizing, and exploring your notes."

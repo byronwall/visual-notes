@@ -22,6 +22,7 @@ type PanZoomHandlers = {
   onPointerDown: (e: PointerEvent) => void;
   onPointerMove: (e: PointerEvent) => void;
   onPointerUp: (e: PointerEvent) => void;
+  onPointerCancel?: (e: PointerEvent) => void;
   onPointerLeave: () => void;
 };
 
@@ -90,6 +91,13 @@ export type VisualCanvasProps = {
   onZoomToRegion?: (id: string) => void;
   selectedRegionId?: Accessor<string | undefined>;
   regionsOnly?: Accessor<boolean>;
+  /** Note open in the side panel; drawn with a persistent ring. */
+  activeDocId?: Accessor<string | undefined>;
+  /** Ids matching the search, or null when no search is active. */
+  matchingDocIds?: Accessor<Set<string> | null>;
+  /** Whether notes are hoverable/clickable at the current view. */
+  notesInteractive?: Accessor<boolean>;
+  isPanning?: Accessor<boolean>;
   selection?: ReturnType<typeof createSelectionStore>;
   // TODO:TYPE_MIRROR, allow extra props to avoid JSX excess property errors during incremental edits
   [key: string]: unknown;
@@ -97,6 +105,7 @@ export type VisualCanvasProps = {
 
 const SPREAD = 1000;
 const SELECTED_REGION_INSIDE_LABEL_ZOOM = 4.25;
+const LABEL_CHROME_INSET_PX = 52;
 const isBrowser = typeof window !== "undefined";
 
 function trackCanvasPerf(name: string, duration: number) {
@@ -737,6 +746,8 @@ function buildRegionLabelLayouts(args: {
 function buildStableNoteLabelOrder(args: {
   docs: DocItem[];
   positions: Map<string, Point>;
+  /** Stop once this many ids are ordered; keeps dense views cheap. */
+  limit?: number;
   viewportBounds?: {
     minX: number;
     minY: number;
@@ -792,7 +803,8 @@ function buildStableNoteLabelOrder(args: {
   const ordered = [remaining.get(firstId)!];
   remaining.delete(firstId);
 
-  while (remaining.size > 0) {
+  const limit = args.limit ?? Number.POSITIVE_INFINITY;
+  while (remaining.size > 0 && ordered.length < limit) {
     let bestId: string | undefined;
     let bestScore = Number.NEGATIVE_INFINITY;
     for (const [docId, entry] of remaining) {
@@ -1175,6 +1187,17 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       maxY: (height - offset.y - padding) / scale,
     };
   });
+  // Labels avoid the floating search bar (top) and zoom controls (bottom).
+  const labelViewportBounds = createMemo(() => {
+    const bounds = viewportBounds();
+    if (!bounds) return undefined;
+    const scale = Math.max(0.001, props.scale?.() ?? 1);
+    return {
+      ...bounds,
+      minY: bounds.minY + LABEL_CHROME_INSET_PX / scale,
+      maxY: bounds.maxY - LABEL_CHROME_INSET_PX / scale,
+    };
+  });
   const handlePointerMove = (e: PointerEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const scale = Math.max(0.001, props.scale?.() ?? 1);
@@ -1231,16 +1254,21 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       position="absolute"
       overflow="hidden"
       bg="bg.default"
+      userSelect="none"
       style={{
         left: "0",
         right: "0",
         bottom: "0",
         top: `${props.navHeight()}px`,
+        // The canvas owns every gesture: pinch, pan, and wheel never scroll the page.
+        "touch-action": "none",
+        cursor: props.isPanning?.() ? "grabbing" : undefined,
       }}
       onWheel={props.eventHandlers.onWheel}
       onPointerDown={props.eventHandlers.onPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={props.eventHandlers.onPointerUp}
+      onPointerCancel={(e) => props.eventHandlers.onPointerCancel?.(e)}
       onPointerLeave={() => {
         setPointerCanvasPosition(undefined);
         setPointerOverNoteLabelId(undefined);
@@ -1252,7 +1280,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       <svg
         width="100%"
         height="100%"
-        style={{ display: "block", background: "white" }}
+        style={{ display: "block", background: "var(--colors-bg-default)" }}
       >
         <g transform={props.viewTransform()}>
           <Show when={props.docs}>
@@ -1262,10 +1290,12 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
 
               const circleRadius = createMemo(() => {
                 const s = Math.max(0.001, props.scale?.() ?? 1);
-                const screenRadius = Math.max(
-                  3.6,
-                  Math.min(6.2, 5.6 - smoothstep(1.2, 4.2, s) * 0.7)
-                );
+                // Small dots at overview keep dense maps readable; full size
+                // once notes become the thing you interact with.
+                const screenRadius =
+                  2.4 +
+                  smoothstep(0.35, 0.95, s) * 2.8 -
+                  smoothstep(1.2, 4.2, s) * 0.7;
                 return screenRadius / s;
               });
 
@@ -1351,11 +1381,19 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
                   : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
               );
+              const hasRegions = createMemo(
+                () => (normalizedRegions()?.regions.length ?? 0) > 0
+              );
+              const isSearching = createMemo(() => !!props.matchingDocIds?.());
               const noteOpacity = createMemo(() => {
                 if (props.regionsOnly?.()) return 0;
-                if (!props.selectedRegionId?.()) return 0;
-                return zoomScale() >= 0.96 ? 1 : 0;
+                if (!hasRegions() || props.selectedRegionId?.()) return 1;
+                if (isSearching()) return 1;
+                // Region-first overview: notes sit quietly under the region
+                // bubbles and take over as the regions fade on zoom-in.
+                return 0.32 + 0.68 * smoothstep(0.5, 0.95, zoomScale());
               });
+              const notesInteractive = () => props.notesInteractive?.() ?? false;
               const visibleDocsForRender = createMemo(() => {
                 if (noteOpacity() <= 0.01) return [] as DocItem[];
                 const bounds = viewportBounds();
@@ -1418,7 +1456,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 const labelOrder = labeledRegionOrder();
                 const currentZoomScale = zoomScale();
                 const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = viewportBounds();
+                const currentViewportBounds = labelViewportBounds();
                 return measureCanvasWork("baseRegionLabelLayouts", () =>
                   buildRegionLabelLayouts({
                     regions,
@@ -1445,7 +1483,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 }));
                 const currentZoomScale = zoomScale();
                 const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = viewportBounds();
+                const currentViewportBounds = labelViewportBounds();
                 const layout = measureCanvasWork("hoveredRegionLabelLayout", () =>
                   buildRegionLabelLayouts({
                     regions,
@@ -1507,7 +1545,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   labelHeight,
                   labelFontSize,
                 });
-                const bounds = viewportBounds();
+                const bounds = labelViewportBounds();
                 if (bounds) {
                   const shiftX =
                     (box.minX < bounds.minX ? bounds.minX - box.minX : 0) +
@@ -1552,10 +1590,15 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   offset: props.offset(),
                 });
               });
+              const labelCandidateDocs = createMemo(() => {
+                const matching = props.matchingDocIds?.();
+                const docs = visibleDocsForRender();
+                return matching ? docs.filter((doc) => matching.has(doc.id)) : docs;
+              });
               const visibleNoteLabelCount = createMemo(() =>
-                props.selectedRegionId?.()
+                notesInteractive()
                   ? getVisibleNoteLabelCount({
-                      visibleCount: visibleDocsForRender().length,
+                      visibleCount: labelCandidateDocs().length,
                       zoomScale: zoomScale(),
                     })
                   : 0
@@ -1564,9 +1607,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 () => new Map(visibleDocsForRender().map((doc) => [doc.id, doc]))
               );
               const anchoredHoveredNoteLabelLayout = createMemo(() => {
-                const selectedRegionId = props.selectedRegionId?.();
                 const hoveredDocId = dotHoveredId();
-                if (!selectedRegionId || !hoveredDocId) return null;
+                if (!notesInteractive() || !hoveredDocId) return null;
                 const doc = visibleDocMap().get(hoveredDocId);
                 if (!doc) return null;
                 const docsForLabels = visibleDocsForRender();
@@ -1582,7 +1624,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   position,
                   zoomScale: zoomScale(),
                   labelFontSize: noteLabelFontSize(),
-                  viewportBounds: viewportBounds(),
+                  viewportBounds: labelViewportBounds(),
                 });
               });
               createEffect(() => {
@@ -1630,13 +1672,18 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                 return null;
               });
               const visibleNoteLabelOrder = createMemo(() => {
-                if (!props.selectedRegionId?.()) return [] as string[];
-                const docsForLabels = visibleDocsForRender();
-                const orderedIds = buildStableNoteLabelOrder({
-                  docs: docsForLabels,
-                  positions: props.positions(),
-                  viewportBounds: viewportBounds(),
-                });
+                if (!notesInteractive()) return [] as string[];
+                const count = visibleNoteLabelCount();
+                if (count <= 0) return [] as string[];
+                const orderedIds = measureCanvasWork("noteLabelOrder", () =>
+                  buildStableNoteLabelOrder({
+                    docs: labelCandidateDocs(),
+                    positions: props.positions(),
+                    viewportBounds: labelViewportBounds(),
+                    // Extra candidates cover labels that fail placement.
+                    limit: count * 3 + 1,
+                  })
+                );
                 const anchoredDocId = activeAnchoredNoteLabelLayout()?.docId;
                 return orderedIds
                   .filter((docId) => docId !== anchoredDocId)
@@ -1644,8 +1691,12 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
               });
               const visibleNoteLabelLayouts = createMemo(() => {
                 const selectedRegionId = props.selectedRegionId?.();
-                if (!selectedRegionId) return [] as NoteLabelLayout[];
-                const occupiedBoxes = regionLabelLayouts().map((item) => ({
+                if (!notesInteractive()) return [] as NoteLabelLayout[];
+                const fixedRegionLayout = fixedSelectedRegionLayout();
+                const regionBoxes = fixedRegionLayout
+                  ? [...regionLabelLayouts(), fixedRegionLayout]
+                  : regionLabelLayouts();
+                const occupiedBoxes = regionBoxes.map((item) => ({
                   minX: item.minX,
                   minY: item.minY,
                   maxX: item.maxX,
@@ -1664,7 +1715,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                   (region) => region.id === selectedRegionId
                 );
                 const layouts = buildNoteLabelLayouts({
-                  docs: visibleDocsForRender(),
+                  docs: labelCandidateDocs(),
                   positions: props.positions(),
                   labeledIds: new Set(visibleNoteLabelOrder()),
                   labelOrder: visibleNoteLabelOrder(),
@@ -1676,7 +1727,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         radius: Math.max(18, selectedRegion.radius),
                       }
                     : undefined,
-                  viewportBounds: viewportBounds(),
+                  viewportBounds: labelViewportBounds(),
                   occupiedBoxes,
                 });
                 return anchoredLayout ? [anchoredLayout, ...layouts] : layouts;
@@ -2009,42 +2060,44 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         const fill = createMemo(() =>
                           colorFor(d.path || d.title)
                         );
-                        const matchesSearch = createMemo(() => {
-                          const q = props.searchQuery().trim().toLowerCase();
-                          if (!q) return true;
-                          return d.title.toLowerCase().includes(q);
+                        const dimmed = createMemo(() => {
+                          const matching = props.matchingDocIds?.();
+                          return !!matching && !matching.has(d.id);
                         });
-                        const dimmed = createMemo(
-                          () => !!props.searchQuery().trim() && !matchesSearch()
-                        );
                         const isHovered = createMemo(
                           () => effectiveHoveredId() === d.id
                         );
                         return (
-                          <Show when={matchesSearch() && !isHovered()}>
-                            <g>
-                              <circle
-                                cx={pos().x}
-                                cy={pos().y}
-                                r={circleRadius()}
-                                fill={dimmed() ? "#9CA3AF" : fill()}
-                                stroke={
-                                  dimmed() ? "#00000010" : "#00000020"
-                                }
-                                stroke-width={1}
-                                vector-effect="non-scaling-stroke"
-                                opacity={noteOpacity()}
-                                style={{
-                                  cursor: "pointer",
-                                  "pointer-events":
-                                    noteOpacity() > 0.08 ? "auto" : "none",
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  props.onSelectDoc(d.id);
-                                }}
-                              />
-                            </g>
+                          <Show when={!isHovered()}>
+                            <circle
+                              cx={pos().x}
+                              cy={pos().y}
+                              r={
+                                dimmed()
+                                  ? circleRadius() * 0.7
+                                  : isSearching()
+                                    ? circleRadius() * 1.25
+                                    : circleRadius()
+                              }
+                              fill={dimmed() ? "var(--colors-gray-8)" : fill()}
+                              stroke={
+                                isSearching() && !dimmed()
+                                  ? "var(--colors-bg-default)"
+                                  : "rgba(0, 0, 0, 0.12)"
+                              }
+                              stroke-width={isSearching() && !dimmed() ? 1.5 : 1}
+                              vector-effect="non-scaling-stroke"
+                              opacity={dimmed() ? 0.35 : noteOpacity()}
+                              style={{
+                                cursor: "pointer",
+                                "pointer-events":
+                                  notesInteractive() && !dimmed() ? "auto" : "none",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onSelectDoc(d.id);
+                              }}
+                            />
                           </Show>
                         );
                       }}
@@ -2204,8 +2257,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                     if (!hoveredId) return null;
                     const doc = listOrdered().find((item) => item.id === hoveredId);
                     if (!doc) return null;
-                    const q = props.searchQuery().trim().toLowerCase();
-                    if (q && !doc.title.toLowerCase().includes(q)) return null;
+                    const matching = props.matchingDocIds?.();
+                    if (matching && !matching.has(doc.id)) return null;
                     return doc;
                   })()}>
                     {(doc) => {
@@ -2221,10 +2274,6 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                       const fill = createMemo(() =>
                         colorFor(doc().path || doc().title)
                       );
-                      const isDimmed = createMemo(() => {
-                        const q = props.searchQuery().trim().toLowerCase();
-                        return !!q && !doc().title.toLowerCase().includes(q);
-                      });
                       const hoverRadius = createMemo(() =>
                         Math.max(
                           7.5 / zoomScale(),
@@ -2237,11 +2286,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                             cx={pos().x}
                             cy={pos().y}
                             r={hoverRadius()}
-                            fill="rgba(255,255,255,0.92)"
+                            fill="var(--colors-bg-default)"
                             stroke="rgba(37, 99, 235, 0.28)"
                             stroke-width="2"
                             vector-effect="non-scaling-stroke"
-                            opacity={noteOpacity()}
                             filter="url(#canvas-hover-note-shadow)"
                             style={{
                               cursor: "pointer",
@@ -2257,11 +2305,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                             cx={pos().x}
                             cy={pos().y}
                             r={hoverRadius() * 0.68}
-                            fill={isDimmed() ? "#9CA3AF" : fill()}
+                            fill={fill()}
                             stroke="#1D4ED8"
                             stroke-width="2.5"
                             vector-effect="non-scaling-stroke"
-                            opacity={noteOpacity()}
                             style={{
                               cursor: "pointer",
                               "pointer-events":
@@ -2275,6 +2322,24 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
                         </g>
                       );
                     }}
+                  </Show>
+                  <Show when={(() => {
+                    const id = props.activeDocId?.();
+                    if (!id) return undefined;
+                    return props.positions().get(id);
+                  })()}>
+                    {(pos) => (
+                      <circle
+                        cx={pos().x}
+                        cy={pos().y}
+                        r={Math.max(9 / zoomScale(), circleRadius() * 2.1)}
+                        fill="none"
+                        stroke="#1D4ED8"
+                        stroke-width="2"
+                        vector-effect="non-scaling-stroke"
+                        style={{ "pointer-events": "none" }}
+                      />
+                    )}
                   </Show>
                 </>
               );

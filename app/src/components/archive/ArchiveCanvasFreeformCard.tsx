@@ -3,12 +3,11 @@ import {
   CheckIcon,
   ExpandIcon,
   GripIcon,
-  GripHorizontalIcon,
   PencilIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-solid";
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import { Box, HStack } from "styled-system/jsx";
 import TiptapEditor from "~/components/TiptapEditor";
 import { documentContentStyles } from "~/components/document-content-styles";
@@ -34,6 +33,8 @@ type Props = {
   onSaveNote: (html: string) => Promise<void>;
   onDelete: () => void;
 };
+
+const NEW_NOTE_TEXT = "New note";
 
 export const ArchiveCanvasFreeformCard = (props: Props) => {
   const [editor, setEditor] = createSignal<Editor>();
@@ -104,6 +105,25 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
     },
   ];
 
+  // Entering edit mode (including a freshly added note) should put the caret in the
+  // editor so typing works immediately instead of landing on the toolbar button.
+  // The editor instance is destroyed when edit mode ends, so drop it then; a later
+  // edit session hands back a fresh instance.
+  createEffect(
+    on([() => props.isEditing, editor], ([editing, current]) => {
+      if (!editing) {
+        if (current) setEditor(undefined);
+        return;
+      }
+      if (!current || current.isDestroyed) return;
+      requestAnimationFrame(() => {
+        if (current.isDestroyed) return;
+        // A just-added note holds placeholder copy; select it so typing replaces it.
+        current.commands.focus(current.getText().trim() === NEW_NOTE_TEXT ? "all" : "end");
+      });
+    }),
+  );
+
   const saveNote = async () => {
     const current = editor();
     if (!current || saving()) return;
@@ -120,9 +140,9 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
       position="relative"
       minW="0"
       minH="0"
-      borderRadius="20px"
+      borderRadius="l3"
       borderWidth="1px"
-      borderColor={chromeVisible() ? "border.accent" : "border"}
+      borderColor={chromeVisible() ? "gray.a7" : "border"}
       bg="bg.default"
       boxShadow={props.isDragging || props.isResizing ? "lg" : props.isActive ? "md" : "sm"}
       overflow="visible"
@@ -134,6 +154,15 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
         "touch-action": "none",
       }}
       ref={props.cardRef}
+      cursor={props.isEditing ? undefined : props.isDragging ? "grabbing" : "grab"}
+      userSelect={props.isEditing ? undefined : "none"}
+      onPointerDown={(event) => {
+        if (props.isEditing) return;
+        const target = event.target;
+        if (target instanceof Element && target.closest("button, a, input, textarea, [contenteditable=true]")) return;
+        props.onActivate();
+        props.onDragStart(event);
+      }}
       onPointerEnter={() => {
         setHovered(true);
         props.onActivate();
@@ -143,6 +172,18 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
         props.onActivate();
       }}
       onPointerLeave={() => setHovered(false)}
+      // Drag start captures the pointer on this root, so the follow-up click and
+      // dblclick events retarget here rather than to inner content boxes.
+      onDblClick={(event) => {
+        if (props.isEditing) return;
+        const target = event.target;
+        if (target instanceof Element && target.closest("button")) return;
+        if (isNote()) {
+          props.onStartEditing();
+          return;
+        }
+        if (props.item.imageUrl) openImagePreview({ src: props.item.imageUrl, title: "Canvas image" });
+      }}
       onMouseLeave={() => setHovered(false)}
       onFocusIn={() => {
         setFocused(true);
@@ -156,44 +197,11 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
     >
       <HStack
         position="absolute"
-        top="2"
-        left="4"
-        zIndex="3"
-        gap="1"
-        p="1"
-        borderRadius="full"
-        borderWidth="1px"
-        borderColor="border"
-        bg="bg.default"
-        boxShadow="sm"
-        opacity={chromeVisible() ? 1 : 0}
-        pointerEvents={chromeVisible() ? "auto" : "none"}
-        transitionDuration="normal"
-        transitionProperty="opacity"
-      >
-        <Button
-          type="button"
-          size="xs"
-          variant="plain"
-          aria-label={isNote() ? "Move free text node" : "Move image node"}
-          cursor={props.isDragging ? "grabbing" : "grab"}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            props.onActivate();
-            props.onDragStart(event);
-          }}
-        >
-          <GripHorizontalIcon size={14} />
-        </Button>
-      </HStack>
-
-      <HStack
-        position="absolute"
-        top="2"
-        right="4"
-        zIndex="3"
-        gap="1"
-        p="1"
+        top="-4"
+        right="3"
+        zIndex="5"
+        gap="0.5"
+        p="0.5"
         borderRadius="full"
         borderWidth="1px"
         borderColor="border"
@@ -264,6 +272,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
             size="xs"
             variant="plain"
             aria-label="Cancel editing free text"
+            title="Cancel (Esc)"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -277,6 +286,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
             size="xs"
             variant="solid"
             aria-label="Save free text"
+            title="Save (⌘↵)"
             disabled={saving()}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
@@ -298,22 +308,9 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
         <Show
           when={isNote()}
           fallback={
-            <Button
-              type="button"
-              variant="plain"
-              p="0"
+            <Box
               h="full"
               w="full"
-              borderRadius="0"
-              bg="transparent"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => {
-                if (!props.item.imageUrl) return;
-                openImagePreview({
-                  src: props.item.imageUrl,
-                  title: "Canvas image",
-                });
-              }}
             >
               <Show when={props.item.imageUrl}>
                 {(src) => (
@@ -325,11 +322,12 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
                       height: "100%",
                       "object-fit": "contain",
                       display: "block",
+                      "pointer-events": "none",
                     }}
                   />
                 )}
               </Show>
-            </Button>
+            </Box>
           }
         >
           <Show
@@ -358,11 +356,6 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
                     minWidth: "0",
                   },
                 }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  props.onActivate();
-                }}
-                onDblClick={() => props.onStartEditing()}
               >
                 <Box
                   class="vn-doc-content"
@@ -399,6 +392,16 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
               }}
               onPointerDown={(event) => event.stopPropagation()}
               onDblClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  props.onCancelEditing();
+                } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void saveNote();
+                }
+              }}
             >
               <TiptapEditor
                 initialHTML={props.item.contentHtml || "<p></p>"}
@@ -445,7 +448,7 @@ export const ArchiveCanvasFreeformCard = (props: Props) => {
             <Box
               borderRadius="full"
               borderWidth={chromeVisible() ? "1px" : handle.direction === "se" ? "1px" : "0"}
-              borderColor={chromeVisible() ? "border.accent" : "border"}
+              borderColor={chromeVisible() ? "gray.a7" : "border"}
               bg={chromeVisible() || handle.direction === "se" ? "bg.default" : "transparent"}
               boxShadow={chromeVisible() && handle.direction.includes("s") ? "sm" : undefined}
               display="flex"

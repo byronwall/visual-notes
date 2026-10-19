@@ -33,7 +33,7 @@ export function createUmapNormalization(
   const scale = Math.min((2 * spread) / safeWidth, (2 * spread) / safeHeight);
 
   try {
-    console.log(
+    console.debug(
       `[layout/umap-normalize] bbox=(${minX.toFixed(2)},${minY.toFixed(
         2
       )})..(${maxX.toFixed(2)},${maxY.toFixed(2)}) scale=${scale.toFixed(

@@ -5,6 +5,12 @@ import { createServer } from "node:net";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { parseArgs as parseCliArgs, parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  identityExcludes,
+  sourceIdentity,
+  writeRunManifest,
+  type RunManifest,
+} from "./audit-run.ts";
 
 type Options = {
   envFile: string;
@@ -12,6 +18,14 @@ type Options = {
   database: string;
   worktree: string;
   branch: string;
+  /** Build once and serve the production bundle instead of `vinxi dev`. */
+  production: boolean;
+  run?: {
+    owner: string;
+    manifest: string;
+    fixtures: string | null;
+    evidence: string | null;
+  };
 };
 
 const databasePrefix = "visual_notes_audit_";
@@ -25,6 +39,11 @@ function parseArgs(args: string[]): Options | null {
       database: { type: "string" },
       worktree: { type: "string" },
       branch: { type: "string" },
+      owner: { type: "string" },
+      "run-manifest": { type: "string" },
+      fixtures: { type: "string" },
+      evidence: { type: "string" },
+      production: { type: "boolean" },
       "self-check": { type: "boolean" },
     },
     strict: true,
@@ -54,7 +73,7 @@ function parseArgs(args: string[]): Options | null {
     !/^\d+$/.test(portText)
   ) {
     throw new Error(
-      "Use --env-file <path> --port <1024-65535> --database <synthetic-name> --worktree <absolute-path> --branch <name>.",
+      "Use --env-file <path> --port <1024-65535> --database <synthetic-name> --worktree <absolute-path> --branch <name> [--production].",
     );
   }
 
@@ -69,7 +88,37 @@ function parseArgs(args: string[]): Options | null {
     );
   }
 
-  return { envFile: resolve(envFile), port, database, worktree, branch };
+  const {
+    owner,
+    "run-manifest": runManifest,
+    fixtures,
+    evidence,
+  } = parsed.values;
+  if ((owner || fixtures || evidence) && !runManifest) {
+    throw new Error(
+      "--owner, --fixtures, and --evidence require --run-manifest.",
+    );
+  }
+  if (runManifest && !owner)
+    throw new Error("--run-manifest requires --owner.");
+
+  return {
+    envFile: resolve(envFile),
+    port,
+    database,
+    worktree,
+    branch,
+    production: parsed.values.production ?? false,
+    run:
+      runManifest && owner
+        ? {
+            owner,
+            manifest: resolve(runManifest),
+            fixtures: fixtures ? resolve(fixtures) : null,
+            evidence: evidence ? resolve(evidence) : null,
+          }
+        : undefined,
+  };
 }
 
 function assertAssignment(
@@ -114,19 +163,15 @@ function expandEnvReferences(
   return expanded;
 }
 
-function makeChildEnv(
+/** Rewrites DATABASE_URL to a synthetic database on a loopback PostgreSQL host. */
+export function auditDatabaseUrl(
+  rawUrl: string,
   source: Record<string, string | undefined>,
-  options: Options,
-  auditMagicPassword: string | undefined,
+  database: string,
 ) {
-  const rawUrl = source.DATABASE_URL;
-  const authSecret = source.AUTH_SECRET;
-  if (!rawUrl || !authSecret || !auditMagicPassword) {
-    throw new Error(
-      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD for this worktree.",
-    );
+  if (!new RegExp(`^${databasePrefix}[a-z0-9_]+$`).test(database)) {
+    throw new Error(`Database must start with ${databasePrefix}.`);
   }
-
   let dbUrl: URL;
   const expandedUrl = expandEnvReferences(rawUrl, source);
   try {
@@ -143,7 +188,24 @@ function makeChildEnv(
   ) {
     throw new Error("DATABASE_URL must point to a loopback PostgreSQL server.");
   }
-  dbUrl.pathname = `/${options.database}`;
+  dbUrl.pathname = `/${database}`;
+  return dbUrl;
+}
+
+function makeChildEnv(
+  source: Record<string, string | undefined>,
+  options: Options,
+  auditMagicPassword: string | undefined,
+) {
+  const rawUrl = source.DATABASE_URL;
+  const authSecret = source.AUTH_SECRET;
+  if (!rawUrl || !authSecret || !auditMagicPassword) {
+    throw new Error(
+      "Env file must define DATABASE_URL and AUTH_SECRET; set AUDIT_MAGIC_PASSWORD_FILE (or AUDIT_MAGIC_PASSWORD) for this worktree.",
+    );
+  }
+
+  const dbUrl = auditDatabaseUrl(rawUrl, source, options.database);
 
   const baseUrl = `http://127.0.0.1:${options.port}`;
   const childEnv: NodeJS.ProcessEnv = {};
@@ -164,7 +226,7 @@ function makeChildEnv(
     if (value !== undefined) childEnv[key] = value;
   }
   Object.assign(childEnv, {
-    NODE_ENV: "development",
+    NODE_ENV: options.production ? "production" : "development",
     DATABASE_URL: dbUrl.toString(),
     AUTH_SECRET: authSecret,
     AUTH_TRUST_HOST: source.AUTH_TRUST_HOST ?? "true",
@@ -211,6 +273,7 @@ function selfCheck() {
     database: "visual_notes_audit_test",
     worktree: "/worktree/a",
     branch: "codex/a",
+    production: false,
   };
   const env = makeChildEnv(
     {
@@ -225,6 +288,15 @@ function selfCheck() {
   assert.equal(new URL(env.DATABASE_URL!).pathname, "/visual_notes_audit_test");
   assert.equal(env.MAGIC_PASSWORD, "test-only-password");
   assert.equal(env.OPENAI_API_KEY, "");
+  assert.equal(env.NODE_ENV, "development");
+  assert.equal(
+    makeChildEnv(
+      { DATABASE_URL: "postgresql://localhost/db", AUTH_SECRET: "x" },
+      { ...options, production: true },
+      "test-only-password",
+    ).NODE_ENV,
+    "production",
+  );
   assert.throws(
     () =>
       makeChildEnv(
@@ -301,11 +373,11 @@ async function start(options: Options) {
 
   const source = parseEnv(readFileSync(options.envFile, "utf8"));
   delete source.MAGIC_PASSWORD;
-  const childEnv = makeChildEnv(
-    source,
-    options,
-    process.env.AUDIT_MAGIC_PASSWORD,
-  );
+  const passwordFile = process.env.AUDIT_MAGIC_PASSWORD_FILE;
+  const auditMagicPassword = passwordFile
+    ? readFileSync(passwordFile, "utf8").trim()
+    : process.env.AUDIT_MAGIC_PASSWORD;
+  const childEnv = makeChildEnv(source, options, auditMagicPassword);
   await assertPortFree(options.port);
 
   const codegen = spawnSync(
@@ -331,12 +403,50 @@ async function start(options: Options) {
     );
   }
 
-  const child = spawn(process.execPath, [pnpmPath, "exec", "vinxi", "dev"], {
-    cwd: dirname(packageJsonPath),
-    env: childEnv,
-    detached: true,
-    stdio: "inherit",
-  });
+  if (options.production) {
+    const build = spawnSync(
+      process.execPath,
+      [pnpmPath, "exec", "vinxi", "build"],
+      { cwd: dirname(packageJsonPath), env: childEnv, stdio: "inherit" },
+    );
+    if (build.status !== 0) throw new Error("Production build failed.");
+  }
+
+  const vinxiCommand = options.production ? "start" : "dev";
+  const child = spawn(
+    process.execPath,
+    [pnpmPath, "exec", "vinxi", vinxiCommand],
+    {
+      cwd: dirname(packageJsonPath),
+      env: childEnv,
+      detached: true,
+      stdio: "inherit",
+    },
+  );
+  const run = options.run;
+  let runManifest: RunManifest | null = null;
+  if (run) {
+    const paths = { fixtureManifest: run.fixtures, evidenceDir: run.evidence };
+    runManifest = {
+      owner: run.owner,
+      source: sourceIdentity(
+        dirname(packageJsonPath),
+        identityExcludes(run.manifest, paths),
+      ),
+      port: options.port,
+      database: options.database,
+      mode: options.production ? "production" : "development",
+      ...paths,
+      launcher: {
+        pid: process.pid,
+        serverPid: child.pid ?? null,
+        startedAt: new Date().toISOString(),
+      },
+      shutdown: { page: null, browser: null, server: null },
+    };
+    writeRunManifest(run.manifest, runManifest);
+    console.info(`[audit-harness] run manifest: ${run.manifest}`);
+  }
   let stopping = false;
   const stop = (signal: NodeJS.Signals) => {
     if (stopping || !child.pid) return;
@@ -357,13 +467,25 @@ async function start(options: Options) {
     process.exitCode = 1;
   });
   child.once("exit", (code, signal) => {
+    if (run && runManifest) {
+      // Keep page/browser facts recorded by `audit:run mark` since start.
+      const latest = JSON.parse(
+        readFileSync(run.manifest, "utf8"),
+      ) as RunManifest;
+      latest.shutdown.server = {
+        closedAt: new Date().toISOString(),
+        exitCode: code,
+        signal,
+      };
+      writeRunManifest(run.manifest, latest);
+    }
     process.off("SIGINT", onInt);
     process.off("SIGTERM", onTerm);
     process.exitCode = signal ? 1 : code ?? 1;
   });
 
   console.info(
-    `[audit-harness] starting on http://127.0.0.1:${options.port} with synthetic database ${options.database}`,
+    `[audit-harness] starting ${options.production ? "production build" : "dev server"} on http://127.0.0.1:${options.port} with synthetic database ${options.database}`,
   );
 }
 

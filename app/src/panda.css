@@ -19,8 +19,6 @@
   }
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--fg);
     font:
       14px/1.5 ui-sans-serif,
       system-ui,
@@ -29,23 +27,9 @@
       Roboto;
   }
 
-  header {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    padding: 16px;
-    border-bottom: 1px solid #e5e7eb;
-    top: 0;
-    z-index: 50;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: saturate(1.2) blur(6px);
-  }
   h1 {
     font-size: 18px;
     margin: 0;
-  }
-  section {
-    padding: 16px;
   }
   .grid {
     display: grid;
@@ -468,29 +452,35 @@
   }
 
   .task-markdown-preview mark {
-    background: rgba(250, 204, 21, 0.45);
+    background: var(--colors-amber-a5);
     border-radius: 0.25em;
     padding: 0 0.12em;
   }
 
   .task-markdown-preview a {
-    color: inherit;
-    text-decoration-line: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.12em;
+    color: var(--colors-amber-11);
+    text-decoration: none;
     cursor: pointer;
-    transition: color 120ms ease, text-decoration-color 120ms ease;
+    transition: color 140ms ease;
   }
 
   .task-markdown-preview a:hover {
-    color: var(--colors-fg-emphasized);
-    text-decoration-color: currentColor;
+    color: var(--colors-amber-12);
   }
 
   .task-markdown-preview a:focus-visible {
-    outline: 2px solid rgba(43, 111, 248, 0.55);
+    outline: 2px solid var(--colors-gray-a8);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+
+  @keyframes taskRowFlash {
+    from {
+      background-color: var(--colors-amber-a4);
+    }
+    to {
+      background-color: transparent;
+    }
   }
 
   .task-markdown-preview code {

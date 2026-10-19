@@ -32,7 +32,10 @@ export const olive = defineSemanticTokens.colors({
     },
     fg: { DEFAULT: { value: { _light: '{colors.white}', _dark: '{colors.black}' } } },
   },
+  // Shorthand aliases: `<palette>.subtle` (tinted bg) and `<palette>.fg` (readable text).
+  fg: { DEFAULT: { value: { _light: '{colors.gray.a11}', _dark: '{colors.gray.a11}' } } },
   subtle: {
+    DEFAULT: { value: { _light: '{colors.gray.a3}', _dark: '{colors.gray.a3}' } },
     bg: {
       DEFAULT: { value: { _light: '{colors.gray.a3}', _dark: '{colors.gray.a3}' } },
       hover: { value: { _light: '{colors.gray.a4}', _dark: '{colors.gray.a4}' } },

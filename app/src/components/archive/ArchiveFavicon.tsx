@@ -15,8 +15,7 @@ export const ArchiveFavicon = (props: {
       borderRadius="l1"
       overflow="hidden"
       bg="bg.subtle"
-      borderWidth="1px"
-      borderColor="border"
+      boxShadow={props.src ? undefined : "inset 0 0 0 1px var(--colors-gray-a4)"}
       flexShrink="0"
       display="flex"
       alignItems="center"
@@ -33,7 +32,13 @@ export const ArchiveFavicon = (props: {
       <Show
         when={props.src}
         fallback={
-          <Text fontSize="2xs" color="fg.muted" textTransform="uppercase">
+          <Text
+            color="fg.muted"
+            fontWeight="semibold"
+            textTransform="uppercase"
+            lineHeight="1"
+            style={{ "font-size": `calc(${size()} * 0.55)` }}
+          >
             {props.title.trim().slice(0, 1) || "?"}
           </Text>
         }
