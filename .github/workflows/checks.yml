@@ -119,9 +119,14 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # Only specs that pass on main today. Add a spec here once it passes.
+      # canvas-note-panel is left out: it needs an audit run manifest to seed
+      # a UMAP region and skips without one. Add new specs here once they pass.
       - name: Playwright
-        run: pnpm exec playwright test archive-title-cancel auth-helper
+        run: >-
+          pnpm exec playwright test
+          archive-title-cancel auth-helper homepage inline-title-failed-save
+          late-note-share-responses path-editor-late-save path-editor-modal
+          task-lists time-blocks-interactions time-blocks-layout
 
       - name: Upload report
         if: failure()

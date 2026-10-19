@@ -1,5 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
+import { waitForAppReady } from "./helpers/readiness";
+
+const centerY = async (locator: Locator) => {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error("Expected element bounding box");
+  return box.y + box.height / 2;
+};
 
 test.describe("time blocks layout", () => {
   test("calendar controls and columns align with target layout", async ({
@@ -7,109 +14,70 @@ test.describe("time blocks layout", () => {
   }) => {
     await ensureAuthed(page);
     await page.goto("/time-blocks");
+    await waitForAppReady(page);
 
-    await expect(
-      page.getByRole("heading", { name: /time blocks/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /^previous$/i }),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: /^next$/i })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /list view/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /^summary$/i }),
-    ).toBeVisible();
-    const dateInput = page.locator("input[type='date']").first();
-    await expect(dateInput).toBeVisible();
-
-    await expect(page.getByText(/^Sun /)).toBeVisible();
-    await expect(page.getByText(/^Sat /)).toBeVisible();
-    const dayMetaButtons = page.locator(
-      "button[title^='Compact overlaps for ']",
+    const toolbar = page.getByTestId("time-blocks-header");
+    const controls = [
+      toolbar.getByRole("heading", { name: "Time Blocks" }),
+      toolbar.getByRole("button", { name: "Previous range" }),
+      toolbar.getByRole("button", { name: "Today", exact: true }),
+      toolbar.getByRole("button", { name: "Next range" }),
+      toolbar.getByTitle("Pick a start date"),
+      toolbar.getByRole("button", { name: "List view" }),
+      toolbar.getByRole("button", { name: "Day summary" }),
+      toolbar.getByRole("button", { name: "Calendar settings" }),
+    ];
+    for (const control of controls) await expect(control).toBeVisible();
+    await expect(toolbar.getByLabel("Start date")).toHaveAttribute(
+      "type",
+      "date",
     );
-    await expect(dayMetaButtons).toHaveCount(7);
 
-    const buttonPositions = await dayMetaButtons.evaluateAll((nodes) =>
+    // Every toolbar control sits on one row at desktop width.
+    const controlYs = await Promise.all(controls.map(centerY));
+    expect(Math.max(...controlYs) - Math.min(...controlYs)).toBeLessThan(8);
+
+    // Seven consecutive days in one row; the range starts today by default.
+    const headers = page.getByTestId("time-blocks-day-header");
+    await expect(headers).toHaveCount(7);
+    await expect(headers.first()).toHaveAttribute("data-today", "true");
+    const weekdays = await headers.evaluateAll((nodes) =>
+      nodes.map((node) => (node.textContent ?? "").slice(0, 3).toLowerCase()),
+    );
+    expect(new Set(weekdays).size).toBe(7);
+    const headerBoxes = await headers.evaluateAll((nodes) =>
       nodes.map((node) => {
         const rect = node.getBoundingClientRect();
-        return { x: rect.x, y: rect.y };
+        return { x: rect.x, y: rect.y, width: rect.width };
       }),
     );
-    const ys = buttonPositions.map((pos) => pos.y);
-    const xs = buttonPositions.map((pos) => pos.x);
-    const ySpread = Math.max(...ys) - Math.min(...ys);
-    expect(ySpread).toBeLessThan(6);
-    expect(new Set(xs).size).toBeGreaterThan(5);
+    const ys = headerBoxes.map((box) => box.y);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(2);
+    for (let i = 1; i < headerBoxes.length; i += 1) {
+      expect(headerBoxes[i].x).toBeGreaterThan(headerBoxes[i - 1].x);
+    }
 
-    const headerY = await page.evaluate(() => {
-      const heading = document.querySelector("h1");
-      const date = document.querySelector("input[type='date']");
-      const list = Array.from(document.querySelectorAll("button")).find(
-        (node) => /list view/i.test(node.textContent ?? ""),
-      );
-      if (!heading || !date || !list) return null;
-      return {
-        heading: heading.getBoundingClientRect().y,
-        date: date.getBoundingClientRect().y,
-        list: list.getBoundingClientRect().y,
-      };
-    });
-    expect(headerY).not.toBeNull();
-    if (!headerY) throw new Error("Expected top controls to render");
-    const headerYSpread =
-      Math.max(headerY.heading, headerY.date, headerY.list) -
-      Math.min(headerY.heading, headerY.date, headerY.list);
-    expect(headerYSpread).toBeLessThan(8);
+    // Header columns line up with the grid's day lanes.
+    const grid = page.getByTestId("time-blocks-grid");
+    await expect(grid).toBeVisible();
+    const gridBox = await grid.boundingBox();
+    if (!gridBox) throw new Error("Expected grid bounding box");
+    expect(Math.abs(headerBoxes[0].x - gridBox.x)).toBeLessThan(2);
+    const laneWidth = gridBox.width / 7;
+    for (const box of headerBoxes) {
+      expect(Math.abs(box.width - laneWidth)).toBeLessThan(2);
+    }
 
-    const gutter = page.getByTestId("time-block-lane-gutter").first();
-    await expect(gutter).toBeVisible();
-    const gutterWidth = await gutter.evaluate(
-      (node) => node.getBoundingClientRect().width,
+    // Hour lines are stronger than the half-hour lines between them.
+    const background = await grid.evaluate(
+      (node) => (node as HTMLElement).style.backgroundImage,
     );
-    expect(Math.round(gutterWidth)).toBe(20);
+    expect(background).toContain("var(--colors-gray-a4) 1px");
+    expect(background).toContain("var(--colors-gray-a2)");
 
-    const hourLine = page.getByTestId("time-grid-hour-line").first();
-    const quarterLine = page.getByTestId("time-grid-quarter-line").first();
-    await expect(hourLine).toBeVisible();
-    await expect(quarterLine).toBeVisible();
-    const lineStyles = await page.evaluate(() => {
-      const hour = document.querySelector(
-        "[data-testid='time-grid-hour-line']",
-      ) as HTMLElement | null;
-      const quarter = document.querySelector(
-        "[data-testid='time-grid-quarter-line']",
-      ) as HTMLElement | null;
-      if (!hour || !quarter) return null;
-      const hourStyle = window.getComputedStyle(hour);
-      const quarterStyle = window.getComputedStyle(quarter);
-      const parseAlpha = (value: string) => {
-        const match = value.match(/rgba?\(([^)]+)\)/i);
-        if (!match) return 1;
-        const parts = match[1].split(",").map((part) => part.trim());
-        if (parts.length < 4) return 1;
-        const alpha = Number(parts[3]);
-        return Number.isFinite(alpha) ? alpha : 1;
-      };
-      return {
-        hourBorderTop: parseFloat(hourStyle.borderTopWidth || "0"),
-        quarterBorderTop: parseFloat(quarterStyle.borderTopWidth || "0"),
-        hourBorderTopAlpha: parseAlpha(hourStyle.borderTopColor),
-        quarterBorderTopAlpha: parseAlpha(quarterStyle.borderTopColor),
-      };
-    });
-    expect(lineStyles).not.toBeNull();
-    if (!lineStyles) throw new Error("Expected line styles");
-    expect(lineStyles.hourBorderTop).toBeGreaterThanOrEqual(
-      lineStyles.quarterBorderTop,
-    );
-    expect(lineStyles.hourBorderTopAlpha).toBeGreaterThan(
-      lineStyles.quarterBorderTopAlpha,
-    );
-
-    await expect(page.locator("text=6:00").first()).toBeVisible();
-    await expect(page.locator("text=12:00").first()).toBeVisible();
+    const scale = page.getByTestId("time-left-scale-row");
+    await expect(scale.filter({ hasText: /^6:00$/ })).toHaveCount(1);
+    await expect(scale.filter({ hasText: /^12:00$/ })).toHaveCount(1);
 
     const screenshot = await page.screenshot({ fullPage: true });
     await test.info().attach("time-blocks-layout", {
