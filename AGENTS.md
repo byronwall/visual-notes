@@ -10,7 +10,8 @@ focused skills listed under [Skills](#skills).
 | Setup (Node 22.6+, pinned pnpm 9.15.9 via Corepack) | [README Getting Started](README.md#getting-started) |
 | Checks | `cd app && pnpm lint && pnpm type-check && pnpm test`; CI runs the same in [checks.yml](.github/workflows/checks.yml) |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
-| Isolated browser audits, fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
+| Isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
+| UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 
 ## Visual Notes Agent Instructions
@@ -45,23 +46,12 @@ focused skills listed under [Skills](#skills).
   - When wrapping Ark primitives, do not override relationship-critical DOM ids directly on subparts such as `Trigger`, `Content`, or `Positioner`. Use Ark’s structured `ids`/root APIs instead; manual ids can break trigger-to-overlay positioning and accessibility wiring.
   - Prefer Panda (`css`, `styled-system/jsx`, `recipes`) over ad-hoc CSS.
   - Token usage only; avoid raw hex codes or arbitrary spacing unless a token is missing.
-  - Render document/file/path-like strings in a monospace font so paths scan distinctly from titles/body copy.
-  - In UI surfaces, prefer relative timestamps (for example, `5m ago`, `2d ago`) over absolute datetimes. Use absolute timestamps only when precision/auditability is required.
-  - Prefer subtle background/surface differences (`bg.subtle`, `bg.muted`, spacing) over heavy border stacks to separate sections; use borders sparingly for true emphasis or interactive affordance.
-  - For simple single-field edits (for example names/titles), prefer inline edit-in-place interactions over opening a dedicated modal.
-  - Avoid generic instructional helper copy in polished UI surfaces (for example, “hover/click to…” lines) unless user enablement truly depends on it.
-  - Popovers/menus/dialog-like floating content should default to content-driven sizing (`fit-content` semantics) rather than fixed widths. Prefer letting child content define practical width constraints.
-  - Do not set fixed popover widths by default. Only set explicit max/fixed width at the popover/container level for truly dynamic or unbounded content that cannot be constrained safely by child components.
-  - When width constraints are needed, prefer max-width responsive to viewport (`calc(100vw - margin)`) and keep the container compositional so content can still size naturally.
   - For runtime-calculated geometry/positioning values (for example calendar/time-grid blocks, drag ghosts, overlays): do not rely on dynamic class-name generation for `top/left/width/height/transform`; set these values via inline `style` at render time.
   - For runtime-calculated colors or other token values that are not statically analyzable by Panda, do not generate dynamic utility classes; set them with inline `style` at render time.
   - For sidebar/flyout nested menus: use controlled `Menu.Root` + `Portal` for
     `Menu.Positioner`/`Menu.Content`, and apply token z-index (`popover` or
     `tooltip`) at the menu call site to avoid stacking-context regressions.
   - For Ark `Select`/popover-like controls inside sticky, absolute, transformed, or canvas/sidebar shells: prefer `Portal` + explicit `positioning` at the call site (`strategy: "fixed"` when needed) and verify in Playwright that the overlay anchors to the trigger rather than rendering at `(0, 0)` or under adjacent rails.
-  - For dense data tables or list rows with row-level click targets plus nested controls, verify hover and interactive states in Playwright for all layers: row hover, nested links, inline edit triggers, destructive actions, and secondary toggles/popovers. Cursor changes alone are not sufficient feedback.
-  - When a table/list row is clickable, provide a visible hover state on the row and separate hover states for nested interactive controls so users can distinguish “open row” from “open nested action”.
-  - For route-like utility endpoints used directly in the browser (for example local downloads/review pages), do not leave the user on a blank binary/JSON dead end. If the route is likely to be visited directly, render a small HTML landing page or otherwise provide obvious next steps while preserving the real download/action path.
   - If a shared select/popover supports optional portalling, do not mount the floating subtree in-tree and then move it into a portal after hydration. Gate portal-mode overlay rendering until hydrated to avoid zero-size reference measurements.
 - Routes are routes
   - Do not create reusable UI under `app/src/routes/`.
