@@ -31,6 +31,8 @@ export type RunManifest = {
   source: SourceIdentity;
   port: number;
   database: string;
+  /** Absent in manifests written before production mode existed. */
+  mode?: "development" | "production";
   fixtureManifest: string | null;
   evidenceDir: string | null;
   launcher: { pid: number; serverPid: number | null; startedAt: string };
@@ -208,9 +210,9 @@ function main() {
         isAbsolute(artifact) || !base ? artifact : resolve(base, artifact);
       if (!existsSync(full)) problems.push(`artifact is missing: ${full}`);
     }
-    const { owner, port, database, source } = manifest;
+    const { owner, port, database, source, mode } = manifest;
     console.info(
-      `[audit-run] ${owner} · ${source?.branch} ${source?.commit?.slice(0, 10)} · port ${port} · ${database}`,
+      `[audit-run] ${owner} · ${source?.branch} ${source?.commit?.slice(0, 10)} · ${mode ?? "development"} · port ${port} · ${database}`,
     );
     const { page, browser, server } = manifest.shutdown ?? {};
     console.info(
