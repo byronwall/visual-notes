@@ -1,93 +1,24 @@
 import { Meta, Title } from "@solidjs/meta";
-import { createAsync, useNavigate, useParams } from "@solidjs/router";
-import { For, Show, Suspense, createMemo } from "solid-js";
-import { Box, Container, Stack } from "styled-system/jsx";
-import { Button } from "~/components/ui/button";
-import * as Breadcrumb from "~/components/ui/breadcrumb";
-import { Text } from "~/components/ui/text";
-import { fetchPathPageData } from "~/services/docs.service";
-import { PathChildPathLinks } from "~/features/path-view/components/PathChildPathLinks";
-import { PathNoteGroups } from "~/features/path-view/components/PathNoteGroups";
-import { buildPathAncestors, pathToRoute, routeParamToPath } from "~/utils/path-links";
+import { Navigate, useParams } from "@solidjs/router";
+import { Show, createMemo } from "solid-js";
+import { PathDetailView } from "~/features/path-view/components/PathDetailView";
+import { routeParamToPath } from "~/utils/path-links";
 
 const DocsPathPage = () => {
   const params = useParams();
-  const navigate = useNavigate();
   const path = createMemo(() => routeParamToPath(params.segments));
-  const data = createAsync(() => fetchPathPageData({ path: path() }));
-  const breadcrumbs = createMemo(() => buildPathAncestors(path()));
 
   return (
-    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container py="6" px="4" maxW="1200px">
-        <Suspense fallback={<Text color="fg.muted">Loading path notes…</Text>}>
-          <Show
-            when={path().length > 0}
-            fallback={
-              <Stack gap="3" alignItems="flex-start">
-                <Title>Path not found • Visual Notes</Title>
-                <Meta property="og:title" content="Path not found • Visual Notes" />
-                <Text color="fg.muted">This path does not exist.</Text>
-                <Button variant="outline" onClick={() => navigate("/")}>
-                  Go home
-                </Button>
-              </Stack>
-            }
-          >
-            <Title>{`Path: ${path()} • Visual Notes`}</Title>
-            <Meta property="og:title" content={`Path: ${path()} • Visual Notes`} />
-            <Meta
-              name="description"
-              content={`Browse notes for path ${path()} and nested children.`}
-            />
-
-            <Stack gap="5">
-              <Breadcrumb.Root>
-                <Breadcrumb.List>
-                  <Breadcrumb.Item>
-                    <Breadcrumb.Link href="/path">&lt;root&gt;</Breadcrumb.Link>
-                  </Breadcrumb.Item>
-                  <Breadcrumb.Separator />
-                  <For each={breadcrumbs()}>
-                    {(ancestor, i) => (
-                      <>
-                        <Breadcrumb.Item>
-                          <Breadcrumb.Link href={pathToRoute(ancestor)}>
-                            {ancestor.split(".").pop() || ancestor}
-                          </Breadcrumb.Link>
-                        </Breadcrumb.Item>
-                        <Show when={i() < breadcrumbs().length - 1}>
-                          <Breadcrumb.Separator />
-                        </Show>
-                      </>
-                    )}
-                  </For>
-                </Breadcrumb.List>
-              </Breadcrumb.Root>
-
-              <Show when={(data()?.childPaths.length || 0) > 0}>
-                <PathChildPathLinks childPaths={data()?.childPaths || []} />
-              </Show>
-
-              <Show
-                when={(data()?.notes.length || 0) > 0}
-                fallback={
-                  <Text fontSize="sm" color="fg.subtle">
-                    No notes found for this path yet.
-                  </Text>
-                }
-              >
-                {/* Mount previews only after the path query has resolved. */}
-                <PathNoteGroups
-                  path={path}
-                  notes={() => data()?.notes || []}
-                />
-              </Show>
-            </Stack>
-          </Show>
-        </Suspense>
-      </Container>
-    </Box>
+    <Show when={path()} fallback={<Navigate href="/path" />}>
+      {(current) => (
+        <>
+          <Title>{`${current()} • Paths • Visual Notes`}</Title>
+          <Meta property="og:title" content={`${current()} • Visual Notes`} />
+          <Meta name="description" content={`Notes filed under ${current()} and its subpaths.`} />
+          <PathDetailView path={current()} />
+        </>
+      )}
+    </Show>
   );
 };
 
