@@ -119,3 +119,13 @@ Before rebasing or restacking PRs, save each PR's current body, head, and base s
 ```sh
 gh pr view <number> --json number,title,body,headRefName,headRefOid,baseRefName > tmp/pr-<number>-before.json
 ```
+
+## Check the PGM ledger
+
+Run the read-only consistency report against a local PGM export before closing out a run:
+
+```sh
+corepack pnpm pgm:report --root /abs/path/to/pgm-export --project visual-notes-repository-improvement --repo-root /abs/path/to/worktree
+```
+
+It lists implemented nodes without a solution, open nodes that already record a solution (review their disposition), duplicate titles, invalid parents, thin open records, and referenced `tmp/`, `docs/`, or `app/` evidence paths that do not exist under `--repo-root`. Add `--json` for machine-readable output. It never edits or deletes nodes and does not start the PGM viewer.
