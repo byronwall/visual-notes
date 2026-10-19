@@ -3,7 +3,7 @@ export type ActionEventItem = {
   createdAt: string;
   eventType: string;
   actorId?: string | null;
-  actorType: "magic_user" | "anonymous" | "system";
+  actorType: "magic_user" | "anonymous" | "system" | "chatgpt";
   entityType: string;
   entityId?: string | null;
   relatedDocId?: string | null;

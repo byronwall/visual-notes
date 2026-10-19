@@ -1,0 +1,528 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "ChatGPT read/write access to Visual Notes via MCP",
+    "slug": "chatgpt-mcp-notes",
+    "scale": "capability",
+    "current_phase": "execution",
+    "last_updated": "2026-10-18",
+    "summary": "Expose MCP tools on the prod site so ChatGPT can store notes in Visual Notes and retrieve them later, authenticated via OAuth.",
+    "status": "active",
+    "next_action": "M2: local OAuth server"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-18"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-18"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-18"
+    }
+  },
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "user-request",
+      "location": "conversation",
+      "anchor": "initial request",
+      "authority": "user-direct"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "user-direct"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "user-direct"
+    },
+    {
+      "id": "repo-schema",
+      "type": "repository",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "model Doc",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-archive-auth",
+      "type": "repository",
+      "location": "app/src/server/lib/archive/auth.ts",
+      "anchor": "isArchiveIngestAuthorized",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "confirmation",
+      "authority": "user-direct"
+    },
+    {
+      "id": "openai-auth-docs",
+      "type": "external-doc",
+      "location": "https://developers.openai.com/apps-sdk/build/auth",
+      "anchor": "MCP OAuth requirements",
+      "authority": "primary-provider-doc"
+    },
+    {
+      "id": "repo-middleware",
+      "type": "repository",
+      "location": "app/src/middleware.ts",
+      "anchor": "isAllowedUnauthed",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-magic-auth",
+      "type": "repository",
+      "location": "app/src/server/magic-auth.ts",
+      "anchor": "issueMagicToken",
+      "authority": "repository-reality"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Visual Notes should replace ChatGPT internal artifacts as the durable home for ChatGPT output.",
+        "kind": "goal",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C2",
+        "statement": "Content types: long reports, plans/specs, snippets, conversation summaries.",
+        "kind": "scope",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "ChatGPT may create notes and edit only notes it created; user edits do not revoke that.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1",
+          "qa-round-2"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C4",
+        "statement": "ChatGPT chooses the path and may create any new path.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1",
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Retrieval must support semantic recall, exact lookup, recent/browse, and bulk context loading.",
+        "kind": "requirement",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C6",
+        "statement": "Auth must be real OAuth tied to existing login.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C7",
+        "statement": "ChatGPT can read all notes; no denylist.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Doc has no owner; ownership must be provenance-based.",
+        "kind": "repository-fact",
+        "sources": [
+          "repo-schema"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "No delete tool in v1.",
+        "kind": "assumption",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C10",
+        "statement": "Every ChatGPT edit snapshots the prior version for rollback.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C11",
+        "statement": "v1 is notes only.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Login is a single magic password + signed cookie.",
+        "kind": "repository-fact",
+        "sources": [
+          "repo-magic-auth",
+          "repo-middleware"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "Search is client-side over a fetched list; embeddings are batch-run Float[] with no server similarity query.",
+        "kind": "repository-fact",
+        "sources": [
+          "repo-schema"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "selected",
+    "appetite": "One focused capability: one MCP endpoint, minimal single-user OAuth server, one version table, two small UI touches.",
+    "problem": "ChatGPT output is trapped in ChatGPT artifacts; it should live in and be retrievable from Visual Notes.",
+    "recommended_shape": "Streamable-HTTP MCP endpoint at /mcp in the SolidStart app with tools search, list_recent, list_paths, get_notes, create_note, update_note, append_to_note; provenance via originalSource=chatgpt; DocRevision snapshots on ChatGPT edits; hand-rolled OAuth 2.1 (PKCE S256, DCR, aud-bound tokens) behind magic-password login; keyword search first, semantic later behind the same tool.",
+    "success_moves": [
+      {
+        "id": "SM1",
+        "move": "All tool logic in a plain notes-connector service with unit tests; MCP and auth are thin adapters.",
+        "risk": "tool behavior entangled with protocol/auth debugging"
+      },
+      {
+        "id": "SM2",
+        "move": "Prove tools locally with MCP Inspector and a dev-only bearer token before building OAuth.",
+        "risk": "OAuth and tool bugs bundled in one slow loop"
+      },
+      {
+        "id": "SM3",
+        "move": "Prove OAuth locally with the Inspector auth flow; use ChatGPT only for the final deployed smoke.",
+        "risk": "deploy-to-test loop on prod"
+      },
+      {
+        "id": "SM4",
+        "move": "Keyword search first; embed-on-save + semantic ranking behind the same search tool.",
+        "risk": "semantic search rabbit hole delays usable v1"
+      },
+      {
+        "id": "SM5",
+        "move": "Env flag disables /mcp and /oauth routes; revocable refresh tokens.",
+        "risk": "no fast rollback for prod write access"
+      },
+      {
+        "id": "SM6",
+        "move": "Idempotency key on create_note.",
+        "risk": "duplicate notes on ChatGPT retries"
+      }
+    ],
+    "first_proof": {
+      "question": "Do the tools enforce ownership, snapshot versions, and file notes correctly when driven by a real MCP client?",
+      "artifact": "MCP Inspector session against a local audit DB: create at new path, update with snapshot, refused update of a human note",
+      "decision_rule": "All three hold: proceed to OAuth and deployed ChatGPT smoke. Transport cannot live in a SolidStart route: switch to hand-written JSON-RPC or sidecar before more tools."
+    },
+    "rabbit_holes": [
+      "MCP web-standard transport inside a vinxi/SolidStart route",
+      "OAuth details ChatGPT enforces (iss param, redirect URI)",
+      "html-only notes need html-to-markdown conversion",
+      "embedding freshness for semantic search",
+      "middleware must allow /mcp, /.well-known, /oauth while authorize still requires login with return-to"
+    ],
+    "open_decisions": [
+      "Version restore in app UI for v1 vs admin-only (reversible)"
+    ]
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "app/",
+      "revision": "d08af47",
+      "worktree_status": "clean",
+      "subsystems": [
+        "middleware.ts",
+        "magic-auth",
+        "docs.actions applyDocUpdate",
+        "api/docs ingest",
+        "ActionEvent logging",
+        "embeddings runs",
+        "audit harness"
+      ],
+      "test_commands": [
+        "pnpm lint",
+        "pnpm type-check",
+        "pnpm test",
+        "pnpm audit:harness"
+      ],
+      "deployment_surfaces": [
+        "Dockerfile/docker-compose; prisma migrate deploy on container start"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "mcp-sdk",
+        "name": "MCP TypeScript SDK web-standard transport",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Official client protocol fidelity is the point of M1; Inspector is a faithful local client."
+        },
+        "seam": "src/routes/mcp.ts adapter over notes-connector",
+        "proof_strategy": "Inspector locally; fallback hand-written JSON-RPC",
+        "material": false,
+        "application_seam": "src/routes/mcp.ts adapter over notes-connector",
+        "failure_modes": [
+          "transport incompatible with vinxi route",
+          "zod version mismatch"
+        ],
+        "rollout": "MCP_CONNECTOR_ENABLED flag",
+        "proof_rungs": [
+          "vitest service core",
+          "Inspector local"
+        ],
+        "local_proof": "Inspector against audit DB",
+        "live_proof": "Covered by chatgpt deployed smoke"
+      },
+      {
+        "id": "chatgpt",
+        "name": "ChatGPT developer-mode connector",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Inspector substitutes as MCP/OAuth client until the deployed smoke."
+        },
+        "seam": "OAuth + MCP endpoints",
+        "proof_strategy": "Inspector OAuth locally; one deployed smoke",
+        "material": true,
+        "application_seam": "OAuth + MCP endpoints",
+        "failure_modes": [
+          "redirect URI mismatch",
+          "iss/aud rejection",
+          "linking UI not triggered without mcp/www_authenticate"
+        ],
+        "rollout": "flag + MCP_TOKEN_SECRET rotation",
+        "proof_rungs": [
+          "Inspector OAuth mode locally",
+          "deployed developer-mode smoke"
+        ],
+        "local_proof": "Inspector OAuth flow against local auth server",
+        "live_proof": "One ChatGPT save/find/revise smoke on prod (M3)"
+      },
+      {
+        "id": "openai-embeddings",
+        "name": "OpenAI embeddings",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "Keyword search proves retrieval first; semantic is additive in M5."
+        },
+        "seam": "search service semantic branch",
+        "proof_strategy": "M5 eval on real corpus",
+        "material": true,
+        "application_seam": "search service semantic branch",
+        "failure_modes": [
+          "API unavailable on save",
+          "stale embeddings for new notes"
+        ],
+        "rollout": "semantic branch optional; keyword fallback",
+        "proof_rungs": [
+          "unit test with stubbed embedder",
+          "real-corpus recall eval"
+        ],
+        "local_proof": "Stubbed embedding function in vitest for merge/ranking",
+        "live_proof": "10-question recall eval on prod corpus (M5)"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "pnpm test src/server/mcp && pnpm audit:harness (audit DB) + pnpm dlx @modelcontextprotocol/inspector http://127.0.0.1:<port>/mcp",
+      "shared_infrastructure_required": false,
+      "network_required": false,
+      "failure_injection": [
+        "seeded human-authored note for ownership refusal",
+        "repeated create with same idempotency key",
+        "html-only seeded note",
+        "tampered/expired/wrong-aud tokens in vitest",
+        "revoked refresh grant row"
+      ]
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "ChatGPT-shaped tools work locally from the Inspector",
+        "outcome": "All seven tools work against a synthetic DB with ownership, snapshots, idempotency.",
+        "dependencies_introduced": [
+          "mcp-sdk"
+        ],
+        "proof": "vitest service rules + Inspector smoke on audit DB",
+        "valid_intermediate_state": "Flag-gated /mcp with dev-only bearer; no prod exposure",
+        "rollback": "Flag off; migration is additive",
+        "status": "completed",
+        "evidence": [
+          "scripts/mcp-smoke.ts all PASS against local audit DB; vitest src/server/mcp (handler, paths, note-content, notes-write); SDK web-standard transport works in SolidStart route (spike resolved: use SDK)"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "OAuth works end to end locally",
+        "outcome": "Inspector OAuth flow registers, logs in, consents, and calls tools.",
+        "dependencies_introduced": [],
+        "proof": "vitest token checks + Inspector OAuth mode",
+        "valid_intermediate_state": "Connector secure but not deployed",
+        "rollback": "Flag off; rotate MCP_TOKEN_SECRET",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "ChatGPT saves and finds notes on prod",
+        "outcome": "Real chat creates, finds, and revises a note on prod.",
+        "dependencies_introduced": [
+          "chatgpt"
+        ],
+        "proof": "Deployed developer-mode smoke script + logs",
+        "valid_intermediate_state": "Connector live behind flag",
+        "rollback": "Flag off; rotate secret",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "The app shows what ChatGPT did",
+        "outcome": "Marker, version restore, and grant revoke in the app.",
+        "dependencies_introduced": [],
+        "proof": "Playwright pass",
+        "valid_intermediate_state": "Connector unchanged; UI additive",
+        "rollback": "Revert UI",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "Meaning-based recall inside search",
+        "outcome": "search finds recent notes by meaning.",
+        "dependencies_introduced": [
+          "openai-embeddings"
+        ],
+        "proof": "10-question recall eval vs keyword",
+        "valid_intermediate_state": "Keyword search unchanged when embeddings unavailable",
+        "rollback": "Disable semantic branch",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "tasks/time blocks/archive tools",
+      "delete",
+      "edit user-authored notes",
+      "CIMD, mTLS/IP allowlist, multi-user",
+      "snapshots of user edits, diffs",
+      "Apps SDK widgets, in-app search UI changes"
+    ],
+    "open_decisions": [
+      "Transport hosting: SDK web-standard transport vs hand-written JSON-RPC (M1 spike)",
+      "Similarity backend: in-process cosine vs pgvector (M5 spike)"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-18",
+      "event": "Initiative created; two question rounds absorbed; intent brief drafted.",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "User confirmed versioning on edits and notes-only v1; intent current; shape brief drafted.",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Shape accepted by user; implementation plan written.",
+      "status": "planned"
+    }
+  ],
+  "closure": null,
+  "question_rounds": [
+    {
+      "id": "qa-round-1",
+      "questions": [
+        "content types",
+        "write scope",
+        "placement",
+        "retrieval"
+      ],
+      "answers": [
+        "all four",
+        "create+edit own",
+        "ChatGPT picks path",
+        "all four"
+      ]
+    },
+    {
+      "id": "qa-round-2",
+      "questions": [
+        "auth",
+        "ownership after user edit",
+        "new paths",
+        "read scope"
+      ],
+      "answers": [
+        "real OAuth",
+        "still its own",
+        "anywhere",
+        "read everything"
+      ]
+    }
+  ]
+}

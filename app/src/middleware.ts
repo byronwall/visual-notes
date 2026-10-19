@@ -45,6 +45,8 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
+  // The MCP connector authenticates its own bearer tokens.
+  if (pathname === "/mcp") return true;
   // Server functions need an identity check before generic asset extensions.
   if (isServerFunctionPath(pathname)) {
     return isPublicServerFunctionRequest(request);

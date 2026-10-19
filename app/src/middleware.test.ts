@@ -115,3 +115,12 @@ describe("server function auth boundary", () => {
     ).toBe(false);
   });
 });
+
+describe("MCP connector boundary", () => {
+  it("lets /mcp through so the route can check its own bearer tokens", () => {
+    expect(isAllowedUnauthed(serverRequest("/mcp", { method: "POST" }))).toBe(
+      true,
+    );
+    expect(isAllowedUnauthed(serverRequest("/mcp/other"))).toBe(false);
+  });
+});

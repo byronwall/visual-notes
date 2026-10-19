@@ -4,7 +4,7 @@ import { prisma } from "~/server/db";
 import { isRequestAuthenticated } from "~/server/magic-auth";
 import { getMagicUserIdFromRequest } from "~/services/ai/ai-auth";
 
-type ActorType = "magic_user" | "anonymous" | "system";
+type ActorType = "magic_user" | "anonymous" | "system" | "chatgpt";
 type DocMetricKind = "view" | "edit" | "search_click";
 
 type EventContext = {
