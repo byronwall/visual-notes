@@ -1,29 +1,31 @@
+import { ChevronLeftIcon } from "lucide-solid";
 import {
   For,
   Show,
   createMemo,
-  createSignal,
-  onMount,
   type Accessor,
+  type JSX,
   type VoidComponent,
 } from "solid-js";
-import { Portal } from "solid-js/web";
-import { Box, Flex, VStack } from "styled-system/jsx";
+import { Box, Flex } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
-import * as HoverCard from "~/components/ui/hover-card";
-import { Tooltip } from "~/components/ui/tooltip";
 import type { UmapRegionItem } from "~/features/umap/region-types";
 import type { DocItem } from "~/types/notes";
+import { CanvasRailDocRow } from "./CanvasRailDocRow";
 
-export const CANVAS_SIDE_RAIL_WIDTH_PX = 200;
+export const CANVAS_SIDE_RAIL_WIDTH_PX = 248;
+
+export type CanvasRailMode = "regions" | "region" | "matches" | "notes";
 
 export type CanvasSideRailProps = {
-  navHeight: Accessor<number>;
+  mode: Accessor<CanvasRailMode>;
   regions: Accessor<UmapRegionItem[]>;
   selectedRegion: Accessor<UmapRegionItem | null>;
-  visibleDocs: Accessor<DocItem[]>;
+  /** Notes listed in region, matches, and notes modes. */
+  docs: Accessor<DocItem[]>;
   searchQuery: Accessor<string>;
   hoveredRegionId: Accessor<string | undefined>;
+  hoveredDocId: Accessor<string | undefined>;
   selectedDocId: Accessor<string | undefined>;
   onHoveredRegionChange: (regionId: string | undefined) => void;
   onHoveredDocChange: (docId: string | undefined) => void;
@@ -32,270 +34,157 @@ export type CanvasSideRailProps = {
   onOpenDoc: (docId: string) => void;
 };
 
-function storyMatchesSearch(doc: DocItem, query: string) {
-  if (!query) return true;
-  const value = query.toLowerCase();
-  return (
-    doc.title.toLowerCase().includes(value) ||
-    doc.path?.toLowerCase().includes(value)
-  );
-}
+const RAIL_LIST_LIMIT = 400;
+
+const RailHeader = (props: { label: string; count: number; children?: JSX.Element }) => (
+  <Flex align="baseline" justify="space-between" gap="2" px="3" pt="3" pb="2">
+    <Text fontSize="xs" fontWeight="semibold" color="fg.muted" textTransform="uppercase" letterSpacing="0.06em">
+      {props.label}
+    </Text>
+    <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums">
+      {props.count.toLocaleString()}
+    </Text>
+  </Flex>
+);
 
 export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
-  const [mounted, setMounted] = createSignal(false);
-  onMount(() => {
-    setMounted(true);
-  });
-
   const regionsSorted = createMemo(() =>
     props
       .regions()
       .slice()
-      .sort((a, b) => a.title.localeCompare(b.title))
+      .sort((a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title))
   );
-
-  const filteredStories = createMemo(() => {
-    const query = props.searchQuery().trim();
-    return props
-      .visibleDocs()
-      .filter((doc) => storyMatchesSearch(doc, query))
-      .slice()
-      .sort((a, b) => a.title.localeCompare(b.title));
-  });
-  const selectedRegionStoryCount = createMemo(
-    () => props.selectedRegion()?.docCount ?? filteredStories().length
-  );
+  const listedDocs = createMemo(() => props.docs().slice(0, RAIL_LIST_LIMIT));
+  const docsLabel = () => (props.mode() === "matches" ? "Matches" : "Notes");
+  const hiddenCount = () => props.docs().length - RAIL_LIST_LIMIT;
 
   return (
-    <Box
-      position="absolute"
-      zIndex="11"
-      right="4"
-      top="4"
-      bottom="4"
-      w={`min(${CANVAS_SIDE_RAIL_WIDTH_PX}px, calc(100vw - 2rem))`}
-      pointerEvents="none"
-      style={{
-        transform: `translateY(${props.navHeight()}px)`,
-      }}
-    >
-      <Flex
-        h="full"
-        direction="column"
-        pointerEvents="auto"
-        bg="bg.default"
-        borderWidth="1px"
-        borderColor="border"
-        borderRadius="l3"
-        boxShadow="lg"
-        overflow="hidden"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          "backdrop-filter": "blur(12px)",
-        }}
-      >
-        <Show when={props.selectedRegion()}>
-          <Box px="2" pt="2" pb="1">
+    <Flex direction="column" h="full" minH="0">
+      <Show when={props.mode() === "region" && props.selectedRegion()}>
+        {(region) => (
+          <Box px="2" pt="2" pb="2" bg="bg.subtle">
             <Box
               as="button"
-              w="full"
-              textAlign="left"
-              px="3"
-              py="1.5"
-              borderRadius="l2"
+              display="inline-flex"
+              alignItems="center"
+              gap="1"
+              px="1.5"
+              py="1"
+              borderRadius="l1"
               fontSize="xs"
               color="fg.muted"
-              bg="transparent"
-              _hover={{ bg: "bg.subtle", color: "fg.default" }}
+              cursor="pointer"
+              focusVisibleRing="inside"
+              transitionProperty="background-color, color"
+              transitionDuration="fast"
+              _hover={{ bg: "gray.a3", color: "fg.default" }}
+              _active={{ bg: "gray.a5" }}
               onClick={props.onClearRegion}
             >
+              <ChevronLeftIcon size={14} />
               All regions
             </Box>
-          </Box>
-        </Show>
-
-        <Box px="4" pt="2" pb="2" borderBottomWidth="1px" borderColor="border.subtle">
-          <Show
-            when={props.selectedRegion()}
-            fallback={
-              <>
-                <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="fg.muted">
-                  Regions
-                </Text>
-                <Text fontSize="sm" fontWeight="semibold" mt="1">
-                  {regionsSorted().length} visible clusters
-                </Text>
-              </>
-            }
-          >
-            {(region) => (
-              <>
-                <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="fg.muted">
-                  Stories
-                </Text>
-                <Text fontSize="sm" fontWeight="semibold" mt="1" lineClamp="2">
+            <Box px="1.5" pt="1">
+              <Flex align="flex-start" justify="space-between" gap="2">
+                <Text fontSize="sm" fontWeight="semibold" lineHeight="tight">
                   {region().title}
                 </Text>
-                <Text fontSize="xs" color="fg.muted" mt="1">
-                  {selectedRegionStoryCount()} stories in this region
+                <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0" mt="0.5">
+                  {props.searchQuery().trim()
+                    ? `${props.docs().length} / ${region().docCount}`
+                    : region().docCount}
                 </Text>
-              </>
-            )}
-          </Show>
-        </Box>
+              </Flex>
+              <Show when={region().summary}>
+                <Text fontSize="xs" color="fg.muted" mt="1" lineClamp="3">
+                  {region().summary}
+                </Text>
+              </Show>
+            </Box>
+          </Box>
+        )}
+      </Show>
 
-        <Box flex="1" overflowY="auto" px="2" py="2">
-          <Show
-            when={props.selectedRegion()}
-            fallback={
-              <VStack alignItems="stretch" gap="1">
-                <For each={regionsSorted()}>
-                  {(region) => {
-                    const isHovered = () => props.hoveredRegionId() === region.id;
-                    return (
-                      <Tooltip
-                        openDelay={200}
-                        closeDelay={80}
-                        positioning={{ placement: "left-start", strategy: "fixed" }}
-                        showArrow
-                        arrowTipProps={{
-                          bg: "bg.default",
-                          borderTopWidth: "1px",
-                          borderLeftWidth: "1px",
-                          borderColor: "border.default",
-                          style: {
-                            background: "rgba(255,255,255,0.97)",
-                          },
-                        }}
-                        content={
-                          <Box maxW="16rem">
-                            <Text fontSize="xs" fontWeight="semibold" color="fg.default">
-                              {region.title}
-                            </Text>
-                            <Text fontSize="xs" color="fg.muted" mt="1">
-                              {region.summary || `${region.docCount} stories`}
-                            </Text>
-                          </Box>
-                        }
-                        contentProps={{
-                          maxW: "16rem",
-                          zIndex: "tooltip",
-                          bg: "bg.default",
-                          color: "fg.default",
-                          borderWidth: "1px",
-                          borderColor: "border.default",
-                          boxShadow: "md",
-                          px: "3",
-                          py: "2",
-                          borderRadius: "l2",
-                          style: {
-                            background: "rgba(255,255,255,0.97)",
-                            "backdrop-filter": "blur(10px)",
-                          },
-                        }}
-                      >
-                        <Box
-                          as="button"
-                          textAlign="left"
-                          w="full"
-                          px="3"
-                          py="1.5"
-                          borderRadius="l2"
-                          bg={isHovered() ? "bg.subtle" : "transparent"}
-                          _hover={{ bg: "bg.subtle" }}
-                          onMouseEnter={() => props.onHoveredRegionChange(region.id)}
-                          onMouseLeave={() => props.onHoveredRegionChange(undefined)}
-                          onFocus={() => props.onHoveredRegionChange(region.id)}
-                          onBlur={() => props.onHoveredRegionChange(undefined)}
-                          onClick={() => props.onZoomToRegion(region.id)}
-                        >
-                          <Text fontSize="xs" fontWeight="medium" lineClamp="1" flex="1" minW="0">
-                            {region.title}
-                          </Text>
-                        </Box>
-                      </Tooltip>
-                    );
-                  }}
-                </For>
-              </VStack>
-            }
-          >
-            <VStack alignItems="stretch" gap="1">
-                <For each={filteredStories()}>
-                  {(doc) => {
-                    const isActive = () => props.selectedDocId() === doc.id;
-                    const trigger = (
-                      <Box
-                        as="button"
-                        textAlign="left"
-                        w="full"
-                        px="3"
-                        py="1.5"
-                        borderRadius="l2"
-                        bg={isActive() ? "bg.subtle" : "transparent"}
-                        _hover={{ bg: "bg.subtle" }}
-                        onMouseEnter={() => props.onHoveredDocChange(doc.id)}
-                        onMouseLeave={() => props.onHoveredDocChange(undefined)}
-                        onFocus={() => props.onHoveredDocChange(doc.id)}
-                        onBlur={() => props.onHoveredDocChange(undefined)}
-                        onClick={() => props.onOpenDoc(doc.id)}
-                      >
-                        <Text fontSize="xs" fontWeight="medium" lineClamp="1">
-                          {doc.title}
-                        </Text>
-                      </Box>
-                    );
-                    return (
-                      <Show when={mounted()} fallback={trigger}>
-                        <HoverCard.Root
-                          openDelay={120}
-                          closeDelay={80}
-                          positioning={{
-                            placement: "left-start",
-                            offset: { mainAxis: 10 },
-                            strategy: "fixed",
-                          }}
-                        >
-                          <HoverCard.Trigger
-                            asChild={(triggerProps) => (
-                              <span {...triggerProps}>{trigger}</span>
-                            )}
-                          />
-                          <Portal>
-                            <HoverCard.Positioner>
-                              <HoverCard.Content maxW="18rem" zIndex="popover">
-                                <VStack alignItems="stretch" gap="2">
-                                  <Text fontSize="sm" fontWeight="semibold">
-                                    {doc.title}
-                                  </Text>
-                                  <Show when={doc.path}>
-                                    <Text fontSize="xs" color="fg.muted" fontFamily="mono">
-                                      {doc.path}
-                                    </Text>
-                                  </Show>
-                                  <Text fontSize="xs" color="fg.muted">
-                                    Updated {new Date(doc.updatedAt).toLocaleDateString()}
-                                  </Text>
-                                </VStack>
-                              </HoverCard.Content>
-                            </HoverCard.Positioner>
-                          </Portal>
-                        </HoverCard.Root>
-                      </Show>
-                    );
-                  }}
-                </For>
-                <Show when={filteredStories().length === 0}>
-                  <Box px="3" py="4">
-                    <Text fontSize="sm" color="fg.muted">
-                      No stories match the current filter.
-                    </Text>
-                  </Box>
-                </Show>
-            </VStack>
-          </Show>
-        </Box>
-      </Flex>
-    </Box>
+      <Show when={props.mode() === "regions"}>
+        <RailHeader label="Regions" count={regionsSorted().length} />
+      </Show>
+      <Show when={props.mode() === "matches" || props.mode() === "notes"}>
+        <RailHeader label={docsLabel()} count={props.docs().length} />
+      </Show>
+
+      <Box flex="1" minH="0" overflowY="auto" px="1.5" pb="2" pt={props.mode() === "region" ? "1.5" : "0"}>
+        <Show
+          when={props.mode() === "regions"}
+          fallback={
+            <>
+              <For each={listedDocs()}>
+                {(doc) => (
+                  <CanvasRailDocRow
+                    doc={doc}
+                    query={props.searchQuery()}
+                    active={props.selectedDocId() === doc.id}
+                    highlighted={props.hoveredDocId() === doc.id}
+                    onHover={props.onHoveredDocChange}
+                    onOpen={props.onOpenDoc}
+                  />
+                )}
+              </For>
+              <Show when={props.docs().length > RAIL_LIST_LIMIT}>
+                <Text fontSize="xs" color="fg.muted" px="2" py="2">
+                  {props.searchQuery().trim()
+                    ? `${hiddenCount().toLocaleString()} more — refine the search to narrow the list`
+                    : `${hiddenCount().toLocaleString()} more — search to find the rest`}
+                </Text>
+              </Show>
+              <Show when={props.docs().length === 0}>
+                <Text fontSize="sm" color="fg.muted" px="2" py="3">
+                  {props.searchQuery().trim()
+                    ? `No notes match “${props.searchQuery().trim()}”`
+                    : "No notes yet"}
+                </Text>
+              </Show>
+            </>
+          }
+        >
+          <For each={regionsSorted()}>
+            {(region) => {
+              const isHovered = () => props.hoveredRegionId() === region.id;
+              return (
+                <Box
+                  as="button"
+                  display="flex"
+                  alignItems="baseline"
+                  gap="2"
+                  w="full"
+                  textAlign="left"
+                  px="2"
+                  py="1.5"
+                  borderRadius="l2"
+                  cursor="pointer"
+                  focusVisibleRing="inside"
+                  transitionProperty="background-color"
+                  transitionDuration="fast"
+                  bg={isHovered() ? "gray.a3" : "transparent"}
+                  _hover={{ bg: "gray.a3" }}
+                  _active={{ bg: "gray.a5" }}
+                  onMouseEnter={() => props.onHoveredRegionChange(region.id)}
+                  onMouseLeave={() => props.onHoveredRegionChange(undefined)}
+                  onFocus={() => props.onHoveredRegionChange(region.id)}
+                  onBlur={() => props.onHoveredRegionChange(undefined)}
+                  onClick={() => props.onZoomToRegion(region.id)}
+                >
+                  <Text fontSize="sm" flex="1" minW="0" lineHeight="snug">
+                    {region.title}
+                  </Text>
+                  <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0">
+                    {region.docCount}
+                  </Text>
+                </Box>
+              );
+            }}
+          </For>
+        </Show>
+      </Box>
+    </Flex>
   );
 };
