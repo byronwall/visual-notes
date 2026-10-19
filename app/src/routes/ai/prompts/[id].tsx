@@ -15,6 +15,7 @@ import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Heading } from "~/components/ui/heading";
+import { SecondaryBreadcrumb } from "~/components/secondary/SecondaryBreadcrumb";
 import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
 import * as Table from "~/components/ui/table";
@@ -352,10 +353,6 @@ export const PromptDetailPage: VoidComponent = () => {
     <Box as="main" minH="screen" bg="bg.default">
       <Container py="6" px={{ base: "4", md: "6" }}>
         <Stack gap="6">
-          <RouterLink href="/ai" textStyle="sm">
-            ← Back to AI Dashboard
-          </RouterLink>
-
           <ErrorBoundary
             fallback={(err, reset) => (
               <Card.Root>
@@ -390,13 +387,21 @@ export const PromptDetailPage: VoidComponent = () => {
                       gap="3"
                       flexWrap="wrap"
                     >
-                      <Stack gap="1">
-                        <Heading as="h1" fontSize="2xl">
+                      <Stack gap="1.5">
+                        <SecondaryBreadcrumb
+                          items={[
+                            { label: "AI", href: "/ai" },
+                            { label: p().task, mono: true },
+                          ]}
+                        />
+                        <Heading as="h1" fontSize="2xl" fontFamily="mono">
                           {p().task}
                         </Heading>
-                        <Text textStyle="sm" color="fg.muted">
-                          {p().description || "—"}
-                        </Text>
+                        <Show when={p().description}>
+                          <Text textStyle="sm" color="fg.muted">
+                            {p().description}
+                          </Text>
+                        </Show>
                       </Stack>
                       <HStack gap="2" flexWrap="wrap">
                         <Button

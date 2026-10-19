@@ -171,8 +171,20 @@ export function getSanitizeOptions(): IOptions {
   };
 }
 
-export function sanitizeHtmlContent(html: string): string {
-  const options = getSanitizeOptions();
+export function sanitizeHtmlContent(
+  html: string,
+  extraAllowedAttributes?: Record<string, string[]>,
+): string {
+  const baseOptions = getSanitizeOptions();
+  const options: IOptions = extraAllowedAttributes
+    ? {
+        ...baseOptions,
+        allowedAttributes: {
+          ...(baseOptions.allowedAttributes || {}),
+          ...extraAllowedAttributes,
+        },
+      }
+    : baseOptions;
   const sanitized = sanitizeHtml(String(html), options);
 
   // Post-pass: In some "crazy link" cases coming from markdown autolinking,

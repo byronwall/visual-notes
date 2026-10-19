@@ -1,11 +1,9 @@
-import { Meta, Title } from "@solidjs/meta";
-import { A, createAsync, useParams } from "@solidjs/router";
-import { HttpStatusCode } from "@solidjs/start";
-import { Match, Show, Suspense, Switch } from "solid-js";
-import { Box, Container, Stack } from "styled-system/jsx";
-import { ReadOnlyDocumentContent } from "~/components/ReadOnlyDocumentContent";
-import { Button } from "~/components/ui/button";
-import { Text } from "~/components/ui/text";
+import { createAsync, useParams } from "@solidjs/router";
+import { Match, Suspense, Switch } from "solid-js";
+import { Box } from "styled-system/jsx";
+import { ShareNotFound } from "~/components/share/ShareNotFound";
+import { SharedDocArticle } from "~/components/share/SharedDocArticle";
+import { SharedDocHead } from "~/components/share/SharedDocHead";
 import {
   fetchPublicSharedDoc,
   type PublicSharedDoc,
@@ -13,10 +11,7 @@ import {
 import { buildShareAbsoluteUrl } from "~/services/doc-shares.shared";
 import { getBaseUrl } from "~/utils/base-url";
 
-const notFoundTitle = "Shared note not found • Visual Notes";
-const loadingDescription = "Open a shared note from Visual Notes.";
-const notFoundDescription =
-  "That shared note no longer exists or is no longer public.";
+const fallbackDescription = "Open a shared note from Visual Notes.";
 const emptyPreviewText = "No preview available.";
 
 const resolveShareTitle = (doc: PublicSharedDoc) => {
@@ -27,7 +22,7 @@ const resolveShareTitle = (doc: PublicSharedDoc) => {
 const resolveShareDescription = (doc: PublicSharedDoc) => {
   const preview = doc.previewText.trim();
   if (preview.length > 0 && preview !== emptyPreviewText) return preview;
-  return loadingDescription;
+  return fallbackDescription;
 };
 
 export default function SharedDocRoute() {
@@ -37,131 +32,38 @@ export default function SharedDocRoute() {
     { deferStream: true },
   );
 
-  const shareUrl = () => {
-    const current = sharedDoc();
-    if (!current) return "";
-    return buildShareAbsoluteUrl(getBaseUrl(), current.share.shareUrl);
-  };
-  const ogImageUrl = () => {
-    const current = sharedDoc();
-    if (!current) return `${getBaseUrl()}/og-image.png`;
-    return `${getBaseUrl()}/share-og/${current.share.slug}`;
-  };
+  const shareUrlFor = (doc: PublicSharedDoc) =>
+    buildShareAbsoluteUrl(getBaseUrl(), doc.share.shareUrl);
+  const ogImageUrlFor = (doc: PublicSharedDoc) =>
+    `${getBaseUrl()}/share-og/${doc.share.slug}`;
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Container pt="4" pb={{ base: "24", md: "32" }} px="4">
-        <Suspense
-          fallback={
-            <Text textStyle="sm" color="fg.muted">
-              Loading shared note…
-            </Text>
-          }
-        >
-          <Box mx="auto" maxW="900px" position="relative">
-            <Switch>
-              <Match when={sharedDoc()}>
-                {(doc) => (
-                  <>
-                    <Title>{`${resolveShareTitle(doc())} • Visual Notes`}</Title>
-                    <Meta property="og:title" content={resolveShareTitle(doc())} />
-                    <Meta
-                      name="description"
-                      content={resolveShareDescription(doc())}
-                    />
-                    <Meta
-                      property="og:description"
-                      content={resolveShareDescription(doc())}
-                    />
-                    <Meta property="og:type" content="article" />
-                    <Meta property="og:url" content={shareUrl()} />
-                    <Meta property="og:image" content={ogImageUrl()} />
-                    <Meta
-                      property="og:image:alt"
-                      content={`Preview image for ${resolveShareTitle(doc())}`}
-                    />
-                    <Meta name="twitter:card" content="summary_large_image" />
-                    <Meta
-                      name="twitter:title"
-                      content={resolveShareTitle(doc())}
-                    />
-                    <Meta
-                      name="twitter:description"
-                      content={resolveShareDescription(doc())}
-                    />
-                    <Meta name="twitter:image" content={ogImageUrl()} />
-                    <Meta
-                      name="twitter:image:alt"
-                      content={`Preview image for ${resolveShareTitle(doc())}`}
-                    />
-
-                    <Stack gap="4">
-                      <Stack gap="3">
-                        <Text
-                          fontSize="xs"
-                          fontWeight="medium"
-                          color="fg.muted"
-                        >
-                          Shared from Visual Notes
-                        </Text>
-                        <Text
-                          as="h1"
-                          fontSize="4xl"
-                          lineHeight="1.1"
-                          fontWeight="semibold"
-                        >
-                          {resolveShareTitle(doc())}
-                        </Text>
-                        <Show when={doc().path}>
-                          {(path) => (
-                            <Box
-                              as="span"
-                              w="fit-content"
-                              px="3"
-                              py="1.5"
-                              borderWidth="1px"
-                              borderColor="gray.outline.border"
-                              borderRadius="full"
-                              bg="bg.default"
-                              color="fg.default"
-                              fontSize="xs"
-                              fontFamily="mono"
-                              fontWeight="medium"
-                            >
-                              {path()}
-                            </Box>
-                          )}
-                        </Show>
-                      </Stack>
-                      <ReadOnlyDocumentContent html={doc().html} />
-                    </Stack>
-                  </>
-                )}
-              </Match>
-              <Match when={sharedDoc.latest === null}>
-                <Stack gap="3" alignItems="flex-start">
-                  <HttpStatusCode code={404} />
-                  <Title>{notFoundTitle}</Title>
-                  <Meta property="og:title" content={notFoundTitle} />
-                  <Meta name="description" content={notFoundDescription} />
-                  <Meta property="og:description" content={notFoundDescription} />
-                  <Meta name="twitter:title" content={notFoundTitle} />
-                  <Meta
-                    name="twitter:description"
-                    content={notFoundDescription}
-                  />
-                  <Text fontSize="sm" color="fg.muted">
-                    This share link is no longer available.
-                  </Text>
-                  <A href="/login">
-                    <Button variant="outline">Open Visual Notes</Button>
-                  </A>
-                </Stack>
-              </Match>
-            </Switch>
-          </Box>
-        </Suspense>
-      </Container>
+      <Suspense fallback={<Box minH="100vh" aria-busy="true" />}>
+        <Switch>
+          <Match when={sharedDoc()}>
+            {(doc) => (
+              <>
+                <SharedDocHead
+                  title={resolveShareTitle(doc())}
+                  description={resolveShareDescription(doc())}
+                  url={shareUrlFor(doc())}
+                  imageUrl={ogImageUrlFor(doc())}
+                  modifiedAt={doc().updatedAt}
+                />
+                <SharedDocArticle
+                  doc={doc()}
+                  title={resolveShareTitle(doc())}
+                  shareUrl={shareUrlFor(doc())}
+                />
+              </>
+            )}
+          </Match>
+          <Match when={sharedDoc.latest === null}>
+            <ShareNotFound />
+          </Match>
+        </Switch>
+      </Suspense>
     </Box>
   );
 }

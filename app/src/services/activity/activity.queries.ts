@@ -23,7 +23,11 @@ export const fetchTimelineEvents = query(
     const cursor = input.cursor?.trim();
 
     const where: Record<string, unknown> = {};
-    if (input.eventType?.trim()) where.eventType = input.eventType.trim();
+    if (input.eventType?.trim()) {
+      where.eventType = input.eventType.trim();
+    } else if (input.eventDomain?.trim()) {
+      where.eventType = { startsWith: `${input.eventDomain.trim()}.` };
+    }
     if (input.entityType?.trim()) where.entityType = input.entityType.trim();
     if (input.actorId?.trim()) where.actorId = input.actorId.trim();
     if (input.relatedDocId?.trim()) where.relatedDocId = input.relatedDocId.trim();
