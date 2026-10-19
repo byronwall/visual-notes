@@ -52,5 +52,10 @@ jobs:
       - name: Audit harness self-check
         run: pnpm audit:harness:check
 
+      - name: No tracked scratch files
+        run: |
+          tracked=$(git ls-files -- ':(glob,top)**/tmp/**' ':(glob,top)**/playwright/.auth/**')
+          if [ -n "$tracked" ]; then echo "Scratch files are tracked:"; echo "$tracked"; exit 1; fi
+
       - name: Lockfile unchanged
         run: git diff --exit-code -- pnpm-lock.yaml package.json
