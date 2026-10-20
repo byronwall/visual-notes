@@ -48,8 +48,12 @@ export function fromMarkdown(markdown: string): NoteDoc {
   return fromHtml(normalizeMarkdownToHtml(stripIdTags(markdown)));
 }
 
+// The server build of generateHTML serializes through an XML document and
+// stamps the XHTML namespace on top-level elements; it is noise in HTML.
+const XHTML_NS = / xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/g;
+
 export function toHtml(doc: NoteDoc): string {
-  return generateHTML(doc, noteExtensions());
+  return generateHTML(doc, noteExtensions()).replace(XHTML_NS, "");
 }
 
 /**

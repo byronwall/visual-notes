@@ -51,6 +51,7 @@ describe("note content conversion", () => {
     const html = toHtml(doc);
     expect(html).toContain('data-width="50"');
     expect(html).toContain(`data-id="${image?.attrs?.id}"`);
+    expect(html).not.toContain("xmlns");
   });
 
   it("round-trips HTML -> blocks -> HTML -> blocks with stable ids", () => {
