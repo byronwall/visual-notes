@@ -10,14 +10,21 @@ import {
 import { CollectionProvider } from "./CollectionContext";
 import { PropertyList } from "./PropertyList";
 import { createCollectionStore } from "./store/createCollectionStore";
+import { docCollectionVersion } from "./membership/docCollectionVersion";
+import { NoteCollectionMenu } from "./membership/NoteCollectionMenu";
 
+const crumbRow = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "1",
+  mb: "2",
+});
 const crumb = css({
   display: "inline-flex",
   alignItems: "center",
   gap: "1.5",
   fontSize: "xs",
   color: "fg.muted",
-  mb: "2",
   textDecoration: "none",
   _hover: { color: "fg.default" },
 });
@@ -35,15 +42,22 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
   const row = () => store.state.rows[0];
   return (
     <CollectionProvider store={store} openRow={() => {}} embedded={false}>
-      <A href={`/collections/${props.info.collection.id}`} class={crumb}>
-        <Show
-          when={props.info.collection.icon}
-          fallback={<DatabaseIcon size={12} />}
-        >
-          <span>{props.info.collection.icon}</span>
-        </Show>
-        {props.info.collection.name}
-      </A>
+      <div class={crumbRow}>
+        <A href={`/collections/${props.info.collection.id}`} class={crumb}>
+          <Show
+            when={props.info.collection.icon}
+            fallback={<DatabaseIcon size={12} />}
+          >
+            <span>{props.info.collection.icon}</span>
+          </Show>
+          {props.info.collection.name}
+        </A>
+        <NoteCollectionMenu
+          docId={props.info.row.id}
+          collectionId={props.info.collection.id}
+          collectionName={props.info.collection.name}
+        />
+      </div>
       <Show when={row()}>{(r) => <PropertyList row={r()} />}</Show>
     </CollectionProvider>
   );
@@ -52,8 +66,8 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
 /** On a note page: the note's collection and editable properties, when it has one. */
 export const DocCollectionHeader = (props: { docId: string }) => {
   const [info] = createResource(
-    () => props.docId,
-    (id) => fetchDocCollection(id),
+    () => ({ id: props.docId, v: docCollectionVersion() }),
+    ({ id }) => fetchDocCollection(id),
   );
   // Its own boundary so SSR waits for the lookup and hydration sees the same tree.
   return (
