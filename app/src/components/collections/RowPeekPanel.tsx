@@ -14,7 +14,10 @@ export const RowPeekPanel = (props: {
     <DocumentSidePanel
       open={Boolean(props.rowId)}
       docId={props.rowId ?? undefined}
-      onClose={props.onClose}
+      onClose={() => {
+        store.bumpContent();
+        props.onClose();
+      }}
       width="min(720px, 100vw)"
       onDeleted={(docId) => {
         store.replaceRows(store.state.rows.filter((r) => r.id !== docId));

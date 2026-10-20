@@ -68,20 +68,45 @@ export const createCollection = action(
   async (payload: { name: string; description?: string; icon?: string }) => {
     "use server";
     const input = z
-      .object({ name, description: z.string().max(2000).optional(), icon: z.string().max(16).optional() })
+      .object({
+        name,
+        description: z.string().max(2000).optional(),
+        icon: z.string().max(16).optional(),
+      })
       .parse(payload);
     const created = await prisma.$transaction(async (tx) => {
       const collection = await tx.collection.create({
-        data: { name: input.name, description: input.description, icon: input.icon },
+        data: {
+          name: input.name,
+          description: input.description,
+          icon: input.icon,
+        },
       });
       await tx.collectionProperty.createMany({
         data: [
-          { collectionId: collection.id, name: "Status", kind: "status", position: 0, config: defaultConfigFor("status") as Prisma.InputJsonValue },
-          { collectionId: collection.id, name: "Tags", kind: "multi_select", position: 1, config: defaultConfigFor("multi_select") as Prisma.InputJsonValue },
+          {
+            collectionId: collection.id,
+            name: "Status",
+            kind: "status",
+            position: 0,
+            config: defaultConfigFor("status") as Prisma.InputJsonValue,
+          },
+          {
+            collectionId: collection.id,
+            name: "Tags",
+            kind: "multi_select",
+            position: 1,
+            config: defaultConfigFor("multi_select") as Prisma.InputJsonValue,
+          },
         ],
       });
       await tx.collectionView.create({
-        data: { collectionId: collection.id, name: "Table", type: "table", position: 0 },
+        data: {
+          collectionId: collection.id,
+          name: "Table",
+          type: "table",
+          position: 0,
+        },
       });
       return collection;
     });
@@ -92,7 +117,12 @@ export const createCollection = action(
 );
 
 export const updateCollection = action(
-  async (payload: { id: string; name?: string; description?: string | null; icon?: string | null }) => {
+  async (payload: {
+    id: string;
+    name?: string;
+    description?: string | null;
+    icon?: string | null;
+  }) => {
     "use server";
     const input = z
       .object({
@@ -115,8 +145,14 @@ export const deleteCollection = action(async (collectionId: string) => {
   "use server";
   await requireCollection(id.parse(collectionId));
   await prisma.$transaction([
-    prisma.doc.updateMany({ where: { collectionId }, data: { collectionId: null } }),
-    prisma.collection.update({ where: { id: collectionId }, data: { deletedAt: new Date() } }),
+    prisma.doc.updateMany({
+      where: { collectionId },
+      data: { collectionId: null },
+    }),
+    prisma.collection.update({
+      where: { id: collectionId },
+      data: { deletedAt: new Date() },
+    }),
   ]);
   console.info("[collections] deleted %s", collectionId);
   return json({ ok: true }, { revalidate: [fetchCollections.key] });
@@ -125,10 +161,20 @@ export const deleteCollection = action(async (collectionId: string) => {
 // ---------- Properties ----------
 
 export const createProperty = action(
-  async (payload: { collectionId: string; name: string; kind: PropertyKind; config?: PropertyConfig }) => {
+  async (payload: {
+    collectionId: string;
+    name: string;
+    kind: PropertyKind;
+    config?: PropertyConfig;
+  }) => {
     "use server";
     const input = z
-      .object({ collectionId: id, name, kind: z.enum(PROPERTY_KINDS), config: configSchema.optional() })
+      .object({
+        collectionId: id,
+        name,
+        kind: z.enum(PROPERTY_KINDS),
+        config: configSchema.optional(),
+      })
       .parse(payload);
     await requireCollection(input.collectionId);
     const last = await prisma.collectionProperty.findFirst({
@@ -142,7 +188,8 @@ export const createProperty = action(
         name: input.name,
         kind: input.kind,
         position: (last?.position ?? -1) + 1,
-        config: (input.config ?? defaultConfigFor(input.kind)) as Prisma.InputJsonValue,
+        config: (input.config ??
+          defaultConfigFor(input.kind)) as Prisma.InputJsonValue,
       },
     });
     return quiet(mapProperty(created));
@@ -153,14 +200,20 @@ export const createProperty = action(
 export const updateProperty = action(
   async (payload: { id: string; name?: string; config?: PropertyConfig }) => {
     "use server";
-    const input = z.object({ id, name: name.optional(), config: configSchema.optional() }).parse(payload);
-    const existing = await prisma.collectionProperty.findFirst({ where: { id: input.id, deletedAt: null } });
+    const input = z
+      .object({ id, name: name.optional(), config: configSchema.optional() })
+      .parse(payload);
+    const existing = await prisma.collectionProperty.findFirst({
+      where: { id: input.id, deletedAt: null },
+    });
     if (!existing) throw new Error("Property not found");
     const updated = await prisma.collectionProperty.update({
       where: { id: input.id },
       data: {
         name: input.name,
-        config: input.config ? (input.config as Prisma.InputJsonValue) : undefined,
+        config: input.config
+          ? (input.config as Prisma.InputJsonValue)
+          : undefined,
       },
     });
     return quiet(mapProperty(updated));
@@ -181,7 +234,9 @@ export const deleteProperty = action(async (propertyId: string) => {
 export const reorderProperties = action(
   async (payload: { collectionId: string; propertyIds: string[] }) => {
     "use server";
-    const input = z.object({ collectionId: id, propertyIds: z.array(id).max(200) }).parse(payload);
+    const input = z
+      .object({ collectionId: id, propertyIds: z.array(id).max(200) })
+      .parse(payload);
     await prisma.$transaction(
       input.propertyIds.map((propertyId, position) =>
         prisma.collectionProperty.updateMany({
@@ -197,28 +252,51 @@ export const reorderProperties = action(
 
 /** Adds an option to a select-like property and returns it. */
 export const createSelectOption = action(
-  async (payload: { propertyId: string; name: string; color?: SelectOption["color"]; group?: SelectOption["group"] }) => {
+  async (payload: {
+    propertyId: string;
+    name: string;
+    color?: SelectOption["color"];
+    group?: SelectOption["group"];
+  }) => {
     "use server";
     const input = z
-      .object({ propertyId: id, name, color: z.enum(OPTION_COLORS).optional(), group: z.enum(STATUS_GROUPS).optional() })
+      .object({
+        propertyId: id,
+        name,
+        color: z.enum(OPTION_COLORS).optional(),
+        group: z.enum(STATUS_GROUPS).optional(),
+      })
       .parse(payload);
     return prisma.$transaction(async (tx) => {
-      const prop = await tx.collectionProperty.findFirst({ where: { id: input.propertyId, deletedAt: null } });
+      const prop = await tx.collectionProperty.findFirst({
+        where: { id: input.propertyId, deletedAt: null },
+      });
       if (!prop) throw new Error("Property not found");
-      if (!["select", "status", "multi_select"].includes(prop.kind)) throw new Error("Not a select property");
+      if (!["select", "status", "multi_select"].includes(prop.kind))
+        throw new Error("Not a select property");
       const config = asObject<PropertyConfig>(prop.config);
       const options = config.options ?? [];
-      const existing = options.find((o) => o.name.toLowerCase() === input.name.toLowerCase());
-      if (existing) return quiet({ option: existing, property: mapProperty(prop) });
+      const existing = options.find(
+        (o) => o.name.toLowerCase() === input.name.toLowerCase(),
+      );
+      if (existing)
+        return quiet({ option: existing, property: mapProperty(prop) });
       const option: SelectOption = {
         id: newOptionId(),
         name: input.name,
-        color: input.color ?? OPTION_COLORS[(options.length + 1) % OPTION_COLORS.length]!,
+        color:
+          input.color ??
+          OPTION_COLORS[(options.length + 1) % OPTION_COLORS.length]!,
         ...(prop.kind === "status" ? { group: input.group ?? "todo" } : {}),
       };
       const updated = await tx.collectionProperty.update({
         where: { id: prop.id },
-        data: { config: { ...config, options: [...options, option] } as Prisma.InputJsonValue },
+        data: {
+          config: {
+            ...config,
+            options: [...options, option],
+          } as Prisma.InputJsonValue,
+        },
       });
       return quiet({ option, property: mapProperty(updated) });
     });
@@ -236,30 +314,50 @@ const patchInput = z.object({
 
 /** Sets property values on one or more rows (bulk edit uses the same path). */
 export const setRowProperties = action(
-  async (payload: { collectionId: string; docIds: string[]; patch: Record<string, PropertyValue> }) => {
+  async (payload: {
+    collectionId: string;
+    docIds: string[];
+    patch: Record<string, PropertyValue>;
+  }) => {
     "use server";
     const input = patchInput.parse(payload);
     if (input.docIds.length === 1) {
       const [docId] = input.docIds as [string];
-      const { updatedAt } = await applyRowPatch(input.collectionId, docId, input.patch);
+      const { updatedAt } = await applyRowPatch(
+        input.collectionId,
+        docId,
+        input.patch,
+      );
       return quiet({ updatedAt: { [docId]: updatedAt } });
     }
-    const updatedAt = await applyRowsPatch(input.collectionId, input.docIds, input.patch);
+    const updatedAt = await applyRowsPatch(
+      input.collectionId,
+      input.docIds,
+      input.patch,
+    );
     return quiet({ updatedAt });
   },
   "collections-row-set",
 );
 
-export const setRowTitle = action(async (payload: { docId: string; title: string }) => {
-  "use server";
-  const input = z.object({ docId: id, title: z.string().trim().max(200) }).parse(payload);
-  const updated = await prisma.doc.update({
-    where: { id: input.docId },
-    data: { title: input.title || "Untitled" },
-    select: { updatedAt: true, title: true },
-  });
-  return quiet({ title: updated.title, updatedAt: updated.updatedAt.toISOString() });
-}, "collections-row-title");
+export const setRowTitle = action(
+  async (payload: { docId: string; title: string }) => {
+    "use server";
+    const input = z
+      .object({ docId: id, title: z.string().trim().max(200) })
+      .parse(payload);
+    const updated = await prisma.doc.update({
+      where: { id: input.docId },
+      data: { title: input.title || "Untitled" },
+      select: { updatedAt: true, title: true },
+    });
+    return quiet({
+      title: updated.title,
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  },
+  "collections-row-title",
+);
 
 export const createRow = action(
   async (payload: {
@@ -280,13 +378,19 @@ export const createRow = action(
       })
       .parse(payload);
     await requireCollection(input.collectionId);
-    const { set } = await validatePatch(input.collectionId, input.properties ?? {});
+    const { set } = await validatePatch(
+      input.collectionId,
+      input.properties ?? {},
+    );
     let rank: string;
     if (input.afterRank !== undefined || input.beforeRank !== undefined) {
       rank = rankBetween(input.afterRank ?? null, input.beforeRank ?? null);
     } else {
       const last = await prisma.doc.findFirst({
-        where: { collectionId: input.collectionId, collectionRank: { not: null } },
+        where: {
+          collectionId: input.collectionId,
+          collectionRank: { not: null },
+        },
         orderBy: { collectionRank: "desc" },
         select: { collectionRank: true },
       });
@@ -323,10 +427,20 @@ export const createRow = action(
 );
 
 export const moveRow = action(
-  async (payload: { collectionId: string; docId: string; afterRank: string | null; beforeRank: string | null }) => {
+  async (payload: {
+    collectionId: string;
+    docId: string;
+    afterRank: string | null;
+    beforeRank: string | null;
+  }) => {
     "use server";
     const input = z
-      .object({ collectionId: id, docId: id, afterRank: z.string().nullable(), beforeRank: z.string().nullable() })
+      .object({
+        collectionId: id,
+        docId: id,
+        afterRank: z.string().nullable(),
+        beforeRank: z.string().nullable(),
+      })
       .parse(payload);
     const rank = rankBetween(input.afterRank, input.beforeRank);
     await prisma.doc.updateMany({
@@ -339,28 +453,43 @@ export const moveRow = action(
 );
 
 /** Deletes row notes entirely (the notes are gone, like deleting a note). */
-export const deleteRows = action(async (payload: { collectionId: string; docIds: string[] }) => {
-  "use server";
-  const input = z.object({ collectionId: id, docIds: z.array(id).min(1).max(5000) }).parse(payload);
-  const result = await prisma.doc.deleteMany({
-    where: { id: { in: input.docIds }, collectionId: input.collectionId },
-  });
-  for (const docId of input.docIds) {
-    await logActionEvent({ eventType: "doc.delete", entityType: "doc", entityId: docId, relatedDocId: docId });
-  }
-  return quiet({ deleted: result.count });
-}, "collections-rows-delete");
+export const deleteRows = action(
+  async (payload: { collectionId: string; docIds: string[] }) => {
+    "use server";
+    const input = z
+      .object({ collectionId: id, docIds: z.array(id).min(1).max(5000) })
+      .parse(payload);
+    const result = await prisma.doc.deleteMany({
+      where: { id: { in: input.docIds }, collectionId: input.collectionId },
+    });
+    for (const docId of input.docIds) {
+      await logActionEvent({
+        eventType: "doc.delete",
+        entityType: "doc",
+        entityId: docId,
+        relatedDocId: docId,
+      });
+    }
+    return quiet({ deleted: result.count });
+  },
+  "collections-rows-delete",
+);
 
 /** Takes notes out of a collection. Values stay stored on the note. */
 export const removeRowsFromCollection = action(
   async (payload: { collectionId: string; docIds: string[] }) => {
     "use server";
-    const input = z.object({ collectionId: id, docIds: z.array(id).min(1).max(5000) }).parse(payload);
+    const input = z
+      .object({ collectionId: id, docIds: z.array(id).min(1).max(5000) })
+      .parse(payload);
     const result = await prisma.doc.updateMany({
       where: { id: { in: input.docIds }, collectionId: input.collectionId },
       data: { collectionId: null },
     });
-    return json({ removed: result.count }, { revalidate: [fetchCollections.key] });
+    return json(
+      { removed: result.count },
+      { revalidate: [fetchCollections.key] },
+    );
   },
   "collections-rows-remove",
 );
@@ -409,17 +538,29 @@ export const createView = action(
 );
 
 export const updateView = action(
-  async (payload: { id: string; name?: string; type?: CollectionView["type"]; config?: ViewConfig }) => {
+  async (payload: {
+    id: string;
+    name?: string;
+    type?: CollectionView["type"];
+    config?: ViewConfig;
+  }) => {
     "use server";
     const input = z
-      .object({ id, name: name.optional(), type: z.enum(VIEW_TYPES).optional(), config: viewConfigSchema.optional() })
+      .object({
+        id,
+        name: name.optional(),
+        type: z.enum(VIEW_TYPES).optional(),
+        config: viewConfigSchema.optional(),
+      })
       .parse(payload);
     const updated = await prisma.collectionView.update({
       where: { id: input.id },
       data: {
         name: input.name,
         type: input.type,
-        config: input.config ? (input.config as Prisma.InputJsonValue) : undefined,
+        config: input.config
+          ? (input.config as Prisma.InputJsonValue)
+          : undefined,
       },
     });
     return quiet(mapView(updated));
@@ -429,7 +570,9 @@ export const updateView = action(
 
 export const deleteView = action(async (viewId: string) => {
   "use server";
-  const view = await prisma.collectionView.findUnique({ where: { id: id.parse(viewId) } });
+  const view = await prisma.collectionView.findUnique({
+    where: { id: id.parse(viewId) },
+  });
   if (!view) return quiet({ ok: true });
   if (!view.hostDocId) {
     const remaining = await prisma.collectionView.count({
@@ -444,7 +587,9 @@ export const deleteView = action(async (viewId: string) => {
 export const reorderViews = action(
   async (payload: { collectionId: string; viewIds: string[] }) => {
     "use server";
-    const input = z.object({ collectionId: id, viewIds: z.array(id).max(100) }).parse(payload);
+    const input = z
+      .object({ collectionId: id, viewIds: z.array(id).max(100) })
+      .parse(payload);
     await prisma.$transaction(
       input.viewIds.map((viewId, position) =>
         prisma.collectionView.updateMany({
@@ -466,7 +611,9 @@ const SELECT_LIKE: PropertyKind[] = ["select", "status", "multi_select"];
 
 /** Computes the target config and converted values for a kind change. */
 async function planKindChange(propertyId: string, kind: PropertyKind) {
-  const prop = await prisma.collectionProperty.findFirst({ where: { id: propertyId, deletedAt: null } });
+  const prop = await prisma.collectionProperty.findFirst({
+    where: { id: propertyId, deletedAt: null },
+  });
   if (!prop) throw new Error("Property not found");
   const from = mapProperty(prop);
   let config: PropertyConfig = defaultConfigFor(kind);
@@ -474,7 +621,9 @@ async function planKindChange(propertyId: string, kind: PropertyKind) {
     config = {
       options: (from.config.options ?? []).map((o) => ({
         ...o,
-        ...(kind === "status" ? { group: o.group ?? "todo" } : { group: undefined }),
+        ...(kind === "status"
+          ? { group: o.group ?? "todo" }
+          : { group: undefined }),
       })),
     };
   }
@@ -484,18 +633,28 @@ async function planKindChange(propertyId: string, kind: PropertyKind) {
     select: { id: true, properties: true },
   });
   const options = [...(config.options ?? [])];
-  const target = (): CollectionProperty => ({ ...from, kind, config: { ...config, options } });
+  const target = (): CollectionProperty => ({
+    ...from,
+    kind,
+    config: { ...config, options },
+  });
   let lost = 0;
   let converted = 0;
   const updates: Array<{ id: string; value: PropertyValue }> = [];
   // Two passes: first collect any options the values need, then convert.
   if (SELECT_LIKE.includes(kind) && !SELECT_LIKE.includes(from.kind)) {
     for (const row of rows) {
-      const value = asObject<Record<string, PropertyValue>>(row.properties)[from.id];
+      const value = asObject<Record<string, PropertyValue>>(row.properties)[
+        from.id
+      ];
       if (value === undefined || value === null) continue;
       const { newOptions } = coerceValue(from, target(), value);
       for (const optionName of newOptions) {
-        if (!options.some((o) => o.name.toLowerCase() === optionName.toLowerCase())) {
+        if (
+          !options.some(
+            (o) => o.name.toLowerCase() === optionName.toLowerCase(),
+          )
+        ) {
           options.push({
             id: newOptionId(),
             name: optionName,
@@ -507,37 +666,69 @@ async function planKindChange(propertyId: string, kind: PropertyKind) {
     }
   }
   for (const row of rows) {
-    const value = asObject<Record<string, PropertyValue>>(row.properties)[from.id];
+    const value = asObject<Record<string, PropertyValue>>(row.properties)[
+      from.id
+    ];
     if (value === undefined || value === null) continue;
     converted++;
     const result = coerceValue(from, target(), value);
     if (result.lost) lost++;
     updates.push({ id: row.id, value: result.value });
   }
-  return { from, target: target(), collectionId: prop.collectionId, updates, converted, lost };
+  return {
+    from,
+    target: target(),
+    collectionId: prop.collectionId,
+    updates,
+    converted,
+    lost,
+  };
 }
 
 export const changePropertyKind = action(
-  async (payload: { propertyId: string; kind: PropertyKind; apply: boolean }) => {
+  async (payload: {
+    propertyId: string;
+    kind: PropertyKind;
+    apply: boolean;
+  }) => {
     "use server";
-    const input = z.object({ propertyId: id, kind: z.enum(PROPERTY_KINDS), apply: z.boolean() }).parse(payload);
+    const input = z
+      .object({
+        propertyId: id,
+        kind: z.enum(PROPERTY_KINDS),
+        apply: z.boolean(),
+      })
+      .parse(payload);
     const plan = await planKindChange(input.propertyId, input.kind);
-    if (!input.apply) return quiet({ converted: plan.converted, lost: plan.lost, applied: false as const });
+    if (!input.apply)
+      return quiet({
+        converted: plan.converted,
+        lost: plan.lost,
+        applied: false as const,
+      });
     const key = plan.from.id;
-    await prisma.$transaction(
-      [
-        prisma.collectionProperty.update({
-          where: { id: key },
-          data: { kind: input.kind, config: plan.target.config as Prisma.InputJsonValue },
-        }),
-        ...plan.updates.map((u) =>
-          u.value === null
-            ? prisma.$executeRaw`UPDATE "Doc" SET "properties" = "properties" - ${key} WHERE "id" = ${u.id}`
-            : prisma.$executeRaw`UPDATE "Doc" SET "properties" = jsonb_set(COALESCE("properties", '{}'::jsonb), ARRAY[${key}]::text[], ${JSON.stringify(u.value)}::jsonb) WHERE "id" = ${u.id}`,
-        ),
-      ],
+    await prisma.$transaction([
+      prisma.collectionProperty.update({
+        where: { id: key },
+        data: {
+          kind: input.kind,
+          config: plan.target.config as Prisma.InputJsonValue,
+        },
+      }),
+      ...plan.updates.map((u) =>
+        u.value === null
+          ? prisma.$executeRaw`UPDATE "Doc" SET "properties" = "properties" - ${key} WHERE "id" = ${u.id}`
+          : prisma.$executeRaw`UPDATE "Doc" SET "properties" = jsonb_set(COALESCE("properties", '{}'::jsonb), ARRAY[${key}]::text[], ${JSON.stringify(u.value)}::jsonb) WHERE "id" = ${u.id}`,
+      ),
+    ]);
+    console.info(
+      "[collections] kind %s %s→%s rows:%d lost:%d",
+      key,
+      plan.from.kind,
+      input.kind,
+      plan.converted,
+      plan.lost,
     );
-    console.info("[collections] kind %s %s→%s rows:%d lost:%d", key, plan.from.kind, input.kind, plan.converted, plan.lost);
     return quiet({
       converted: plan.converted,
       lost: plan.lost,

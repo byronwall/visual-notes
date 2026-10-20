@@ -4,6 +4,7 @@ import {
   EyeIcon,
   EyeOffIcon,
   IdCardIcon,
+  ImageIcon,
 } from "lucide-solid";
 import { For, type JSX, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
@@ -220,6 +221,65 @@ export const CardFieldsSettings = (props: {
             </MenuItem>
           )}
         </For>
+      </div>
+    </SettingsPopover>
+  );
+};
+
+/** Gallery: where card covers come from. */
+export const CoverSettings = (props: { view: CollectionView }) => {
+  const { store } = useCollection();
+  const source = () => props.view.config.cover?.source ?? "body";
+  const urlProperties = () =>
+    store.state.properties.filter((p) => p.kind === "text");
+  const label = () => {
+    if (source() === "none") return "No cover";
+    if (source() === "body") return "Cover: body image";
+    return `Cover: ${store.state.properties.find((p) => p.id === props.view.config.cover?.propertyId)?.name ?? "property"}`;
+  };
+  return (
+    <SettingsPopover icon={<ImageIcon size={14} />} label={label()}>
+      <div class={menuPanel} style={{ width: "15rem" }}>
+        <div class={menuSection}>Card cover</div>
+        <MenuItem
+          trailing={source() === "none" ? <CheckIcon size={13} /> : undefined}
+          onClick={() =>
+            store.patchViewConfig(props.view.id, { cover: { source: "none" } })
+          }
+        >
+          None
+        </MenuItem>
+        <MenuItem
+          trailing={source() === "body" ? <CheckIcon size={13} /> : undefined}
+          onClick={() =>
+            store.patchViewConfig(props.view.id, { cover: { source: "body" } })
+          }
+        >
+          First image in the note
+        </MenuItem>
+        <Show when={urlProperties().length > 0}>
+          <div class={menuSection}>Image URL from</div>
+          <For each={urlProperties()}>
+            {(p) => (
+              <MenuItem
+                icon={<PropertyKindIcon property={p} />}
+                trailing={
+                  source() === "property" &&
+                  props.view.config.cover?.propertyId === p.id ? (
+                    <CheckIcon size={13} />
+                  ) : undefined
+                }
+                onClick={() =>
+                  store.patchViewConfig(props.view.id, {
+                    cover: { source: "property", propertyId: p.id },
+                  })
+                }
+              >
+                {p.name}
+              </MenuItem>
+            )}
+          </For>
+        </Show>
       </div>
     </SettingsPopover>
   );

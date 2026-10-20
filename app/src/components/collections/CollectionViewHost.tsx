@@ -5,7 +5,12 @@ import { useCollection } from "./CollectionContext";
 import { CollectionTable } from "./table/CollectionTable";
 import { CollectionToolbar } from "./views/CollectionToolbar";
 import { CollectionBoard } from "./board/CollectionBoard";
-import { CardFieldsSettings, GroupBySettings } from "./views/ViewSettings";
+import {
+  CardFieldsSettings,
+  CoverSettings,
+  GroupBySettings,
+} from "./views/ViewSettings";
+import { CollectionGallery } from "./gallery/CollectionGallery";
 
 const stack = css({ display: "flex", flexDirection: "column", gap: "2" });
 
@@ -30,6 +35,10 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
                 exclude={props.view.config.groupBy}
               />
             </Match>
+            <Match when={props.view.type === "gallery"}>
+              <CoverSettings view={props.view} />
+              <CardFieldsSettings view={props.view} defaultCount={2} />
+            </Match>
           </Switch>
         }
       />
@@ -39,6 +48,9 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
         </Match>
         <Match when={props.view.type === "board"}>
           <CollectionBoard view={props.view} />
+        </Match>
+        <Match when={props.view.type === "gallery"}>
+          <CollectionGallery view={props.view} />
         </Match>
       </Switch>
     </div>
