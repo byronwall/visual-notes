@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import {
   Show,
   createEffect,
@@ -10,6 +10,7 @@ import type { Component } from "solid-js";
 import { createEditor } from "./editor/core/createEditor";
 import { documentContentClass } from "./document-content-styles";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
+import { PhoneKeyboardToolbar } from "./editor/toolbar/PhoneKeyboardToolbar";
 import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
@@ -24,6 +25,8 @@ const DEFAULT_HTML = `
 
 type TiptapEditorProps = {
   initialHTML?: string;
+  /** Block JSON to load; takes precedence over `initialHTML`. */
+  initialContent?: JSONContent;
   class?: string;
   onEditor?: (editor: Editor) => void;
   /** Show formatting toolbar. Defaults to true. */
@@ -34,6 +37,11 @@ type TiptapEditorProps = {
   fillHeight?: boolean;
   minEditorHeight?: string;
   borderless?: boolean;
+  /**
+   * Below the md breakpoint, "keyboard" hides the inline toolbar and shows
+   * it docked above the on-screen keyboard only while editing.
+   */
+  phoneToolbar?: "inline" | "keyboard";
 };
 
 const TiptapEditor: Component<TiptapEditorProps> = (props) => {
@@ -63,8 +71,9 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
   const editor = createEditor(
     () => container(),
-    props.initialHTML ?? DEFAULT_HTML,
+    props.initialContent ?? props.initialHTML ?? DEFAULT_HTML,
     (text: string, _src: "paste" | "drop" | "file") => prompt(text),
+    () => props.noteId,
   );
 
   // Set stable editor instance once when available
@@ -85,19 +94,20 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
   // Sync incoming HTML ONLY when the prop changes, not on every transaction.
   // Track the last applied prop value to avoid redundant setContent calls.
-  let lastAppliedFromProps: string | undefined = undefined;
-  const initialHtmlFromProps = createMemo(
-    () => props.initialHTML ?? DEFAULT_HTML,
+  let lastAppliedFromProps: string | JSONContent | undefined = undefined;
+  const initialFromProps = createMemo(
+    () => props.initialContent ?? props.initialHTML ?? DEFAULT_HTML,
   );
   createEffect(() => {
     const ed = stableEditor();
     if (!ed) return;
-    const next = initialHtmlFromProps();
+    const next = initialFromProps();
     if (lastAppliedFromProps === next) return;
-    const current = ed.getHTML();
-    if (typeof next === "string" && next !== current) {
-      ed.commands.setContent(next, { emitUpdate: false });
-    }
+    const changed =
+      typeof next === "string"
+        ? next !== ed.getHTML()
+        : JSON.stringify(next) !== JSON.stringify(ed.getJSON());
+    if (changed) ed.commands.setContent(next, { emitUpdate: false });
     lastAppliedFromProps = next;
   });
 
@@ -115,6 +125,11 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         {/* Sentinel: once it scrolls out of view the toolbar is stuck. */}
         <Box ref={setSentinel} h="0" mb="-2" aria-hidden="true" />
         <Box
+          display={
+            props.phoneToolbar === "keyboard"
+              ? { base: "none", md: "block" }
+              : undefined
+          }
           flexShrink="0"
           position="sticky"
           top="0"
@@ -164,6 +179,16 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
           ref={setContainer}
         />
       </Box>
+
+      <Show when={props.phoneToolbar === "keyboard" && stableEditor()}>
+        {(ed) => (
+          <PhoneKeyboardToolbar
+            editor={ed()}
+            noteId={props.noteId}
+            showAiPromptsMenu={props.showAiPromptsMenu}
+          />
+        )}
+      </Show>
 
       {csvPromptView}
       {mdPromptView}

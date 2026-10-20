@@ -18,6 +18,7 @@ type Filters = {
   updatedFrom?: string;
   updatedTo?: string;
   activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+  collectionRows?: "hide" | "only";
   sortMode?:
     | "relevance"
     | "recent_activity"

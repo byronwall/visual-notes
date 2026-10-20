@@ -1,3 +1,4 @@
+import { A } from "@solidjs/router";
 import { PlusIcon } from "lucide-solid";
 import { createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
@@ -20,6 +21,17 @@ type Props = {
 
 const getDisplayName = (list: TaskListItem) =>
   list.name.trim() || "Untitled list";
+
+const noteTasksLinkClass = css({
+  display: "block",
+  px: "2.5",
+  py: "1",
+  fontSize: "xs",
+  color: "blue.11",
+  textDecorationLine: "none",
+  borderRadius: "l2",
+  _hover: { bg: "gray.a3" },
+});
 
 const itemsClass = css({
   display: "flex",
@@ -127,6 +139,10 @@ export const TaskListSelector = (props: Props) => {
           <PlusIcon size={14} />
         </IconButton>
       </div>
+
+      <A href="/views/note-tasks" class={noteTasksLinkClass}>
+        Open tasks in notes →
+      </A>
 
       <div class={itemsClass}>
         <For each={props.lists}>

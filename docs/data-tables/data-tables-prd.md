@@ -1,3 +1,5 @@
+> **Superseded (2026-10-19):** replaced by [docs/intent/collections](../intent/collections/shape-brief.md). Rows are now notes, and relations are deferred. This file is kept for history.
+
 # Data Tables PRD (Notion-Style, Action-Oriented)
 
 ## 1. Document Info

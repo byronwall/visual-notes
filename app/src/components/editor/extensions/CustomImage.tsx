@@ -1,4 +1,4 @@
-import Image from "@tiptap/extension-image";
+import { NoteImage } from "~/lib/note-content/schema";
 import { ExpandIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-solid";
 import { For, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import { css } from "styled-system/css";
@@ -432,33 +432,7 @@ function CustomImageNodeView() {
   );
 }
 
-export const CustomImage = Image.extend({
-  addAttributes() {
-    // TODO:AS_ANY, extend base attrs; parent() is not well-typed in Tiptap's API
-    const parent = (this as any).parent?.() ?? {};
-    return {
-      ...parent,
-      widthPercent: {
-        default: DEFAULT_WIDTH_PERCENT,
-        parseHTML: (element: HTMLElement) => {
-          const fromData = element.getAttribute("data-width");
-          if (fromData) return parseWidthPercent(fromData);
-          const styleWidth = element.style?.width || "";
-          if (styleWidth.endsWith("%")) {
-            return parseWidthPercent(styleWidth.slice(0, -1));
-          }
-          return DEFAULT_WIDTH_PERCENT;
-        },
-        renderHTML: (attrs: ImageAttrs) => {
-          const width = parseWidthPercent(attrs.widthPercent);
-          return {
-            "data-width": String(width),
-            style: `width: ${width}%;`,
-          };
-        },
-      },
-    } as any;
-  },
+export const CustomImage = NoteImage.extend({
   addNodeView() {
     return createSolidNodeViewRenderer(CustomImageNodeView, {
       stopEvent: ({ event }) => {

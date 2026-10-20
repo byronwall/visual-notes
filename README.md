@@ -45,79 +45,42 @@ The app runs at `http://localhost:3000`.
 
 ## API
 
-### POST /api/docs
+Notes are created and edited in the app, by in-app AI, and by the ChatGPT MCP connector. Bulk ingest (the old `cli-ingest` tool and its sync endpoints) has been removed.
 
-Ingest a Markdown document. Returns the created `id`.
-
-Request body:
+`POST /api/docs` creates one note for a signed-in client (the e2e fixtures use it):
 
 ```json
 { "title": "My Doc", "markdown": "# Hello\nSome text." }
 ```
 
-Example:
+It returns `{ "id": "..." }` with status 201.
 
-```bash
-curl -s -X POST http://localhost:3000/api/docs \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Hello","markdown":"# Hello\nSome text."}'
-```
+## Live note updates
 
-Response:
+Open tabs refresh when notes change elsewhere (ChatGPT, other tabs, the CLI). See [app/docs/live-note-updates.md](app/docs/live-note-updates.md). A reverse proxy must forward WebSocket upgrades for `/ws/notes`.
 
-```json
-{ "id": "doc_123" }
-```
+## Collections
 
-### GET /api/docs/[id]
+Collections are typed sets of notes, like Notion databases. Each row is an ordinary note, so search, links, revisions, and the ChatGPT connector all work on rows. The collection adds a property schema on top.
 
-Fetch a previously ingested document.
-
-Response body:
-
-```json
-{
-  "id": "doc_123",
-  "title": "Hello",
-  "html": "<h1>Hello</h1>\n<p>Some text.</p>"
-}
-```
-
-Notes:
-
-- The server converts Markdown to HTML using `normalizeAiOutputToHtml`.
-- Authentication is not enforced for this minimal slice.
-
-## Client Usage
-
-- Open the home page and paste Markdown into the ingest form; upon success, you will be navigated to `/docs/[id]` to view it.
-
-## Key Files
-
-- Prisma model: `app/prisma/schema.prisma` (model `Doc`)
-- Markdown normalization: `app/src/server/lib/markdown.ts`
-- API handlers:
-  - `app/src/routes/api/docs/index.ts` (POST)
-  - `app/src/routes/api/docs/[id].ts` (GET)
-- Client routes:
-  - Ingest form (home): `app/src/routes/index.tsx`
-  - Viewer: `app/src/routes/docs/[id].tsx`
+- **Pages:** `/collections` lists them, and `/collections/:id` shows saved views as tabs.
+- **Views:**
+  - *Table:* inline editing, filters, sorts, footer summaries, bulk edit, and windowed rows.
+  - *Board:* grouped by a select or status property; drag cards to change the value.
+  - *Gallery:* cards with a cover image and a body preview.
+  - *Calendar:* a month grid by a date property; drag to reschedule.
+- **Property kinds:** text (formats: plain, URL, email, phone), number (formats: plain, decimal, percent, currency, rating, progress), select, status (options grouped into To do, In progress, and Done), multi-select, date (with optional end date and time), checkbox, and created or updated time.
+- **In notes:** type `/collection` to embed a live, editable view. A row's note page shows its properties and a link back to its collection.
+- **Existing notes:** use "Add notes" on a collection page, or "Add to collection…" in a note's ⋯ menu. Meta keys that match property names fill those properties.
+- **Storage:** values live on `Doc.properties`, keyed by property id; the row's body is the note's block content (`Doc.content`). Views and their filters live in `CollectionView`. The embed is the `collectionView` node in the shared note schema, and gallery covers and previews read bodies through the note store (`services/collections/note-summary.ts`). Plan and design notes are in [docs/intent/collections](docs/intent/collections/shape-brief.md).
+- **Local fixtures:** run `cd app && node --experimental-strip-types --env-file=.env scripts/seed-collections.ts` against an audit database (`visual_notes_audit_*` only), then run `pnpm migrate:blocks --apply` to give the seeded rows block bodies.
 
 ## Testing
-
-### Run tests
 
 ```bash
 cd app
 pnpm test
 ```
-
-### What’s tested
-
-- `app/src/routes/api/docs/index.test.ts` runs an integration-style test that:
-  - Mocks Prisma via `vi.spyOn(db, "prisma", "get")`
-  - Calls POST `/api/docs` handler and then GET `/api/docs/[id]`
-  - Verifies the created id and returned HTML
 
 ## Docker Quickstart
 
@@ -142,6 +105,8 @@ This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.
 - Builds the app image, then runs it on port 3000.
 - On container start, the app runs `prisma migrate deploy` automatically.
+- Before serving requests, it fills missing `Doc.searchText` values in batches. This preserves note edit dates.
+- Content writes keep plain search text current. PostgreSQL uses a `pg_trgm` index for substring matches.
 
 ### Environment (overrides)
 
@@ -160,14 +125,6 @@ docker compose up --build
 ```
 
 Inside the app container, `DATABASE_URL` is set to `postgresql://postgres:postgres@db:5432/visual_notes?schema=public` by default.
-
-### Test the API (optional)
-
-```bash
-curl -s -X POST http://localhost:3000/api/docs \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Hello","markdown":"# Hello\nSome text."}' | jq .
-```
 
 ## Embeddings + UMAP (New)
 

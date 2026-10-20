@@ -21,4 +21,11 @@ describe("resolveActiveRange", () => {
       endIdx: 1,
     });
   });
+
+  it("treats a heading that a jump parked on the top edge as active", () => {
+    expect(resolveActiveRange([-400, 80.125, 900], 80, 640)).toEqual({
+      startIdx: 1,
+      endIdx: 1,
+    });
+  });
 });

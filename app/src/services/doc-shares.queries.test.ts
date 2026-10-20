@@ -4,11 +4,7 @@ const { findUnique } = vi.hoisted(() => ({ findUnique: vi.fn() }));
 
 vi.mock("@solidjs/router", () => ({ query: (fn: unknown) => fn }));
 vi.mock("~/server/db", () => ({ prisma: { docShare: { findUnique } } }));
-vi.mock("~/server/lib/markdown", () => ({
-  normalizeMarkdownToHtml: (markdown: string | null) => markdown ?? "",
-  sanitizeHtmlContent: (html: string) => html,
-}));
-vi.mock("./docs.queries", () => ({ buildDocPreviewText: () => "Note preview" }));
+vi.mock("./docs.queries", () => ({ buildNotePreviewText: () => "Note preview" }));
 
 import { fetchPublicSharedDoc } from "./doc-shares.queries";
 
@@ -39,12 +35,12 @@ describe("fetchPublicSharedDoc", () => {
     expect(result).toMatchObject({
       id: "doc-1",
       title: "Shared note",
-      html: "<p>Public content</p>",
       markdown: "Public content",
       path: "notes/shared.md",
       share: { slug: "public-note" },
       previewText: "Note preview",
     });
+    expect(result?.html).toContain("Public content");
     expect(result).not.toHaveProperty("meta");
     expect(findUnique.mock.calls[0][0].select.doc.select).not.toHaveProperty("meta");
   });

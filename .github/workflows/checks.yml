@@ -127,7 +127,7 @@ jobs:
 
       # Only specs that pass on main today. Add a spec here once it passes.
       - name: Playwright
-        run: pnpm exec playwright test archive-title-cancel auth-helper research-canvas
+        run: pnpm exec playwright test archive-title-cancel auth-helper new-note-mobile live-note-updates research-canvas
 
       - name: Upload report
         if: failure()

@@ -23,9 +23,34 @@ type SimpleDialogProps = {
   restoreFocus?: boolean;
   /** Set false for dialogs holding typed input so a stray click can't drop it. */
   closeOnInteractOutside?: boolean;
+  /**
+   * Below the md breakpoint, fill the visible screen like a native sheet and
+   * move the footer actions to the top, where the keyboard can't cover them.
+   */
+  phoneSheet?: boolean;
   /** Call `event.preventDefault()` to keep the dialog open, e.g. for an inner combobox. */
   onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
+
+// Sized from the visual viewport (see ~/lib/visual-viewport) so the open iOS
+// keyboard never pushes the top actions out of view. Condition styles sort
+// after the base maxW/maxH below, so these win on phones.
+const phoneSheetClass = css({
+  mdDown: {
+    w: "100vw",
+    maxW: "100vw",
+    h: "var(--vv-height, 100dvh)",
+    maxH: "var(--vv-height, 100dvh)",
+    mt: "var(--vv-top, 0px)",
+    mb: "0",
+    borderRadius: "0",
+    boxShadow: "none",
+    pt: "2",
+    gap: "3",
+    "& .dialog__footer": { order: -1, pb: "0" },
+    "& .dialog__closeTrigger": { display: "none" },
+  },
+});
 
 export function SimpleDialog(props: SimpleDialogProps) {
   const handleOpenChange = (details: { open?: boolean }) => {
@@ -49,6 +74,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
         flexDirection: "column",
       }),
     );
+    if (props.phoneSheet) classes.push(phoneSheetClass);
     if (props.contentClass) classes.push(props.contentClass);
     return classes.join(" ");
   };

@@ -1,3 +1,8 @@
+// A TOC jump lands its heading on the top edge, give or take subpixel
+// rounding; count that heading as reached rather than leaving the previous
+// section active.
+const REACHED_TOLERANCE_PX = 4;
+
 export function resolveActiveRange(
   headingAbsTops: number[],
   visibleTopAbs: number,
@@ -7,7 +12,9 @@ export function resolveActiveRange(
     return { startIdx: 0, endIdx: 0 };
   }
 
-  const firstAfterTop = headingAbsTops.findIndex((top) => top > visibleTopAbs);
+  const firstAfterTop = headingAbsTops.findIndex(
+    (top) => top > visibleTopAbs + REACHED_TOLERANCE_PX,
+  );
 
   let startIdx = 0;
   if (firstAfterTop === -1) {
