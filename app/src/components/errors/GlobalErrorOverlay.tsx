@@ -1,5 +1,5 @@
 import type { Accessor } from "solid-js";
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { Box, Flex, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
@@ -50,9 +50,18 @@ const safeSerialize = (value: unknown) => {
 
 export function GlobalErrorOverlay(props: GlobalErrorOverlayProps) {
   const [copyStatus, setCopyStatus] = createSignal<"idle" | "success" | "error">("idle");
-  const isOpen = () => props.open?.() ?? true;
+  // Client-only: as an ErrorBoundary fallback this can render while an error
+  // interrupts hydration. The server HTML has no overlay nodes to claim then,
+  // so rendering during hydration throws again and hides the original error.
+  const [mounted, setMounted] = createSignal(false);
+  onMount(() => setMounted(true));
+  const isOpen = () => mounted() && (props.open?.() ?? true);
   const detailsMessage = () => getErrorMessage(props.error);
   const detailsStack = () => getErrorStack(props.error);
+  createEffect(() => {
+    if (!isOpen() || !props.error) return;
+    console.error(`[global-error-overlay] ${props.title}`, props.error);
+  });
   const hasCopyData = () => Boolean(props.error || detailsMessage() || detailsStack());
 
   const copyErrorJson = async () => {
