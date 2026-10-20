@@ -90,6 +90,8 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
       },
       onStatus: (next) => {
         status = next;
+        // Mirrors data-app-hydrated so tests and debugging can see the socket.
+        document.documentElement.dataset.noteLive = next;
         if (next !== "open") return;
         // Events sent while disconnected are lost, so refresh once.
         if (hasOpened) catchUp("reconnected");

@@ -5,7 +5,8 @@
 //
 // Checks that a socket without the magic-session cookie is refused, then opens
 // an authenticated socket, creates one note under `note-live-smoke.<ts>`
-// through MCP, and waits for its notes:changed event. Run it only against a
+// through MCP (or appends to NOTE_APPEND_ID), and waits for its
+// notes:changed event. Run it only against a
 // local or disposable database.
 import { createHmac } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -86,16 +87,34 @@ await client.connect(
     requestInit: { headers: { Authorization: `Bearer ${bearer}` } },
   }),
 );
-const created = (await client.callTool({
-  name: "create_note",
-  arguments: {
-    title: process.env.NOTE_TITLE ?? "Live smoke note",
-    path: `note-live-smoke.${Date.now()}`,
-    markdown: "Created by scripts/note-live-smoke.ts",
-  },
-})) as { isError?: boolean; structuredContent?: { id?: string } };
-const id = created.structuredContent?.id;
-check(!created.isError && id, "MCP create_note succeeds");
+// NOTE_APPEND_ID appends to an existing ChatGPT note instead of creating one,
+// which is handy with that note open in a browser tab.
+const appendId = process.env.NOTE_APPEND_ID;
+const result = (await client.callTool(
+  appendId
+    ? {
+        name: "append_to_note",
+        arguments: {
+          id: appendId,
+          markdown:
+            process.env.NOTE_MARKDOWN ??
+            `Appended by scripts/note-live-smoke.ts at ${new Date().toISOString()}`,
+        },
+      }
+    : {
+        name: "create_note",
+        arguments: {
+          title: process.env.NOTE_TITLE ?? "Live smoke note",
+          path: `note-live-smoke.${Date.now()}`,
+          markdown: "Created by scripts/note-live-smoke.ts",
+        },
+      },
+)) as { isError?: boolean; structuredContent?: { id?: string } };
+const id = appendId ?? result.structuredContent?.id;
+check(
+  !result.isError && id,
+  `MCP ${appendId ? "append_to_note" : "create_note"} succeeds`,
+);
 
 const deadline = Date.now() + 3000;
 while (
@@ -108,9 +127,9 @@ check(
   events.some(
     (e) => e.type === "notes:changed" && e.changes?.some((c) => c.id === id),
   ),
-  "notes:changed for the new note arrives within 3s",
+  "notes:changed for the note arrives within 3s",
 );
-console.info("[note-live-smoke] created", { id });
+console.info("[note-live-smoke] note", { id });
 
 ws.close();
 await client.close();
