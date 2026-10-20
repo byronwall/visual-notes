@@ -16,6 +16,9 @@ export type NotesChangedEvent = {
   at: string;
 };
 
+/** Close code /ws/notes uses when NOTE_LIVE_SYNC=false; clients stop retrying. */
+export const NOTE_SOCKET_DISABLED_CLOSE_CODE = 4503;
+
 export type NoteSocketServerMessage =
   | NotesChangedEvent
   | { type: "notes:ping"; at: string };

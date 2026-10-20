@@ -6,8 +6,8 @@ import {
   useContext,
   type ParentComponent,
 } from "solid-js";
-import { clientEnv } from "~/env/client";
 import {
+  NOTE_SOCKET_DISABLED_CLOSE_CODE,
   isNoteSocketServerMessage,
   type NoteSocketServerMessage,
   type NotesChangedEvent,
@@ -27,8 +27,6 @@ type NoteLiveSyncContextValue = {
 };
 
 const NoteLiveSyncContext = createContext<NoteLiveSyncContextValue>();
-
-const isEnabled = () => clientEnv.VITE_NOTE_LIVE_SYNC !== "false";
 
 export const NoteLiveSyncProvider: ParentComponent = (props) => {
   const listeners = new Set<NotesChangedListener>();
@@ -72,11 +70,6 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
   // Client-only: the socket and visibility events exist only in the browser,
   // and the provider renders no markup, so SSR output is unaffected.
   onMount(() => {
-    if (!isEnabled()) {
-      console.info("[note-live] disabled by VITE_NOTE_LIVE_SYNC");
-      return;
-    }
-
     let status: SocketStatus = "idle";
     let hasOpened = false;
     let hiddenAt: number | null = null;
@@ -84,6 +77,9 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
     const client = createSocketClient<NoteSocketServerMessage>({
       path: "/ws/notes",
       logPrefix: "note-live",
+      stopOnCloseCodes: [NOTE_SOCKET_DISABLED_CLOSE_CODE],
+      // The server greets on open and pings every 25s.
+      watchdog: { firstMessageMs: 5_000, idleMs: 60_000 },
       parse: (value) => (isNoteSocketServerMessage(value) ? value : null),
       onMessage: (message) => {
         if (message.type === "notes:changed") handleChanged(message);
@@ -106,9 +102,13 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
       }
       const hiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
       hiddenAt = null;
-      if (status !== "open") {
+      if (status === "closed" || status === "error") {
+        // Skip the backoff wait; "idle" means the server turned sync off.
         client.connect();
-      } else if (hiddenFor > NOTE_LIVE_STALE_AFTER_HIDDEN_MS) {
+      } else if (
+        status === "open" &&
+        hiddenFor > NOTE_LIVE_STALE_AFTER_HIDDEN_MS
+      ) {
         catchUp("visible after long hide");
       }
     };

@@ -1,6 +1,10 @@
 import { eventHandler } from "vinxi/http";
 
-import type { NoteSocketServerMessage } from "../lib/note-events";
+import {
+  NOTE_SOCKET_DISABLED_CLOSE_CODE,
+  type NoteSocketServerMessage,
+} from "../lib/note-events";
+import { serverEnv } from "../env/server";
 import { isRequestAuthenticated } from "../server/magic-auth";
 import { subscribeNoteChanges } from "../server/note-events";
 
@@ -10,6 +14,8 @@ type Peer = Parameters<NonNullable<Hooks["open"]>>[0];
 // Below common reverse-proxy idle timeouts (often 60s) so idle sockets stay up.
 const HEARTBEAT_MS = 25_000;
 const UNAUTHORIZED_CLOSE_CODE = 4401;
+
+const isDisabled = () => serverEnv.NOTE_LIVE_SYNC === "false";
 
 const peers = new Set<Peer>();
 let unsubscribe: (() => void) | null = null;
@@ -68,6 +74,12 @@ const handler = eventHandler({
       }
     },
     open(peer) {
+      // Accept, then close with a code the client treats as "stop retrying";
+      // a refused upgrade looks like a network error and would be retried.
+      if (isDisabled()) {
+        peer.close(NOTE_SOCKET_DISABLED_CLOSE_CODE, "live sync disabled");
+        return;
+      }
       if (!isAuthed(peer.request)) {
         peer.close(UNAUTHORIZED_CLOSE_CODE, "unauthorized");
         return;
@@ -75,6 +87,8 @@ const handler = eventHandler({
       peers.add(peer);
       console.info("[note-socket] open", { id: peer.id, peers: peers.size });
       start();
+      // Greets right away so the client knows this socket reached the handler.
+      send(peer, { type: "notes:ping", at: new Date().toISOString() });
     },
     close(peer, details) {
       peers.delete(peer);

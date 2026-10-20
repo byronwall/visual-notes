@@ -26,10 +26,10 @@ Each milestone leaves the app working. Before milestone 1 lands, tabs behave as 
 
 - **First proof:** the notes index is open in the browser, and an MCP Inspector `create_note` makes the note appear with no reload.
 - **Primary seam:** `publishNoteChanges(changes)` and `subscribeNoteChanges()` in `src/server/note-events.ts`, with the same shape as `job-events.ts`. On the client, one `NoteLiveSync` provider mounted in the app shell.
-- **Fast local loop:** `cd app && pnpm vitest run src/server/note-events src/lib/note-live` plus `pnpm dev` with two browser tabs. Run `scripts/mcp-smoke.ts` or the Inspector against the local audit database (see [audit-harness.md](../../../app/docs/audit-harness.md)).
+- **Fast local loop:** `cd app && pnpm test src/server/note-events src/features/live-sync src/lib/socket-client` plus `pnpm dev` with two browser tabs. Run `scripts/note-live-smoke.ts` or the Inspector against the local audit database (see [audit-harness.md](../../../app/docs/audit-harness.md)).
 - **Local dependencies:** none new. Postgres is the existing dev or audit-harness database.
 - **Provider/live confirmation:** a deployed check that a ChatGPT write reaches an open production tab.
-- **Rollout and rollback:** `VITE_NOTE_LIVE_SYNC` (default on). When it's off, the provider never connects, and the server endpoint stays idle.
+- **Rollout and rollback:** server env `NOTE_LIVE_SYNC=false` (default on). When it's off, `/ws/notes` closes sockets with code 4503 and clients stop reconnecting. It's a runtime flag on purpose: `VITE_*` values are baked in at Docker build time.
 
 ## Milestone 1: New and changed notes appear in open lists
 
@@ -60,24 +60,20 @@ This milestone fixes the reported bug for every write source. It leaves the open
 
 ## Milestone 2: The open note refreshes safely
 
-This is the data-loss risk, so it gets its own milestone and tests.
+This is the data-loss risk, so it gets its own milestone and tests. It was rebuilt on block storage (main at `c8dbf02`), whose editor already polls, adopts remote versions, and merges per block on save.
 
-- **Change — expose refetch from the note resources**
-  - `routes/docs/[id].tsx`, `DocumentEditor.tsx`, and `DocumentSidePanel.tsx` use `createResource`, which `revalidate` doesn't touch. Each one registers `{ docId, lastKnownUpdatedAt, isBusy(), refetch, onConflict }` with `NoteLiveSync` and unregisters on cleanup.
-- **Change — decision rule (pure function, unit-tested)**
-  - Event `updatedAt` ≤ last known → ignore. This covers the tab's own save.
-  - Save in flight → queue the event, re-check after the save resolves, and compare against the returned `updatedAt`.
-  - Clean → refetch, then reset the editor content. Dirty → show a notice.
-  - Deleted → notice: "This note was deleted elsewhere."
-- **Change — "Changed elsewhere" notice**
-  - A small inline bar near the save status, built from existing `~/components/ui` pieces, with **Reload** and **Keep mine** actions. Keep mine means the next save overwrites the note; the revision history already preserves the ChatGPT version.
+- **Change — live events drive the editor's remote check**
+  - `DocumentEditor` runs `checkRemote` on a matching event; the 15s poll stays as a fallback. Both read with `fetchDocLatest`.
+  - Idle → `adoptRemote`. Dirty → skip, and the next save merges per block. Mid-save → check after the save settles. Own save → skipped by `updatedAt`.
+- **Change — header resources**
+  - `routes/docs/[id].tsx` and `DocumentSidePanel.tsx` use `useLiveNoteResource`, which swaps with `mutate` only when header fields changed.
 
 ### Desired end state
 
-- On a clean open note, ChatGPT's append appears in the editor.
-- With unsaved typing, the text stays and the notice appears.
+- On an idle open note, an edit from ChatGPT or another tab appears in the editor.
+- Simultaneous edits in two tabs both survive in both tabs and in storage.
 - Saving in tab A never resets the cursor in tab A.
-- Vitest covers every branch of the decision rule. A Playwright smoke run uses two contexts against the audit database.
+- Vitest covers the decision helpers. Playwright uses two browser contexts against a production build.
 
 ## Milestone 3: Proven in production
 
@@ -89,12 +85,19 @@ This is the data-loss risk, so it gets its own milestone and tests.
 ### Desired end state
 
 - A ChatGPT write shows up in an open production tab without a refresh.
-- Flipping `VITE_NOTE_LIVE_SYNC` off returns tabs to today's behavior.
+- Setting `NOTE_LIVE_SYNC=false` returns tabs to today's behavior.
+
+## What implementation changed
+
+- **Milestone 1 spike resolved, WebSocket kept.** Custom vinxi routers need `tsconfigPaths()` for `~/` imports. The crossws `upgrade` hook can reject unauthenticated requests with a 401 `Response`.
+- **SSR cache trap.** A server-rendered note page leaves the `docs-get` query entry unread, so `fetchDoc` returned the stale SSR payload even after `revalidate`. Live sync reads with `fetchDocLatest` instead.
+- **Focus.** Header resources swap data only when header fields changed. A new note object on every save stole the editor's focus.
+- **Rebased on block storage.** Content writes run in transactions, so publishing waits for commit (`deferNoteChanges`). Dirty drafts merge per block on save instead of showing a notice. The extended Prisma client is cast back to `PrismaClient` so `Prisma.TransactionClient` helpers keep type-checking.
+- **Watchdog.** The server greets each socket and pings every 25s. The client reports "open" only after the first message and reconnects after 5s with no greeting or 60s of silence. A cold dev server can leave a socket that looks open but isn't connected to the handler.
 
 ## Open decisions and spikes
 
-- **WebSocket router auth and upgrade** (milestone 1 spike) — output: keep WebSocket or switch to SSE. Fallback: SSE.
-- **Publishing inside interactive `$transaction` blocks** — output: publish on commit, or move publishing to explicit service calls for those sites. Fallback: explicit `publishNoteChanges` after the transaction.
+- **Publishing inside interactive `$transaction` blocks** — no current `Doc` write runs inside one. If one is added, an event may arrive just before commit. The 250 ms client debounce usually covers that; the fallback is an explicit `publishNoteChanges` after the transaction.
 
 ## Below the cut line
 

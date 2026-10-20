@@ -24,8 +24,8 @@ Live note updates
 │   ├── Lists refresh themselves
 │   │   └── Notes index and search, path/tree views, sidebar recent notes
 │   ├── Open note stays current
-│   │   ├── Clean → refetches in place
-│   │   ├── Dirty → "Changed elsewhere · Reload" notice
+│   │   ├── Clean → adopts the new version in place
+│   │   ├── Dirty → the next save merges per block (block storage)
 │   │   └── The tab's own save → ignored (no echo)
 │   └── Catch-up after a gap
 │       └── Reconnect or tab refocus → one refresh
@@ -40,7 +40,7 @@ Live note updates
 | --- | --- |
 | ChatGPT creates a note | Index, path view, and recent list show it; no reload |
 | ChatGPT appends to the open note, no local edits | Editor content refreshes |
-| Same, with unsaved local edits | Content stays; notice offers Reload |
+| Same, with unsaved local edits | Typing stays; the next save merges both per block |
 | This tab saves the note | No refetch and no cursor jump |
 | Bulk delete or move of 50 notes | One debounced list refresh, not 50 |
 | Laptop sleeps, then wakes | Socket reconnects, then one catch-up refresh |
@@ -58,7 +58,7 @@ The jobs socket is a working pattern to copy, not an endpoint to reuse. It has n
 
 **Boundary:** This assumes a single server process. Running several app instances would need Postgres `LISTEN/NOTIFY` behind the same publish function. The canvas and UMAP views stay manual for now.
 
-To turn it off, stop the client from connecting with a flag. Tabs then behave exactly as they do today.
+To turn it off, set the runtime server flag `NOTE_LIVE_SYNC=false`. Tabs then behave exactly as they do today.
 
 **First proof:** **Try:** in local dev, create a note through the MCP Inspector while the notes index is open in a browser. **Observe:** the note appears without a reload, and a second tab's save doesn't jump the cursor in the first. **Decide:** if both hold, move on to the open-note dirty/clean handling and the deployed check. If the WebSocket router won't upgrade or authenticate under vinxi, switch the transport to server-sent events behind the same client hook.
 
