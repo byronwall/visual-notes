@@ -34,11 +34,15 @@ const typeInParagraph = async (page: Page, text: string, typed: string) => {
   await page.keyboard.type(typed);
 };
 
+/** The editor's autosave: the saveDocContent server action, not any POST. */
 const nextAutosave = (page: Page) =>
   page.waitForResponse(
     (response) =>
       response.url().includes("/_server") &&
-      response.request().method() === "POST",
+      response.request().method() === "POST" &&
+      (response.request().headers()["x-server-id"] ?? "").includes(
+        "saveDocContent",
+      ),
     { timeout: 8_000 },
   );
 
