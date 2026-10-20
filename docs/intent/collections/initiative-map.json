@@ -4,11 +4,11 @@
     "title": "Collections (Notion-style databases)",
     "slug": "collections",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-19",
     "summary": "Typed collections whose rows are notes, with table/board/gallery/calendar views on collection pages and embedded, editable in notes. Built on the block-storage layer through narrow seams.",
-    "status": "planned",
-    "next_action": "Confirm open choice (rows in notes list), then start PR 1 once block-storage M1-M3 are merged."
+    "status": "active",
+    "next_action": "Review and merge the stack bottom-up; after block storage lands, move CollectionViewNode into the shared schema and switch note-summary.ts to DocBlock."
   },
   "artifacts": {
     "intent_brief": {
@@ -569,8 +569,10 @@
         "proof": "Vitest values + patch merge; Playwright edit/reload/peek; search & [[link]] row",
         "valid_intermediate_state": "Collections usable as typed tables",
         "rollback": "Revert PR; additive migration; notes intact",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #116; patch race test kept 40/40 keys; browser edit/peek/note page"
+        ]
       },
       {
         "id": "m2",
@@ -580,8 +582,10 @@
         "proof": "Playwright key/focus isolation, undo separation, save/reload",
         "valid_intermediate_state": "Embeds work for table view",
         "rollback": "Remove slash item; node renders placeholder",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #117; /collection embed editable in place, no keystroke leaks; sanitize test"
+        ]
       },
       {
         "id": "m3",
@@ -593,8 +597,10 @@
         "proof": "Engine Vitest tables; 2,000-row Playwright scroll/edit",
         "valid_intermediate_state": "Full table feature set",
         "rollback": "Revert PR",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #122; 2,000-row Research windowed (~50 rows in DOM); filter/sort/bulk verified"
+        ]
       },
       {
         "id": "m4",
@@ -604,8 +610,10 @@
         "proof": "group.ts tests; Playwright drag + reload",
         "valid_intermediate_state": "Table + board",
         "rollback": "Hide view type",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #123; drag between columns persisted"
+        ]
       },
       {
         "id": "m5",
@@ -615,8 +623,10 @@
         "proof": "Adapter tests incl. legacy fallback",
         "valid_intermediate_state": "Three views",
         "rollback": "Hide view type",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #126; note-summary adapter tests; covers from body images"
+        ]
       },
       {
         "id": "m6",
@@ -626,8 +636,10 @@
         "proof": "Span tests; Playwright drag",
         "valid_intermediate_state": "Four views",
         "rollback": "Hide view type",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #128; drag reschedule verified"
+        ]
       },
       {
         "id": "m7",
@@ -637,8 +649,10 @@
         "proof": "Mapping Vitest; Playwright bulk add",
         "valid_intermediate_state": "Collections can absorb existing notes",
         "rollback": "Revert PR",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #139; meta mapping created options and filled values on 3 seeded notes"
+        ]
       },
       {
         "id": "m8",
@@ -648,8 +662,10 @@
         "proof": "mcp-smoke; full gate; Playwright route sweep",
         "valid_intermediate_state": "Feature complete for this build",
         "rollback": "Revert PR",
-        "status": "planned",
-        "evidence": []
+        "status": "active",
+        "evidence": [
+          "MCP get_notes collection text, notes-list chip + collection-rows filter, Cmd-K collections, README"
+        ]
       }
     ],
     "cut_line": [
@@ -664,20 +680,23 @@
       {
         "id": "P1",
         "question": "Grid inside NodeView vs portal overlay",
-        "evidence": "PR 2 Playwright isolation check",
-        "fallback": "Portal overlay anchored to block rect"
+        "evidence": "PR #117 browser check",
+        "fallback": "Portal overlay",
+        "resolved": "In-place grid works with stopEvent on [data-collection-embed] and an owner-bridged createRoot"
       },
       {
         "id": "P2",
         "question": "@tanstack/solid-virtual vs hand-rolled",
-        "evidence": "2,000-row scroll/edit and SSR first window",
-        "fallback": "Hand-rolled fixed-height window"
+        "evidence": "PR #122",
+        "fallback": "Hand-rolled",
+        "resolved": "Hand-rolled fixed-height windowing (useWindowedRows)"
       },
       {
         "id": "D1",
         "question": "Rows in notes list default",
         "evidence": "Human choice",
-        "fallback": "Show with hide filter"
+        "fallback": "Show with hide filter",
+        "resolved": "Default show; All/Hide/Only collection rows filter in the notes toolbar (PR 8)"
       }
     ]
   },
@@ -686,6 +705,11 @@
       "date": "2026-10-19",
       "event": "Initiative created from old docs/data-tables PRD and plan; three question rounds; intent, shape, and plan written. Old docs marked superseded.",
       "status": "planned"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Implemented as stacked PRs #110 (docs), #116, #117, #122, #123, #126, #128, #139, and PR 8. Built on current Doc storage; block-storage seams are note-summary.ts and the collectionView node.",
+      "status": "active"
     }
   ],
   "closure": null

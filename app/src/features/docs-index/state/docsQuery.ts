@@ -16,6 +16,7 @@ export function createDocsQueryStore() {
     updatedFrom: "" as string,
     updatedTo: "" as string,
     activityClass: "",
+    collectionRows: "" as "" | "hide" | "only",
     sortMode: "relevance" as
       | "relevance"
       | "recent_activity"
@@ -38,6 +39,7 @@ export function createDocsQueryStore() {
   const updatedFrom = createMemo(() => state.updatedFrom);
   const updatedTo = createMemo(() => state.updatedTo);
   const activityClass = createMemo(() => state.activityClass);
+  const collectionRows = createMemo(() => state.collectionRows);
   const sortMode = createMemo(() => state.sortMode);
   const clientShown = createMemo(() => state.clientShown);
   const serverShown = createMemo(() => state.serverShown);
@@ -54,6 +56,8 @@ export function createDocsQueryStore() {
   const setUpdatedFrom = (v?: string) => setState("updatedFrom", v ?? "");
   const setUpdatedTo = (v?: string) => setState("updatedTo", v ?? "");
   const setActivityClass = (v: string) => setState("activityClass", v);
+  const setCollectionRows = (v: string) =>
+    setState("collectionRows", v === "hide" || v === "only" ? v : "");
   const setSortMode = (
     v: "relevance" | "recent_activity" | "most_viewed_30d" | "most_edited_30d",
   ) => setState("sortMode", v);
@@ -83,6 +87,7 @@ export function createDocsQueryStore() {
       updatedFrom: "",
       updatedTo: "",
       activityClass: "",
+      collectionRows: "",
     });
   };
   const hasFilters = createMemo(
@@ -98,7 +103,8 @@ export function createDocsQueryStore() {
         state.createdTo ||
         state.updatedFrom ||
         state.updatedTo ||
-        state.activityClass
+        state.activityClass ||
+        state.collectionRows
       ),
   );
   const resetPaging = () => {
@@ -123,6 +129,7 @@ export function createDocsQueryStore() {
     updatedFrom,
     updatedTo,
     activityClass,
+    collectionRows,
     sortMode,
     clientShown,
     serverShown,
@@ -139,6 +146,7 @@ export function createDocsQueryStore() {
     setUpdatedFrom,
     setUpdatedTo,
     setActivityClass,
+    setCollectionRows,
     setSortMode,
     resetMeta,
     resetDatesAndSource,
