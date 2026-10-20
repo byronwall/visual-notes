@@ -24,6 +24,7 @@ const rowClass = css({
   transitionDuration: "fast",
   _hover: { bg: "gray.a2" },
   "&[data-faded=true]": { opacity: 0.55 },
+  "&[data-selected=true]": { bg: "gray.a4" },
 });
 
 const stateButtonClass = css({
@@ -46,7 +47,16 @@ const stateButtonClass = css({
 
 const isFaded = (card: ResearchCard) => card.state === "done" || card.state === "dropped";
 
-const OutlineNode = (props: { card: ResearchCard; depth: number; data: TopicData; faded: boolean }) => {
+type NodeProps = {
+  card: ResearchCard;
+  depth: number;
+  data: TopicData;
+  faded: boolean;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+};
+
+const OutlineNode = (props: NodeProps) => {
   const runSetState = useAction(setResearchCardState);
   const kids = () => props.data.children().get(props.card.id) ?? [];
   const faded = () => props.faded || isFaded(props.card);
@@ -63,6 +73,7 @@ const OutlineNode = (props: { card: ResearchCard; depth: number; data: TopicData
         class={rowClass}
         style={{ "padding-left": `${props.depth * 20 + 4}px` }}
         data-faded={faded()}
+        data-selected={props.selectedId === props.card.id}
         data-testid="research-outline-row"
         data-card-type={props.card.type}
       >
@@ -87,14 +98,19 @@ const OutlineNode = (props: { card: ResearchCard; depth: number; data: TopicData
             <Show when={props.card.state}>
               <CardTypeIcon type={props.card.type} size={12} />
             </Show>
-            <span
+            <button
+              type="button"
               class={css({
                 fontSize: "sm",
+                textAlign: "left",
+                cursor: "pointer",
                 textDecoration: props.card.state === "dropped" ? "line-through" : undefined,
+                _hover: { color: "blue.11" },
               })}
+              onClick={() => props.onSelect(props.card.id)}
             >
               {props.card.title}
-            </span>
+            </button>
           </div>
           <CardBody card={props.card} compact />
         </div>
@@ -102,7 +118,16 @@ const OutlineNode = (props: { card: ResearchCard; depth: number; data: TopicData
       <Show when={kids().length}>
         <ul>
           <For each={kids()}>
-            {(child) => <OutlineNode card={child} depth={props.depth + 1} data={props.data} faded={faded()} />}
+            {(child) => (
+              <OutlineNode
+                card={child}
+                depth={props.depth + 1}
+                data={props.data}
+                faded={faded()}
+                selectedId={props.selectedId}
+                onSelect={props.onSelect}
+              />
+            )}
           </For>
         </ul>
       </Show>
@@ -110,11 +135,15 @@ const OutlineNode = (props: { card: ResearchCard; depth: number; data: TopicData
   );
 };
 
-export const TopicOutline = (props: { data: TopicData }) => {
+export const TopicOutline = (props: { data: TopicData; selectedId: string | null; onSelect: (id: string) => void }) => {
   const roots = () => props.data.children().get(null) ?? [];
   return (
     <ul class={css({ display: "flex", flexDirection: "column" })} aria-label="Topic outline">
-      <For each={roots()}>{(card) => <OutlineNode card={card} depth={0} data={props.data} faded={false} />}</For>
+      <For each={roots()}>
+        {(card) => (
+          <OutlineNode card={card} depth={0} data={props.data} faded={false} selectedId={props.selectedId} onSelect={props.onSelect} />
+        )}
+      </For>
     </ul>
   );
 };

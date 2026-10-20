@@ -9,7 +9,8 @@ import { fetchResearchTopics } from "~/services/research/research.queries";
 const rowClass = css({
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) auto",
-  gap: "1 4",
+  rowGap: "1",
+  columnGap: "4",
   px: "2",
   py: "2",
   borderBottomWidth: "1px",

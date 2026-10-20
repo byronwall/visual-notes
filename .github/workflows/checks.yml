@@ -101,7 +101,7 @@ jobs:
       # Fresh throwaway values per run; masked so they never reach the log.
       - name: Generate test secrets
         run: |
-          for key in AUTH_SECRET MAGIC_PASSWORD ARCHIVE_INGEST_TOKEN; do
+          for key in AUTH_SECRET MAGIC_PASSWORD ARCHIVE_INGEST_TOKEN RESEARCH_AGENT_TOKEN; do
             value=$(openssl rand -hex 24)
             echo "::add-mask::$value"
             echo "$key=$value" >> "$GITHUB_ENV"
@@ -110,7 +110,7 @@ jobs:
       # Playwright's webServer sources .env before `pnpm build && pnpm start`.
       - name: Write .env
         run: |
-          env | grep -E '^(DATABASE_URL|AUTH_URL|AUTH_TRUST_HOST|AUTH_SECRET|MAGIC_PASSWORD|ARCHIVE_INGEST_TOKEN|OPENAI_API_KEY)=' > .env
+          env | grep -E '^(DATABASE_URL|AUTH_URL|AUTH_TRUST_HOST|AUTH_SECRET|MAGIC_PASSWORD|ARCHIVE_INGEST_TOKEN|RESEARCH_AGENT_TOKEN|OPENAI_API_KEY)=' > .env
           chmod 600 .env
 
       - name: Apply schema
@@ -127,7 +127,7 @@ jobs:
 
       # Only specs that pass on main today. Add a spec here once it passes.
       - name: Playwright
-        run: pnpm exec playwright test archive-title-cancel auth-helper
+        run: pnpm exec playwright test archive-title-cancel auth-helper research-canvas
 
       - name: Upload report
         if: failure()
