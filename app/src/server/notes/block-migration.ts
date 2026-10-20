@@ -1,7 +1,14 @@
+import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import sanitizeHtml from "sanitize-html";
-import { contentFromLegacy, toPlainText } from "~/lib/note-content/convert";
+import {
+  contentFromLegacy,
+  fromHtml,
+  toPlainText,
+} from "~/lib/note-content/convert";
 import { prisma } from "~/server/db";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { stripIdTags } from "~/lib/note-content/markdown";
 import { rebuildNoteIndex } from "./note-index";
 import { contentColumns } from "./note-store";
 
@@ -38,14 +45,16 @@ const unmigrated = { content: { equals: Prisma.DbNull } } as const;
 const visibleChars = (text: string) => text.replace(/\s+/g, "").length;
 
 export function legacyText(row: { html: string; markdown: string }): string {
-  if (row.html.trim()) {
-    return sanitizeHtml(row.html, {
-      allowedTags: [],
-      allowedAttributes: {},
-      nonTextTags: ["style", "script", "textarea", "noscript"],
-    });
-  }
-  return row.markdown.replace(/[#>*_`~|-]/g, "");
+  const html = row.html.trim()
+    ? row.html
+    : normalizeMarkdownToHtml(stripIdTags(row.markdown));
+  const text = sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: {},
+    nonTextTags: ["head", "style", "script", "textarea", "noscript"],
+  });
+  // Decode escaped text only after flattening, so unsupported nodes still count.
+  return toPlainText(fromHtml(text));
 }
 
 export function measureConversion(row: {
@@ -59,7 +68,10 @@ export function measureConversion(row: {
   const afterChars = visibleChars(toPlainText(content));
   const lossPct =
     beforeChars > 0
-      ? Math.max(0, Math.round(((beforeChars - afterChars) / beforeChars) * 1000) / 10)
+      ? Math.max(
+          0,
+          Math.round(((beforeChars - afterChars) / beforeChars) * 1000) / 10,
+        )
       : 0;
   return { content, beforeChars, afterChars, lossPct };
 }
@@ -77,7 +89,7 @@ export async function runBlockMigrationBatch(opts: {
   limit?: number;
   cursor?: string | null;
 }): Promise<BlockMigrationBatch> {
-  const limit = Math.max(1, Math.min(500, opts.limit ?? 100));
+  const limit = Math.max(1, Math.min(25, opts.limit ?? 25));
   const docs = await prisma.doc.findMany({
     where: {
       ...unmigrated,
@@ -92,11 +104,14 @@ export async function runBlockMigrationBatch(opts: {
   let migrated = 0;
   let failed = 0;
   for (const doc of docs) {
+    // Let DOM cleanup and normal note requests run between conversions.
+    await yieldToEventLoop();
     try {
       const { content, ...stats } = measureConversion(doc);
       rows.push({ id: doc.id, title: doc.title, ...stats });
       if (opts.dryRun) continue;
-      const { content: json, contentSchemaVersion } = contentColumns(content);
+      const { content: json, contentSchemaVersion, searchText } =
+        contentColumns(content);
       await prisma.$transaction(async (tx) => {
         await tx.docRevision.create({
           data: {
@@ -114,6 +129,7 @@ export async function runBlockMigrationBatch(opts: {
           data: {
             content: json,
             contentSchemaVersion,
+            searchText,
             contentVersion: { increment: 1 },
           },
         });

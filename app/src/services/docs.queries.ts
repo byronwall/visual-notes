@@ -77,7 +77,7 @@ function getIdFromNotionId(id: string) {
   return initialId;
 }
 
-export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
+async function loadDocDetail(id: string): Promise<DocDetail> {
   "use server";
   const docId = String(id || "");
   if (!docId) throw new Error("Missing id");
@@ -112,7 +112,18 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
         }
       : null,
   };
-}, "docs-get");
+}
+
+export const fetchDoc = query(loadDocDetail, "docs-get");
+
+/**
+ * The server's current copy of a note, bypassing the query cache. Live sync
+ * uses it because a note page hydrates its resource from the SSR payload and
+ * leaves the `docs-get` entry unread, so a later `fetchDoc` call can return
+ * that stale payload instead of asking the server.
+ */
+export const fetchDocLatest = async (id: string): Promise<DocDetail> =>
+  loadDocDetail(id);
 
 export const fetchDocs = query(
   async (input?: { take?: number }): Promise<DocItem[]> => {
