@@ -159,7 +159,8 @@ export AUDIT_MAGIC_PASSWORD_FILE=${credential}
 export PLAYWRIGHT_MAGIC_PASSWORD_FILE=${credential}
 corepack pnpm audit:harness -- --env-file ${options.envFile} --port ${port} --database ${database} --worktree ${worktree} --branch ${branch || "<your-branch>"}
 
-Specs against it: PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port} corepack pnpm exec playwright test <spec>
+Specs against it (archive fixtures use the launcher's ingest token):
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port} ARCHIVE_INGEST_TOKEN=audit-harness-token corepack pnpm exec playwright test <spec>
 Clean up: corepack pnpm audit:db -- --owner ${options.owner} --drop`);
 }
 
