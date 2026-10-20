@@ -1,5 +1,5 @@
 import { action } from "@solidjs/router";
-import sanitizeHtml from "sanitize-html";
+import { noteMarkdown } from "~/server/notes/note-store";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { serverEnv } from "~/env/server";
@@ -37,18 +37,13 @@ const processSchema = z.object({
   mode: z.enum(["missing", "changed"]).optional(),
 });
 
+// Blocks are canonical; their markdown view keeps headings for chunking.
 function normalizeSourceForEmbedding(input: {
+  content?: unknown;
   html?: string | null;
   markdown?: string | null;
 }): string {
-  const html = String(input.html || "").trim();
-  if (html.length > 0) {
-    // For embedding, treat HTML as canonical when present and strip all tags.
-    return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-  return String(input.markdown || "");
+  return noteMarkdown(input);
 }
 
 export const createEmbeddingRun = action(
@@ -65,7 +60,7 @@ export const createEmbeddingRun = action(
     });
 
     const docs = await prisma.doc.findMany({
-      select: { id: true, title: true, markdown: true, html: true },
+      select: { id: true, title: true, content: true, html: true, markdown: true },
       orderBy: { createdAt: "asc" },
     });
 
@@ -325,11 +320,17 @@ export const processEmbeddingRun = action(
     });
     if (!run) throw new Error("Not found");
 
-    let docs: { id: string; title: string; markdown: string; html: string }[] = [];
+    let docs: {
+      id: string;
+      title: string;
+      markdown: string;
+      html: string;
+      content: unknown;
+    }[] = [];
     if (mode === "missing") {
       try {
         const rows = (await prisma.$queryRaw<any[]>`
-          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content
           FROM "Doc" d
           LEFT JOIN "DocEmbedding" de
             ON de."docId" = d."id"
@@ -350,7 +351,7 @@ export const processEmbeddingRun = action(
     } else {
       try {
         const rows = (await prisma.$queryRaw<any[]>`
-          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content
           FROM "DocEmbedding" de
           JOIN "Doc" d ON d."id" = de."docId"
           WHERE de."runId" = ${run.id}

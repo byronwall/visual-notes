@@ -35,6 +35,8 @@ function buildDocsWhere(q: {
   updatedFrom?: string;
   updatedTo?: string;
   activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+  /** Collection rows are notes too; hide them or show only them. */
+  collectionRows?: "hide" | "only";
 }) {
   const where: Record<string, any> = {};
   const andClauses: Record<string, unknown>[] = [];
@@ -90,6 +92,8 @@ function buildDocsWhere(q: {
   if (q.activityClass) {
     where.activitySnapshot = { activityClass: q.activityClass };
   }
+  if (q.collectionRows === "hide") where.collectionId = null;
+  if (q.collectionRows === "only") where.collectionId = { not: null };
   if (andClauses.length > 0) {
     where.AND = andClauses;
   }

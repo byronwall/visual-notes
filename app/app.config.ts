@@ -43,10 +43,20 @@ export default defineConfig({
       external: ["@prisma/client"],
     },
   },
-}).addRouter({
-  name: "ws",
-  type: "http",
-  handler: "./src/ws/jobs.ts",
-  target: "server",
-  base: "/ws/jobs",
-});
+})
+  .addRouter({
+    name: "ws",
+    type: "http",
+    handler: "./src/ws/jobs.ts",
+    target: "server",
+    base: "/ws/jobs",
+  })
+  .addRouter({
+    name: "ws-notes",
+    type: "http",
+    handler: "./src/ws/notes.ts",
+    target: "server",
+    base: "/ws/notes",
+    // Custom routers do not inherit the app's Vite plugins; keep `~/` imports.
+    plugins: () => [tsconfigPaths()],
+  });

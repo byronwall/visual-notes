@@ -37,7 +37,8 @@ import {
   PaletteGroupLabel,
   PaletteNavRow,
 } from "~/components/command-palette/PaletteRows";
-import { ActivityIcon, ArrowUpDownIcon, RouteIcon } from "lucide-solid";
+import { ActivityIcon, ArrowUpDownIcon, DatabaseIcon, RouteIcon } from "lucide-solid";
+import { fetchCollections } from "~/services/collections/collections.queries";
 import {
   matchActions,
   matchDestinations,
@@ -193,6 +194,11 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       })),
     });
   });
+  // Collections are destinations too: "reading" jumps to the Reading collection.
+  const [collections] = createResource(
+    () => props.open,
+    async (isOpen) => (isOpen ? fetchCollections() : []),
+  );
   const [allPathSuggestions] = createResource(() => props.open, async (isOpen) => {
     if (!isOpen) return [];
     return fetchPathSuggestions();
@@ -249,7 +255,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
         },
       }),
     );
-    const navHits: CommandItem[] = matchDestinations(q, ALL_DESTINATIONS).map(
+    const collectionDestinations = (collections.latest ?? []).map((c) => ({
+      label: c.name,
+      href: `/collections/${c.id}`,
+      icon: DatabaseIcon,
+      keywords: "collection database",
+    }));
+    const navHits: CommandItem[] = matchDestinations(q, [
+      ...ALL_DESTINATIONS,
+      ...collectionDestinations,
+    ]).map(
       (dest) => ({
         kind: "nav",
         group: "Go to",
