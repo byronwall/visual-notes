@@ -33,4 +33,6 @@ export const clientScheme = z.object({
   VITE_PUBLIC_BASE_URL: z.string().optional(),
   // Back-compat alias
   VITE_APP_URL: z.string().optional(),
+  // "false" stops open tabs from listening for note changes made elsewhere.
+  VITE_NOTE_LIVE_SYNC: z.string().optional(),
 });
