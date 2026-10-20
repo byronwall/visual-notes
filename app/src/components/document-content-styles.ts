@@ -142,6 +142,15 @@ export const documentContentStyles = {
     outline: "2px solid",
     outlineColor: "blue.a7",
   },
+  "& a.note-tag": {
+    color: "grass.11",
+    bg: "grass.a2",
+    paddingInline: "1",
+    borderRadius: "l1",
+    fontSize: "0.92em",
+    cursor: "pointer",
+  },
+  "& a.note-tag:hover": { color: "grass.12", bg: "grass.a4" },
   "& .block-flash": {
     bg: "amber.a4",
     borderRadius: "l1",

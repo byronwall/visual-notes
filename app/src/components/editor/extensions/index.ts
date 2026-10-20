@@ -15,6 +15,7 @@ import { SlashCommands } from "./SlashCommands";
 import { DeferredFocusEvents } from "./DeferredFocusEvents";
 import { NoteLinkSuggestion } from "./NoteLinkSuggestion";
 import { TaskRefEditor } from "./TaskRefView";
+import { TagSuggestion } from "./TagSuggestion";
 
 export function buildExtensions(
   csvPrompt: (
@@ -50,6 +51,7 @@ export function buildExtensions(
     SelectionMarkShortcuts,
     SlashCommands,
     NoteLinkSuggestion,
+    TagSuggestion,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here
     MarkdownPaste.configure({}),

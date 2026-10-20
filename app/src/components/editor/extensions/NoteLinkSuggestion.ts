@@ -114,7 +114,7 @@ export const NoteLinkSuggestion = Extension.create({
             click: (_view, event) => {
               const anchor = (event.target as HTMLElement | null)?.closest<
                 HTMLAnchorElement
-              >("a[data-note-link]");
+              >("a[data-note-link], a.note-tag");
               if (!anchor) return false;
               event.preventDefault();
               const href = anchor.getAttribute("href") ?? "";

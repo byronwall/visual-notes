@@ -122,6 +122,11 @@ export function createSuggestionMenu<T>(opts: MenuOptions<T>) {
         arrow: false,
         maxWidth: "none",
       });
+      // tippy's default box is a dark padded bubble; the menu draws its own.
+      const box = popup.popper.querySelector<HTMLElement>(".tippy-box");
+      const content = popup.popper.querySelector<HTMLElement>(".tippy-content");
+      if (box) setStyle(box, { background: "transparent", boxShadow: "none" });
+      if (content) setStyle(content, { padding: "0" });
     };
 
     return {

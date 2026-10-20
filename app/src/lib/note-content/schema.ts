@@ -13,6 +13,7 @@ import { createLowlight, common } from "lowlight";
 import { BlockIds } from "./block-ids";
 import { NoteLink } from "./note-link";
 import { TaskRef } from "./task-ref";
+import { Tag } from "./tag";
 
 /**
  * The note document schema, with no UI imports. The editor layers its Solid
@@ -113,6 +114,7 @@ export function buildNoteExtensions(
     overrides.tableCell ?? TableCell,
     overrides.noteLink ?? NoteLink,
     overrides.taskRef ?? TaskRef,
+    Tag,
     BlockIds,
   ];
 }
