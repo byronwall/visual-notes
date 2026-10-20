@@ -6,8 +6,18 @@ import { AddPropertyMenu } from "./menu/AddPropertyMenu";
 import { PropertyKindIcon } from "./PropertyKindIcon";
 import { ValueCell } from "./values/ValueCell";
 
-const list = css({ display: "flex", flexDirection: "column", gap: "0.5", mb: "4" });
-const line = css({ display: "grid", gridTemplateColumns: "minmax(7rem, 11rem) 1fr", alignItems: "center", gap: "2" });
+const list = css({
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.5",
+  mb: "4",
+});
+const line = css({
+  display: "grid",
+  gridTemplateColumns: "minmax(7rem, 11rem) 1fr",
+  alignItems: "center",
+  gap: "2",
+});
 const label = css({
   display: "flex",
   alignItems: "center",
@@ -17,7 +27,11 @@ const label = css({
   px: "1",
   color: "fg.muted",
   fontSize: "sm",
-  "& span": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  "& span": {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
 });
 const addBtn = css({
   display: "inline-flex",
@@ -33,7 +47,10 @@ const addBtn = css({
 });
 
 /** A row's properties as label/value lines, shown above its note body. */
-export const PropertyList = (props: { row: CollectionRow; allowAdd?: boolean }) => {
+export const PropertyList = (props: {
+  row: CollectionRow;
+  allowAdd?: boolean;
+}) => {
   const { store } = useCollection();
   return (
     <div class={list} aria-label="Properties">
@@ -44,7 +61,13 @@ export const PropertyList = (props: { row: CollectionRow; allowAdd?: boolean }) 
               <PropertyKindIcon property={property} />
               <span>{property.name}</span>
             </div>
-            <ValueCell property={property} row={props.row} store={store} variant="field" wrap />
+            <ValueCell
+              property={property}
+              row={props.row}
+              store={store}
+              variant="field"
+              wrap
+            />
           </div>
         )}
       </For>

@@ -7,9 +7,19 @@ import { useToasts } from "~/components/Toast";
 import { createCollection } from "~/services/collections/collections.actions";
 import type { CollectionListItem } from "~/services/collections/collections.queries";
 
-const header = css({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "3", mb: "5" });
+const header = css({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "3",
+  mb: "5",
+});
 const title = css({ fontSize: "2xl", fontWeight: "bold" });
-const list = css({ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(16rem, 1fr))", gap: "3" });
+const list = css({
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(16rem, 1fr))",
+  gap: "3",
+});
 const card = css({
   display: "flex",
   flexDirection: "column",
@@ -21,7 +31,13 @@ const card = css({
   bg: "bg.default",
   _hover: { bg: "bg.subtle", borderColor: "border.emphasized" },
 });
-const cardTitle = css({ display: "flex", alignItems: "center", gap: "2", fontWeight: "semibold", fontSize: "md" });
+const cardTitle = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2",
+  fontWeight: "semibold",
+  fontSize: "md",
+});
 const meta = css({ fontSize: "sm", color: "fg.muted" });
 const emptyState = css({
   display: "flex",
@@ -64,7 +80,11 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
       const { id } = await run({ name: value });
       navigate(`/collections/${id}`);
     } catch (error) {
-      show({ title: "Couldn't create the collection", message: String((error as Error).message ?? error), type: "error" });
+      show({
+        title: "Couldn't create the collection",
+        message: String((error as Error).message ?? error),
+        type: "error",
+      });
     }
   };
 
@@ -96,7 +116,18 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
       <div class={header}>
         <h1 class={title}>Collections</h1>
         <Show when={props.items.length > 0}>
-          <Show when={creating()} fallback={<Button size="sm" variant="outline" onClick={() => setCreating(true)}><PlusIcon size={14} /> New collection</Button>}>
+          <Show
+            when={creating()}
+            fallback={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCreating(true)}
+              >
+                <PlusIcon size={14} /> New collection
+              </Button>
+            }
+          >
             {createForm()}
           </Show>
         </Show>
@@ -107,10 +138,13 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
           <div class={emptyState}>
             <DatabaseIcon size={20} />
             <div>
-              <div class={css({ fontWeight: "semibold" })}>Collect things with structure</div>
+              <div class={css({ fontWeight: "semibold" })}>
+                Collect things with structure
+              </div>
               <div class={meta}>
-                A collection is a set of notes with shared properties, like a reading list with status, rating, and
-                tags. View it as a table, board, gallery, or calendar.
+                A collection is a set of notes with shared properties, like a
+                reading list with status, rating, and tags. View it as a table,
+                board, gallery, or calendar.
               </div>
             </div>
             {createForm()}

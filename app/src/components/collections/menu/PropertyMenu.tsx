@@ -1,16 +1,33 @@
-import { ArrowDownWideNarrowIcon, ArrowUpNarrowWideIcon, CheckIcon, EyeOffIcon, Trash2Icon } from "lucide-solid";
+import {
+  ArrowDownWideNarrowIcon,
+  ArrowUpNarrowWideIcon,
+  CheckIcon,
+  EyeOffIcon,
+  Trash2Icon,
+} from "lucide-solid";
 import { For, type JSX, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { SimplePopover } from "~/components/ui/simple-popover";
-import type { CollectionProperty, NumberFormat, TextFormat } from "~/lib/collections/types";
+import type {
+  CollectionProperty,
+  NumberFormat,
+  TextFormat,
+} from "~/lib/collections/types";
 import { TITLE_PROPERTY_ID } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
 import { KIND_LABELS } from "../PropertyKindIcon";
 import { ChangeKindMenu } from "./ChangeKindMenu";
-import { MenuItem, menuInput, menuPanel, menuSection, menuSeparator } from "./MenuList";
+import {
+  MenuItem,
+  menuInput,
+  menuPanel,
+  menuSection,
+  menuSeparator,
+} from "./MenuList";
 import { NUMBER_FORMAT_LABELS, TEXT_FORMAT_LABELS } from "./propertyPresets";
 import { OptionsEditor } from "./OptionsEditor";
+import { fitContent } from "../popover-styles";
 
 const scroll = css({ maxH: "min(70vh, 34rem)", overflowY: "auto" });
 
@@ -32,25 +49,44 @@ export const PropertyMenu = (props: {
     void store.updateProperty(props.property.id, { name: next });
   };
   const setConfig = (patch: Partial<CollectionProperty["config"]>) =>
-    void store.updateProperty(props.property.id, { config: { ...props.property.config, ...patch } });
+    void store.updateProperty(props.property.id, {
+      config: { ...props.property.config, ...patch },
+    });
 
   const sortBy = (direction: "asc" | "desc") => {
     const v = view();
     if (!v) return;
-    const others = (v.config.sorts ?? []).filter((s) => s.propertyId !== props.property.id);
-    store.patchViewConfig(v.id, { sorts: [{ propertyId: props.property.id, direction }, ...others] });
+    const others = (v.config.sorts ?? []).filter(
+      (s) => s.propertyId !== props.property.id,
+    );
+    store.patchViewConfig(v.id, {
+      sorts: [{ propertyId: props.property.id, direction }, ...others],
+    });
     setOpen(false);
   };
   const hide = () => {
     const v = view();
     if (!v) return;
-    store.patchViewConfig(v.id, { hiddenProperties: [...(v.config.hiddenProperties ?? []), props.property.id] });
+    store.patchViewConfig(v.id, {
+      hiddenProperties: [
+        ...(v.config.hiddenProperties ?? []),
+        props.property.id,
+      ],
+    });
     setOpen(false);
   };
 
   return (
     <>
-      <SimplePopover open={open()} onClose={() => setOpen(false)} placement="bottom-start" offset={2} anchor={props.anchor(() => setOpen(true))} anchorClass={css({ minW: "0", flex: "1", display: "flex", h: "full" })}>
+      <SimplePopover
+        class={fitContent}
+        open={open()}
+        onClose={() => setOpen(false)}
+        placement="bottom-start"
+        offset={2}
+        anchor={props.anchor(() => setOpen(true))}
+        anchorClass={css({ minW: "0", flex: "1", display: "flex", h: "full" })}
+      >
         <div class={`${menuPanel} ${scroll}`} style={{ width: "17rem" }}>
           <Show
             when={!isTitle()}
@@ -68,16 +104,29 @@ export const PropertyMenu = (props: {
                 }
               }}
             />
-            <ChangeKindMenu property={props.property} onChanged={() => setOpen(false)} />
+            <ChangeKindMenu
+              property={props.property}
+              onChanged={() => setOpen(false)}
+            />
           </Show>
 
           <Show when={props.property.kind === "text" && !isTitle()}>
             <div class={menuSection}>Format</div>
-            <For each={Object.entries(TEXT_FORMAT_LABELS) as [TextFormat, string][]}>
+            <For
+              each={
+                Object.entries(TEXT_FORMAT_LABELS) as [TextFormat, string][]
+              }
+            >
               {([format, label]) => (
                 <MenuItem
-                  selected={(props.property.config.format ?? "plain") === format}
-                  trailing={(props.property.config.format ?? "plain") === format ? <CheckIcon size={14} /> : undefined}
+                  selected={
+                    (props.property.config.format ?? "plain") === format
+                  }
+                  trailing={
+                    (props.property.config.format ?? "plain") === format ? (
+                      <CheckIcon size={14} />
+                    ) : undefined
+                  }
                   onClick={() => setConfig({ format })}
                 >
                   {label}
@@ -88,11 +137,26 @@ export const PropertyMenu = (props: {
 
           <Show when={props.property.kind === "number"}>
             <div class={menuSection}>Format</div>
-            <For each={Object.entries(NUMBER_FORMAT_LABELS) as [NumberFormat, string][]}>
+            <For
+              each={
+                Object.entries(NUMBER_FORMAT_LABELS) as [NumberFormat, string][]
+              }
+            >
               {([format, label]) => (
                 <MenuItem
-                  trailing={(props.property.config.format ?? "plain") === format ? <CheckIcon size={14} /> : undefined}
-                  onClick={() => setConfig({ format, ...(format === "rating" ? { ratingMax: props.property.config.ratingMax ?? 5 } : {}) })}
+                  trailing={
+                    (props.property.config.format ?? "plain") === format ? (
+                      <CheckIcon size={14} />
+                    ) : undefined
+                  }
+                  onClick={() =>
+                    setConfig({
+                      format,
+                      ...(format === "rating"
+                        ? { ratingMax: props.property.config.ratingMax ?? 5 }
+                        : {}),
+                    })
+                  }
                 >
                   {label}
                 </MenuItem>
@@ -102,23 +166,39 @@ export const PropertyMenu = (props: {
 
           <Show when={props.property.kind === "date"}>
             <MenuItem
-              trailing={props.property.config.includeTime ? <CheckIcon size={14} /> : undefined}
-              onClick={() => setConfig({ includeTime: !props.property.config.includeTime })}
+              trailing={
+                props.property.config.includeTime ? (
+                  <CheckIcon size={14} />
+                ) : undefined
+              }
+              onClick={() =>
+                setConfig({ includeTime: !props.property.config.includeTime })
+              }
             >
               Include time
             </MenuItem>
           </Show>
 
-          <Show when={["select", "status", "multi_select"].includes(props.property.kind)}>
+          <Show
+            when={["select", "status", "multi_select"].includes(
+              props.property.kind,
+            )}
+          >
             <OptionsEditor property={props.property} />
           </Show>
 
           <Show when={view()}>
             <div class={menuSeparator} />
-            <MenuItem icon={<ArrowUpNarrowWideIcon size={14} />} onClick={() => sortBy("asc")}>
+            <MenuItem
+              icon={<ArrowUpNarrowWideIcon size={14} />}
+              onClick={() => sortBy("asc")}
+            >
               Sort ascending
             </MenuItem>
-            <MenuItem icon={<ArrowDownWideNarrowIcon size={14} />} onClick={() => sortBy("desc")}>
+            <MenuItem
+              icon={<ArrowDownWideNarrowIcon size={14} />}
+              onClick={() => sortBy("desc")}
+            >
               Sort descending
             </MenuItem>
             <Show when={!isTitle()}>

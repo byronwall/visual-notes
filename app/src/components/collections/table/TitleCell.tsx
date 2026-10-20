@@ -67,16 +67,26 @@ export const TitleCell = (props: {
 }) => {
   const { store, openRow } = useCollection();
   // Initial values only: a new row opens straight into editing its name.
-  const [editing, setEditing] = createSignal(untrack(() => Boolean(props.autoEdit)));
-  const [draft, setDraft] = createSignal(untrack(() => (props.row.title === "Untitled" && props.autoEdit ? "" : props.row.title)));
+  const [editing, setEditing] = createSignal(
+    untrack(() => Boolean(props.autoEdit)),
+  );
+  const [draft, setDraft] = createSignal(
+    untrack(() =>
+      props.row.title === "Untitled" && props.autoEdit ? "" : props.row.title,
+    ),
+  );
   let root$: HTMLDivElement | undefined;
-  const untitled = () => props.row.title === "Untitled" || !props.row.title.trim();
+  const untitled = () =>
+    props.row.title === "Untitled" || !props.row.title.trim();
 
   const start = (initial?: string) => {
     setDraft(initial ?? (untitled() ? "" : props.row.title));
     setEditing(true);
   };
-  const finish = (reason: "commit" | "cancel" | "tab" | "shift-tab", refocus = true) => {
+  const finish = (
+    reason: "commit" | "cancel" | "tab" | "shift-tab",
+    refocus = true,
+  ) => {
     if (!editing()) return;
     setEditing(false);
     if (reason !== "cancel") void store.setTitle(props.row.id, draft());
@@ -104,7 +114,12 @@ export const TitleCell = (props: {
         } else if (e.key === " " && e.shiftKey) {
           e.preventDefault();
           openRow(props.row.id);
-        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        } else if (
+          e.key.length === 1 &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.altKey
+        ) {
           e.preventDefault();
           start(e.key);
         }

@@ -1,7 +1,12 @@
 import { For } from "solid-js";
 import { css } from "styled-system/css";
 
-const row = css({ display: "inline-flex", alignItems: "center", gap: "0.5", lineHeight: "1" });
+const row = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5",
+  lineHeight: "1",
+});
 const star = css({
   fontSize: "sm",
   color: "border.emphasized",
@@ -20,7 +25,11 @@ export const RatingStars = (props: {
   max: number;
   onChange?: (value: number | null) => void;
 }) => (
-  <span class={row} role={props.onChange ? "radiogroup" : "img"} aria-label={`Rating ${props.value} of ${props.max}`}>
+  <span
+    class={row}
+    role={props.onChange ? "radiogroup" : "img"}
+    aria-label={`Rating ${props.value} of ${props.max}`}
+  >
     <For each={Array.from({ length: props.max }, (_, i) => i + 1)}>
       {(n) =>
         props.onChange ? (

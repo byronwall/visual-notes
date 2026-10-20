@@ -24,6 +24,7 @@ import { rankBetween } from "~/lib/collections/rank";
 import {
   ROW_SELECT,
   applyRowPatch,
+  applyRowsPatch,
   asObject,
   defaultConfigFor,
   mapProperty,
@@ -238,11 +239,13 @@ export const setRowProperties = action(
   async (payload: { collectionId: string; docIds: string[]; patch: Record<string, PropertyValue> }) => {
     "use server";
     const input = patchInput.parse(payload);
-    const results: Record<string, string> = {};
-    for (const docId of input.docIds) {
-      results[docId] = (await applyRowPatch(input.collectionId, docId, input.patch)).updatedAt;
+    if (input.docIds.length === 1) {
+      const [docId] = input.docIds as [string];
+      const { updatedAt } = await applyRowPatch(input.collectionId, docId, input.patch);
+      return quiet({ updatedAt: { [docId]: updatedAt } });
     }
-    return quiet({ updatedAt: results });
+    const updatedAt = await applyRowsPatch(input.collectionId, input.docIds, input.patch);
+    return quiet({ updatedAt });
   },
   "collections-row-set",
 );

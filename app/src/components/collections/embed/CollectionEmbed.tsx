@@ -1,5 +1,10 @@
 import { A } from "@solidjs/router";
-import { ArrowUpRightIcon, DatabaseIcon, GripVerticalIcon, Trash2Icon } from "lucide-solid";
+import {
+  ArrowUpRightIcon,
+  DatabaseIcon,
+  GripVerticalIcon,
+  Trash2Icon,
+} from "lucide-solid";
 import { Dynamic } from "solid-js/web";
 import { Show, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
@@ -28,7 +33,9 @@ const header = css({
   fontSize: "sm",
   color: "fg.muted",
   "& [data-embed-actions]": { opacity: "0", transition: "opacity 120ms" },
-  "&:hover [data-embed-actions], &:focus-within [data-embed-actions]": { opacity: "1" },
+  "&:hover [data-embed-actions], &:focus-within [data-embed-actions]": {
+    opacity: "1",
+  },
 });
 const title = css({
   display: "inline-flex",
@@ -41,8 +48,19 @@ const title = css({
   textDecoration: "none !important",
   _hover: { textDecoration: "underline !important" },
 });
-const viewName = css({ display: "inline-flex", alignItems: "center", gap: "1", fontSize: "xs", color: "fg.subtle" });
-const actions = css({ ml: "auto", display: "inline-flex", gap: "1", alignItems: "center" });
+const viewName = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "1",
+  fontSize: "xs",
+  color: "fg.subtle",
+});
+const actions = css({
+  ml: "auto",
+  display: "inline-flex",
+  gap: "1",
+  alignItems: "center",
+});
 const iconBtn = css({
   display: "inline-flex",
   alignItems: "center",
@@ -56,7 +74,11 @@ const iconBtn = css({
   textDecoration: "none !important",
   _hover: { bg: "bg.muted", color: "fg.default !important" },
 });
-const handle = css({ display: "inline-flex", color: "fg.subtle", cursor: "grab" });
+const handle = css({
+  display: "inline-flex",
+  color: "fg.subtle",
+  cursor: "grab",
+});
 const missing = css({
   p: "3",
   borderWidth: "1px",
@@ -69,18 +91,31 @@ const missing = css({
   gap: "2",
 });
 
-const LoadedEmbed = (props: { bundle: CollectionBundle; viewId: string; editable: boolean; onRemove: () => void }) => {
+const LoadedEmbed = (props: {
+  bundle: CollectionBundle;
+  viewId: string;
+  editable: boolean;
+  onRemove: () => void;
+}) => {
   const store = createCollectionStore(() => props.bundle);
   const [peekRowId, setPeekRowId] = createSignal<string | null>(null);
   const view = () => store.view(props.viewId);
   return (
     <CollectionProvider store={store} openRow={setPeekRowId} embedded>
       <div class={header}>
-        <span class={handle} data-drag-handle draggable="true" aria-label="Drag to move">
+        <span
+          class={handle}
+          data-drag-handle
+          draggable="true"
+          aria-label="Drag to move"
+        >
           <GripVerticalIcon size={14} />
         </span>
         <A class={title} href={`/collections/${store.state.collection.id}`}>
-          <Show when={store.state.collection.icon} fallback={<DatabaseIcon size={15} />}>
+          <Show
+            when={store.state.collection.icon}
+            fallback={<DatabaseIcon size={15} />}
+          >
             <span>{store.state.collection.icon}</span>
           </Show>
           {store.state.collection.name}
@@ -94,11 +129,20 @@ const LoadedEmbed = (props: { bundle: CollectionBundle; viewId: string; editable
           )}
         </Show>
         <span class={actions} data-embed-actions>
-          <A class={iconBtn} href={`/collections/${store.state.collection.id}`} aria-label="Open collection">
+          <A
+            class={iconBtn}
+            href={`/collections/${store.state.collection.id}`}
+            aria-label="Open collection"
+          >
             <ArrowUpRightIcon size={13} /> Open
           </A>
           <Show when={props.editable}>
-            <button type="button" class={iconBtn} aria-label="Remove embed" onClick={() => props.onRemove()}>
+            <button
+              type="button"
+              class={iconBtn}
+              aria-label="Remove embed"
+              onClick={() => props.onRemove()}
+            >
               <Trash2Icon size={13} />
             </button>
           </Show>
@@ -131,7 +175,11 @@ export const CollectionEmbed = (props: {
         when={props.viewId}
         fallback={
           <Show when={props.editable}>
-            <EmbedPicker hostDocId={props.hostDocId} onPick={props.onPick} onRemove={props.onRemove} />
+            <EmbedPicker
+              hostDocId={props.hostDocId}
+              onPick={props.onPick}
+              onRemove={props.onRemove}
+            />
           </Show>
         }
       >
@@ -139,14 +187,25 @@ export const CollectionEmbed = (props: {
           <Show
             when={bundle.latest}
             fallback={
-              <Show when={bundle.state === "ready" || bundle.state === "errored"} fallback={<div class={missing}>Loading collection…</div>}>
+              <Show
+                when={bundle.state === "ready" || bundle.state === "errored"}
+                fallback={<div class={missing}>Loading collection…</div>}
+              >
                 <div class={missing}>
-                  <DatabaseIcon size={14} /> This collection view no longer exists.
+                  <DatabaseIcon size={14} /> This collection view no longer
+                  exists.
                 </div>
               </Show>
             }
           >
-            {(b) => <LoadedEmbed bundle={b()} viewId={viewId()} editable={props.editable} onRemove={props.onRemove} />}
+            {(b) => (
+              <LoadedEmbed
+                bundle={b()}
+                viewId={viewId()}
+                editable={props.editable}
+                onRemove={props.onRemove}
+              />
+            )}
           </Show>
         )}
       </Show>

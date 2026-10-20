@@ -3,8 +3,14 @@ import { DatabaseIcon, PlusIcon, XIcon } from "lucide-solid";
 import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { useToasts } from "~/components/Toast";
-import { createCollection, createView } from "~/services/collections/collections.actions";
-import { fetchCollectionBundle, fetchCollections } from "~/services/collections/collections.queries";
+import {
+  createCollection,
+  createView,
+} from "~/services/collections/collections.actions";
+import {
+  fetchCollectionBundle,
+  fetchCollections,
+} from "~/services/collections/collections.queries";
 
 const box = css({
   borderWidth: "1px",
@@ -18,7 +24,13 @@ const box = css({
   fontSize: "sm",
   bg: "bg.subtle",
 });
-const head = css({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "2", color: "fg.muted" });
+const head = css({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "2",
+  color: "fg.muted",
+});
 const search = css({
   h: "8",
   px: "2",
@@ -30,7 +42,12 @@ const search = css({
   fontSize: "sm",
   _focus: { borderColor: "border.accent" },
 });
-const list = css({ display: "flex", flexDirection: "column", maxH: "56", overflowY: "auto" });
+const list = css({
+  display: "flex",
+  flexDirection: "column",
+  maxH: "56",
+  overflowY: "auto",
+});
 const item = css({
   display: "flex",
   alignItems: "center",
@@ -43,7 +60,13 @@ const item = css({
   _hover: { bg: "bg.muted" },
 });
 const meta = css({ ml: "auto", fontSize: "xs", color: "fg.subtle" });
-const iconBtn = css({ display: "inline-flex", p: "1", borderRadius: "l1", cursor: "pointer", _hover: { bg: "bg.muted" } });
+const iconBtn = css({
+  display: "inline-flex",
+  p: "1",
+  borderRadius: "l1",
+  cursor: "pointer",
+  _hover: { bg: "bg.muted" },
+});
 
 /** Shown by a fresh /collection block: choose a collection or make a new one. */
 export const EmbedPicker = (props: {
@@ -80,7 +103,11 @@ export const EmbedPicker = (props: {
       });
       props.onPick(view.id);
     } catch (error) {
-      show({ title: "Couldn't embed the collection", message: String((error as Error).message ?? error), type: "error" });
+      show({
+        title: "Couldn't embed the collection",
+        message: String((error as Error).message ?? error),
+        type: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -93,17 +120,32 @@ export const EmbedPicker = (props: {
       const { id } = await runCreateCollection({ name });
       await embed(id);
     } catch (error) {
-      show({ title: "Couldn't create the collection", message: String((error as Error).message ?? error), type: "error" });
+      show({
+        title: "Couldn't create the collection",
+        message: String((error as Error).message ?? error),
+        type: "error",
+      });
     }
   };
 
   return (
     <div class={box}>
       <div class={head}>
-        <span style={{ display: "inline-flex", "align-items": "center", gap: "6px" }}>
+        <span
+          style={{
+            display: "inline-flex",
+            "align-items": "center",
+            gap: "6px",
+          }}
+        >
           <DatabaseIcon size={14} /> Embed a collection
         </span>
-        <button type="button" class={iconBtn} aria-label="Remove block" onClick={() => props.onRemove()}>
+        <button
+          type="button"
+          class={iconBtn}
+          aria-label="Remove block"
+          onClick={() => props.onRemove()}
+        >
           <XIcon size={14} />
         </button>
       </div>
@@ -118,7 +160,11 @@ export const EmbedPicker = (props: {
           if (e.key === "Enter") {
             e.preventDefault();
             const first = filtered()[0];
-            if (first && first.name.toLowerCase() === query().trim().toLowerCase()) void embed(first.id);
+            if (
+              first &&
+              first.name.toLowerCase() === query().trim().toLowerCase()
+            )
+              void embed(first.id);
             else void createNew();
           }
         }}
@@ -126,7 +172,12 @@ export const EmbedPicker = (props: {
       <div class={list}>
         <For each={filtered()}>
           {(c) => (
-            <button type="button" class={item} disabled={busy()} onClick={() => void embed(c.id)}>
+            <button
+              type="button"
+              class={item}
+              disabled={busy()}
+              onClick={() => void embed(c.id)}
+            >
               <Show when={c.icon} fallback={<DatabaseIcon size={14} />}>
                 <span>{c.icon}</span>
               </Show>
@@ -135,8 +186,20 @@ export const EmbedPicker = (props: {
             </button>
           )}
         </For>
-        <Show when={query().trim() && !filtered().some((c) => c.name.toLowerCase() === query().trim().toLowerCase())}>
-          <button type="button" class={item} disabled={busy()} onClick={() => void createNew()}>
+        <Show
+          when={
+            query().trim() &&
+            !filtered().some(
+              (c) => c.name.toLowerCase() === query().trim().toLowerCase(),
+            )
+          }
+        >
+          <button
+            type="button"
+            class={item}
+            disabled={busy()}
+            onClick={() => void createNew()}
+          >
             <PlusIcon size={14} /> New collection “{query().trim()}”
           </button>
         </Show>

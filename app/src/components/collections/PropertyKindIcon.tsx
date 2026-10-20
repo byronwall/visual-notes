@@ -30,7 +30,9 @@ export const KIND_LABELS: Record<PropertyKind, string> = {
   updated_time: "Updated time",
 };
 
-const iconFor = (property: Pick<CollectionProperty, "id" | "kind" | "config">) => {
+const iconFor = (
+  property: Pick<CollectionProperty, "id" | "kind" | "config">,
+) => {
   if (property.id === TITLE_PROPERTY_ID) return TypeIcon;
   const format = property.config?.format;
   switch (property.kind) {
@@ -63,4 +65,10 @@ const iconFor = (property: Pick<CollectionProperty, "id" | "kind" | "config">) =
 export const PropertyKindIcon = (props: {
   property: Pick<CollectionProperty, "id" | "kind" | "config">;
   size?: number;
-}) => <Dynamic component={iconFor(props.property)} size={props.size ?? 14} aria-hidden="true" />;
+}) => (
+  <Dynamic
+    component={iconFor(props.property)}
+    size={props.size ?? 14}
+    aria-hidden="true"
+  />
+);

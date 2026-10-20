@@ -4,7 +4,10 @@ import { useCollection } from "./CollectionContext";
 import { PropertyList } from "./PropertyList";
 
 /** Side panel for one row: its properties above the full note editor. */
-export const RowPeekPanel = (props: { rowId: string | null; onClose: () => void }) => {
+export const RowPeekPanel = (props: {
+  rowId: string | null;
+  onClose: () => void;
+}) => {
   const { store, embedded } = useCollection();
   const row = () => store.state.rows.find((r) => r.id === props.rowId);
   return (

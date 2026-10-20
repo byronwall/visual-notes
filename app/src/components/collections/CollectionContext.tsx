@@ -11,7 +11,9 @@ type CollectionContextValue = {
 
 const Ctx = createContext<CollectionContextValue>();
 
-export const CollectionProvider = (props: CollectionContextValue & { children: JSX.Element }) => (
+export const CollectionProvider = (
+  props: CollectionContextValue & { children: JSX.Element },
+) => (
   <Ctx.Provider
     value={{
       get store() {
@@ -29,6 +31,7 @@ export const CollectionProvider = (props: CollectionContextValue & { children: J
 
 export const useCollection = () => {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useCollection must be used inside CollectionProvider");
+  if (!ctx)
+    throw new Error("useCollection must be used inside CollectionProvider");
   return ctx;
 };

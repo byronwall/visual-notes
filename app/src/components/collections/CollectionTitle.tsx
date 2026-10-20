@@ -24,17 +24,27 @@ const input = css({
 });
 
 /** Collection name; click to rename. Renders the same heading on server and client. */
-export const CollectionTitle = (props: { name: string; icon?: string | null; onRename: (name: string) => void }) => {
+export const CollectionTitle = (props: {
+  name: string;
+  icon?: string | null;
+  onRename: (name: string) => void;
+}) => {
   const [editing, setEditing] = createSignal(false);
   const commit = (value: string) => {
     setEditing(false);
-    if (value.trim() && value.trim() !== props.name) props.onRename(value.trim());
+    if (value.trim() && value.trim() !== props.name)
+      props.onRename(value.trim());
   };
   return (
     <Show
       when={editing()}
       fallback={
-        <h1 class={heading} tabIndex={0} onClick={() => setEditing(true)} onKeyDown={(e) => e.key === "Enter" && setEditing(true)}>
+        <h1
+          class={heading}
+          tabIndex={0}
+          onClick={() => setEditing(true)}
+          onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+        >
           <Show when={props.icon}>
             <span style={{ "margin-right": "0.35em" }}>{props.icon}</span>
           </Show>

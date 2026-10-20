@@ -3,7 +3,10 @@ import { DatabaseIcon } from "lucide-solid";
 import { Show, Suspense, createResource } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
-import { fetchDocCollection, type DocCollectionInfo } from "~/services/collections/collections.queries";
+import {
+  fetchDocCollection,
+  type DocCollectionInfo,
+} from "~/services/collections/collections.queries";
 import { CollectionProvider } from "./CollectionContext";
 import { PropertyList } from "./PropertyList";
 import { createCollectionStore } from "./store/createCollectionStore";
@@ -33,7 +36,10 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
   return (
     <CollectionProvider store={store} openRow={() => {}} embedded={false}>
       <A href={`/collections/${props.info.collection.id}`} class={crumb}>
-        <Show when={props.info.collection.icon} fallback={<DatabaseIcon size={12} />}>
+        <Show
+          when={props.info.collection.icon}
+          fallback={<DatabaseIcon size={12} />}
+        >
           <span>{props.info.collection.icon}</span>
         </Show>
         {props.info.collection.name}
@@ -45,7 +51,10 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
 
 /** On a note page: the note's collection and editable properties, when it has one. */
 export const DocCollectionHeader = (props: { docId: string }) => {
-  const [info] = createResource(() => props.docId, (id) => fetchDocCollection(id));
+  const [info] = createResource(
+    () => props.docId,
+    (id) => fetchDocCollection(id),
+  );
   // Its own boundary so SSR waits for the lookup and hydration sees the same tree.
   return (
     <Suspense>

@@ -5,6 +5,7 @@ import type {
   CollectionView as DbView,
   Prisma,
 } from "@prisma/client";
+import { getRequestEvent } from "solid-js/web";
 import { prisma } from "~/server/db";
 import { ranksAfter } from "~/lib/collections/rank";
 import { validateValue } from "~/lib/collections/values";
@@ -69,7 +70,18 @@ export const mapRow = (r: RowRecord): CollectionRow => ({
   updatedAt: r.updatedAt.toISOString(),
 });
 
+/**
+ * Today's date in the viewer's time zone (from the `vn_tz` cookie the client
+ * sets), so relative date filters agree between SSR and the browser.
+ */
 export const localToday = () => {
+  const cookie = getRequestEvent()?.request.headers.get("cookie") ?? "";
+  const tz = decodeURIComponent(/(?:^|;\s*)vn_tz=([^;]+)/.exec(cookie)?.[1] ?? "");
+  try {
+    if (tz) return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+  } catch {
+    // Unknown zone: fall back to the server clock.
+  }
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -151,6 +163,22 @@ export async function applyRowPatch(
     RETURNING "updatedAt"`;
   if (!rows[0]) throw new Error("Row not found in this collection");
   return { updatedAt: rows[0].updatedAt.toISOString() };
+}
+
+/** The same merge as `applyRowPatch` across many rows in one statement. */
+export async function applyRowsPatch(
+  collectionId: string,
+  docIds: string[],
+  patch: Record<string, unknown>,
+): Promise<Record<string, string>> {
+  const { set, clear } = await validatePatch(collectionId, patch);
+  const rows = await prisma.$queryRaw<Array<{ id: string; updatedAt: Date }>>`
+    UPDATE "Doc"
+    SET "properties" = (COALESCE("properties", '{}'::jsonb) || ${JSON.stringify(set)}::jsonb) - ${clear}::text[],
+        "updatedAt" = now()
+    WHERE "id" = ANY(${docIds}::text[]) AND "collectionId" = ${collectionId}
+    RETURNING "id", "updatedAt"`;
+  return Object.fromEntries(rows.map((r) => [r.id, r.updatedAt.toISOString()]));
 }
 
 /** Adds existing notes to a collection, appending them in the given order. */
