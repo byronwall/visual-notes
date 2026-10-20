@@ -1,0 +1,781 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Research threads: multi-scale canvas for tasks and findings",
+    "slug": "research-threads",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-19",
+    "summary": "Unify tasks, findings, and questions into per-project threads with pedigree, a visible frontier, and recursive summary-over-detail at every scale.",
+    "status": "planned",
+    "next_action": "Start m1: Prisma research models + ingest planner + fixture + outline route"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "initial prompt",
+      "authority": "direct"
+    },
+    {
+      "id": "S2",
+      "type": "notes-image",
+      "location": "images/1.jpg",
+      "anchor": "Notes - Thoughts 10/17/26",
+      "authority": "direct"
+    },
+    {
+      "id": "S3",
+      "type": "notes-image",
+      "location": "images/2.jpg",
+      "anchor": "Notes - Tasks - Ideas: how important is the chain",
+      "authority": "direct"
+    },
+    {
+      "id": "S4",
+      "type": "notes-image",
+      "location": "images/3.jpg",
+      "anchor": "Notes - Updates: pyramids at all scales",
+      "authority": "direct"
+    },
+    {
+      "id": "S5",
+      "type": "repository",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "TaskItem, Doc, ArchivedCanvasNode",
+      "authority": "repository"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "direct"
+    },
+    {
+      "id": "S6",
+      "type": "research",
+      "location": "https://ts.sdk.modelcontextprotocol.io/v2/classes/_modelcontextprotocol_server.server_streamableHttp.WebStandardStreamableHTTPServerTransport.html",
+      "anchor": "stateless web-standard transport",
+      "authority": "external"
+    },
+    {
+      "id": "S7",
+      "type": "research",
+      "location": "https://zuplo.com/docs/mcp-gateway/connect-clients/chatgpt",
+      "anchor": "ChatGPT connectors need OAuth or no-auth; DCR",
+      "authority": "external"
+    },
+    {
+      "id": "S8",
+      "type": "repository",
+      "location": "app/src/server/lib/archive/auth.ts",
+      "anchor": "Bearer ingest token pattern",
+      "authority": "repository"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Projects are research threads: tasks yield findings, which yield more tasks/questions; state is a frontier",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "S1",
+          "S2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Every layer has a summary plus details, recursively, at every scale (section, doc, thread, library)",
+        "kind": "desired experience",
+        "commitment": "repeated",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "S1",
+          "S4"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Pedigree: each item has one primary parent (came-from) plus optional relates-to cross-links",
+        "kind": "decision",
+        "commitment": "tentative",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "S1",
+          "S3",
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Not everything must be in the main system; link external systems and capture only worthwhile parts (images, snippets)",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "sources": [
+          "S2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Growth must be condensed; time, uniqueness, specificity decide visibility; delete vs hide undecided",
+        "kind": "open question",
+        "commitment": "tentative",
+        "importance": "core",
+        "status": "resolved",
+        "sources": [
+          "S4"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C6",
+        "statement": "Existing Tasks, Explorer, and Canvas each fall short; desire is one canvas across scales",
+        "kind": "problem",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "Anchor use cases: learning a topic (collect, summarize, map next-to-learn frontier) first; decision/buying research (options stored but not overwhelming) next; all project types are real",
+        "kind": "audience",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C8",
+        "statement": "Summaries: AI drafts on change, user accepts/edits; accepted text stable until refreshed",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Clean slate: build threads with their own items; do not constrain on existing Tasks/Explorer/Canvas",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Primary surface is a zoomable canvas",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "Writers: user plus agents via MCP (preferred, enables ChatGPT) or API; batch ingest of a whole exploration tree",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Two hierarchies: pedigree edges (came-from) are separate from summary groupings that can span branches; zoom folds by summary group",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "Layout is computed from structure with manual nudges remembered",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Agents write directly (add, link, close); every agent change is attributed and undoable as a batch",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "Finished/abandoned branches fold under summaries and fade; never auto-delete; manual deletion rare",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "One canvas per topic/project, many topics; each canvas self-contained, never one massive canvas",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Items are cards that start short and can grow into a full rich note",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Batch ingest sources: agent exploration trees, research reports (split into findings/sources/questions), own notes/dictation, web captures",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Open tasks/questions stay visible when their group folds; revisit if cluttered",
+        "kind": "decision",
+        "commitment": "tentative",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C20",
+        "statement": "Card types: task, question, finding, source, summary, plus option and criterion for decisions",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C21",
+        "statement": "Library layer is a topic index (top summary, open count, last activity); no cross-topic links yet",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C22",
+        "statement": "Frontier generation comes from external agents only for now; no in-app agentic generation",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C23",
+        "statement": "Summaries are drafted in-app (context-bound, easy task); generation stays external",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C24",
+        "statement": "First usable version: agent posts exploration tree via MCP, renders on topic canvas with pedigree, fold-by-summary zoom, open items visible",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One vertical slice: topic model, ingest_tree service, MCP adapter, read-mostly canvas with semantic zoom. No in-app AI or manual-edit polish.",
+    "problem": "Agent-driven research produces a growing tree of tasks/findings that becomes overwhelming without pedigree, frontier visibility, and summary folding.",
+    "recommended_shape": "Per-topic canvas over a clean card model (7 types, came-from parent + relates-to links, summary groups as separate layer). ingest_tree is the core transactional, idempotent write; MCP is a thin adapter. Auto tree layout with nudges; semantic zoom folds accepted summary groups while open items stay visible.",
+    "success_moves": [
+      {
+        "id": "SM1",
+        "move": "ingest_tree service + zod payload is the single write seam; MCP and fixtures both call it",
+        "risk": "MCP/client quirks blocking model and canvas work"
+      },
+      {
+        "id": "SM2",
+        "move": "Deterministic fixture topics (40-80 cards, summaries, dropped branches) seed the canvas loop locally",
+        "risk": "slow feedback needing a live agent"
+      },
+      {
+        "id": "SM3",
+        "move": "Ingest carries agent summary drafts so fold-by-summary is testable before in-app drafting",
+        "risk": "UX depending on unbuilt LLM feature"
+      },
+      {
+        "id": "SM4",
+        "move": "Batch ledger with batchKey idempotency and batch undo from day one",
+        "risk": "agent retries duplicating cards; unrecoverable bad agent writes"
+      },
+      {
+        "id": "SM5",
+        "move": "Claude Code over local HTTP + bearer first; ChatGPT OAuth/public HTTPS isolated as later milestone",
+        "risk": "bundling auth/deployment with protocol proof"
+      },
+      {
+        "id": "SM6",
+        "move": "Fold/layout as pure functions over (cards, groups, zoom) with unit tests",
+        "risk": "semantic zoom bugs only visible in browser"
+      }
+    ],
+    "first_proof": {
+      "question": "Does a zoomed-out topic canvas of agent-ingested work read as summaries plus a clear frontier?",
+      "artifact": "Real learning topic, 2-3 Claude Code ingest_tree rounds, 40-80 cards with summary drafts",
+      "decision_rule": "Readable and you would hand off the next question -> add in-app summaries + manual capture; frontier clutter -> revise fold rule first; layout fights groups -> revisit layout before more features"
+    },
+    "rabbit_holes": [
+      "Layout engine that satisfies both pedigree tree and cross-branch summary groups",
+      "MCP transport/runtime fit inside Vinxi/Nitro routes",
+      "ChatGPT OAuth + public hosting",
+      "Undo semantics when user edits interleave with agent batches",
+      "Card body as Doc vs topic-private"
+    ],
+    "open_decisions": [
+      "Card full-note body: regular Doc (searchable/embedded) or topic-private"
+    ]
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "app",
+      "revision": "268571b",
+      "worktree_status": "clean except docs/intent",
+      "subsystems": [
+        "prisma schema",
+        "services/*",
+        "routes/api + middleware.ts",
+        "stores/canvas.store.ts",
+        "sidebar nav-items.ts",
+        "server/lib/ai.ts"
+      ],
+      "test_commands": [
+        "pnpm lint",
+        "pnpm type-check",
+        "pnpm test",
+        "pnpm test:e2e",
+        "pnpm audit:shoot"
+      ],
+      "deployment_surfaces": [
+        "vinxi start",
+        "prisma migrate deploy"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "D1",
+        "name": "MCP (TypeScript SDK, Streamable HTTP)",
+        "material": true,
+        "application_seam": "ingestTree(topicId, payload) service; MCP route is a thin adapter",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "m1-m2 use fixtures through ingestTree; MCP is real only in m3 where protocol fit is the question"
+        },
+        "proof_rungs": [
+          "fixture-through-service",
+          "contract-test",
+          "live-local-smoke"
+        ],
+        "local_proof": "SDK Client <-> server over in-memory transport with faked service",
+        "live_proof": "Claude Code over local HTTP + bearer runs 2-3 ingest_tree rounds",
+        "failure_modes": [
+          "malformed payload -> tool error",
+          "retry with same batchKey",
+          "missing/invalid token -> 401",
+          "transport incompatible with Vinxi route"
+        ],
+        "rollout": "Unset RESEARCH_MCP_TOKEN disables; fallback stdio CLI over REST ingest",
+        "limitations": "ChatGPT requires public HTTPS + OAuth/DCR; deferred"
+      },
+      {
+        "id": "D2",
+        "name": "Local Postgres (audit harness DB)",
+        "material": true,
+        "application_seam": "prisma client, mocked in unit tests",
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "No DB in this worktree; planner/fold logic is pure and testable without it"
+        },
+        "proof_rungs": [
+          "fake",
+          "local-container"
+        ],
+        "local_proof": "mocked prisma vitest",
+        "live_proof": "audit-harness synthetic DB + Playwright/audit:shoot",
+        "failure_modes": [
+          "transaction rollback on partial ingest"
+        ],
+        "rollout": "New tables only; existing models untouched"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm vitest run src/services/research src/components/research",
+      "starts": "nothing; prisma mocked",
+      "network_required": false,
+      "shared_infrastructure_required": false,
+      "failure_injection": [
+        "malformed payload fixture",
+        "unknown ref / cycle fixture",
+        "repeated batchKey",
+        "undo with dependent later batch",
+        "fake service throwing in MCP contract test"
+      ]
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A fixture tree ingests into a topic and reads back as an outline",
+        "outcome": "Seeded fixture produces browsable topic outline; idempotent re-seed; batch undo/redo",
+        "dependencies_introduced": [],
+        "proof": "Vitest planner/idempotency/undo tests; outline route render on audit DB",
+        "valid_intermediate_state": "/research index + outline usable read-only; no canvas or MCP",
+        "rollback": "Remove nav entry; tables unused",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "The topic canvas folds into summaries as you zoom out",
+        "outcome": "Fixture reads as summaries + open frontier zoomed out; nudges persist; summaries accepted",
+        "dependencies_introduced": [
+          "layout engine (spike)"
+        ],
+        "proof": "Fold/layout table tests; Playwright smoke + audit:shoot at 3 zooms and 390px",
+        "valid_intermediate_state": "Canvas default view with outline tab, fixture-fed",
+        "rollback": "Outline remains; canvas route removable",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "An agent writes into a topic over MCP and you run the first proof",
+        "outcome": "Claude Code lists tools, grows a topic live, batch undoable; first-proof decision recorded",
+        "dependencies_introduced": [
+          "MCP SDK (token auth is part of the same transport proof)"
+        ],
+        "proof": "In-memory contract test; middleware test; live Claude Code session",
+        "valid_intermediate_state": "Full first proof loop",
+        "rollback": "Unset token -> 401; fallback stdio CLI over REST",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "In-app summary drafting",
+      "Manual capture/linking and rich-note editing",
+      "Report/notes/web-capture ingest",
+      "ChatGPT OAuth + public HTTPS",
+      "Decision view, frontier collapse, cross-topic links, meta-canvas",
+      "Multi-user permissions; Tasks/Explorer migration"
+    ],
+    "open_decisions": [
+      "Card body: Doc vs topic-private (topic-private in m1-m3)",
+      "Layout engine (m2 spike)",
+      "MCP transport fit in Vinxi (m3 spike, fallback stdio CLI)"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-19",
+      "change": "Created intent draft from request and notebook images."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Recorded question round 1."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Recorded question round 2 (first four answers)."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Recorded rounds 2-3; rewrote intent brief."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Shape brief created around MCP ingest to topic canvas first proof."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Implementation plan created: model+ingest, canvas fold, MCP adapter."
+    }
+  ],
+  "closure": null,
+  "question_rounds": {
+    "focus": "intent",
+    "per_round": 5,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "Anchor project type",
+            "answer": "All real; learning topic first (collect, summarize, frontier of what to learn next), decision research next (options stored, not overwhelming)",
+            "effect": "C7"
+          },
+          {
+            "n": 2,
+            "question": "Pedigree strictness",
+            "answer": "Tree + cross-links",
+            "effect": "C3 decided"
+          },
+          {
+            "n": 3,
+            "question": "Who writes summaries",
+            "answer": "AI drafts, I accept",
+            "effect": "C8"
+          },
+          {
+            "n": 4,
+            "question": "Relation to existing modes",
+            "answer": "Clean slate",
+            "effect": "C9"
+          },
+          {
+            "n": 5,
+            "question": "Primary surface",
+            "answer": "Zoomable canvas",
+            "effect": "C10"
+          },
+          {
+            "n": 6,
+            "question": "Who adds items",
+            "answer": "Me + agents via MCP (ChatGPT) or API; batch ingest of exploration tree",
+            "effect": "C11"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 7,
+            "question": "Pedigree vs summary hierarchy",
+            "answer": "Two layers",
+            "effect": "C12"
+          },
+          {
+            "n": 8,
+            "question": "Layout",
+            "answer": "Auto with nudges",
+            "effect": "C13"
+          },
+          {
+            "n": 9,
+            "question": "Agent trust",
+            "answer": "Write, all reversible",
+            "effect": "C14"
+          },
+          {
+            "n": 10,
+            "question": "Old detail",
+            "answer": "Fold, never delete",
+            "effect": "C15"
+          },
+          {
+            "n": 11,
+            "question": "Item grain",
+            "answer": "Card that can grow",
+            "effect": "C17"
+          },
+          {
+            "n": 12,
+            "question": "Ingest sources",
+            "answer": "All four",
+            "effect": "C18"
+          },
+          {
+            "n": 13,
+            "question": "Canvas cardinality",
+            "answer": "One per topic, many topics (volunteered: not one massive canvas)",
+            "effect": "C16"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 14,
+            "question": "Frontier under folds",
+            "answer": "Visible for now; collapse later if cluttered",
+            "effect": "C19"
+          },
+          {
+            "n": 15,
+            "question": "Card types",
+            "answer": "Core + decision types",
+            "effect": "C20"
+          },
+          {
+            "n": 16,
+            "question": "Library layer",
+            "answer": "Topic index",
+            "effect": "C21"
+          },
+          {
+            "n": 17,
+            "question": "AI proposes frontier",
+            "answer": "External agents only for now",
+            "effect": "C22"
+          },
+          {
+            "n": 18,
+            "question": "Summary drafting",
+            "answer": "In-app; has context, easier",
+            "effect": "C23"
+          },
+          {
+            "n": 19,
+            "question": "First proof",
+            "answer": "MCP ingest to canvas",
+            "effect": "C24"
+          }
+        ]
+      }
+    ]
+  }
+}
