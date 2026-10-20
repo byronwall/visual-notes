@@ -9,6 +9,7 @@ import {
   NetworkIcon,
   ShieldIcon,
   SparklesIcon,
+  TelescopeIcon,
   WaypointsIcon,
 } from "lucide-solid";
 import type { JSX } from "solid-js";
@@ -93,6 +94,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     icon: ListTodoIcon,
     keywords: "todo",
     isActive: (pathname) => isSectionActive("/tasks", pathname),
+  },
+  {
+    label: "Research",
+    href: "/research",
+    icon: TelescopeIcon,
+    keywords: "topics threads frontier findings",
+    isActive: (pathname) => isSectionActive("/research", pathname),
   },
   {
     label: "Explorer",

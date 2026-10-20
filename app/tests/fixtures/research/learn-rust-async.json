@@ -1,0 +1,179 @@
+{
+  "title": "Learn async Rust",
+  "rounds": [
+    {
+      "batchKey": "fixture-r1",
+      "agent": "claude-code",
+      "summary": "Initial map of how async Rust works",
+      "cards": [
+        {
+          "type": "question",
+          "title": "How does async Rust work under the hood?",
+          "ref": "root",
+          "body": "Goal: understand enough to write and debug async services without cargo-culting.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "async fn compiles to a state machine that implements Future",
+              "ref": "f-statemachine",
+              "body": "The compiler rewrites the function body into an enum. Each variant stores the locals that are alive across an `.await`.",
+              "children": [
+                { "type": "source", "title": "Async Book: Under the hood", "url": "https://rust-lang.github.io/async-book/" },
+                { "type": "finding", "title": "Each .await point becomes a variant holding live locals" },
+                {
+                  "type": "question",
+                  "title": "Why are futures lazy?",
+                  "state": "done",
+                  "children": [
+                    { "type": "finding", "title": "Nothing runs until polled; the executor drives progress" }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Future::poll returns Ready or Pending",
+              "ref": "f-poll",
+              "children": [
+                { "type": "source", "title": "std::future::Future docs", "url": "https://doc.rust-lang.org/std/future/trait.Future.html" },
+                {
+                  "type": "finding",
+                  "title": "Wakers tell the executor when to poll again",
+                  "ref": "f-waker",
+                  "children": [
+                    { "type": "question", "title": "How does a waker reach the I/O reactor?", "ref": "q-waker" }
+                  ]
+                }
+              ]
+            },
+            { "type": "question", "title": "Why does Pin exist?", "ref": "q-pin" },
+            { "type": "question", "title": "Which runtime should I learn first?", "ref": "q-runtime" },
+            { "type": "task", "title": "Read Async Book chapters 1–4", "state": "done" },
+            { "type": "task", "title": "Write a toy single-threaded executor", "ref": "t-exec" }
+          ]
+        }
+      ],
+      "summaries": [
+        {
+          "ref": "s-futures",
+          "title": "Futures are poll-driven state machines",
+          "body": "async fn becomes an enum-based state machine. An executor polls it; Pending means a waker will ask for another poll later. Nothing happens until polled.",
+          "covers": ["f-statemachine", "$0.0.0", "$0.0.1", "$0.0.2", "$0.0.2.0", "f-poll", "$0.1.0", "f-waker"]
+        }
+      ]
+    },
+    {
+      "batchKey": "fixture-r2",
+      "agent": "claude-code",
+      "summary": "Dug into Pin",
+      "under": "@q-pin",
+      "cards": [
+        {
+          "type": "finding",
+          "title": "Pin<P> guarantees the pointee will not move again",
+          "ref": "f-pin",
+          "children": [
+            { "type": "source", "title": "std::pin module docs", "url": "https://doc.rust-lang.org/std/pin/" },
+            { "type": "finding", "title": "Self-referential futures hold pointers into themselves" },
+            {
+              "type": "finding",
+              "title": "Most types are Unpin, so Pin is a no-op for them",
+              "children": [
+                { "type": "question", "title": "When is Unpin auto-implemented?" }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "pin-project gives safe field projections",
+              "children": [
+                { "type": "source", "title": "pin-project README", "url": "https://docs.rs/pin-project" }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "question",
+          "title": "Is Box::pin enough for everyday code?",
+          "state": "done",
+          "children": [
+            { "type": "finding", "title": "Yes; the pin! macro avoids the allocation when it matters" }
+          ]
+        },
+        { "type": "task", "title": "Try the pin! macro in a small example" },
+        {
+          "type": "question",
+          "title": "Can a different design avoid Pin entirely?",
+          "state": "dropped",
+          "children": [
+            { "type": "finding", "title": "Generators-as-objects is a dead end on stable Rust" }
+          ]
+        }
+      ],
+      "summaries": [
+        {
+          "ref": "s-pin",
+          "title": "Pin: moving is the hazard",
+          "body": "Self-referential state machines must not move once polled. Pin encodes that; Unpin types opt out. Box::pin or pin! cover everyday code.",
+          "covers": ["f-pin", "$0.0", "$0.1", "$0.2", "$0.3", "$0.3.0", "$1", "$1.0"]
+        }
+      ]
+    },
+    {
+      "batchKey": "fixture-r3",
+      "agent": "codex",
+      "summary": "Compared runtimes",
+      "under": "@q-runtime",
+      "cards": [
+        {
+          "type": "option",
+          "title": "Tokio",
+          "ref": "o-tokio",
+          "children": [
+            { "type": "finding", "title": "Largest ecosystem; work-stealing multi-thread scheduler" },
+            { "type": "source", "title": "Tokio tutorial (mini-redis)", "url": "https://tokio.rs/tokio/tutorial" }
+          ]
+        },
+        {
+          "type": "option",
+          "title": "async-std",
+          "children": [
+            { "type": "finding", "title": "std-like API, but development has slowed" }
+          ]
+        },
+        {
+          "type": "option",
+          "title": "smol",
+          "ref": "o-smol",
+          "children": [
+            { "type": "finding", "title": "Small, readable codebase that is good for learning internals" }
+          ]
+        },
+        { "type": "criterion", "title": "Ecosystem and documentation", "ref": "c-eco" },
+        { "type": "criterion", "title": "Readable internals for learning", "ref": "c-read" },
+        { "type": "finding", "title": "Build with Tokio, read smol to learn", "ref": "f-decision" },
+        { "type": "task", "title": "Do the Tokio mini-redis tutorial" },
+        { "type": "task", "title": "Read smol's executor source" }
+      ],
+      "links": [
+        { "from": "o-tokio", "to": "c-eco" },
+        { "from": "o-smol", "to": "c-read" },
+        { "from": "f-decision", "to": "o-tokio" },
+        { "from": "f-decision", "to": "o-smol" },
+        { "from": "@t-exec", "to": "o-smol" }
+      ],
+      "summaries": [
+        {
+          "ref": "s-runtime",
+          "title": "Runtime pick: Tokio to build, smol to learn",
+          "body": "Tokio wins on ecosystem; smol wins on readable internals. Use both for different goals.",
+          "covers": ["o-tokio", "$0.0", "$0.1", "$1", "$1.0", "o-smol", "$2.0", "c-eco", "c-read", "f-decision"]
+        },
+        {
+          "title": "Async Rust: poll-driven state machines, pinned, run by a runtime",
+          "body": "Futures are lazy state machines polled by an executor; Pin keeps self-referential state in place; Tokio is the practical runtime and smol the readable one.",
+          "covers": ["@s-futures", "@s-pin", "s-runtime"]
+        }
+      ]
+    }
+  ]
+}

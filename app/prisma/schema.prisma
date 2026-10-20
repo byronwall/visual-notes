@@ -661,3 +661,144 @@ model OAuthGrant {
 
   @@index([clientId])
 }
+
+// ── Research threads ────────────────────────────────────────────────────────
+// One topic = one canvas. Cards carry a single came-from parent; relates-to
+// links and summary groups are separate layers. Every agent write is a batch
+// so it can be undone as a unit (soft-hide via hiddenAt, never hard delete).
+
+enum ResearchCardType {
+  task
+  question
+  finding
+  source
+  summary
+  option
+  criterion
+}
+
+enum ResearchCardState {
+  open
+  done
+  dropped
+}
+
+enum ResearchSummaryStatus {
+  draft
+  accepted
+}
+
+model ResearchTopic {
+  id         String    @id @default(cuid())
+  slug       String    @unique
+  title      String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  cards   ResearchCard[]
+  links   ResearchLink[]
+  groups  ResearchSummaryGroup[]
+  batches ResearchBatch[]
+}
+
+model ResearchBatch {
+  id        String    @id @default(cuid())
+  topicId   String
+  batchKey  String
+  agent     String
+  summary   String    @default("")
+  // Stored ingest result (ref → id map, counts) and reversible state changes.
+  result    Json?
+  createdAt DateTime  @default(now())
+  undoneAt  DateTime?
+
+  topic  ResearchTopic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  cards  ResearchCard[]
+  links  ResearchLink[]
+  groups ResearchSummaryGroup[]
+
+  @@unique([topicId, batchKey])
+  @@index([topicId, createdAt])
+}
+
+model ResearchCard {
+  id        String             @id @default(cuid())
+  topicId   String
+  type      ResearchCardType
+  title     String
+  body      String             @default("")
+  state     ResearchCardState?
+  url       String?
+  snippet   String?
+  imageUrl  String?
+  parentId  String?
+  sortOrder Int                @default(0)
+  nudgeX    Float?
+  nudgeY    Float?
+  batchId   String?
+  hiddenAt  DateTime?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  topic       ResearchTopic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  batch       ResearchBatch?          @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  parent      ResearchCard?           @relation("ResearchCardPedigree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ResearchCard[]          @relation("ResearchCardPedigree")
+  linksFrom   ResearchLink[]          @relation("ResearchLinkFrom")
+  linksTo     ResearchLink[]          @relation("ResearchLinkTo")
+  summaryOf   ResearchSummaryGroup?
+  memberships ResearchSummaryMember[]
+
+  @@index([topicId, hiddenAt])
+  @@index([parentId])
+  @@index([batchId])
+}
+
+model ResearchLink {
+  id        String    @id @default(cuid())
+  topicId   String
+  fromId    String
+  toId      String
+  kind      String    @default("relates_to")
+  batchId   String?
+  hiddenAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  topic ResearchTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  from  ResearchCard   @relation("ResearchLinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to    ResearchCard   @relation("ResearchLinkTo", fields: [toId], references: [id], onDelete: Cascade)
+  batch ResearchBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([topicId])
+  @@index([fromId])
+  @@index([toId])
+}
+
+model ResearchSummaryGroup {
+  id            String                @id @default(cuid())
+  topicId       String
+  summaryCardId String                @unique
+  status        ResearchSummaryStatus @default(draft)
+  batchId       String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  topic       ResearchTopic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  summaryCard ResearchCard            @relation(fields: [summaryCardId], references: [id], onDelete: Cascade)
+  batch       ResearchBatch?          @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  members     ResearchSummaryMember[]
+
+  @@index([topicId])
+}
+
+model ResearchSummaryMember {
+  groupId String
+  cardId  String
+
+  group ResearchSummaryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  card  ResearchCard         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, cardId])
+  @@index([cardId])
+}

@@ -1,0 +1,25 @@
+{
+  "title": "Research edge cases",
+  "rounds": [
+    {
+      "batchKey": "edge-r1",
+      "agent": "fixture",
+      "summary": "Long titles, every card type, a dropped branch, an image source",
+      "cards": [
+        {
+          "type": "question",
+          "title": "A deliberately long question title that keeps going so the card has to wrap or truncate gracefully in every view",
+          "ref": "long",
+          "children": [
+            { "type": "finding", "title": "Finding with a long body", "body": "Paragraph one.\n\nParagraph two with **bold** and a [link](https://example.test).\n\n- bullet\n- bullet" },
+            { "type": "source", "title": "Image capture", "imageUrl": "https://picsum.photos/seed/vn/320/200", "snippet": "A captured snippet from a page that explains something worth keeping." },
+            { "type": "option", "title": "Option A" },
+            { "type": "criterion", "title": "Criterion 1" },
+            { "type": "task", "title": "Dropped task", "state": "dropped", "children": [{ "type": "finding", "title": "Child of a dropped task" }] }
+          ]
+        },
+        { "type": "task", "title": "A root-level task with no parent" }
+      ]
+    }
+  ]
+}
