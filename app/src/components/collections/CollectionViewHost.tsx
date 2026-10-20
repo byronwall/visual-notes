@@ -8,9 +8,11 @@ import { CollectionBoard } from "./board/CollectionBoard";
 import {
   CardFieldsSettings,
   CoverSettings,
+  DatePropertySettings,
   GroupBySettings,
 } from "./views/ViewSettings";
 import { CollectionGallery } from "./gallery/CollectionGallery";
+import { CollectionCalendar } from "./calendar/CollectionCalendar";
 
 const stack = css({ display: "flex", flexDirection: "column", gap: "2" });
 
@@ -35,6 +37,9 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
                 exclude={props.view.config.groupBy}
               />
             </Match>
+            <Match when={props.view.type === "calendar"}>
+              <DatePropertySettings view={props.view} />
+            </Match>
             <Match when={props.view.type === "gallery"}>
               <CoverSettings view={props.view} />
               <CardFieldsSettings view={props.view} defaultCount={2} />
@@ -51,6 +56,9 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
         </Match>
         <Match when={props.view.type === "gallery"}>
           <CollectionGallery view={props.view} />
+        </Match>
+        <Match when={props.view.type === "calendar"}>
+          <CollectionCalendar view={props.view} />
         </Match>
       </Switch>
     </div>

@@ -1,4 +1,5 @@
 import {
+  CalendarDaysIcon,
   CheckIcon,
   Columns3Icon,
   EyeIcon,
@@ -282,5 +283,48 @@ export const CoverSettings = (props: { view: CollectionView }) => {
         </Show>
       </div>
     </SettingsPopover>
+  );
+};
+
+/** Calendar: which date property places rows. */
+export const DatePropertySettings = (props: { view: CollectionView }) => {
+  const { store } = useCollection();
+  const candidates = () =>
+    store.state.properties.filter(
+      (p) =>
+        p.kind === "date" ||
+        p.kind === "created_time" ||
+        p.kind === "updated_time",
+    );
+  const current = () =>
+    candidates().find((p) => p.id === props.view.config.dateProperty) ??
+    candidates().find((p) => p.kind === "date") ??
+    candidates()[0];
+  return (
+    <Show when={candidates().length > 0}>
+      <SettingsPopover
+        icon={<CalendarDaysIcon size={14} />}
+        label={<>By: {current()?.name}</>}
+      >
+        <div class={menuPanel} style={{ width: "15rem" }}>
+          <div class={menuSection}>Place rows by</div>
+          <For each={candidates()}>
+            {(p) => (
+              <MenuItem
+                icon={<PropertyKindIcon property={p} />}
+                trailing={
+                  current()?.id === p.id ? <CheckIcon size={13} /> : undefined
+                }
+                onClick={() =>
+                  store.patchViewConfig(props.view.id, { dateProperty: p.id })
+                }
+              >
+                {p.name}
+              </MenuItem>
+            )}
+          </For>
+        </div>
+      </SettingsPopover>
+    </Show>
   );
 };
