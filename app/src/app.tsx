@@ -26,6 +26,7 @@ import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
 import { sectionTitleForPath } from "~/components/sidebar/nav-items";
 import { loginPathFor } from "~/utils/safe-next";
+import { whenHydrationSettles } from "~/utils/hydration-settled";
 
 type ClientExceptionState = {
   source: "error" | "unhandledrejection";
@@ -38,7 +39,15 @@ export default function App() {
     createSignal<ClientExceptionState | null>(null);
 
   onMount(() => {
-    document.documentElement.dataset.appHydrated = "true";
+    // Readiness marker for browser tests: set it only once the route content
+    // is live too, not just the shell this onMount belongs to.
+    const cancelHydrationWait = whenHydrationSettles(
+      document.getElementById("app") ?? document,
+      () => {
+        document.documentElement.dataset.appHydrated = "true";
+      },
+    );
+    onCleanup(cancelHydrationWait);
     const handleError = (event: ErrorEvent) => {
       setClientException({
         source: "error",
