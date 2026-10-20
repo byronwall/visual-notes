@@ -14,6 +14,7 @@ import { BlockIds } from "./block-ids";
 import { NoteLink } from "./note-link";
 import { TaskRef } from "./task-ref";
 import { Tag } from "./tag";
+import { CollectionView } from "./collection-view";
 
 /**
  * The note document schema, with no UI imports. The editor layers its Solid
@@ -95,6 +96,7 @@ export type NoteExtensionOverrides = {
   table?: AnyExtension;
   noteLink?: AnyExtension;
   taskRef?: AnyExtension;
+  collectionView?: AnyExtension;
 };
 
 export function buildNoteExtensions(
@@ -114,6 +116,7 @@ export function buildNoteExtensions(
     overrides.tableCell ?? TableCell,
     overrides.noteLink ?? NoteLink,
     overrides.taskRef ?? TaskRef,
+    overrides.collectionView ?? CollectionView,
     Tag,
     BlockIds,
   ];

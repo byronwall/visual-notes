@@ -14,6 +14,7 @@ import { TitleCell } from "./TitleCell";
 const DEFAULT_WIDTH = 180;
 const TITLE_WIDTH = 280;
 const ADD_COLUMN = 44;
+const EMBED_ROW_LIMIT = 25;
 
 const scroller = css({
   overflowX: "auto",
@@ -82,8 +83,10 @@ const empty = css({ px: "3", py: "8", color: "fg.muted", fontSize: "sm", textAli
 
 /** Spreadsheet-style view: one row per note, one column per property. */
 export const CollectionTable = (props: { view: CollectionView }) => {
-  const { store } = useCollection();
+  const { store, embedded } = useCollection();
   const [autoEditRowId, setAutoEditRowId] = createSignal<string | null>(null);
+  // Embeds start short so a large collection doesn't swallow the note.
+  const [limit, setLimit] = createSignal(embedded ? EMBED_ROW_LIMIT : Number.POSITIVE_INFINITY);
 
   const columns = createMemo<CollectionProperty[]>(() => [
     TITLE_PROPERTY,
@@ -92,6 +95,17 @@ export const CollectionTable = (props: { view: CollectionView }) => {
   const rows = createMemo(() =>
     applyView(store.state.rows, store.state.properties, props.view.config, store.state.today),
   );
+  const visibleRows = createMemo(() => {
+    const all = rows();
+    // Always keep a freshly added row visible.
+    const shown = all.slice(0, limit());
+    const fresh = autoEditRowId();
+    if (fresh && !shown.some((r) => r.id === fresh)) {
+      const row = all.find((r) => r.id === fresh);
+      if (row) shown.push(row);
+    }
+    return shown;
+  });
   const widthOf = (id: string) =>
     props.view.config.columnWidths?.[id] ?? (id === TITLE_PROPERTY_ID ? TITLE_WIDTH : DEFAULT_WIDTH);
   const template = () => `${columns().map((c) => `${widthOf(c.id)}px`).join(" ")} ${ADD_COLUMN}px`;
@@ -126,7 +140,7 @@ export const CollectionTable = (props: { view: CollectionView }) => {
           </div>
         </div>
 
-        <For each={rows()}>
+        <For each={visibleRows()}>
           {(r) => (
             <div class={row} role="row" data-row-id={r.id}>
               <For each={columns()}>
@@ -153,6 +167,11 @@ export const CollectionTable = (props: { view: CollectionView }) => {
         </For>
 
         <div style={{ "grid-column": "1 / -1" }}>
+          <Show when={visibleRows().length < rows().length}>
+            <button type="button" class={newRow} onClick={() => setLimit(Number.POSITIVE_INFINITY)}>
+              Show all {rows().length} rows
+            </button>
+          </Show>
           <Show when={rows().length === 0 && store.state.rows.length > 0}>
             <div class={empty}>No rows match this view.</div>
           </Show>

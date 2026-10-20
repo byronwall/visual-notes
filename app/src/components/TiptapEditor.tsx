@@ -73,6 +73,7 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
     () => container(),
     props.initialContent ?? props.initialHTML ?? DEFAULT_HTML,
     (text: string, _src: "paste" | "drop" | "file") => prompt(text),
+    () => props.noteId,
   );
 
   // Set stable editor instance once when available
