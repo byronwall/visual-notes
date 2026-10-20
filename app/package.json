@@ -3,9 +3,9 @@
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "panda codegen && vinxi dev",
-    "build": "panda codegen && vinxi build",
+    "build": "panda codegen && vinxi build && pnpm build:search-text",
     "start": "vinxi start",
-    "start-prod": "pnpm prisma migrate deploy && pnpm start",
+    "start-prod": "pnpm prisma migrate deploy && node .output/backfill-search-text.mjs && pnpm start",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"**/*.{ts,tsx,js,jsx}\"",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint --fix \"**/*.{ts,tsx,js,jsx}\"",
     "fix:unstaged": "sh -c 'app_files=$(git diff --name-only --diff-filter=ACMR | grep \"^app/\" | sed \"s#^app/##\"); if [ -z \"$app_files\" ]; then echo \"No unstaged files under app/.\"; exit 0; fi; eslint_files=$(printf \"%s\\n\" \"$app_files\" | grep -E \"\\\\.(ts|tsx|js|jsx)$\" || true); if [ -n \"$eslint_files\" ]; then printf \"%s\\n\" \"$eslint_files\" | xargs env ESLINT_USE_FLAT_CONFIG=false pnpm exec eslint --fix; fi; printf \"%s\\n\" \"$app_files\" | xargs pnpm exec prettier --write --ignore-unknown'",
@@ -30,7 +30,8 @@
     "postinstall": "prisma generate",
     "knip": "pnpm dlx knip",
     "type-check": "tsc --noEmit && echo 'Type check passed'",
-    "migrate:blocks": "vite-node --config vitest.config.ts scripts/migrate-block-content.ts --"
+    "migrate:blocks": "vite-node --config vitest.config.ts scripts/migrate-block-content.ts --",
+    "build:search-text": "esbuild scripts/backfill-search-text.ts --bundle --platform=node --format=esm --packages=external --outfile=.output/backfill-search-text.mjs"
   },
   "type": "module",
   "devDependencies": {
@@ -43,6 +44,7 @@
     "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^7.6.0",
     "@typescript-eslint/parser": "^7.6.0",
+    "esbuild": "0.25.10",
     "eslint": "^9.13.0",
     "eslint-plugin-solid": "^0.14.3",
     "js-yaml": "4.1.0",

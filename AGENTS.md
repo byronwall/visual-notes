@@ -19,6 +19,7 @@ focused skills listed under [Skills](#skills).
 - `Doc.content` (TipTap JSON) is the canonical note body; every block carries a stable `id`. `html`/`markdown` are derived on each write until the legacy-column drop (plan: [docs/intent/block-storage](docs/intent/block-storage/implementation-plan.md)).
 - One headless schema in `app/src/lib/note-content/schema.ts` is shared by the editor, server, and migration. Add a node type there (UI-free), then layer any Solid NodeView in `components/editor/extensions/`.
 - Write content only through `server/notes/note-write.ts` / `note-store.ts` (validation, dual-write, version bump, per-block merge) and keep `rebuildNoteIndex` in the same transaction; `DocBlock`/`DocLink` and inline-task sources are derived from it.
+- Keyword search uses `Doc.searchText`. Keep it current through `contentColumns`; the startup backfill handles existing notes.
 - Read content through `readNoteContent` / `noteText` / `noteMarkdown` / `noteHtml` so `NOTE_CONTENT_READ=legacy` can roll every reader back.
 - Never spread a shared object into a Prisma `select` inside nested selects; it made `tsc` take minutes. List the fields.
 

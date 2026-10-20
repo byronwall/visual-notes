@@ -110,7 +110,8 @@ export async function runBlockMigrationBatch(opts: {
       const { content, ...stats } = measureConversion(doc);
       rows.push({ id: doc.id, title: doc.title, ...stats });
       if (opts.dryRun) continue;
-      const { content: json, contentSchemaVersion } = contentColumns(content);
+      const { content: json, contentSchemaVersion, searchText } =
+        contentColumns(content);
       await prisma.$transaction(async (tx) => {
         await tx.docRevision.create({
           data: {
@@ -128,6 +129,7 @@ export async function runBlockMigrationBatch(opts: {
           data: {
             content: json,
             contentSchemaVersion,
+            searchText,
             contentVersion: { increment: 1 },
           },
         });

@@ -1,7 +1,6 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
-import { noteText } from "~/server/notes/note-store";
 import type { ServerSearchItem } from "./docs.types";
 import {
   buildDocsWhere,
@@ -58,8 +57,8 @@ export const searchDocs = query(
     const titlePathTokenAndClause = hasMultiTermQuery
       ? terms.map((token) => ({
           OR: [
-            { title: { contains: token, mode: "insensitive" as const } },
-            { path: { contains: token, mode: "insensitive" as const } },
+            { title: { contains: escapeContains(token), mode: "insensitive" as const } },
+            { path: { contains: escapeContains(token), mode: "insensitive" as const } },
           ],
         }))
       : [];
@@ -67,16 +66,16 @@ export const searchDocs = query(
       where: {
         ...docFilters,
         OR: [
-          { title: { contains: term, mode: "insensitive" } },
-          { path: { contains: term, mode: "insensitive" } },
+          { title: { contains: escapeContains(term), mode: "insensitive" } },
+          { path: { contains: escapeContains(term), mode: "insensitive" } },
           ...(hasMultiTermQuery
             ? [{ AND: titlePathTokenAndClause }]
             : [
                 ...terms.map((token) => ({
-                  title: { contains: token, mode: "insensitive" as const },
+                  title: { contains: escapeContains(token), mode: "insensitive" as const },
                 })),
                 ...terms.map((token) => ({
-                  path: { contains: token, mode: "insensitive" as const },
+                  path: { contains: escapeContains(token), mode: "insensitive" as const },
                 })),
               ]),
         ],
@@ -136,23 +135,34 @@ export const searchDocs = query(
     }
 
     const bodyScanStartMs = afterTitlePathMs;
-    const bodyPageSize = 250;
-    let bodyDocsScanned = 0;
+    // Plain text pages stay small without the HTML, JSON, and image payloads.
+    const bodyPageSize = 1000;
+    let bodyMatchesLoaded = 0;
     let bodyBytesLoaded = 0;
     let bodyPages = 0;
     let cursorId: string | undefined;
+    const bodyTerms = [...new Set([termLower, ...terms])];
+    const bodyMatch = {
+      OR: bodyTerms.map((value) => ({
+        searchText: {
+          contains: escapeContains(value),
+          mode: "insensitive" as const,
+        },
+      })),
+    };
 
     while (true) {
       const docs = await prisma.doc.findMany({
-        where: docFilters,
+        where: {
+          AND: [docFilters, bodyMatch],
+          ...(cursorId ? { id: { gt: cursorId } } : {}),
+        },
         select: {
           id: true,
           title: true,
           updatedAt: true,
           path: true,
-          content: true,
-          html: true,
-          markdown: true,
+          searchText: true,
           share: {
             select: {
               slug: true,
@@ -161,15 +171,14 @@ export const searchDocs = query(
           },
         },
         orderBy: { id: "asc" },
-        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
         take: bodyPageSize,
       });
       if (!docs.length) break;
       bodyPages += 1;
 
       for (const d of docs) {
-        bodyDocsScanned += 1;
-        const text = noteText(d).replace(/\s+/g, " ").trim();
+        bodyMatchesLoaded += 1;
+        const text = d.searchText ?? "";
         bodyBytesLoaded += Buffer.byteLength(text, "utf8");
         if (!text) continue;
 
@@ -328,7 +337,7 @@ export const searchDocs = query(
       titlePathCapped: titlePathDocs.length >= titlePathTake,
       bodyPageSize,
       bodyPages,
-      bodyDocsScanned,
+      bodyMatchesLoaded,
       bodyBytesLoaded,
       hitsBeforeCoverageFilter: hitsMap.size,
       droppedByTokenCoverage,
@@ -343,6 +352,10 @@ export const searchDocs = query(
   },
   "docs-index-search"
 );
+
+function escapeContains(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
 
 function tokenizeQuery(termLower: string): string[] {
   const raw = termLower

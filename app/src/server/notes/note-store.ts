@@ -41,10 +41,12 @@ export function prepareContent(input: ContentInput): NoteDoc {
 
 /** Column values for a content write (version bump handled by callers). */
 export function contentColumns(doc: NoteDoc) {
+  const legacy = legacyColumns(doc);
   return {
     content: doc as unknown as Prisma.InputJsonValue,
     contentSchemaVersion: NOTE_SCHEMA_VERSION,
-    ...legacyColumns(doc),
+    searchText: searchableText({ content: doc, ...legacy }),
+    ...legacy,
   };
 }
 
@@ -100,6 +102,10 @@ export function noteText(row: StoredBody): string {
     : normalizeMarkdownToHtml(stripIdTags(row.markdown ?? ""));
   return legacyPlainText(html);
 }
+
+/** Stored search text uses the same whitespace as ranking and snippets. */
+export const searchableText = (row: StoredBody) =>
+  noteText(row).replace(/\s+/g, " ").trim();
 
 const textBreaks = new Set([
   "p",
