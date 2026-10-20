@@ -5,6 +5,7 @@ import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
 import { CollectionProvider } from "./CollectionContext";
 import { CollectionTitle } from "./CollectionTitle";
+import { CollectionActions } from "./membership/CollectionActions";
 import { CollectionViewHost } from "./CollectionViewHost";
 import { RowPeekPanel } from "./RowPeekPanel";
 import { createCollectionStore } from "./store/createCollectionStore";
@@ -57,6 +58,7 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
             {store.state.rows.length}{" "}
             {store.state.rows.length === 1 ? "row" : "rows"}
           </span>
+          <CollectionActions />
         </div>
         <ViewTabs
           activeViewId={activeView()?.id}

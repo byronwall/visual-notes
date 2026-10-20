@@ -22,6 +22,7 @@ import {
 } from "~/lib/note-content/markdown";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
+import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { BacklinksSection } from "./docs/BacklinksSection";
@@ -60,6 +61,7 @@ const DocumentViewer: VoidComponent<{
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
+  const [addToCollectionOpen, setAddToCollectionOpen] = createSignal(false);
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
@@ -375,6 +377,7 @@ const DocumentViewer: VoidComponent<{
               onCopyLink={() => void handleCopyLink()}
               headingTitle={showSync() ? firstH1() : undefined}
               onUseHeadingTitle={() => void handleSync()}
+              onAddToCollection={() => setAddToCollectionOpen(true)}
             />
           </HStack>
         </HStack>
@@ -417,6 +420,11 @@ const DocumentViewer: VoidComponent<{
         onSaved={handleContentSaved}
       />
       <BacklinksSection docId={props.doc.id} />
+      <AddToCollectionDialog
+        open={addToCollectionOpen()}
+        docId={props.doc.id}
+        onClose={() => setAddToCollectionOpen(false)}
+      />
       <ConfirmDialog
         open={deleteDialogOpen()}
         onOpenChange={setDeleteDialogOpen}
