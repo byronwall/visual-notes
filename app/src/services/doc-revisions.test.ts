@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
-  doc: { findUnique: vi.fn(), update: vi.fn() },
+  doc: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   docRevision: { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+  docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
+  docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
+  taskItem: { findMany: vi.fn(async () => []), update: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
@@ -22,8 +25,10 @@ import { fetchDocRevisions, restoreDocRevision } from "./doc-revisions";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) =>
-    Promise.all(ops),
+  db.$transaction.mockImplementation(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: typeof db) => Promise<unknown>)(db)
+      : Promise.all(arg as Promise<unknown>[]),
   );
   db.docRevision.create.mockResolvedValue({});
   db.doc.update.mockResolvedValue({});
@@ -57,15 +62,15 @@ describe("restoreDocRevision", () => {
         actorType: "magic_user",
       }),
     });
-    expect(db.doc.update).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: {
-        title: "Old",
-        path: "work.old",
-        markdown: "old",
-        html: "<p>old</p>",
-      },
+    const update = db.doc.update.mock.calls[0][0];
+    expect(update.where).toEqual({ id: "d1" });
+    expect(update.data).toMatchObject({
+      title: "Old",
+      path: "work.old",
+      markdown: "old",
+      contentVersion: { increment: 1 },
     });
+    expect(update.data.content.content[0].content[0].text).toBe("old");
   });
 
   it("fails cleanly for an unknown version", async () => {

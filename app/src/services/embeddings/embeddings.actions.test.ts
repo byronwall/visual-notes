@@ -16,7 +16,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@solidjs/router", () => ({ action: (fn: unknown) => fn }));
-vi.mock("sanitize-html", () => ({ default: () => "body" }));
 vi.mock("~/server/db", () => ({ prisma: mocks.prisma }));
 vi.mock("~/env/server", () => ({
   serverEnv: { OPENAI_API_KEY: "mock-key", EMBEDDING_MODEL: "mock-model" },
