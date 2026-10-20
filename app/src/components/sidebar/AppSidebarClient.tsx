@@ -19,6 +19,7 @@ import {
 import type { PaletteAction } from "~/components/command-palette/palette-commands";
 import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
 import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
+import { trackVisualViewport } from "~/lib/visual-viewport";
 import { RouteProgressBar } from "./RouteProgressBar";
 import { MobileAppBarContext } from "./mobile-app-bar";
 import {
@@ -140,6 +141,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   onMount(() => {
     initializeConsoleLogCapture();
     syncThemePreference();
+    onCleanup(trackVisualViewport());
 
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {

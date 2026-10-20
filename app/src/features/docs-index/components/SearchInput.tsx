@@ -21,6 +21,7 @@ export const SearchInput: VoidComponent<{
         left="2.5"
         top="50%"
         transform="translateY(-50%)"
+        zIndex="1"
         color="fg.subtle"
         display="flex"
         pointerEvents="none"
@@ -32,9 +33,9 @@ export const SearchInput: VoidComponent<{
         type="search"
         size="sm"
         ps="8"
-        pe="16"
+        pe={{ base: "9", md: "16" }}
         bg="bg.default"
-        placeholder="Search titles, paths, and content"
+        placeholder="Search notes"
         aria-label="Search notes"
         value={props.value}
         onInput={(e) => props.onChange(e.currentTarget.value)}
@@ -55,7 +56,7 @@ export const SearchInput: VoidComponent<{
         alignItems="center"
         justifyContent="flex-end"
         gap="1"
-        w="14"
+        w={{ base: "8", md: "14" }}
       >
         <Show when={props.loading}>
           <Spinner size="xs" />
@@ -63,7 +64,13 @@ export const SearchInput: VoidComponent<{
         <Show
           when={props.value.length > 0}
           fallback={
-            <Kbd size="sm" color="fg.subtle" title="Press / to search">
+            <Kbd
+              size="sm"
+              color="fg.subtle"
+              title="Press / to search"
+              // Phones have no "/" key to press.
+              display={{ base: "none", md: "inline-flex" }}
+            >
               /
             </Kbd>
           }

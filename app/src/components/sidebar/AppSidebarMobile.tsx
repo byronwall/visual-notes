@@ -23,7 +23,6 @@ type AppSidebarMobileProps = {
   actionsSlotRef: (element: HTMLElement) => void;
 };
 
-
 /**
  * Phone-width app bar: menu (opens the sidebar drawer), current section or
  * page title, page actions (portalled into the slot), and the two most-used

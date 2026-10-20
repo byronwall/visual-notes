@@ -35,10 +35,17 @@ export type DocRowProps = {
 
 // Fixed columns so paths and times scan as columns; the title column always
 // keeps room. Meta shows only where there is width for it.
+// Phones have no hover to reveal the checkbox, so its column only exists in
+// selection mode there instead of leaving an empty gutter on every row.
 const rowClass = css({
   display: "grid",
-  gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
-  gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gridTemplateAreas: `"title title" "path time" "snippet snippet"`,
+  "&[data-selection-mode]": {
+    gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
+    gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
+  },
+  "&:not([data-selection-mode]) > .row-check": { display: "none" },
   columnGap: "3",
   rowGap: "0.5",
   alignItems: "baseline",
@@ -64,13 +71,22 @@ const rowClass = css({
     { opacity: 1 },
   "& .row-meta": { display: "none" },
   sm: {
-    gridTemplateColumns: "1.5rem minmax(0, 1fr) 9rem 3.5rem",
-    gridTemplateAreas: `"check title path time" ". snippet snippet ."`,
+    "&, &[data-selection-mode]": {
+      gridTemplateColumns: "1.5rem minmax(0, 1fr) 9rem 3.5rem",
+      gridTemplateAreas: `"check title path time" ". snippet snippet ."`,
+    },
+    "&:not([data-selection-mode]) > .row-check": { display: "flex" },
   },
-  lg: { gridTemplateColumns: "1.5rem minmax(0, 1fr) 12rem 3.5rem" },
+  lg: {
+    "&, &[data-selection-mode]": {
+      gridTemplateColumns: "1.5rem minmax(0, 1fr) 12rem 3.5rem",
+    },
+  },
   xl: {
-    gridTemplateColumns: "1.5rem minmax(12rem, 1fr) auto 14rem 3.5rem",
-    gridTemplateAreas: `"check title meta path time" ". snippet snippet . ."`,
+    "&, &[data-selection-mode]": {
+      gridTemplateColumns: "1.5rem minmax(12rem, 1fr) auto 14rem 3.5rem",
+      gridTemplateAreas: `"check title meta path time" ". snippet snippet . ."`,
+    },
     "& .row-meta": { display: "flex" },
   },
 });
