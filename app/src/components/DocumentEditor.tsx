@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import {
   type VoidComponent,
   Show,
@@ -8,13 +8,22 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import { useBeforeLeave } from "@solidjs/router";
-import { extractFirstH1FromHtml } from "~/utils/extractHeading";
+import { useBeforeLeave, useLocation, useNavigate } from "@solidjs/router";
+import { revealBlock } from "./editor/core/blockLinks";
+import { NOTE_LINK_NAVIGATE_EVENT } from "./editor/extensions/NoteLinkSuggestion";
+import { toaster } from "~/components/ui/toast";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import type { NoteDoc } from "~/lib/note-content/types";
 import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
-import { fetchDoc, type MetaRecord } from "~/services/docs.service";
+  fetchDoc,
+  fetchDocLatest,
+  type MetaRecord,
+} from "~/services/docs.service";
+import { useRemoteNoteChanges } from "~/features/live-sync/useRemoteNoteChanges";
+import { shouldCheckRemote } from "~/features/live-sync/remote-note-change";
+import { fetchDocContentVersion } from "~/services/docs.queries";
+import { topLevelHashes } from "~/lib/note-content/ids";
+import { applyRemoteContent } from "./editor/core/applyRemoteContent";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
@@ -27,8 +36,8 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 type DocData = {
   id: string;
   title: string;
-  markdown?: string;
-  html?: string;
+  content: NoteDoc;
+  contentVersion: number;
   updatedAt?: string;
 };
 
@@ -131,16 +140,123 @@ const DocumentEditor: VoidComponent<{
     setNewTitle(incoming || "Untitled note");
   });
 
-  // TODO: need to delete HTML from imports - just rely on markdown
+  // Existing notes load their blocks; new notes start from HTML/markdown.
+  const initialContent = createMemo(
+    () => doc()?.content as JSONContent | undefined,
+  );
+
+  // The stored version this editor last agreed with. Saves send it so the
+  // server can merge per block when another tab or ChatGPT wrote since.
+  let base: {
+    docId: string;
+    version: number;
+    hashes: Record<string, string>;
+  } | null = null;
+  const setBase = (docId: string, version: number, content: NoteDoc) => {
+    base = { docId, version, hashes: topLevelHashes(content) };
+  };
+  createEffect(() => {
+    const d = doc();
+    if (!d || base?.docId === d.id) return;
+    setBase(d.id, d.contentVersion, d.content);
+  });
+
+  // A merged or remote version waiting for the cursor to leave its block.
+  let pendingRemote: NoteDoc | null = null;
+  const adoptRemote = (
+    ed: Editor,
+    docId: string,
+    version: number,
+    next: NoteDoc,
+  ) => {
+    const result = applyRemoteContent(ed, next as JSONContent, {
+      deferIfCursorInside: true,
+    });
+    if (result === "deferred") {
+      pendingRemote = next;
+      return false;
+    }
+    pendingRemote = null;
+    setBase(docId, version, next);
+    mutate((current) =>
+      current?.id === docId
+        ? { ...current, content: next, contentVersion: version }
+        : current,
+    );
+    return true;
+  };
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed) return;
+    const onBlur = () => {
+      const d = doc();
+      if (!pendingRemote || !d || dirty()) return;
+      if (base) adoptRemote(ed, d.id, base.version, pendingRemote);
+    };
+    ed.on("blur", onBlur);
+    onCleanup(() => ed.off("blur", onBlur));
+  });
+
+  // Brings an idle editor up to the stored version. A dirty draft is left
+  // alone: its next save sends `base`, and the server merges per block.
+  // Reads with fetchDocLatest because a server-rendered page leaves the
+  // `docs-get` cache entry holding its stale SSR payload.
+  let recheckAfterSave = false;
+  const checkRemote = async (reason: string, knownVersion?: number | null) => {
+    const ed = editor();
+    const d = doc();
+    if (!ed || !d || !base || !props.autosave || isNew()) return;
+    if (dirty() || saving()) {
+      if (saving()) recheckAfterSave = true;
+      return;
+    }
+    if (knownVersion !== undefined) {
+      if (knownVersion === null || knownVersion <= base.version) return;
+    }
+    try {
+      const fresh = (await fetchDocLatest(d.id)) as DocData;
+      if (fresh.id !== d.id || fresh.contentVersion <= (base?.version ?? 0))
+        return;
+      if (dirty() || saving() || editor() !== ed || ed.isDestroyed) return;
+      console.info("[doc-editor] applying remote version", {
+        version: fresh.contentVersion,
+        reason,
+      });
+      adoptRemote(ed, d.id, fresh.contentVersion, fresh.content);
+    } catch (e) {
+      console.debug("[doc-editor] remote check failed", e);
+    }
+  };
+
+  // Live: a write elsewhere (ChatGPT, another tab, the CLI) pushes an event.
+  useRemoteNoteChanges(
+    () => props.docId,
+    (change) => {
+      if (!shouldCheckRemote(change, doc()?.updatedAt)) return;
+      void checkRemote("live");
+    },
+  );
+
+  // Fallback for missed events: poll the stored version while idle.
+  const REMOTE_POLL_MS = 15000;
+  createEffect(() => {
+    const ed = editor();
+    if (!ed || !props.autosave || isNew()) return;
+    const timer = setInterval(async () => {
+      const d = doc();
+      if (!d || !base || document.visibilityState !== "visible") return;
+      if (dirty() || saving()) return;
+      try {
+        void checkRemote("poll", await fetchDocContentVersion(d.id));
+      } catch (e) {
+        console.debug("[doc-editor] remote check failed", e);
+      }
+    }, REMOTE_POLL_MS);
+    onCleanup(() => clearInterval(timer));
+  });
 
   const initialHTML = createMemo(() => {
-    const d = doc();
-    if (d) {
-      const rawHtml = d.html || normalizeMarkdownToHtml(d.markdown);
-      const html = sanitizeHtmlContent(rawHtml);
-
-      return html;
-    }
     if (props.initialHTML) return props.initialHTML;
 
     const html = normalizeMarkdownToHtml(
@@ -148,6 +264,42 @@ const DocumentEditor: VoidComponent<{
     );
 
     return html;
+  });
+
+  // Note links dispatch a window event; navigate in-app instead of reloading.
+  const navigate = useNavigate();
+  createEffect(() => {
+    if (!editor()) return;
+    const onNavigate = (e: Event) => {
+      const href = (e as CustomEvent<string>).detail;
+      if (href) navigate(href);
+    };
+    window.addEventListener(NOTE_LINK_NAVIGATE_EVENT, onNavigate);
+    onCleanup(() =>
+      window.removeEventListener(NOTE_LINK_NAVIGATE_EVENT, onNavigate),
+    );
+  });
+
+  // `#b-<blockId>` scrolls to and flashes that block once the note loads.
+  const location = useLocation();
+  let revealedKey = "";
+  createEffect(() => {
+    const ed = editor();
+    const d = doc();
+    const hash = location.hash;
+    if (!ed || !d || !hash.startsWith("#b-")) return;
+    const key = `${d.id}${hash}`;
+    if (key === revealedKey) return;
+    revealedKey = key;
+    setTimeout(() => {
+      if (ed.isDestroyed) return;
+      if (!revealBlock(ed.view.dom, hash)) {
+        toaster.create({
+          title: "That block is no longer in this note",
+          type: "info",
+        });
+      }
+    }, 60);
   });
 
   let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -359,15 +511,17 @@ const DocumentEditor: VoidComponent<{
       wasFocused: getEditorFocusState(ed),
     };
     const submittedDocId = d?.id;
-    const submittedHtml = ed.getHTML();
+    const submittedContent = ed.getJSON();
+    const submittedKey = JSON.stringify(submittedContent);
+    const draftKey = () => JSON.stringify(ed.getJSON());
     setSaving(true);
     setError(undefined);
     try {
-      const html = submittedHtml;
+      const content = submittedContent;
       if (isNew()) {
         // First save → create the note
         let title = newTitle().trim();
-        const detected = extractFirstH1FromHtml(html);
+        const detected = firstH1Text(ed);
         if (
           props.preferH1TitleForNewDoc &&
           detected &&
@@ -383,7 +537,7 @@ const DocumentEditor: VoidComponent<{
         }
         const json = await runCreateDoc({
           title,
-          html,
+          content,
           path: newPath() || undefined,
           meta: newMeta(),
         });
@@ -396,9 +550,13 @@ const DocumentEditor: VoidComponent<{
         const syncedTitle = props.syncTitleFromH1 ? firstH1Text(ed) : undefined;
         const titleChanged =
           !!syncedTitle && syncedTitle !== (d!.title || "").trim();
+        const saveBase = base?.docId === d!.id ? base : null;
         const updated = await runSaveContent({
           id: d!.id,
-          html,
+          content,
+          ...(saveBase
+            ? { baseVersion: saveBase.version, baseHashes: saveBase.hashes }
+            : {}),
           ...(titleChanged ? { title: syncedTitle } : {}),
         });
         if (titleChanged && syncedTitle) {
@@ -411,13 +569,39 @@ const DocumentEditor: VoidComponent<{
         }
         if (props.docId === updated.id && doc()?.id === updated.id) {
           const draftUnchanged =
-            editor() === ed && !ed.isDestroyed && ed.getHTML() === html;
+            editor() === ed && !ed.isDestroyed && draftKey() === submittedKey;
+          if (updated.mergedContent) {
+            // Someone else wrote since our base. Show the merged result when
+            // the draft has not moved on; otherwise keep the old base so the
+            // next save merges again.
+            if (draftUnchanged) {
+              adoptRemote(
+                ed,
+                updated.id,
+                updated.contentVersion,
+                updated.mergedContent,
+              );
+              setDirty(false);
+            }
+            if (updated.conflicts.length) {
+              toaster.create({
+                title: "Merged with changes made elsewhere",
+                description:
+                  "A paragraph you edited was also changed elsewhere; the other version is in Versions.",
+                type: "info",
+              });
+            }
+            props.onSaved?.(updated);
+            return;
+          }
+          setBase(updated.id, updated.contentVersion, content as NoteDoc);
           if (draftUnchanged) setDirty(false);
           mutate((current) =>
             current?.id === updated.id
               ? {
                   ...current,
-                  ...(draftUnchanged ? { html } : {}),
+                  ...(draftUnchanged ? { content: content as NoteDoc } : {}),
+                  contentVersion: updated.contentVersion,
                   updatedAt: updated.updatedAt,
                 }
               : current,
@@ -437,7 +621,7 @@ const DocumentEditor: VoidComponent<{
             !sameDoc ||
             editor() !== ed ||
             ed.isDestroyed ||
-            ed.getHTML() !== submittedHtml
+            draftKey() !== submittedKey
           ) {
             return;
           }
@@ -453,6 +637,11 @@ const DocumentEditor: VoidComponent<{
       setSaving(false);
       // Edits made while the request was in flight still need a save.
       if (dirty() && !error()) scheduleAutosave();
+      // A live event that arrived mid-save may be newer than what we wrote.
+      if (recheckAfterSave) {
+        recheckAfterSave = false;
+        void checkRemote("after-save");
+      }
     }
   }
 
@@ -563,6 +752,7 @@ const DocumentEditor: VoidComponent<{
       </Show>
       <TiptapEditor
         initialHTML={initialHTML()}
+        initialContent={initialContent()}
         onEditor={(ed) => setEditor(ed)}
         noteId={props.docId || doc()?.id}
         showAiPromptsMenu={shouldShowAiPromptsBar()}

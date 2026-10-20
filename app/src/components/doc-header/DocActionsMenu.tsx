@@ -1,4 +1,10 @@
-import { CopyIcon, HeadingIcon, EllipsisIcon, Trash2Icon } from "lucide-solid";
+import {
+  CopyIcon,
+  DatabaseIcon,
+  HeadingIcon,
+  EllipsisIcon,
+  Trash2Icon,
+} from "lucide-solid";
 import { Show, type VoidComponent } from "solid-js";
 import { IconButton } from "~/components/ui/icon-button";
 import * as Menu from "~/components/ui/menu";
@@ -14,6 +20,8 @@ export const DocActionsMenu: VoidComponent<{
   /** Offered when the note's first heading differs from its title. */
   headingTitle?: string;
   onUseHeadingTitle?: () => void;
+  /** Offered when the note is not in a collection yet. */
+  onAddToCollection?: () => void;
   disabled?: boolean;
 }> = (props) => {
   return (
@@ -56,6 +64,15 @@ export const DocActionsMenu: VoidComponent<{
             <CopyIcon size={14} />
             Copy link
           </Menu.Item>
+          <Show when={props.onAddToCollection}>
+            <Menu.Item
+              value="add-to-collection"
+              onSelect={() => props.onAddToCollection?.()}
+            >
+              <DatabaseIcon size={14} />
+              Add to collection…
+            </Menu.Item>
+          </Show>
           <Menu.Separator />
           <Menu.Item
             value="delete"

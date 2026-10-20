@@ -512,6 +512,16 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
+  /* App chrome inside a note (e.g. backlinks) opts out of link highlighting. */
+  .prose .not-prose a {
+    color: inherit;
+    border-bottom: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .prose .not-prose a:hover {
+    background: var(--colors-gray-a3);
+  }
 
   .prose code {
     background: #f6f8fb;

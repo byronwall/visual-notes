@@ -29,6 +29,8 @@ export type TaskItem = {
   meta: Record<string, string> | null;
   parentTaskId: string | null;
   sortOrder: number;
+  /** Note block this task was written in, when it lives inline in a note. */
+  source?: { docId: string; blockId: string | null; title: string } | null;
   createdAt: string;
   updatedAt: string;
 };

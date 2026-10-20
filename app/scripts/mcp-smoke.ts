@@ -3,7 +3,8 @@
 //   MCP_URL=http://127.0.0.1:3161/mcp MCP_BEARER=<token> \
 //   node --experimental-strip-types scripts/mcp-smoke.ts --human-note <id>
 //
-// Creates one note under `mcp-smoke.<timestamp>`, updates and appends to it, and
+// Creates one note under `mcp-smoke.<timestamp>`, updates, appends, and edits one
+// block of it (checking the other blocks are untouched), and
 // checks that updating the given user-authored note is refused. Run it only
 // against a local or disposable database.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -113,6 +114,29 @@ const markdown: string = fetched.structuredContent?.notes?.[0]?.markdown ?? "";
 check(
   markdown.includes("second step") && markdown.includes("Appended line"),
   "get_notes returns the latest markdown",
+);
+
+// Block edit: change one block by its ^id and leave every other line as-is.
+const tagged = markdown.split("\n");
+const target = tagged.find((line) => line.includes("Appended line"));
+const blockId = target?.match(/\^([A-Za-z0-9]+)\s*$/)?.[1];
+check(Boolean(blockId), "get_notes tags blocks with ^ids");
+const edited = await call("edit_note", {
+  id: note.id,
+  edits: [{ op: "replace", blockId, markdown: "Edited by block id" }],
+});
+check(edited.structuredContent?.version === 4, "edit_note snapshots again");
+const refetched = await call("get_notes", { ids: [note.id] });
+const after: string[] = (
+  refetched.structuredContent?.notes?.[0]?.markdown ?? ""
+).split("\n");
+check(
+  after.some((line) => line.startsWith("Edited by block id ^" + blockId)),
+  "edit_note replaced the block and kept its id",
+);
+check(
+  tagged.filter((line) => line !== target).every((line) => after.includes(line)),
+  "edit_note left every other block byte-identical",
 );
 
 const found = await call("search", { query: "MCP smoke plan" });

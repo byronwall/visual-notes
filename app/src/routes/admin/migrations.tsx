@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { css } from "styled-system/css";
+import { BlockMigrationPanel } from "~/components/admin/BlockMigrationPanel";
 import { Button } from "~/components/ui/button";
 import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
 import { Heading } from "~/components/ui/heading";
@@ -497,7 +498,10 @@ const AdminMigrationsRoute: VoidComponent = () => {
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Container py="6" px="4" maxW="1200px">
         <ErrorBoundary fallback={<Text color="red.10">Failed to render migration admin panel.</Text>}>
-          <MigrationPanel />
+          <Stack gap="5">
+            <BlockMigrationPanel />
+            <MigrationPanel />
+          </Stack>
         </ErrorBoundary>
       </Container>
     </Box>

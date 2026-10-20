@@ -1,6 +1,5 @@
-import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { CheckIcon, CopyIcon, DownloadIcon, ExpandIcon } from "lucide-solid";
-import { createLowlight, common } from "lowlight";
+import { NoteCodeBlockBase, noteLowlight } from "~/lib/note-content/schema";
 import {
   For,
   Show,
@@ -548,20 +547,7 @@ function CustomCodeBlockNodeView() {
   );
 }
 
-export const CustomCodeBlock = CodeBlockLowlight.extend({
-  addAttributes() {
-    // TODO:AS_ANY, extend base attrs; parent() is not well-typed in Tiptap's API
-    const parent = (this as any).parent?.() ?? {};
-    return {
-      ...parent,
-      spellcheck: {
-        default: false,
-        renderHTML: (attrs: { spellcheck?: boolean }) => ({
-          spellcheck: attrs.spellcheck ? "true" : "false",
-        }),
-      },
-    } as any;
-  },
+export const CustomCodeBlock = NoteCodeBlockBase.extend({
   addNodeView() {
     return createSolidNodeViewRenderer(CustomCodeBlockNodeView, {
       stopEvent: ({ event }) => {
@@ -570,4 +556,4 @@ export const CustomCodeBlock = CodeBlockLowlight.extend({
       },
     });
   },
-}).configure({ lowlight: createLowlight(common) });
+}).configure({ lowlight: noteLowlight });

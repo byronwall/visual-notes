@@ -2,6 +2,7 @@ import { action } from "@solidjs/router";
 import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import { searchableText } from "~/server/notes/note-store";
 import { logActionEvent } from "~/server/events/action-events";
 import {
   computeContentHashForDoc,
@@ -41,6 +42,7 @@ type DocCandidate = {
 };
 
 type DataImageCandidateRow = {
+  content: unknown;
   id: string;
   title: string;
   html: string | null;
@@ -111,6 +113,7 @@ export const runInlineImageMigrationBatch = action(
         select: {
           id: true,
           title: true,
+          content: true,
           html: true,
           markdown: true,
           updatedAt: true,
@@ -169,6 +172,11 @@ export const runInlineImageMigrationBatch = action(
           data: {
             html: nextHtml,
             markdown: nextMarkdown,
+            searchText: searchableText({
+              content: raw.content,
+              html: nextHtml,
+              markdown: nextMarkdown,
+            }),
             contentHash: computeContentHashForDoc(nextHtml, nextMarkdown),
             inlineImageMigrationBackup: backup,
           },
@@ -217,6 +225,7 @@ export const recoverInlineImageMigrationBackup = action(
       where: { id: input.docId },
       select: {
         id: true,
+        content: true,
         inlineImageMigrationBackup: true,
       },
     });
@@ -241,6 +250,7 @@ export const recoverInlineImageMigrationBackup = action(
       data: {
         html,
         markdown,
+        searchText: searchableText({ content: doc.content, html, markdown }),
         contentHash: computeContentHashForDoc(html, markdown),
       },
       select: { id: true },
@@ -292,6 +302,7 @@ export const runHeicToJpegBatch = action(
       select: {
         id: true,
         title: true,
+        content: true,
         html: true,
         markdown: true,
         inlineImageMigrationBackup: true,
@@ -359,6 +370,11 @@ export const runHeicToJpegBatch = action(
           data: {
             html: nextHtml,
             markdown: nextMarkdown,
+            searchText: searchableText({
+              content: raw.content,
+              html: nextHtml,
+              markdown: nextMarkdown,
+            }),
             contentHash: computeContentHashForDoc(nextHtml, nextMarkdown),
             inlineImageMigrationBackup: backup,
           },

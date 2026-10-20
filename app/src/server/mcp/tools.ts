@@ -9,7 +9,7 @@ import {
   searchNotes,
 } from "./notes-read";
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
-import { appendToNote, createNote, updateNote } from "./notes-write";
+import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
 
 const LOG_PREFIX = "[mcp]";
 
@@ -17,7 +17,9 @@ const SERVER_INSTRUCTIONS = [
   "Visual Notes is the user's personal knowledge base. Notes are markdown documents organized by dot paths such as `work.visual-notes.canvas`.",
   "To save something: call list_paths first, choose the most fitting existing path (or a sensible new sub-path), then create_note. Tell the user the title, path, and url.",
   "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content.",
-  "You may only update or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
+  "get_notes returns markdown where each block ends with a block id tag like ` ^a1B2c3D4e5` (and code blocks/tables have it on the line after). For small changes use edit_note with those ids; it leaves every other block untouched. Never include the ^id tags in markdown you send.",
+  "Links to other notes appear as [[Title|noteId]] or [[Text|noteId#blockId]].",
+  "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
 ].join("\n");
 
 async function run(
@@ -61,6 +63,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   create_note: "notes:write",
   update_note: "notes:write",
   append_to_note: "notes:write",
+  edit_note: "notes:write",
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -176,7 +179,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     "get_notes",
     {
       title: "Get notes",
-      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id. 'editable' tells whether you may update the note.`,
+      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id, with a ^id tag on each block for edit_note. 'editable' tells whether you may change the note.`,
       inputSchema: {
         ids: z.array(z.string().min(1)).min(1).max(MAX_NOTES_PER_GET),
       },
@@ -241,6 +244,33 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
       annotations: write,
     },
     (args) => guarded(ctx, "append_to_note", () => appendToNote(ctx, args)),
+  );
+
+  server.registerTool(
+    "edit_note",
+    {
+      title: "Edit note blocks",
+      description:
+        "Change specific blocks of a note created by ChatGPT, by the block ids from get_notes. replace and insert_after take markdown; delete takes only the id. Other blocks are left exactly as they are. The previous version is kept for rollback.",
+      inputSchema: {
+        id: z.string().min(1),
+        edits: z
+          .array(
+            z.object({
+              op: z.enum(["replace", "insert_after", "delete"]),
+              blockId: z.string().min(1),
+              markdown: z
+                .string()
+                .optional()
+                .describe("New content for replace / insert_after"),
+            }),
+          )
+          .min(1)
+          .max(50),
+      },
+      annotations: write,
+    },
+    (args) => guarded(ctx, "edit_note", () => editNote(ctx, args)),
   );
 
   return server;

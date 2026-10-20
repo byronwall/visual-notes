@@ -73,6 +73,12 @@ export const SLASH_ITEMS: SlashItem[] = [
     run: (e, r) => chainFor(e, r).toggleCodeBlock().run(),
   },
   {
+    title: "Collection",
+    glyph: "▤",
+    keywords: ["database", "collection", "board", "gallery", "calendar", "view"],
+    run: (e, r) => chainFor(e, r).insertCollectionView().run(),
+  },
+  {
     title: "Table",
     glyph: "⊞",
     keywords: ["grid", "rows", "columns"],
@@ -80,6 +86,28 @@ export const SLASH_ITEMS: SlashItem[] = [
       chainFor(e, r)
         .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
         .run(),
+  },
+  {
+    title: "Task",
+    glyph: "☐",
+    keywords: ["todo", "checkbox", "check", "task", "action"],
+    run: (e, r) => chainFor(e, r).setNode("taskRef").run(),
+  },
+  {
+    title: "Link to note",
+    glyph: "[[",
+    keywords: ["link", "note", "page", "reference", "mention"],
+    run: (e, r) => chainFor(e, r).insertContent("[[").run(),
+  },
+  {
+    title: "Copy link to block",
+    glyph: "#",
+    keywords: ["anchor", "permalink", "block", "share"],
+    run: (e, r) => {
+      chainFor(e, r).run();
+      // Loaded on demand so this list stays free of UI imports.
+      void import("../core/blockLinks").then((m) => m.copyBlockLink(e));
+    },
   },
   {
     title: "Divider",

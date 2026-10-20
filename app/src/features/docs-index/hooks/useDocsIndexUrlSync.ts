@@ -14,6 +14,7 @@ const MANAGED_KEYS = [
   "updatedFrom",
   "updatedTo",
   "activityClass",
+  "collectionRows",
   "sortMode",
   "clientShown",
   "serverShown",
@@ -91,6 +92,7 @@ export const useDocsIndexUrlSync = (args: {
       updatedFrom: qp("updatedFrom"),
       updatedTo: qp("updatedTo"),
       activityClass: qp("activityClass"),
+      collectionRows: qp("collectionRows"),
       sortMode: parseSortMode(qp("sortMode")),
       clientShown: num("clientShown", 100),
       serverShown: num("serverShown", 25),
@@ -125,6 +127,9 @@ export const useDocsIndexUrlSync = (args: {
       }
       if (args.q.activityClass() !== next.activityClass) {
         args.q.setActivityClass(next.activityClass);
+      }
+      if (args.q.collectionRows() !== next.collectionRows) {
+        args.q.setCollectionRows(next.collectionRows);
       }
       if (args.q.sortMode() !== next.sortMode) args.q.setSortMode(next.sortMode);
       if (args.q.clientShown() !== desiredClient) args.q.setClientShown(desiredClient);
@@ -173,6 +178,7 @@ export const useDocsIndexUrlSync = (args: {
     if (args.q.updatedFrom().trim()) params.set("updatedFrom", args.q.updatedFrom().trim());
     if (args.q.updatedTo().trim()) params.set("updatedTo", args.q.updatedTo().trim());
     if (args.q.activityClass().trim()) params.set("activityClass", args.q.activityClass().trim());
+    if (args.q.collectionRows()) params.set("collectionRows", args.q.collectionRows());
     if (args.q.sortMode() !== "relevance") params.set("sortMode", args.q.sortMode());
     if (args.q.clientShown() !== 100) params.set("clientShown", String(args.q.clientShown()));
     if (args.q.serverShown() !== 25) params.set("serverShown", String(args.q.serverShown()));
