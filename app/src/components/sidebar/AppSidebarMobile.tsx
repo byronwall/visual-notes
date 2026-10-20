@@ -1,11 +1,11 @@
 import type { Accessor } from "solid-js";
 import { useLocation } from "@solidjs/router";
 import { FilePlusIcon, MenuIcon, SearchIcon } from "lucide-solid";
-import { css } from "styled-system/css";
 import { Box } from "styled-system/jsx";
 import * as Drawer from "~/components/ui/drawer";
 import { AppSidebarContent } from "./AppSidebarContent";
 import { sectionTitleForPath } from "./nav-items";
+import { mobileBarButtonClass as barButtonClass } from "./mobile-app-bar";
 
 type AppSidebarMobileProps = {
   open: boolean;
@@ -18,38 +18,22 @@ type AppSidebarMobileProps = {
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
   authed: Accessor<boolean>;
+  /** Page-provided title (e.g. the open note); falls back to the section. */
+  title?: string;
+  actionsSlotRef: (element: HTMLElement) => void;
 };
 
-const barButtonClass = css({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  boxSize: "10",
-  flexShrink: "0",
-  borderRadius: "l2",
-  color: "fg.muted",
-  bg: "transparent",
-  cursor: "pointer",
-  transitionProperty: "background-color, color",
-  transitionDuration: "140ms",
-  _hover: { bg: "gray.a3", color: "fg.default" },
-  _active: { bg: "gray.a4" },
-  _focusVisible: {
-    outline: "2px solid",
-    outlineColor: "blue.9",
-    outlineOffset: "-2px",
-  },
-});
 
 /**
- * Phone-width app bar: menu (opens the sidebar drawer), current section,
- * and the two most-used actions so they never need the drawer.
+ * Phone-width app bar: menu (opens the sidebar drawer), current section or
+ * page title, page actions (portalled into the slot), and the two most-used
+ * actions so they never need the drawer.
  */
 export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
   const location = useLocation();
   let openButton: HTMLButtonElement | undefined;
-  const sectionTitle = () =>
-    sectionTitleForPath(location.pathname) ?? "Visual Notes";
+  const barTitle = () =>
+    props.title ?? sectionTitleForPath(location.pathname) ?? "Visual Notes";
 
   return (
     <Box display={{ base: "block", md: "none" }}>
@@ -87,8 +71,9 @@ export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
           textOverflow="ellipsis"
           whiteSpace="nowrap"
         >
-          {sectionTitle()}
+          {barTitle()}
         </Box>
+        <Box ref={props.actionsSlotRef} display="contents" />
         <button
           type="button"
           class={barButtonClass}
