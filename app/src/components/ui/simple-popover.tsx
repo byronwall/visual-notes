@@ -21,6 +21,8 @@ type PopoverProps = {
   initialFocusEl?: () => HTMLElement | null;
   /** Class for the anchor wrapper, e.g. to let it shrink inside a flex row. */
   anchorClass?: string;
+  /** Call `event.preventDefault()` to keep the popover open on this Escape. */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
 
 export const SimplePopover = (props: PopoverProps) => {
@@ -37,6 +39,7 @@ export const SimplePopover = (props: PopoverProps) => {
     "portalRef",
     "initialFocusEl",
     "anchorClass",
+    "onEscapeKeyDown",
   ]);
 
   const portalled = () => local.portalled ?? true;
@@ -59,6 +62,7 @@ export const SimplePopover = (props: PopoverProps) => {
       }}
       positioning={positioning()}
       initialFocusEl={local.initialFocusEl}
+      onEscapeKeyDown={(event) => local.onEscapeKeyDown?.(event)}
     >
       <Popover.Anchor class={local.anchorClass}>{local.anchor}</Popover.Anchor>
       <WrapWhen when={portalled()} component={Portal}>
