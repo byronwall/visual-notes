@@ -119,7 +119,7 @@ Then clean up every recorded ID with `audit:fixtures cleanup`. Do not delete a f
 
 `AUDIT_ENV_FILE` is needed only by `canvas-note-panel`: Canvas lists notes only inside a UMAP region, and no endpoint can build one without OpenAI and the Python UMAP step, so the spec seeds a one-region projection directly into the run manifest's synthetic database and records its `EmbeddingRun`. Without an audit run the canvas file skips. The canvas reads the newest UMAP run, so its cases run one at a time. Do not run two canvas suites against one database at once.
 
-CI's `Browser regressions` job runs `archive-title-cancel` and `auth-helper` against a production build and a throwaway Postgres. The other specs fail on main since the October UI redesign; add each one to that job's list in `.github/workflows/checks.yml` once it passes. They do not cover native clipboard (share Copy) or OS drag-and-drop.
+CI's `Browser regressions` job runs every spec except `canvas-note-panel`, `late-note-share-responses`, `path-editor-late-save`, and `path-editor-modal` against a production build and a throwaway Postgres. Those three still fail on main since the note header redesign. Add each spec to that job's list in `.github/workflows/checks.yml` once it passes. The specs do not cover native clipboard (share Copy) or OS drag-and-drop.
 
 ## Screenshots and layout report
 
