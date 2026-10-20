@@ -150,7 +150,8 @@ export const planIngest = (payload: IngestPayload, ctx: PlanContext): PlanResult
     });
   });
 
-  if (cards.length + links.length + summaries.length === 0) {
+  // Judge emptiness by what was sent, so invalid links don't also read as "empty".
+  if (payload.cards.length + payload.links.length + payload.summaries.length === 0) {
     errors.push("payload is empty: add cards, links, or summaries");
   }
 

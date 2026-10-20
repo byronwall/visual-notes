@@ -244,6 +244,10 @@ function makeChildEnv(
     PLAYWRIGHT_BASE_URL: baseUrl,
     OPENAI_API_KEY: "",
   });
+  // Optional MCP connector for local agent runs (the dev token is ignored in production).
+  for (const key of ["MCP_CONNECTOR_ENABLED", "MCP_DEV_TOKEN"] as const) {
+    if (source[key]) childEnv[key] = source[key];
+  }
   return childEnv;
 }
 

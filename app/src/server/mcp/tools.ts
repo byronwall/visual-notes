@@ -10,6 +10,11 @@ import {
 } from "./notes-read";
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { appendToNote, createNote, updateNote } from "./notes-write";
+import {
+  registerResearchTools,
+  RESEARCH_INSTRUCTIONS,
+  RESEARCH_TOOL_SCOPES,
+} from "./research-tools";
 
 const LOG_PREFIX = "[mcp]";
 
@@ -18,6 +23,7 @@ const SERVER_INSTRUCTIONS = [
   "To save something: call list_paths first, choose the most fitting existing path (or a sensible new sub-path), then create_note. Tell the user the title, path, and url.",
   "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content.",
   "You may only update or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
+  RESEARCH_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -61,6 +67,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   create_note: "notes:write",
   update_note: "notes:write",
   append_to_note: "notes:write",
+  ...RESEARCH_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -242,6 +249,8 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     },
     (args) => guarded(ctx, "append_to_note", () => appendToNote(ctx, args)),
   );
+
+  registerResearchTools(server, ctx, guarded);
 
   return server;
 }
