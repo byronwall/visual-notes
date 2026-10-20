@@ -42,6 +42,24 @@ describe("note content conversion", () => {
     expect(text).not.toContain("alert(1)");
   });
 
+  it("preserves empty imported links as visible URLs", () => {
+    const url = "https://example.com/?a=1&b=2";
+    const doc = fromMarkdown(`[](${url})`);
+    expect(toPlainText(doc)).toBe(url);
+    expect(doc.content![0].content![0].marks).toContainEqual(
+      expect.objectContaining({
+        type: "link",
+        attrs: expect.objectContaining({ href: url }),
+      }),
+    );
+    expect(toPlainText(fromHtml('<a href="https://example.com/">  </a>'))).toBe(
+      "https://example.com/",
+    );
+    expect(toPlainText(fromHtml('<a name="section"></a><p>Keep</p>'))).toBe(
+      "Keep",
+    );
+  });
+
   it("keeps image width and code language through HTML", () => {
     const doc = fromHtml(FIXTURE_HTML);
     const image = doc.content!.find((n) => n.type === "image");
@@ -102,8 +120,16 @@ describe("note content conversion", () => {
     const dup = normalizeNoteDoc({
       type: "doc",
       content: [
-        { type: "paragraph", attrs: { id: "same123" }, content: [{ type: "text", text: "a" }] },
-        { type: "paragraph", attrs: { id: "same123" }, content: [{ type: "text", text: "b" }] },
+        {
+          type: "paragraph",
+          attrs: { id: "same123" },
+          content: [{ type: "text", text: "a" }],
+        },
+        {
+          type: "paragraph",
+          attrs: { id: "same123" },
+          content: [{ type: "text", text: "b" }],
+        },
       ],
     });
     expect(dup.content![0].attrs!.id).toBe("same123");
