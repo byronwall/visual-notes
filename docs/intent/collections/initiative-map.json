@@ -1,0 +1,692 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Collections (Notion-style databases)",
+    "slug": "collections",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-10-19",
+    "summary": "Typed collections whose rows are notes, with table/board/gallery/calendar views on collection pages and embedded, editable in notes. Built on the block-storage layer through narrow seams.",
+    "status": "planned",
+    "next_action": "Confirm open choice (rows in notes list), then start PR 1 once block-storage M1-M3 are merged."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    }
+  },
+  "sources": [
+    {
+      "id": "req",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "initial /software-design-sleuth-full args",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "direct"
+    },
+    {
+      "id": "old-prd",
+      "type": "document",
+      "location": "docs/data-tables/data-tables-prd.md",
+      "anchor": "2026-02-24 draft",
+      "authority": "superseded-direction"
+    },
+    {
+      "id": "old-phases",
+      "type": "document",
+      "location": "docs/data-tables/data-tables-build-phases.md",
+      "anchor": "phases 0-5",
+      "authority": "superseded-direction"
+    },
+    {
+      "id": "old-phase0",
+      "type": "document",
+      "location": "docs/data-tables/phase-0-foundation-plan-prisma.md",
+      "anchor": "DataTable* Prisma proposal",
+      "authority": "superseded-direction"
+    },
+    {
+      "id": "block-storage",
+      "type": "sibling-initiative",
+      "location": "worktree db-storage-ingest-design-c30c56: docs/intent/block-storage",
+      "anchor": "shape-brief + implementation-plan M2-M3",
+      "authority": "accepted-plan"
+    },
+    {
+      "id": "repo-schema",
+      "type": "repository",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "model Doc (meta Json, no userId), TaskItem, TimeBlock",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-ui",
+      "type": "repository",
+      "location": "app/src/components/ui",
+      "anchor": "combobox, date-picker, tags-input, rating-group, menu, drawer",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-nodeviews",
+      "type": "repository",
+      "location": "app/src/components/editor/nodeviews",
+      "anchor": "createSolidNodeViewRenderer",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-timeblocks",
+      "type": "repository",
+      "location": "app/src/components/time-blocks",
+      "anchor": "useBlockDrag.ts, date-utils.ts",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "cc-props",
+      "type": "analysis",
+      "location": "conversation",
+      "anchor": "consider-contrast on property primitives",
+      "authority": "derived"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "outcome",
+        "statement": "Collect table-like collections of things with rich details, Notion-database style.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "req",
+          "old-prd"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "decision",
+        "statement": "A row is a note (Doc with block content) plus typed properties.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "decision",
+        "statement": "Collections have their own pages and can be embedded as views in notes.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "decision",
+        "statement": "Board, gallery, and calendar views are in this build alongside table.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "context",
+        "statement": "First uses: reading/media, projects/work items, people/contacts, research/ideas.",
+        "commitment": "illustrative",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C6",
+        "type": "decision",
+        "statement": "One collection per note; collection owns schema, note holds values.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "decision",
+        "statement": "Existing notes can be added to a collection; meta values map onto properties.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "boundary",
+        "statement": "Relations, rollups, and formulas are deferred.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "boundary",
+        "statement": "Tasks and time blocks stay separate; no convergence.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "constraint",
+        "statement": "Stacked PRs, run tonight; sessions may be split for context.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "tonight",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "decision",
+        "statement": "Embedded views are fully editable.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "decision",
+        "statement": "Property set: few storage kinds with display formats (text, number, select, status, multi-select, date w/ end+time, checkbox, created/updated); cover is a view setting.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "qa-round-3",
+          "cc-props"
+        ]
+      },
+      {
+        "id": "C13",
+        "type": "constraint",
+        "statement": "Note storage is moving to blocks; build everything else and depend on it narrowly. Block work will be in place at implementation.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "this build",
+        "sources": [
+          "req",
+          "block-storage"
+        ]
+      },
+      {
+        "id": "C14",
+        "type": "superseded",
+        "statement": "Rows are separate records with optional lazily-created note; DataTableCell typed value table; relation/rollup tables scaffolded early.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "superseded",
+        "time_horizon": "n/a",
+        "sources": [
+          "old-prd",
+          "old-phase0"
+        ],
+        "superseded_by": [
+          "C2",
+          "C8"
+        ]
+      }
+    ],
+    "themes": [
+      "rows-are-notes",
+      "many-views-one-dataset",
+      "embedded-in-writing",
+      "narrow-storage-seams"
+    ],
+    "conflicts": [
+      {
+        "id": "X1",
+        "between": [
+          "C14",
+          "C2"
+        ],
+        "resolution": "User chose rows-are-notes in Q&A round 1; old PRD record model superseded."
+      }
+    ],
+    "human_questions": []
+  },
+  "question_rounds": {
+    "focus": "collections intent",
+    "per_round": 4,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "model and scope",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "What is a row?",
+            "answer": "Row is a note",
+            "effect": "C2"
+          },
+          {
+            "n": 2,
+            "question": "Where do collections live?",
+            "answer": "Pages + embedded views",
+            "effect": "C3"
+          },
+          {
+            "n": 3,
+            "question": "Which views beyond table?",
+            "answer": "Board, gallery, calendar",
+            "effect": "C4"
+          },
+          {
+            "n": 4,
+            "question": "First uses?",
+            "answer": "Reading, projects, people, research",
+            "effect": "C5; seed fixtures"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "implications of row-is-note",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 5,
+            "question": "Can a note be in multiple collections?",
+            "answer": "One per note",
+            "effect": "C6; values on Doc"
+          },
+          {
+            "n": 6,
+            "question": "Can existing notes be pulled in?",
+            "answer": "Yes",
+            "effect": "C7; M7"
+          },
+          {
+            "n": 7,
+            "question": "Relations/rollups?",
+            "answer": "Defer",
+            "effect": "C8"
+          },
+          {
+            "n": 8,
+            "question": "What happens to Tasks?",
+            "answer": "Leave separate",
+            "effect": "C9"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "appetite and details",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 9,
+            "question": "Appetite?",
+            "answer": "Stacked PRs tonight; split sessions OK",
+            "effect": "C10"
+          },
+          {
+            "n": 10,
+            "question": "Embed editing?",
+            "answer": "Fully editable",
+            "effect": "C11; M2 early"
+          },
+          {
+            "n": 11,
+            "question": "Extra property types?",
+            "answer": "Use consider-contrast for a balanced set",
+            "effect": "C12"
+          }
+        ]
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One night of stacked PRs (8), each shippable.",
+    "problem": "Notes are flexible but weak for repeated structured collections; need typed properties and multiple views without a second note system.",
+    "recommended_shape": "Collection/Property/View tables; values as JSON map on Doc keyed by property id; shared isomorphic engine for filter/sort/group/aggregate; four view components behind one host contract usable on pages and in a collectionView block node.",
+    "counterproposal": "Strongest simpler alternative: rows as notes with Doc.meta key/values and a filtered list page only. Rejected: untyped values cannot drive board/calendar/footers or option renames; user asked for four views and embeds.",
+    "success_moves": [
+      {
+        "id": "S1",
+        "move": "Store values on Doc instead of a cell table",
+        "risk_reduced": "One identity for rows; no join/sync between row records and notes."
+      },
+      {
+        "id": "S2",
+        "move": "Per-property patch under row lock",
+        "risk_reduced": "Concurrent board drag + cell edit lost updates."
+      },
+      {
+        "id": "S3",
+        "move": "One pure isomorphic engine (server SSR + client)",
+        "risk_reduced": "Hydration mismatch and divergent filter logic; fast Vitest loop."
+      },
+      {
+        "id": "S4",
+        "move": "Embed NodeView proven in PR 2 with only the table",
+        "risk_reduced": "Discovering ProseMirror event conflicts after four views exist."
+      },
+      {
+        "id": "S5",
+        "move": "Content touched only via summarizeNotes adapter and one block node",
+        "risk_reduced": "Churn from the in-flight block storage layer."
+      },
+      {
+        "id": "S6",
+        "move": "Seeded 2,000-row Research collection as perf gate",
+        "risk_reduced": "Virtualization regressions found late."
+      }
+    ],
+    "first_proof": {
+      "question": "Does values-on-Doc with per-property patches give a fast, correct, notes-native table?",
+      "artifact": "Seeded 300-row Reading collection table at /collections/:id with all property editors and peek panel",
+      "observation": "Values persist and validate; row searchable/linkable with backlinks; instant cell commits; no hydration warnings; concurrent patch test passes",
+      "decision_rule": "If patches lose updates or page fetch >300ms at 300 rows, move to a value table before PR 2"
+    },
+    "rabbit_holes": [
+      "Interactive grid inside ProseMirror NodeView (event/focus/IME isolation)",
+      "Relative-date filters and timezone across SSR/hydration",
+      "Type-change coercion edge cases",
+      "Virtualization with inline editors and keyboard focus"
+    ],
+    "open_decisions": [
+      {
+        "id": "D1",
+        "question": "Show collection rows in main notes list by default?",
+        "default": "Show, with hide filter",
+        "owner": "human"
+      }
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/visual-notes",
+      "revision": "fbde0fb",
+      "worktree_status": "clean (planning docs only)",
+      "subsystems": [
+        "app/prisma/schema.prisma",
+        "app/src/services",
+        "app/src/components/editor",
+        "app/src/components/ui",
+        "app/src/components/time-blocks",
+        "app/src/server/mcp",
+        "app/src/components/sidebar/nav-items.ts"
+      ],
+      "test_commands": [
+        "cd app && pnpm lint",
+        "cd app && pnpm type-check",
+        "cd app && pnpm test",
+        "cd app && pnpm vitest run src/lib/collections",
+        "cd app && pnpm test:e2e"
+      ],
+      "deployment_surfaces": [
+        "Prisma migration (additive)"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "dep-block-storage",
+        "name": "Block storage layer (Doc.content, shared schema, DocBlock)",
+        "material": true,
+        "application_seam": "createDoc path; services/collections/note-summary.ts; collectionView node in lib/note-content/schema.ts",
+        "failure_modes": [
+          "block stack not merged",
+          "DocBlock shape differs",
+          "schema module API differs"
+        ],
+        "proof_rungs": [
+          "adapter unit tests with fixture DocBlock rows",
+          "legacy html fallback",
+          "Playwright embed save/reload"
+        ],
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Precondition: block stack merged before PR 1; first proof only needs createDoc and the editor."
+        },
+        "local_proof": "Vitest adapter tests; harness DB",
+        "live_proof": "Manual collection creation after deploy",
+        "rollout": "Adapter falls back to legacy html; embed hidden by removing slash item"
+      },
+      {
+        "id": "dep-virtualizer",
+        "name": "Row virtualization (@tanstack/solid-virtual or hand-rolled)",
+        "material": false,
+        "application_seam": "CollectionTable body",
+        "failure_modes": [
+          "focus loss on scroll",
+          "SSR first window mismatch"
+        ],
+        "proof_rungs": [
+          "2,000-row seed Playwright scroll/edit"
+        ],
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "300 rows render fine unvirtualized."
+        },
+        "local_proof": "Research seed",
+        "live_proof": "n/a",
+        "rollout": "Hand-rolled fallback"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm vitest run src/lib/collections",
+      "covers": "value parse/coerce, filter/sort/group/aggregate engine, rank, patch merge",
+      "failure_injection": "fixture rows with null/invalid values and boundary dates; concurrent patch test"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A collection table on real notes (first proof)",
+        "outcome": "Typed table on /collections/:id with peek panel; rows are notes",
+        "dependencies_introduced": [
+          "dep-block-storage"
+        ],
+        "proof": "Vitest values + patch merge; Playwright edit/reload/peek; search & [[link]] row",
+        "valid_intermediate_state": "Collections usable as typed tables",
+        "rollback": "Revert PR; additive migration; notes intact",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "An editable view embedded in a note",
+        "outcome": "/collection block renders editable table in notes",
+        "dependencies_introduced": [],
+        "proof": "Playwright key/focus isolation, undo separation, save/reload",
+        "valid_intermediate_state": "Embeds work for table view",
+        "rollback": "Remove slash item; node renders placeholder",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "The table is a daily tool",
+        "outcome": "Filters, sorts, search, saved views, column ops, bulk edit, footers, virtualization, type change",
+        "dependencies_introduced": [
+          "dep-virtualizer"
+        ],
+        "proof": "Engine Vitest tables; 2,000-row Playwright scroll/edit",
+        "valid_intermediate_state": "Full table feature set",
+        "rollback": "Revert PR",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Board view",
+        "outcome": "Kanban grouped by select/status with drag",
+        "dependencies_introduced": [],
+        "proof": "group.ts tests; Playwright drag + reload",
+        "valid_intermediate_state": "Table + board",
+        "rollback": "Hide view type",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "Gallery view",
+        "outcome": "Cards with cover and preview via summarizeNotes",
+        "dependencies_introduced": [],
+        "proof": "Adapter tests incl. legacy fallback",
+        "valid_intermediate_state": "Three views",
+        "rollback": "Hide view type",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m6",
+        "title": "Calendar view",
+        "outcome": "Month grid by date property with drag reschedule",
+        "dependencies_introduced": [],
+        "proof": "Span tests; Playwright drag",
+        "valid_intermediate_state": "Four views",
+        "rollback": "Hide view type",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m7",
+        "title": "Existing notes come in",
+        "outcome": "Add/bulk-add notes, meta mapping, move between collections",
+        "dependencies_introduced": [],
+        "proof": "Mapping Vitest; Playwright bulk add",
+        "valid_intermediate_state": "Collections can absorb existing notes",
+        "rollback": "Revert PR",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m8",
+        "title": "Collections across the app",
+        "outcome": "MCP properties, notes-list chip/filter, Cmd-K, README",
+        "dependencies_introduced": [],
+        "proof": "mcp-smoke; full gate; Playwright route sweep",
+        "valid_intermediate_state": "Feature complete for this build",
+        "rollback": "Revert PR",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "relations/rollups/formulas/files/person",
+      "SQL pushdown beyond ~5k rows",
+      "hosted-view GC and collection restore",
+      "charts, CSV import/export, row templates",
+      "ChatGPT collection tools",
+      "variable row heights"
+    ],
+    "open_decisions": [
+      {
+        "id": "P1",
+        "question": "Grid inside NodeView vs portal overlay",
+        "evidence": "PR 2 Playwright isolation check",
+        "fallback": "Portal overlay anchored to block rect"
+      },
+      {
+        "id": "P2",
+        "question": "@tanstack/solid-virtual vs hand-rolled",
+        "evidence": "2,000-row scroll/edit and SSR first window",
+        "fallback": "Hand-rolled fixed-height window"
+      },
+      {
+        "id": "D1",
+        "question": "Rows in notes list default",
+        "evidence": "Human choice",
+        "fallback": "Show with hide filter"
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-19",
+      "event": "Initiative created from old docs/data-tables PRD and plan; three question rounds; intent, shape, and plan written. Old docs marked superseded.",
+      "status": "planned"
+    }
+  ],
+  "closure": null
+}
