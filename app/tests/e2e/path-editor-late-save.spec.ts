@@ -205,7 +205,9 @@ test("path save actions remain reachable and new paths keep typed segments", asy
   for (let i = 0; i < 50 && !saveFocused; i += 1) {
     await page.keyboard.press("Tab");
     saveFocused = await savePathButton(page)
-      .evaluate((button) => document.activeElement === button)
+      .evaluate((button) => document.activeElement === button, undefined, {
+        timeout: 1_000,
+      })
       .catch(() => false);
   }
   expect(saveFocused).toBe(true);

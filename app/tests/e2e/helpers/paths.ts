@@ -14,10 +14,18 @@ export const savePathButton = (page: Page) =>
 export const pathHint = (page: Page) =>
   page.getByText("Pick a child to continue nesting, or type a segment and hit");
 
-/** The note header's path chip: "Set path" when unfiled, else "Edit path". */
+const openPathPopover = (page: Page) =>
+  pathPopover(page).and(page.locator('[data-state="open"]'));
+
+/**
+ * The note header's path chip: "Set path" when unfiled, else "Edit path".
+ * Checks `data-state` rather than visibility: a popover dismissed with Escape
+ * stays visible through its exit animation and then detaches.
+ */
 export const openPathEditor = async (page: Page) => {
-  if (await pathInput(page).isVisible()) return;
+  if (await openPathPopover(page).isVisible()) return;
   await page.getByRole("button", { name: /^(Set path|Edit path)$/ }).click();
+  await expect(openPathPopover(page)).toBeVisible();
   await expect(pathInput(page)).toBeVisible();
 };
 
