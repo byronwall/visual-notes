@@ -16,6 +16,7 @@ import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Box, Container, Stack } from "styled-system/jsx";
 import { Skeleton } from "~/components/ui/skeleton";
+import { useMobileBarTitleOnScroll } from "~/components/sidebar/useMobileBarTitleOnScroll";
 
 type DocDetail = {
   id: string;
@@ -75,6 +76,14 @@ const DocView: VoidComponent = () => {
   };
 
   let articleEl: HTMLElement | undefined;
+  useMobileBarTitleOnScroll({
+    // Gate on state so this read never suspends the page shell.
+    title: () =>
+      doc.state === "ready" || doc.state === "refreshing"
+        ? doc.latest?.title
+        : undefined,
+    getHeadingEl: () => articleEl?.querySelector<HTMLElement>("h1"),
+  });
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">

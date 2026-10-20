@@ -9,6 +9,21 @@ export const globalCss = {
     html: {
       colorPalette: 'gray',
       colorScheme: 'light',
+      // Phones: no gray flash on tap, no font inflation in landscape.
+      WebkitTapHighlightColor: 'transparent',
+      textSizeAdjust: '100%',
+    },
+    // Drop the double-tap-to-zoom delay on controls; pinch zoom still works.
+    ':where(a, button, input, select, textarea, label, [role=button])': {
+      touchAction: 'manipulation',
+    },
+    // iOS zooms the page when a field under 16px takes focus and never zooms
+    // back out. Touch screens get 16px fields; recipes are in a later layer,
+    // so this needs !important to win.
+    '@media (pointer: coarse)': {
+      'input, select, textarea': {
+        fontSize: 'max(16px, 1em) !important',
+      },
     },
     // Dark mode: `.dark` on <html> is set before first paint by the theme boot
     // script (see ~/lib/theme-mode.ts) from the saved choice or the OS.

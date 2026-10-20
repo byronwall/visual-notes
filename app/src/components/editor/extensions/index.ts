@@ -14,6 +14,7 @@ import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { SelectionMarkShortcuts } from "./SelectionMarkShortcuts";
 import { createEmojiSuggestion } from "./emojiSuggestion";
 import { SlashCommands } from "./SlashCommands";
+import { DeferredFocusEvents } from "./DeferredFocusEvents";
 
 export function buildExtensions(
   csvPrompt: (
@@ -26,6 +27,7 @@ export function buildExtensions(
   ) => Promise<"formatted" | "text" | "cancel">
 ) {
   return [
+    DeferredFocusEvents,
     StarterKit.configure({ codeBlock: false, code: false }),
     Highlight.configure({}),
     CustomImage.configure({ allowBase64: true }),

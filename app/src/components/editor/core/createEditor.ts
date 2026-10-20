@@ -174,6 +174,8 @@ export function createEditor(
   return createTiptapEditor(() => ({
     element: element()!,
     extensions: buildExtensions(onPrompt),
+    // DeferredFocusEvents (in buildExtensions) replaces this; see its comment.
+    enableCoreExtensions: { focusEvents: false },
     editorProps: {
       attributes: { class: "prose editor-prose" },
       clipboardTextSerializer: serializeClipboardText,
@@ -191,6 +193,8 @@ export function createEditorWithPrompts(
   return createTiptapEditor(() => ({
     element: element()!,
     extensions: buildExtensions(onCsvPrompt, onMarkdownPrompt),
+    // DeferredFocusEvents (in buildExtensions) replaces this; see its comment.
+    enableCoreExtensions: { focusEvents: false },
     editorProps: {
       attributes: { class: "prose editor-prose" },
       clipboardTextSerializer: serializeClipboardText,

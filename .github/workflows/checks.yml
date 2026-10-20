@@ -121,7 +121,7 @@ jobs:
 
       # Only specs that pass on main today. Add a spec here once it passes.
       - name: Playwright
-        run: pnpm exec playwright test archive-title-cancel auth-helper late-note-share-responses path-editor-late-save path-editor-modal
+        run: pnpm exec playwright test archive-title-cancel auth-helper new-note-mobile late-note-share-responses path-editor-late-save path-editor-modal
 
       - name: Upload report
         if: failure()
