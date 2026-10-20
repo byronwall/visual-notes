@@ -3,11 +3,15 @@ import {
   createEffect,
   createSignal,
   onCleanup,
+  splitProps,
   type JSX,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
 import * as Editable from "~/components/ui/editable";
 import { Text } from "~/components/ui/text";
+
+const withoutTextContent = <T extends object>(props: T) =>
+  splitProps(props, ["textContent" as keyof T])[1];
 
 type EditableActivationMode = "focus" | "dblclick" | "click" | "none";
 
@@ -277,10 +281,11 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
               // Render our own span instead of Ark's Dynamic one. A child passed
               // through Dynamic breaks hydration ("template is not a function"):
               // the server takes the child's hydration key before the preview's,
-              // the client the other way round. A bare text child of Dynamic
-              // also crashed while typing ("Cannot set properties of null").
+              // the client the other way round. Zag also turns the value into a
+              // textContent prop that overwrites the text nodes Solid updates,
+              // which crashed while typing ("Cannot set properties of null").
               asChild={(previewProps) => (
-                <span {...previewProps}>{previewValue()}</span>
+                <span {...withoutTextContent(previewProps())}>{previewValue()}</span>
               )}
             />
             <Editable.Input
