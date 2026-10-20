@@ -9,19 +9,22 @@ import {
   Suspense,
   createResource,
 } from "solid-js";
-import { fetchDoc } from "~/services/docs.service";
+import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
 import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
+import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Box, Container, Stack } from "styled-system/jsx";
 import { Skeleton } from "~/components/ui/skeleton";
+import { useMobileBarTitleOnScroll } from "~/components/sidebar/useMobileBarTitleOnScroll";
+
+import type { NoteDoc } from "~/lib/note-content/types";
 
 type DocDetail = {
   id: string;
   title: string;
-  markdown: string;
-  html: string;
+  content: NoteDoc;
   path?: string | null;
   meta?: Record<string, unknown> | null;
   originalSource?: string | null;
@@ -63,10 +66,16 @@ const NoteSkeleton: VoidComponent = () => (
 const DocView: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [doc] = createResource(
+  const [doc, { mutate }] = createResource(
     () => params.id,
     (id) => fetchDocDetail(id!),
   );
+  useLiveNoteResource({
+    docId: () => params.id,
+    current: () => doc.latest,
+    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    mutate: (next) => mutate(next),
+  });
 
   const handleDeleted = (deletedDocId: string) => {
     if (params.id !== deletedDocId) return;
@@ -75,6 +84,14 @@ const DocView: VoidComponent = () => {
   };
 
   let articleEl: HTMLElement | undefined;
+  useMobileBarTitleOnScroll({
+    // Gate on state so this read never suspends the page shell.
+    title: () =>
+      doc.state === "ready" || doc.state === "refreshing"
+        ? doc.latest?.title
+        : undefined,
+    getHeadingEl: () => articleEl?.querySelector<HTMLElement>("h1"),
+  });
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">

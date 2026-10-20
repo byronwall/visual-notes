@@ -19,7 +19,9 @@ import {
 import type { PaletteAction } from "~/components/command-palette/palette-commands";
 import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
 import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
+import { trackVisualViewport } from "~/lib/visual-viewport";
 import { RouteProgressBar } from "./RouteProgressBar";
+import { MobileAppBarContext } from "./mobile-app-bar";
 import {
   readSidebarCollapsed,
   writeSidebarCollapsed,
@@ -46,6 +48,12 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     string | undefined
   >(undefined);
   const [mobileOpen, setMobileOpen] = createSignal(false);
+  const [mobileBarTitle, setMobileBarTitle] = createSignal<string>();
+  const [mobileBarSlot, setMobileBarSlot] = createSignal<HTMLElement>();
+  const mobileAppBar = {
+    setTitle: (title: string | undefined) => setMobileBarTitle(title),
+    actionsSlot: mobileBarSlot,
+  };
 
   const isExpanded = () => !collapsed();
 
@@ -133,6 +141,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   onMount(() => {
     initializeConsoleLogCapture();
     syncThemePreference();
+    onCleanup(trackVisualViewport());
 
     const off = onLLMSidebarEvent((e) => {
       if (e.type === "open") {
@@ -176,7 +185,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   });
 
   return (
-    <>
+    <MobileAppBarContext.Provider value={mobileAppBar}>
       <RouteProgressBar />
       <Box minH="100dvh" bg="bg.default">
         <AppSidebarMobile
@@ -190,6 +199,8 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
           hasUnreadAny={hasUnreadAny}
           hasLoadingAny={hasLoadingAny}
           authed={authed}
+          title={mobileBarTitle()}
+          actionsSlotRef={setMobileBarSlot}
         />
         <AppSidebarDesktop
           expanded={isExpanded()}
@@ -220,6 +231,6 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         onOpenChange={handleNewNoteOpenChange}
         initialTitle={newNoteInitialTitle()}
       />
-    </>
+    </MobileAppBarContext.Provider>
   );
 };

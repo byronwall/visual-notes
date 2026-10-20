@@ -11,6 +11,8 @@ export type DocListItem = {
     slug: string;
     shareUrl: string;
   } | null;
+  /** Set when the note is a row in a collection. */
+  collection?: { id: string; name: string; icon: string | null } | null;
 };
 
 export type ServerSearchItem = DocListItem & { snippet?: string | null };

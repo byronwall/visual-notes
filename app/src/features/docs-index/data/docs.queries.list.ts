@@ -20,6 +20,7 @@ export const fetchDocs = query(
     updatedFrom?: string;
     updatedTo?: string;
     activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+    collectionRows?: "hide" | "only";
     sortMode?:
       | "relevance"
       | "recent_activity"
@@ -41,6 +42,7 @@ export const fetchDocs = query(
       updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
       updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
       activityClass: q.activityClass,
+      collectionRows: q.collectionRows,
     });
     const take = Math.max(1, Math.min(8000, q.take ?? 8000));
     const sortMode = q.sortMode ?? "recent_activity";
@@ -77,6 +79,9 @@ export const fetchDocs = query(
             shareUrl: true,
           },
         },
+        collection: {
+          select: { id: true, name: true, icon: true, deletedAt: true },
+        },
       },
       take,
     });
@@ -100,6 +105,14 @@ export const fetchDocs = query(
             shareUrl: item.share.shareUrl,
           }
         : null,
+      collection:
+        item.collection && !item.collection.deletedAt
+          ? {
+              id: item.collection.id,
+              name: item.collection.name,
+              icon: item.collection.icon,
+            }
+          : null,
     }));
   },
   "docs-index-list"

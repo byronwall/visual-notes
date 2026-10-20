@@ -62,7 +62,7 @@ DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_
 pnpm dev
 ```
 
-Open <http://localhost:3000>. Paste Markdown and click Ingest to navigate to the viewer.
+Open <http://localhost:3000>.
 
 ## Optional AI Summary
 
@@ -70,8 +70,7 @@ Optional AI summarization features exist and are disabled by default. To enable,
 
 ## API
 
-- `POST /api/docs` – ingest a Markdown document: `{ title, markdown }`
-- `GET /api/docs/[id]` – fetch an ingested document as HTML
+- `POST /api/docs` – create a note from markdown for a signed-in client: `{ title, markdown, path? }`
 
 ## Scripts
 

@@ -1,5 +1,6 @@
+import { getOwner } from "solid-js";
 import { createTiptapEditor } from "solid-tiptap";
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import { buildExtensions } from "../extensions/index";
 
 // TODO:AS_ANY, ProseMirror node/fragment types are not directly exported in this workspace setup.
@@ -168,12 +169,18 @@ function serializeClipboardText(slice: {
 
 export function createEditor(
   element: () => HTMLElement | undefined,
-  initial: string,
-  onPrompt: Parameters<typeof buildExtensions>[0]
+  initial: string | JSONContent,
+  onPrompt: Parameters<typeof buildExtensions>[0],
+  noteId?: () => string | undefined
 ) {
+  // Node views mount in their own Solid roots; embeds borrow this owner to
+  // reach the router and app contexts.
+  const owner = getOwner();
   return createTiptapEditor(() => ({
     element: element()!,
-    extensions: buildExtensions(onPrompt),
+    extensions: buildExtensions(onPrompt, undefined, { owner, noteId }),
+    // DeferredFocusEvents (in buildExtensions) replaces this; see its comment.
+    enableCoreExtensions: { focusEvents: false },
     editorProps: {
       attributes: { class: "prose editor-prose" },
       clipboardTextSerializer: serializeClipboardText,
@@ -184,13 +191,15 @@ export function createEditor(
 
 export function createEditorWithPrompts(
   element: () => HTMLElement | undefined,
-  initial: string,
+  initial: string | JSONContent,
   onCsvPrompt: Parameters<typeof buildExtensions>[0],
   onMarkdownPrompt?: Parameters<typeof buildExtensions>[1]
 ) {
   return createTiptapEditor(() => ({
     element: element()!,
     extensions: buildExtensions(onCsvPrompt, onMarkdownPrompt),
+    // DeferredFocusEvents (in buildExtensions) replaces this; see its comment.
+    enableCoreExtensions: { focusEvents: false },
     editorProps: {
       attributes: { class: "prose editor-prose" },
       clipboardTextSerializer: serializeClipboardText,

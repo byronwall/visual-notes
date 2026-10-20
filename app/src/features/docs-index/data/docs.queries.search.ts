@@ -1,8 +1,6 @@
 import { query } from "@solidjs/router";
-import sanitizeHtml from "sanitize-html";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
-import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { ServerSearchItem } from "./docs.types";
 import {
   buildDocsWhere,
@@ -24,6 +22,7 @@ export const searchDocs = query(
     updatedFrom?: string;
     updatedTo?: string;
     activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+    collectionRows?: "hide" | "only";
     sortMode?:
       | "relevance"
       | "recent_activity"
@@ -53,14 +52,15 @@ export const searchDocs = query(
       updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
       updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
       activityClass: q.activityClass,
+      collectionRows: q.collectionRows,
     });
 
     const titlePathTake = Math.min(Math.max(take * 4, 120), 800);
     const titlePathTokenAndClause = hasMultiTermQuery
       ? terms.map((token) => ({
           OR: [
-            { title: { contains: token, mode: "insensitive" as const } },
-            { path: { contains: token, mode: "insensitive" as const } },
+            { title: { contains: escapeContains(token), mode: "insensitive" as const } },
+            { path: { contains: escapeContains(token), mode: "insensitive" as const } },
           ],
         }))
       : [];
@@ -68,16 +68,16 @@ export const searchDocs = query(
       where: {
         ...docFilters,
         OR: [
-          { title: { contains: term, mode: "insensitive" } },
-          { path: { contains: term, mode: "insensitive" } },
+          { title: { contains: escapeContains(term), mode: "insensitive" } },
+          { path: { contains: escapeContains(term), mode: "insensitive" } },
           ...(hasMultiTermQuery
             ? [{ AND: titlePathTokenAndClause }]
             : [
                 ...terms.map((token) => ({
-                  title: { contains: token, mode: "insensitive" as const },
+                  title: { contains: escapeContains(token), mode: "insensitive" as const },
                 })),
                 ...terms.map((token) => ({
-                  path: { contains: token, mode: "insensitive" as const },
+                  path: { contains: escapeContains(token), mode: "insensitive" as const },
                 })),
               ]),
         ],
@@ -137,22 +137,34 @@ export const searchDocs = query(
     }
 
     const bodyScanStartMs = afterTitlePathMs;
-    const bodyPageSize = 250;
-    let bodyDocsScanned = 0;
+    // Plain text pages stay small without the HTML, JSON, and image payloads.
+    const bodyPageSize = 1000;
+    let bodyMatchesLoaded = 0;
     let bodyBytesLoaded = 0;
     let bodyPages = 0;
     let cursorId: string | undefined;
+    const bodyTerms = [...new Set([termLower, ...terms])];
+    const bodyMatch = {
+      OR: bodyTerms.map((value) => ({
+        searchText: {
+          contains: escapeContains(value),
+          mode: "insensitive" as const,
+        },
+      })),
+    };
 
     while (true) {
       const docs = await prisma.doc.findMany({
-        where: docFilters,
+        where: {
+          AND: [docFilters, bodyMatch],
+          ...(cursorId ? { id: { gt: cursorId } } : {}),
+        },
         select: {
           id: true,
           title: true,
           updatedAt: true,
           path: true,
-          html: true,
-          markdown: true,
+          searchText: true,
           share: {
             select: {
               slug: true,
@@ -161,19 +173,15 @@ export const searchDocs = query(
           },
         },
         orderBy: { id: "asc" },
-        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
         take: bodyPageSize,
       });
       if (!docs.length) break;
       bodyPages += 1;
 
       for (const d of docs) {
-        bodyDocsScanned += 1;
-        bodyBytesLoaded +=
-          Buffer.byteLength(d.html, "utf8") +
-          Buffer.byteLength(d.markdown, "utf8");
-        const html = d.html || normalizeMarkdownToHtml(d.markdown);
-        const text = htmlToSearchText(html);
+        bodyMatchesLoaded += 1;
+        const text = d.searchText ?? "";
+        bodyBytesLoaded += Buffer.byteLength(text, "utf8");
         if (!text) continue;
 
         const bodyScore = scoreBodyText(text, termLower, terms);
@@ -331,7 +339,7 @@ export const searchDocs = query(
       titlePathCapped: titlePathDocs.length >= titlePathTake,
       bodyPageSize,
       bodyPages,
-      bodyDocsScanned,
+      bodyMatchesLoaded,
       bodyBytesLoaded,
       hitsBeforeCoverageFilter: hitsMap.size,
       droppedByTokenCoverage,
@@ -346,6 +354,10 @@ export const searchDocs = query(
   },
   "docs-index-search"
 );
+
+function escapeContains(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
 
 function tokenizeQuery(termLower: string): string[] {
   const raw = termLower
@@ -466,32 +478,6 @@ function normalizeForContains(value: string): string {
     .trim();
 }
 
-function htmlToSearchText(html: string): string {
-  const blockTags =
-    /(<\/?(?:address|article|blockquote|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>)/gi;
-  const htmlWithSpacing = html
-    .replace(/(<br\b[^>]*\/?\s*>)/gi, " $1 ")
-    .replace(blockTags, " $1 ");
-  let text = "";
-
-  sanitizeHtml(
-    `<vn-search-root data-search-root="true">${htmlWithSpacing}</vn-search-root>`,
-    {
-      allowedTags: ["vn-search-root"],
-      exclusiveFilter: (frame) => {
-        if (
-          frame.tag === "vn-search-root" &&
-          frame.attribs["data-search-root"] === "true"
-        ) {
-          text = frame.text;
-        }
-        return false;
-      },
-    }
-  );
-
-  return text.replace(/\s+/g, " ").trim();
-}
 
 function collectTokenHits(text: string, terms: string[]): Set<string> {
   const normalized = normalizeForContains(text);

@@ -1,4 +1,5 @@
 import {
+  type JSX,
   Show,
   Suspense,
   createResource,
@@ -12,16 +13,18 @@ import { CloseButton } from "~/components/ui/close-button";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
+import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { InPlaceEditableText } from "./InPlaceEditableText";
-import { fetchDoc } from "~/services/docs.service";
+import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import type { DocumentEditorApi } from "./DocumentEditor";
+
+import type { NoteDoc } from "~/lib/note-content/types";
 
 type DocDetail = {
   id: string;
   title: string;
-  markdown?: string;
-  html?: string;
+  content: NoteDoc;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -37,11 +40,21 @@ export const DocumentSidePanel: VoidComponent<{
   /** Leave the page behind interactive (default: modal). */
   modal?: boolean;
   width?: string;
+  /** Rendered above the note body, e.g. a collection row's properties. */
+  header?: JSX.Element;
+  /** Called after the panel's title editor saves a new title. */
+  onTitleChange?: (docId: string, title: string) => void;
 }> = (props) => {
-  const [doc] = createResource(
+  const [doc, { mutate }] = createResource(
     () => props.docId,
     (id) => fetchDocDetail(id),
   );
+  useLiveNoteResource({
+    docId: () => props.docId,
+    current: () => doc.latest,
+    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    mutate: (next) => mutate(next),
+  });
   const [title, setTitle] = createSignal("");
   const { update: runUpdateDoc } = useNoteMutations();
   let currentDocId = untrack(() => props.docId);
@@ -71,6 +84,7 @@ export const DocumentSidePanel: VoidComponent<{
     setTitle(normalized);
     try {
       await runUpdateDoc({ id: editDocId, title: normalized });
+      props.onTitleChange?.(editDocId, normalized);
     } catch (error) {
       if (props.docId === editDocId && docGeneration === editGeneration) {
         setTitle(previous);
@@ -126,6 +140,7 @@ export const DocumentSidePanel: VoidComponent<{
       </Box>
 
       <Box px="3" py="3">
+        {props.header}
         <Suspense
           fallback={
             <Text fontSize="sm" color="fg.muted">

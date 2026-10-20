@@ -11,6 +11,7 @@ export default createHandler(() => (
           <link rel="icon" href="/favicon.ico" />
           <link rel="manifest" href="/site.webmanifest" />
           <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <meta name="apple-mobile-web-app-title" content="Notes" />
           <link
             rel="icon"
             type="image/png"
