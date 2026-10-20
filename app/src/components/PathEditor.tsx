@@ -36,7 +36,10 @@ export const PathEditor: VoidComponent<{
   actions?: JSX.Element;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
-  let lastAppliedDocId: string | undefined;
+  // Seed with the mounted doc so the sync effect's first run is not treated as
+  // a doc switch; that run can land after the user starts typing and would
+  // wipe the in-progress segment.
+  let lastAppliedDocId = props.docId;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
   let saveVersion = 0;
 
@@ -261,6 +264,7 @@ export const PathEditor: VoidComponent<{
               borderColor="transparent"
               bg="transparent"
               placeholder="e.g. work.projects.alpha"
+              data-path-segment-input="true"
               _focus={{ borderColor: "transparent", boxShadow: "none" }}
               _focusVisible={{ outline: "none", boxShadow: "none" }}
               value={draft().current}

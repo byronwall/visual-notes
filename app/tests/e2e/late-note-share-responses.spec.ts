@@ -42,8 +42,7 @@ const expectNoteInPlace = async (page: Page, note: Note) => {
 };
 
 /** Client-side A→B through the path's related-notes list. */
-const openRelatedNote = async (page: Page, path: string, note: Note) => {
-  await page.getByRole("button", { name: path, exact: true }).click();
+const openRelatedNote = async (page: Page, note: Note) => {
   await page
     .getByRole("button", { name: "Related notes in this path" })
     .click();
@@ -57,8 +56,11 @@ const returnToNote = async (page: Page, note: Note) => {
   await expectNoteInPlace(page, note);
 };
 
+// The header's icon-only share trigger; its accessible name carries the state.
 const shareButton = (page: Page) =>
-  page.getByRole("button", { name: /^(Share|Shared)$/ });
+  page.getByRole("button", {
+    name: /^(Create a share link|Manage shared note link)$/,
+  });
 const sharePopover = (page: Page) =>
   page
     .locator('[data-scope="popover"][data-part="content"]')
@@ -73,7 +75,7 @@ const openSharePopover = async (page: Page) => {
 
 test.describe("late share responses", () => {
   test("A's share result does not land on B (A→B)", async ({ page }) => {
-    const { path, a, b } = await createLinkedNotes(page, "share");
+    const { a, b } = await createLinkedNotes(page, "share");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 
@@ -83,14 +85,14 @@ test.describe("late share responses", () => {
     await create.request;
     await page.keyboard.press("Escape");
 
-    await openRelatedNote(page, path, b);
-    await expect(shareButton(page)).toHaveText("Share");
+    await openRelatedNote(page, b);
+    await expect(shareButton(page)).toHaveAccessibleName(
+      "Create a share link",
+    );
 
     create.release();
     await settled(create);
-    await expect(shareButton(page)).toHaveText("Share");
-    await expect(shareButton(page)).toHaveAttribute(
-      "title",
+    await expect(shareButton(page)).toHaveAccessibleName(
       "Create a share link",
     );
   });
@@ -98,7 +100,7 @@ test.describe("late share responses", () => {
   test("an old visit's share result keeps the new visit's draft (A→B→A)", async ({
     page,
   }) => {
-    const { path, a, b } = await createLinkedNotes(page, "share-return");
+    const { a, b } = await createLinkedNotes(page, "share-return");
     const suffix = uniqueSuffix();
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
@@ -110,7 +112,7 @@ test.describe("late share responses", () => {
     await create.request;
     await page.keyboard.press("Escape");
 
-    await openRelatedNote(page, path, b);
+    await openRelatedNote(page, b);
     await returnToNote(page, a);
 
     await openSharePopover(page);
@@ -130,7 +132,7 @@ test.describe("late note title responses", () => {
   test("A's failed title save does not roll B's title back (A→B)", async ({
     page,
   }) => {
-    const { path, a, b } = await createLinkedNotes(page, "title");
+    const { a, b } = await createLinkedNotes(page, "title");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 
@@ -141,7 +143,7 @@ test.describe("late note title responses", () => {
     await titleA.input.press("Enter");
     await save.request;
 
-    await openRelatedNote(page, path, b);
+    await openRelatedNote(page, b);
 
     save.fail();
     await settled(save);
@@ -154,7 +156,7 @@ test.describe("late note title responses", () => {
   test("an old visit's failed title save keeps the newer title (A→B→A)", async ({
     page,
   }) => {
-    const { path, a, b } = await createLinkedNotes(page, "title-return");
+    const { a, b } = await createLinkedNotes(page, "title-return");
     await page.goto(`/docs/${a.id}`);
     await waitForAppReady(page);
 
@@ -165,7 +167,7 @@ test.describe("late note title responses", () => {
     await firstVisit.input.press("Enter");
     await staleSave.request;
 
-    await openRelatedNote(page, path, b);
+    await openRelatedNote(page, b);
     await returnToNote(page, a);
 
     // A real, successful save from the second visit.
