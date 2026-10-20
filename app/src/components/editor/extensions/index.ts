@@ -14,6 +14,7 @@ import { createEmojiSuggestion } from "./emojiSuggestion";
 import { SlashCommands } from "./SlashCommands";
 import { DeferredFocusEvents } from "./DeferredFocusEvents";
 import { NoteLinkSuggestion } from "./NoteLinkSuggestion";
+import { TaskRefEditor } from "./TaskRefView";
 
 export function buildExtensions(
   csvPrompt: (
@@ -43,6 +44,7 @@ export function buildExtensions(
       tableRow: CustomTableRow,
       tableHeader: CustomTableHeader,
       tableCell: CustomTableCell,
+      taskRef: TaskRefEditor,
     }),
     ListItemReorderShortcuts,
     SelectionMarkShortcuts,

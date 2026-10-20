@@ -2,7 +2,7 @@ import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { buildNotePreviewText } from "./docs.queries";
 import { toHtml, toMarkdown } from "~/lib/note-content/convert";
-import { resolveNoteLinks } from "~/server/notes/note-links";
+import { resolveNoteReferences } from "~/server/notes/note-links";
 import { readNoteContent } from "~/server/notes/note-store";
 
 export type DocShareSummary = {
@@ -81,7 +81,7 @@ export const fetchPublicSharedDoc = query(
 
     if (!share?.doc) return null;
 
-    const content = await resolveNoteLinks(readNoteContent(share.doc));
+    const content = await resolveNoteReferences(readNoteContent(share.doc));
     const html = toHtml(content);
 
     return {

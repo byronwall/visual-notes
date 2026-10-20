@@ -6,7 +6,7 @@ import {
   noteText,
   readNoteContent,
 } from "~/server/notes/note-store";
-import { resolveNoteLinks } from "~/server/notes/note-links";
+import { resolveNoteReferences } from "~/server/notes/note-links";
 
 export type DocDetail = {
   id: string;
@@ -92,7 +92,7 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
   return {
     id: resolvedDoc.id,
     title: resolvedDoc.title,
-    content: await resolveNoteLinks(readNoteContent(resolvedDoc)),
+    content: await resolveNoteReferences(readNoteContent(resolvedDoc)),
     contentVersion: resolvedDoc.contentVersion,
     markdown: resolvedDoc.markdown,
     html: resolvedDoc.html,

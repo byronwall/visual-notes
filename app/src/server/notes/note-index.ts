@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { projectNote } from "~/lib/note-content/project";
 import type { NoteDoc } from "~/lib/note-content/types";
 import { prisma } from "~/server/db";
+import { syncInlineTasks } from "./inline-tasks";
 
 type Tx = Prisma.TransactionClient;
 
@@ -10,7 +11,7 @@ type Tx = Prisma.TransactionClient;
  * the same transaction as the content write so the index never drifts.
  */
 export async function rebuildNoteIndex(tx: Tx, docId: string, doc: NoteDoc) {
-  const { blocks, links } = projectNote(doc);
+  const { blocks, links, tasks } = projectNote(doc);
   const targetIds = [...new Set(links.map((l) => l.targetDocId))];
   const existing = targetIds.length
     ? await tx.doc.findMany({
@@ -45,6 +46,7 @@ export async function rebuildNoteIndex(tx: Tx, docId: string, doc: NoteDoc) {
       data: liveLinks.map((l) => ({ sourceDocId: docId, ...l })),
     });
   }
+  await syncInlineTasks(tx, docId, tasks);
   return { blocks: blocks.length, links: liveLinks.length };
 }
 

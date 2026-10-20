@@ -34,6 +34,9 @@ const mapTaskItem = (row: {
   meta: unknown;
   parentTaskId: string | null;
   sortOrder: number;
+  sourceDocId?: string | null;
+  sourceBlockId?: string | null;
+  sourceDoc?: { title: string } | null;
   createdAt: Date;
   updatedAt: Date;
 }): TaskItem => ({
@@ -50,6 +53,14 @@ const mapTaskItem = (row: {
       : null,
   parentTaskId: row.parentTaskId,
   sortOrder: row.sortOrder,
+  source:
+    row.sourceDocId && row.sourceDoc
+      ? {
+          docId: row.sourceDocId,
+          blockId: row.sourceBlockId ?? null,
+          title: row.sourceDoc.title,
+        }
+      : null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
@@ -106,6 +117,7 @@ export const fetchTaskTree = query(
 
     const rows = await prisma.taskItem.findMany({
       where: { listId },
+      include: { sourceDoc: { select: { title: true } } },
       orderBy: [
         { parentTaskId: "asc" },
         { sortOrder: "asc" },

@@ -218,6 +218,7 @@ model Doc {
   blocks               DocBlock[]
   outgoingLinks        DocLink[]              @relation("DocLinkSource")
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
+  inlineTasks          TaskItem[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
@@ -335,10 +336,14 @@ model TaskItem {
   meta            Json?
   parentTaskId    String?
   sortOrder       Int        @default(0)
+  // The note block this task lives in when it was written inline in a note.
+  sourceDocId     String?
+  sourceBlockId   String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   list       TaskList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  sourceDoc  Doc?       @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
   parentTask TaskItem?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
   childTasks TaskItem[] @relation("TaskHierarchy")
 
@@ -347,6 +352,7 @@ model TaskItem {
   @@index([status])
   @@index([dueDate])
   @@index([listId, parentTaskId, sortOrder])
+  @@index([sourceDocId])
 }
 
 model TimeBlock {

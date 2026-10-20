@@ -21,7 +21,7 @@ export type ProjectedLink = {
   targetBlockId: string | null;
 };
 
-export type ProjectedTask = { blockId: string; taskId: string };
+export type ProjectedTask = { blockId: string; taskId: string; text: string };
 
 export type NoteProjection = {
   blocks: ProjectedBlock[];
@@ -79,7 +79,11 @@ export function projectNote(doc: NoteDoc): NoteProjection {
         (name) => tags.add(name.toLowerCase()),
       );
       if (node.type === "taskRef" && node.attrs?.taskId) {
-        tasks.push({ blockId: id, taskId: String(node.attrs.taskId) });
+        tasks.push({
+          blockId: id,
+          taskId: String(node.attrs.taskId),
+          text: nodeText(node).trim(),
+        });
       }
       blocks.push({
         id,

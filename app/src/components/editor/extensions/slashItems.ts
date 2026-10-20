@@ -82,6 +82,12 @@ export const SLASH_ITEMS: SlashItem[] = [
         .run(),
   },
   {
+    title: "Task",
+    glyph: "☐",
+    keywords: ["todo", "checkbox", "check", "task", "action"],
+    run: (e, r) => chainFor(e, r).setNode("taskRef").run(),
+  },
+  {
     title: "Link to note",
     glyph: "[[",
     keywords: ["link", "note", "page", "reference", "mention"],

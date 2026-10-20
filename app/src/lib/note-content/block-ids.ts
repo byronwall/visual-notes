@@ -12,6 +12,7 @@ export const BLOCK_ID_TYPES = [
   "table",
   "image",
   "horizontalRule",
+  "taskRef",
 ] as const;
 
 const ID_ALPHABET =

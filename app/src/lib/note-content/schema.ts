@@ -12,6 +12,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { createLowlight, common } from "lowlight";
 import { BlockIds } from "./block-ids";
 import { NoteLink } from "./note-link";
+import { TaskRef } from "./task-ref";
 
 /**
  * The note document schema, with no UI imports. The editor layers its Solid
@@ -92,6 +93,7 @@ export type NoteExtensionOverrides = {
   emoji?: AnyExtension;
   table?: AnyExtension;
   noteLink?: AnyExtension;
+  taskRef?: AnyExtension;
 };
 
 export function buildNoteExtensions(
@@ -110,6 +112,7 @@ export function buildNoteExtensions(
     overrides.tableHeader ?? TableHeader,
     overrides.tableCell ?? TableCell,
     overrides.noteLink ?? NoteLink,
+    overrides.taskRef ?? TaskRef,
     BlockIds,
   ];
 }

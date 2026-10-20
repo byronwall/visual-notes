@@ -1,7 +1,7 @@
 import { searchDocs } from "~/features/docs-index/data/docs.queries.search";
 import { prisma } from "~/server/db";
 import { toMarkdown } from "~/lib/note-content/convert";
-import { resolveNoteLinks } from "~/server/notes/note-links";
+import { resolveNoteReferences } from "~/server/notes/note-links";
 import { readNoteContent } from "~/server/notes/note-store";
 import {
   CHATGPT_SOURCE,
@@ -139,7 +139,7 @@ export async function getNotes(
     }
     notes.push({
       ...toSummary(ctx, row),
-      markdown: toMarkdown(await resolveNoteLinks(readNoteContent(row)), {
+      markdown: toMarkdown(await resolveNoteReferences(readNoteContent(row)), {
         withIds: true,
       }),
       createdAt: row.createdAt.toISOString(),

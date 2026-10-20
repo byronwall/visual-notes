@@ -61,4 +61,18 @@ describe("projectNote", () => {
     expect(after[0].hash).not.toBe(before[0].hash);
     expect(after[1].hash).toBe(before[1].hash);
   });
+
+  it("reports task lines with their TaskItem id and text", () => {
+    const withTask = normalizeNoteDoc({
+      type: "doc",
+      content: [
+        { type: "taskRef", attrs: { id: "task0001", taskId: "tk1", status: "waiting" }, content: [{ type: "text", text: "Call the plumber" }] },
+        { type: "taskRef", attrs: { id: "task0002", taskId: null, status: "waiting" }, content: [{ type: "text", text: "pending" }] },
+      ],
+    });
+    expect(projectNote(withTask).tasks).toEqual([
+      { blockId: "task0001", taskId: "tk1", text: "Call the plumber" },
+    ]);
+    expect(toMarkdown(withTask)).toBe("- [ ] Call the plumber\n\n- [ ] pending");
+  });
 });

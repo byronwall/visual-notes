@@ -191,3 +191,9 @@ export async function searchLinkTargets(
     })),
   ];
 }
+
+/** Every read-time refresh of references inside a note (links, tasks). */
+export async function resolveNoteReferences(doc: NoteDoc): Promise<NoteDoc> {
+  const { resolveTaskRefs } = await import("./inline-tasks");
+  return resolveTaskRefs(await resolveNoteLinks(doc));
+}

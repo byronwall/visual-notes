@@ -153,6 +153,10 @@ function blockToMarkdown(node: NoteNode, ctx: Ctx, topLevel: boolean): string {
       return `![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""})${tag}`;
     case "table":
       return tableToMarkdown(node) + trailingIdLine;
+    case "taskRef": {
+      const done = node.attrs?.status === "complete" || node.attrs?.status === "cancelled";
+      return `- [${done ? "x" : " "}] ${inlineToMarkdown(node.content)}${tag}`;
+    }
     default: {
       const custom = blockSerializers[node.type];
       if (custom) return custom(node, ctx);

@@ -5,6 +5,7 @@ const db = vi.hoisted(() => ({
   docRevision: { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn() },
   docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
   docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
+  taskItem: { findMany: vi.fn(async () => []), update: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
