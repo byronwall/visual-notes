@@ -21,6 +21,7 @@ import {
   leadingHeadingText,
 } from "~/lib/note-content/markdown";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
+import { DocCollectionHeader } from "./collections/DocCollectionHeader";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { BacklinksSection } from "./docs/BacklinksSection";
@@ -395,6 +396,9 @@ const DocumentViewer: VoidComponent<{
             )}
           </Show>
         </Show>
+      </Show>
+      <Show when={!props.panelMode}>
+        <DocCollectionHeader docId={props.doc.id} />
       </Show>
       <DocumentEditor
         docId={props.doc.id}

@@ -1,0 +1,57 @@
+import { A } from "@solidjs/router";
+import { DatabaseIcon } from "lucide-solid";
+import { Show, Suspense, createResource } from "solid-js";
+import { css } from "styled-system/css";
+import type { CollectionBundle } from "~/lib/collections/types";
+import { fetchDocCollection, type DocCollectionInfo } from "~/services/collections/collections.queries";
+import { CollectionProvider } from "./CollectionContext";
+import { PropertyList } from "./PropertyList";
+import { createCollectionStore } from "./store/createCollectionStore";
+
+const crumb = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "1.5",
+  fontSize: "xs",
+  color: "fg.muted",
+  mb: "2",
+  textDecoration: "none",
+  _hover: { color: "fg.default" },
+});
+
+const toBundle = (info: NonNullable<DocCollectionInfo>): CollectionBundle => ({
+  collection: info.collection,
+  properties: info.properties,
+  views: [],
+  rows: [info.row],
+  today: "",
+});
+
+const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
+  const store = createCollectionStore(() => toBundle(props.info));
+  const row = () => store.state.rows[0];
+  return (
+    <CollectionProvider store={store} openRow={() => {}} embedded={false}>
+      <A href={`/collections/${props.info.collection.id}`} class={crumb}>
+        <Show when={props.info.collection.icon} fallback={<DatabaseIcon size={12} />}>
+          <span>{props.info.collection.icon}</span>
+        </Show>
+        {props.info.collection.name}
+      </A>
+      <Show when={row()}>{(r) => <PropertyList row={r()} />}</Show>
+    </CollectionProvider>
+  );
+};
+
+/** On a note page: the note's collection and editable properties, when it has one. */
+export const DocCollectionHeader = (props: { docId: string }) => {
+  const [info] = createResource(() => props.docId, (id) => fetchDocCollection(id));
+  // Its own boundary so SSR waits for the lookup and hydration sees the same tree.
+  return (
+    <Suspense>
+      <Show when={info()} keyed>
+        {(value) => <Header info={value} />}
+      </Show>
+    </Suspense>
+  );
+};

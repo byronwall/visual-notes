@@ -1,4 +1,5 @@
 import {
+  type JSX,
   Show,
   Suspense,
   createResource,
@@ -38,6 +39,10 @@ export const DocumentSidePanel: VoidComponent<{
   /** Leave the page behind interactive (default: modal). */
   modal?: boolean;
   width?: string;
+  /** Rendered above the note body, e.g. a collection row's properties. */
+  header?: JSX.Element;
+  /** Called after the panel's title editor saves a new title. */
+  onTitleChange?: (docId: string, title: string) => void;
 }> = (props) => {
   const [doc] = createResource(
     () => props.docId,
@@ -72,6 +77,7 @@ export const DocumentSidePanel: VoidComponent<{
     setTitle(normalized);
     try {
       await runUpdateDoc({ id: editDocId, title: normalized });
+      props.onTitleChange?.(editDocId, normalized);
     } catch (error) {
       if (props.docId === editDocId && docGeneration === editGeneration) {
         setTitle(previous);
@@ -127,6 +133,7 @@ export const DocumentSidePanel: VoidComponent<{
       </Box>
 
       <Box px="3" py="3">
+        {props.header}
         <Suspense
           fallback={
             <Text fontSize="sm" color="fg.muted">

@@ -220,8 +220,18 @@ model Doc {
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
 
+  // Collections: a note can be a row in at most one collection. Values are
+  // keyed by CollectionProperty id; they are kept if the note leaves the
+  // collection so re-adding restores them.
+  collectionId         String?
+  properties           Json?
+  collectionRank       String?
+  collection           Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  hostedViews          CollectionView[] @relation("CollectionViewHost")
+
   @@unique([originalSource, originalContentId])
   @@index([path])
+  @@index([collectionId])
 }
 
 /// Prior content captured before an automated edit (e.g. ChatGPT via MCP)
@@ -715,4 +725,77 @@ model OAuthGrant {
   client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
+}
+
+enum CollectionPropertyKind {
+  text
+  number
+  select
+  status
+  multi_select
+  date
+  checkbox
+  created_time
+  updated_time
+}
+
+enum CollectionViewType {
+  table
+  board
+  gallery
+  calendar
+}
+
+/// A typed set of notes (Notion-style database). Rows are Docs.
+model Collection {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  properties CollectionProperty[]
+  views      CollectionView[]
+  rows       Doc[]
+
+  @@index([deletedAt, updatedAt])
+}
+
+model CollectionProperty {
+  id           String                 @id @default(cuid())
+  collectionId String
+  name         String
+  kind         CollectionPropertyKind
+  /// Options, display format, and other per-kind settings.
+  config       Json                   @default("{}")
+  position     Int
+  deletedAt    DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId, position])
+}
+
+model CollectionView {
+  id           String             @id @default(cuid())
+  collectionId String
+  /// Set when the view is embedded in a note; such views are not page tabs.
+  hostDocId    String?
+  name         String
+  type         CollectionViewType @default(table)
+  /// Filters, sorts, visible properties, widths, grouping, and cover settings.
+  config       Json               @default("{}")
+  position     Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  hostDoc    Doc?       @relation("CollectionViewHost", fields: [hostDocId], references: [id], onDelete: SetNull)
+
+  @@index([collectionId, position])
+  @@index([hostDocId])
 }
