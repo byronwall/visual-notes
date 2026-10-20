@@ -170,7 +170,10 @@ export const AGGREGATIONS = [
 ] as const;
 export type Aggregation = (typeof AGGREGATIONS)[number];
 
-export type CoverSource = { source: "none" | "body" | "property"; propertyId?: string };
+export type CoverSource = {
+  source: "none" | "body" | "property";
+  propertyId?: string;
+};
 
 export type ViewConfig = {
   filter?: FilterTree;

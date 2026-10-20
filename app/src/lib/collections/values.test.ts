@@ -11,10 +11,21 @@ import {
 const prop = (
   kind: CollectionProperty["kind"],
   config: CollectionProperty["config"] = {},
-): CollectionProperty => ({ id: `p_${kind}`, name: kind, kind, config, position: 0 });
+): CollectionProperty => ({
+  id: `p_${kind}`,
+  name: kind,
+  kind,
+  config,
+  position: 0,
+});
 
 const options = [
-  { id: "o1", name: "Reading", color: "blue" as const, group: "doing" as const },
+  {
+    id: "o1",
+    name: "Reading",
+    color: "blue" as const,
+    group: "doing" as const,
+  },
   { id: "o2", name: "Done", color: "green" as const, group: "done" as const },
 ];
 
@@ -26,7 +37,10 @@ describe("validateValue", () => {
     ["checkbox", true, true],
     ["checkbox", false, null],
   ] as const)("%s accepts %j", (kind, input, expected) => {
-    expect(validateValue(prop(kind), input)).toEqual({ ok: true, value: expected });
+    expect(validateValue(prop(kind), input)).toEqual({
+      ok: true,
+      value: expected,
+    });
   });
 
   it.each([
@@ -45,11 +59,15 @@ describe("validateValue", () => {
   it("checks option ids for select-like kinds", () => {
     expect(validateValue(prop("select", { options }), "o1").ok).toBe(true);
     expect(validateValue(prop("status", { options }), "nope").ok).toBe(false);
-    expect(validateValue(prop("multi_select", { options }), ["o1", "o1"])).toEqual({
+    expect(
+      validateValue(prop("multi_select", { options }), ["o1", "o1"]),
+    ).toEqual({
       ok: true,
       value: ["o1"],
     });
-    expect(validateValue(prop("multi_select", { options }), ["o1", "x"]).ok).toBe(false);
+    expect(
+      validateValue(prop("multi_select", { options }), ["o1", "x"]).ok,
+    ).toBe(false);
   });
 
   it("bounds ratings", () => {
@@ -61,29 +79,44 @@ describe("validateValue", () => {
 
   it("accepts dates with time and ranges", () => {
     expect(
-      validateValue(prop("date"), { start: "2026-10-19T09:30", end: "2026-10-20" }),
-    ).toEqual({ ok: true, value: { start: "2026-10-19T09:30", end: "2026-10-20" } });
+      validateValue(prop("date"), {
+        start: "2026-10-19T09:30",
+        end: "2026-10-20",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { start: "2026-10-19T09:30", end: "2026-10-20" },
+    });
   });
 
   it("always allows clearing", () => {
-    expect(validateValue(prop("select", { options }), null)).toEqual({ ok: true, value: null });
+    expect(validateValue(prop("select", { options }), null)).toEqual({
+      ok: true,
+      value: null,
+    });
   });
 });
 
 describe("formatValueText", () => {
   it("formats numbers by format", () => {
-    expect(formatValueText(prop("number", { format: "percent" }), 0.25)).toBe("25%");
-    expect(formatValueText(prop("number", { format: "currency" }), 12)).toBe("$12.00");
-    expect(formatValueText(prop("number", { format: "rating" }), 4)).toBe("4/5");
+    expect(formatValueText(prop("number", { format: "percent" }), 0.25)).toBe(
+      "25%",
+    );
+    expect(formatValueText(prop("number", { format: "currency" }), 12)).toBe(
+      "$12.00",
+    );
+    expect(formatValueText(prop("number", { format: "rating" }), 4)).toBe(
+      "4/5",
+    );
   });
 
   it("formats options and dates", () => {
-    expect(formatValueText(prop("multi_select", { options }), ["o1", "o2"])).toBe(
-      "Reading, Done",
-    );
-    expect(formatValueText(prop("date"), { start: "2026-10-19", end: "2026-10-21" })).toBe(
-      "Oct 19, 2026 → Oct 21, 2026",
-    );
+    expect(
+      formatValueText(prop("multi_select", { options }), ["o1", "o2"]),
+    ).toBe("Reading, Done");
+    expect(
+      formatValueText(prop("date"), { start: "2026-10-19", end: "2026-10-21" }),
+    ).toBe("Oct 19, 2026 → Oct 21, 2026");
   });
 });
 
@@ -100,7 +133,9 @@ describe("parseLooseText", () => {
       newOptions: [],
       failed: false,
     });
-    expect(parseLooseText(prop("multi_select", { options }), "Done, Fresh")).toEqual({
+    expect(
+      parseLooseText(prop("multi_select", { options }), "Done, Fresh"),
+    ).toEqual({
       value: ["o2"],
       newOptions: ["Fresh"],
       failed: false,
@@ -108,7 +143,9 @@ describe("parseLooseText", () => {
   });
 
   it("parses dates and checkboxes", () => {
-    expect(parseLooseText(prop("date"), "2026-10-19 → 2026-10-22").value).toEqual({
+    expect(
+      parseLooseText(prop("date"), "2026-10-19 → 2026-10-22").value,
+    ).toEqual({
       start: "2026-10-19",
       end: "2026-10-22",
     });
@@ -121,7 +158,11 @@ describe("coerceValue", () => {
   it("keeps option ids between select and multi-select", () => {
     const select = prop("select", { options });
     const multi = prop("multi_select", { options });
-    expect(coerceValue(select, multi, "o1")).toEqual({ value: ["o1"], newOptions: [], lost: false });
+    expect(coerceValue(select, multi, "o1")).toEqual({
+      value: ["o1"],
+      newOptions: [],
+      lost: false,
+    });
     expect(coerceValue(multi, select, ["o1", "o2"]).lost).toBe(true);
   });
 
@@ -137,7 +178,9 @@ describe("coerceValue", () => {
 
 describe("isEmptyValue", () => {
   it("treats null, blanks, false, and empty lists as empty", () => {
-    expect([null, "", false, [], undefined].every((v) => isEmptyValue(v as never))).toBe(true);
+    expect(
+      [null, "", false, [], undefined].every((v) => isEmptyValue(v as never)),
+    ).toBe(true);
     expect(isEmptyValue(0)).toBe(false);
   });
 });

@@ -83,7 +83,9 @@ export function validateValue(
       if (!isDateValue(value)) return fail("expected a date");
       return {
         ok: true,
-        value: value.end ? { start: value.start, end: value.end } : { start: value.start },
+        value: value.end
+          ? { start: value.start, end: value.end }
+          : { start: value.start },
       };
     case "checkbox":
       if (typeof value !== "boolean") return fail("expected true or false");
@@ -107,8 +109,10 @@ export function readValue(
   property: Pick<CollectionProperty, "id" | "kind">,
 ): PropertyValue {
   if (property.id === TITLE_PROPERTY_ID) return row.title;
-  if (property.kind === "created_time") return { start: isoToWallClock(row.createdAt) };
-  if (property.kind === "updated_time") return { start: isoToWallClock(row.updatedAt) };
+  if (property.kind === "created_time")
+    return { start: isoToWallClock(row.createdAt) };
+  if (property.kind === "updated_time")
+    return { start: isoToWallClock(row.updatedAt) };
   return row.properties[property.id] ?? null;
 }
 
@@ -124,7 +128,20 @@ export function isoToWallClock(iso: string): string {
 
 export const datePart = (value: string) => value.slice(0, 10);
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 export function formatDateString(value: string, includeTime = true): string {
   const [y, m, d] = value.slice(0, 10).split("-").map(Number);
@@ -160,7 +177,9 @@ export function formatNumber(value: number, config: PropertyConfig): string {
     case "rating":
       return `${value}/${config.ratingMax ?? 5}`;
     default:
-      return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
+      return Number.isInteger(value)
+        ? String(value)
+        : String(Number(value.toFixed(6)));
   }
 }
 
@@ -174,7 +193,9 @@ export function formatValueText(
     case "text":
       return String(value);
     case "number":
-      return typeof value === "number" ? formatNumber(value, property.config) : "";
+      return typeof value === "number"
+        ? formatNumber(value, property.config)
+        : "";
     case "select":
     case "status":
       return optionById(property.config, value)?.name ?? "";
@@ -189,16 +210,28 @@ export function formatValueText(
     case "created_time":
     case "updated_time": {
       if (!isDateValue(value)) return "";
-      const showTime = property.kind !== "date" || Boolean(property.config.includeTime);
+      const showTime =
+        property.kind !== "date" || Boolean(property.config.includeTime);
       const start = formatDateString(value.start, showTime);
-      return value.end ? `${start} → ${formatDateString(value.end, showTime)}` : start;
+      return value.end
+        ? `${start} → ${formatDateString(value.end, showTime)}`
+        : start;
     }
     case "checkbox":
       return value === true ? "Yes" : "No";
   }
 }
 
-const TRUE_WORDS = new Set(["true", "yes", "y", "1", "x", "done", "checked", "✓"]);
+const TRUE_WORDS = new Set([
+  "true",
+  "yes",
+  "y",
+  "1",
+  "x",
+  "done",
+  "checked",
+  "✓",
+]);
 const FALSE_WORDS = new Set(["false", "no", "n", "0", "", "unchecked"]);
 
 /**
@@ -220,7 +253,8 @@ export function parseLooseText(
       const cleaned = text.replace(/[$,\s]/g, "");
       const pct = cleaned.endsWith("%");
       const n = Number(pct ? cleaned.slice(0, -1) : cleaned);
-      if (!Number.isFinite(n)) return { value: null, newOptions: [], failed: true };
+      if (!Number.isFinite(n))
+        return { value: null, newOptions: [], failed: true };
       let value = pct ? n / 100 : n;
       if (property.config.format === "rating") {
         const max = property.config.ratingMax ?? 5;
@@ -262,7 +296,8 @@ export function parseLooseText(
     }
     case "checkbox": {
       const lower = text.toLowerCase();
-      if (TRUE_WORDS.has(lower)) return { value: true, newOptions: [], failed: false };
+      if (TRUE_WORDS.has(lower))
+        return { value: true, newOptions: [], failed: false };
       if (FALSE_WORDS.has(lower)) return none;
       return { value: null, newOptions: [], failed: true };
     }
@@ -295,23 +330,49 @@ export function coerceValue(
     return { value: null, newOptions: [], lost: false };
   // Select ↔ status ↔ multi-select keep option ids when options carry over.
   const selectLike = (k: PropertyKind) => k === "select" || k === "status";
-  if (selectLike(from.kind) && to.kind === "multi_select" && typeof value === "string")
-    return { value: optionById(to.config, value) ? [value] : null, newOptions: [], lost: !optionById(to.config, value) };
-  if (from.kind === "multi_select" && selectLike(to.kind) && Array.isArray(value)) {
+  if (
+    selectLike(from.kind) &&
+    to.kind === "multi_select" &&
+    typeof value === "string"
+  )
+    return {
+      value: optionById(to.config, value) ? [value] : null,
+      newOptions: [],
+      lost: !optionById(to.config, value),
+    };
+  if (
+    from.kind === "multi_select" &&
+    selectLike(to.kind) &&
+    Array.isArray(value)
+  ) {
     const first = value.find((id) => optionById(to.config, id));
-    return { value: first ?? null, newOptions: [], lost: value.length > 1 || !first };
+    return {
+      value: first ?? null,
+      newOptions: [],
+      lost: value.length > 1 || !first,
+    };
   }
-  if (selectLike(from.kind) && selectLike(to.kind) && typeof value === "string") {
+  if (
+    selectLike(from.kind) &&
+    selectLike(to.kind) &&
+    typeof value === "string"
+  ) {
     const ok = Boolean(optionById(to.config, value));
     return { value: ok ? value : null, newOptions: [], lost: !ok };
   }
-  if (from.kind === "date" && to.kind === "date") return { value, newOptions: [], lost: false };
+  if (from.kind === "date" && to.kind === "date")
+    return { value, newOptions: [], lost: false };
   const text = formatValueText(from, value);
-  const parsed = parseLooseText(to, from.kind === "number" ? String(value) : text);
+  const parsed = parseLooseText(
+    to,
+    from.kind === "number" ? String(value) : text,
+  );
   return {
     value: parsed.value,
     newOptions: parsed.newOptions,
-    lost: parsed.failed || (parsed.value === null && parsed.newOptions.length === 0 && text !== ""),
+    lost:
+      parsed.failed ||
+      (parsed.value === null && parsed.newOptions.length === 0 && text !== ""),
   };
 }
 

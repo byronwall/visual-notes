@@ -1,6 +1,7 @@
 import { useAction } from "@solidjs/router";
 import { batch, createEffect, createSignal, on } from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
+import { rankBetween } from "~/lib/collections/rank";
 import { useToasts } from "~/components/Toast";
 import type {
   CollectionBundle,
@@ -235,6 +236,7 @@ export function createCollectionStore(
       }
     },
 
+    /** Moves a row between two ranks (and optionally patches values), optimistically. */
     async moveRow(
       rowId: string,
       afterRank: string | null,
@@ -242,16 +244,24 @@ export function createCollectionStore(
       patch?: Record<string, PropertyValue>,
     ) {
       const snap = snapshotRows([rowId]);
+      let rank: string;
       try {
-        const pending = run.moveRow({
+        rank = rankBetween(afterRank, beforeRank);
+      } catch {
+        rank = rankBetween(afterRank, null);
+        beforeRank = null;
+      }
+      setState("rows", (r) => r.id === rowId, "rank", rank);
+      if (patch) void api.setValues([rowId], patch);
+      try {
+        const result = await run.moveRow({
           collectionId: state.collection.id,
           docId: rowId,
           afterRank,
           beforeRank,
         });
-        if (patch) void api.setValues([rowId], patch);
-        const { rank } = await pending;
-        setState("rows", (r) => r.id === rowId, "rank", rank);
+        if (result.rank !== rank)
+          setState("rows", (r) => r.id === rowId, "rank", result.rank);
       } catch (error) {
         restoreRows(snap);
         fail("Couldn't move the row", error);

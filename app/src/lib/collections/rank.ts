@@ -8,7 +8,10 @@ const digit = (s: string, i: number, fallback: number) =>
   i < s.length ? DIGITS.indexOf(s[i]!) : fallback;
 
 /** Returns a rank strictly between `before` and `after` (either may be null). */
-export function rankBetween(before: string | null, after: string | null): string {
+export function rankBetween(
+  before: string | null,
+  after: string | null,
+): string {
   const a = before ?? "";
   const b = after ?? "";
   if (a && b && a >= b) throw new Error(`rankBetween: ${a} >= ${b}`);
