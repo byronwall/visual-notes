@@ -16,6 +16,7 @@ vi.mock("~/server/db", () => ({
 vi.mock("~/server/events/action-events", () => ({ logActionEvent }));
 
 import { searchDocs } from "./docs.queries.search";
+import { searchableText } from "~/server/notes/note-store";
 
 const date = new Date("2026-10-16T12:00:00.000Z");
 
@@ -29,8 +30,7 @@ const doc = (
   title: `Note ${id}`,
   updatedAt: date,
   path,
-  html,
-  markdown,
+  searchText: searchableText({ html, markdown }),
   share: null,
 });
 
@@ -44,8 +44,8 @@ afterEach(() => {
   logActionEvent.mockReset();
 });
 
-describe("searchDocs current body search", () => {
-  it("searches current HTML, joins inline text, decodes entities, and falls back to Markdown", async () => {
+describe("searchDocs indexed body search", () => {
+  it("preserves decoded text, punctuation, and snippets", async () => {
     const htmlDoc = doc(
       "html-note",
       "<p>newmark caf&eacute; &#x1F600; &amp; un<strong>expected</strong> C/C++</p><p>next block</p>",
@@ -159,15 +159,15 @@ describe("searchDocs current body search", () => {
     expect(blockJoinResults.map((item) => item.id)).not.toContain("html-note");
   });
 
-  it("scans every filtered page and applies activity ranking and take", async () => {
-    const firstPage = Array.from({ length: 250 }, (_, index) =>
+  it("ranks every matching page with activity filters before applying take", async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) =>
       doc(`note-${index}`, "<p>sharedneedle</p>", "", "/keep.item")
     );
     const lastDoc = doc("last-page", "<p>sharedneedle</p>", "", "/keep.last");
     let bodyPage = 0;
     findDocs.mockImplementation(async (args) => {
-      if (!args.select?.html) return [];
-      expect(args.where).toMatchObject({
+      if (!args.select?.searchText) return [];
+      expect(args.where.AND[0]).toMatchObject({
         AND: [{ OR: [{ path: "/keep" }, { path: { startsWith: "/keep." } }] }],
       });
       bodyPage += 1;
@@ -223,5 +223,38 @@ describe("searchDocs single-character queries", () => {
         payload: expect.objectContaining({ queryPreview: "C++", tokenCount: 1 }),
       }),
     );
+  });
+});
+
+
+describe("searchDocs database candidates", () => {
+  it("filters by literal body substrings without loading source content", async () => {
+    findDocs.mockResolvedValue([]);
+    await searchDocs({ q: "50% some_path C:\\notes" });
+    expect(findDocs.mock.calls[0][0].where.OR[0]).toEqual({
+      title: { contains: "50\\% some\\_path C:\\\\notes", mode: "insensitive" },
+    });
+    const body = findDocs.mock.calls[1][0];
+    expect(body.select.searchText).toBe(true);
+    expect(body.select).not.toHaveProperty("html");
+    expect(body.select).not.toHaveProperty("markdown");
+    expect(body.select).not.toHaveProperty("content");
+    expect(body.where.AND[1].OR).toContainEqual({
+      searchText: { contains: "50\\%", mode: "insensitive" },
+    });
+    expect(body.where.AND[1].OR).toContainEqual({
+      searchText: { contains: "some\\_path", mode: "insensitive" },
+    });
+    expect(body.where.AND[1].OR).toContainEqual({
+      searchText: { contains: "c:\\\\notes", mode: "insensitive" },
+    });
+  });
+
+  it("keeps tokens split between title and body and rejects incomplete matches", async () => {
+    findDocs.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { ...doc("match", "<p>camping gear</p>"), title: "Scout trip" },
+      doc("incomplete", "<p>camping gear</p>"),
+    ]);
+    expect((await searchDocs({ q: "scout camping" })).map((hit) => hit.id)).toEqual(["match"]);
   });
 });

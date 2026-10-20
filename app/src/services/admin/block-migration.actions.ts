@@ -17,7 +17,6 @@ export const runBlockMigration = action(
     "use server";
     const batch = await runBlockMigrationBatch({
       dryRun: input.dryRun,
-      limit: 200,
       cursor: input.cursor ?? null,
     });
     return json(batch, { revalidate: [fetchBlockMigrationCounts.key] });
