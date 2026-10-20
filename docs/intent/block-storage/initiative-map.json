@@ -4,11 +4,11 @@
     "title": "Block-based note storage",
     "slug": "block-storage",
     "scale": "program",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-19",
     "summary": "Replace dual html/markdown note storage with canonical TipTap JSON blocks (stable IDs) plus derived block/link indexes, enabling links+backlinks, inline TaskItems, fixed cross-note views, and block-level AI/MCP edits; remove bulk ingest.",
-    "status": "planned",
-    "next_action": "Implement m1 (remove ingest), then m2; user to supply notes pg_dump for dry run"
+    "status": "active",
+    "next_action": "User: review/merge the stack, deploy, run Admin > Migrations dry run then convert on prod; m9 (drop legacy columns) after soak"
   },
   "artifacts": {
     "intent_brief": {
@@ -602,8 +602,10 @@
         "proof": "lint/type-check/test; rg shows no ingest refs; MCP create tests pass",
         "valid_intermediate_state": "App unchanged for users; MCP identity columns kept",
         "rollback": "Revert PR",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-01-remove-ingest; lint/type-check/test green"
+        ]
       },
       {
         "id": "m2",
@@ -616,8 +618,10 @@
         "proof": "Fixture round-trip Vitest; dry-run loss report; 3 save/reload cycles with unchanged IDs",
         "valid_intermediate_state": "Legacy readers keep working from dual-written columns",
         "rollback": "NOTE_CONTENT_READ=legacy; additive schema",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-02-block-content; dry run on 62-note audit DB: 0 notes >2% loss; IDs stable across 3 edit/save/reload cycles in browser"
+        ]
       },
       {
         "id": "m3",
@@ -627,8 +631,10 @@
         "proof": "Projection Vitest (dup ids, move, deleted target); browser link/rename/backlink check",
         "valid_intermediate_state": "Index tables derived; deletable and rebuildable from content",
         "rollback": "Hide [[ suggestion; drop derived tables",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-03-links-backlinks; [[ picker, rename-proof labels, backlinks, cross-note paste keeps id (browser)"
+        ]
       },
       {
         "id": "m4",
@@ -638,8 +644,10 @@
         "proof": "rg audit of legacy column reads; legacy read switch still works; derived-text timing spike",
         "valid_intermediate_state": "Dual-write continues",
         "rollback": "NOTE_CONTENT_READ=legacy",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-04-readers; search/previews/share/embeddings/title read blocks"
+        ]
       },
       {
         "id": "m5",
@@ -649,8 +657,10 @@
         "proof": "merge.ts Vitest table; two-tab Playwright",
         "valid_intermediate_state": "Version check only adds behavior when versions differ",
         "rollback": "Fall back to last-write-wins by ignoring baseVersion",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-05-block-merge; merge.test.ts table; two-tab browser test: different-block edits both kept, same-block conflict -> revision + toast"
+        ]
       },
       {
         "id": "m6",
@@ -660,8 +670,10 @@
         "proof": "notes-write tests; mcp-smoke edits one block, others byte-identical",
         "valid_intermediate_state": "Existing MCP tools keep their contract",
         "rollback": "Unregister edit_note",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-06-mcp-block-edits; mcp-smoke all PASS incl. edit_note byte-identical check; open editor picked up ChatGPT edit"
+        ]
       },
       {
         "id": "m7",
@@ -671,8 +683,10 @@
         "proof": "Toggle in note shows in Tasks and vice versa; block delete detaches task",
         "valid_intermediate_state": "Tasks without source fields unaffected",
         "rollback": "Remove taskRef from slash menu/input rule",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-07-inline-tasks; /task creates Inbox TaskItems, two-way status sync, delete detaches (browser + DB)"
+        ]
       },
       {
         "id": "m8",
@@ -682,8 +696,10 @@
         "proof": "Playwright route render, click targets, anchor highlight",
         "valid_intermediate_state": "Views read-only over derived data",
         "rollback": "Hide routes",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "vn/blocks-08-views; /tags, /tags/<tag>, /views/note-tasks verified in dev and production build"
+        ]
       },
       {
         "id": "m9",
