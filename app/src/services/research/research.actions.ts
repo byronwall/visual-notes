@@ -54,3 +54,55 @@ export const setResearchCardState = action(
   },
   "research-card-state",
 );
+
+/** Accept or un-accept a summary draft. Only accepted groups fold on the canvas. */
+export const setResearchSummaryStatus = action(
+  async (payload: { groupId: string; status: "draft" | "accepted" }) => {
+    "use server";
+    const input = z.object({ groupId: idString, status: z.enum(["draft", "accepted"]) }).parse(payload);
+    await prisma.researchSummaryGroup.update({ where: { id: input.groupId }, data: { status: input.status } });
+    return { ok: true };
+  },
+  "research-summary-status",
+);
+
+/** Edit a summary's text; editing a draft also accepts it (you have reviewed it). */
+export const updateResearchSummary = action(
+  async (payload: { groupId: string; title: string; body: string }) => {
+    "use server";
+    const input = z
+      .object({ groupId: idString, title: z.string().trim().min(1).max(300), body: z.string().max(20_000) })
+      .parse(payload);
+    const group = await prisma.researchSummaryGroup.findUniqueOrThrow({ where: { id: input.groupId } });
+    await prisma.$transaction([
+      prisma.researchCard.update({
+        where: { id: group.summaryCardId },
+        data: { title: input.title, body: input.body },
+      }),
+      prisma.researchSummaryGroup.update({ where: { id: group.id }, data: { status: "accepted" } }),
+    ]);
+    return { ok: true };
+  },
+  "research-summary-update",
+);
+
+/** Discard hides the summary card (soft, like every other removal). */
+export const discardResearchSummary = action(async (payload: { groupId: string }) => {
+  "use server";
+  const input = z.object({ groupId: idString }).parse(payload);
+  const group = await prisma.researchSummaryGroup.findUniqueOrThrow({ where: { id: input.groupId } });
+  await prisma.researchCard.update({ where: { id: group.summaryCardId }, data: { hiddenAt: new Date() } });
+  return { ok: true };
+}, "research-summary-discard");
+
+/** Persist a dragged card's offset from its computed layout position. */
+export const setResearchCardNudge = action(
+  async (payload: { id: string; x: number | null; y: number | null }) => {
+    "use server";
+    const coord = z.number().finite().min(-100_000).max(100_000).nullable();
+    const input = z.object({ id: idString, x: coord, y: coord }).parse(payload);
+    await prisma.researchCard.update({ where: { id: input.id }, data: { nudgeX: input.x, nudgeY: input.y } });
+    return { ok: true };
+  },
+  "research-card-nudge",
+);

@@ -1,16 +1,41 @@
-import { A } from "@solidjs/router";
-import { Show } from "solid-js";
+import { A, useSearchParams } from "@solidjs/router";
+import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { countOpen } from "~/services/research/research.graph";
+import { TopicCanvas } from "./canvas/TopicCanvas";
 import { createTopicData } from "./createTopicData";
+import { CardDetailPanel } from "./detail/CardDetailPanel";
 import { TopicBatchList } from "./TopicBatchList";
 import { TopicOutline } from "./TopicOutline";
 
 const crumbLinkClass = css({ color: "blue.11", textDecoration: "none", _hover: { color: "blue.12" } });
 
+const tabClass = css({
+  px: "2",
+  h: "7",
+  fontSize: "sm",
+  color: "fg.muted",
+  borderRadius: "l1",
+  cursor: "pointer",
+  transitionProperty: "background-color, color",
+  transitionDuration: "140ms",
+  _hover: { bg: "gray.a3", color: "fg.default" },
+  "&[data-active=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
+});
+
+const VIEWS = [
+  { id: "canvas", label: "Canvas" },
+  { id: "outline", label: "Outline" },
+] as const;
+
 export const ResearchTopicPage = (props: { slug: string }) => {
   const data = createTopicData(() => props.slug);
+  const [params, setParams] = useSearchParams<{ view?: string; card?: string }>();
+  const view = () => (params.view === "outline" ? "outline" : "canvas");
   const nowMs = () => Date.parse(data.current()?.generatedAt ?? "") || 0;
+  const selected = () => (params.card ? (data.cardsById().get(params.card) ?? null) : null);
+  const select = (id: string | null) => setParams({ card: id ?? undefined }, { replace: true });
+  const plainCount = () => data.cards().filter((card) => card.type !== "summary").length;
 
   return (
     <Show
@@ -28,10 +53,12 @@ export const ResearchTopicPage = (props: { slug: string }) => {
           <header
             class={css({
               display: "flex",
-              alignItems: "baseline",
-              gap: "3",
+              flexWrap: "wrap",
+              alignItems: "center",
+              rowGap: "1",
+              columnGap: "3",
               px: "4",
-              py: "2",
+              py: "1.5",
               borderBottomWidth: "1px",
               borderColor: "border",
             })}
@@ -41,24 +68,43 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               <span class={css({ color: "fg.subtle" })}>/</span>
               <h1 class={css({ fontWeight: "semibold" })}>{graph().topic.title}</h1>
             </nav>
-            <span class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
-              <span class={css({ color: "amber.11" })}>{countOpen(data.cards())} open</span> · {data.cards().filter((card) => card.type !== "summary").length} cards
+            <span class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums", flex: 1 })}>
+              <span class={css({ color: "amber.11" })}>{countOpen(data.cards())} open</span> · {plainCount()} cards
             </span>
+            <div role="tablist" aria-label="Topic view" class={css({ display: "flex", gap: "0.5" })}>
+              <For each={VIEWS}>
+                {(entry) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view() === entry.id}
+                    class={tabClass}
+                    data-active={view() === entry.id}
+                    onClick={() => setParams({ view: entry.id === "canvas" ? undefined : entry.id }, { replace: true })}
+                  >
+                    {entry.label}
+                  </button>
+                )}
+              </For>
+            </div>
           </header>
           <div
             class={css({
               flex: 1,
               minH: 0,
               display: "grid",
-              gridTemplateColumns: { base: "1fr", lg: "minmax(0, 1fr) 18rem" },
+              gridTemplateColumns: { base: "1fr", lg: "minmax(0, 1fr) 20rem" },
+              gridTemplateRows: { base: "minmax(0, 1fr) auto", lg: "minmax(0, 1fr)" },
             })}
           >
-            <main class={css({ overflowY: "auto", px: "3", py: "2" })}>
+            <main class={css({ minH: 0, overflow: view() === "canvas" ? "hidden" : "auto" })}>
               <Show
                 when={data.cards().length}
-                fallback={<p class={css({ color: "fg.muted", fontSize: "sm", p: "3" })}>Empty topic. Point an agent at it to start.</p>}
+                fallback={<p class={css({ color: "fg.muted", fontSize: "sm", p: "4" })}>Empty topic. Point an agent at it to start.</p>}
               >
-                <TopicOutline data={data} />
+                <Show when={view() === "canvas"} fallback={<div class={css({ px: "3", py: "2" })}><TopicOutline data={data} selectedId={selected()?.id ?? null} onSelect={select} /></div>}>
+                  <TopicCanvas data={data} selectedId={selected()?.id ?? null} onSelect={select} />
+                </Show>
               </Show>
             </main>
             <aside
@@ -67,11 +113,14 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 borderTopWidth: { base: "1px", lg: "0" },
                 borderColor: "border",
                 overflowY: "auto",
+                maxH: { base: "45dvh", lg: "none" },
                 px: "3",
                 py: "2",
               })}
             >
-              <TopicBatchList data={data} nowMs={nowMs()} />
+              <Show when={selected()} fallback={<TopicBatchList data={data} nowMs={nowMs()} />}>
+                {(card) => <CardDetailPanel data={data} card={card()} onSelect={select} />}
+              </Show>
             </aside>
           </div>
         </div>
