@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as convert from "~/lib/note-content/convert";
-import { noteText } from "./note-store";
+import { contentColumns, noteText } from "./note-store";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -43,4 +43,12 @@ describe("noteText", () => {
     vi.stubEnv("NOTE_CONTENT_READ", "legacy");
     expect(noteText(row)).toBe("Legacy text");
   });
+});
+
+
+it("stores normalized search text on content writes, including legacy reads", () => {
+  const doc = convert.fromHtml("<p>un<strong>expected</strong> &amp;</p><p>next block</p>");
+  expect(contentColumns(doc).searchText).toBe("unexpected & next block");
+  vi.stubEnv("NOTE_CONTENT_READ", "legacy");
+  expect(contentColumns(doc).searchText).toBe("unexpected & next block");
 });

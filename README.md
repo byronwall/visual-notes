@@ -85,6 +85,8 @@ This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.
 - Builds the app image, then runs it on port 3000.
 - On container start, the app runs `prisma migrate deploy` automatically.
+- Before serving requests, it fills missing `Doc.searchText` values in batches. This preserves note edit dates.
+- Content writes keep plain search text current. PostgreSQL uses a `pg_trgm` index for substring matches.
 
 ### Environment (overrides)
 
