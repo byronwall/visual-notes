@@ -5,12 +5,14 @@ import {
   createMemo,
   onCleanup,
   createSignal,
+  untrack,
   type Accessor,
   type VoidComponent,
 } from "solid-js";
 import { Box } from "styled-system/jsx";
 import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 import { colorFor } from "~/utils/colors";
+import { CanvasDotLayer } from "./CanvasDotLayer";
 import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
 import type { createSelectionStore } from "~/stores/selection.store";
@@ -207,27 +209,33 @@ function computeLabelBox(args: {
   };
 }
 
-function snapWorldCoordinate(value: number, zoomScale: number, screenOffset: number) {
+function snapWorldCoordinate(
+  value: number,
+  zoomScale: number,
+  screenOffset: number,
+) {
   const screenValue = value * zoomScale + screenOffset;
   const snappedScreenValue = Math.round(screenValue * 2) / 2;
   return (snappedScreenValue - screenOffset) / zoomScale;
 }
 
-function snapRegionLabelLayout<T extends {
-  textAnchor: "start" | "middle" | "end";
-  textX: number;
-  textY: number;
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  leaderEndX: number;
-  leaderEndY: number;
-  elbowX: number;
-  elbowY: number;
-  edgeX: number;
-  edgeY: number;
-}>(layout: T, args: { zoomScale: number; offset: Point }) {
+function snapRegionLabelLayout<
+  T extends {
+    textAnchor: "start" | "middle" | "end";
+    textX: number;
+    textY: number;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    leaderEndX: number;
+    leaderEndY: number;
+    elbowX: number;
+    elbowY: number;
+    edgeX: number;
+    edgeY: number;
+  },
+>(layout: T, args: { zoomScale: number; offset: Point }) {
   return {
     ...layout,
     textX: snapWorldCoordinate(layout.textX, args.zoomScale, args.offset.x),
@@ -239,12 +247,12 @@ function snapRegionLabelLayout<T extends {
     leaderEndX: snapWorldCoordinate(
       layout.leaderEndX,
       args.zoomScale,
-      args.offset.x
+      args.offset.x,
     ),
     leaderEndY: snapWorldCoordinate(
       layout.leaderEndY,
       args.zoomScale,
-      args.offset.y
+      args.offset.y,
     ),
     elbowX: snapWorldCoordinate(layout.elbowX, args.zoomScale, args.offset.x),
     elbowY: snapWorldCoordinate(layout.elbowY, args.zoomScale, args.offset.y),
@@ -257,18 +265,18 @@ function measureBoxOverlap(
   box: { minX: number; minY: number; maxX: number; maxY: number },
   placed: Array<{ minX: number; minY: number; maxX: number; maxY: number }>,
   spacingX: number,
-  spacingY: number
+  spacingY: number,
 ) {
   return placed.reduce((penalty, placedBox) => {
     const overlapX = Math.max(
       0,
       Math.min(box.maxX + spacingX, placedBox.maxX) -
-        Math.max(box.minX - spacingX, placedBox.minX)
+        Math.max(box.minX - spacingX, placedBox.minX),
     );
     const overlapY = Math.max(
       0,
       Math.min(box.maxY + spacingY, placedBox.maxY) -
-        Math.max(box.minY - spacingY, placedBox.minY)
+        Math.max(box.minY - spacingY, placedBox.minY),
     );
     return penalty + overlapX * overlapY;
   }, 0);
@@ -283,12 +291,14 @@ function measureRegionBoxContest(args: {
   let selfOverlap = 0;
   let otherOverlap = 0;
   for (const other of args.regions) {
-    const pad = other.id === args.regionId ? 2 / args.zoomScale : 8 / args.zoomScale;
+    const pad =
+      other.id === args.regionId ? 2 / args.zoomScale : 8 / args.zoomScale;
     const closestX = clamp(other.centroid.x, args.box.minX, args.box.maxX);
     const closestY = clamp(other.centroid.y, args.box.minY, args.box.maxY);
     const dx = other.centroid.x - closestX;
     const dy = other.centroid.y - closestY;
-    const gap = Math.sqrt(dx * dx + dy * dy) - (Math.max(18, other.radius) + pad);
+    const gap =
+      Math.sqrt(dx * dx + dy * dy) - (Math.max(18, other.radius) + pad);
     if (gap < 0) {
       if (other.id === args.regionId) selfOverlap += gap * gap;
       else otherOverlap += gap * gap;
@@ -298,7 +308,7 @@ function measureRegionBoxContest(args: {
 }
 
 function buildStableRegionLabelOrder(
-  regions: NonNullable<UmapRegionsSnapshot["regions"]>
+  regions: NonNullable<UmapRegionsSnapshot["regions"]>,
 ) {
   if (regions.length <= 1) {
     return regions.map((region) => region.id);
@@ -310,7 +320,7 @@ function buildStableRegionLabelOrder(
       (a, b) =>
         b.docCount - a.docCount ||
         b.radius - a.radius ||
-        a.title.localeCompare(b.title)
+        a.title.localeCompare(b.title),
     );
   const maxDocCount = Math.max(...regions.map((region) => region.docCount), 1);
   const maxRadius = Math.max(...regions.map((region) => region.radius), 1);
@@ -319,19 +329,21 @@ function buildStableRegionLabelOrder(
       x: acc.x + region.centroid.x,
       y: acc.y + region.centroid.y,
     }),
-    { x: 0, y: 0 }
+    { x: 0, y: 0 },
   );
   center.x /= regions.length;
   center.y /= regions.length;
   const maxCenterDistance = Math.max(
     ...regions.map((region) =>
-      Math.hypot(region.centroid.x - center.x, region.centroid.y - center.y)
+      Math.hypot(region.centroid.x - center.x, region.centroid.y - center.y),
     ),
-    1
+    1,
   );
 
   const ordered = [baseSorted[0]];
-  const remaining = new Map(baseSorted.slice(1).map((region) => [region.id, region]));
+  const remaining = new Map(
+    baseSorted.slice(1).map((region) => [region.id, region]),
+  );
 
   while (remaining.size > 0) {
     let bestId: string | undefined;
@@ -344,8 +356,8 @@ function buildStableRegionLabelOrder(
           nearestDistance,
           Math.hypot(
             region.centroid.x - selected.centroid.x,
-            region.centroid.y - selected.centroid.y
-          )
+            region.centroid.y - selected.centroid.y,
+          ),
         );
       }
       const gapScore = nearestDistance / SPREAD;
@@ -353,7 +365,7 @@ function buildStableRegionLabelOrder(
         region.docCount / maxDocCount + region.radius / maxRadius;
       const centerDistance = Math.hypot(
         region.centroid.x - center.x,
-        region.centroid.y - center.y
+        region.centroid.y - center.y,
       );
       const centralityScore = 1 - centerDistance / maxCenterDistance;
       const score = gapScore * 0.62 + sizeScore * 0.28 + centralityScore * 0.1;
@@ -384,11 +396,11 @@ function getVisibleRegionLabelCount(args: {
   const ratio = smoothstep(
     args.regionsOnly ? 0.34 : 0.44,
     args.regionsOnly ? 1.1 : 0.9,
-    args.zoomScale
+    args.zoomScale,
   );
   return Math.max(
     minCount,
-    Math.min(maxCount, Math.round(minCount + (maxCount - minCount) * ratio))
+    Math.min(maxCount, Math.round(minCount + (maxCount - minCount) * ratio)),
   );
 }
 
@@ -447,7 +459,7 @@ function buildRegionLabelLayouts(args: {
       70 / args.zoomScale,
       Math.max(...lines.map((line) => line.length), 8) *
         args.labelFontSize *
-        0.42
+        0.42,
     );
     const labelHeight = lines.length * lineHeight + 4 / args.zoomScale;
     let best:
@@ -572,7 +584,7 @@ function buildRegionLabelLayouts(args: {
         64 / args.zoomScale,
         Math.max(...lines.map((line) => line.length), 8) *
           args.labelFontSize *
-          0.42
+          0.42,
       ),
       labelHeight,
       labelFontSize: args.labelFontSize,
@@ -633,7 +645,7 @@ function buildRegionLabelLayouts(args: {
         box,
         placed,
         labelSpacingX,
-        labelSpacingY
+        labelSpacingY,
       );
       const contest = measureRegionBoxContest({
         box,
@@ -660,13 +672,17 @@ function buildRegionLabelLayouts(args: {
       });
     }
 
-    const insidePenaltyBase = canOverlapSelectedRegion ? 40 : isSelected ? 420 : 140;
+    const insidePenaltyBase = canOverlapSelectedRegion
+      ? 40
+      : isSelected
+        ? 420
+        : 140;
     for (const box of [insideTopRight, centeredInside]) {
       const overlapPenalty = measureBoxOverlap(
         box,
         placed,
         labelSpacingX,
-        labelSpacingY
+        labelSpacingY,
       );
       const contest = measureRegionBoxContest({
         box,
@@ -689,15 +705,25 @@ function buildRegionLabelLayouts(args: {
       });
     }
 
-    const rankedCandidates = candidateLayouts.slice().sort((a, b) => a.score - b.score);
+    const rankedCandidates = candidateLayouts
+      .slice()
+      .sort((a, b) => a.score - b.score);
     const chosen =
       isSelected && !canOverlapSelectedRegion
         ? rankedCandidates.find((candidate) => candidate.showLeader) ??
           rankedCandidates[0]
         : rankedCandidates[0];
     if (!chosen) continue;
-    const leaderEndX = clamp(region.centroid.x, chosen.box.minX, chosen.box.maxX);
-    const leaderEndY = clamp(region.centroid.y, chosen.box.minY, chosen.box.maxY);
+    const leaderEndX = clamp(
+      region.centroid.x,
+      chosen.box.minX,
+      chosen.box.maxX,
+    );
+    const leaderEndY = clamp(
+      region.centroid.y,
+      chosen.box.minY,
+      chosen.box.maxY,
+    );
     const dx = leaderEndX - region.centroid.x;
     const dy = leaderEndY - region.centroid.y;
     const leaderLength = Math.max(1, Math.sqrt(dx * dx + dy * dy));
@@ -770,7 +796,7 @@ function buildStableNoteLabelOrder(args: {
           acc.count += 1;
           return acc;
         },
-        { x: 0, y: 0, count: 0 }
+        { x: 0, y: 0, count: 0 },
       );
   const centerPoint =
     "count" in center
@@ -780,61 +806,68 @@ function buildStableNoteLabelOrder(args: {
         }
       : center;
 
-  const remaining = new Map(
-    args.docs
-      .map((doc) => {
-        const pos = args.positions.get(doc.id);
-        return pos ? [doc.id, { doc, pos }] : null;
-      })
-      .filter((entry): entry is [string, { doc: DocItem; pos: Point }] => !!entry)
-  );
-  if (remaining.size === 0) return [];
-
-  let firstId: string | undefined;
-  let firstDist = Number.NEGATIVE_INFINITY;
-  for (const [docId, entry] of remaining) {
-    const dist = Math.hypot(entry.pos.x - centerPoint.x, entry.pos.y - centerPoint.y);
-    if (dist > firstDist) {
-      firstDist = dist;
-      firstId = docId;
-    }
+  const entries: Array<{ doc: DocItem; pos: Point }> = [];
+  for (const doc of args.docs) {
+    const pos = args.positions.get(doc.id);
+    if (pos) entries.push({ doc, pos });
   }
-  if (!firstId) return [];
-  const ordered = [remaining.get(firstId)!];
-  remaining.delete(firstId);
+  if (entries.length === 0) return [];
 
-  const limit = args.limit ?? Number.POSITIVE_INFINITY;
-  while (remaining.size > 0 && ordered.length < limit) {
-    let bestId: string | undefined;
+  // Farthest-point ordering. Each candidate keeps its distance to the nearest
+  // already-ordered note, refreshed only against the newest pick, so a pass
+  // costs O(limit × notes) rather than O(limit² × notes).
+  const count = entries.length;
+  const baseScore = new Float64Array(count);
+  const nearest = new Float64Array(count).fill(Number.POSITIVE_INFINITY);
+  const taken = new Uint8Array(count);
+  let firstIndex = -1;
+  let firstDist = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < count; i++) {
+    const { doc, pos } = entries[i]!;
+    const centerDistance = Math.hypot(
+      pos.x - centerPoint.x,
+      pos.y - centerPoint.y,
+    );
+    if (centerDistance > firstDist) {
+      firstDist = centerDistance;
+      firstIndex = i;
+    }
+    const titlePenalty = Math.max(0, doc.title.length - 28) * 0.08;
+    baseScore[i] = centerDistance * 0.22 - titlePenalty;
+  }
+  if (firstIndex < 0) return [];
+
+  const ordered = [entries[firstIndex]!.doc.id];
+  taken[firstIndex] = 1;
+  let last = entries[firstIndex]!.pos;
+  const limit = Math.min(args.limit ?? Number.POSITIVE_INFINITY, count);
+  while (ordered.length < limit) {
+    let bestIndex = -1;
     let bestScore = Number.NEGATIVE_INFINITY;
-    for (const [docId, entry] of remaining) {
-      let nearestDistance = Number.POSITIVE_INFINITY;
-      for (const selected of ordered) {
-        nearestDistance = Math.min(
-          nearestDistance,
-          Math.hypot(entry.pos.x - selected.pos.x, entry.pos.y - selected.pos.y)
-        );
-      }
-      const centerDistance = Math.hypot(
-        entry.pos.x - centerPoint.x,
-        entry.pos.y - centerPoint.y
-      );
-      const titlePenalty = Math.max(0, entry.doc.title.length - 28) * 0.08;
-      const score = nearestDistance + centerDistance * 0.22 - titlePenalty;
+    for (let i = 0; i < count; i++) {
+      if (taken[i]) continue;
+      const pos = entries[i]!.pos;
+      const dist = Math.hypot(pos.x - last.x, pos.y - last.y);
+      if (dist < nearest[i]!) nearest[i] = dist;
+      const score = nearest[i]! + baseScore[i]!;
       if (score > bestScore) {
         bestScore = score;
-        bestId = docId;
+        bestIndex = i;
       }
     }
-    if (!bestId) break;
-    ordered.push(remaining.get(bestId)!);
-    remaining.delete(bestId);
+    if (bestIndex < 0) break;
+    taken[bestIndex] = 1;
+    ordered.push(entries[bestIndex]!.doc.id);
+    last = entries[bestIndex]!.pos;
   }
 
-  return ordered.map((entry) => entry.doc.id);
+  return ordered;
 }
 
-function getVisibleNoteLabelCount(args: { visibleCount: number; zoomScale: number }) {
+function getVisibleNoteLabelCount(args: {
+  visibleCount: number;
+  zoomScale: number;
+}) {
   if (args.visibleCount <= 0) return 0;
   const minCount = Math.min(5, args.visibleCount);
   const maxCount = Math.min(13, args.visibleCount);
@@ -842,7 +875,7 @@ function getVisibleNoteLabelCount(args: { visibleCount: number; zoomScale: numbe
   const ratio = smoothstep(1.1, 2.35, args.zoomScale);
   return Math.max(
     minCount,
-    Math.min(maxCount, Math.round(minCount + (maxCount - minCount) * ratio))
+    Math.min(maxCount, Math.round(minCount + (maxCount - minCount) * ratio)),
   );
 }
 
@@ -905,7 +938,7 @@ function buildNoteLabelLayouts(args: {
       Math.max(...lines.map((line) => line.length), 8) *
         args.labelFontSize *
         0.54 +
-        10 / args.zoomScale
+        10 / args.zoomScale,
     );
     const labelHeight = lines.length * lineHeight + 6 / args.zoomScale;
     let best:
@@ -924,22 +957,22 @@ function buildNoteLabelLayouts(args: {
           : reservedMaxAngle + 0.14
         : rawAngle;
     const angleCandidates = [0, -0.22, 0.22, -0.42, 0.42, -0.66, 0.66].map(
-      (offset) => baseAngle + offset
+      (offset) => baseAngle + offset,
     );
     const noteDistanceFromCenter = Math.hypot(
       pos.x - regionCenter.x,
-      pos.y - regionCenter.y
+      pos.y - regionCenter.y,
     );
     const perimeterBase = args.selectedRegion
       ? Math.max(
           args.selectedRegion.radius + (28 - inwardBias * 18) / args.zoomScale,
-          noteDistanceFromCenter + (28 - inwardBias * 18) / args.zoomScale
+          noteDistanceFromCenter + (28 - inwardBias * 18) / args.zoomScale,
         )
       : 36 / args.zoomScale;
     const innerBase = args.selectedRegion
       ? Math.max(
           noteDistanceFromCenter + (10 - inwardBias * 4) / args.zoomScale,
-          args.selectedRegion.radius * (0.2 + inwardBias * 0.24)
+          args.selectedRegion.radius * (0.2 + inwardBias * 0.24),
         )
       : 20 / args.zoomScale;
     const anchorBase = args.selectedRegion
@@ -1016,12 +1049,12 @@ function buildNoteLabelLayouts(args: {
           const overlapX = Math.max(
             0,
             Math.min(boxMaxX + labelSpacingX, box.maxX) -
-              Math.max(boxMinX - labelSpacingX, box.minX)
+              Math.max(boxMinX - labelSpacingX, box.minX),
           );
           const overlapY = Math.max(
             0,
             Math.min(boxMaxY + labelSpacingY, box.maxY) -
-              Math.max(boxMinY - labelSpacingY, box.minY)
+              Math.max(boxMinY - labelSpacingY, box.minY),
           );
           return penalty + overlapX * overlapY;
         }, 0);
@@ -1033,12 +1066,18 @@ function buildNoteLabelLayouts(args: {
         const regionDistancePenalty =
           args.selectedRegion == null
             ? 0
-            : Math.hypot(boxCenterX - regionCenter.x, boxCenterY - regionCenter.y) *
+            : Math.hypot(
+                boxCenterX - regionCenter.x,
+                boxCenterY - regionCenter.y,
+              ) *
               (0.03 + inwardBias * 0.08);
         const viewportCenterPenalty =
           viewportCenter == null
             ? 0
-            : Math.hypot(boxCenterX - viewportCenter.x, boxCenterY - viewportCenter.y) *
+            : Math.hypot(
+                boxCenterX - viewportCenter.x,
+                boxCenterY - viewportCenter.y,
+              ) *
               inwardBias *
               0.09;
         const score =
@@ -1103,7 +1142,7 @@ function buildAnchoredHoveredNoteLabelLayout(args: {
     Math.max(...lines.map((line) => line.length), 8) *
       args.labelFontSize *
       0.54 +
-      12 / args.zoomScale
+      12 / args.zoomScale,
   );
   const labelHeight = lines.length * lineHeight + 8 / args.zoomScale;
   const bubbleOffsetX = 10 / args.zoomScale;
@@ -1162,14 +1201,16 @@ function buildAnchoredHoveredNoteLabelLayout(args: {
 export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const dotHoveredId = createMemo(() => props.hoveredId());
   const effectiveHoveredId = createMemo(
-    () => props.railHoveredId?.() ?? dotHoveredId()
+    () => props.railHoveredId?.() ?? dotHoveredId(),
   );
   const [pointerOverNoteLabelId, setPointerOverNoteLabelId] = createSignal<
     string | undefined
   >(undefined);
   const [frozenHoveredNoteLabelLayout, setFrozenHoveredNoteLabelLayout] =
     createSignal<NoteLabelLayout | null>(null);
-  let frozenHoveredNoteLabelClearTimer: ReturnType<typeof setTimeout> | undefined;
+  let frozenHoveredNoteLabelClearTimer:
+    | ReturnType<typeof setTimeout>
+    | undefined;
   const [pointerCanvasPosition, setPointerCanvasPosition] = createSignal<
     Point | undefined
   >();
@@ -1218,16 +1259,14 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     return (
       Math.hypot(
         pointer.x - selectedRegion.centroid.x,
-        pointer.y - selectedRegion.centroid.y
+        pointer.y - selectedRegion.centroid.y,
       ) <= Math.max(18, selectedRegion.radius)
     );
   });
   const isRegionHoverBlocked = (regionId: string) => {
     const selectedId = props.selectedRegionId?.();
     return (
-      !!selectedId &&
-      regionId !== selectedId &&
-      selectedRegionPointerInside()
+      !!selectedId && regionId !== selectedId && selectedRegionPointerInside()
     );
   };
 
@@ -1249,6 +1288,452 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     }
   });
 
+  const docsArr = createMemo(() => props.docs || []);
+  const listOrdered = createMemo(() => docsArr());
+
+  const circleRadius = createMemo(() => {
+    const s = Math.max(0.001, props.scale?.() ?? 1);
+    // Small dots at overview keep dense maps readable; full size
+    // once notes become the thing you interact with.
+    const screenRadius =
+      2.4 + smoothstep(0.35, 0.95, s) * 2.8 - smoothstep(1.2, 4.2, s) * 0.7;
+    return screenRadius / s;
+  });
+
+  const normalizedRegions = createMemo(() => props.umapRegions?.() ?? null);
+  const zoomScale = createMemo(() => Math.max(0.001, props.scale?.() ?? 1));
+  const [regionLabelDisplayZoom, setRegionLabelDisplayZoom] = createSignal(
+    untrack(zoomScale),
+  );
+  let regionLabelLullTimer: number | undefined;
+  let regionLabelMaxTimer: number | undefined;
+  let regionLabelBurstStartedAt = 0;
+
+  const clearRegionLabelZoomTimers = () => {
+    if (regionLabelLullTimer !== undefined) {
+      clearTimeout(regionLabelLullTimer);
+      regionLabelLullTimer = undefined;
+    }
+    if (regionLabelMaxTimer !== undefined) {
+      clearTimeout(regionLabelMaxTimer);
+      regionLabelMaxTimer = undefined;
+    }
+  };
+
+  const commitRegionLabelDisplayZoom = (nextZoom: number) => {
+    clearRegionLabelZoomTimers();
+    regionLabelBurstStartedAt = 0;
+    setRegionLabelDisplayZoom((current) =>
+      Math.abs(current - nextZoom) < 0.001 ? current : nextZoom,
+    );
+  };
+
+  createEffect(() => {
+    const nextZoom = zoomScale();
+    const currentDisplayZoom = regionLabelDisplayZoom();
+    if (Math.abs(nextZoom - currentDisplayZoom) < 0.02) {
+      clearRegionLabelZoomTimers();
+      regionLabelBurstStartedAt = 0;
+      return;
+    }
+
+    const now =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (!regionLabelBurstStartedAt) {
+      regionLabelBurstStartedAt = now;
+    }
+
+    if (regionLabelLullTimer !== undefined) {
+      clearTimeout(regionLabelLullTimer);
+    }
+    regionLabelLullTimer = window.setTimeout(() => {
+      commitRegionLabelDisplayZoom(zoomScale());
+    }, 120);
+
+    if (regionLabelMaxTimer === undefined) {
+      const remaining = Math.max(0, 280 - (now - regionLabelBurstStartedAt));
+      regionLabelMaxTimer = window.setTimeout(() => {
+        commitRegionLabelDisplayZoom(zoomScale());
+      }, remaining);
+    }
+  });
+
+  onCleanup(() => {
+    clearRegionLabelZoomTimers();
+  });
+
+  const regionLabelFontSize = createMemo(() => 16 / zoomScale());
+  const noteLabelFontSize = createMemo(() => 12.5 / zoomScale());
+  const regionOpacity = createMemo(() =>
+    props.regionsOnly?.()
+      ? Math.max(0.65, 1 - smoothstep(0.4, 0.9, zoomScale()))
+      : Math.max(0.2, 1 - smoothstep(0.4, 0.9, zoomScale())),
+  );
+  const regionLabelOpacity = createMemo(() =>
+    props.regionsOnly?.()
+      ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
+      : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale())),
+  );
+  const hasRegions = createMemo(
+    () => (normalizedRegions()?.regions.length ?? 0) > 0,
+  );
+  const isSearching = createMemo(() => !!props.matchingDocIds?.());
+  const noteOpacity = createMemo(() => {
+    if (props.regionsOnly?.()) return 0;
+    if (!hasRegions() || props.selectedRegionId?.()) return 1;
+    if (isSearching()) return 1;
+    // Region-first overview: notes sit quietly under the region
+    // bubbles and take over as the regions fade on zoom-in.
+    return 0.32 + 0.68 * smoothstep(0.5, 0.95, zoomScale());
+  });
+  const notesInteractive = () => props.notesInteractive?.() ?? false;
+  const visibleDocsForRender = createMemo(() => {
+    if (noteOpacity() <= 0.01) return [] as DocItem[];
+    const bounds = viewportBounds();
+    if (!bounds) return listOrdered();
+    const overscan = Math.max(48, circleRadius() * 8);
+    const minX = bounds.minX - overscan;
+    const minY = bounds.minY - overscan;
+    const maxX = bounds.maxX + overscan;
+    const maxY = bounds.maxY + overscan;
+    const positionMap = props.positions();
+    const orderedDocs = listOrdered();
+    return measureCanvasWork("visibleDocsForRender", () =>
+      orderedDocs.filter((doc, index) => {
+        const pos =
+          positionMap.get(doc.id) ??
+          seededPositionFor(doc.title, index, SPREAD);
+        return pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY;
+      }),
+    );
+  });
+  const stableRegionLabelOrder = createMemo(() => {
+    const regions = normalizedRegions()?.regions ?? [];
+    return measureCanvasWork("stableRegionLabelOrder", () =>
+      buildStableRegionLabelOrder(regions),
+    );
+  });
+  const visibleRegionLabelCount = createMemo(() =>
+    getVisibleRegionLabelCount({
+      regionCount: normalizedRegions()?.regions.length ?? 0,
+      zoomScale: zoomScale(),
+      regionsOnly: props.regionsOnly?.() ?? false,
+    }),
+  );
+  const labeledRegionOrder = createMemo(() => {
+    const selectedId = props.selectedRegionId?.();
+    if (selectedId) return [selectedId];
+    return stableRegionLabelOrder().slice(0, visibleRegionLabelCount());
+  });
+  const labeledRegionIds = createMemo(() => {
+    const selectedId = props.selectedRegionId?.();
+    if (selectedId) return new Set([selectedId]);
+    const regions = normalizedRegions()?.regions ?? [];
+    if (regions.length <= visibleRegionLabelCount()) {
+      return new Set(regions.map((region) => region.id));
+    }
+    return new Set(labeledRegionOrder());
+  });
+  const regionLabelLayouts = createMemo(() => {
+    const regions = normalizedRegions()?.regions ?? [];
+    const selectedId = props.selectedRegionId?.();
+    const emphasizedIds = selectedId ? new Set([selectedId]) : undefined;
+    const labelIds = labeledRegionIds();
+    const labelOrder = labeledRegionOrder();
+    const currentZoomScale = zoomScale();
+    const labelFontSize = regionLabelFontSize();
+    const currentViewportBounds = labelViewportBounds();
+    return measureCanvasWork("baseRegionLabelLayouts", () =>
+      buildRegionLabelLayouts({
+        regions,
+        labeledIds: labelIds,
+        labelOrder,
+        emphasizedIds,
+        zoomScale: currentZoomScale,
+        offset: props.offset(),
+        labelFontSize,
+        allowRegionOverlap: false,
+        viewportBounds: currentViewportBounds,
+      }),
+    );
+  });
+  const hoveredRegionLayout = createMemo(() => {
+    const hoveredId = props.hoveredRegionId();
+    if (!hoveredId || labeledRegionIds().has(hoveredId)) return null;
+    const regions = normalizedRegions()?.regions ?? [];
+    const occupiedBoxes = regionLabelLayouts().map((item) => ({
+      minX: item.minX,
+      minY: item.minY,
+      maxX: item.maxX,
+      maxY: item.maxY,
+    }));
+    const currentZoomScale = zoomScale();
+    const labelFontSize = regionLabelFontSize();
+    const currentViewportBounds = labelViewportBounds();
+    const layout = measureCanvasWork(
+      "hoveredRegionLabelLayout",
+      () =>
+        buildRegionLabelLayouts({
+          regions,
+          labeledIds: new Set([hoveredId]),
+          labelOrder: [hoveredId],
+          emphasizedIds: new Set([hoveredId]),
+          zoomScale: currentZoomScale,
+          offset: props.offset(),
+          labelFontSize,
+          allowRegionOverlap: false,
+          viewportBounds: currentViewportBounds,
+          occupiedBoxes,
+        })[0],
+    );
+    return layout ?? null;
+  });
+  const regionLabelLayoutById = createMemo(
+    () =>
+      new Map(
+        [
+          ...regionLabelLayouts(),
+          ...(hoveredRegionLayout() ? [hoveredRegionLayout()!] : []),
+        ].map((layout) => [layout.regionId, layout]),
+      ),
+  );
+  const fixedSelectedRegionLayout = createMemo(() => {
+    const selectedId = props.selectedRegionId?.();
+    if (!selectedId || zoomScale() >= SELECTED_REGION_INSIDE_LABEL_ZOOM) {
+      return null;
+    }
+    const region = (normalizedRegions()?.regions ?? []).find(
+      (item) => item.id === selectedId,
+    );
+    if (!region) return null;
+    const lines = wrapRegionTitle(region.title, 16, 3);
+    const labelFontSize = regionLabelFontSize();
+    const lineHeight = labelFontSize * 0.86;
+    const labelWidth = Math.max(
+      70 / zoomScale(),
+      Math.max(...lines.map((line) => line.length), 8) * labelFontSize * 0.42,
+    );
+    const labelHeight = lines.length * lineHeight + 4 / zoomScale();
+    let box = computeLabelBox({
+      textAnchor: "start",
+      textX:
+        region.centroid.x +
+        Math.max(18, region.radius) * 0.62 +
+        20 / zoomScale(),
+      topY:
+        region.centroid.y -
+        Math.max(18, region.radius) * 0.98 -
+        labelHeight * 0.96 -
+        12 / zoomScale(),
+      labelWidth,
+      labelHeight,
+      labelFontSize,
+    });
+    const bounds = labelViewportBounds();
+    if (bounds) {
+      const shiftX =
+        (box.minX < bounds.minX ? bounds.minX - box.minX : 0) +
+        (box.maxX > bounds.maxX ? bounds.maxX - box.maxX : 0);
+      const shiftY =
+        (box.minY < bounds.minY ? bounds.minY - box.minY : 0) +
+        (box.maxY > bounds.maxY ? bounds.maxY - box.maxY : 0);
+      box = {
+        ...box,
+        minX: box.minX + shiftX,
+        maxX: box.maxX + shiftX,
+        minY: box.minY + shiftY,
+        maxY: box.maxY + shiftY,
+        textY: box.textY + shiftY,
+      };
+    }
+    const leaderEndX = clamp(region.centroid.x, box.minX, box.maxX);
+    const leaderEndY = clamp(region.centroid.y, box.minY, box.maxY);
+    const dx = leaderEndX - region.centroid.x;
+    const dy = leaderEndY - region.centroid.y;
+    const leaderLength = Math.max(1, Math.hypot(dx, dy));
+    const radius = Math.max(18, region.radius);
+    return snapRegionLabelLayout(
+      {
+        regionId: region.id,
+        lines,
+        textAnchor: "start" as const,
+        textX: box.minX,
+        textY: box.textY,
+        minX: box.minX,
+        minY: box.minY,
+        maxX: box.maxX,
+        maxY: box.maxY,
+        showLeader: true,
+        leaderEndX,
+        leaderEndY,
+        elbowX: leaderEndX - 2.5 / zoomScale(),
+        elbowY: leaderEndY,
+        edgeX: region.centroid.x + (dx / leaderLength) * radius,
+        edgeY: region.centroid.y + (dy / leaderLength) * radius,
+      } satisfies RegionLabelLayout,
+      {
+        zoomScale: zoomScale(),
+        offset: props.offset(),
+      },
+    );
+  });
+  const labelCandidateDocs = createMemo(() => {
+    const matching = props.matchingDocIds?.();
+    const docs = visibleDocsForRender();
+    return matching ? docs.filter((doc) => matching.has(doc.id)) : docs;
+  });
+  const visibleNoteLabelCount = createMemo(() =>
+    notesInteractive()
+      ? getVisibleNoteLabelCount({
+          visibleCount: labelCandidateDocs().length,
+          zoomScale: zoomScale(),
+        })
+      : 0,
+  );
+  const visibleDocMap = createMemo(
+    () => new Map(visibleDocsForRender().map((doc) => [doc.id, doc])),
+  );
+  const anchoredHoveredNoteLabelLayout = createMemo(() => {
+    const hoveredDocId = dotHoveredId();
+    if (!notesInteractive() || !hoveredDocId) return null;
+    const doc = visibleDocMap().get(hoveredDocId);
+    if (!doc) return null;
+    const docsForLabels = visibleDocsForRender();
+    const docIndex = docsForLabels.findIndex(
+      (item) => item.id === hoveredDocId,
+    );
+    if (docIndex < 0) return null;
+    const position =
+      props.positions().get(hoveredDocId) ??
+      seededPositionFor(doc.title, docIndex, SPREAD);
+    return buildAnchoredHoveredNoteLabelLayout({
+      doc,
+      position,
+      zoomScale: zoomScale(),
+      labelFontSize: noteLabelFontSize(),
+      viewportBounds: labelViewportBounds(),
+    });
+  });
+  createEffect(() => {
+    const anchoredLayout = anchoredHoveredNoteLabelLayout();
+    if (anchoredLayout) {
+      if (frozenHoveredNoteLabelClearTimer) {
+        clearTimeout(frozenHoveredNoteLabelClearTimer);
+        frozenHoveredNoteLabelClearTimer = undefined;
+      }
+      setFrozenHoveredNoteLabelLayout(anchoredLayout);
+      return;
+    }
+    const pointerLabelId = pointerOverNoteLabelId();
+    const frozenLayout = frozenHoveredNoteLabelLayout();
+    if (pointerLabelId && frozenLayout?.docId === pointerLabelId) {
+      if (frozenHoveredNoteLabelClearTimer) {
+        clearTimeout(frozenHoveredNoteLabelClearTimer);
+        frozenHoveredNoteLabelClearTimer = undefined;
+      }
+      return;
+    }
+    if (frozenHoveredNoteLabelClearTimer) {
+      clearTimeout(frozenHoveredNoteLabelClearTimer);
+      frozenHoveredNoteLabelClearTimer = undefined;
+    }
+    if (!frozenLayout) return;
+    const frozenDocId = frozenLayout.docId;
+    frozenHoveredNoteLabelClearTimer = setTimeout(() => {
+      setFrozenHoveredNoteLabelLayout((current) =>
+        current && !pointerOverNoteLabelId() && current.docId === frozenDocId
+          ? null
+          : current,
+      );
+      frozenHoveredNoteLabelClearTimer = undefined;
+    }, 140);
+  });
+  const activeAnchoredNoteLabelLayout = createMemo(() => {
+    const anchoredLayout = anchoredHoveredNoteLabelLayout();
+    if (anchoredLayout) return anchoredLayout;
+    const pointerLabelId = pointerOverNoteLabelId();
+    const frozenLayout = frozenHoveredNoteLabelLayout();
+    if (pointerLabelId && frozenLayout?.docId === pointerLabelId) {
+      return frozenLayout;
+    }
+    return null;
+  });
+  // Ordering ignores hover so moving between notes never re-ranks the map.
+  const noteLabelCandidateOrder = createMemo(() => {
+    if (!notesInteractive()) return [] as string[];
+    const count = visibleNoteLabelCount();
+    if (count <= 0) return [] as string[];
+    return measureCanvasWork("noteLabelOrder", () =>
+      buildStableNoteLabelOrder({
+        docs: labelCandidateDocs(),
+        positions: props.positions(),
+        viewportBounds: labelViewportBounds(),
+        // Extra candidates cover labels that fail placement.
+        limit: count * 3 + 1,
+      }),
+    );
+  });
+  const visibleNoteLabelOrder = createMemo(() => {
+    const anchoredDocId = activeAnchoredNoteLabelLayout()?.docId;
+    return noteLabelCandidateOrder()
+      .filter((docId) => docId !== anchoredDocId)
+      .slice(0, visibleNoteLabelCount());
+  });
+  const visibleNoteLabelLayouts = createMemo(() => {
+    const selectedRegionId = props.selectedRegionId?.();
+    if (!notesInteractive()) return [] as NoteLabelLayout[];
+    const fixedRegionLayout = fixedSelectedRegionLayout();
+    const regionBoxes = fixedRegionLayout
+      ? [...regionLabelLayouts(), fixedRegionLayout]
+      : regionLabelLayouts();
+    const occupiedBoxes = regionBoxes.map((item) => ({
+      minX: item.minX,
+      minY: item.minY,
+      maxX: item.maxX,
+      maxY: item.maxY,
+    }));
+    const anchoredLayout = activeAnchoredNoteLabelLayout();
+    if (anchoredLayout) {
+      occupiedBoxes.push({
+        minX: anchoredLayout.minX,
+        minY: anchoredLayout.minY,
+        maxX: anchoredLayout.maxX,
+        maxY: anchoredLayout.maxY,
+      });
+    }
+    const selectedRegion = (normalizedRegions()?.regions ?? []).find(
+      (region) => region.id === selectedRegionId,
+    );
+    const layouts = buildNoteLabelLayouts({
+      docs: labelCandidateDocs(),
+      positions: props.positions(),
+      labeledIds: new Set(visibleNoteLabelOrder()),
+      labelOrder: visibleNoteLabelOrder(),
+      zoomScale: zoomScale(),
+      labelFontSize: noteLabelFontSize(),
+      selectedRegion: selectedRegion
+        ? {
+            centroid: selectedRegion.centroid,
+            radius: Math.max(18, selectedRegion.radius),
+          }
+        : undefined,
+      viewportBounds: labelViewportBounds(),
+      occupiedBoxes,
+    });
+    return anchoredLayout ? [anchoredLayout, ...layouts] : layouts;
+  });
+  const labelRenderOrder = createMemo(() => {
+    const hoveredId = props.hoveredRegionId();
+    const selectedId = props.selectedRegionId?.();
+    return (normalizedRegions()?.regions ?? []).slice().sort((a, b) => {
+      if (a.id === selectedId) return 1;
+      if (b.id === selectedId) return -1;
+      if (a.id === hoveredId) return 1;
+      if (b.id === hoveredId) return -1;
+      return 0;
+    });
+  });
+
   return (
     <Box
       position="absolute"
@@ -1262,7 +1747,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
         top: `${props.navHeight()}px`,
         // The canvas owns every gesture: pinch, pan, and wheel never scroll the page.
         "touch-action": "none",
-        cursor: props.isPanning?.() ? "grabbing" : undefined,
+        cursor: props.isPanning?.()
+          ? "grabbing"
+          : dotHoveredId()
+            ? "pointer"
+            : undefined,
       }}
       onWheel={props.eventHandlers.onWheel}
       onPointerDown={props.eventHandlers.onPointerDown}
@@ -1280,1070 +1769,584 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       <svg
         width="100%"
         height="100%"
-        style={{ display: "block", background: "var(--colors-bg-default)" }}
+        style={{ position: "absolute", inset: "0", display: "block" }}
       >
         <g transform={props.viewTransform()}>
-          <Show when={props.docs}>
-            {(() => {
-              const docsArr = createMemo(() => props.docs || []);
-              const listOrdered = createMemo(() => docsArr());
-
-              const circleRadius = createMemo(() => {
-                const s = Math.max(0.001, props.scale?.() ?? 1);
-                // Small dots at overview keep dense maps readable; full size
-                // once notes become the thing you interact with.
-                const screenRadius =
-                  2.4 +
-                  smoothstep(0.35, 0.95, s) * 2.8 -
-                  smoothstep(1.2, 4.2, s) * 0.7;
-                return screenRadius / s;
-              });
-
-              const normalizedRegions = createMemo(
-                () => props.umapRegions?.() ?? null
-              );
-              const zoomScale = createMemo(() =>
-                Math.max(0.001, props.scale?.() ?? 1)
-              );
-              const [regionLabelDisplayZoom, setRegionLabelDisplayZoom] =
-                createSignal(zoomScale());
-              let regionLabelLullTimer: number | undefined;
-              let regionLabelMaxTimer: number | undefined;
-              let regionLabelBurstStartedAt = 0;
-
-              const clearRegionLabelZoomTimers = () => {
-                if (regionLabelLullTimer !== undefined) {
-                  clearTimeout(regionLabelLullTimer);
-                  regionLabelLullTimer = undefined;
-                }
-                if (regionLabelMaxTimer !== undefined) {
-                  clearTimeout(regionLabelMaxTimer);
-                  regionLabelMaxTimer = undefined;
-                }
-              };
-
-              const commitRegionLabelDisplayZoom = (nextZoom: number) => {
-                clearRegionLabelZoomTimers();
-                regionLabelBurstStartedAt = 0;
-                setRegionLabelDisplayZoom((current) =>
-                  Math.abs(current - nextZoom) < 0.001 ? current : nextZoom
-                );
-              };
-
-              createEffect(() => {
-                const nextZoom = zoomScale();
-                const currentDisplayZoom = regionLabelDisplayZoom();
-                if (Math.abs(nextZoom - currentDisplayZoom) < 0.02) {
-                  clearRegionLabelZoomTimers();
-                  regionLabelBurstStartedAt = 0;
-                  return;
-                }
-
-                const now =
-                  typeof performance !== "undefined"
-                    ? performance.now()
-                    : Date.now();
-                if (!regionLabelBurstStartedAt) {
-                  regionLabelBurstStartedAt = now;
-                }
-
-                if (regionLabelLullTimer !== undefined) {
-                  clearTimeout(regionLabelLullTimer);
-                }
-                regionLabelLullTimer = window.setTimeout(() => {
-                  commitRegionLabelDisplayZoom(zoomScale());
-                }, 120);
-
-                if (regionLabelMaxTimer === undefined) {
-                  const remaining = Math.max(
-                    0,
-                    280 - (now - regionLabelBurstStartedAt)
-                  );
-                  regionLabelMaxTimer = window.setTimeout(() => {
-                    commitRegionLabelDisplayZoom(zoomScale());
-                  }, remaining);
-                }
-              });
-
-              onCleanup(() => {
-                clearRegionLabelZoomTimers();
-              });
-
-              const regionLabelFontSize = createMemo(() => 16 / zoomScale());
-              const noteLabelFontSize = createMemo(() => 12.5 / zoomScale());
-              const regionOpacity = createMemo(() =>
-                props.regionsOnly?.()
-                  ? Math.max(0.65, 1 - smoothstep(0.4, 0.9, zoomScale()))
-                  : Math.max(0.2, 1 - smoothstep(0.4, 0.9, zoomScale()))
-              );
-              const regionLabelOpacity = createMemo(() =>
-                props.regionsOnly?.()
-                  ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
-                  : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))
-              );
-              const hasRegions = createMemo(
-                () => (normalizedRegions()?.regions.length ?? 0) > 0
-              );
-              const isSearching = createMemo(() => !!props.matchingDocIds?.());
-              const noteOpacity = createMemo(() => {
-                if (props.regionsOnly?.()) return 0;
-                if (!hasRegions() || props.selectedRegionId?.()) return 1;
-                if (isSearching()) return 1;
-                // Region-first overview: notes sit quietly under the region
-                // bubbles and take over as the regions fade on zoom-in.
-                return 0.32 + 0.68 * smoothstep(0.5, 0.95, zoomScale());
-              });
-              const notesInteractive = () => props.notesInteractive?.() ?? false;
-              const visibleDocsForRender = createMemo(() => {
-                if (noteOpacity() <= 0.01) return [] as DocItem[];
-                const bounds = viewportBounds();
-                if (!bounds) return listOrdered();
-                const overscan = Math.max(48, circleRadius() * 8);
-                const minX = bounds.minX - overscan;
-                const minY = bounds.minY - overscan;
-                const maxX = bounds.maxX + overscan;
-                const maxY = bounds.maxY + overscan;
-                const positionMap = props.positions();
-                const orderedDocs = listOrdered();
-                return measureCanvasWork("visibleDocsForRender", () =>
-                  orderedDocs.filter((doc, index) => {
-                    const pos =
-                      positionMap.get(doc.id) ??
-                      seededPositionFor(doc.title, index, SPREAD);
-                    return (
-                      pos.x >= minX &&
-                      pos.x <= maxX &&
-                      pos.y >= minY &&
-                      pos.y <= maxY
-                    );
-                  })
-                );
-              });
-              const stableRegionLabelOrder = createMemo(() => {
-                const regions = normalizedRegions()?.regions ?? [];
-                return measureCanvasWork("stableRegionLabelOrder", () =>
-                  buildStableRegionLabelOrder(regions)
-                );
-              });
-              const visibleRegionLabelCount = createMemo(() =>
-                getVisibleRegionLabelCount({
-                  regionCount: normalizedRegions()?.regions.length ?? 0,
-                  zoomScale: zoomScale(),
-                  regionsOnly: props.regionsOnly?.() ?? false,
-                })
-              );
-              const labeledRegionOrder = createMemo(() => {
-                const selectedId = props.selectedRegionId?.();
-                if (selectedId) return [selectedId];
-                return stableRegionLabelOrder().slice(0, visibleRegionLabelCount());
-              });
-              const labeledRegionIds = createMemo(() => {
-                const selectedId = props.selectedRegionId?.();
-                if (selectedId) return new Set([selectedId]);
-                const regions = normalizedRegions()?.regions ?? [];
-                if (regions.length <= visibleRegionLabelCount()) {
-                  return new Set(regions.map((region) => region.id));
-                }
-                return new Set(labeledRegionOrder());
-              });
-              const regionLabelLayouts = createMemo(() => {
-                const regions = normalizedRegions()?.regions ?? [];
-                const selectedId = props.selectedRegionId?.();
-                const emphasizedIds = selectedId
-                  ? new Set([selectedId])
-                  : undefined;
-                const labelIds = labeledRegionIds();
-                const labelOrder = labeledRegionOrder();
-                const currentZoomScale = zoomScale();
-                const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = labelViewportBounds();
-                return measureCanvasWork("baseRegionLabelLayouts", () =>
-                  buildRegionLabelLayouts({
-                    regions,
-                    labeledIds: labelIds,
-                    labelOrder,
-                    emphasizedIds,
-                    zoomScale: currentZoomScale,
-                    offset: props.offset(),
-                    labelFontSize,
-                    allowRegionOverlap: false,
-                    viewportBounds: currentViewportBounds,
-                  })
-                );
-              });
-              const hoveredRegionLayout = createMemo(() => {
-                const hoveredId = props.hoveredRegionId();
-                if (!hoveredId || labeledRegionIds().has(hoveredId)) return null;
-                const regions = normalizedRegions()?.regions ?? [];
-                const occupiedBoxes = regionLabelLayouts().map((item) => ({
-                  minX: item.minX,
-                  minY: item.minY,
-                  maxX: item.maxX,
-                  maxY: item.maxY,
-                }));
-                const currentZoomScale = zoomScale();
-                const labelFontSize = regionLabelFontSize();
-                const currentViewportBounds = labelViewportBounds();
-                const layout = measureCanvasWork("hoveredRegionLabelLayout", () =>
-                  buildRegionLabelLayouts({
-                    regions,
-                    labeledIds: new Set([hoveredId]),
-                    labelOrder: [hoveredId],
-                    emphasizedIds: new Set([hoveredId]),
-                    zoomScale: currentZoomScale,
-                    offset: props.offset(),
-                    labelFontSize,
-                    allowRegionOverlap: false,
-                    viewportBounds: currentViewportBounds,
-                    occupiedBoxes,
-                  })[0]
-                );
-                return layout ?? null;
-              });
-              const regionLabelLayoutById = createMemo(
-                () =>
-                  new Map(
-                    [...regionLabelLayouts(), ...(hoveredRegionLayout() ? [hoveredRegionLayout()!] : [])].map(
-                      (layout) => [layout.regionId, layout]
-                    )
-                  )
-              );
-              const fixedSelectedRegionLayout = createMemo(() => {
-                const selectedId = props.selectedRegionId?.();
-                if (
-                  !selectedId ||
-                  zoomScale() >= SELECTED_REGION_INSIDE_LABEL_ZOOM
-                ) {
-                  return null;
-                }
-                const region = (normalizedRegions()?.regions ?? []).find(
-                  (item) => item.id === selectedId
-                );
-                if (!region) return null;
-                const lines = wrapRegionTitle(region.title, 16, 3);
-                const labelFontSize = regionLabelFontSize();
-                const lineHeight = labelFontSize * 0.86;
-                const labelWidth = Math.max(
-                  70 / zoomScale(),
-                  Math.max(...lines.map((line) => line.length), 8) *
-                    labelFontSize *
-                    0.42
-                );
-                const labelHeight = lines.length * lineHeight + 4 / zoomScale();
-                let box = computeLabelBox({
-                  textAnchor: "start",
-                  textX:
-                    region.centroid.x +
-                    Math.max(18, region.radius) * 0.62 +
-                    20 / zoomScale(),
-                  topY:
-                    region.centroid.y -
-                    Math.max(18, region.radius) * 0.98 -
-                    labelHeight * 0.96 -
-                    12 / zoomScale(),
-                  labelWidth,
-                  labelHeight,
-                  labelFontSize,
-                });
-                const bounds = labelViewportBounds();
-                if (bounds) {
-                  const shiftX =
-                    (box.minX < bounds.minX ? bounds.minX - box.minX : 0) +
-                    (box.maxX > bounds.maxX ? bounds.maxX - box.maxX : 0);
-                  const shiftY =
-                    (box.minY < bounds.minY ? bounds.minY - box.minY : 0) +
-                    (box.maxY > bounds.maxY ? bounds.maxY - box.maxY : 0);
-                  box = {
-                    ...box,
-                    minX: box.minX + shiftX,
-                    maxX: box.maxX + shiftX,
-                    minY: box.minY + shiftY,
-                    maxY: box.maxY + shiftY,
-                    textY: box.textY + shiftY,
-                  };
-                }
-                const leaderEndX = clamp(region.centroid.x, box.minX, box.maxX);
-                const leaderEndY = clamp(region.centroid.y, box.minY, box.maxY);
-                const dx = leaderEndX - region.centroid.x;
-                const dy = leaderEndY - region.centroid.y;
-                const leaderLength = Math.max(1, Math.hypot(dx, dy));
-                const radius = Math.max(18, region.radius);
-                return snapRegionLabelLayout({
-                  regionId: region.id,
-                  lines,
-                  textAnchor: "start" as const,
-                  textX: box.minX,
-                  textY: box.textY,
-                  minX: box.minX,
-                  minY: box.minY,
-                  maxX: box.maxX,
-                  maxY: box.maxY,
-                  showLeader: true,
-                  leaderEndX,
-                  leaderEndY,
-                  elbowX: leaderEndX - 2.5 / zoomScale(),
-                  elbowY: leaderEndY,
-                  edgeX: region.centroid.x + (dx / leaderLength) * radius,
-                  edgeY: region.centroid.y + (dy / leaderLength) * radius,
-                } satisfies RegionLabelLayout, {
-                  zoomScale: zoomScale(),
-                  offset: props.offset(),
-                });
-              });
-              const labelCandidateDocs = createMemo(() => {
-                const matching = props.matchingDocIds?.();
-                const docs = visibleDocsForRender();
-                return matching ? docs.filter((doc) => matching.has(doc.id)) : docs;
-              });
-              const visibleNoteLabelCount = createMemo(() =>
-                notesInteractive()
-                  ? getVisibleNoteLabelCount({
-                      visibleCount: labelCandidateDocs().length,
-                      zoomScale: zoomScale(),
-                    })
-                  : 0
-              );
-              const visibleDocMap = createMemo(
-                () => new Map(visibleDocsForRender().map((doc) => [doc.id, doc]))
-              );
-              const anchoredHoveredNoteLabelLayout = createMemo(() => {
-                const hoveredDocId = dotHoveredId();
-                if (!notesInteractive() || !hoveredDocId) return null;
-                const doc = visibleDocMap().get(hoveredDocId);
-                if (!doc) return null;
-                const docsForLabels = visibleDocsForRender();
-                const docIndex = docsForLabels.findIndex(
-                  (item) => item.id === hoveredDocId
-                );
-                if (docIndex < 0) return null;
-                const position =
-                  props.positions().get(hoveredDocId) ??
-                  seededPositionFor(doc.title, docIndex, SPREAD);
-                return buildAnchoredHoveredNoteLabelLayout({
-                  doc,
-                  position,
-                  zoomScale: zoomScale(),
-                  labelFontSize: noteLabelFontSize(),
-                  viewportBounds: labelViewportBounds(),
-                });
-              });
-              createEffect(() => {
-                const anchoredLayout = anchoredHoveredNoteLabelLayout();
-                if (anchoredLayout) {
-                  if (frozenHoveredNoteLabelClearTimer) {
-                    clearTimeout(frozenHoveredNoteLabelClearTimer);
-                    frozenHoveredNoteLabelClearTimer = undefined;
-                  }
-                  setFrozenHoveredNoteLabelLayout(anchoredLayout);
-                  return;
-                }
-                const pointerLabelId = pointerOverNoteLabelId();
-                const frozenLayout = frozenHoveredNoteLabelLayout();
-                if (pointerLabelId && frozenLayout?.docId === pointerLabelId) {
-                  if (frozenHoveredNoteLabelClearTimer) {
-                    clearTimeout(frozenHoveredNoteLabelClearTimer);
-                    frozenHoveredNoteLabelClearTimer = undefined;
-                  }
-                  return;
-                }
-                if (frozenHoveredNoteLabelClearTimer) {
-                  clearTimeout(frozenHoveredNoteLabelClearTimer);
-                  frozenHoveredNoteLabelClearTimer = undefined;
-                }
-                if (!frozenLayout) return;
-                const frozenDocId = frozenLayout.docId;
-                frozenHoveredNoteLabelClearTimer = setTimeout(() => {
-                  setFrozenHoveredNoteLabelLayout((current) =>
-                    current && !pointerOverNoteLabelId() && current.docId === frozenDocId
-                      ? null
-                      : current
-                  );
-                  frozenHoveredNoteLabelClearTimer = undefined;
-                }, 140);
-              });
-              const activeAnchoredNoteLabelLayout = createMemo(() => {
-                const anchoredLayout = anchoredHoveredNoteLabelLayout();
-                if (anchoredLayout) return anchoredLayout;
-                const pointerLabelId = pointerOverNoteLabelId();
-                const frozenLayout = frozenHoveredNoteLabelLayout();
-                if (pointerLabelId && frozenLayout?.docId === pointerLabelId) {
-                  return frozenLayout;
-                }
-                return null;
-              });
-              const visibleNoteLabelOrder = createMemo(() => {
-                if (!notesInteractive()) return [] as string[];
-                const count = visibleNoteLabelCount();
-                if (count <= 0) return [] as string[];
-                const orderedIds = measureCanvasWork("noteLabelOrder", () =>
-                  buildStableNoteLabelOrder({
-                    docs: labelCandidateDocs(),
-                    positions: props.positions(),
-                    viewportBounds: labelViewportBounds(),
-                    // Extra candidates cover labels that fail placement.
-                    limit: count * 3 + 1,
-                  })
-                );
-                const anchoredDocId = activeAnchoredNoteLabelLayout()?.docId;
-                return orderedIds
-                  .filter((docId) => docId !== anchoredDocId)
-                  .slice(0, visibleNoteLabelCount());
-              });
-              const visibleNoteLabelLayouts = createMemo(() => {
-                const selectedRegionId = props.selectedRegionId?.();
-                if (!notesInteractive()) return [] as NoteLabelLayout[];
-                const fixedRegionLayout = fixedSelectedRegionLayout();
-                const regionBoxes = fixedRegionLayout
-                  ? [...regionLabelLayouts(), fixedRegionLayout]
-                  : regionLabelLayouts();
-                const occupiedBoxes = regionBoxes.map((item) => ({
-                  minX: item.minX,
-                  minY: item.minY,
-                  maxX: item.maxX,
-                  maxY: item.maxY,
-                }));
-                const anchoredLayout = activeAnchoredNoteLabelLayout();
-                if (anchoredLayout) {
-                  occupiedBoxes.push({
-                    minX: anchoredLayout.minX,
-                    minY: anchoredLayout.minY,
-                    maxX: anchoredLayout.maxX,
-                    maxY: anchoredLayout.maxY,
-                  });
-                }
-                const selectedRegion = (normalizedRegions()?.regions ?? []).find(
-                  (region) => region.id === selectedRegionId
-                );
-                const layouts = buildNoteLabelLayouts({
-                  docs: labelCandidateDocs(),
-                  positions: props.positions(),
-                  labeledIds: new Set(visibleNoteLabelOrder()),
-                  labelOrder: visibleNoteLabelOrder(),
-                  zoomScale: zoomScale(),
-                  labelFontSize: noteLabelFontSize(),
-                  selectedRegion: selectedRegion
-                    ? {
-                        centroid: selectedRegion.centroid,
-                        radius: Math.max(18, selectedRegion.radius),
-                      }
-                    : undefined,
-                  viewportBounds: labelViewportBounds(),
-                  occupiedBoxes,
-                });
-                return anchoredLayout ? [anchoredLayout, ...layouts] : layouts;
-              });
-              const labelRenderOrder = createMemo(() => {
-                const hoveredId = props.hoveredRegionId();
-                const selectedId = props.selectedRegionId?.();
-                return (normalizedRegions()?.regions ?? []).slice().sort((a, b) => {
-                  if (a.id === selectedId) return 1;
-                  if (b.id === selectedId) return -1;
-                  if (a.id === hoveredId) return 1;
-                  if (b.id === hoveredId) return -1;
-                  return 0;
-                });
-              });
-
-              return (
-                <>
-                  <defs>
-                    <filter
-                      id="canvas-hover-note-shadow"
-                      x="-150%"
-                      y="-150%"
-                      width="400%"
-                      height="400%"
-                    >
-                      <feDropShadow
-                        dx="0"
-                        dy="6"
-                        stdDeviation="8"
-                        flood-color="rgba(15, 23, 42, 0.28)"
-                      />
-                    </filter>
-                  </defs>
-                  <Show when={normalizedRegions()}>
-                    {(regions) => (
-                      <For each={regions().regions}>
-                        {(region) => (
+          <Show when={regionOpacity() > 0.02}>
+            <Show when={normalizedRegions()}>
+              {(regions) => {
+                regions();
+                return (
+                  <>
+                    <For each={labelRenderOrder()}>
+                      {(region) => (
+                        <>
                           <circle
                             cx={region.centroid.x}
                             cy={region.centroid.y}
                             r={Math.max(18, region.radius)}
-                            fill="transparent"
-                            stroke="none"
+                            fill={
+                              props.selectedRegionId?.() === region.id
+                                ? "rgba(37, 99, 235, 0.2)"
+                                : props.hoveredRegionId() === region.id
+                                  ? "rgba(249, 115, 22, 0.12)"
+                                  : "rgba(37, 99, 235, 0.06)"
+                            }
+                            stroke={
+                              props.selectedRegionId?.() === region.id
+                                ? "rgba(30, 64, 175, 0.9)"
+                                : props.hoveredRegionId() === region.id
+                                  ? "rgba(234, 88, 12, 0.72)"
+                                  : "rgba(37, 99, 235, 0.2)"
+                            }
+                            stroke-width={
+                              props.selectedRegionId?.() === region.id
+                                ? "3"
+                                : props.hoveredRegionId() === region.id
+                                  ? "2.5"
+                                  : "1.5"
+                            }
+                            vector-effect="non-scaling-stroke"
+                            opacity={
+                              props.selectedRegionId?.() === region.id
+                                ? Math.max(0.55, regionOpacity())
+                                : props.hoveredRegionId() === region.id
+                                  ? Math.max(0.4, regionOpacity())
+                                  : regionOpacity()
+                            }
                             style={{
-                              "pointer-events": "none",
+                              cursor: "pointer",
+                              "pointer-events": isRegionHoverBlocked(region.id)
+                                ? "none"
+                                : "auto",
+                            }}
+                            onPointerEnter={() => {
+                              if (isRegionHoverBlocked(region.id)) return;
+                              props.onHoveredRegionChange(region.id);
+                            }}
+                            onPointerLeave={() => {
+                              if (isRegionHoverBlocked(region.id)) return;
+                              props.onHoveredRegionChange(undefined);
+                            }}
+                            onPointerDown={() => {
+                              if (isRegionHoverBlocked(region.id)) return;
+                              // Dots are painted on the canvas below; a
+                              // hovered note opens instead of its region.
+                              if (dotHoveredId()) return;
+                              props.onHoveredRegionChange(region.id);
+                              props.onPressedRegionChange(region.id);
+                              props.suppressNextOpen?.();
+                            }}
+                            onClick={(e) => {
+                              if (isRegionHoverBlocked(region.id)) return;
+                              if (dotHoveredId()) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              props.onZoomToRegion?.(region.id);
                             }}
                           />
-                        )}
-                      </For>
-                    )}
-                  </Show>
-                  <Show when={regionOpacity() > 0.02}>
-                    <Show when={normalizedRegions()}>
-                      {(regions) => {
-                        regions();
-                        return (
+                        </>
+                      )}
+                    </For>
+                  </>
+                );
+              }}
+            </Show>
+          </Show>
+        </g>
+      </svg>
+      <CanvasDotLayer
+        docs={listOrdered}
+        positions={props.positions}
+        scale={zoomScale}
+        offset={props.offset}
+        radius={circleRadius}
+        opacity={noteOpacity}
+        matchingDocIds={() => props.matchingDocIds?.() ?? null}
+      />
+      <svg
+        width="100%"
+        height="100%"
+        style={{
+          position: "absolute",
+          inset: "0",
+          display: "block",
+          // Only labels and the hovered note take pointers; the rest falls
+          // through to the region circles underneath the dot canvas.
+          "pointer-events": "none",
+        }}
+      >
+        <g transform={props.viewTransform()}>
+          <defs>
+            <filter
+              id="canvas-hover-note-shadow"
+              x="-150%"
+              y="-150%"
+              width="400%"
+              height="400%"
+            >
+              <feDropShadow
+                dx="0"
+                dy="6"
+                stdDeviation="8"
+                flood-color="rgba(15, 23, 42, 0.28)"
+              />
+            </filter>
+          </defs>
+          <Show when={regionOpacity() > 0.02}>
+            <Show when={normalizedRegions()}>
+              {(regions) => {
+                regions();
+                return (
+                  <>
+                    <For each={labelRenderOrder()}>
+                      {(region) => (
                         <>
-                          <For each={labelRenderOrder()}>
-                            {(region) => (
-                              <g>
-                                <circle
-                                  cx={region.centroid.x}
-                                  cy={region.centroid.y}
-                                  r={Math.max(18, region.radius)}
-                                  fill={
-                                    props.selectedRegionId?.() === region.id
-                                      ? "rgba(37, 99, 235, 0.2)"
-                                      : props.hoveredRegionId() === region.id
-                                      ? "rgba(249, 115, 22, 0.12)"
-                                      : "rgba(37, 99, 235, 0.06)"
-                                  }
-                                  stroke={
-                                    props.selectedRegionId?.() === region.id
-                                      ? "rgba(30, 64, 175, 0.9)"
-                                      : props.hoveredRegionId() === region.id
-                                      ? "rgba(234, 88, 12, 0.72)"
-                                      : "rgba(37, 99, 235, 0.2)"
-                                  }
-                                  stroke-width={
-                                    props.selectedRegionId?.() === region.id
-                                      ? "3"
-                                      : props.hoveredRegionId() === region.id
-                                      ? "2.5"
-                                      : "1.5"
-                                  }
-                                  vector-effect="non-scaling-stroke"
-                                  opacity={
-                                    props.selectedRegionId?.() === region.id
-                                      ? Math.max(0.55, regionOpacity())
-                                      : props.hoveredRegionId() === region.id
-                                      ? Math.max(0.4, regionOpacity())
-                                      : regionOpacity()
-                                  }
-                                  style={{
-                                    cursor: "pointer",
-                                    "pointer-events": isRegionHoverBlocked(region.id)
-                                      ? "none"
-                                      : "auto",
-                                  }}
-                                  onPointerEnter={() => {
-                                    if (isRegionHoverBlocked(region.id)) return;
-                                    props.onHoveredRegionChange(region.id);
-                                  }}
-                                  onPointerLeave={() => {
-                                    if (isRegionHoverBlocked(region.id)) return;
-                                    props.onHoveredRegionChange(undefined);
-                                  }}
-                                  onPointerDown={() => {
-                                    if (isRegionHoverBlocked(region.id)) return;
-                                    props.onHoveredRegionChange(region.id);
-                                    props.onPressedRegionChange(region.id);
-                                    props.suppressNextOpen?.();
-                                  }}
-                                  onClick={(e) => {
-                                    if (isRegionHoverBlocked(region.id)) return;
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    props.onZoomToRegion?.(region.id);
-                                  }}
-                                />
-                                <Show
-                                  when={
-                                    props.selectedRegionId?.() === region.id ||
-                                    props.hoveredRegionId() === region.id ||
-                                    regionLabelOpacity() > 0.04
-                                  }
-                                >
-                                  <Show
-                                    when={
-                                      props.selectedRegionId?.() === region.id ||
-                                      props.hoveredRegionId() === region.id ||
-                                      (props.selectedRegionId?.() == null &&
-                                        labeledRegionIds().has(region.id))
-                                    }
-                                  >
-                                    <Show
-                                      when={
-                                        (props.selectedRegionId?.() === region.id &&
-                                          fixedSelectedRegionLayout()) ||
-                                        regionLabelLayoutById().get(region.id)
+                          <Show
+                            when={
+                              props.selectedRegionId?.() === region.id ||
+                              props.hoveredRegionId() === region.id ||
+                              regionLabelOpacity() > 0.04
+                            }
+                          >
+                            <Show
+                              when={
+                                props.selectedRegionId?.() === region.id ||
+                                props.hoveredRegionId() === region.id ||
+                                (props.selectedRegionId?.() == null &&
+                                  labeledRegionIds().has(region.id))
+                              }
+                            >
+                              <Show
+                                when={
+                                  (props.selectedRegionId?.() === region.id &&
+                                    fixedSelectedRegionLayout()) ||
+                                  regionLabelLayoutById().get(region.id)
+                                }
+                              >
+                                {(layout) => {
+                                  const isHovered = () =>
+                                    props.hoveredRegionId() === region.id;
+                                  const isSelected = () =>
+                                    props.selectedRegionId?.() === region.id;
+                                  const currentZoomScale =
+                                    regionLabelDisplayZoom;
+                                  const toLocalX = (value: number) =>
+                                    (value - layout().minX) *
+                                    currentZoomScale();
+                                  const toLocalY = (value: number) =>
+                                    (value - layout().minY) *
+                                    currentZoomScale();
+                                  const padX = 6;
+                                  const padY = 4;
+                                  return (
+                                    <g
+                                      opacity={
+                                        isSelected()
+                                          ? 1
+                                          : isHovered()
+                                            ? Math.max(
+                                                0.95,
+                                                regionLabelOpacity(),
+                                              )
+                                            : regionLabelOpacity()
                                       }
+                                      style={{
+                                        cursor: "pointer",
+                                        "pointer-events": isRegionHoverBlocked(
+                                          region.id,
+                                        )
+                                          ? "none"
+                                          : "auto",
+                                        transform: `translate(${layout().minX}px, ${layout().minY}px) scale(${1 / currentZoomScale()})`,
+                                        "transform-origin": "0 0",
+                                      }}
+                                      onPointerDown={() => {
+                                        props.onPressedRegionChange(region.id);
+                                        props.suppressNextOpen?.();
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        props.onZoomToRegion?.(region.id);
+                                      }}
                                     >
-                                      {(layout) => {
-                                        const isHovered =
-                                          props.hoveredRegionId() === region.id;
-                                        const isSelected =
-                                          props.selectedRegionId?.() === region.id;
-                                        const currentZoomScale =
-                                          regionLabelDisplayZoom();
-                                        const inverseLabelScale =
-                                          1 / currentZoomScale;
-                                        const toLocalX = (value: number) =>
-                                          (value - layout().minX) * currentZoomScale;
-                                        const toLocalY = (value: number) =>
-                                          (value - layout().minY) * currentZoomScale;
-                                        const padX = 6;
-                                        const padY = 4;
-                                        const originX = layout().minX;
-                                        const originY = layout().minY;
-                                        return (
-                                          <g
-                                            opacity={
-                                              isSelected
-                                                ? 1
-                                                : isHovered
-                                                ? Math.max(0.95, regionLabelOpacity())
-                                                : regionLabelOpacity()
-                                            }
-                                            style={{
-                                              cursor: "pointer",
-                                              "pointer-events":
-                                                isRegionHoverBlocked(region.id)
-                                                  ? "none"
-                                                  : "auto",
-                                              transform: `translate(${originX}px, ${originY}px) scale(${inverseLabelScale})`,
-                                              "transform-origin": "0 0",
-                                            }}
-                                            onPointerDown={() => {
-                                              props.onPressedRegionChange(region.id);
-                                              props.suppressNextOpen?.();
-                                            }}
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              props.onZoomToRegion?.(region.id);
-                                            }}
-                                          >
-                                            <rect
-                                              x={-padX}
-                                              y={-padY}
-                                              width={
-                                                (layout().maxX - layout().minX) *
-                                                  currentZoomScale +
-                                                padX * 2
-                                              }
-                                              height={
-                                                (layout().maxY - layout().minY) *
-                                                  currentZoomScale +
-                                                padY * 2
-                                              }
-                                              rx={8}
-                                              ry={8}
-                                              fill="transparent"
-                                              onPointerDown={() => {
-                                                props.onPressedRegionChange(region.id);
-                                                props.suppressNextOpen?.();
-                                              }}
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                props.onZoomToRegion?.(region.id);
-                                              }}
-                                            />
-                                            <Show when={layout().showLeader}>
-                                              <path
-                                                d={`M ${toLocalX(layout().edgeX)} ${toLocalY(layout().edgeY)} L ${toLocalX(layout().elbowX)} ${toLocalY(layout().elbowY)} L ${toLocalX(layout().leaderEndX)} ${toLocalY(layout().leaderEndY)}`}
-                                                fill="none"
-                                                stroke={
-                                                  isSelected
-                                                    ? "rgba(30, 64, 175, 0.72)"
-                                                    : isHovered
-                                                    ? "rgba(30, 64, 175, 0.5)"
-                                                    : "rgba(37, 99, 235, 0.3)"
-                                                }
-                                                stroke-width={
-                                                  isSelected
-                                                    ? "1.9"
-                                                    : isHovered
-                                                      ? "1.6"
-                                                      : "1.25"
-                                                }
-                                                vector-effect="non-scaling-stroke"
-                                                onPointerDown={() => {
-                                                  props.onPressedRegionChange(region.id);
-                                                  props.suppressNextOpen?.();
-                                                }}
-                                                onClick={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                                  props.onZoomToRegion?.(region.id);
-                                                }}
-                                              />
-                                            </Show>
-                                            <text
+                                      <rect
+                                        x={-padX}
+                                        y={-padY}
+                                        width={
+                                          (layout().maxX - layout().minX) *
+                                            currentZoomScale() +
+                                          padX * 2
+                                        }
+                                        height={
+                                          (layout().maxY - layout().minY) *
+                                            currentZoomScale() +
+                                          padY * 2
+                                        }
+                                        rx={8}
+                                        ry={8}
+                                        fill="transparent"
+                                        onPointerDown={() => {
+                                          props.onPressedRegionChange(
+                                            region.id,
+                                          );
+                                          props.suppressNextOpen?.();
+                                        }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          props.onZoomToRegion?.(region.id);
+                                        }}
+                                      />
+                                      <Show when={layout().showLeader}>
+                                        <path
+                                          d={`M ${toLocalX(layout().edgeX)} ${toLocalY(layout().edgeY)} L ${toLocalX(layout().elbowX)} ${toLocalY(layout().elbowY)} L ${toLocalX(layout().leaderEndX)} ${toLocalY(layout().leaderEndY)}`}
+                                          fill="none"
+                                          stroke={
+                                            isSelected()
+                                              ? "rgba(30, 64, 175, 0.72)"
+                                              : isHovered()
+                                                ? "rgba(30, 64, 175, 0.5)"
+                                                : "rgba(37, 99, 235, 0.3)"
+                                          }
+                                          stroke-width={
+                                            isSelected()
+                                              ? "1.9"
+                                              : isHovered()
+                                                ? "1.6"
+                                                : "1.25"
+                                          }
+                                          vector-effect="non-scaling-stroke"
+                                          onPointerDown={() => {
+                                            props.onPressedRegionChange(
+                                              region.id,
+                                            );
+                                            props.suppressNextOpen?.();
+                                          }}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            props.onZoomToRegion?.(region.id);
+                                          }}
+                                        />
+                                      </Show>
+                                      <text
+                                        x={toLocalX(layout().textX)}
+                                        y={toLocalY(layout().textY)}
+                                        fill={
+                                          isSelected() || isHovered()
+                                            ? "#0f172a"
+                                            : "#172554"
+                                        }
+                                        font-size="16"
+                                        font-weight="700"
+                                        text-anchor={layout().textAnchor}
+                                        paint-order="stroke"
+                                        stroke={
+                                          isSelected()
+                                            ? "rgba(219, 234, 254, 0.98)"
+                                            : isHovered()
+                                              ? "rgba(255, 237, 213, 0.98)"
+                                              : "rgba(255,255,255,0.88)"
+                                        }
+                                        stroke-width={String(
+                                          isSelected()
+                                            ? 7
+                                            : isHovered()
+                                              ? 6
+                                              : 4,
+                                        )}
+                                        stroke-linejoin="round"
+                                        onPointerDown={() => {
+                                          props.onPressedRegionChange(
+                                            region.id,
+                                          );
+                                          props.suppressNextOpen?.();
+                                        }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          props.onZoomToRegion?.(region.id);
+                                        }}
+                                      >
+                                        <For each={layout().lines}>
+                                          {(line, lineIndex) => (
+                                            <tspan
                                               x={toLocalX(layout().textX)}
-                                              y={toLocalY(layout().textY)}
-                                              fill={
-                                                isSelected || isHovered
-                                                  ? "#0f172a"
-                                                  : "#172554"
+                                              dy={
+                                                lineIndex() === 0 ? "0" : "15.2"
                                               }
-                                              font-size="16"
-                                              font-weight="700"
-                                              text-anchor={layout().textAnchor}
-                                              paint-order="stroke"
-                                              stroke={
-                                                isSelected
-                                                  ? "rgba(219, 234, 254, 0.98)"
-                                                  : isHovered
-                                                  ? "rgba(255, 237, 213, 0.98)"
-                                                  : "rgba(255,255,255,0.88)"
-                                              }
-                                              stroke-width={String(
-                                                isSelected
-                                                  ? 7
-                                                  : isHovered
-                                                  ? 6
-                                                  : 4
-                                              )}
-                                              stroke-linejoin="round"
                                               onPointerDown={() => {
-                                                props.onPressedRegionChange(region.id);
+                                                props.onPressedRegionChange(
+                                                  region.id,
+                                                );
                                                 props.suppressNextOpen?.();
                                               }}
                                               onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                props.onZoomToRegion?.(region.id);
+                                                props.onZoomToRegion?.(
+                                                  region.id,
+                                                );
                                               }}
                                             >
-                                              <For each={layout().lines}>
-                                                {(line, lineIndex) => (
-                                                  <tspan
-                                                    x={toLocalX(layout().textX)}
-                                                    dy={
-                                                      lineIndex() === 0
-                                                        ? "0"
-                                                        : "15.2"
-                                                    }
-                                                    onPointerDown={() => {
-                                                      props.onPressedRegionChange(
-                                                        region.id
-                                                      );
-                                                      props.suppressNextOpen?.();
-                                                    }}
-                                                    onClick={(e) => {
-                                                      e.preventDefault();
-                                                      e.stopPropagation();
-                                                      props.onZoomToRegion?.(region.id);
-                                                    }}
-                                                  >
-                                                    {line}
-                                                  </tspan>
-                                                )}
-                                              </For>
-                                            </text>
-                                          </g>
-                                        );
-                                      }}
-                                    </Show>
-                                  </Show>
-                                </Show>
-                              </g>
-                            )}
-                          </For>
-                        </>
-                        );
-                      }}
-                    </Show>
-                  </Show>
-                  <Show when={noteOpacity() > 0.01}>
-                    <For each={visibleDocsForRender()}>
-                      {(d, i) => {
-                        const pos = createMemo(
-                          () =>
-                            props.positions().get(d.id) ??
-                            seededPositionFor(d.title, i(), SPREAD)
-                        );
-                        const fill = createMemo(() =>
-                          colorFor(d.path || d.title)
-                        );
-                        const dimmed = createMemo(() => {
-                          const matching = props.matchingDocIds?.();
-                          return !!matching && !matching.has(d.id);
-                        });
-                        const isHovered = createMemo(
-                          () => effectiveHoveredId() === d.id
-                        );
-                        return (
-                          <Show when={!isHovered()}>
-                            <circle
-                              cx={pos().x}
-                              cy={pos().y}
-                              r={
-                                dimmed()
-                                  ? circleRadius() * 0.7
-                                  : isSearching()
-                                    ? circleRadius() * 1.25
-                                    : circleRadius()
-                              }
-                              fill={dimmed() ? "var(--colors-gray-8)" : fill()}
-                              stroke={
-                                isSearching() && !dimmed()
-                                  ? "var(--colors-bg-default)"
-                                  : "rgba(0, 0, 0, 0.12)"
-                              }
-                              stroke-width={isSearching() && !dimmed() ? 1.5 : 1}
-                              vector-effect="non-scaling-stroke"
-                              opacity={dimmed() ? 0.35 : noteOpacity()}
-                              style={{
-                                cursor: "pointer",
-                                "pointer-events":
-                                  notesInteractive() && !dimmed() ? "auto" : "none",
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                props.onSelectDoc(d.id);
-                              }}
-                            />
+                                              {line}
+                                            </tspan>
+                                          )}
+                                        </For>
+                                      </text>
+                                    </g>
+                                  );
+                                }}
+                              </Show>
+                            </Show>
                           </Show>
-                        );
-                      }}
+                        </>
+                      )}
                     </For>
-                  </Show>
-                  <Show when={visibleNoteLabelLayouts().length > 0}>
-                    <For each={visibleNoteLabelLayouts()}>
-                      {(layout) => {
-                        const doc = createMemo(() => visibleDocMap().get(layout.docId));
-                        const isHovered = createMemo(
-                          () => effectiveHoveredId() === layout.docId
-                        );
-                        const clipId = `note-label-clip-${layout.docId}`;
-                        const accentColor = createMemo(
-                          () => colorFor(doc()?.path || doc()?.title || layout.docId)
-                        );
-                        const bubbleStroke = createMemo(() =>
-                          isHovered()
-                            ? "rgba(37, 99, 235, 0.3)"
-                            : "rgba(148, 163, 184, 0.28)"
-                        );
-                        const leaderStroke = createMemo(() =>
-                          isHovered()
-                            ? "rgba(37, 99, 235, 0.5)"
-                            : "rgba(100, 116, 139, 0.42)"
-                        );
-                        const originX = layout.minX;
-                        const originY = layout.minY;
-                        const hitPadX = 5 / zoomScale();
-                        const hitPadY = 4 / zoomScale();
-                        const bubbleWidth = layout.maxX - layout.minX;
-                        const bubbleHeight = layout.maxY - layout.minY;
-                        const bubbleRadius = 2.5 / zoomScale();
-                        const textInsetX = 4 / zoomScale();
-                        const renderedTextX =
-                          layout.textAnchor === "start"
-                            ? layout.textX - originX + textInsetX
-                            : layout.textAnchor === "end"
-                              ? layout.textX - originX - textInsetX
-                              : layout.textX - originX;
-                        return (
-                          <g
-                            style={{
-                              "pointer-events": "none",
-                              transform: `translate(${originX}px, ${originY}px)`,
-                              "transform-origin": "0 0",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <defs>
-                              <clipPath id={clipId}>
-                                <rect
-                                  x={0.5 / zoomScale()}
-                                  y={0.5 / zoomScale()}
-                                  width={Math.max(0, bubbleWidth - 1 / zoomScale())}
-                                  height={Math.max(0, bubbleHeight - 1 / zoomScale())}
-                                  rx={bubbleRadius}
-                                  ry={bubbleRadius}
-                                />
-                              </clipPath>
-                            </defs>
-                            <rect
-                              x={-hitPadX}
-                              y={-hitPadY}
-                              width={bubbleWidth + hitPadX * 2}
-                              height={bubbleHeight + hitPadY * 2}
-                              rx={bubbleRadius + 1 / zoomScale()}
-                              ry={bubbleRadius + 1 / zoomScale()}
-                              fill="rgba(255,255,255,0.001)"
-                              stroke="transparent"
-                              stroke-width="1"
-                              vector-effect="non-scaling-stroke"
-                              style={{
-                                cursor: "pointer",
-                                "pointer-events":
-                                  noteOpacity() > 0.08 ? "auto" : "none",
-                              }}
-                              onPointerEnter={() => {
-                                setPointerOverNoteLabelId(layout.docId);
-                                props.onHoveredDocChange?.(layout.docId)
-                              }}
-                              onPointerLeave={() => {
-                                setPointerOverNoteLabelId(undefined);
-                                props.onHoveredDocChange?.(undefined)
-                              }}
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                props.suppressNextOpen?.();
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                props.onSelectDoc(layout.docId);
-                              }}
-                            />
-                            <rect
-                              x={0}
-                              y={0}
-                              width={bubbleWidth}
-                              height={bubbleHeight}
-                              rx={bubbleRadius}
-                              ry={bubbleRadius}
-                              fill="rgba(255,255,255,0.94)"
-                              stroke={bubbleStroke()}
-                              stroke-width={isHovered() ? "1" : "0.85"}
-                              vector-effect="non-scaling-stroke"
-                              style={{ "pointer-events": "none" }}
-                            />
-                            <text
-                              x={renderedTextX}
-                              y={layout.textY - originY}
-                              clip-path={`url(#${clipId})`}
-                              fill={
-                                isHovered()
-                                  ? accentColor()
-                                  : "rgba(15, 23, 42, 0.92)"
-                              }
-                              font-size={String(noteLabelFontSize())}
-                              font-weight={isHovered() ? "700" : "600"}
-                              text-anchor={layout.textAnchor}
-                              text-rendering="geometricPrecision"
-                              lengthAdjust="spacingAndGlyphs"
-                              style={{ "pointer-events": "none" }}
-                            >
-                              <For each={layout.lines}>
-                                {(line, lineIndex) => (
-                                  <tspan
-                                    x={renderedTextX}
-                                    dy={
-                                      lineIndex() === 0
-                                        ? "0"
-                                        : `${noteLabelFontSize() * 0.95}`
-                                    }
-                                  >
-                                    {line}
-                                  </tspan>
-                                )}
-                              </For>
-                            </text>
-                            <path
-                              d={`M ${layout.leaderStartX - originX} ${layout.leaderStartY - originY} L ${layout.leaderEndX - originX} ${layout.leaderEndY - originY}`}
-                              fill="none"
-                              stroke={leaderStroke()}
-                              stroke-width={isHovered() ? "1.4" : "1.1"}
-                              stroke-linecap="round"
-                              vector-effect="non-scaling-stroke"
-                              style={{ "pointer-events": "none" }}
-                            />
-                          </g>
-                        );
-                      }}
-                    </For>
-                  </Show>
-                  <Show when={(() => {
-                    const hoveredId = effectiveHoveredId();
-                    if (!hoveredId) return null;
-                    const doc = listOrdered().find((item) => item.id === hoveredId);
-                    if (!doc) return null;
-                    const matching = props.matchingDocIds?.();
-                    if (matching && !matching.has(doc.id)) return null;
-                    return doc;
-                  })()}>
-                    {(doc) => {
-                      const pos = createMemo(() => {
-                        const listIndex = listOrdered().findIndex(
-                          (item) => item.id === doc().id
-                        );
-                        return (
-                          props.positions().get(doc().id) ??
-                          seededPositionFor(doc().title, Math.max(0, listIndex), SPREAD)
-                        );
-                      });
-                      const fill = createMemo(() =>
-                        colorFor(doc().path || doc().title)
-                      );
-                      const hoverRadius = createMemo(() =>
-                        Math.max(
-                          7.5 / zoomScale(),
-                          Math.min(12 / zoomScale(), circleRadius() * 1.95)
-                        )
-                      );
-                      return (
-                        <g>
-                          <circle
-                            cx={pos().x}
-                            cy={pos().y}
-                            r={hoverRadius()}
-                            fill="var(--colors-bg-default)"
-                            stroke="rgba(37, 99, 235, 0.28)"
-                            stroke-width="2"
-                            vector-effect="non-scaling-stroke"
-                            filter="url(#canvas-hover-note-shadow)"
-                            style={{
-                              cursor: "pointer",
-                              "pointer-events":
-                                noteOpacity() > 0.08 ? "auto" : "none",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              props.onSelectDoc(doc().id);
-                            }}
-                          />
-                          <circle
-                            cx={pos().x}
-                            cy={pos().y}
-                            r={hoverRadius() * 0.68}
-                            fill={fill()}
-                            stroke="#1D4ED8"
-                            stroke-width="2.5"
-                            vector-effect="non-scaling-stroke"
-                            style={{
-                              cursor: "pointer",
-                              "pointer-events":
-                                noteOpacity() > 0.08 ? "auto" : "none",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              props.onSelectDoc(doc().id);
-                            }}
-                          />
-                        </g>
-                      );
+                  </>
+                );
+              }}
+            </Show>
+          </Show>
+          <Show when={visibleNoteLabelLayouts().length > 0}>
+            <For each={visibleNoteLabelLayouts()}>
+              {(layout) => {
+                const doc = createMemo(() => visibleDocMap().get(layout.docId));
+                const isHovered = createMemo(
+                  () => effectiveHoveredId() === layout.docId,
+                );
+                const clipId = `note-label-clip-${layout.docId}`;
+                const accentColor = createMemo(() =>
+                  colorFor(doc()?.path || doc()?.title || layout.docId),
+                );
+                const bubbleStroke = createMemo(() =>
+                  isHovered()
+                    ? "rgba(37, 99, 235, 0.3)"
+                    : "rgba(148, 163, 184, 0.28)",
+                );
+                const leaderStroke = createMemo(() =>
+                  isHovered()
+                    ? "rgba(37, 99, 235, 0.5)"
+                    : "rgba(100, 116, 139, 0.42)",
+                );
+                const originX = layout.minX;
+                const originY = layout.minY;
+                const hitPadX = 5 / zoomScale();
+                const hitPadY = 4 / zoomScale();
+                const bubbleWidth = layout.maxX - layout.minX;
+                const bubbleHeight = layout.maxY - layout.minY;
+                const bubbleRadius = 2.5 / zoomScale();
+                const textInsetX = 4 / zoomScale();
+                const renderedTextX =
+                  layout.textAnchor === "start"
+                    ? layout.textX - originX + textInsetX
+                    : layout.textAnchor === "end"
+                      ? layout.textX - originX - textInsetX
+                      : layout.textX - originX;
+                return (
+                  <g
+                    style={{
+                      "pointer-events": "none",
+                      transform: `translate(${originX}px, ${originY}px)`,
+                      "transform-origin": "0 0",
+                      cursor: "pointer",
                     }}
-                  </Show>
-                  <Show when={(() => {
-                    const id = props.activeDocId?.();
-                    if (!id) return undefined;
-                    return props.positions().get(id);
-                  })()}>
-                    {(pos) => (
-                      <circle
-                        cx={pos().x}
-                        cy={pos().y}
-                        r={Math.max(9 / zoomScale(), circleRadius() * 2.1)}
-                        fill="none"
-                        stroke="#1D4ED8"
-                        stroke-width="2"
-                        vector-effect="non-scaling-stroke"
-                        style={{ "pointer-events": "none" }}
-                      />
-                    )}
-                  </Show>
-                </>
-              );
+                  >
+                    <defs>
+                      <clipPath id={clipId}>
+                        <rect
+                          x={0.5 / zoomScale()}
+                          y={0.5 / zoomScale()}
+                          width={Math.max(0, bubbleWidth - 1 / zoomScale())}
+                          height={Math.max(0, bubbleHeight - 1 / zoomScale())}
+                          rx={bubbleRadius}
+                          ry={bubbleRadius}
+                        />
+                      </clipPath>
+                    </defs>
+                    <rect
+                      x={-hitPadX}
+                      y={-hitPadY}
+                      width={bubbleWidth + hitPadX * 2}
+                      height={bubbleHeight + hitPadY * 2}
+                      rx={bubbleRadius + 1 / zoomScale()}
+                      ry={bubbleRadius + 1 / zoomScale()}
+                      fill="rgba(255,255,255,0.001)"
+                      stroke="transparent"
+                      stroke-width="1"
+                      vector-effect="non-scaling-stroke"
+                      style={{
+                        cursor: "pointer",
+                        "pointer-events":
+                          noteOpacity() > 0.08 ? "auto" : "none",
+                      }}
+                      onPointerEnter={() => {
+                        setPointerOverNoteLabelId(layout.docId);
+                        props.onHoveredDocChange?.(layout.docId);
+                      }}
+                      onPointerLeave={() => {
+                        setPointerOverNoteLabelId(undefined);
+                        props.onHoveredDocChange?.(undefined);
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        props.suppressNextOpen?.();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        props.onSelectDoc(layout.docId);
+                      }}
+                    />
+                    <rect
+                      x={0}
+                      y={0}
+                      width={bubbleWidth}
+                      height={bubbleHeight}
+                      rx={bubbleRadius}
+                      ry={bubbleRadius}
+                      fill="rgba(255,255,255,0.94)"
+                      stroke={bubbleStroke()}
+                      stroke-width={isHovered() ? "1" : "0.85"}
+                      vector-effect="non-scaling-stroke"
+                      style={{ "pointer-events": "none" }}
+                    />
+                    <text
+                      x={renderedTextX}
+                      y={layout.textY - originY}
+                      clip-path={`url(#${clipId})`}
+                      fill={
+                        isHovered() ? accentColor() : "rgba(15, 23, 42, 0.92)"
+                      }
+                      font-size={String(noteLabelFontSize())}
+                      font-weight={isHovered() ? "700" : "600"}
+                      text-anchor={layout.textAnchor}
+                      text-rendering="geometricPrecision"
+                      lengthAdjust="spacingAndGlyphs"
+                      style={{ "pointer-events": "none" }}
+                    >
+                      <For each={layout.lines}>
+                        {(line, lineIndex) => (
+                          <tspan
+                            x={renderedTextX}
+                            dy={
+                              lineIndex() === 0
+                                ? "0"
+                                : `${noteLabelFontSize() * 0.95}`
+                            }
+                          >
+                            {line}
+                          </tspan>
+                        )}
+                      </For>
+                    </text>
+                    <path
+                      d={`M ${layout.leaderStartX - originX} ${layout.leaderStartY - originY} L ${layout.leaderEndX - originX} ${layout.leaderEndY - originY}`}
+                      fill="none"
+                      stroke={leaderStroke()}
+                      stroke-width={isHovered() ? "1.4" : "1.1"}
+                      stroke-linecap="round"
+                      vector-effect="non-scaling-stroke"
+                      style={{ "pointer-events": "none" }}
+                    />
+                  </g>
+                );
+              }}
+            </For>
+          </Show>
+          <Show
+            when={(() => {
+              const hoveredId = effectiveHoveredId();
+              if (!hoveredId) return null;
+              const doc = listOrdered().find((item) => item.id === hoveredId);
+              if (!doc) return null;
+              const matching = props.matchingDocIds?.();
+              if (matching && !matching.has(doc.id)) return null;
+              return doc;
             })()}
+          >
+            {(doc) => {
+              const pos = createMemo(() => {
+                const listIndex = listOrdered().findIndex(
+                  (item) => item.id === doc().id,
+                );
+                return (
+                  props.positions().get(doc().id) ??
+                  seededPositionFor(doc().title, Math.max(0, listIndex), SPREAD)
+                );
+              });
+              const fill = createMemo(() =>
+                colorFor(doc().path || doc().title),
+              );
+              const hoverRadius = createMemo(() =>
+                Math.max(
+                  7.5 / zoomScale(),
+                  Math.min(12 / zoomScale(), circleRadius() * 1.95),
+                ),
+              );
+              return (
+                <g>
+                  <circle
+                    cx={pos().x}
+                    cy={pos().y}
+                    r={hoverRadius()}
+                    fill="var(--colors-bg-default)"
+                    stroke="rgba(37, 99, 235, 0.28)"
+                    stroke-width="2"
+                    vector-effect="non-scaling-stroke"
+                    filter="url(#canvas-hover-note-shadow)"
+                    style={{
+                      cursor: "pointer",
+                      "pointer-events": noteOpacity() > 0.08 ? "auto" : "none",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onSelectDoc(doc().id);
+                    }}
+                  />
+                  <circle
+                    cx={pos().x}
+                    cy={pos().y}
+                    r={hoverRadius() * 0.68}
+                    fill={fill()}
+                    stroke="#1D4ED8"
+                    stroke-width="2.5"
+                    vector-effect="non-scaling-stroke"
+                    style={{
+                      cursor: "pointer",
+                      "pointer-events": noteOpacity() > 0.08 ? "auto" : "none",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onSelectDoc(doc().id);
+                    }}
+                  />
+                </g>
+              );
+            }}
+          </Show>
+          <Show
+            when={(() => {
+              const id = props.activeDocId?.();
+              if (!id) return undefined;
+              return props.positions().get(id);
+            })()}
+          >
+            {(pos) => (
+              <circle
+                cx={pos().x}
+                cy={pos().y}
+                r={Math.max(9 / zoomScale(), circleRadius() * 2.1)}
+                fill="none"
+                stroke="#1D4ED8"
+                stroke-width="2"
+                vector-effect="non-scaling-stroke"
+                style={{ "pointer-events": "none" }}
+              />
+            )}
           </Show>
         </g>
       </svg>
