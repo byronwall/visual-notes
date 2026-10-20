@@ -116,9 +116,7 @@ export const SortEditor = (props: {
               type="button"
               class={iconBtn}
               aria-label="Remove sort"
-              onClick={() =>
-                props.onChange(rules().filter((_, k) => k !== i))
-              }
+              onClick={() => props.onChange(rules().filter((_, k) => k !== i))}
             >
               <Trash2Icon size={12} />
             </button>

@@ -15,5 +15,8 @@ export const OPTION_COLOR_HSL: Record<OptionColor, { h: number; s: number }> = {
 
 export const optionColorVars = (color: OptionColor | undefined) => {
   const c = OPTION_COLOR_HSL[color ?? "gray"] ?? OPTION_COLOR_HSL.gray;
-  return { "--chip-h": String(c.h), "--chip-s": `${c.s}%` } as Record<string, string>;
+  return { "--chip-h": String(c.h), "--chip-s": `${c.s}%` } as Record<
+    string,
+    string
+  >;
 };

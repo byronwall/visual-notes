@@ -40,6 +40,10 @@ describe("ranksAfter and compareRank", () => {
   it("produces increasing ranks and sorts nulls last", () => {
     const ranks = ranksAfter(null, 5);
     expect([...ranks].sort()).toEqual(ranks);
-    expect([null, ranks[1], ranks[0]].sort(compareRank)).toEqual([ranks[0], ranks[1], null]);
+    expect([null, ranks[1], ranks[0]].sort(compareRank)).toEqual([
+      ranks[0],
+      ranks[1],
+      null,
+    ]);
   });
 });

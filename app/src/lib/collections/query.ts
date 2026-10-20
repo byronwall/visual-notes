@@ -12,7 +12,14 @@ import type {
   ViewConfig,
 } from "./types";
 import { TITLE_PROPERTY_ID } from "./types";
-import { datePart, formatValueText, isDateValue, isEmptyValue, optionById, readValue } from "./values";
+import {
+  datePart,
+  formatValueText,
+  isDateValue,
+  isEmptyValue,
+  optionById,
+  readValue,
+} from "./values";
 
 /** The title pseudo property, so the engine can treat it like any text column. */
 export const TITLE_PROPERTY: CollectionProperty = {
@@ -23,13 +30,46 @@ export const TITLE_PROPERTY: CollectionProperty = {
   position: -1,
 };
 
-export const withTitle = (properties: CollectionProperty[]) => [TITLE_PROPERTY, ...properties];
+export const withTitle = (properties: CollectionProperty[]) => [
+  TITLE_PROPERTY,
+  ...properties,
+];
 
-const TEXT_OPS: FilterOperator[] = ["contains", "not_contains", "is", "is_not", "starts_with", "is_empty", "is_not_empty"];
-const NUMBER_OPS: FilterOperator[] = ["eq", "neq", "gt", "gte", "lt", "lte", "is_empty", "is_not_empty"];
-const SELECT_OPS: FilterOperator[] = ["is", "is_not", "any_of", "none_of", "is_empty", "is_not_empty"];
+const TEXT_OPS: FilterOperator[] = [
+  "contains",
+  "not_contains",
+  "is",
+  "is_not",
+  "starts_with",
+  "is_empty",
+  "is_not_empty",
+];
+const NUMBER_OPS: FilterOperator[] = [
+  "eq",
+  "neq",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "is_empty",
+  "is_not_empty",
+];
+const SELECT_OPS: FilterOperator[] = [
+  "is",
+  "is_not",
+  "any_of",
+  "none_of",
+  "is_empty",
+  "is_not_empty",
+];
 const STATUS_OPS: FilterOperator[] = ["group_is", ...SELECT_OPS];
-const MULTI_OPS: FilterOperator[] = ["any_of", "contains_all", "none_of", "is_empty", "is_not_empty"];
+const MULTI_OPS: FilterOperator[] = [
+  "any_of",
+  "contains_all",
+  "none_of",
+  "is_empty",
+  "is_not_empty",
+];
 const DATE_OPS: FilterOperator[] = [
   "is",
   "before",
@@ -97,7 +137,14 @@ export const OPERATOR_LABELS: Record<FilterOperator, string> = {
 
 /** Operators that take no value input. */
 export const operatorTakesValue = (op: FilterOperator) =>
-  !["is_empty", "is_not_empty", "this_week", "this_month", "is_checked", "is_unchecked"].includes(op);
+  ![
+    "is_empty",
+    "is_not_empty",
+    "this_week",
+    "this_month",
+    "is_checked",
+    "is_unchecked",
+  ].includes(op);
 
 const addDays = (day: string, n: number) => {
   const [y, m, d] = day.split("-").map(Number);
@@ -115,7 +162,11 @@ export const startOfWeek = (day: string) => addDays(day, -weekday(day));
 export { addDays as addDaysToDate };
 
 const asStringArray = (v: unknown): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : typeof v === "string" ? [v] : [];
+  Array.isArray(v)
+    ? v.filter((x): x is string => typeof x === "string")
+    : typeof v === "string"
+      ? [v]
+      : [];
 
 function matchCondition(
   row: CollectionRow,
@@ -235,11 +286,16 @@ export function matchesFilter(
       ? item.conditions.every((c) => matchCondition(row, c, propsById, today))
       : item.conditions.some((c) => matchCondition(row, c, propsById, today));
   };
-  return filter.conjunction === "and" ? filter.items.every(test) : filter.items.some(test);
+  return filter.conjunction === "and"
+    ? filter.items.every(test)
+    : filter.items.some(test);
 }
 
 /** Sort key for one value; `null` sorts last regardless of direction. */
-function sortKey(property: CollectionProperty, value: PropertyValue): string | number | null {
+function sortKey(
+  property: CollectionProperty,
+  value: PropertyValue,
+): string | number | null {
   if (isEmptyValue(value) && property.kind !== "checkbox") return null;
   switch (property.kind) {
     case "number":
@@ -295,7 +351,11 @@ export function sortRows(
   });
 }
 
-export function matchesSearch(row: CollectionRow, search: string | undefined, properties: CollectionProperty[]) {
+export function matchesSearch(
+  row: CollectionRow,
+  search: string | undefined,
+  properties: CollectionProperty[],
+) {
   const needle = search?.trim().toLowerCase();
   if (!needle) return true;
   if (row.title.toLowerCase().includes(needle)) return true;
@@ -321,7 +381,8 @@ export function applyView(
 }
 
 /** True when the view has an active sort, so manual reordering is disabled. */
-export const hasActiveSort = (config: ViewConfig) => (config.sorts ?? []).length > 0;
+export const hasActiveSort = (config: ViewConfig) =>
+  (config.sorts ?? []).length > 0;
 
 /** Visible properties for a view, in display order (title excluded). */
 export function orderedProperties(
