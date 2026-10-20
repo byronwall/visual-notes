@@ -38,13 +38,32 @@ export const createTaskData = () => {
     () => mergedLists().find((list) => list.id === selectedListId()) ?? null
   );
 
-  const [tasks, { mutate: mutateTasks }] = createResource(
+  // Optimistic edits made while a fetch is in flight would be overwritten by
+  // its older rows, so such a result keeps the local rows instead. Every edit
+  // is followed by a refresh once its write lands, which reconciles them.
+  let localEdits = 0;
+  let editedListId: string | null = null;
+  const [tasks, { mutate }] = createResource<TaskItem[], { listId: string; refresh: number }>(
     () => {
       const listId = selectedListId();
       return listId ? { listId, refresh: tasksNonce() } : false;
     },
-    (source) => fetchTaskTree(source)
+    async (source, info) => {
+      const editsAtStart = localEdits;
+      const rows = await fetchTaskTree(source);
+      const editedMeanwhile = localEdits !== editsAtStart && editedListId === source.listId;
+      if (editedMeanwhile && info.value) {
+        console.debug("[tasks] kept local rows over a stale fetch");
+        return info.value;
+      }
+      return rows;
+    }
   );
+  const mutateTasks = (update: (current: TaskItem[] | undefined) => TaskItem[] | undefined) => {
+    localEdits += 1;
+    editedListId = selectedListId();
+    mutate(update);
+  };
 
   const taskItems = createMemo<TaskItem[]>(() =>
     selectedListId() ? (tasks.latest ?? []) : []

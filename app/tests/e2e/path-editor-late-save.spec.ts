@@ -6,24 +6,21 @@ import {
   type Route,
 } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
+import {
+  expectNotePath,
+  openPathEditor,
+  pathHint,
+  pathInput,
+  pathPopover,
+  savePathButton,
+} from "./helpers/paths";
 import { waitForAppReady } from "./helpers/readiness";
-
-const pathInput = (page: Page) =>
-  page.getByPlaceholder("e.g. work.projects.alpha");
-
-const pathPopover = (page: Page) =>
-  page
-    .locator('[data-scope="popover"][data-part="content"]')
-    .filter({ has: pathInput(page) });
-
-const savePathButton = (page: Page) =>
-  pathPopover(page).getByRole("button", { name: "Save", exact: true });
 
 const createNote = async (page: Page, title: string, path: string) => {
   await page.goto("/docs/new");
   await waitForAppReady(page);
-  await page.locator("#new-note-title").fill(title);
-  await page.getByRole("button", { name: "Unfiled", exact: true }).click();
+  await page.locator('[contenteditable="true"] h1').first().fill(title);
+  await openPathEditor(page);
   const input = pathInput(page);
   await input.pressSequentially(path);
   await expect(input).toHaveValue(path);
@@ -31,7 +28,7 @@ const createNote = async (page: Page, title: string, path: string) => {
     const serverId = response.request().headers()["x-server-id"] || "";
     return serverId.includes("--createDoc_action#");
   });
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Create note", exact: true }).click();
   const responseBody = await (await createResponse).text();
   const responseId = responseBody.match(/\bc[a-z0-9]{24}\b/)?.[0];
   expect(
@@ -107,7 +104,7 @@ test("late path saves do not replace a switched note or a newer draft", async ({
 
   try {
     await expect(page).toHaveURL(new RegExp(`/docs/${noteAId}$`));
-    await page.getByRole("button", { name: sharedPath, exact: true }).click();
+    await openPathEditor(page);
     const input = pathInput(page);
 
     const latePath = `late-${suffix}`;
@@ -122,11 +119,7 @@ test("late path saves do not replace a switched note or a newer draft", async ({
       .click();
     await page.getByRole("button", { name: noteBTitle }).click();
     await expect(page).toHaveURL(new RegExp(`/docs/${noteBId}$`));
-    await expect(
-      page
-        .locator('[data-scope="editable"][data-part="preview"]')
-        .filter({ hasText: noteBTitle }),
-    ).toBeVisible();
+    await expect(page).toHaveTitle(`${noteBTitle} • Visual Notes`);
 
     switchedNoteSave.release();
     const switchedResponse = await (await switchedNoteSave.request).response();
@@ -135,11 +128,9 @@ test("late path saves do not replace a switched note or a newer draft", async ({
       () =>
         new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
     );
-    await expect(
-      page.getByRole("button", { name: sharedPath, exact: true }),
-    ).toBeVisible();
+    await expectNotePath(page, sharedPath);
 
-    await page.getByRole("button", { name: sharedPath, exact: true }).click();
+    await openPathEditor(page);
     const newerPath = `newer-${suffix}`;
     const sameNoteSave = deferNextUpdate(noteBId);
     await input.fill(`submitted-${suffix}`);
@@ -174,7 +165,7 @@ test("path save actions remain reachable and new paths keep typed segments", asy
   await ensureAuthed(page);
   const docId = await createNote(page, title, typedPath);
 
-  await page.getByRole("button", { name: typedPath, exact: true }).click();
+  await openPathEditor(page);
   const input = pathInput(page);
   await input.fill(pointerSegment);
   const pointerSave = page.waitForRequest((request) => {
@@ -187,9 +178,7 @@ test("path save actions remain reachable and new paths keep typed segments", asy
   });
   await savePathButton(page).click();
   await pointerSave;
-  await expect(
-    page.getByRole("button", { name: pointerPath, exact: true }),
-  ).toBeVisible();
+  await expectNotePath(page, pointerPath);
   await page.screenshot({
     path: "../tmp/path-editor-pointer-save.png",
     fullPage: true,
@@ -197,39 +186,32 @@ test("path save actions remain reachable and new paths keep typed segments", asy
 
   await input.fill(keyboardPath);
   await input.press("Enter");
+  // Enter commits the typed segment as a chip without saving.
   await expect(
-    page.getByRole("button", { name: keyboardPath, exact: true }),
+    pathPopover(page).getByRole("button", { name: keyboardPath, exact: true }),
   ).toBeVisible();
   await expect(input).toHaveValue("");
 
   await input.fill(`escape${suffix}`);
-  await expect(
-    page.getByText(
-      "Pick a child to continue nesting, or type a segment and hit",
-    ),
-  ).toBeVisible();
+  await expect(pathHint(page)).toBeVisible();
   await input.press("Escape");
+  await expect(pathHint(page)).toBeHidden();
+  // Escape may also close the popover; the draft survives reopening it.
+  await openPathEditor(page);
   await expect(input).toHaveValue(`escape${suffix}`);
-  await expect(
-    page.getByText(
-      "Pick a child to continue nesting, or type a segment and hit",
-    ),
-  ).toBeHidden();
 
   await input.fill(`tab${suffix}`);
   let saveFocused = false;
   for (let i = 0; i < 50 && !saveFocused; i += 1) {
     await page.keyboard.press("Tab");
     saveFocused = await savePathButton(page)
-      .evaluate((button) => document.activeElement === button)
+      .evaluate((button) => document.activeElement === button, undefined, {
+        timeout: 1_000,
+      })
       .catch(() => false);
   }
   expect(saveFocused).toBe(true);
-  await expect(
-    page.getByText(
-      "Pick a child to continue nesting, or type a segment and hit",
-    ),
-  ).toBeVisible();
+  await expect(pathHint(page)).toBeVisible();
   const keyboardSave = page.waitForRequest((request) => {
     const serverId = request.headers()["x-server-id"] || "";
     return (
@@ -240,25 +222,17 @@ test("path save actions remain reachable and new paths keep typed segments", asy
   });
   await page.keyboard.press("Enter");
   await keyboardSave;
-  await expect(
-    page.getByRole("button", {
-      name: `${typedPath}.${keyboardPath}.tab${suffix}`,
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expectNotePath(page, `${typedPath}.${keyboardPath}.tab${suffix}`);
 
   await page.goto("/");
   await waitForAppReady(page);
-  await page.getByPlaceholder("Search notes...").fill(title);
-  const row = page
-    .getByText(title, { exact: true })
-    .locator("xpath=ancestor::li[1]");
+  await page.getByPlaceholder("Search titles, paths, and content").fill(title);
+  const row = page.locator("li[data-doc-id]").filter({ hasText: title });
   await expect(row).toBeVisible();
-  const rowCheckbox = row.getByRole("checkbox");
+  const rowCheckbox = row.getByRole("checkbox", { name: `Select ${title}` });
   await row.locator('[data-scope="checkbox"][data-part="root"]').click();
   await expect(rowCheckbox).toBeChecked();
-  await page.getByRole("button", { name: "Selection" }).click();
-  await page.getByRole("button", { name: "Set Path" }).click();
+  await page.getByRole("button", { name: "Set path", exact: true }).click();
   const bulkInput = pathInput(page);
   await bulkInput.fill(`bulk${suffix}`);
   await page.screenshot({

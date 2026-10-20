@@ -1,5 +1,5 @@
 import { useAction } from "@solidjs/router";
-import { batch, createEffect, createSignal } from "solid-js";
+import { batch, createEffect, createSignal, onCleanup } from "solid-js";
 import {
   createTask,
   deleteTask,
@@ -66,10 +66,42 @@ export const createTaskActions = (
     if (edit && !byId.has(edit.taskId)) setInlineEdit(null);
   });
 
-  const reportError = (scope: string, err: unknown, fallback: string) => {
-    console.error(`[tasks] ${scope} failed`, err);
-    setError(errorMessage(err, fallback));
-    data.refreshTasks();
+  // Optimistic writes reach the server one at a time, in order, and the tree
+  // refetches only after they have been idle for a moment. Otherwise a
+  // refetch for an earlier write can commit after a later optimistic edit and
+  // revert it on screen, and the next keyboard move acts on the stale order.
+  const RECONCILE_DELAY_MS = 400;
+  let writeQueue: Promise<unknown> = Promise.resolve();
+  let pendingWrites = 0;
+  let reconcileTimer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(reconcileTimer));
+
+  const scheduleReconcile = () => {
+    clearTimeout(reconcileTimer);
+    if (pendingWrites > 0) return;
+    reconcileTimer = setTimeout(() => {
+      if (pendingWrites === 0) data.refreshTasks();
+    }, RECONCILE_DELAY_MS);
+  };
+
+  const queueWrite = (
+    scope: string,
+    fallback: string,
+    write: () => Promise<unknown>,
+  ) => {
+    pendingWrites += 1;
+    clearTimeout(reconcileTimer);
+    writeQueue = writeQueue.then(() =>
+      write()
+        .catch((err) => {
+          console.error(`[tasks] ${scope} failed`, err);
+          setError(errorMessage(err, fallback));
+        })
+        .finally(() => {
+          pendingWrites -= 1;
+          scheduleReconcile();
+        }),
+    );
   };
 
   const select = (taskId: string | null, focus = true) =>
@@ -123,8 +155,8 @@ export const createTaskActions = (
     if (isDoneStatus(status) && !data.showDone())
       data.markRecentlyDone(task.id);
     patchTask(task.id, { status });
-    runUpdateTask({ id: task.id, status }).catch((err) =>
-      reportError("status update", err, "Could not update status"),
+    queueWrite("status update", "Could not update status", () =>
+      runUpdateTask({ id: task.id, status }),
     );
   };
 
@@ -170,7 +202,7 @@ export const createTaskActions = (
         targetIndex,
       ),
     );
-    data.refreshTasks();
+    scheduleReconcile();
     data.refreshLists();
     return created.id;
   };
@@ -319,8 +351,8 @@ export const createTaskActions = (
 
     setError(null);
     patchTask(task.id, patch);
-    runUpdateTask({ id: task.id, ...patch }).catch((err) =>
-      reportError("title update", err, "Could not save task"),
+    queueWrite("title update", "Could not save task", () =>
+      runUpdateTask({ id: task.id, ...patch }),
     );
   };
 
@@ -332,9 +364,9 @@ export const createTaskActions = (
       ids[ids.indexOf(task.id) + 1] ?? ids[ids.indexOf(task.id) - 1] ?? null;
     data.mutateTasks((current) => deleteTaskLocally(current ?? [], task.id));
     select(nextId);
-    runDeleteTask({ id: task.id })
-      .then(() => data.refreshLists())
-      .catch((err) => reportError("delete", err, "Could not delete task"));
+    queueWrite("delete", "Could not delete task", () =>
+      runDeleteTask({ id: task.id }).then(() => data.refreshLists()),
+    );
   };
 
   // ---- moves -----------------------------------------------------------
@@ -351,9 +383,9 @@ export const createTaskActions = (
         : current,
     );
     select(taskId);
-    runMoveTask({ taskId, targetParentTaskId: parentTaskId, targetIndex })
-      .then(() => data.refreshTasks())
-      .catch((err) => reportError("move", err, "Could not move task"));
+    queueWrite("move", "Could not move task", () =>
+      runMoveTask({ taskId, targetParentTaskId: parentTaskId, targetIndex }),
+    );
   };
 
   const moveByKeyboard = (taskId: string, direction: MoveDirection) => {

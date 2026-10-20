@@ -9,10 +9,15 @@ test.describe("visual notes app", () => {
 
   test("navigation renders key routes", async ({ page }) => {
     await ensureAuthed(page);
-    await expect(page.getByRole("button", { name: /^canvas$/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /paths/i })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /time blocks/i }),
-    ).toBeVisible();
+    const sections = page.getByRole("list", { name: "Sections" });
+    for (const [name, href] of [
+      ["Canvas", "/canvas"],
+      ["Paths", "/path"],
+      ["Time Blocks", "/time-blocks"],
+    ]) {
+      await expect(
+        sections.getByRole("link", { name, exact: true }),
+      ).toHaveAttribute("href", href);
+    }
   });
 });
