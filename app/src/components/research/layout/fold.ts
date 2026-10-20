@@ -82,6 +82,27 @@ export const foldView = (input: {
     accepted.filter((group) => (heights.get(group.id) ?? 1) <= input.level).map((group) => group.id),
   );
 
+  // Folding a card takes its came-from descendants along, stopping at cards
+  // another accepted summary covers and below open cards (they pierce the
+  // fold, and the work under them stays with them).
+  const childIds = new Map<string, string[]>();
+  for (const card of input.cards) {
+    if (card.parentId) childIds.set(card.parentId, [...(childIds.get(card.parentId) ?? []), card.id]);
+  }
+  const acceptedOwners = new Map<string, Set<string>>();
+  for (const group of accepted) {
+    for (const id of group.memberIds) acceptedOwners.set(id, (acceptedOwners.get(id) ?? new Set()).add(group.id));
+  }
+  const addDescendants = (groupId: string, id: string, out: Set<string>) => {
+    for (const kid of childIds.get(id) ?? []) {
+      if (out.has(kid)) continue;
+      const others = acceptedOwners.get(kid);
+      if (others && !others.has(groupId)) continue;
+      out.add(kid);
+      if (cardsById.get(kid)?.state !== "open") addDescendants(groupId, kid, out);
+    }
+  };
+
   // Everything a folded group swallows, outermost group first.
   const owner = new Map<string, string>();
   const expandFolded = (group: ResearchSummaryGroup, out: Set<string>, trail: Set<string>) => {
@@ -101,6 +122,10 @@ export const foldView = (input: {
     .forEach((group) => {
       const members = new Set<string>();
       expandFolded(group, members, new Set());
+      for (const id of [...members]) {
+        const card = cardsById.get(id)!;
+        if (isPlain(card) && card.state !== "open") addDescendants(group.id, id, members);
+      }
       swallowed.set(group.id, members);
       for (const id of members) if (!owner.has(id)) owner.set(id, group.id);
     });

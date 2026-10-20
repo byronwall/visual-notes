@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
 import { foldView, scaleForLevel } from "../layout/fold";
-import { hullRect, layoutTree, type Rect } from "../layout/tree-layout";
+import { boundsOf, hullRect, layoutTree, type Rect } from "../layout/tree-layout";
 import type { TopicData } from "../createTopicData";
 
 /**
@@ -51,10 +51,23 @@ export const createCanvasModel = (data: TopicData, level: Accessor<number>) => {
     return { rects, hulls, bounds: scale(base.bounds) };
   });
 
+  /** Bounds of the scaled layout at any level, for fitting before switching to it. */
+  const boundsAtLevel = (atLevel: number): Rect => {
+    const k = atLevel <= 0 ? 1 : 1 / scaleForLevel(atLevel);
+    const folded = foldView({
+      cards: data.cards(),
+      groups: data.current()?.groups ?? [],
+      links: data.current()?.links ?? [],
+      level: atLevel,
+    });
+    const box = boundsOf([...layoutTree(folded, nudges()).rects.values()]);
+    return { x: box.x * k, y: box.y * k, w: box.w * k, h: box.h * k };
+  };
+
   const setLocalNudge = (id: string, nudge: { x: number; y: number } | null) =>
     setLocalNudges((prev) => new Map(prev).set(id, nudge));
 
-  return { view, layout, factor, nudges, setLocalNudge };
+  return { view, layout, factor, nudges, setLocalNudge, boundsAtLevel };
 };
 
 export type CanvasModel = ReturnType<typeof createCanvasModel>;

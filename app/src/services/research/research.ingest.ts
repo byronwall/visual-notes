@@ -146,6 +146,12 @@ export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<
   }
 };
 
+const describeStateChanges = (changes: StateChange[]) => {
+  const states = [...new Set(changes.map((change) => change.to))];
+  const what = changes.length === 1 ? "1 card" : `${changes.length} cards`;
+  return states.length === 1 ? `Marked ${what} ${states[0]}` : `Changed state on ${what}`;
+};
+
 /** Change task/question states as one undoable batch. */
 export const setCardStates = async (
   topicId: string,
@@ -181,7 +187,7 @@ export const setCardStates = async (
         topicId,
         batchKey: input.batchKey,
         agent: input.agent,
-        summary: `Set state on ${stateChanges.length} card(s)`,
+        summary: describeStateChanges(stateChanges),
         result: stored as unknown as Prisma.InputJsonValue,
       },
     });
