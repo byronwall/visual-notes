@@ -1,6 +1,8 @@
 import { createMiddleware } from "@solidjs/start/middleware";
 import { isArchiveIngestAuthorized } from "~/server/lib/archive/auth";
 import { isRequestAuthenticated } from "~/server/magic-auth";
+import { handleWellKnown } from "~/server/oauth/route-helpers";
+import { loginPathFor } from "~/utils/safe-next";
 
 // SolidStart's pinned transform builds IDs from the root-relative module path
 // and exported function name. Keep these IDs in sync with those public functions.
@@ -45,6 +47,12 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
+  // The MCP connector and its OAuth endpoints authenticate on their own.
+  // /oauth/authorize is deliberately absent: it needs the login cookie.
+  if (pathname === "/mcp") return true;
+  if (pathname === "/oauth/register" || pathname === "/oauth/token")
+    return true;
+  if (pathname.startsWith("/.well-known/oauth-")) return true;
   // Server functions need an identity check before generic asset extensions.
   if (isServerFunctionPath(pathname)) {
     return isPublicServerFunctionRequest(request);
@@ -59,6 +67,9 @@ export default createMiddleware({
     async (event) => {
       const url = new URL(event.request.url);
       const pathname = url.pathname;
+
+      const wellKnown = handleWellKnown(event.request);
+      if (wellKnown) return wellKnown;
 
       if (isAllowedUnauthed(event.request)) return;
 
@@ -90,7 +101,10 @@ export default createMiddleware({
           },
         });
       }
-      return Response.redirect(`${url.origin}/login`, 302);
+      return Response.redirect(
+        `${url.origin}${loginPathFor(pathname + url.search)}`,
+        302,
+      );
     },
   ],
 });

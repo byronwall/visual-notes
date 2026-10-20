@@ -18,6 +18,12 @@ export const serverScheme = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
   // Back-compat alias
   PUBLIC_APP_URL: z.string().url().optional(),
+  // ChatGPT MCP connector: "true" serves /mcp and its OAuth routes.
+  MCP_CONNECTOR_ENABLED: z.string().optional(),
+  // HMAC secret for connector access tokens; rotate to revoke every token.
+  MCP_TOKEN_SECRET: z.string().optional(),
+  // Local-only static bearer for the MCP Inspector; ignored in production.
+  MCP_DEV_TOKEN: z.string().optional(),
 });
 
 export const clientScheme = z.object({

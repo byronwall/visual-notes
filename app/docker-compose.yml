@@ -36,6 +36,10 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-change-me}
       MAGIC_PASSWORD: ${MAGIC_PASSWORD:-magic-password}
       ARCHIVE_INGEST_TOKEN: ${ARCHIVE_INGEST_TOKEN:-change-me-archive-token}
+      # ChatGPT MCP connector (off unless explicitly enabled)
+      MCP_CONNECTOR_ENABLED: ${MCP_CONNECTOR_ENABLED:-false}
+      MCP_TOKEN_SECRET: ${MCP_TOKEN_SECRET:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       UMAP_PYTHON_BIN: ${UMAP_PYTHON_BIN:-/app/.venv/bin/python}

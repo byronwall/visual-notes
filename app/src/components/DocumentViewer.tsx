@@ -24,6 +24,7 @@ import { InPlaceEditableText } from "./InPlaceEditableText";
 import { useToasts } from "./Toast";
 import { DocActionsMenu } from "./doc-header/DocActionsMenu";
 import { DocSaveStatus, type SaveState } from "./doc-header/DocSaveStatus";
+import { DocVersionsPopover } from "./doc-header/DocVersionsPopover";
 import { leadingH1Text, titlesMatch } from "./doc-header/leading-heading";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
@@ -234,6 +235,11 @@ const DocumentViewer: VoidComponent<{
     }
   });
 
+  const flushEditorChanges = async () => {
+    const api = editorApi();
+    if (api?.dirty()) await api.save();
+  };
+
   return (
     <Box class="prose" maxW="none">
       <Show
@@ -341,6 +347,13 @@ const DocumentViewer: VoidComponent<{
             order="1"
             ml="auto"
           >
+            <DocVersionsPopover
+              docId={props.doc.id}
+              onBeforeRestore={flushEditorChanges}
+              // The editor loads its content once per note, so a restored
+              // version needs a fresh load rather than a live patch.
+              onRestored={() => window.location.reload()}
+            />
             <DocActivitySummaryPopover
               docId={props.doc.id}
               createdAt={props.doc.createdAt}

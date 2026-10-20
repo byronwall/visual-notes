@@ -67,6 +67,7 @@ enum ActionActorType {
   magic_user
   anonymous
   system
+  chatgpt
 }
 
 enum ActionActivityClass {
@@ -207,9 +208,28 @@ model Doc {
   share                DocShare?
   timeBlocks           TimeBlock[]
   timeBlockDayMetadata TimeBlockDayMetadata[]
+  revisions            DocRevision[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
+}
+
+/// Prior content captured before an automated edit (e.g. ChatGPT via MCP)
+/// so the change can be rolled back from the app.
+model DocRevision {
+  id        String          @id @default(cuid())
+  docId     String
+  title     String
+  path      String?
+  markdown  String
+  html      String
+  actorType ActionActorType
+  reason    String
+  createdAt DateTime        @default(now())
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([docId, createdAt(sort: Desc)])
 }
 
 model DocShare {
@@ -597,4 +617,47 @@ model ChatMessage {
   thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
+}
+
+/// OAuth client registered by an MCP client (e.g. ChatGPT) via dynamic
+/// client registration. Public clients only; PKCE is mandatory.
+model OAuthClient {
+  id           String   @id
+  clientName   String?
+  redirectUris String[]
+  createdAt    DateTime @default(now())
+
+  codes  OAuthAuthorizationCode[]
+  grants OAuthGrant[]
+}
+
+/// Single-use authorization code, stored hashed; valid for a few minutes.
+model OAuthAuthorizationCode {
+  codeHash      String   @id
+  clientId      String
+  redirectUri   String
+  codeChallenge String
+  resource      String
+  scope         String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+/// An approved connection. Access tokens carry its id, so revoking the grant
+/// cuts off the client immediately. The refresh token rotates on every use.
+model OAuthGrant {
+  id               String    @id @default(cuid())
+  clientId         String
+  scope            String
+  resource         String
+  refreshTokenHash String    @unique
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }

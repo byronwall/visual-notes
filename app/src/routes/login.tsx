@@ -1,8 +1,9 @@
-import { useAction, useNavigate } from "@solidjs/router";
+import { useAction, useNavigate, useSearchParams } from "@solidjs/router";
 import type { VoidComponent } from "solid-js";
 import { createSignal, Show } from "solid-js";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import { magicLogin } from "~/services/auth/magic-auth.actions";
+import { safeNextPath } from "~/utils/safe-next";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Field from "~/components/ui/field";
@@ -16,10 +17,11 @@ const LoginPage: VoidComponent = () => {
 
   const { refresh } = useMagicAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const runLogin = useAction(magicLogin);
 
   const handlePasswordInput = (
-    e: InputEvent & { currentTarget: HTMLInputElement }
+    e: InputEvent & { currentTarget: HTMLInputElement },
   ) => {
     setPassword(e.currentTarget.value);
   };
@@ -32,7 +34,12 @@ const LoginPage: VoidComponent = () => {
     try {
       await runLogin({ password: password() });
       await refresh();
-      navigate("/", { replace: true });
+      const next = safeNextPath(
+        typeof searchParams.next === "string" ? searchParams.next : null,
+      );
+      // OAuth consent is served by the server, so leave the client router.
+      if (next?.startsWith("/oauth/")) window.location.assign(next);
+      else navigate(next ?? "/", { replace: true });
     } catch (err) {
       setError((err as Error)?.message || "Login failed");
     } finally {

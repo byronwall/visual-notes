@@ -115,3 +115,32 @@ describe("server function auth boundary", () => {
     ).toBe(false);
   });
 });
+
+describe("MCP connector boundary", () => {
+  it("lets /mcp through so the route can check its own bearer tokens", () => {
+    expect(isAllowedUnauthed(serverRequest("/mcp", { method: "POST" }))).toBe(
+      true,
+    );
+    expect(isAllowedUnauthed(serverRequest("/mcp/other"))).toBe(false);
+  });
+});
+
+describe("OAuth endpoints", () => {
+  it("leaves metadata, registration, and token public but keeps consent behind login", () => {
+    expect(
+      isAllowedUnauthed(
+        serverRequest("/.well-known/oauth-protected-resource/mcp"),
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedUnauthed(
+        serverRequest("/.well-known/oauth-authorization-server"),
+      ),
+    ).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/oauth/register"))).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/oauth/token"))).toBe(true);
+    expect(
+      isAllowedUnauthed(serverRequest("/oauth/authorize?client_id=x")),
+    ).toBe(false);
+  });
+});
