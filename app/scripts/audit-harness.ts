@@ -234,6 +234,7 @@ function makeChildEnv(
     PUBLIC_BASE_URL: baseUrl,
     MAGIC_PASSWORD: auditMagicPassword,
     ARCHIVE_INGEST_TOKEN: "audit-harness-token",
+    RESEARCH_AGENT_TOKEN: "audit-harness-research-token",
     VITE_AUTH_PATH: source.VITE_AUTH_PATH ?? "/api/auth",
     VITE_PUBLIC_BASE_URL: baseUrl,
     PORT: String(options.port),
