@@ -18,7 +18,10 @@ export function contentFromMarkdown(markdown: string): NoteDoc {
 
 /** Appends markdown as new blocks below the current ones, leaving them untouched. */
 export function appendMarkdown(doc: StoredNote, addition: string): NoteDoc {
-  const current = readNoteContent(doc);
+  return appendBlocks(readNoteContent(doc), addition);
+}
+
+export function appendBlocks(current: NoteDoc, addition: string): NoteDoc {
   const added = fromMarkdown(addition);
   return {
     ...current,

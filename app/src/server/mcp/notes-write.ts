@@ -2,9 +2,21 @@ import { createHash, randomUUID } from "crypto";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import type { NoteDoc } from "~/lib/note-content/types";
+import {
+  applyBlockOps,
+  listBlockIds,
+  UnknownBlockError,
+  type BlockOp,
+} from "~/lib/note-content/block-ops";
+import { toMarkdown } from "~/lib/note-content/convert";
 import { rebuildNoteIndex } from "~/server/notes/note-index";
-import { contentColumns, revisionSnapshot } from "~/server/notes/note-store";
-import { appendMarkdown, contentFromMarkdown } from "./note-content";
+import {
+  contentColumns,
+  readNoteContent,
+  revisionSnapshot,
+} from "~/server/notes/note-store";
+import { writeNoteContent } from "~/server/notes/note-write";
+import { appendBlocks, contentFromMarkdown } from "./note-content";
 import {
   CHATGPT_SOURCE,
   ConnectorError,
@@ -151,36 +163,51 @@ type OwnedNote = Awaited<ReturnType<typeof loadOwnedNote>>;
 async function applyOwnedEdit(
   ctx: ConnectorContext,
   doc: OwnedNote,
-  reason: "chatgpt.update" | "chatgpt.append",
-  changes: { title?: string; path?: string | null; content?: NoteDoc },
+  reason: "chatgpt.update" | "chatgpt.append" | "chatgpt.edit",
+  changes: {
+    title?: string;
+    path?: string | null;
+    /** New content computed from the note's current blocks. */
+    content?: (current: NoteDoc) => NoteDoc;
+  },
 ): Promise<WriteResult> {
-  const columns = changes.content ? contentColumns(changes.content) : undefined;
+  const extra = {
+    ...(changes.title !== undefined ? { title: changes.title } : {}),
+    ...(changes.path !== undefined ? { path: changes.path } : {}),
+  };
   const updated = await prisma.$transaction(async (tx) => {
+    // Lock and re-read inside the transaction so edits apply to the latest
+    // blocks, not a copy read before a concurrent save.
+    const [locked] = await tx.$queryRaw<
+      { content: unknown; html: string; markdown: string; title: string; path: string | null }[]
+    >`SELECT "content", "html", "markdown", "title", "path" FROM "Doc" WHERE "id" = ${doc.id} FOR UPDATE`;
+    if (!locked) throw new ConnectorError("not_found", `No note with id ${doc.id}`);
     await tx.docRevision.create({
       data: {
         docId: doc.id,
-        ...revisionSnapshot(doc),
+        ...revisionSnapshot(locked),
         actorType: "chatgpt",
         reason,
       },
     });
-    const row = await tx.doc.update({
+    if (!changes.content) {
+      return tx.doc.update({
+        where: { id: doc.id },
+        data: extra,
+        select: { id: true, title: true, path: true },
+      });
+    }
+    const next = changes.content(readNoteContent(locked));
+    await writeNoteContent(tx, {
+      docId: doc.id,
+      doc: next,
+      actorType: "chatgpt",
+      extra: { ...extra, contentHash: sha256(toMarkdown(next)) },
+    });
+    return tx.doc.findUniqueOrThrow({
       where: { id: doc.id },
-      data: {
-        ...(changes.title !== undefined ? { title: changes.title } : {}),
-        ...(changes.path !== undefined ? { path: changes.path } : {}),
-        ...(columns
-          ? {
-              ...columns,
-              contentVersion: { increment: 1 },
-              contentHash: sha256(columns.markdown),
-            }
-          : {}),
-      },
       select: { id: true, title: true, path: true },
     });
-    if (changes.content) await rebuildNoteIndex(tx, doc.id, changes.content);
-    return row;
   });
   await logActionEvent({
     eventType: "doc.update",
@@ -231,7 +258,7 @@ export async function updateNote(
     content:
       input.markdown === undefined
         ? undefined
-        : contentFromMarkdown(input.markdown),
+        : () => contentFromMarkdown(input.markdown!),
   });
 }
 
@@ -243,6 +270,55 @@ export async function appendToNote(
     throw new ConnectorError("invalid", "markdown is required");
   const doc = await loadOwnedNote(input.id);
   return applyOwnedEdit(ctx, doc, "chatgpt.append", {
-    content: appendMarkdown(doc, input.markdown),
+    content: (current) => appendBlocks(current, input.markdown),
+  });
+}
+
+export type BlockEdit = {
+  op: "replace" | "insert_after" | "delete";
+  blockId: string;
+  markdown?: string;
+};
+
+/**
+ * Applies block-addressed edits (ids from get_notes' `^id` tags) without
+ * touching any other block.
+ */
+export async function editNote(
+  ctx: ConnectorContext,
+  input: { id: string; edits: BlockEdit[] },
+): Promise<WriteResult> {
+  if (input.edits.length === 0)
+    throw new ConnectorError("invalid", "edits must not be empty");
+  const ops: BlockOp[] = input.edits.map((edit) => {
+    if (edit.op === "delete") return { op: "delete", blockId: edit.blockId };
+    if (!edit.markdown?.trim()) {
+      throw new ConnectorError(
+        "invalid",
+        `${edit.op} on ${edit.blockId} needs markdown`,
+      );
+    }
+    return {
+      op: edit.op,
+      blockId: edit.blockId,
+      blocks: contentFromMarkdown(edit.markdown).content ?? [],
+    };
+  });
+  const doc = await loadOwnedNote(input.id);
+  return applyOwnedEdit(ctx, doc, "chatgpt.edit", {
+    content: (current) => {
+      try {
+        return applyBlockOps(current, ops);
+      } catch (e) {
+        if (e instanceof UnknownBlockError) {
+          const valid = listBlockIds(current).slice(0, 60).join(", ");
+          throw new ConnectorError(
+            "invalid",
+            `Unknown block id ${e.blockId}. Call get_notes again for current ids. Valid ids: ${valid}`,
+          );
+        }
+        throw e;
+      }
+    },
   });
 }

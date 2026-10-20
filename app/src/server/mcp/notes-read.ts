@@ -1,6 +1,8 @@
 import { searchDocs } from "~/features/docs-index/data/docs.queries.search";
 import { prisma } from "~/server/db";
-import { noteToMarkdown } from "./note-content";
+import { toMarkdown } from "~/lib/note-content/convert";
+import { resolveNoteLinks } from "~/server/notes/note-links";
+import { readNoteContent } from "~/server/notes/note-store";
 import {
   CHATGPT_SOURCE,
   isChatGptNote,
@@ -137,7 +139,9 @@ export async function getNotes(
     }
     notes.push({
       ...toSummary(ctx, row),
-      markdown: noteToMarkdown(row),
+      markdown: toMarkdown(await resolveNoteLinks(readNoteContent(row)), {
+        withIds: true,
+      }),
       createdAt: row.createdAt.toISOString(),
       editable: isChatGptNote(row),
     });
