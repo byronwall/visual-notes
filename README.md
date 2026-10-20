@@ -55,6 +55,10 @@ Notes are created and edited in the app, by in-app AI, and by the ChatGPT MCP co
 
 It returns `{ "id": "..." }` with status 201.
 
+## Live note updates
+
+Open tabs refresh when notes change elsewhere (ChatGPT, other tabs, the CLI). See [app/docs/live-note-updates.md](app/docs/live-note-updates.md). A reverse proxy must forward WebSocket upgrades for `/ws/notes`.
+
 ## Testing
 
 ```bash

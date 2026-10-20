@@ -24,6 +24,9 @@ export const serverScheme = z.object({
   MCP_TOKEN_SECRET: z.string().optional(),
   // Local-only static bearer for the MCP Inspector; ignored in production.
   MCP_DEV_TOKEN: z.string().optional(),
+  // "false" turns off live note updates: /ws/notes tells tabs to stop
+  // listening, and they fall back to refreshing on navigation as before.
+  NOTE_LIVE_SYNC: z.string().optional(),
 });
 
 export const clientScheme = z.object({
@@ -33,6 +36,4 @@ export const clientScheme = z.object({
   VITE_PUBLIC_BASE_URL: z.string().optional(),
   // Back-compat alias
   VITE_APP_URL: z.string().optional(),
-  // "false" stops open tabs from listening for note changes made elsewhere.
-  VITE_NOTE_LIVE_SYNC: z.string().optional(),
 });

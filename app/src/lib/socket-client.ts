@@ -7,6 +7,15 @@ type SocketClientOptions<TServer> = {
   parse: (value: unknown) => TServer | null;
   onMessage: (message: TServer) => void;
   onStatus?: (status: SocketStatus) => void;
+  /** Close codes after which the client stops reconnecting. */
+  stopOnCloseCodes?: number[];
+  /**
+   * For servers that greet on connect and send heartbeats: report "open"
+   * only after the first message, and reconnect when none arrives in time
+   * (counting from the connect attempt) or the socket goes quiet. This catches sockets that opened but are not
+   * actually wired to the handler (a dev server's cold start, a stale proxy).
+   */
+  watchdog?: { firstMessageMs: number; idleMs: number };
 };
 
 export type SocketClient<TClient> = {
@@ -18,6 +27,7 @@ export type SocketClient<TClient> = {
 const MAX_RECONNECT_DELAY_MS = 15000;
 const BASE_RECONNECT_DELAY_MS = 500;
 const RECONNECT_JITTER_MS = 300;
+const WATCHDOG_CLOSE_CODE = 4000;
 
 const isBrowser = () => typeof window !== "undefined";
 
@@ -40,6 +50,7 @@ export function createSocketClient<TServer, TClient = never>(
   const prefix = `[${options.logPrefix}]`;
   let socket: WebSocket | null = null;
   let reconnectTimer: number | null = null;
+  let watchdogTimer: number | null = null;
   let reconnectAttempt = 0;
   let shouldReconnect = true;
   let lastUrl: string | null = null;
@@ -54,6 +65,21 @@ export function createSocketClient<TServer, TClient = never>(
     reconnectTimer = null;
   };
 
+  const clearWatchdog = () => {
+    if (!isBrowser() || watchdogTimer === null) return;
+    window.clearTimeout(watchdogTimer);
+    watchdogTimer = null;
+  };
+
+  const armWatchdog = (current: WebSocket, ms: number, reason: string) => {
+    clearWatchdog();
+    watchdogTimer = window.setTimeout(() => {
+      if (socket !== current) return;
+      console.warn(`${prefix} ${reason}; reconnecting`, { afterMs: ms });
+      current.close(WATCHDOG_CLOSE_CODE, reason);
+    }, ms);
+  };
+
   const scheduleReconnect = () => {
     if (!isBrowser() || !shouldReconnect) return;
     clearReconnectTimer();
@@ -66,19 +92,6 @@ export function createSocketClient<TServer, TClient = never>(
     reconnectTimer = window.setTimeout(connect, delay);
   };
 
-  const handleMessage = (event: MessageEvent) => {
-    if (typeof event.data !== "string") return;
-    let raw: unknown;
-    try {
-      raw = JSON.parse(event.data);
-    } catch (err) {
-      console.error(`${prefix} parse error`, err);
-      return;
-    }
-    const message = options.parse(raw);
-    if (message) options.onMessage(message);
-  };
-
   function connect() {
     if (!isBrowser()) return;
     if (socket && socket.readyState !== WebSocket.CLOSED) return;
@@ -87,11 +100,39 @@ export function createSocketClient<TServer, TClient = never>(
     setStatus("connecting");
     lastUrl = makeSocketUrl(options.path);
     const current = new WebSocket(lastUrl);
+    const watchdog = options.watchdog;
+    let greeted = false;
     socket = current;
-    current.addEventListener("open", () => {
+    // Armed before "open" so a handshake that never completes is retried too.
+    if (watchdog) armWatchdog(current, watchdog.firstMessageMs, "no greeting");
+
+    const markOpen = () => {
       console.info(`${prefix} open`, { url: lastUrl });
       reconnectAttempt = 0;
       setStatus("open");
+    };
+
+    current.addEventListener("open", () => {
+      if (!watchdog) markOpen();
+    });
+    current.addEventListener("message", (event: MessageEvent) => {
+      if (watchdog) {
+        if (!greeted) {
+          greeted = true;
+          markOpen();
+        }
+        armWatchdog(current, watchdog.idleMs, "socket went quiet");
+      }
+      if (typeof event.data !== "string") return;
+      let raw: unknown;
+      try {
+        raw = JSON.parse(event.data);
+      } catch (err) {
+        console.error(`${prefix} parse error`, err);
+        return;
+      }
+      const message = options.parse(raw);
+      if (message) options.onMessage(message);
     });
     current.addEventListener("close", (event) => {
       console.debug(`${prefix} close`, {
@@ -99,20 +140,28 @@ export function createSocketClient<TServer, TClient = never>(
         reason: event.reason,
         wasClean: event.wasClean,
       });
-      if (socket === current) socket = null;
+      if (socket !== current) return;
+      socket = null;
+      clearWatchdog();
+      if (options.stopOnCloseCodes?.includes(event.code)) {
+        shouldReconnect = false;
+        console.info(`${prefix} stopped by server`, { code: event.code });
+        setStatus("idle");
+        return;
+      }
       setStatus("closed");
       scheduleReconnect();
     });
     current.addEventListener("error", () => {
       console.warn(`${prefix} error`, { url: lastUrl });
-      setStatus("error");
+      if (socket === current) setStatus("error");
     });
-    current.addEventListener("message", handleMessage);
   }
 
   const close = () => {
     shouldReconnect = false;
     clearReconnectTimer();
+    clearWatchdog();
     const current = socket;
     socket = null;
     current?.close();

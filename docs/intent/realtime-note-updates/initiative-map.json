@@ -4,11 +4,11 @@
     "title": "Realtime note updates",
     "slug": "realtime-note-updates",
     "scale": "feature",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-19",
     "summary": "Push a signal-only notes:changed event over an authenticated WebSocket from one Prisma write hook so open tabs revalidate lists and safely refresh open notes when notes are written elsewhere (MCP, other tabs, CLI, extension).",
-    "status": "planned",
-    "next_action": "Start M1: note event bus + Prisma hook + /ws/notes + NoteLiveSync list revalidation; run the vinxi ws auth spike first."
+    "status": "active",
+    "next_action": "Merge the stack, deploy, confirm the proxy forwards /ws/notes upgrades, then run one ChatGPT create_note with a tab open; mark m3 completed with that evidence."
   },
   "artifacts": {
     "intent_brief": {
@@ -168,7 +168,7 @@
     "status": "current",
     "appetite": "Small: a few focused PRs reusing existing ws plumbing; no new dependency or migration.",
     "problem": "Open tabs never learn about writes from other places, so MCP-created notes are invisible until refresh.",
-    "recommended_shape": "Prisma $extends query hook on Doc writes publishes {id, updatedAt}[] | null to an in-process BroadcastChannel; authenticated /ws/notes fans out notes:changed; client NoteLiveSync debounces and revalidates note list query keys, refetches registered open-note resources when clean, shows a notice when dirty, ignores its own saves by updatedAt; reconnect/focus catch-up; VITE_NOTE_LIVE_SYNC flag.",
+    "recommended_shape": "Prisma $extends query hook on Doc writes publishes {id, updatedAt}[] | null to an in-process bus; authenticated /ws/notes greets, pings, and fans out notes:changed; client NoteLiveSyncProvider debounces and revalidates docs-*/activity-* queries, the editor applies clean changes in place, shows a notice when dirty, ignores own saves by updatedAt, and reads with uncached fetchDocLatest; reconnect/focus catch-up plus watchdog; runtime NOTE_LIVE_SYNC kill switch.",
     "success_moves": [
       {
         "id": "SM1",
@@ -252,7 +252,7 @@
           "second ws router conflicts",
           "prod proxy drops Upgrade or idles out"
         ],
-        "rollout": "VITE_NOTE_LIVE_SYNC flag; focus-revalidate floor",
+        "rollout": "Runtime NOTE_LIVE_SYNC=false (socket closes 4503, clients stop); focus-revalidate floor",
         "proof_rungs": [
           "vitest bus + hook",
           "local browser two-tab",
@@ -285,7 +285,7 @@
       }
     ],
     "fast_local_loop": {
-      "command": "cd app && pnpm vitest run src/server/note-events src/lib/note-live",
+      "command": "cd app && pnpm test src/server/note-events src/features/live-sync src/lib/socket-client",
       "workflow": "pnpm dev with two tabs + MCP Inspector on audit DB",
       "rationale": "Local dev server is the real ws runtime; no provider involved, so the dependency is cheap to exercise directly."
     },
@@ -300,9 +300,11 @@
         ],
         "proof": "Inspector create_note visible in open index/path/sidebar; unauthenticated ws refused; vitest hook coverage",
         "valid_intermediate_state": "Lists live; open editor unchanged from today",
-        "rollback": "VITE_NOTE_LIVE_SYNC off",
-        "status": "planned",
-        "evidence": []
+        "rollback": "NOTE_LIVE_SYNC=false",
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/visual-notes#113; vitest note-change-extension/broadcast-bus/note-events; scripts/note-live-smoke.ts PASS (401 on cookie-less upgrade, MCP create_note event < 3s); browser: MCP note appeared in index + sidebar without reload"
+        ]
       },
       {
         "id": "m2",
@@ -311,9 +313,11 @@
         "dependencies_introduced": [],
         "proof": "vitest decision rule branches; Playwright two-context smoke on audit DB",
         "valid_intermediate_state": "Full feature locally",
-        "rollback": "VITE_NOTE_LIVE_SYNC off",
-        "status": "planned",
-        "evidence": []
+        "rollback": "NOTE_LIVE_SYNC=false",
+        "status": "completed",
+        "evidence": [
+          "PR byronwall/visual-notes#121; vitest remote-note-change; tests/e2e/live-note-updates.spec.ts 5/5 (15/15 repeat-each 3) on production build via audit harness; manual MCP append_to_note into open editor"
+        ]
       },
       {
         "id": "m3",
@@ -322,9 +326,11 @@
         "dependencies_introduced": [],
         "proof": "Deployed ChatGPT create_note smoke; proxy Upgrade + heartbeat verified",
         "valid_intermediate_state": "Shipped; SSE fallback available",
-        "rollback": "Flag off or switch to SSE",
-        "status": "planned",
-        "evidence": []
+        "rollback": "NOTE_LIVE_SYNC=false",
+        "status": "active",
+        "evidence": [
+          "PR on vn/live-03-ops: runtime NOTE_LIVE_SYNC kill switch (4503 close verified), greeting + watchdog (socket-client.test.ts 7/7; cold dev server recovered), app/docs/live-note-updates.md with proxy config. Deployed ChatGPT smoke not run: no deploy access from this session."
+        ]
       }
     ],
     "cut_line": [
@@ -335,8 +341,7 @@
       "jobs socket UI"
     ],
     "open_decisions": [
-      "WebSocket router auth/upgrade under vinxi (M1 spike); fallback SSE",
-      "Publishing inside interactive $transaction; fallback explicit publish after commit"
+      "Publishing inside interactive $transaction (none today); fallback explicit publish after commit"
     ]
   },
   "history": [
@@ -344,6 +349,11 @@
       "date": "2026-10-19",
       "event": "Initiative created in full mode; one question round absorbed; intent, shape, and plan drafted.",
       "status": "planned"
+    },
+    {
+      "date": "2026-10-19",
+      "event": "Implemented M1 (PR #113) and M2 (PR #121) as a gh stack on #112; M3 ops layer adds runtime kill switch, watchdog, and docs. Findings: vinxi custom routers need tsconfigPaths; SSR-hydrated resources leave docs-get query entries unread (fetchDocLatest); header mutate on own saves stole focus; cold dev sockets can open without reaching the handler (watchdog).",
+      "status": "active"
     }
   ],
   "closure": null
