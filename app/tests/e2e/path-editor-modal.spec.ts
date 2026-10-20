@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
+import { uniqueSuffix } from "./helpers/fixtures";
+import { expectNotePath, setPathButton } from "./helpers/note-path";
 import { waitForAppReady } from "./helpers/readiness";
 
 test("sidebar new-note modal keeps a sequential path draft and saves it", async ({
@@ -7,7 +9,7 @@ test("sidebar new-note modal keeps a sequential path draft and saves it", async 
 }) => {
   test.setTimeout(120_000);
 
-  const suffix = Date.now().toString();
+  const suffix = uniqueSuffix();
   const title = `Modal path ${suffix}`;
   const firstSegment = `modal${suffix}`;
   const lastSegment = "nested";
@@ -19,7 +21,7 @@ test("sidebar new-note modal keeps a sequential path draft and saves it", async 
   const heading = page.locator('[contenteditable="true"] h1').first();
   await heading.fill(title);
 
-  await page.getByRole("button", { name: "Unfiled", exact: true }).click();
+  await setPathButton(page).click();
   const input = page.getByPlaceholder("e.g. work.projects.alpha");
   const popover = page
     .locator('[data-scope="popover"][data-part="content"]')
@@ -48,15 +50,16 @@ test("sidebar new-note modal keeps a sequential path draft and saves it", async 
       "Pick a child to continue nesting, or type a segment and hit",
     ),
   ).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: typedPath, exact: true }),
-  ).toBeVisible();
+  await expectNotePath(page, typedPath);
 
   const createResponse = page.waitForResponse((response) => {
     const serverId = response.request().headers()["x-server-id"] || "";
     return serverId.includes("--createDoc_action#");
   });
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Create note", exact: true })
+    .click();
   const responseBody = await (await createResponse).text();
   const docId = responseBody.match(/\bc[a-z0-9]{24}\b/)?.[0];
   expect(docId, "create action should return the new document ID").toBeTruthy();
@@ -64,14 +67,10 @@ test("sidebar new-note modal keeps a sequential path draft and saves it", async 
 
   await expect(page).toHaveURL(new RegExp(`/docs/${docId}$`));
   await waitForAppReady(page);
-  await expect(
-    page.getByRole("button", { name: typedPath, exact: true }),
-  ).toBeVisible();
+  await expectNotePath(page, typedPath);
   await page.reload();
   await waitForAppReady(page);
-  await expect(
-    page.getByRole("button", { name: typedPath, exact: true }),
-  ).toBeVisible();
+  await expectNotePath(page, typedPath);
   await page.screenshot({
     path: "../tmp/path-editor-modal-reloaded-path.png",
     fullPage: true,

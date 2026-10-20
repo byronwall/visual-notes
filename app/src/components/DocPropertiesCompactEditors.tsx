@@ -121,6 +121,7 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         style={{ width: "min(36rem, 92vw)" }}
         portalled={props.pathPopoverPortalled}
         anchorClass={pathAnchorClass}
+        onEscapeKeyDown={keepOpenOnPathInputEscape}
         anchor={
           <HStack gap="0" alignItems="center" minW="0">
             <Show
@@ -225,6 +226,15 @@ export const DocPropertiesCompactEditors: VoidComponent<{
       </HStack>
     </HStack>
   );
+};
+
+// Escape in the path input only dismisses its suggestions (PathEditor blurs
+// the input); a second Escape closes the popover.
+const keepOpenOnPathInputEscape = (event: KeyboardEvent) => {
+  const target = event.target;
+  if (target instanceof HTMLElement && target.dataset.pathSegmentInput) {
+    event.preventDefault();
+  }
 };
 
 // Popover anchors wrap their trigger in a div; let it shrink so long paths
