@@ -4,11 +4,11 @@
     "title": "Research threads: multi-scale canvas for tasks and findings",
     "slug": "research-threads",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-10-19",
     "summary": "Unify tasks, findings, and questions into per-project threads with pedigree, a visible frontier, and recursive summary-over-detail at every scale.",
-    "status": "planned",
-    "next_action": "Start m1: Prisma research models + ingest planner + fixture + outline route"
+    "status": "active",
+    "next_action": "Next slice: in-app summary drafting (callLLM) + manual card capture on the canvas"
   },
   "artifacts": {
     "intent_brief": {
@@ -456,7 +456,9 @@
     "first_proof": {
       "question": "Does a zoomed-out topic canvas of agent-ingested work read as summaries plus a clear frontier?",
       "artifact": "Real learning topic, 2-3 Claude Code ingest_tree rounds, 40-80 cards with summary drafts",
-      "decision_rule": "Readable and you would hand off the next question -> add in-app summaries + manual capture; frontier clutter -> revise fold rule first; layout fights groups -> revisit layout before more features"
+      "decision_rule": "Readable and you would hand off the next question -> add in-app summaries + manual capture; frontier clutter -> revise fold rule first; layout fights groups -> revisit layout before more features",
+      "result": "Readable. Claude Code (sonnet) over local /mcp wrote 49 cards (20+14+18) incl. a full options x criteria decision and 3 draft summaries. After accepting, the canvas opens at Summaries (58%) showing 3 summary cards, the root question, and 8 open questions. Proof-driven fixes: fold descendants (stop at other summaries / below open cards), level-aware fit, readable state-batch names.",
+      "decision": "Pass: proceed to in-app summary drafting and manual capture next."
     },
     "rabbit_holes": [
       "Layout engine that satisfies both pedigree tree and cross-branch summary groups",
@@ -564,8 +566,10 @@
         "proof": "Vitest planner/idempotency/undo tests; outline route render on audit DB",
         "valid_intermediate_state": "/research index + outline usable read-only; no canvas or MCP",
         "rollback": "Remove nav entry; tables unused",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #108; research.plan.test.ts (8), research.ingest.db.test.ts (4, real Postgres, in CI), auth.test.ts; REST seed of learn-rust-async (38 cards)"
+        ]
       },
       {
         "id": "m2",
@@ -577,35 +581,36 @@
         "proof": "Fold/layout table tests; Playwright smoke + audit:shoot at 3 zooms and 390px",
         "valid_intermediate_state": "Canvas default view with outline tab, fixture-fed",
         "rollback": "Outline remains; canvas route removable",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #111; fold.test.ts (13); tests/e2e/research-canvas.spec.ts (3, in CI); screenshots on PR"
+        ]
       },
       {
         "id": "m3",
         "title": "An agent writes into a topic over MCP and you run the first proof",
         "outcome": "Claude Code lists tools, grows a topic live, batch undoable; first-proof decision recorded",
         "dependencies_introduced": [
-          "MCP SDK (token auth is part of the same transport proof)"
+          "research_* tools on the existing notes MCP connector (main already had /mcp + OAuth)"
         ],
         "proof": "In-memory contract test; middleware test; live Claude Code session",
         "valid_intermediate_state": "Full first proof loop",
-        "rollback": "Unset token -> 401; fallback stdio CLI over REST",
-        "status": "planned",
-        "evidence": []
+        "rollback": "MCP_CONNECTOR_ENABLED=false hides /mcp; research REST needs RESEARCH_AGENT_TOKEN",
+        "status": "completed",
+        "evidence": [
+          "PR #115; research-tools.test.ts (6, SDK client in memory); live MCP smoke via official client; Claude Code first-proof run wrote 49 cards in 3 rounds"
+        ]
       }
     ],
     "cut_line": [
-      "In-app summary drafting",
-      "Manual capture/linking and rich-note editing",
+      "In-app summary drafting (next slice)",
+      "Manual capture/linking and rich-note editing (next slice)",
       "Report/notes/web-capture ingest",
-      "ChatGPT OAuth + public HTTPS",
       "Decision view, frontier collapse, cross-topic links, meta-canvas",
       "Multi-user permissions; Tasks/Explorer migration"
     ],
     "open_decisions": [
-      "Card body: Doc vs topic-private (topic-private in m1-m3)",
-      "Layout engine (m2 spike)",
-      "MCP transport fit in Vinxi (m3 spike, fallback stdio CLI)"
+      "Card body: Doc vs topic-private (topic-private shipped)"
     ]
   },
   "history": [
@@ -632,6 +637,18 @@
     {
       "date": "2026-10-19",
       "change": "Implementation plan created: model+ingest, canvas fold, MCP adapter."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Rebased stack onto main fbde0fb after main gained the ChatGPT MCP connector (OAuth 2.1). M3 changed from a separate /api/mcp + RESEARCH token to research_* tools on the existing /mcp server reusing notes:read/notes:write; ChatGPT access moved from below the cut line to available. RESEARCH_AGENT_TOKEN now guards only the research REST routes."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "Layout spike resolved: hand-rolled left-to-right tidy tree (no new dependency) with reserved hull-label gaps; cross-branch hulls are bounding boxes."
+    },
+    {
+      "date": "2026-10-19",
+      "change": "M1-M3 completed (PRs #108, #111, #115). First proof passed; next slice: in-app summary drafting + manual capture."
     }
   ],
   "closure": null,

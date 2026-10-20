@@ -39,7 +39,6 @@ Research threads
 │   ├── Manual card capture and linking on the canvas
 │   └── Report/notes ingest: paste a report or outline → split into a draft tree
 └── LATER POSSIBILITIES
-    ├── ChatGPT connector (needs public HTTPS + OAuth)
     ├── Decision view: options × criteria
     ├── Collapse open items into counts if the frontier gets cluttered
     └── Cross-topic links, library meta-canvas
@@ -87,7 +86,7 @@ Draft ingest payload (shape of the call, not final syntax):
 
 **Key decision:** The first proof lets ingest carry the agent's own summary drafts. You still accept each one, so fold-by-summary can be tested before in-app drafting exists.
 
-**Key decision:** Use Claude Code or Codex for the first proof, connecting over local HTTP with a bearer token, using the same pattern as Explorer's ingest token. ChatGPT needs a public HTTPS URL and an OAuth flow. That's a separate auth milestone, not something to bundle into the first proof.
+**Key decision:** Research tools ride on the app's existing MCP connector, which handles OAuth and the dev token. So Claude Code runs the first proof locally, and ChatGPT gets the same tools once the connector is deployed.
 
 **Boundary:** This is a clean model. It leaves existing Tasks, Explorer, Docs, and `/canvas` untouched, with no migration. The feature lives at its own routes, so disabling it means hiding the nav entry and revoking the token. The app never generates frontier items itself.
 

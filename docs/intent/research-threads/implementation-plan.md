@@ -2,11 +2,20 @@
 title: "Research threads — implementation plan"
 slug: "research-threads"
 phase: plan
-status: current
+status: executed
 last_updated: "2026-10-19"
 ---
 
 # Research threads: implementation plan
+
+## Status
+
+All three milestones shipped as a PR stack (#108 → #111 → #115), and the first proof passed. Claude Code wrote 49 cards in three rounds over MCP, and the canvas opens on readable summaries plus the open frontier. Two changes from the plan:
+
+- **MCP reuses the existing connector.** `main` gained an MCP server with OAuth 2.1 during this work, so M3 registers `research_*` tools on `/mcp` (`notes:read` / `notes:write`) instead of adding `/api/mcp`. As a result, ChatGPT access is available now rather than below the cut line. `RESEARCH_AGENT_TOKEN` guards only the REST ingest routes.
+- **The layout spike chose a hand-rolled tidy tree.** It adds no new dependency and reserves room for hull labels.
+
+The proof also drove three fixes: folding takes a card's descendants along, fit picks the shallowest readable level, and history names agent state changes. Next slice: in-app summary drafting and manual capture.
 
 ## Plan at a glance
 
