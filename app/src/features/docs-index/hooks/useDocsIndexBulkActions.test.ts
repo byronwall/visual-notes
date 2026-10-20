@@ -62,6 +62,7 @@ describe("useDocsIndexBulkActions bulk path", () => {
     vi.mocked(updateDoc).mockResolvedValueOnce({
       id: "note-1",
       updatedAt: "2026-01-01T00:00:00.000Z",
+      contentVersion: 1,
     });
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -109,6 +110,7 @@ describe("useDocsIndexBulkActions bulk path", () => {
     vi.mocked(updateDoc).mockResolvedValueOnce({
       id: "note-1",
       updatedAt: "2026-01-01T00:00:00.000Z",
+      contentVersion: 1,
     });
     await actions.handleApplyBulkPath("/new/path");
     expect(updateDoc).toHaveBeenLastCalledWith({
@@ -127,6 +129,7 @@ describe("useDocsIndexBulkActions bulk path", () => {
       .mockResolvedValueOnce({
         id: "note-1",
         updatedAt: "2026-01-01T00:00:00.000Z",
+      contentVersion: 1,
       })
       .mockRejectedValueOnce(new Error("write failed"));
     let dispose!: () => void;

@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import {
   Show,
   createEffect,
@@ -25,6 +25,8 @@ const DEFAULT_HTML = `
 
 type TiptapEditorProps = {
   initialHTML?: string;
+  /** Block JSON to load; takes precedence over `initialHTML`. */
+  initialContent?: JSONContent;
   class?: string;
   onEditor?: (editor: Editor) => void;
   /** Show formatting toolbar. Defaults to true. */
@@ -69,7 +71,7 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
   const editor = createEditor(
     () => container(),
-    props.initialHTML ?? DEFAULT_HTML,
+    props.initialContent ?? props.initialHTML ?? DEFAULT_HTML,
     (text: string, _src: "paste" | "drop" | "file") => prompt(text),
   );
 
@@ -91,19 +93,20 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
 
   // Sync incoming HTML ONLY when the prop changes, not on every transaction.
   // Track the last applied prop value to avoid redundant setContent calls.
-  let lastAppliedFromProps: string | undefined = undefined;
-  const initialHtmlFromProps = createMemo(
-    () => props.initialHTML ?? DEFAULT_HTML,
+  let lastAppliedFromProps: string | JSONContent | undefined = undefined;
+  const initialFromProps = createMemo(
+    () => props.initialContent ?? props.initialHTML ?? DEFAULT_HTML,
   );
   createEffect(() => {
     const ed = stableEditor();
     if (!ed) return;
-    const next = initialHtmlFromProps();
+    const next = initialFromProps();
     if (lastAppliedFromProps === next) return;
-    const current = ed.getHTML();
-    if (typeof next === "string" && next !== current) {
-      ed.commands.setContent(next, { emitUpdate: false });
-    }
+    const changed =
+      typeof next === "string"
+        ? next !== ed.getHTML()
+        : JSON.stringify(next) !== JSON.stringify(ed.getJSON());
+    if (changed) ed.commands.setContent(next, { emitUpdate: false });
     lastAppliedFromProps = next;
   });
 

@@ -1,11 +1,9 @@
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
-import {
-  appendMarkdown,
-  contentFromMarkdown,
-  type NoteContent,
-} from "./note-content";
+import type { NoteDoc } from "~/lib/note-content/types";
+import { contentColumns, revisionSnapshot } from "~/server/notes/note-store";
+import { appendMarkdown, contentFromMarkdown } from "./note-content";
 import {
   CHATGPT_SOURCE,
   ConnectorError,
@@ -85,15 +83,16 @@ export async function createNote(
   }
 
   const pathIsNew = path ? !(await isExistingPath(path)) : false;
-  const content = contentFromMarkdown(input.markdown);
+  const columns = contentColumns(contentFromMarkdown(input.markdown));
   const created = await prisma.doc.create({
     data: {
       title,
       path,
-      ...content,
+      ...columns,
+      contentVersion: 1,
       originalSource: CHATGPT_SOURCE,
       originalContentId: key,
-      contentHash: sha256(content.markdown),
+      contentHash: sha256(columns.markdown),
     },
     select: { id: true, title: true, path: true },
   });
@@ -121,6 +120,7 @@ const ownedDocSelect = {
   path: true,
   html: true,
   markdown: true,
+  content: true,
   originalSource: true,
 } as const;
 
@@ -146,16 +146,14 @@ async function applyOwnedEdit(
   ctx: ConnectorContext,
   doc: OwnedNote,
   reason: "chatgpt.update" | "chatgpt.append",
-  changes: { title?: string; path?: string | null; content?: NoteContent },
+  changes: { title?: string; path?: string | null; content?: NoteDoc },
 ): Promise<WriteResult> {
+  const columns = changes.content ? contentColumns(changes.content) : undefined;
   const [, updated] = await prisma.$transaction([
     prisma.docRevision.create({
       data: {
         docId: doc.id,
-        title: doc.title,
-        path: doc.path,
-        markdown: doc.markdown,
-        html: doc.html,
+        ...revisionSnapshot(doc),
         actorType: "chatgpt",
         reason,
       },
@@ -165,10 +163,11 @@ async function applyOwnedEdit(
       data: {
         ...(changes.title !== undefined ? { title: changes.title } : {}),
         ...(changes.path !== undefined ? { path: changes.path } : {}),
-        ...(changes.content
+        ...(columns
           ? {
-              ...changes.content,
-              contentHash: sha256(changes.content.markdown),
+              ...columns,
+              contentVersion: { increment: 1 },
+              contentHash: sha256(columns.markdown),
             }
           : {}),
       },

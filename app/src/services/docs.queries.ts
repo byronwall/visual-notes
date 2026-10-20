@@ -1,10 +1,15 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import type { DocItem } from "~/types/notes";
+import type { NoteDoc } from "~/lib/note-content/types";
+import { readNoteContent } from "~/server/notes/note-store";
 
 export type DocDetail = {
   id: string;
   title: string;
+  /** Canonical blocks (converted from the legacy columns when not yet migrated). */
+  content: NoteDoc;
+  contentVersion: number;
   markdown?: string | null;
   html?: string | null;
   path?: string | null;
@@ -80,21 +85,11 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
       })
     : await prisma.doc.findUnique({ where: { id: docId }, include: { share: true } });
   if (!resolvedDoc) throw new Error("Not found");
-  try {
-    const html = String(resolvedDoc.html || "");
-    const imgCount = (html.match(/<img\b/gi) || []).length;
-    const dataImgCount = (html.match(/<img[^>]*src=["']data:/gi) || []).length;
-    console.log(
-      "[docs.get] doc:%s html len:%d imgs:%d dataImgs:%d",
-      resolvedDoc.id,
-      html.length,
-      imgCount,
-      dataImgCount
-    );
-  } catch {}
   return {
     id: resolvedDoc.id,
     title: resolvedDoc.title,
+    content: readNoteContent(resolvedDoc),
+    contentVersion: resolvedDoc.contentVersion,
     markdown: resolvedDoc.markdown,
     html: resolvedDoc.html,
     path: resolvedDoc.path,

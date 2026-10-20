@@ -1,6 +1,8 @@
 import { action, json, query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
+import { contentFromLegacy } from "~/lib/note-content/convert";
+import { contentColumns, revisionSnapshot } from "~/server/notes/note-store";
 import { fetchDoc } from "./docs.queries";
 
 export type DocRevisionItem = {
@@ -64,15 +66,22 @@ export const restoreDocRevision = action(async (revisionId: string) => {
   if (!revision) throw new Error("Version not found");
   const current = await prisma.doc.findUnique({
     where: { id: revision.docId },
-    select: { title: true, path: true, markdown: true, html: true },
+    select: {
+      title: true,
+      path: true,
+      markdown: true,
+      html: true,
+      content: true,
+    },
   });
   if (!current) throw new Error("Note not found");
+  const restored = contentColumns(contentFromLegacy(revision));
 
   await prisma.$transaction([
     prisma.docRevision.create({
       data: {
         docId: revision.docId,
-        ...current,
+        ...revisionSnapshot(current),
         actorType: "magic_user",
         reason: "restore",
       },
@@ -82,8 +91,8 @@ export const restoreDocRevision = action(async (revisionId: string) => {
       data: {
         title: revision.title,
         path: revision.path,
-        markdown: revision.markdown,
-        html: revision.html,
+        ...restored,
+        contentVersion: { increment: 1 },
       },
     }),
   ]);

@@ -1,8 +1,6 @@
-import StarterKit from "@tiptap/starter-kit";
-import Highlight from "@tiptap/extension-highlight";
+import { buildNoteExtensions } from "~/lib/note-content/schema";
 import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import { Table } from "@tiptap/extension-table";
-import { CustomCode } from "./CustomCode";
 import { CustomCodeBlock } from "./CustomCodeBlock";
 import { CustomImage } from "./CustomImage";
 import { CustomTableRow } from "./CustomTableRow";
@@ -28,24 +26,23 @@ export function buildExtensions(
 ) {
   return [
     DeferredFocusEvents,
-    StarterKit.configure({ codeBlock: false, code: false }),
-    Highlight.configure({}),
-    CustomImage.configure({ allowBase64: true }),
-    Emoji.configure({
-      emojis: gitHubEmojis,
-      enableEmoticons: true,
-      suggestion: createEmojiSuggestion(gitHubEmojis),
+    ...buildNoteExtensions({
+      image: CustomImage.configure({ allowBase64: true }),
+      emoji: Emoji.configure({
+        emojis: gitHubEmojis,
+        enableEmoticons: true,
+        suggestion: createEmojiSuggestion(gitHubEmojis),
+      }),
+      codeBlock: CustomCodeBlock,
+      table: Table.configure({
+        resizable: true,
+        lastColumnResizable: true,
+        allowTableNodeSelection: true,
+      }),
+      tableRow: CustomTableRow,
+      tableHeader: CustomTableHeader,
+      tableCell: CustomTableCell,
     }),
-    CustomCode,
-    CustomCodeBlock,
-    Table.configure({
-      resizable: true,
-      lastColumnResizable: true,
-      allowTableNodeSelection: true,
-    }),
-    CustomTableRow,
-    CustomTableHeader,
-    CustomTableCell,
     ListItemReorderShortcuts,
     SelectionMarkShortcuts,
     SlashCommands,

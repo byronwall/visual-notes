@@ -156,11 +156,14 @@ describe("updateNote", () => {
 });
 
 describe("appendToNote", () => {
-  it("keeps existing HTML and records an append revision", async () => {
+  it("keeps existing blocks and records an append revision", async () => {
     db.doc.findUnique.mockResolvedValue(chatgptNote);
     await appendToNote(ctx, { id: "n1", markdown: "more" });
     const data = db.doc.update.mock.calls[0][0].data;
-    expect(data.html.startsWith("<p>v1</p>")).toBe(true);
+    const blocks = data.content.content;
+    expect(blocks[0].content[0].text).toBe("v1");
+    expect(blocks[1].content[0].text).toBe("more");
+    expect(data.html.indexOf("v1")).toBeLessThan(data.html.indexOf("more"));
     expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
       "chatgpt.append",
     );

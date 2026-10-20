@@ -57,15 +57,15 @@ describe("restoreDocRevision", () => {
         actorType: "magic_user",
       }),
     });
-    expect(db.doc.update).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: {
-        title: "Old",
-        path: "work.old",
-        markdown: "old",
-        html: "<p>old</p>",
-      },
+    const update = db.doc.update.mock.calls[0][0];
+    expect(update.where).toEqual({ id: "d1" });
+    expect(update.data).toMatchObject({
+      title: "Old",
+      path: "work.old",
+      markdown: "old",
+      contentVersion: { increment: 1 },
     });
+    expect(update.data.content.content[0].content[0].text).toBe("old");
   });
 
   it("fails cleanly for an unknown version", async () => {

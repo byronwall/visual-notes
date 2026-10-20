@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import {
   type VoidComponent,
   Show,
@@ -9,11 +9,8 @@ import {
   onCleanup,
 } from "solid-js";
 import { useBeforeLeave } from "@solidjs/router";
-import { extractFirstH1FromHtml } from "~/utils/extractHeading";
-import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import type { NoteDoc } from "~/lib/note-content/types";
 import { fetchDoc, type MetaRecord } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
@@ -27,8 +24,8 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 type DocData = {
   id: string;
   title: string;
-  markdown?: string;
-  html?: string;
+  content: NoteDoc;
+  contentVersion: number;
   updatedAt?: string;
 };
 
@@ -131,16 +128,12 @@ const DocumentEditor: VoidComponent<{
     setNewTitle(incoming || "Untitled note");
   });
 
-  // TODO: need to delete HTML from imports - just rely on markdown
+  // Existing notes load their blocks; new notes start from HTML/markdown.
+  const initialContent = createMemo(
+    () => doc()?.content as JSONContent | undefined,
+  );
 
   const initialHTML = createMemo(() => {
-    const d = doc();
-    if (d) {
-      const rawHtml = d.html || normalizeMarkdownToHtml(d.markdown);
-      const html = sanitizeHtmlContent(rawHtml);
-
-      return html;
-    }
     if (props.initialHTML) return props.initialHTML;
 
     const html = normalizeMarkdownToHtml(
@@ -359,15 +352,17 @@ const DocumentEditor: VoidComponent<{
       wasFocused: getEditorFocusState(ed),
     };
     const submittedDocId = d?.id;
-    const submittedHtml = ed.getHTML();
+    const submittedContent = ed.getJSON();
+    const submittedKey = JSON.stringify(submittedContent);
+    const draftKey = () => JSON.stringify(ed.getJSON());
     setSaving(true);
     setError(undefined);
     try {
-      const html = submittedHtml;
+      const content = submittedContent;
       if (isNew()) {
         // First save → create the note
         let title = newTitle().trim();
-        const detected = extractFirstH1FromHtml(html);
+        const detected = firstH1Text(ed);
         if (
           props.preferH1TitleForNewDoc &&
           detected &&
@@ -383,7 +378,7 @@ const DocumentEditor: VoidComponent<{
         }
         const json = await runCreateDoc({
           title,
-          html,
+          content,
           path: newPath() || undefined,
           meta: newMeta(),
         });
@@ -398,7 +393,7 @@ const DocumentEditor: VoidComponent<{
           !!syncedTitle && syncedTitle !== (d!.title || "").trim();
         const updated = await runSaveContent({
           id: d!.id,
-          html,
+          content,
           ...(titleChanged ? { title: syncedTitle } : {}),
         });
         if (titleChanged && syncedTitle) {
@@ -411,13 +406,16 @@ const DocumentEditor: VoidComponent<{
         }
         if (props.docId === updated.id && doc()?.id === updated.id) {
           const draftUnchanged =
-            editor() === ed && !ed.isDestroyed && ed.getHTML() === html;
+            editor() === ed && !ed.isDestroyed && draftKey() === submittedKey;
           if (draftUnchanged) setDirty(false);
           mutate((current) =>
             current?.id === updated.id
               ? {
                   ...current,
-                  ...(draftUnchanged ? { html } : {}),
+                  ...(draftUnchanged
+                    ? { content: content as NoteDoc }
+                    : {}),
+                  contentVersion: updated.contentVersion,
                   updatedAt: updated.updatedAt,
                 }
               : current,
@@ -437,7 +435,7 @@ const DocumentEditor: VoidComponent<{
             !sameDoc ||
             editor() !== ed ||
             ed.isDestroyed ||
-            ed.getHTML() !== submittedHtml
+            draftKey() !== submittedKey
           ) {
             return;
           }
@@ -563,6 +561,7 @@ const DocumentEditor: VoidComponent<{
       </Show>
       <TiptapEditor
         initialHTML={initialHTML()}
+        initialContent={initialContent()}
         onEditor={(ed) => setEditor(ed)}
         noteId={props.docId || doc()?.id}
         showAiPromptsMenu={shouldShowAiPromptsBar()}

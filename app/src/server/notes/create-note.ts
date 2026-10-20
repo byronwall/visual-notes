@@ -1,27 +1,29 @@
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
+  contentColumns,
+  prepareContent,
+  type ContentInput,
+} from "./note-store";
 
-export type CreateNoteInput = {
+export type CreateNoteInput = ContentInput & {
   title: string;
-  markdown?: string;
-  html?: string;
   path?: string;
   meta?: Record<string, string | number | boolean | null>;
 };
 
 /** Creates a note from in-app input. Server-only. */
 export async function createNoteRecord(input: CreateNoteInput) {
-  const html = input.html
-    ? sanitizeHtmlContent(String(input.html))
-    : normalizeMarkdownToHtml(input.markdown ?? "");
-  const markdown = input.html ? "" : (input.markdown ?? "");
+  const content = prepareContent(input);
   const path = input.path?.trim() ? input.path.trim() : null;
   const created = await prisma.doc.create({
-    data: { title: input.title, markdown, html, path, meta: input.meta },
+    data: {
+      title: input.title,
+      ...contentColumns(content),
+      contentVersion: 1,
+      path,
+      meta: input.meta,
+    },
     select: { id: true },
   });
   await logActionEvent({

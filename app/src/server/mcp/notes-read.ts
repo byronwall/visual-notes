@@ -118,7 +118,13 @@ export async function getNotes(
   const ids = Array.from(new Set(input.ids)).slice(0, MAX_NOTES_PER_GET);
   const rows = await prisma.doc.findMany({
     where: { id: { in: ids } },
-    select: { ...summarySelect, createdAt: true, html: true, markdown: true },
+    select: {
+      ...summarySelect,
+      createdAt: true,
+      html: true,
+      markdown: true,
+      content: true,
+    },
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
   const notes: FullNote[] = [];

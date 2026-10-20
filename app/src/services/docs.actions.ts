@@ -10,28 +10,31 @@ import {
 } from "~/server/events/action-events";
 import { createNoteRecord } from "~/server/notes/create-note";
 import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
+  contentColumns,
+  hasContentInput,
+  prepareContent,
+} from "~/server/notes/note-store";
 
 const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 const createInput = z
   .object({
     title: z.string().min(1).max(200),
+    content: z.unknown().optional(),
     markdown: z.string().min(1).optional(),
     html: z.string().min(1).optional(),
     path: z.string().max(512).optional(),
     meta: z.record(jsonPrimitive).optional(),
   })
-  .refine((v) => Boolean(v.markdown || v.html), {
-    message: "markdown or html is required",
+  .refine((v) => Boolean(v.content || v.markdown || v.html), {
+    message: "content, markdown, or html is required",
     path: ["markdown"],
   });
 
 const updateInput = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(200).optional(),
+  content: z.unknown().optional(),
   markdown: z.string().min(1).optional(),
   html: z.string().min(1).optional(),
   path: z.string().max(512).optional(),
@@ -51,47 +54,27 @@ async function applyDocUpdate(payload: z.infer<typeof updateInput>) {
   const input = updateInput.parse(payload);
   const updates: Record<string, any> = {};
   const fieldsChanged: string[] = [];
+  const contentChange = hasContentInput(input);
   let prevContentLength = 0;
   let nextContentLength = 0;
-  let docBefore:
-    | {
-        html: string;
-        markdown: string;
-      }
-    | undefined;
 
-  if (input.html !== undefined || input.markdown !== undefined) {
+  if (contentChange) {
     const existing = await prisma.doc.findUnique({
       where: { id: input.id },
-      select: { html: true, markdown: true },
+      select: { html: true },
     });
     if (!existing) throw new Error("Not found");
-    docBefore = {
-      html: String(existing.html || ""),
-      markdown: String(existing.markdown || ""),
-    };
-    prevContentLength = docBefore.html.length + docBefore.markdown.length;
+    prevContentLength = String(existing.html || "").length;
+    const columns = contentColumns(prepareContent(input));
+    Object.assign(updates, columns, { contentVersion: { increment: 1 } });
+    fieldsChanged.push("content");
+    nextContentLength = columns.html.length;
   }
 
   if (input.title !== undefined) {
     updates.title = input.title;
     fieldsChanged.push("title");
   }
-
-  if (input.markdown) {
-    const html = normalizeMarkdownToHtml(input.markdown);
-    updates.markdown = input.markdown;
-    updates.html = html;
-    fieldsChanged.push("markdown", "html");
-    nextContentLength = html.length + input.markdown.length;
-  } else if (input.html) {
-    const sanitized = sanitizeHtmlContent(String(input.html));
-    updates.html = sanitized;
-    fieldsChanged.push("html");
-    nextContentLength =
-      sanitized.length + (docBefore ? docBefore.markdown.length : 0);
-  }
-
   if (input.path !== undefined) {
     updates.path = input.path.trim().length ? input.path.trim() : null;
     fieldsChanged.push("path");
@@ -108,23 +91,20 @@ async function applyDocUpdate(payload: z.infer<typeof updateInput>) {
   const updated = await prisma.doc.update({
     where: { id: input.id },
     data: updates,
-    select: { id: true, updatedAt: true },
+    select: { id: true, updatedAt: true, contentVersion: true },
   });
 
-  if (input.html !== undefined || input.markdown !== undefined) {
-    if (nextContentLength <= 0 && docBefore) {
-      nextContentLength =
-        (docBefore.html || "").length + (docBefore.markdown || "").length;
-    }
-  }
   await logDocUpdate(updated.id, Array.from(new Set(fieldsChanged)), {
-    hasContentChange: input.html !== undefined || input.markdown !== undefined,
-    contentLengthDeltaBucket:
-      input.html !== undefined || input.markdown !== undefined
-        ? lengthDeltaBucket(prevContentLength, nextContentLength)
-        : "not_applicable",
+    hasContentChange: contentChange,
+    contentLengthDeltaBucket: contentChange
+      ? lengthDeltaBucket(prevContentLength, nextContentLength)
+      : "not_applicable",
   });
-  return { id: updated.id, updatedAt: updated.updatedAt.toISOString() };
+  return {
+    id: updated.id,
+    updatedAt: updated.updatedAt.toISOString(),
+    contentVersion: updated.contentVersion,
+  };
 }
 
 export const updateDoc = action(

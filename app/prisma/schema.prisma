@@ -182,6 +182,12 @@ model LlmRequest {
 model Doc {
   id                         String   @id @default(cuid())
   title                      String
+  // Canonical note body: TipTap JSON with a stable id on every block.
+  content                    Json?
+  contentSchemaVersion       Int      @default(1)
+  // Increments on every content write; saves carry it for per-block merge.
+  contentVersion             Int      @default(0)
+  // Legacy string bodies, derived from `content` until the cutover is confirmed.
   markdown                   String // @db.Text
   html                       String // @db.Text
   // Source + content id form a stable identity for ingest pipelines
@@ -223,6 +229,7 @@ model DocRevision {
   path      String?
   markdown  String
   html      String
+  content   Json?
   actorType ActionActorType
   reason    String
   createdAt DateTime        @default(now())
