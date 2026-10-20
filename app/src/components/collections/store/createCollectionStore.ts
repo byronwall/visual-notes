@@ -1,5 +1,5 @@
 import { useAction } from "@solidjs/router";
-import { batch, createEffect, on } from "solid-js";
+import { batch, createEffect, createSignal, on } from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import { useToasts } from "~/components/Toast";
 import type {
@@ -41,7 +41,8 @@ export type CollectionState = {
 };
 
 // Store values are proxies; snapshot them as plain data.
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(unwrap(value))) as T;
+const clone = <T>(value: T): T =>
+  JSON.parse(JSON.stringify(unwrap(value))) as T;
 
 const fromBundle = (b: CollectionBundle): CollectionState => ({
   collection: b.collection,
@@ -56,23 +57,40 @@ const fromBundle = (b: CollectionBundle): CollectionState => ({
  * back with a toast if the server rejects them. A fresh bundle (navigation or
  * revalidation) reconciles into the store.
  */
-export function createCollectionStore(bundle: () => CollectionBundle | null | undefined) {
+export function createCollectionStore(
+  bundle: () => CollectionBundle | null | undefined,
+) {
   const initial = bundle();
   const [state, setState] = createStore<CollectionState>(
     initial
       ? fromBundle(initial)
-      : { collection: { id: "", name: "", description: null, icon: null }, properties: [], views: [], rows: [], today: "" },
+      : {
+          collection: { id: "", name: "", description: null, icon: null },
+          properties: [],
+          views: [],
+          rows: [],
+          today: "",
+        },
   );
   createEffect(
-    on(bundle, (next) => {
-      if (next) setState(reconcile(fromBundle(next), { key: "id", merge: true }));
-    }, { defer: true }),
+    on(
+      bundle,
+      (next) => {
+        if (next)
+          setState(reconcile(fromBundle(next), { key: "id", merge: true }));
+      },
+      { defer: true },
+    ),
   );
 
   const { show } = useToasts();
   const fail = (title: string, error: unknown) => {
     console.warn("[collections] %s", title, error);
-    show({ title, message: error instanceof Error ? error.message : String(error), type: "error" });
+    show({
+      title,
+      message: error instanceof Error ? error.message : String(error),
+      type: "error",
+    });
   };
 
   const run = {
@@ -95,7 +113,10 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
 
   const rowIndex = (id: string) => state.rows.findIndex((r) => r.id === id);
   const snapshotRows = (ids: string[]) =>
-    ids.map((id) => state.rows.find((r) => r.id === id)).filter(Boolean).map((r) => clone(r!));
+    ids
+      .map((id) => state.rows.find((r) => r.id === id))
+      .filter(Boolean)
+      .map((r) => clone(r!));
 
   const restoreRows = (snap: CollectionRow[]) =>
     setState(
@@ -109,6 +130,8 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
     );
 
   const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  // Quick search is per view and per visit; it is not saved with the view.
+  const [searches, setSearches] = createSignal<Record<string, string>>({});
 
   const api = {
     state,
@@ -128,7 +151,11 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
         }),
       );
       try {
-        const result = await run.setValues({ collectionId: state.collection.id, docIds: rowIds, patch });
+        const result = await run.setValues({
+          collectionId: state.collection.id,
+          docIds: rowIds,
+          patch,
+        });
         setState(
           produce((s) => {
             for (const row of s.rows) {
@@ -159,14 +186,19 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       }
     },
 
-    async addRow(init: {
-      title?: string;
-      properties?: Record<string, PropertyValue>;
-      afterRank?: string | null;
-      beforeRank?: string | null;
-    } = {}): Promise<CollectionRow | undefined> {
+    async addRow(
+      init: {
+        title?: string;
+        properties?: Record<string, PropertyValue>;
+        afterRank?: string | null;
+        beforeRank?: string | null;
+      } = {},
+    ): Promise<CollectionRow | undefined> {
       try {
-        const row = await run.createRow({ collectionId: state.collection.id, ...init });
+        const row = await run.createRow({
+          collectionId: state.collection.id,
+          ...init,
+        });
         setState("rows", (rows) => [...rows, row]);
         return row;
       } catch (error) {
@@ -179,7 +211,10 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       const snap = snapshotRows(ids);
       setState("rows", (rows) => rows.filter((r) => !ids.includes(r.id)));
       try {
-        await run.deleteRows({ collectionId: state.collection.id, docIds: ids });
+        await run.deleteRows({
+          collectionId: state.collection.id,
+          docIds: ids,
+        });
       } catch (error) {
         restoreRows(snap);
         fail("Couldn't delete rows", error);
@@ -190,17 +225,30 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       const snap = snapshotRows(ids);
       setState("rows", (rows) => rows.filter((r) => !ids.includes(r.id)));
       try {
-        await run.removeRows({ collectionId: state.collection.id, docIds: ids });
+        await run.removeRows({
+          collectionId: state.collection.id,
+          docIds: ids,
+        });
       } catch (error) {
         restoreRows(snap);
         fail("Couldn't remove rows", error);
       }
     },
 
-    async moveRow(rowId: string, afterRank: string | null, beforeRank: string | null, patch?: Record<string, PropertyValue>) {
+    async moveRow(
+      rowId: string,
+      afterRank: string | null,
+      beforeRank: string | null,
+      patch?: Record<string, PropertyValue>,
+    ) {
       const snap = snapshotRows([rowId]);
       try {
-        const pending = run.moveRow({ collectionId: state.collection.id, docId: rowId, afterRank, beforeRank });
+        const pending = run.moveRow({
+          collectionId: state.collection.id,
+          docId: rowId,
+          afterRank,
+          beforeRank,
+        });
         if (patch) void api.setValues([rowId], patch);
         const { rank } = await pending;
         setState("rows", (r) => r.id === rowId, "rank", rank);
@@ -210,9 +258,18 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       }
     },
 
-    async addProperty(kind: PropertyKind, name: string, config?: PropertyConfig) {
+    async addProperty(
+      kind: PropertyKind,
+      name: string,
+      config?: PropertyConfig,
+    ) {
       try {
-        const property = await run.createProperty({ collectionId: state.collection.id, kind, name, config });
+        const property = await run.createProperty({
+          collectionId: state.collection.id,
+          kind,
+          name,
+          config,
+        });
         setState("properties", (ps) => [...ps, property]);
         return property;
       } catch (error) {
@@ -221,13 +278,18 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       }
     },
 
-    async updateProperty(id: string, patch: { name?: string; config?: PropertyConfig }) {
+    async updateProperty(
+      id: string,
+      patch: { name?: string; config?: PropertyConfig },
+    ) {
       const i = state.properties.findIndex((p) => p.id === id);
       if (i < 0) return;
       const previous = clone(state.properties[i]!);
       batch(() => {
-        if (patch.name !== undefined) setState("properties", i, "name", patch.name);
-        if (patch.config !== undefined) setState("properties", i, "config", reconcile(patch.config));
+        if (patch.name !== undefined)
+          setState("properties", i, "name", patch.name);
+        if (patch.config !== undefined)
+          setState("properties", i, "config", reconcile(patch.config));
       });
       try {
         await run.updateProperty({ id, ...patch });
@@ -271,16 +333,33 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
         }),
       );
       try {
-        await run.reorderProperties({ collectionId: state.collection.id, propertyIds: ids });
+        await run.reorderProperties({
+          collectionId: state.collection.id,
+          propertyIds: ids,
+        });
       } catch (error) {
         fail("Couldn't reorder properties", error);
       }
     },
 
-    async createOption(propertyId: string, name: string, extra?: Partial<SelectOption>): Promise<SelectOption | undefined> {
+    async createOption(
+      propertyId: string,
+      name: string,
+      extra?: Partial<SelectOption>,
+    ): Promise<SelectOption | undefined> {
       try {
-        const { option, property } = await run.createOption({ propertyId, name, color: extra?.color, group: extra?.group });
-        setState("properties", (p) => p.id === propertyId, "config", reconcile(property.config));
+        const { option, property } = await run.createOption({
+          propertyId,
+          name,
+          color: extra?.color,
+          group: extra?.group,
+        });
+        setState(
+          "properties",
+          (p) => p.id === propertyId,
+          "config",
+          reconcile(property.config),
+        );
         return option;
       } catch (error) {
         fail("Couldn't add the option", error);
@@ -290,6 +369,20 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
 
     view(id: string | undefined) {
       return state.views.find((v) => v.id === id);
+    },
+
+    search(viewId: string) {
+      return searches()[viewId] ?? "";
+    },
+
+    setSearch(viewId: string, value: string) {
+      setSearches((prev) => ({ ...prev, [viewId]: value }));
+    },
+
+    /** The view's saved config plus its transient search. */
+    effectiveConfig(view: CollectionView): ViewConfig {
+      const search = searches()[view.id];
+      return search ? { ...view.config, search } : view.config;
     },
 
     /** Updates a view's config locally now and saves it shortly after. */
@@ -303,9 +396,9 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
         setTimeout(() => {
           const view = state.views.find((v) => v.id === viewId);
           if (!view) return;
-          run.updateView({ id: viewId, config: clone(view.config) }).catch((error) =>
-            fail("Couldn't save the view", error),
-          );
+          run
+            .updateView({ id: viewId, config: clone(view.config) })
+            .catch((error) => fail("Couldn't save the view", error));
         }, 400),
       );
     },
@@ -328,9 +421,20 @@ export function createCollectionStore(bundle: () => CollectionBundle | null | un
       }
     },
 
-    async addView(name: string, type: ViewType, config?: ViewConfig, hostDocId?: string | null) {
+    async addView(
+      name: string,
+      type: ViewType,
+      config?: ViewConfig,
+      hostDocId?: string | null,
+    ) {
       try {
-        const view = await run.createView({ collectionId: state.collection.id, name, type, config, hostDocId });
+        const view = await run.createView({
+          collectionId: state.collection.id,
+          name,
+          type,
+          config,
+          hostDocId,
+        });
         if (!hostDocId) setState("views", (vs) => [...vs, view]);
         return view;
       } catch (error) {

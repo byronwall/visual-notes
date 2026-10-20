@@ -40,7 +40,11 @@ export const OptionChip = (props: {
   class?: string;
   trailing?: JSX.Element;
 }) => (
-  <span class={cx(chip, props.class)} style={optionColorVars(props.option.color)} title={props.option.name}>
+  <span
+    class={cx(chip, props.class)}
+    style={optionColorVars(props.option.color)}
+    title={props.option.name}
+  >
     <Show when={props.showDot}>
       <span class={dot} />
     </Show>

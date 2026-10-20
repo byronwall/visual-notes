@@ -4,36 +4,64 @@ import { For, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useToasts } from "~/components/Toast";
-import { PROPERTY_KINDS, type CollectionProperty, type PropertyKind } from "~/lib/collections/types";
+import {
+  PROPERTY_KINDS,
+  type CollectionProperty,
+  type PropertyKind,
+} from "~/lib/collections/types";
 import { changePropertyKind } from "~/services/collections/collections.actions";
 import { useCollection } from "../CollectionContext";
 import { KIND_LABELS, PropertyKindIcon } from "../PropertyKindIcon";
 import { MenuItem, menuSection } from "./MenuList";
 
-const list = css({ display: "grid", gridTemplateColumns: "1fr 1fr", px: "1", pb: "1" });
+const list = css({
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  px: "1",
+  pb: "1",
+});
 
 /** "Type" row in the property menu; converting values asks for confirmation. */
-export const ChangeKindMenu = (props: { property: CollectionProperty; onChanged: () => void }) => {
+export const ChangeKindMenu = (props: {
+  property: CollectionProperty;
+  onChanged: () => void;
+}) => {
   const { store } = useCollection();
   const run = useAction(changePropertyKind);
   const { show } = useToasts();
   const [expanded, setExpanded] = createSignal(false);
-  const [pending, setPending] = createSignal<{ kind: PropertyKind; converted: number; lost: number } | null>(null);
+  const [pending, setPending] = createSignal<{
+    kind: PropertyKind;
+    converted: number;
+    lost: number;
+  } | null>(null);
 
   const preview = async (kind: PropertyKind) => {
     if (kind === props.property.kind) return;
     try {
-      const result = await run({ propertyId: props.property.id, kind, apply: false });
+      const result = await run({
+        propertyId: props.property.id,
+        kind,
+        apply: false,
+      });
       if (result.converted === 0) await apply(kind);
       else setPending({ kind, converted: result.converted, lost: result.lost });
     } catch (error) {
-      show({ title: "Couldn't change the type", message: String((error as Error).message ?? error), type: "error" });
+      show({
+        title: "Couldn't change the type",
+        message: String((error as Error).message ?? error),
+        type: "error",
+      });
     }
   };
 
   const apply = async (kind: PropertyKind) => {
     try {
-      const result = await run({ propertyId: props.property.id, kind, apply: true });
+      const result = await run({
+        propertyId: props.property.id,
+        kind,
+        apply: true,
+      });
       if (!result.applied) return;
       store.replaceProperty(result.property);
       const values = result.values;
@@ -42,14 +70,19 @@ export const ChangeKindMenu = (props: { property: CollectionProperty; onChanged:
           if (!(row.id in values)) return row;
           const properties = { ...row.properties };
           const v = values[row.id];
-          if (v === null || v === undefined) delete properties[props.property.id];
+          if (v === null || v === undefined)
+            delete properties[props.property.id];
           else properties[props.property.id] = v;
           return { ...row, properties };
         }),
       );
       props.onChanged();
     } catch (error) {
-      show({ title: "Couldn't change the type", message: String((error as Error).message ?? error), type: "error" });
+      show({
+        title: "Couldn't change the type",
+        message: String((error as Error).message ?? error),
+        type: "error",
+      });
     }
   };
 
@@ -57,7 +90,12 @@ export const ChangeKindMenu = (props: { property: CollectionProperty; onChanged:
     <>
       <MenuItem
         icon={<PropertyKindIcon property={props.property} />}
-        trailing={<ChevronRightIcon size={14} style={{ transform: expanded() ? "rotate(90deg)" : undefined }} />}
+        trailing={
+          <ChevronRightIcon
+            size={14}
+            style={{ transform: expanded() ? "rotate(90deg)" : undefined }}
+          />
+        }
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded()}
       >
@@ -68,7 +106,12 @@ export const ChangeKindMenu = (props: { property: CollectionProperty; onChanged:
         <div class={list}>
           <For each={PROPERTY_KINDS.filter((k) => k !== props.property.kind)}>
             {(kind) => (
-              <MenuItem icon={<PropertyKindIcon property={{ id: kind, kind, config: {} }} />} onClick={() => void preview(kind)}>
+              <MenuItem
+                icon={
+                  <PropertyKindIcon property={{ id: kind, kind, config: {} }} />
+                }
+                onClick={() => void preview(kind)}
+              >
                 {KIND_LABELS[kind]}
               </MenuItem>
             )}

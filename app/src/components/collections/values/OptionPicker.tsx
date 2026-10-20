@@ -1,14 +1,28 @@
 import { CheckIcon, PlusIcon, XIcon } from "lucide-solid";
 import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { css } from "styled-system/css";
-import type { CollectionProperty, SelectOption, StatusGroup } from "~/lib/collections/types";
+import type {
+  CollectionProperty,
+  SelectOption,
+  StatusGroup,
+} from "~/lib/collections/types";
 import { STATUS_GROUPS } from "~/lib/collections/types";
 import { optionById } from "~/lib/collections/values";
 import { OptionChip } from "./OptionChip";
 
-const GROUP_LABELS: Record<StatusGroup, string> = { todo: "To do", doing: "In progress", done: "Complete" };
+const GROUP_LABELS: Record<StatusGroup, string> = {
+  todo: "To do",
+  doing: "In progress",
+  done: "Complete",
+};
 
-const panel = css({ display: "flex", flexDirection: "column", w: "64", maxH: "80", fontSize: "sm" });
+const panel = css({
+  display: "flex",
+  flexDirection: "column",
+  w: "64",
+  maxH: "80",
+  fontSize: "sm",
+});
 const selectedRow = css({
   display: "flex",
   flexWrap: "wrap",
@@ -29,7 +43,14 @@ const input = css({
   py: "0.5",
 });
 const list = css({ overflowY: "auto", py: "1" });
-const groupLabel = css({ px: "2.5", pt: "2", pb: "1", fontSize: "xs", color: "fg.subtle", fontWeight: "medium" });
+const groupLabel = css({
+  px: "2.5",
+  pt: "2",
+  pb: "1",
+  fontSize: "xs",
+  color: "fg.subtle",
+  fontWeight: "medium",
+});
 const item = css({
   display: "flex",
   alignItems: "center",
@@ -43,9 +64,16 @@ const item = css({
   "&[data-active]": { bg: "bg.muted" },
 });
 const hint = css({ px: "2.5", py: "1", fontSize: "xs", color: "fg.subtle" });
-const removeBtn = css({ display: "inline-flex", opacity: "0.6", _hover: { opacity: "1" }, cursor: "pointer" });
+const removeBtn = css({
+  display: "inline-flex",
+  opacity: "0.6",
+  _hover: { opacity: "1" },
+  cursor: "pointer",
+});
 
-type Entry = { kind: "option"; option: SelectOption } | { kind: "create"; name: string };
+type Entry =
+  | { kind: "option"; option: SelectOption }
+  | { kind: "create"; name: string };
 
 /** Search, pick, and create options for select, status, and multi-select. */
 export const OptionPicker = (props: {
@@ -62,14 +90,23 @@ export const OptionPicker = (props: {
   onMount(() => queueMicrotask(() => inputEl?.focus()));
 
   const selectedIds = () =>
-    Array.isArray(props.value) ? props.value : typeof props.value === "string" ? [props.value] : [];
+    Array.isArray(props.value)
+      ? props.value
+      : typeof props.value === "string"
+        ? [props.value]
+        : [];
   const options = () => props.property.config.options ?? [];
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
-    return q ? options().filter((o) => o.name.toLowerCase().includes(q)) : options();
+    return q
+      ? options().filter((o) => o.name.toLowerCase().includes(q))
+      : options();
   });
   const entries = createMemo<Entry[]>(() => {
-    const out: Entry[] = filtered().map((option) => ({ kind: "option", option }));
+    const out: Entry[] = filtered().map((option) => ({
+      kind: "option",
+      option,
+    }));
     const q = query().trim();
     if (q && !options().some((o) => o.name.toLowerCase() === q.toLowerCase()))
       out.push({ kind: "create", name: q });
@@ -85,7 +122,11 @@ export const OptionPicker = (props: {
     setQuery("");
     if (multiple()) {
       const ids = selectedIds();
-      props.onChange(ids.includes(option.id) ? ids.filter((id) => id !== option!.id) : [...ids, option.id]);
+      props.onChange(
+        ids.includes(option.id)
+          ? ids.filter((id) => id !== option!.id)
+          : [...ids, option.id],
+      );
       inputEl?.focus();
     } else {
       props.onChange(selectedIds()[0] === option.id ? null : option.id);
@@ -106,7 +147,12 @@ export const OptionPicker = (props: {
       const entry = entries()[active()];
       if (entry) void choose(entry);
       else props.onDone();
-    } else if (e.key === "Backspace" && !query() && multiple() && selectedIds().length) {
+    } else if (
+      e.key === "Backspace" &&
+      !query() &&
+      multiple() &&
+      selectedIds().length
+    ) {
       props.onChange(selectedIds().slice(0, -1));
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -130,14 +176,23 @@ export const OptionPicker = (props: {
           <>
             <PlusIcon size={14} />
             <span>
-              Create <OptionChip option={{ name: (entry as { name: string }).name, color: "gray" }} />
+              Create{" "}
+              <OptionChip
+                option={{
+                  name: (entry as { name: string }).name,
+                  color: "gray",
+                }}
+              />
             </span>
           </>
         }
       >
         {(option) => (
           <>
-            <OptionChip option={option()} showDot={props.property.kind === "status"} />
+            <OptionChip
+              option={option()}
+              showDot={props.property.kind === "status"}
+            />
             <Show when={selectedIds().includes(option().id)}>
               <CheckIcon size={14} style={{ "margin-left": "auto" }} />
             </Show>
@@ -150,7 +205,11 @@ export const OptionPicker = (props: {
   return (
     <div class={panel} onKeyDown={onKeyDown}>
       <div class={selectedRow}>
-        <For each={selectedIds().map((id) => optionById(props.property.config, id)).filter(Boolean)}>
+        <For
+          each={selectedIds()
+            .map((id) => optionById(props.property.config, id))
+            .filter(Boolean)}
+        >
           {(option) => (
             <OptionChip
               option={option!}
@@ -162,7 +221,11 @@ export const OptionPicker = (props: {
                   aria-label={`Remove ${option!.name}`}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() =>
-                    props.onChange(multiple() ? selectedIds().filter((id) => id !== option!.id) : null)
+                    props.onChange(
+                      multiple()
+                        ? selectedIds().filter((id) => id !== option!.id)
+                        : null,
+                    )
                   }
                 >
                   <XIcon size={11} />
@@ -186,14 +249,24 @@ export const OptionPicker = (props: {
       <div class={list} role="listbox">
         <Show
           when={grouped()}
-          fallback={<For each={entries()}>{(entry, i) => renderEntry(entry, i)}</For>}
+          fallback={
+            <For each={entries()}>{(entry, i) => renderEntry(entry, i)}</For>
+          }
         >
           <For each={STATUS_GROUPS}>
             {(group) => (
               <>
                 <div class={groupLabel}>{GROUP_LABELS[group]}</div>
-                <For each={entries().filter((e) => e.kind === "option" && (e.option.group ?? "todo") === group)}>
-                  {(entry) => renderEntry(entry, () => entries().indexOf(entry))}
+                <For
+                  each={entries().filter(
+                    (e) =>
+                      e.kind === "option" &&
+                      (e.option.group ?? "todo") === group,
+                  )}
+                >
+                  {(entry) =>
+                    renderEntry(entry, () => entries().indexOf(entry))
+                  }
                 </For>
               </>
             )}

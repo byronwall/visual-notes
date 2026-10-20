@@ -2,7 +2,14 @@ import { Show, createSignal, untrack } from "solid-js";
 import { css } from "styled-system/css";
 import type { DateValue } from "~/lib/collections/types";
 
-const panel = css({ display: "flex", flexDirection: "column", gap: "2", p: "3", w: "72", fontSize: "sm" });
+const panel = css({
+  display: "flex",
+  flexDirection: "column",
+  gap: "2",
+  p: "3",
+  w: "72",
+  fontSize: "sm",
+});
 const row = css({ display: "flex", alignItems: "center", gap: "2" });
 const label = css({ w: "10", color: "fg.muted", fontSize: "xs" });
 const field = css({
@@ -15,11 +22,31 @@ const field = css({
   borderRadius: "l2",
   bg: "bg.default",
   fontSize: "sm",
-  _focusVisible: { outline: "2px solid", outlineColor: "border.accent", outlineOffset: "-1px" },
+  _focusVisible: {
+    outline: "2px solid",
+    outlineColor: "border.accent",
+    outlineOffset: "-1px",
+  },
 });
-const toggleRow = css({ display: "flex", alignItems: "center", gap: "2", color: "fg.muted", fontSize: "xs", cursor: "pointer" });
-const footer = css({ display: "flex", justifyContent: "space-between", pt: "1" });
-const linkBtn = css({ fontSize: "xs", color: "fg.muted", cursor: "pointer", _hover: { color: "fg.default" } });
+const toggleRow = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2",
+  color: "fg.muted",
+  fontSize: "xs",
+  cursor: "pointer",
+});
+const footer = css({
+  display: "flex",
+  justifyContent: "space-between",
+  pt: "1",
+});
+const linkBtn = css({
+  fontSize: "xs",
+  color: "fg.muted",
+  cursor: "pointer",
+  _hover: { color: "fg.default" },
+});
 
 const todayString = () => {
   const d = new Date();
@@ -34,10 +61,18 @@ export const DateEditor = (props: {
   onChange: (value: DateValue | null) => void;
   onDone: () => void;
 }) => {
-  const [hasEnd, setHasEnd] = createSignal(untrack(() => Boolean(props.value?.end)));
+  const [hasEnd, setHasEnd] = createSignal(
+    untrack(() => Boolean(props.value?.end)),
+  );
   const inputType = () => (props.includeTime ? "datetime-local" : "date");
   const fit = (v: string | undefined | null) =>
-    !v ? "" : props.includeTime ? (v.length === 10 ? `${v}T09:00` : v) : v.slice(0, 10);
+    !v
+      ? ""
+      : props.includeTime
+        ? v.length === 10
+          ? `${v}T09:00`
+          : v
+        : v.slice(0, 10);
 
   const emit = (start: string, end: string | null) => {
     if (!start) {
@@ -67,7 +102,12 @@ export const DateEditor = (props: {
           value={fit(props.value?.start)}
           aria-label="Start date"
           autofocus
-          onChange={(e) => emit(e.currentTarget.value, hasEnd() ? fit(props.value?.end) || null : null)}
+          onChange={(e) =>
+            emit(
+              e.currentTarget.value,
+              hasEnd() ? fit(props.value?.end) || null : null,
+            )
+          }
         />
       </div>
       <Show when={hasEnd()}>
@@ -79,7 +119,12 @@ export const DateEditor = (props: {
             value={fit(props.value?.end)}
             min={fit(props.value?.start)}
             aria-label="End date"
-            onChange={(e) => emit(fit(props.value?.start) || e.currentTarget.value, e.currentTarget.value || null)}
+            onChange={(e) =>
+              emit(
+                fit(props.value?.start) || e.currentTarget.value,
+                e.currentTarget.value || null,
+              )
+            }
           />
         </div>
       </Show>
@@ -89,13 +134,18 @@ export const DateEditor = (props: {
           checked={hasEnd()}
           onChange={(e) => {
             setHasEnd(e.currentTarget.checked);
-            if (!e.currentTarget.checked && props.value) emit(props.value.start, null);
+            if (!e.currentTarget.checked && props.value)
+              emit(props.value.start, null);
           }}
         />
         End date
       </label>
       <div class={footer}>
-        <button type="button" class={linkBtn} onClick={() => emit(fit(todayString()), null)}>
+        <button
+          type="button"
+          class={linkBtn}
+          onClick={() => emit(fit(todayString()), null)}
+        >
           Today
         </button>
         <button

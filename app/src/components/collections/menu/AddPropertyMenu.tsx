@@ -7,6 +7,7 @@ import { useCollection } from "../CollectionContext";
 import { PropertyKindIcon } from "../PropertyKindIcon";
 import { MenuItem, menuInput, menuPanel, menuSection } from "./MenuList";
 import { PROPERTY_PRESETS } from "./propertyPresets";
+import { fitContent } from "../popover-styles";
 
 const trigger = css({
   display: "inline-flex",
@@ -33,23 +34,36 @@ export const AddPropertyMenu = (props: {
 
   const add = async (key: string) => {
     const preset = PROPERTY_PRESETS.find((p) => p.key === key)!;
-    const taken = new Set(store.state.properties.map((p) => p.name.toLowerCase()));
+    const taken = new Set(
+      store.state.properties.map((p) => p.name.toLowerCase()),
+    );
     let finalName = name().trim() || preset.label;
-    for (let i = 2; taken.has(finalName.toLowerCase()); i++) finalName = `${name().trim() || preset.label} ${i}`;
+    for (let i = 2; taken.has(finalName.toLowerCase()); i++)
+      finalName = `${name().trim() || preset.label} ${i}`;
     setOpen(false);
     setName("");
-    const created = await store.addProperty(preset.kind, finalName, preset.config);
+    const created = await store.addProperty(
+      preset.kind,
+      finalName,
+      preset.config,
+    );
     if (created) props.onAdded?.(created);
   };
 
   return (
     <SimplePopover
+      class={fitContent}
       open={open()}
       onClose={() => setOpen(false)}
       placement="bottom-end"
       offset={4}
       anchor={
-        <button type="button" class={props.class ?? trigger} aria-label="Add property" onClick={() => setOpen((v) => !v)}>
+        <button
+          type="button"
+          class={props.class ?? trigger}
+          aria-label="Add property"
+          onClick={() => setOpen((v) => !v)}
+        >
           <PlusIcon size={14} />
           {props.label}
         </button>
@@ -72,7 +86,15 @@ export const AddPropertyMenu = (props: {
           <For each={PROPERTY_PRESETS}>
             {(preset) => (
               <MenuItem
-                icon={<PropertyKindIcon property={{ id: preset.key, kind: preset.kind, config: preset.config ?? {} }} />}
+                icon={
+                  <PropertyKindIcon
+                    property={{
+                      id: preset.key,
+                      kind: preset.kind,
+                      config: preset.config ?? {},
+                    }}
+                  />
+                }
                 onClick={() => void add(preset.key)}
               >
                 {preset.label}

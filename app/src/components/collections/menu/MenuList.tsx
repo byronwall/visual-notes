@@ -1,8 +1,21 @@
 import { type JSX, Show, splitProps } from "solid-js";
 import { css, cx } from "styled-system/css";
 
-export const menuPanel = css({ display: "flex", flexDirection: "column", py: "1", minW: "52", fontSize: "sm" });
-export const menuSection = css({ px: "2.5", pt: "2", pb: "1", fontSize: "xs", color: "fg.subtle", fontWeight: "medium" });
+export const menuPanel = css({
+  display: "flex",
+  flexDirection: "column",
+  py: "1",
+  minW: "52",
+  fontSize: "sm",
+});
+export const menuSection = css({
+  px: "2.5",
+  pt: "2",
+  pb: "1",
+  fontSize: "xs",
+  color: "fg.subtle",
+  fontWeight: "medium",
+});
 export const menuSeparator = css({ h: "1px", bg: "border", my: "1" });
 const itemClass = css({
   display: "flex",
@@ -20,7 +33,13 @@ const itemClass = css({
   "&[data-selected]": { fontWeight: "medium" },
   _disabled: { opacity: "0.5", cursor: "default" },
 });
-const trailing = css({ ml: "auto", color: "fg.subtle", fontSize: "xs", display: "inline-flex", alignItems: "center" });
+const trailing = css({
+  ml: "auto",
+  color: "fg.subtle",
+  fontSize: "xs",
+  display: "inline-flex",
+  alignItems: "center",
+});
 
 export const MenuItem = (
   props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -30,7 +49,14 @@ export const MenuItem = (
     selected?: boolean;
   },
 ) => {
-  const [local, rest] = splitProps(props, ["icon", "trailing", "danger", "selected", "children", "class"]);
+  const [local, rest] = splitProps(props, [
+    "icon",
+    "trailing",
+    "danger",
+    "selected",
+    "children",
+    "class",
+  ]);
   return (
     <button
       type="button"
@@ -40,9 +66,21 @@ export const MenuItem = (
       {...rest}
     >
       <Show when={local.icon}>
-        <span style={{ display: "inline-flex", color: "var(--colors-fg-muted)" }}>{local.icon}</span>
+        <span
+          style={{ display: "inline-flex", color: "var(--colors-fg-muted)" }}
+        >
+          {local.icon}
+        </span>
       </Show>
-      <span style={{ flex: "1", "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+      <span
+        style={{
+          flex: "1",
+          "min-width": "0",
+          overflow: "hidden",
+          "text-overflow": "ellipsis",
+          "white-space": "nowrap",
+        }}
+      >
         {local.children}
       </span>
       <Show when={local.trailing}>
