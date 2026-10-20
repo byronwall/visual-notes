@@ -52,13 +52,14 @@ export const TopicCanvas = (props: {
     const groups = (props.data.current()?.groups ?? []).map((g) => ({ ...g, status: "accepted" as const }));
     return foldView({ cards: props.data.cards(), groups, level: 0 }).maxLevel;
   });
-  const [acceptedMax, setAcceptedMax] = createSignal(0);
+  const acceptedMax = createMemo(
+    () => foldView({ cards: props.data.cards(), groups: props.data.current()?.groups ?? [], level: 0 }).maxLevel,
+  );
   const band = createMemo(() => levelForScale(store.scale(), potentialMax()));
   const level = createMemo(() => Math.min(band(), acceptedMax()));
   // Both are read lazily inside the model's memos; data is a stable object.
   // eslint-disable-next-line solid/reactivity
   const model = createCanvasModel(props.data, level);
-  createEffect(() => setAcceptedMax(model.view().maxLevel));
   const draftCount = createMemo(() => (props.data.current()?.groups ?? []).filter((g) => g.status === "draft").length);
 
   const [drag, setDrag] = createSignal<Drag | null>(null);
@@ -80,11 +81,22 @@ export const TopicCanvas = (props: {
 
   const viewportSize = () => ({ w: viewport?.clientWidth ?? 1200, h: viewport?.clientHeight ?? 800 });
 
+  // Fit to the shallowest fold level whose own layout fits at a scale inside
+  // that level's zoom band, so a big topic opens on readable summaries.
   const fit = (animate = true) => {
-    const bounds = model.layout().bounds;
     const { w, h } = viewportSize();
-    if (!bounds.w || !bounds.h) return;
-    const scale = Math.max(0.2, Math.min(1, Math.min((w - 80) / bounds.w, (h - 96) / bounds.h)));
+    const fitScale = (bounds: Rect) =>
+      Math.max(0.2, Math.min(1, Math.min((w - 80) / bounds.w, (h - 96) / bounds.h)));
+    let chosen: { bounds: Rect; scale: number } | null = null;
+    for (let candidate = 0; candidate <= acceptedMax(); candidate++) {
+      const bounds = candidate === level() ? model.layout().bounds : model.boundsAtLevel(candidate);
+      if (!bounds.w || !bounds.h) continue;
+      const scale = fitScale(bounds);
+      chosen = { bounds, scale };
+      if (Math.min(levelForScale(scale, potentialMax()), acceptedMax()) <= candidate) break;
+    }
+    if (!chosen) return;
+    const { bounds, scale } = chosen;
     const offset = { x: (w - bounds.w * scale) / 2 - bounds.x * scale, y: 64 - bounds.y * scale };
     if (animate) store.animateToView({ scale, offset });
     else store.setView({ scale, offset });

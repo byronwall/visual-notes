@@ -34,21 +34,21 @@ test.describe("research topic canvas", () => {
     await shoot(page, "canvas-detail-drafts");
 
     // Drafts never fold: zooming out before accepting keeps every card.
-    await page.getByRole("button", { name: "Summaries" }).click();
+    await page.getByRole("button", { name: "Summaries", exact: true }).click();
     await expect(canvas(page)).toHaveAttribute("data-band", "1");
     await expect(canvas(page)).toHaveAttribute("data-level", "0");
     await expect(page.getByText("Accept draft summaries to fold")).toBeVisible();
     await expect(page.getByTestId("research-canvas-card")).toHaveCount(38);
 
     // Fit shows every hull label; accepting a leaf summary may fold it right away.
-    await page.getByRole("button", { name: "Fit" }).click();
+    await page.getByRole("button", { name: "Fit", exact: true }).click();
     for (let i = 0; i < 4; i++) {
-      await page.getByTestId("research-canvas-hull").getByRole("button", { name: "Accept" }).first().click();
-      await expect(page.getByRole("button", { name: "Accept" })).toHaveCount(3 - i);
+      await page.getByTestId("research-canvas-hull").getByRole("button", { name: "Accept", exact: true }).first().click();
+      await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(3 - i);
     }
     await shoot(page, "canvas-detail-accepted");
 
-    await page.getByRole("button", { name: "Summaries" }).click();
+    await page.getByRole("button", { name: "Summaries", exact: true }).click();
     await expect(canvas(page)).toHaveAttribute("data-level", "1");
     await expect(cardByTitle(page, "Pin: moving is the hazard")).toBeVisible();
     await expect(cardByTitle(page, "Why are futures lazy?")).toHaveCount(0);
@@ -56,7 +56,7 @@ test.describe("research topic canvas", () => {
     await expect(cardByTitle(page, "How does a waker reach the I/O reactor?")).toBeVisible();
     await shoot(page, "canvas-summaries");
 
-    await page.getByRole("button", { name: "Overview" }).click();
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
     await expect(canvas(page)).toHaveAttribute("data-level", "2");
     await expect(cardByTitle(page, "Async Rust: poll-driven state machines")).toBeVisible();
     await expect(cardByTitle(page, "Pin: moving is the hazard")).toHaveCount(0);
@@ -79,7 +79,7 @@ test.describe("research topic canvas", () => {
     await waitForAppReady(page);
     // Fit picks a new scale after a nudge grows the bounds, so measure at 100%.
     const atDetail = async () => {
-      await page.getByRole("button", { name: "Detail" }).click();
+      await page.getByRole("button", { name: "Detail", exact: true }).click();
       await expect(page.getByRole("toolbar").getByText("100%")).toBeVisible();
     };
     await atDetail();

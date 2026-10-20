@@ -75,6 +75,35 @@ describe("foldView", () => {
     expect(view.hulls).toEqual([]);
   });
 
+  it("folds the came-from descendants of covered cards too", () => {
+    // gB covers only b; b1 hangs under b and goes with it.
+    const cards = [...base(), card("sB", null, "summary")];
+    const view = foldView({ cards, groups: [group("gB", "sB", ["b"])], level: 1 });
+    expect(visibleIds(view)).toEqual(["a", "a1", "a2", "root", "sB"]);
+    expect(view.nodes.find((node) => node.id === "sB")).toMatchObject({ coveredCount: 2 });
+  });
+
+  it("stops folding descendants at other summaries and below open cards", () => {
+    // root → x → [y (covered by gY), q (open) → z]
+    const cards = [
+      card("x"),
+      card("y", "x"),
+      card("q", "x", "question", "open"),
+      card("z", "q"),
+      card("sX", null, "summary"),
+      card("sY", null, "summary"),
+    ];
+    const view = foldView({
+      cards,
+      groups: [group("gX", "sX", ["x"]), group("gY", "sY", ["y"])],
+      level: 1,
+    });
+    expect(visibleIds(view)).toEqual(["q", "sX", "sY", "z"]);
+    expect(view.nodes.find((node) => node.id === "sX")).toMatchObject({ coveredCount: 2, openInside: 1 });
+    expect(view.parent.get("z")).toBe("q");
+    expect(view.parent.get("sY")).toBe("sX");
+  });
+
   it("never folds a draft group", () => {
     const view = foldView({
       cards: base(),
@@ -109,8 +138,9 @@ describe("foldView", () => {
     expect(view.edges).toEqual([{ from: "q", to: "s", kind: "also" }]);
   });
 
-  it("breaks the cycle when a group skips a generation", () => {
-    const cards = [card("p"), card("c", "p"), card("g", "c"), card("s", null, "summary")];
+  it("breaks the cycle when a group skips an open generation", () => {
+    // c is open, so it pierces the fold and sits between p and g.
+    const cards = [card("p"), card("c", "p", "question", "open"), card("g", "c"), card("s", null, "summary")];
     const view = foldView({ cards, groups: [group("grp", "s", ["p", "g"])], level: 1 });
     expect(view.parent.get("c")).toBe("s");
     expect(view.parent.get("s")).toBeNull();
