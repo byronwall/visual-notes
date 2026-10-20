@@ -1,3 +1,4 @@
+import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import sanitizeHtml from "sanitize-html";
 import { contentFromLegacy, toPlainText } from "~/lib/note-content/convert";
@@ -59,7 +60,10 @@ export function measureConversion(row: {
   const afterChars = visibleChars(toPlainText(content));
   const lossPct =
     beforeChars > 0
-      ? Math.max(0, Math.round(((beforeChars - afterChars) / beforeChars) * 1000) / 10)
+      ? Math.max(
+          0,
+          Math.round(((beforeChars - afterChars) / beforeChars) * 1000) / 10,
+        )
       : 0;
   return { content, beforeChars, afterChars, lossPct };
 }
@@ -77,7 +81,7 @@ export async function runBlockMigrationBatch(opts: {
   limit?: number;
   cursor?: string | null;
 }): Promise<BlockMigrationBatch> {
-  const limit = Math.max(1, Math.min(500, opts.limit ?? 100));
+  const limit = Math.max(1, Math.min(25, opts.limit ?? 25));
   const docs = await prisma.doc.findMany({
     where: {
       ...unmigrated,
@@ -92,6 +96,8 @@ export async function runBlockMigrationBatch(opts: {
   let migrated = 0;
   let failed = 0;
   for (const doc of docs) {
+    // Let DOM cleanup and normal note requests run between conversions.
+    await yieldToEventLoop();
     try {
       const { content, ...stats } = measureConversion(doc);
       rows.push({ id: doc.id, title: doc.title, ...stats });
