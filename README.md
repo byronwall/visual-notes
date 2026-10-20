@@ -55,6 +55,10 @@ Notes are created and edited in the app, by in-app AI, and by the ChatGPT MCP co
 
 It returns `{ "id": "..." }` with status 201.
 
+## Live note updates
+
+Open tabs refresh when notes change elsewhere (ChatGPT, other tabs, the CLI). See [app/docs/live-note-updates.md](app/docs/live-note-updates.md). A reverse proxy must forward WebSocket upgrades for `/ws/notes`.
+
 ## Collections
 
 Collections are typed sets of notes, like Notion databases. Each row is an ordinary note, so search, links, revisions, and the ChatGPT connector all work on rows. The collection adds a property schema on top.
@@ -101,6 +105,8 @@ This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.
 - Builds the app image, then runs it on port 3000.
 - On container start, the app runs `prisma migrate deploy` automatically.
+- Before serving requests, it fills missing `Doc.searchText` values in batches. This preserves note edit dates.
+- Content writes keep plain search text current. PostgreSQL uses a `pg_trgm` index for substring matches.
 
 ### Environment (overrides)
 
