@@ -4,47 +4,43 @@ import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
 
 // Live note updates: a write made somewhere other than this tab must reach it
-// without a reload, and must never replace typing that is not saved yet. The
-// "elsewhere" writer is a second browser context using the CLI ingest API,
-// whose update returns no updatedAt, so the tab has to fetch and compare.
-
-const SOURCE = "e2e-live-updates";
+// without a reload and must never drop typing. The "elsewhere" writer is a
+// second browser context, like a second tab or device; when both edit at
+// once, the server's per-block merge keeps both edits.
 
 const waitForLiveSocket = (page: Page) =>
   expect(page.locator("html")).toHaveAttribute("data-note-live", "open");
 
-const openElsewhere = async (browser: Browser) => {
+const editor = (page: Page) => page.locator(".ProseMirror").first();
+
+const openContext = async (browser: Browser, path: string) => {
   const context = await browser.newContext({ storageState: storageStatePath });
   const page = await context.newPage();
-  await page.goto("/login");
+  await page.goto(path);
+  await waitForAppReady(page);
   return { page, close: () => context.close() };
 };
 
-/** Re-ingests the note with new markdown, as the CLI would. */
-const ingestUpdate = async (
-  page: Page,
-  note: { title: string; contentId: string; markdown: string },
-) => {
-  const status = await page.evaluate(
-    async (data) => {
-      const response = await fetch("/api/docs", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: data.title,
-          markdown: data.markdown,
-          originalSource: data.source,
-          originalContentId: data.contentId,
-        }),
-      });
-      return response.status;
-    },
-    { ...note, source: SOURCE },
-  );
-  expect(status, "ingest update should succeed").toBe(200);
+const openNote = async (page: Page, noteId: string) => {
+  await page.goto(`/docs/${noteId}`);
+  await waitForAppReady(page);
+  await waitForLiveSocket(page);
 };
 
-const editor = (page: Page) => page.locator(".ProseMirror").first();
+/** Puts the cursor at the end of the paragraph that shows `text`. */
+const typeInParagraph = async (page: Page, text: string, typed: string) => {
+  await editor(page).locator("p", { hasText: text }).click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(typed);
+};
+
+const nextAutosave = (page: Page) =>
+  page.waitForResponse(
+    (response) =>
+      response.url().includes("/_server") &&
+      response.request().method() === "POST",
+    { timeout: 8_000 },
+  );
 
 test("a note created elsewhere appears in the open notes list", async ({
   page,
@@ -54,7 +50,7 @@ test("a note created elsewhere appears in the open notes list", async ({
   await waitForAppReady(page);
   await waitForLiveSocket(page);
 
-  const elsewhere = await openElsewhere(browser);
+  const elsewhere = await openContext(browser, "/login");
   const title = `Live list ${uniqueSuffix()}`;
   try {
     await createNoteFixture(elsewhere.page, {
@@ -72,93 +68,81 @@ test("a note created elsewhere appears in the open notes list", async ({
 
 test.describe("open note", () => {
   let noteId: string;
-  let title: string;
-  let contentId: string;
 
   test.beforeEach(async ({ page }) => {
-    title = `Live note ${uniqueSuffix()}`;
-    contentId = `live-${uniqueSuffix()}`;
     noteId = await createNoteFixture(page, {
-      title,
-      markdown: "Original body.",
-      originalSource: SOURCE,
-      originalContentId: contentId,
+      title: `Live note ${uniqueSuffix()}`,
+      markdown: "First paragraph.\n\nSecond paragraph.",
     });
-    await page.goto(`/docs/${noteId}`);
-    await waitForAppReady(page);
-    await waitForLiveSocket(page);
-    await expect(editor(page)).toContainText("Original body.");
+    await openNote(page, noteId);
+    await expect(editor(page)).toContainText("Second paragraph.");
   });
 
-  test("takes changes from elsewhere when it has no local edits", async ({
+  test("takes an edit from another tab while idle", async ({
     page,
     browser,
   }) => {
-    const elsewhere = await openElsewhere(browser);
+    const other = await openContext(browser, `/docs/${noteId}`);
     try {
-      await ingestUpdate(elsewhere.page, {
-        title,
-        contentId,
-        markdown: "Original body.\n\nAdded from the CLI.",
-      });
+      const saved = nextAutosave(other.page);
+      await typeInParagraph(
+        other.page,
+        "Second paragraph.",
+        " From the other tab.",
+      );
+      expect((await saved).ok()).toBe(true);
     } finally {
-      await elsewhere.close();
+      await other.close();
     }
 
-    await expect(editor(page)).toContainText("Added from the CLI.", {
-      timeout: 5_000,
-    });
-    await expect(page.getByTestId("remote-change-notice")).toHaveCount(0);
+    await expect(editor(page)).toContainText(
+      "Second paragraph. From the other tab.",
+      { timeout: 5_000 },
+    );
   });
 
-  test("keeps unsaved edits and offers a reload", async ({ page, browser }) => {
-    const elsewhere = await openElsewhere(browser);
+  test("edits in both tabs at once are merged, not dropped", async ({
+    page,
+    browser,
+  }) => {
+    const other = await openContext(browser, `/docs/${noteId}`);
+    await waitForLiveSocket(other.page);
     try {
-      await editor(page).click();
-      await page.keyboard.press("End");
-      await page.keyboard.type(" Local draft.");
-      // Within the autosave delay, so this tab is still dirty.
-      await ingestUpdate(elsewhere.page, {
-        title,
-        contentId,
-        markdown: "Rewritten elsewhere.",
-      });
+      // Both drafts are unsaved at the same time; whichever saves second
+      // merges per block with the first.
+      await typeInParagraph(other.page, "Second paragraph.", " Theirs.");
+      await typeInParagraph(page, "First paragraph.", " Mine.");
+
+      for (const tab of [page, other.page]) {
+        await expect(editor(tab)).toContainText("First paragraph. Mine.", {
+          timeout: 8_000,
+        });
+        await expect(editor(tab)).toContainText("Second paragraph. Theirs.", {
+          timeout: 8_000,
+        });
+      }
     } finally {
-      await elsewhere.close();
+      await other.close();
     }
 
-    const notice = page.getByTestId("remote-change-notice");
-    await expect(notice).toBeVisible({ timeout: 5_000 });
-    await expect(editor(page)).toContainText("Local draft.");
-
-    // Autosave waits while the choice is open, so the draft is not saved.
-    await page.waitForTimeout(2_500);
-    await expect(notice).toBeVisible();
-
-    await notice.getByRole("button", { name: "Reload" }).click();
-    await expect(editor(page)).toContainText("Rewritten elsewhere.");
-    await expect(editor(page)).not.toContainText("Local draft.");
-    await expect(notice).toHaveCount(0);
+    // The stored note has both edits too.
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(editor(page)).toContainText("First paragraph. Mine.");
+    await expect(editor(page)).toContainText("Second paragraph. Theirs.");
   });
 
   test("ignores this tab's own saves", async ({ page }) => {
-    const autosave = page.waitForResponse(
-      (response) =>
-        response.url().includes("/_server") &&
-        response.request().method() === "POST",
-      { timeout: 6_000 },
-    );
-    await editor(page).click();
-    await page.keyboard.press("End");
-    await page.keyboard.type(" Saved here.");
-    expect((await autosave).ok(), "autosave should succeed").toBe(true);
+    const saved = nextAutosave(page);
+    await typeInParagraph(page, "First paragraph.", " Saved here.");
+    expect((await saved).ok(), "autosave should succeed").toBe(true);
     // Let the echoed notes:changed event arrive and be ignored.
     await page.waitForTimeout(1_000);
-    await expect(editor(page)).toContainText("Original body. Saved here.");
-    await expect(page.getByTestId("remote-change-notice")).toHaveCount(0);
     // The cursor stays at the end, so typing continues the same line.
     await page.keyboard.type(" More.");
-    await expect(editor(page)).toContainText("Saved here. More.");
+    await expect(editor(page)).toContainText(
+      "First paragraph. Saved here. More.",
+    );
   });
 });
 
@@ -170,14 +154,10 @@ test("typing keeps going while another note changes elsewhere", async ({
     title: `Live focus ${uniqueSuffix()}`,
     markdown: "Focus body.",
   });
-  await page.goto(`/docs/${noteId}`);
-  await waitForAppReady(page);
-  await waitForLiveSocket(page);
-  await editor(page).click();
-  await page.keyboard.press("End");
-  await page.keyboard.type(" Before.");
+  await openNote(page, noteId);
+  await typeInParagraph(page, "Focus body.", " Before.");
 
-  const elsewhere = await openElsewhere(browser);
+  const elsewhere = await openContext(browser, "/login");
   try {
     await createNoteFixture(elsewhere.page, {
       title: `Live other ${uniqueSuffix()}`,
