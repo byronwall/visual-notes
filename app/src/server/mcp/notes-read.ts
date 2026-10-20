@@ -14,6 +14,10 @@ import {
 import { buildPathTree, normalizeNotePath, type PathCount } from "./paths";
 import { fuseRankings, type FusedHit } from "./rank-fusion";
 import { semanticSearch } from "./semantic";
+import {
+  collectionTextForNotes,
+  type CollectionText,
+} from "~/services/collections/collection-text";
 
 export const MAX_NOTES_PER_GET = 10;
 
@@ -111,6 +115,8 @@ export type FullNote = NoteSummary & {
   markdown: string;
   createdAt: string;
   editable: boolean;
+  /** Set when the note is a row in a collection: its typed properties as text. */
+  collection?: CollectionText;
 };
 
 export async function getNotes(
@@ -129,6 +135,7 @@ export async function getNotes(
     },
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
+  const collectionText = await collectionTextForNotes(rows.map((r) => r.id));
   const notes: FullNote[] = [];
   const missing: string[] = [];
   for (const id of ids) {
@@ -144,6 +151,7 @@ export async function getNotes(
       }),
       createdAt: row.createdAt.toISOString(),
       editable: isChatGptNote(row),
+      ...(collectionText[id] ? { collection: collectionText[id] } : {}),
     });
   }
   return { notes, missing };
