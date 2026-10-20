@@ -1,8 +1,48 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma } from "@prisma/client";
 import type { NoteChange } from "~/lib/note-events";
 import { publishNoteChanges } from "./note-events";
 
 type Publish = (changes: NoteChange[] | null) => void;
+
+type Batch = { changes: Array<NoteChange[] | null> };
+
+// Writes made inside `prisma.$transaction` wait here until it commits, so a
+// tab never refetches a note before the write it was told about is visible.
+const transactionScope = new AsyncLocalStorage<Batch>();
+
+/** Folds a transaction's writes into one event; any bulk write means all. */
+export function mergeNoteChanges(
+  batches: Array<NoteChange[] | null>,
+): NoteChange[] | null {
+  if (batches.some((changes) => changes === null)) return null;
+  const byId = new Map<string, NoteChange>();
+  for (const change of batches.flat() as NoteChange[]) {
+    byId.set(change.id, { ...byId.get(change.id), ...change });
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Runs a transaction and publishes the note changes it made only after it
+ * resolves (commits). A rejected transaction publishes nothing.
+ */
+export async function deferNoteChanges<T>(
+  run: () => Promise<T>,
+  publish: Publish = publishNoteChanges,
+): Promise<T> {
+  if (transactionScope.getStore()) return run();
+  const batch: Batch = { changes: [] };
+  const result = await transactionScope.run(batch, run);
+  if (batch.changes.length > 0) {
+    try {
+      publish(mergeNoteChanges(batch.changes));
+    } catch (err) {
+      console.error("[note-events] publish failed", err);
+    }
+  }
+  return result;
+}
 
 const SINGLE_WRITES = new Set(["create", "update", "upsert", "delete"]);
 const RETURNING_WRITES = new Set([
@@ -55,6 +95,30 @@ export function noteChangesFor(
   return change ? [change] : null;
 }
 
+/**
+ * Handles one finished Doc operation: reads are ignored, writes publish now,
+ * or wait for the enclosing `deferNoteChanges` transaction to commit.
+ */
+export function recordNoteWrite(
+  operation: string,
+  args: unknown,
+  result: unknown,
+  publish: Publish,
+) {
+  const changes = noteChangesFor(operation, args, result);
+  if (changes === undefined) return;
+  const batch = transactionScope.getStore();
+  if (batch) {
+    batch.changes.push(changes);
+    return;
+  }
+  try {
+    publish(changes);
+  } catch (err) {
+    console.error("[note-events] publish failed", err);
+  }
+}
+
 export const createNoteChangeExtension = (publish: Publish) =>
   Prisma.defineExtension({
     name: "note-change-events",
@@ -62,14 +126,7 @@ export const createNoteChangeExtension = (publish: Publish) =>
       doc: {
         async $allOperations({ operation, args, query }) {
           const result = await query(args);
-          const changes = noteChangesFor(operation, args, result);
-          if (changes !== undefined) {
-            try {
-              publish(changes);
-            } catch (err) {
-              console.error("[note-events] publish failed", err);
-            }
-          }
+          recordNoteWrite(operation, args, result, publish);
           return result;
         },
       },
