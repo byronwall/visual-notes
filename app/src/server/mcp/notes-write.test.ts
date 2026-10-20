@@ -4,10 +4,16 @@ const db = vi.hoisted(() => ({
   doc: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
+    findUniqueOrThrow: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
   },
+  $queryRaw: vi.fn(),
   docRevision: { create: vi.fn(), count: vi.fn() },
+  docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
+  docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
+  taskItem: { findMany: vi.fn(async () => []), update: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
@@ -18,7 +24,7 @@ vi.mock("~/server/events/action-events", () => ({
   logActionEvent: db.logActionEvent,
 }));
 
-import { appendToNote, createNote, updateNote } from "./notes-write";
+import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
 import { ConnectorError } from "./notes-shared";
 
 const ctx = {
@@ -39,11 +45,19 @@ const chatgptNote = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) =>
-    Promise.all(ops),
+  db.$transaction.mockImplementation(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: typeof db) => Promise<unknown>)(db)
+      : Promise.all(arg as Promise<unknown>[]),
   );
   db.docRevision.create.mockResolvedValue({});
   db.docRevision.count.mockResolvedValue(1);
+  db.$queryRaw.mockResolvedValue([{ ...chatgptNote, contentVersion: 1 }]);
+  db.doc.findUniqueOrThrow.mockResolvedValue({
+    id: "n1",
+    title: "Plan",
+    path: "work.plan",
+  });
   db.doc.update.mockResolvedValue({
     id: "n1",
     title: "Plan",
@@ -136,8 +150,8 @@ describe("updateNote", () => {
 
     const result = await updateNote(ctx, { id: "n1", markdown: "# v2" });
 
-    const [ops] = db.$transaction.mock.calls[0];
-    expect(ops).toHaveLength(2);
+    expect(db.$transaction).toHaveBeenCalledOnce();
+    expect(db.docBlock.createMany).toHaveBeenCalledOnce();
     expect(db.docRevision.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         docId: "n1",
@@ -156,13 +170,54 @@ describe("updateNote", () => {
 });
 
 describe("appendToNote", () => {
-  it("keeps existing HTML and records an append revision", async () => {
+  it("keeps existing blocks and records an append revision", async () => {
     db.doc.findUnique.mockResolvedValue(chatgptNote);
     await appendToNote(ctx, { id: "n1", markdown: "more" });
     const data = db.doc.update.mock.calls[0][0].data;
-    expect(data.html.startsWith("<p>v1</p>")).toBe(true);
+    const blocks = data.content.content;
+    expect(blocks[0].content[0].text).toBe("v1");
+    expect(blocks[1].content[0].text).toBe("more");
+    expect(data.html.indexOf("v1")).toBeLessThan(data.html.indexOf("more"));
     expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
       "chatgpt.append",
     );
+  });
+});
+
+describe("editNote", () => {
+  const blockNote = {
+    ...chatgptNote,
+    content: {
+      type: "doc",
+      content: [
+        { type: "paragraph", attrs: { id: "keep0001" }, content: [{ type: "text", text: "keep me" }] },
+        { type: "paragraph", attrs: { id: "edit0001" }, content: [{ type: "text", text: "old" }] },
+      ],
+    },
+  };
+
+  it("replaces one block and leaves the others identical", async () => {
+    db.doc.findUnique.mockResolvedValue(blockNote);
+    db.$queryRaw.mockResolvedValue([{ ...blockNote, contentVersion: 3 }]);
+    await editNote(ctx, {
+      id: "n1",
+      edits: [{ op: "replace", blockId: "edit0001", markdown: "new **text**" }],
+    });
+    const blocks = db.doc.update.mock.calls[0][0].data.content.content;
+    expect(blocks[0]).toEqual(blockNote.content.content[0]);
+    expect(blocks[1].attrs.id).toBe("edit0001");
+    expect(blocks[1].content.map((n: { text: string }) => n.text).join("")).toBe("new text");
+    expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe("chatgpt.edit");
+  });
+
+  it("reports unknown block ids with the valid ones", async () => {
+    db.doc.findUnique.mockResolvedValue(blockNote);
+    db.$queryRaw.mockResolvedValue([{ ...blockNote, contentVersion: 3 }]);
+    await expect(
+      editNote(ctx, { id: "n1", edits: [{ op: "delete", blockId: "ghost" }] }),
+    ).rejects.toMatchObject({
+      code: "invalid",
+      message: expect.stringContaining("keep0001"),
+    });
   });
 });

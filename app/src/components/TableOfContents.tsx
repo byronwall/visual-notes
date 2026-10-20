@@ -1,8 +1,16 @@
 import { type VoidComponent, Show } from "solid-js";
+import { Portal } from "solid-js/web";
+import { css } from "styled-system/css";
+import { useMobileAppBar } from "./sidebar/mobile-app-bar";
 import { DEFAULT_MAX_VH } from "./toc/constants";
 import { TocExpandedPanel } from "./toc/TocExpandedPanel";
+import { TocMobileSheet } from "./toc/TocMobileSheet";
 import { TocRail } from "./toc/TocRail";
 import { useTocController } from "./toc/useTocController";
+
+// The fixed rail would sit on top of the text at phone width; phones get the
+// contents sheet in the app bar instead.
+const desktopRailClass = css({ display: { base: "none", md: "block" } });
 
 export const TableOfContents: VoidComponent<{
   getRootEl: () => HTMLElement | null;
@@ -15,11 +23,27 @@ export const TableOfContents: VoidComponent<{
     getRootEl: props.getRootEl,
     maxVh,
   });
+  const appBar = useMobileAppBar();
 
   return (
     <Show when={toc.hasItems()}>
+      <Show when={appBar.actionsSlot()}>
+        {(slot) => (
+          <Portal
+            mount={slot()}
+            ref={(element) => (element.style.display = "contents")}
+          >
+            <TocMobileSheet
+              items={toc.items}
+              activeIndex={toc.activeIndex}
+              minHeadingLevel={toc.minHeadingLevel}
+              onItemClick={toc.onItemClick}
+            />
+          </Portal>
+        )}
+      </Show>
       <div
-        class={props.class}
+        class={[desktopRailClass, props.class].filter(Boolean).join(" ")}
         style={{
           position: "fixed",
           left: `${toc.panelLeftPx()}px`,

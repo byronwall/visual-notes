@@ -142,6 +142,8 @@ export function getSanitizeOptions(): IOptions {
       // Shiki adds classes and inline styles on pre/span
       pre: ["class", "style"],
       span: ["class", "style"],
+      // Collection view embeds (see CollectionViewNode).
+      div: ["data-collection-view"],
     },
     // Allow data: URLs for images so base64-embedded images are preserved
     allowedSchemesByTag: {

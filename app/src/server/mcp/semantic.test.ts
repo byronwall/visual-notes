@@ -30,10 +30,11 @@ import {
   semanticSearch,
 } from "./semantic";
 
+let runNumber = 0;
 beforeEach(() => {
   vi.clearAllMocks();
   env.serverEnv.OPENAI_API_KEY = "key";
-  mocks.findFirst.mockResolvedValue({ id: "run1", model: "m" });
+  mocks.findFirst.mockResolvedValue({ id: `run${++runNumber}`, model: "m" });
   mocks.aggregate.mockResolvedValue({
     _count: { _all: 3 },
     _max: { createdAt: new Date(1) },
@@ -82,12 +83,70 @@ describe("semanticSearch", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(await semanticSearch("q", 5)).toBeNull();
   });
+
+  it("shares a cold index load across concurrent searches", async () => {
+    mocks.embed.mockResolvedValue([[1, 0]]);
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mocks.findMany.mockImplementationOnce(async () => {
+      await ready;
+      return [{ id: "a", docId: "near", vector: [1, 0] }];
+    });
+    const searches = [semanticSearch("one", 5), semanticSearch("two", 5)];
+    await vi.waitFor(() => expect(mocks.findMany).toHaveBeenCalledTimes(1));
+    release();
+    const results = await Promise.all(searches);
+    expect(results[0]).toEqual(results[1]);
+    expect(results[0]?.[0].id).toBe("near");
+    expect(mocks.findMany).toHaveBeenCalledTimes(1);
+    await semanticSearch("cached", 5);
+    expect(mocks.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads vectors in bounded pages without losing matches", async () => {
+    mocks.embed.mockResolvedValue([[1, 0]]);
+    const rows = Array.from({ length: 503 }, (_, i) => ({
+      id: String(i).padStart(4, "0"),
+      docId: `doc${i}`,
+      vector: [1, 0],
+    }));
+    mocks.findMany.mockImplementation(async ({ where, take }) => {
+      expect(take).toBeLessThanOrEqual(250);
+      const start = where.id
+        ? rows.findIndex((r) => r.id === where.id.gt) + 1
+        : 0;
+      return rows.slice(start, start + take);
+    });
+    const hits = await semanticSearch("all", 600);
+    expect(hits?.map((hit) => hit.id)).toEqual(rows.map((row) => row.docId));
+    expect(mocks.findMany).toHaveBeenCalledTimes(3);
+    mocks.aggregate.mockResolvedValue({
+      _count: { _all: 504 },
+      _max: { createdAt: new Date(2) },
+    });
+    await semanticSearch("changed", 1);
+    expect(mocks.findMany).toHaveBeenCalledTimes(6);
+  });
+
+  it("retries after a failed index load", async () => {
+    mocks.embed.mockResolvedValue([[1, 0]]);
+    mocks.findMany.mockRejectedValueOnce(new Error("database unavailable"));
+    expect(await semanticSearch("first", 5)).toBeNull();
+    expect((await semanticSearch("retry", 5))?.map((hit) => hit.id)).toEqual([
+      "near",
+      "mid",
+    ]);
+    expect(mocks.findMany).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("scheduleEmbeddingRefresh", () => {
   it("debounces bursts of writes into one refresh of the latest run", async () => {
     vi.useFakeTimers();
     mocks.process.mockResolvedValue({ addedDocs: 1 });
+    mocks.findFirst.mockResolvedValue({ id: "run1", model: "m" });
     scheduleEmbeddingRefresh();
     scheduleEmbeddingRefresh();
     await vi.runAllTimersAsync();
