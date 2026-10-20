@@ -1,0 +1,831 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Block-based note storage",
+    "slug": "block-storage",
+    "scale": "program",
+    "current_phase": "plan",
+    "last_updated": "2026-10-19",
+    "summary": "Replace dual html/markdown note storage with canonical TipTap JSON blocks (stable IDs) plus derived block/link indexes, enabling links+backlinks, inline TaskItems, fixed cross-note views, and block-level AI/MCP edits; remove bulk ingest.",
+    "status": "planned",
+    "next_action": "Implement m1 (remove ingest), then m2; user to supply notes pg_dump for dry run"
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    }
+  },
+  "sources": [
+    {
+      "id": "req",
+      "type": "request",
+      "location": "conversation",
+      "anchor": "initial /software-design-sleuth-full args",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "direct"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "direct"
+    },
+    {
+      "id": "repo-schema",
+      "type": "repository",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "model Doc, DocRevision, DocSection, TaskItem",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-editor-save",
+      "type": "repository",
+      "location": "app/src/components/DocumentEditor.tsx",
+      "anchor": "onSave uses ed.getHTML()",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-mcp-content",
+      "type": "repository",
+      "location": "app/src/server/mcp/note-content.ts",
+      "anchor": "turndown/marked conversions",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-mcp-write",
+      "type": "repository",
+      "location": "app/src/server/mcp/notes-write.ts",
+      "anchor": "originalSource_originalContentId upsert",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-sanitize",
+      "type": "repository",
+      "location": "app/src/server/lib/markdown.ts",
+      "anchor": "getSanitizeOptions",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "repo-ingest",
+      "type": "repository",
+      "location": "app/src/routes/api/docs/index.ts; cli-ingest/",
+      "anchor": "POST ingest",
+      "authority": "repository-reality"
+    },
+    {
+      "id": "npm-tiptap",
+      "type": "research",
+      "location": "npm registry",
+      "anchor": "@tiptap/extension-unique-id, @tiptap/markdown, @tiptap/static-renderer, @tiptap/html all 3.32.0 MIT",
+      "authority": "primary-research"
+    },
+    {
+      "id": "repo-data-tables",
+      "type": "repository",
+      "location": "docs/data-tables/data-tables-prd.md",
+      "anchor": "Tier A table block",
+      "authority": "earlier-direct-intent"
+    },
+    {
+      "id": "shape-review",
+      "type": "conversation",
+      "location": "conversation",
+      "anchor": "shape approval",
+      "authority": "direct"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "type": "problem",
+        "statement": "Dual html/markdown storage is a mess: markdown goes stale after first editor save, readers guess which is current, conversions lossy.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "req",
+          "repo-mcp-content",
+          "repo-editor-save"
+        ]
+      },
+      {
+        "id": "C2",
+        "type": "outcome",
+        "statement": "Move to a block system as the single canonical storage format for in-app creation and edits.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "req"
+        ]
+      },
+      {
+        "id": "C3",
+        "type": "constraint",
+        "statement": "Focus exclusively on in-app generation and edits; no bulk ingest for a while.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "req"
+        ]
+      },
+      {
+        "id": "C4",
+        "type": "decision",
+        "statement": "Remove bulk ingest (cli-ingest, POST /api/docs ingest) now.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C5",
+        "type": "required behavior",
+        "statement": "First release unlocks: note/block links, typed inline objects, cross-note queries, precise AI/MCP block edits.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C6",
+        "type": "decision",
+        "statement": "Blocks have stable IDs and live in exactly one note; moving keeps ID; no transclusion.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C7",
+        "type": "decision",
+        "statement": "Convert all existing notes once; small loss OK; old HTML kept as backup.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ]
+      },
+      {
+        "id": "C8",
+        "type": "sequence",
+        "statement": "Links + backlinks is the first proof.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C9",
+        "type": "decision",
+        "statement": "First typed inline object is tasks only.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C10",
+        "type": "decision",
+        "statement": "AI/MCP sees markdown annotated with block IDs and edits by block ID; blocks stay canonical.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C11",
+        "type": "decision",
+        "statement": "Concurrency: per-block merge; same-block conflict newer wins, other saved as revision; no live cursors.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ]
+      },
+      {
+        "id": "C12",
+        "type": "constraint",
+        "statement": "Appetite: implemented in one night as stacked PRs, all capabilities.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C13",
+        "type": "decision",
+        "statement": "Inline checkbox creates a real TaskItem synced with Tasks.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C14",
+        "type": "decision",
+        "statement": "Cross-note queries are fixed views (backlinks, open tasks, #tag), no query language.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C15",
+        "type": "constraint",
+        "statement": "Keep html/markdown columns briefly during migration; then keep only a derived text/markdown form if it helps embeddings perf; ideal is blocks only with a text field per block.",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ]
+      },
+      {
+        "id": "C16",
+        "type": "current repository reality",
+        "statement": "ChatGPT MCP write path uses originalSource/originalContentId for idempotency; those columns must survive ingest removal.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-mcp-write"
+        ]
+      },
+      {
+        "id": "C17",
+        "type": "current repository reality",
+        "statement": "sanitize-html allowlist strips unknown attributes, blocking richer node types.",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "repo-sanitize"
+        ]
+      },
+      {
+        "id": "C18",
+        "type": "future possibility",
+        "statement": "Time blocks, archived pages, data tables (PRD) as later block types.",
+        "commitment": "tentative",
+        "importance": "peripheral",
+        "status": "active",
+        "time_horizon": "later",
+        "sources": [
+          "qa-round-2",
+          "repo-data-tables"
+        ]
+      },
+      {
+        "id": "C19",
+        "type": "outcome",
+        "statement": "In-app editing experience must be top notch (autosave, revisions, safety).",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "req"
+        ]
+      },
+      {
+        "id": "C20",
+        "type": "decision",
+        "statement": "New inline tasks go into a single Inbox task list.",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "shape-review"
+        ]
+      }
+    ],
+    "themes": [
+      {
+        "id": "T1",
+        "name": "Canonical format",
+        "claims": [
+          "C1",
+          "C2",
+          "C15",
+          "C17"
+        ]
+      },
+      {
+        "id": "T2",
+        "name": "Addressable blocks",
+        "claims": [
+          "C5",
+          "C6",
+          "C8",
+          "C10",
+          "C14"
+        ]
+      },
+      {
+        "id": "T3",
+        "name": "Safe transition",
+        "claims": [
+          "C7",
+          "C11",
+          "C15",
+          "C16",
+          "C19"
+        ]
+      },
+      {
+        "id": "T4",
+        "name": "Ingest removal",
+        "claims": [
+          "C3",
+          "C4",
+          "C16"
+        ]
+      }
+    ],
+    "conflicts": [
+      {
+        "id": "X1",
+        "summary": "Remove ingest vs ChatGPT connector reusing ingest identity columns",
+        "resolution": "Remove ingest code paths; keep originalSource/originalContentId columns for MCP idempotency."
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "One night, stacked PRs; each PR leaves the app shippable; legacy column drop is a later PR after soak.",
+    "problem": "Notes have no trustworthy canonical format and no addressable sub-units, blocking links, typed objects, queries, and precise AI edits.",
+    "recommended_shape": "Canonical TipTap JSON per note (Doc.content + contentVersion) with stable block ids via @tiptap/extension-unique-id; one UI-free shared schema module used by editor, server (static-renderer, markdown, html) and migration; derived DocBlock and DocLink tables rebuilt in the save transaction; per-block 3-way merge using base version + revision snapshots; MCP markdown with ^block-id annotations and id-targeted ops; taskRef node bound to TaskItem; fixed views over DocBlock/DocLink; ingest removed first; legacy html/markdown dual-written behind a read switch until cutover.",
+    "rejected_alternatives": [
+      {
+        "name": "Row-per-block canonical storage",
+        "reason": "Requires reassembly on every read and hand-maintained parent/order invariants for nested lists/tables without making any of the four target features easier; derived rows keyed by block id deliver the same query/link/merge power."
+      },
+      {
+        "name": "Freeze legacy columns at migration",
+        "reason": "Loses a true rollback; dual-write via static renderer/markdown serializer is cheap and keeps share/search/embeddings readable until each reader is switched."
+      },
+      {
+        "name": "Real-time CRDT (Yjs)",
+        "reason": "User chose per-block merge; single user, no presence needed."
+      }
+    ],
+    "success_moves": [
+      {
+        "id": "S1",
+        "move": "Remove ingest first",
+        "risk_reduced": "Fewer writers/readers to keep compatible during migration."
+      },
+      {
+        "id": "S2",
+        "move": "UI-free shared schema module consumed by client and server",
+        "risk_reduced": "Schema drift between editor and server; NodeView imports breaking server build."
+      },
+      {
+        "id": "S3",
+        "move": "Dry-run migration against local DB copy with per-note text-loss report",
+        "risk_reduced": "Silent content loss in one-time conversion."
+      },
+      {
+        "id": "S4",
+        "move": "Dual-write legacy columns behind a read switch",
+        "risk_reduced": "No rollback if a reader breaks after cutover."
+      },
+      {
+        "id": "S5",
+        "move": "Pure merge function (base, mine, theirs by block id) unit-tested before wiring to editor",
+        "risk_reduced": "Concurrency bugs only discoverable in live multi-tab use."
+      },
+      {
+        "id": "S6",
+        "move": "Block-ID stability test: 3 edit/save/reload cycles + cross-note paste + duplicate-id paste",
+        "risk_reduced": "Links and tasks built on churning IDs."
+      }
+    ],
+    "first_proof": {
+      "question": "Do block IDs survive real edits and does migration preserve existing notes well enough to build on?",
+      "artifact": "Shared schema + content column + migration dry-run report on local copy of real notes, plus [[ links and backlinks",
+      "observation": "Converted count and notes with >2% text loss; IDs stable across 3 save/reload cycles and cross-note paste; backlink appears within one save",
+      "decision_rule": "If IDs churn or more than a handful of notes lose meaningful content, fix schema/ID strategy before stacking tasks, merge, or MCP"
+    },
+    "rabbit_holes": [
+      {
+        "id": "R1",
+        "risk": "Applying a server-merged document into a live editor without cursor jumps",
+        "mitigation": "Apply only changed blocks by id as a ProseMirror transaction; fallback: defer apply until editor blur and show 'updated elsewhere'."
+      },
+      {
+        "id": "R2",
+        "risk": "Server-side HTML parsing (@tiptap/html generateJSON) needs a DOM shim in Node",
+        "mitigation": "Use @tiptap/html server entry (bundled DOM); run migration as a script, not request path."
+      },
+      {
+        "id": "R3",
+        "risk": "Custom nodes (code block lowlight, image width, tables, emoji) not round-tripping through markdown",
+        "mitigation": "Markdown is interchange only; JSON canonical; fixture tests per node type."
+      },
+      {
+        "id": "R4",
+        "risk": "TaskItem <-> taskRef sync loops and orphan handling",
+        "mitigation": "TaskItem is the source of task state; node stores only taskId; deletion detaches rather than deletes."
+      },
+      {
+        "id": "R5",
+        "risk": "Embeddings/DocSection depend on markdown headings",
+        "mitigation": "Derive sections from DocBlock text grouped by heading blocks."
+      }
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/visual-notes",
+      "revision": "fbde0fb",
+      "worktree_status": "clean",
+      "subsystems": [
+        "app/src/components/DocumentEditor.tsx",
+        "app/src/components/editor/extensions",
+        "app/src/services/docs.actions.ts",
+        "app/src/services/doc-revisions.ts",
+        "app/src/server/mcp",
+        "app/src/server/lib/markdown.ts",
+        "app/src/services/embeddings",
+        "app/src/features/docs-index",
+        "app/src/services/tasks",
+        "app/src/routes/api/docs",
+        "cli-ingest"
+      ],
+      "test_commands": [
+        "cd app && pnpm lint && pnpm type-check && pnpm test"
+      ],
+      "deployment_surfaces": [
+        "Docker app container",
+        "Postgres via Prisma migrations"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "dep-tiptap-server",
+        "name": "TipTap headless/server packages (unique-id, markdown, static-renderer, html)",
+        "material": true,
+        "application_seam": "Shared schema module + content conversion module (toMarkdown, fromMarkdown, toHtml, fromHtml)",
+        "failure_modes": [
+          "lossy conversion",
+          "DOM shim missing in Node",
+          "version skew with editor packages"
+        ],
+        "proof_rungs": [
+          "fixture round-trip unit tests",
+          "migration dry run on local DB copy"
+        ],
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Library behavior is the thing under test; local and deterministic."
+        },
+        "local_proof": "Vitest fixtures per node type; dry-run migration report",
+        "live_proof": "Post-deploy spot check of migrated notes and share pages",
+        "rollout": "Read switch back to legacy columns while dual-written"
+      },
+      {
+        "id": "dep-postgres-migration",
+        "name": "Prisma schema change + one-time data backfill",
+        "material": true,
+        "application_seam": "Additive columns/tables; backfill script separate from request path",
+        "failure_modes": [
+          "partial backfill",
+          "long-running migration",
+          "prod data differs from local copy"
+        ],
+        "proof_rungs": [
+          "local DB copy dry run",
+          "idempotent rerunnable backfill"
+        ],
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "Local copy of real notes; never mutate prod without explicit request."
+        },
+        "local_proof": "Backfill on local copy with report",
+        "live_proof": "User-run prod backfill after deploy",
+        "rollout": "Additive schema; legacy columns untouched until later drop PR"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm vitest run src/lib/note-content",
+      "description": "Fixture round-trip, ids, projection, merge tests; audit-harness Postgres for dev app and migration dry run",
+      "network": false
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "Bulk ingest is gone",
+        "outcome": "Only editor, ChatGPT connector, and in-app AI create notes.",
+        "dependencies_introduced": [],
+        "proof": "lint/type-check/test; rg shows no ingest refs; MCP create tests pass",
+        "valid_intermediate_state": "App unchanged for users; MCP identity columns kept",
+        "rollback": "Revert PR",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Notes are saved and loaded as blocks",
+        "outcome": "Notes store canonical TipTap JSON with stable IDs; legacy columns dual-written; migration dry-run report exists.",
+        "dependencies_introduced": [
+          "dep-tiptap-server",
+          "dep-postgres-migration"
+        ],
+        "proof": "Fixture round-trip Vitest; dry-run loss report; 3 save/reload cycles with unchanged IDs",
+        "valid_intermediate_state": "Legacy readers keep working from dual-written columns",
+        "rollback": "NOTE_CONTENT_READ=legacy; additive schema",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Links and backlinks (first proof)",
+        "outcome": "[[ links to notes/blocks with rename-proof labels and backlinks panel.",
+        "dependencies_introduced": [],
+        "proof": "Projection Vitest (dup ids, move, deleted target); browser link/rename/backlink check",
+        "valid_intermediate_state": "Index tables derived; deletable and rebuildable from content",
+        "rollback": "Hide [[ suggestion; drop derived tables",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "Every reader uses blocks",
+        "outcome": "Search, previews, embeddings, share, AI, export read from blocks.",
+        "dependencies_introduced": [],
+        "proof": "rg audit of legacy column reads; legacy read switch still works; derived-text timing spike",
+        "valid_intermediate_state": "Dual-write continues",
+        "rollback": "NOTE_CONTENT_READ=legacy",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "Concurrent edits merge per block",
+        "outcome": "Different-block edits merge; same-block conflict keeps loser as revision.",
+        "dependencies_introduced": [],
+        "proof": "merge.ts Vitest table; two-tab Playwright",
+        "valid_intermediate_state": "Version check only adds behavior when versions differ",
+        "rollback": "Fall back to last-write-wins by ignoring baseVersion",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m6",
+        "title": "ChatGPT edits individual blocks",
+        "outcome": "get_notes returns markdown with ^ids; edit_note patches by block ID.",
+        "dependencies_introduced": [],
+        "proof": "notes-write tests; mcp-smoke edits one block, others byte-identical",
+        "valid_intermediate_state": "Existing MCP tools keep their contract",
+        "rollback": "Unregister edit_note",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m7",
+        "title": "Checkboxes are real tasks",
+        "outcome": "Inline checkbox creates Inbox TaskItem synced both ways.",
+        "dependencies_introduced": [],
+        "proof": "Toggle in note shows in Tasks and vice versa; block delete detaches task",
+        "valid_intermediate_state": "Tasks without source fields unaffected",
+        "rollback": "Remove taskRef from slash menu/input rule",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m8",
+        "title": "Cross-note views",
+        "outcome": "Tag view and open-tasks-from-notes view.",
+        "dependencies_introduced": [],
+        "proof": "Playwright route render, click targets, anchor highlight",
+        "valid_intermediate_state": "Views read-only over derived data",
+        "rollback": "Hide routes",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m9",
+        "title": "Legacy columns removed (after soak)",
+        "outcome": "Blocks are the only stored content.",
+        "dependencies_introduced": [],
+        "proof": "lint/type-check/test after column drop",
+        "valid_intermediate_state": "Gated on prod backfill and soak",
+        "rollback": "Restore from DB backup / block-migration revisions",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "transclusion",
+      "CRDT/presence",
+      "query language/saved filters",
+      "time-block/archived-page/data-table blocks",
+      "dropping legacy columns (after soak)"
+    ],
+    "open_decisions": [
+      {
+        "id": "P1",
+        "question": "Real-note corpus (pg_dump restored to visual_notes_audit_blocks) for m2 dry run",
+        "fallback": "Synthetic fixtures; first real loss report from user-run prod --dry-run"
+      }
+    ]
+  },
+  "question_rounds": {
+    "focus": "block storage goals",
+    "per_round": 4,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "What should blocks unlock first?",
+            "answer": "All four: links, typed inline objects, cross-note query, precise AI/MCP edits",
+            "effect": "C5; forced priority question in round 2"
+          },
+          {
+            "n": 2,
+            "question": "Does a block need a life outside its note?",
+            "answer": "Stable ID, lives in note",
+            "effect": "C6; transclusion out"
+          },
+          {
+            "n": 3,
+            "question": "Migration fidelity?",
+            "answer": "Convert all, small loss OK",
+            "effect": "C7"
+          },
+          {
+            "n": 4,
+            "question": "Bulk ingest fate?",
+            "answer": "Remove it now",
+            "effect": "C4; X1 collision with MCP columns"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 5,
+            "question": "Which capability is the first proof?",
+            "answer": "Links + backlinks",
+            "effect": "C8"
+          },
+          {
+            "n": 6,
+            "question": "Which typed objects first?",
+            "answer": "Tasks",
+            "effect": "C9"
+          },
+          {
+            "n": 7,
+            "question": "AI format?",
+            "answer": "Markdown with block IDs",
+            "effect": "C10"
+          },
+          {
+            "n": 8,
+            "question": "Concurrency?",
+            "answer": "Per-block merge",
+            "effect": "C11"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 9,
+            "question": "Appetite?",
+            "answer": "Implemented tonight, all of it, stacked PRs",
+            "effect": "C12; stack-order emphasis"
+          },
+          {
+            "n": 10,
+            "question": "Inline task identity?",
+            "answer": "Real TaskItem",
+            "effect": "C13"
+          },
+          {
+            "n": 11,
+            "question": "Query form?",
+            "answer": "Fixed views",
+            "effect": "C14"
+          },
+          {
+            "n": 12,
+            "question": "Drop html/markdown after migration?",
+            "answer": "Keep briefly; keep markdown only if it helps embeddings perf; ideally blocks only with per-block text",
+            "effect": "C15; dual-write + DocBlock.text"
+          }
+        ]
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-19",
+      "event": "Initiative created; 3 question rounds; intent and shape written",
+      "phase": "shape",
+      "status": "planned"
+    },
+    {
+      "date": "2026-10-19",
+      "event": "Inbox decision recorded; stacked-PR implementation plan written (m1-m9)",
+      "phase": "plan",
+      "status": "planned"
+    }
+  ],
+  "closure": null
+}
