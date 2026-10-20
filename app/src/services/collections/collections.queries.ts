@@ -12,27 +12,35 @@ import {
   mapRow,
   mapView,
 } from "./collections.server";
+import { summarizeCollectionNotes, type NoteSummary } from "./note-summary";
+
+export type { NoteSummary };
 
 export type CollectionListItem = CollectionSummary & {
   rowCount: number;
   updatedAt: string;
 };
 
-export const fetchCollections = query(async (): Promise<CollectionListItem[]> => {
-  "use server";
-  const items = await prisma.collection.findMany({
-    where: { deletedAt: null },
-    orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { rows: true } } },
-  });
-  return items.map((c) => ({
-    ...mapCollection(c),
-    rowCount: c._count.rows,
-    updatedAt: c.updatedAt.toISOString(),
-  }));
-}, "collections-list");
+export const fetchCollections = query(
+  async (): Promise<CollectionListItem[]> => {
+    "use server";
+    const items = await prisma.collection.findMany({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+      include: { _count: { select: { rows: true } } },
+    });
+    return items.map((c) => ({
+      ...mapCollection(c),
+      rowCount: c._count.rows,
+      updatedAt: c.updatedAt.toISOString(),
+    }));
+  },
+  "collections-list",
+);
 
-async function loadBundle(collectionId: string): Promise<CollectionBundle | null> {
+async function loadBundle(
+  collectionId: string,
+): Promise<CollectionBundle | null> {
   const startedAt = Date.now();
   const collection = await prisma.collection.findFirst({
     where: { id: collectionId, deletedAt: null },
@@ -75,9 +83,13 @@ export const fetchCollectionBundle = query(
 
 /** Bundle for one view (used by note embeds). `views` holds only that view. */
 export const fetchCollectionViewBundle = query(
-  async (viewId: string): Promise<(CollectionBundle & { viewId: string }) | null> => {
+  async (
+    viewId: string,
+  ): Promise<(CollectionBundle & { viewId: string }) | null> => {
     "use server";
-    const view = await prisma.collectionView.findUnique({ where: { id: viewId } });
+    const view = await prisma.collectionView.findUnique({
+      where: { id: viewId },
+    });
     if (!view) return null;
     const bundle = await loadBundle(view.collectionId);
     if (!bundle) return null;
@@ -104,7 +116,10 @@ export const fetchDocCollection = query(
     const collection = await prisma.collection.findFirst({
       where: { id: doc.collectionId, deletedAt: null },
       include: {
-        properties: { where: { deletedAt: null }, orderBy: { position: "asc" } },
+        properties: {
+          where: { deletedAt: null },
+          orderBy: { position: "asc" },
+        },
       },
     });
     if (!collection) return null;
@@ -115,4 +130,13 @@ export const fetchDocCollection = query(
     };
   },
   "collections-doc",
+);
+
+/** Cover image and preview text for each row, for gallery and board cards. */
+export const fetchNoteSummaries = query(
+  async (collectionId: string): Promise<Record<string, NoteSummary>> => {
+    "use server";
+    return summarizeCollectionNotes(collectionId);
+  },
+  "collections-note-summaries",
 );

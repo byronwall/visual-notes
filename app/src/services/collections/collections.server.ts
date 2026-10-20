@@ -34,7 +34,9 @@ export const ROW_SELECT = {
 type RowRecord = Prisma.DocGetPayload<{ select: typeof ROW_SELECT }>;
 
 export const asObject = <T extends object>(value: unknown): T =>
-  (value && typeof value === "object" && !Array.isArray(value) ? value : {}) as T;
+  (value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {}) as T;
 
 export const mapCollection = (c: DbCollection): CollectionSummary => ({
   id: c.id,
@@ -76,9 +78,14 @@ export const mapRow = (r: RowRecord): CollectionRow => ({
  */
 export const localToday = () => {
   const cookie = getRequestEvent()?.request.headers.get("cookie") ?? "";
-  const tz = decodeURIComponent(/(?:^|;\s*)vn_tz=([^;]+)/.exec(cookie)?.[1] ?? "");
+  const tz = decodeURIComponent(
+    /(?:^|;\s*)vn_tz=([^;]+)/.exec(cookie)?.[1] ?? "",
+  );
   try {
-    if (tz) return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    if (tz)
+      return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(
+        new Date(),
+      );
   } catch {
     // Unknown zone: fall back to the server clock.
   }
@@ -128,8 +135,10 @@ export const defaultConfigFor = (kind: PropertyKind): PropertyConfig => {
   }
 };
 
-
-export async function validatePatch(collectionId: string, patch: Record<string, unknown>) {
+export async function validatePatch(
+  collectionId: string,
+  patch: Record<string, unknown>,
+) {
   const properties = await loadLiveProperties(collectionId);
   const byId = new Map(properties.map((p) => [p.id, p]));
   const set: Record<string, PropertyValue> = {};
@@ -198,4 +207,3 @@ export async function attachNotes(collectionId: string, docIds: string[]) {
     ),
   );
 }
-

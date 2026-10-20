@@ -133,6 +133,9 @@ export function createCollectionStore(
   const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   // Quick search is per view and per visit; it is not saved with the view.
   const [searches, setSearches] = createSignal<Record<string, string>>({});
+  // Bumped when a row's note body may have changed (e.g. the peek closed), so
+  // card covers and previews refetch.
+  const [contentVersion, setContentVersion] = createSignal(0);
 
   const api = {
     state,
@@ -379,6 +382,12 @@ export function createCollectionStore(
 
     view(id: string | undefined) {
       return state.views.find((v) => v.id === id);
+    },
+
+    contentVersion,
+
+    bumpContent() {
+      setContentVersion((v) => v + 1);
     },
 
     search(viewId: string) {
