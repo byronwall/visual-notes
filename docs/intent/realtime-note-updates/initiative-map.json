@@ -1,0 +1,350 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Realtime note updates",
+    "slug": "realtime-note-updates",
+    "scale": "feature",
+    "current_phase": "plan",
+    "last_updated": "2026-10-19",
+    "summary": "Push a signal-only notes:changed event over an authenticated WebSocket from one Prisma write hook so open tabs revalidate lists and safely refresh open notes when notes are written elsewhere (MCP, other tabs, CLI, extension).",
+    "status": "planned",
+    "next_action": "Start M1: note event bus + Prisma hook + /ws/notes + NoteLiveSync list revalidation; run the vinxi ws auth spike first."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-10-19"
+    }
+  },
+  "sources": [
+    {
+      "id": "req-1",
+      "type": "user-request",
+      "location": "conversation",
+      "anchor": "initial request",
+      "authority": "user-direct"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "user-direct"
+    },
+    {
+      "id": "repo-ws",
+      "type": "repository",
+      "location": "app/src/ws/jobs.ts, app/src/server/job-events.ts, app/src/lib/job-socket-client.ts",
+      "anchor": "fbde0fb",
+      "authority": "repository-fact"
+    },
+    {
+      "id": "repo-data",
+      "type": "repository",
+      "location": "app/src/components/DocumentEditor.tsx, app/src/routes/docs/[id].tsx, app/src/services/docs.queries.ts",
+      "anchor": "fbde0fb",
+      "authority": "repository-fact"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Notes written outside the open tab must appear in it without a manual refresh.",
+        "kind": "goal",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C2",
+        "statement": "WebSocket is a suggested mechanism, not a requirement; appetite is small.",
+        "kind": "implementation-idea",
+        "sources": [
+          "req-1"
+        ],
+        "confidence": "high",
+        "importance": "supporting"
+      },
+      {
+        "id": "C3",
+        "statement": "Open note auto-refreshes only when clean; dirty shows a changed-elsewhere notice; never overwrite unsaved edits.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C4",
+        "statement": "Every note write source publishes updates, not only MCP.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C5",
+        "statement": "Priority views: notes index/search, path/tree views, recently changed lists. Canvas/UMAP not selected.",
+        "kind": "decision",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high",
+        "importance": "core"
+      },
+      {
+        "id": "C6",
+        "statement": "Existing ws plumbing (jobs socket, BroadcastChannel bus, reconnecting client) exists but has no browser consumer and no auth.",
+        "kind": "constraint",
+        "sources": [
+          "repo-ws"
+        ],
+        "confidence": "high",
+        "importance": "supporting"
+      },
+      {
+        "id": "C7",
+        "statement": "List views use createAsync + query keys (revalidate works); note page/editor/side panel use createResource and need explicit refetch.",
+        "kind": "constraint",
+        "sources": [
+          "repo-data"
+        ],
+        "confidence": "high",
+        "importance": "supporting"
+      }
+    ],
+    "themes": [
+      "live lists",
+      "safe open-note refresh",
+      "single publish point"
+    ],
+    "conflicts": [],
+    "human_questions": []
+  },
+  "question_rounds": [
+    {
+      "id": "qa-round-1",
+      "questions": [
+        "Open note behavior on external change",
+        "Which sources publish",
+        "Which views matter"
+      ],
+      "answers": [
+        "Auto-refresh if clean, notice if dirty",
+        "Every note write",
+        "Index/list, path/tree, recently changed"
+      ]
+    }
+  ],
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "current",
+    "appetite": "Small: a few focused PRs reusing existing ws plumbing; no new dependency or migration.",
+    "problem": "Open tabs never learn about writes from other places, so MCP-created notes are invisible until refresh.",
+    "recommended_shape": "Prisma $extends query hook on Doc writes publishes {id, updatedAt}[] | null to an in-process BroadcastChannel; authenticated /ws/notes fans out notes:changed; client NoteLiveSync debounces and revalidates note list query keys, refetches registered open-note resources when clean, shows a notice when dirty, ignores its own saves by updatedAt; reconnect/focus catch-up; VITE_NOTE_LIVE_SYNC flag.",
+    "success_moves": [
+      {
+        "id": "SM1",
+        "move": "Events are invalidation signals, not data; clients re-run existing queries.",
+        "risk": "client-side content merge cache and divergence"
+      },
+      {
+        "id": "SM2",
+        "move": "Single publish point in a Prisma query hook rather than ten write sites.",
+        "risk": "a write path forgets to publish"
+      },
+      {
+        "id": "SM3",
+        "move": "Copy the proven jobs socket pattern but add cookie auth on open.",
+        "risk": "unauthenticated note activity leak"
+      },
+      {
+        "id": "SM4",
+        "move": "Pure decision function for open-note refresh (ignore own save, queue during save, clean refetch, dirty notice) with unit tests.",
+        "risk": "lost edits or cursor jumps"
+      },
+      {
+        "id": "SM5",
+        "move": "Client-side flag and reconnect/focus revalidate floor; SSE fallback behind same provider.",
+        "risk": "production proxy blocks WebSocket upgrade"
+      }
+    ],
+    "first_proof": {
+      "question": "Does a write from another source (MCP) reach an open tab's list views live, without disturbing the writing tab?",
+      "artifact": "Local dev: notes index open in browser, MCP Inspector create_note; second tab save does not jump cursor",
+      "decision_rule": "Both hold: proceed to open-note handling and deployed check. ws router cannot upgrade or authenticate under vinxi: switch transport to SSE behind the same client provider."
+    },
+    "rabbit_holes": [
+      "Self-echo refetch during save resetting editor content",
+      "Publishing from inside interactive $transaction before commit",
+      "createResource views not responding to revalidate",
+      "Production proxy idle timeout and Upgrade forwarding"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "planned",
+    "repository_snapshot": {
+      "root": "app",
+      "revision": "fbde0fb",
+      "worktree_status": "clean",
+      "subsystems": [
+        "app/src/ws",
+        "app/src/server/job-events.ts",
+        "app/src/server/db.ts",
+        "app/src/lib/job-socket-client.ts",
+        "app/src/components/DocumentEditor.tsx",
+        "app/src/routes/docs/[id].tsx",
+        "app/src/components/DocumentSidePanel.tsx",
+        "app/src/server/mcp/notes-write.ts",
+        "app.config.ts"
+      ],
+      "test_commands": [
+        "cd app && pnpm lint && pnpm type-check && pnpm test",
+        "pnpm test:e2e"
+      ],
+      "deployment_surfaces": [
+        "single app Docker container (app/Dockerfile, docker-compose.yml)",
+        "reverse proxy in front of app (unverified for WebSocket)"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "vinxi-ws",
+        "name": "SolidStart/vinxi experimental WebSocket router (crossws)",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Local dev server is the real runtime; cheap to exercise directly."
+        },
+        "seam": "NoteLiveSync client provider + src/server/note-events.ts bus",
+        "application_seam": "NoteLiveSync client provider + src/server/note-events.ts bus",
+        "proof_strategy": "Local browser connect + auth spike; SSE fallback behind same provider",
+        "material": true,
+        "failure_modes": [
+          "peer.request lacks cookies",
+          "second ws router conflicts",
+          "prod proxy drops Upgrade or idles out"
+        ],
+        "rollout": "VITE_NOTE_LIVE_SYNC flag; focus-revalidate floor",
+        "proof_rungs": [
+          "vitest bus + hook",
+          "local browser two-tab",
+          "deployed ChatGPT smoke"
+        ],
+        "local_proof": "pnpm dev two tabs + MCP Inspector on audit DB",
+        "live_proof": "M3 deployed ChatGPT create_note with open tab"
+      },
+      {
+        "id": "prisma-extension",
+        "name": "Prisma client $extends query hooks on Doc",
+        "first_proof_role": {
+          "mode": "real",
+          "rationale": "Unit-testable against local DB; no provider involved."
+        },
+        "seam": "src/server/db.ts extension calling publishNoteChanges",
+        "application_seam": "src/server/db.ts extension calling publishNoteChanges",
+        "proof_strategy": "vitest with fake listener; fallback explicit publish calls",
+        "material": false,
+        "failure_modes": [
+          "typing of extended client breaks callers",
+          "publish before transaction commit"
+        ],
+        "rollout": "Same flag (server publishes harmlessly with no peers)",
+        "proof_rungs": [
+          "vitest"
+        ],
+        "local_proof": "vitest",
+        "live_proof": "Covered by M3"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm vitest run src/server/note-events src/lib/note-live",
+      "workflow": "pnpm dev with two tabs + MCP Inspector on audit DB",
+      "rationale": "Local dev server is the real ws runtime; no provider involved, so the dependency is cheap to exercise directly."
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "New and changed notes appear in open lists",
+        "outcome": "Any Doc write revalidates index, path, and recent lists in all signed-in tabs within ~1s.",
+        "dependencies_introduced": [
+          "vinxi-ws",
+          "prisma-extension"
+        ],
+        "proof": "Inspector create_note visible in open index/path/sidebar; unauthenticated ws refused; vitest hook coverage",
+        "valid_intermediate_state": "Lists live; open editor unchanged from today",
+        "rollback": "VITE_NOTE_LIVE_SYNC off",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "The open note refreshes safely",
+        "outcome": "Clean open notes refresh; dirty ones show a notice; own saves ignored.",
+        "dependencies_introduced": [],
+        "proof": "vitest decision rule branches; Playwright two-context smoke on audit DB",
+        "valid_intermediate_state": "Full feature locally",
+        "rollback": "VITE_NOTE_LIVE_SYNC off",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Proven in production",
+        "outcome": "ChatGPT write appears in open production tab.",
+        "dependencies_introduced": [],
+        "proof": "Deployed ChatGPT create_note smoke; proxy Upgrade + heartbeat verified",
+        "valid_intermediate_state": "Shipped; SSE fallback available",
+        "rollback": "Flag off or switch to SSE",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "canvas/UMAP live updates",
+      "multi-instance LISTEN/NOTIFY fan-out",
+      "content diffs over socket / concurrent merge",
+      "presence and toasts",
+      "jobs socket UI"
+    ],
+    "open_decisions": [
+      "WebSocket router auth/upgrade under vinxi (M1 spike); fallback SSE",
+      "Publishing inside interactive $transaction; fallback explicit publish after commit"
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-10-19",
+      "event": "Initiative created in full mode; one question round absorbed; intent, shape, and plan drafted.",
+      "status": "planned"
+    }
+  ],
+  "closure": null
+}
