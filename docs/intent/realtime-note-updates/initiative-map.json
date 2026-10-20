@@ -60,6 +60,13 @@
       "location": "app/src/components/DocumentEditor.tsx, app/src/routes/docs/[id].tsx, app/src/services/docs.queries.ts",
       "anchor": "fbde0fb",
       "authority": "repository-fact"
+    },
+    {
+      "id": "peer-block-merge",
+      "type": "session-message",
+      "location": "conversation",
+      "anchor": "block storage merged to main (c8dbf02)",
+      "authority": "user-delegated"
     }
   ],
   "intent": {
@@ -86,10 +93,11 @@
       },
       {
         "id": "C3",
-        "statement": "Open note auto-refreshes only when clean; dirty shows a changed-elsewhere notice; never overwrite unsaved edits.",
+        "statement": "Open note auto-refreshes when idle; unsaved edits are never overwritten. Superseded mechanism (2026-10-20): instead of a changed-elsewhere notice, block storage merges dirty drafts per block on save, and same-block conflicts go to Versions with a toast.",
         "kind": "decision",
         "sources": [
-          "qa-round-1"
+          "qa-round-1",
+          "peer-block-merge"
         ],
         "confidence": "high",
         "importance": "core"
@@ -353,6 +361,11 @@
     {
       "date": "2026-10-19",
       "event": "Implemented M1 (PR #113) and M2 (PR #121) as a gh stack on #112; M3 ops layer adds runtime kill switch, watchdog, and docs. Findings: vinxi custom routers need tsconfigPaths; SSR-hydrated resources leave docs-get query entries unread (fetchDocLatest); header mutate on own saves stole focus; cold dev sockets can open without reaching the handler (watchdog).",
+      "status": "active"
+    },
+    {
+      "date": "2026-10-20",
+      "event": "Rebased the stack onto block storage (main c8dbf02). Publishing now waits for transaction commit; the editor notice was replaced by the block-merge path driven by live events; e2e uses a second browser context as the writer. Flag to user: dirty-draft notice superseded by per-block merge.",
       "status": "active"
     }
   ],

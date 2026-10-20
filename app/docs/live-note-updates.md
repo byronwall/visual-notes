@@ -7,7 +7,7 @@ Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, an
 1. **Publish.** A Prisma query extension on `Doc` (`src/server/note-change-extension.ts`, applied in `src/server/db.ts`) publishes a `notes:changed` event after every successful write. The event carries `{ id, updatedAt?, deleted? }[]`. Bulk writes send `null`, which means "refresh everything". The event never carries note content.
 2. **Fan out.** `src/server/broadcast-bus.ts` delivers the event in-process. It keeps one listener set per thread on `globalThis`, because vinxi loads each router's modules separately. The `/ws/notes` router (`src/ws/notes.ts`) sends the event to each signed-in socket.
 3. **Refresh.** `NoteLiveSyncProvider` (`src/features/live-sync/`) is mounted in the signed-in shell. It debounces events by 250 ms, then calls `revalidate(["docs-", "activity-"])`. After a reconnect, or when a tab returns from being hidden more than 5 minutes, it does one catch-up refresh.
-4. **Open note.** `createEditorRemoteSync` decides what the editor does: a clean note takes the new content in place, a dirty one shows a "changed elsewhere" notice with Reload or Keep mine, a change that arrives during a save waits for the save to finish, and the tab's own save echoing back is ignored by `updatedAt`. `useLiveNoteResource` keeps the note page and side panel headers current.
+4. **Open note.** `DocumentEditor` runs `checkRemote` when an event names its note, plus a 15s version poll as a fallback. An idle editor adopts the newer version with `applyRemoteContent`, a minimal diff that waits while the cursor is inside a changed block. A dirty draft is left alone: its next save sends the base version, and the server merges per block (`server/notes/note-write.ts`). A same-block conflict keeps the incoming save and stores the other version in Versions, with a toast. An event that arrives mid-save is checked once the save settles. The tab's own save echoing back is skipped by `updatedAt`. `useLiveNoteResource` keeps the note page and side panel headers current.
 
 ## Adding a note view
 
@@ -32,6 +32,7 @@ Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, an
   }
   ```
 
+- **Commit timing:** `prisma.$transaction` runs in an `AsyncLocalStorage` scope (`deferNoteChanges`), so `Doc` writes inside it publish after the transaction commits, folded into one event. A rolled-back transaction publishes nothing. Block content writes always run in a transaction.
 - **Auth:** the app middleware doesn't run for custom routers, so `/ws/notes` checks the magic-session cookie itself and rejects other upgrades with a 401.
 - **Scale:** the bus runs in-process, which fits the single app container. Running several app instances would need Postgres `LISTEN/NOTIFY` behind `publishNoteChanges`.
 

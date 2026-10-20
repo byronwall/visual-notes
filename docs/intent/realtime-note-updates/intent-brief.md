@@ -40,7 +40,7 @@ ChatGPT creates or appends to a note. The notes index, path views, and recent-no
 
 ## What seems settled
 
-- Behavior for an open note: refresh it automatically when it's clean, and show a notice when it's dirty.
+- Behavior for an open note: refresh it automatically when it's clean. For unsaved edits, the notice was superseded on 2026-10-20 by block storage's per-block merge: both edits are kept, and a same-block conflict goes to Versions with a toast.
 - Scope: every note write, not just ChatGPT.
 
 ## Possibilities, not decisions

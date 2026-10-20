@@ -24,8 +24,8 @@ Live note updates
 │   ├── Lists refresh themselves
 │   │   └── Notes index and search, path/tree views, sidebar recent notes
 │   ├── Open note stays current
-│   │   ├── Clean → refetches in place
-│   │   ├── Dirty → "Changed elsewhere · Reload" notice
+│   │   ├── Clean → adopts the new version in place
+│   │   ├── Dirty → the next save merges per block (block storage)
 │   │   └── The tab's own save → ignored (no echo)
 │   └── Catch-up after a gap
 │       └── Reconnect or tab refocus → one refresh
@@ -40,7 +40,7 @@ Live note updates
 | --- | --- |
 | ChatGPT creates a note | Index, path view, and recent list show it; no reload |
 | ChatGPT appends to the open note, no local edits | Editor content refreshes |
-| Same, with unsaved local edits | Content stays; notice offers Reload |
+| Same, with unsaved local edits | Typing stays; the next save merges both per block |
 | This tab saves the note | No refetch and no cursor jump |
 | Bulk delete or move of 50 notes | One debounced list refresh, not 50 |
 | Laptop sleeps, then wakes | Socket reconnects, then one catch-up refresh |
