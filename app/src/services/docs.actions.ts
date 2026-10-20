@@ -1,7 +1,6 @@
 import { action, json } from "@solidjs/router";
 import { fetchDocActivityHistory } from "~/services/activity/activity.queries";
 import { fetchDocs as fetchDocsList } from "~/features/docs-index/data/docs.queries.list";
-import { createHash } from "crypto";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import {
@@ -9,6 +8,7 @@ import {
   logActionEvent,
   logDocUpdate,
 } from "~/server/events/action-events";
+import { createNoteRecord } from "~/server/notes/create-note";
 import {
   normalizeMarkdownToHtml,
   sanitizeHtmlContent,
@@ -16,14 +16,11 @@ import {
 
 const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
-const ingestInput = z
+const createInput = z
   .object({
     title: z.string().min(1).max(200),
     markdown: z.string().min(1).optional(),
     html: z.string().min(1).optional(),
-    originalSource: z.string().min(1).max(128).optional(),
-    originalContentId: z.string().min(1).max(512).optional(),
-    contentHash: z.string().min(16).max(128).optional(),
     path: z.string().max(512).optional(),
     meta: z.record(jsonPrimitive).optional(),
   })
@@ -41,119 +38,10 @@ const updateInput = z.object({
   meta: z.record(jsonPrimitive).optional(),
 });
 
-function computeSha256Hex(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
-
 export const createDoc = action(
-  async (payload: z.infer<typeof ingestInput>) => {
+  async (payload: z.infer<typeof createInput>) => {
     "use server";
-    const input = ingestInput.parse(payload);
-
-    const usingHtml = Boolean(input.html);
-    const usingMarkdown = !usingHtml && Boolean(input.markdown);
-
-    const html = usingHtml ? sanitizeHtmlContent(String(input.html)) : "";
-    const markdown = usingMarkdown ? input.markdown! : "";
-
-    const contentHash = input.contentHash
-      ? input.contentHash
-      : computeSha256Hex(usingMarkdown ? markdown : html);
-
-    if (input.originalContentId) {
-      const existing = input.originalSource
-        ? await prisma.doc.findUnique({
-            where: {
-              originalSource_originalContentId: {
-                originalSource: input.originalSource,
-                originalContentId: input.originalContentId,
-              },
-            },
-            select: { id: true, contentHash: true },
-          })
-        : await prisma.doc.findFirst({
-            where: {
-              originalContentId: input.originalContentId,
-              originalSource: null,
-            },
-            select: { id: true, contentHash: true },
-          });
-      if (existing) {
-        if (existing.contentHash && existing.contentHash === contentHash) {
-          throw new Error("Duplicate unchanged");
-        }
-        const updated = await prisma.doc.update({
-          where: { id: existing.id },
-          data: {
-            title: input.title,
-            markdown,
-            html,
-            contentHash,
-            path: input.path?.trim()?.length ? input.path.trim() : null,
-            meta: input.meta,
-          },
-          select: { id: true },
-        });
-        await logDocUpdate(
-          updated.id,
-          ["title", "markdown", "html", "path", "meta"],
-          {
-            source: input.originalSource ?? null,
-            contentLengthDeltaBucket: "upsert_replace",
-          },
-        );
-        return { id: updated.id, updated: true };
-      }
-      const created = await prisma.doc.create({
-        data: {
-          title: input.title,
-          markdown,
-          html,
-          originalSource: input.originalSource,
-          originalContentId: input.originalContentId,
-          contentHash,
-          path: input.path?.trim()?.length ? input.path.trim() : null,
-          meta: input.meta,
-        },
-        select: { id: true },
-      });
-      await logActionEvent({
-        eventType: "doc.create",
-        entityType: "doc",
-        entityId: created.id,
-        relatedDocId: created.id,
-        payload: {
-          source: input.originalSource ?? null,
-          hasPath: Boolean(input.path?.trim()),
-          hasMeta: Boolean(input.meta && Object.keys(input.meta).length > 0),
-        },
-      });
-      return { id: created.id };
-    }
-
-    const created = await prisma.doc.create({
-      data: {
-        title: input.title,
-        markdown,
-        html,
-        contentHash,
-        path: input.path?.trim()?.length ? input.path.trim() : null,
-        meta: input.meta,
-      },
-      select: { id: true },
-    });
-    await logActionEvent({
-      eventType: "doc.create",
-      entityType: "doc",
-      entityId: created.id,
-      relatedDocId: created.id,
-      payload: {
-        source: null,
-        hasPath: Boolean(input.path?.trim()),
-        hasMeta: Boolean(input.meta && Object.keys(input.meta).length > 0),
-      },
-    });
-    return { id: created.id };
+    return createNoteRecord(createInput.parse(payload));
   },
   "docs-create",
 );
