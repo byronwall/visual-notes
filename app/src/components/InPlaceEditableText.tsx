@@ -274,11 +274,15 @@ export const InPlaceEditableText = (props: InPlaceEditableTextProps) => {
                 event.stopPropagation();
                 startEditing();
               }}
-            >
-              {/* Own element for the text: a bare reactive text child of Preview
-                  crashes while typing ("Cannot set properties of null"). */}
-              <span>{previewValue()}</span>
-            </Editable.Preview>
+              // Render our own span instead of Ark's Dynamic one. A child passed
+              // through Dynamic breaks hydration ("template is not a function"):
+              // the server takes the child's hydration key before the preview's,
+              // the client the other way round. A bare text child of Dynamic
+              // also crashed while typing ("Cannot set properties of null").
+              asChild={(previewProps) => (
+                <span {...previewProps}>{previewValue()}</span>
+              )}
+            />
             <Editable.Input
               px="0"
               py="0"
