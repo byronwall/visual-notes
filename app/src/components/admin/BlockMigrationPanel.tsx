@@ -8,6 +8,7 @@ import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
 import {
   fetchBlockMigrationCounts,
+  rebuildBlockIndex,
   runBlockMigration,
   type BlockMigrationBatch,
 } from "~/services/admin/block-migration.actions";
@@ -18,7 +19,24 @@ const LOSSY_PCT = 2;
 export const BlockMigrationPanel: VoidComponent = () => {
   const counts = createAsync(() => fetchBlockMigrationCounts());
   const run = useAction(runBlockMigration);
-  const [running, setRunning] = createSignal<"dry" | "apply" | null>(null);
+  const reindex = useAction(rebuildBlockIndex);
+  const [running, setRunning] = createSignal<
+    "dry" | "apply" | "reindex" | null
+  >(null);
+
+  const runReindex = async () => {
+    setRunning("reindex");
+    setError(undefined);
+    try {
+      const { reindexed } = await reindex();
+      setSummary(`Rebuilt the block and link index for ${reindexed} notes.`);
+      setReport([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Reindex failed");
+    } finally {
+      setRunning(null);
+    }
+  };
   const [report, setReport] = createSignal<BlockMigrationBatch["rows"]>([]);
   const [summary, setSummary] = createSignal<string>();
   const [error, setError] = createSignal<string>();
@@ -93,6 +111,15 @@ export const BlockMigrationPanel: VoidComponent = () => {
             onClick={() => void execute(false)}
           >
             Convert remaining notes
+          </Button>
+          <Button
+            size="sm"
+            variant="plain"
+            loading={running() === "reindex"}
+            disabled={running() !== null}
+            onClick={() => void runReindex()}
+          >
+            Rebuild block index
           </Button>
         </HStack>
         <Show when={error()}>

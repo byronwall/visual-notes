@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
-  doc: { findUnique: vi.fn(), update: vi.fn() },
+  doc: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   docRevision: { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+  docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
+  docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
@@ -22,8 +24,10 @@ import { fetchDocRevisions, restoreDocRevision } from "./doc-revisions";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) =>
-    Promise.all(ops),
+  db.$transaction.mockImplementation(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: typeof db) => Promise<unknown>)(db)
+      : Promise.all(arg as Promise<unknown>[]),
   );
   db.docRevision.create.mockResolvedValue({});
   db.doc.update.mockResolvedValue({});

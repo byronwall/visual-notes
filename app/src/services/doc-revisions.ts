@@ -2,6 +2,7 @@ import { action, json, query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import { contentFromLegacy } from "~/lib/note-content/convert";
+import { rebuildNoteIndex } from "~/server/notes/note-index";
 import { contentColumns, revisionSnapshot } from "~/server/notes/note-store";
 import { fetchDoc } from "./docs.queries";
 
@@ -75,18 +76,19 @@ export const restoreDocRevision = action(async (revisionId: string) => {
     },
   });
   if (!current) throw new Error("Note not found");
-  const restored = contentColumns(contentFromLegacy(revision));
+  const restoredDoc = contentFromLegacy(revision);
+  const restored = contentColumns(restoredDoc);
 
-  await prisma.$transaction([
-    prisma.docRevision.create({
+  await prisma.$transaction(async (tx) => {
+    await tx.docRevision.create({
       data: {
         docId: revision.docId,
         ...revisionSnapshot(current),
         actorType: "magic_user",
         reason: "restore",
       },
-    }),
-    prisma.doc.update({
+    });
+    await tx.doc.update({
       where: { id: revision.docId },
       data: {
         title: revision.title,
@@ -94,8 +96,9 @@ export const restoreDocRevision = action(async (revisionId: string) => {
         ...restored,
         contentVersion: { increment: 1 },
       },
-    }),
-  ]);
+    });
+    await rebuildNoteIndex(tx, revision.docId, restoredDoc);
+  });
   await logActionEvent({
     eventType: "doc.update",
     entityType: "doc",

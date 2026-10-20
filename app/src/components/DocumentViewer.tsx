@@ -20,6 +20,7 @@ import { extractFirstHeading } from "~/utils/extractHeading";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
+import { BacklinksSection } from "./docs/BacklinksSection";
 import { InPlaceEditableText } from "./InPlaceEditableText";
 import { useToasts } from "./Toast";
 import { DocActionsMenu } from "./doc-header/DocActionsMenu";
@@ -416,6 +417,7 @@ const DocumentViewer: VoidComponent<{
         }}
         onSaved={handleContentSaved}
       />
+      <BacklinksSection docId={props.doc.id} />
       <ConfirmDialog
         open={deleteDialogOpen()}
         onOpenChange={setDeleteDialogOpen}

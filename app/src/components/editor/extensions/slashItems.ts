@@ -82,6 +82,22 @@ export const SLASH_ITEMS: SlashItem[] = [
         .run(),
   },
   {
+    title: "Link to note",
+    glyph: "[[",
+    keywords: ["link", "note", "page", "reference", "mention"],
+    run: (e, r) => chainFor(e, r).insertContent("[[").run(),
+  },
+  {
+    title: "Copy link to block",
+    glyph: "#",
+    keywords: ["anchor", "permalink", "block", "share"],
+    run: (e, r) => {
+      chainFor(e, r).run();
+      // Loaded on demand so this list stays free of UI imports.
+      void import("../core/blockLinks").then((m) => m.copyBlockLink(e));
+    },
+  },
+  {
     title: "Divider",
     glyph: "—",
     keywords: ["hr", "rule", "separator", "line"],

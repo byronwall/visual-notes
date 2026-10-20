@@ -8,7 +8,10 @@ import {
   createSignal,
   onCleanup,
 } from "solid-js";
-import { useBeforeLeave } from "@solidjs/router";
+import { useBeforeLeave, useLocation, useNavigate } from "@solidjs/router";
+import { revealBlock } from "./editor/core/blockLinks";
+import { NOTE_LINK_NAVIGATE_EVENT } from "./editor/extensions/NoteLinkSuggestion";
+import { toaster } from "~/components/ui/toast";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { NoteDoc } from "~/lib/note-content/types";
 import { fetchDoc, type MetaRecord } from "~/services/docs.service";
@@ -141,6 +144,42 @@ const DocumentEditor: VoidComponent<{
     );
 
     return html;
+  });
+
+  // Note links dispatch a window event; navigate in-app instead of reloading.
+  const navigate = useNavigate();
+  createEffect(() => {
+    if (!editor()) return;
+    const onNavigate = (e: Event) => {
+      const href = (e as CustomEvent<string>).detail;
+      if (href) navigate(href);
+    };
+    window.addEventListener(NOTE_LINK_NAVIGATE_EVENT, onNavigate);
+    onCleanup(() =>
+      window.removeEventListener(NOTE_LINK_NAVIGATE_EVENT, onNavigate),
+    );
+  });
+
+  // `#b-<blockId>` scrolls to and flashes that block once the note loads.
+  const location = useLocation();
+  let revealedKey = "";
+  createEffect(() => {
+    const ed = editor();
+    const d = doc();
+    const hash = location.hash;
+    if (!ed || !d || !hash.startsWith("#b-")) return;
+    const key = `${d.id}${hash}`;
+    if (key === revealedKey) return;
+    revealedKey = key;
+    setTimeout(() => {
+      if (ed.isDestroyed) return;
+      if (!revealBlock(ed.view.dom, hash)) {
+        toaster.create({
+          title: "That block is no longer in this note",
+          type: "info",
+        });
+      }
+    }, 60);
   });
 
   let autosaveTimer: ReturnType<typeof setTimeout> | undefined;

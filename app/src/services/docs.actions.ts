@@ -14,6 +14,8 @@ import {
   hasContentInput,
   prepareContent,
 } from "~/server/notes/note-store";
+import { rebuildNoteIndex } from "~/server/notes/note-index";
+import type { NoteDoc } from "~/lib/note-content/types";
 
 const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
@@ -55,6 +57,7 @@ async function applyDocUpdate(payload: z.infer<typeof updateInput>) {
   const updates: Record<string, any> = {};
   const fieldsChanged: string[] = [];
   const contentChange = hasContentInput(input);
+  let nextDoc: NoteDoc | undefined;
   let prevContentLength = 0;
   let nextContentLength = 0;
 
@@ -65,7 +68,8 @@ async function applyDocUpdate(payload: z.infer<typeof updateInput>) {
     });
     if (!existing) throw new Error("Not found");
     prevContentLength = String(existing.html || "").length;
-    const columns = contentColumns(prepareContent(input));
+    nextDoc = prepareContent(input);
+    const columns = contentColumns(nextDoc);
     Object.assign(updates, columns, { contentVersion: { increment: 1 } });
     fieldsChanged.push("content");
     nextContentLength = columns.html.length;
@@ -88,10 +92,14 @@ async function applyDocUpdate(payload: z.infer<typeof updateInput>) {
     throw new Error("No valid fields to update");
   }
 
-  const updated = await prisma.doc.update({
-    where: { id: input.id },
-    data: updates,
-    select: { id: true, updatedAt: true, contentVersion: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.doc.update({
+      where: { id: input.id },
+      data: updates,
+      select: { id: true, updatedAt: true, contentVersion: true },
+    });
+    if (nextDoc) await rebuildNoteIndex(tx, row.id, nextDoc);
+    return row;
   });
 
   await logDocUpdate(updated.id, Array.from(new Set(fieldsChanged)), {

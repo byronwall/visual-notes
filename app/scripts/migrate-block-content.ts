@@ -4,6 +4,7 @@
  *
  *   pnpm migrate:blocks --dry-run      # report only, writes nothing
  *   pnpm migrate:blocks --apply        # convert every unmigrated note
+ *   pnpm migrate:blocks --reindex      # rebuild block/link index for all notes
  *
  * Prints notes losing more than 2% of their visible text.
  */
@@ -15,6 +16,12 @@ import {
 } from "~/server/notes/block-migration";
 
 const args = new Set(process.argv.slice(2));
+if (args.has("--reindex")) {
+  const { reindexAllNotes } = await import("~/server/notes/note-index");
+  const count = await reindexAllNotes();
+  console.info(`[block-migration] reindexed ${count} notes`);
+  process.exit(0);
+}
 const apply = args.has("--apply");
 if (!apply && !args.has("--dry-run")) {
   console.error("Pass --dry-run or --apply");

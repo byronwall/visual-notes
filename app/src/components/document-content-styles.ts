@@ -125,6 +125,28 @@ export const documentContentStyles = {
     bg: "amber.a3",
     boxShadow: "none",
   },
+  // Links to other notes read as internal references, distinct from web links.
+  "& a.note-link": {
+    color: "blue.11",
+    bg: "blue.a2",
+    paddingInline: "1",
+    cursor: "pointer",
+  },
+  "& a.note-link:hover": { color: "blue.12", bg: "blue.a4" },
+  "& a.note-link[data-missing]": {
+    color: "fg.muted",
+    bg: "transparent",
+    textDecorationLine: "line-through",
+  },
+  "& .ProseMirror a.note-link.ProseMirror-selectednode": {
+    outline: "2px solid",
+    outlineColor: "blue.a7",
+  },
+  "& .block-flash": {
+    bg: "amber.a4",
+    borderRadius: "l1",
+    transition: "background-color 600ms ease-out",
+  },
   "& .ProseMirror hr, & .vn-doc-content hr": {
     border: "0",
     borderTopWidth: "1px",

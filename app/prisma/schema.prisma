@@ -215,6 +215,9 @@ model Doc {
   timeBlocks           TimeBlock[]
   timeBlockDayMetadata TimeBlockDayMetadata[]
   revisions            DocRevision[]
+  blocks               DocBlock[]
+  outgoingLinks        DocLink[]              @relation("DocLinkSource")
+  incomingLinks        DocLink[]              @relation("DocLinkTarget")
 
   @@unique([originalSource, originalContentId])
   @@index([path])
@@ -222,6 +225,45 @@ model Doc {
 
 /// Prior content captured before an automated edit (e.g. ChatGPT via MCP)
 /// so the change can be rolled back from the app.
+// Derived index of a note's blocks, rebuilt from Doc.content on every write.
+// Keyed by (docId, id): a block copied into another note keeps its id there too.
+model DocBlock {
+  docId         String
+  id            String
+  parentId      String?
+  // Index of the top-level block this block belongs to.
+  topLevelIndex Int
+  // Document order across all blocks in the note.
+  orderIndex    Int
+  type          String
+  text          String
+  tags          String[] @default([])
+  attrs         Json?
+  hash          String
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@id([docId, id])
+  @@index([id])
+  @@index([tags], type: Gin)
+}
+
+// Derived index of note links ([[note]] / [[note#block]]), rebuilt on write.
+model DocLink {
+  id            String  @id @default(cuid())
+  sourceDocId   String
+  sourceBlockId String
+  targetDocId   String
+  targetBlockId String?
+
+  sourceDoc Doc @relation("DocLinkSource", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  targetDoc Doc @relation("DocLinkTarget", fields: [targetDocId], references: [id], onDelete: Cascade)
+
+  @@index([sourceDocId])
+  @@index([targetDocId])
+  @@index([targetBlockId])
+}
+
 model DocRevision {
   id        String          @id @default(cuid())
   docId     String

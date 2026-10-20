@@ -24,3 +24,9 @@ export const runBlockMigration = action(
   },
   "admin-block-migration-run",
 );
+
+export const rebuildBlockIndex = action(async () => {
+  "use server";
+  const { reindexAllNotes } = await import("~/server/notes/note-index");
+  return { reindexed: await reindexAllNotes() };
+}, "admin-block-index-rebuild");

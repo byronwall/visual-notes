@@ -3,6 +3,7 @@ import { prisma } from "~/server/db";
 import type { DocItem } from "~/types/notes";
 import type { NoteDoc } from "~/lib/note-content/types";
 import { readNoteContent } from "~/server/notes/note-store";
+import { resolveNoteLinks } from "~/server/notes/note-links";
 
 export type DocDetail = {
   id: string;
@@ -88,7 +89,7 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
   return {
     id: resolvedDoc.id,
     title: resolvedDoc.title,
-    content: readNoteContent(resolvedDoc),
+    content: await resolveNoteLinks(readNoteContent(resolvedDoc)),
     contentVersion: resolvedDoc.contentVersion,
     markdown: resolvedDoc.markdown,
     html: resolvedDoc.html,

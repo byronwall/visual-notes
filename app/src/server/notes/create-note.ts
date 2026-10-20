@@ -5,6 +5,7 @@ import {
   prepareContent,
   type ContentInput,
 } from "./note-store";
+import { rebuildNoteIndex } from "./note-index";
 
 export type CreateNoteInput = ContentInput & {
   title: string;
@@ -16,15 +17,19 @@ export type CreateNoteInput = ContentInput & {
 export async function createNoteRecord(input: CreateNoteInput) {
   const content = prepareContent(input);
   const path = input.path?.trim() ? input.path.trim() : null;
-  const created = await prisma.doc.create({
-    data: {
-      title: input.title,
-      ...contentColumns(content),
-      contentVersion: 1,
-      path,
-      meta: input.meta,
-    },
-    select: { id: true },
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.doc.create({
+      data: {
+        title: input.title,
+        ...contentColumns(content),
+        contentVersion: 1,
+        path,
+        meta: input.meta,
+      },
+      select: { id: true },
+    });
+    await rebuildNoteIndex(tx, row.id, content);
+    return row;
   });
   await logActionEvent({
     eventType: "doc.create",

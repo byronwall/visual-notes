@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "crypto";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import type { NoteDoc } from "~/lib/note-content/types";
+import { rebuildNoteIndex } from "~/server/notes/note-index";
 import { contentColumns, revisionSnapshot } from "~/server/notes/note-store";
 import { appendMarkdown, contentFromMarkdown } from "./note-content";
 import {
@@ -83,18 +84,23 @@ export async function createNote(
   }
 
   const pathIsNew = path ? !(await isExistingPath(path)) : false;
-  const columns = contentColumns(contentFromMarkdown(input.markdown));
-  const created = await prisma.doc.create({
-    data: {
-      title,
-      path,
-      ...columns,
-      contentVersion: 1,
-      originalSource: CHATGPT_SOURCE,
-      originalContentId: key,
-      contentHash: sha256(columns.markdown),
-    },
-    select: { id: true, title: true, path: true },
+  const content = contentFromMarkdown(input.markdown);
+  const columns = contentColumns(content);
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.doc.create({
+      data: {
+        title,
+        path,
+        ...columns,
+        contentVersion: 1,
+        originalSource: CHATGPT_SOURCE,
+        originalContentId: key,
+        contentHash: sha256(columns.markdown),
+      },
+      select: { id: true, title: true, path: true },
+    });
+    await rebuildNoteIndex(tx, row.id, content);
+    return row;
   });
   await logActionEvent({
     eventType: "doc.create",
@@ -149,16 +155,16 @@ async function applyOwnedEdit(
   changes: { title?: string; path?: string | null; content?: NoteDoc },
 ): Promise<WriteResult> {
   const columns = changes.content ? contentColumns(changes.content) : undefined;
-  const [, updated] = await prisma.$transaction([
-    prisma.docRevision.create({
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.docRevision.create({
       data: {
         docId: doc.id,
         ...revisionSnapshot(doc),
         actorType: "chatgpt",
         reason,
       },
-    }),
-    prisma.doc.update({
+    });
+    const row = await tx.doc.update({
       where: { id: doc.id },
       data: {
         ...(changes.title !== undefined ? { title: changes.title } : {}),
@@ -172,8 +178,10 @@ async function applyOwnedEdit(
           : {}),
       },
       select: { id: true, title: true, path: true },
-    }),
-  ]);
+    });
+    if (changes.content) await rebuildNoteIndex(tx, doc.id, changes.content);
+    return row;
+  });
   await logActionEvent({
     eventType: "doc.update",
     entityType: "doc",

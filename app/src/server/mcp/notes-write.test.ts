@@ -4,10 +4,13 @@ const db = vi.hoisted(() => ({
   doc: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
   },
   docRevision: { create: vi.fn(), count: vi.fn() },
+  docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
+  docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
@@ -39,8 +42,10 @@ const chatgptNote = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.$transaction.mockImplementation(async (ops: Promise<unknown>[]) =>
-    Promise.all(ops),
+  db.$transaction.mockImplementation(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: typeof db) => Promise<unknown>)(db)
+      : Promise.all(arg as Promise<unknown>[]),
   );
   db.docRevision.create.mockResolvedValue({});
   db.docRevision.count.mockResolvedValue(1);
@@ -136,8 +141,8 @@ describe("updateNote", () => {
 
     const result = await updateNote(ctx, { id: "n1", markdown: "# v2" });
 
-    const [ops] = db.$transaction.mock.calls[0];
-    expect(ops).toHaveLength(2);
+    expect(db.$transaction).toHaveBeenCalledOnce();
+    expect(db.docBlock.createMany).toHaveBeenCalledOnce();
     expect(db.docRevision.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         docId: "n1",

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import sanitizeHtml from "sanitize-html";
 import { contentFromLegacy, toPlainText } from "~/lib/note-content/convert";
 import { prisma } from "~/server/db";
+import { rebuildNoteIndex } from "./note-index";
 import { contentColumns } from "./note-store";
 
 /**
@@ -96,8 +97,8 @@ export async function runBlockMigrationBatch(opts: {
       rows.push({ id: doc.id, title: doc.title, ...stats });
       if (opts.dryRun) continue;
       const { content: json, contentSchemaVersion } = contentColumns(content);
-      await prisma.$transaction([
-        prisma.docRevision.create({
+      await prisma.$transaction(async (tx) => {
+        await tx.docRevision.create({
           data: {
             docId: doc.id,
             title: doc.title,
@@ -107,16 +108,17 @@ export async function runBlockMigrationBatch(opts: {
             actorType: "system",
             reason: "block-migration",
           },
-        }),
-        prisma.doc.update({
+        });
+        await tx.doc.update({
           where: { id: doc.id },
           data: {
             content: json,
             contentSchemaVersion,
             contentVersion: { increment: 1 },
           },
-        }),
-      ]);
+        });
+        await rebuildNoteIndex(tx, doc.id, content);
+      });
       migrated += 1;
     } catch (e) {
       failed += 1;
