@@ -73,6 +73,12 @@ export const SLASH_ITEMS: SlashItem[] = [
     run: (e, r) => chainFor(e, r).toggleCodeBlock().run(),
   },
   {
+    title: "Collection",
+    glyph: "▤",
+    keywords: ["database", "collection", "board", "gallery", "calendar", "view"],
+    run: (e, r) => chainFor(e, r).insertCollectionView().run(),
+  },
+  {
     title: "Table",
     glyph: "⊞",
     keywords: ["grid", "rows", "columns"],
