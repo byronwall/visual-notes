@@ -12,8 +12,9 @@ import { CloseButton } from "~/components/ui/close-button";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
+import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { InPlaceEditableText } from "./InPlaceEditableText";
-import { fetchDoc } from "~/services/docs.service";
+import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import type { DocumentEditorApi } from "./DocumentEditor";
 
@@ -39,10 +40,16 @@ export const DocumentSidePanel: VoidComponent<{
   modal?: boolean;
   width?: string;
 }> = (props) => {
-  const [doc] = createResource(
+  const [doc, { mutate }] = createResource(
     () => props.docId,
     (id) => fetchDocDetail(id),
   );
+  useLiveNoteResource({
+    docId: () => props.docId,
+    current: () => doc.latest,
+    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    mutate: (next) => mutate(next),
+  });
   const [title, setTitle] = createSignal("");
   const { update: runUpdateDoc } = useNoteMutations();
   let currentDocId = untrack(() => props.docId);

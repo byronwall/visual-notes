@@ -94,7 +94,14 @@ export const uniqueSuffix = () =>
  */
 export const createNoteFixture = async (
   page: Page,
-  note: { title: string; markdown: string; path?: string },
+  note: {
+    title: string;
+    markdown: string;
+    path?: string;
+    /** With originalContentId, a later POST updates the note (CLI ingest). */
+    originalSource?: string;
+    originalContentId?: string;
+  },
 ) => {
   if (!page.url().startsWith("http")) await page.goto("/login");
   const { status, body } = await page.evaluate(async (data) => {
