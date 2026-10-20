@@ -8,6 +8,7 @@ const LOG_PREFIX = "[mcp-semantic]";
 export const MIN_SIMILARITY = 0.25;
 const REFRESH_DEBOUNCE_MS = 10_000;
 const REFRESH_BATCH = 25;
+const INDEX_BATCH = 250;
 
 type RunInfo = { id: string; model: string };
 type VectorIndex = {
@@ -19,6 +20,7 @@ type VectorIndex = {
 };
 
 let cachedIndex: VectorIndex | null = null;
+let indexLoad: Promise<VectorIndex> | null = null;
 
 function semanticAvailable(): boolean {
   return Boolean(serverEnv.OPENAI_API_KEY?.trim());
@@ -43,6 +45,20 @@ function norm(vector: ArrayLike<number>): number {
  * embedding count or newest row changes.
  */
 async function loadIndex(run: RunInfo): Promise<VectorIndex> {
+  // Searches share the in-flight load instead of each decoding the whole run.
+  if (indexLoad) {
+    const index = await indexLoad;
+    return index.runId === run.id ? index : loadIndex(run);
+  }
+  indexLoad = updateIndex(run);
+  try {
+    return await indexLoad;
+  } finally {
+    indexLoad = null;
+  }
+}
+
+async function updateIndex(run: RunInfo): Promise<VectorIndex> {
   const stats = await prisma.docEmbedding.aggregate({
     where: { runId: run.id },
     _count: { _all: true },
@@ -52,19 +68,35 @@ async function loadIndex(run: RunInfo): Promise<VectorIndex> {
   if (cachedIndex?.runId === run.id && cachedIndex.signature === signature) {
     return cachedIndex;
   }
-  const rows = await prisma.docEmbedding.findMany({
-    where: { runId: run.id },
-    select: { docId: true, vector: true },
-  });
-  const vectors = rows.map((row) => Float32Array.from(row.vector));
-  cachedIndex = {
+  const index: VectorIndex = {
     runId: run.id,
     signature,
-    docIds: rows.map((row) => row.docId),
-    vectors,
-    norms: vectors.map(norm),
+    docIds: [],
+    vectors: [],
+    norms: [],
   };
-  console.info(`${LOG_PREFIX} loaded ${rows.length} doc vectors for ${run.id}`);
+  let cursor: string | undefined;
+  for (;;) {
+    // Convert each page before fetching another; keep only compact vectors.
+    const rows = await prisma.docEmbedding.findMany({
+      where: { runId: run.id, ...(cursor ? { id: { gt: cursor } } : {}) },
+      orderBy: { id: "asc" },
+      take: INDEX_BATCH,
+      select: { id: true, docId: true, vector: true },
+    });
+    for (const row of rows) {
+      const vector = Float32Array.from(row.vector);
+      index.docIds.push(row.docId);
+      index.vectors.push(vector);
+      index.norms.push(norm(vector));
+    }
+    if (rows.length < INDEX_BATCH) break;
+    cursor = rows[rows.length - 1].id;
+  }
+  cachedIndex = index;
+  console.info(
+    `${LOG_PREFIX} loaded ${index.docIds.length} doc vectors for ${run.id}`,
+  );
   return cachedIndex;
 }
 
