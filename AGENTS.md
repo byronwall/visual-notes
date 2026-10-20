@@ -12,6 +12,7 @@ focused skills listed under [Skills](#skills).
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
 | Isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
 | UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |
+| Live note updates (`/ws/notes`, open-note refresh, kill switch) | [app/docs/live-note-updates.md](app/docs/live-note-updates.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 
 ## Note storage (blocks)
@@ -19,6 +20,7 @@ focused skills listed under [Skills](#skills).
 - `Doc.content` (TipTap JSON) is the canonical note body; every block carries a stable `id`. `html`/`markdown` are derived on each write until the legacy-column drop (plan: [docs/intent/block-storage](docs/intent/block-storage/implementation-plan.md)).
 - One headless schema in `app/src/lib/note-content/schema.ts` is shared by the editor, server, and migration. Add a node type there (UI-free), then layer any Solid NodeView in `components/editor/extensions/`.
 - Write content only through `server/notes/note-write.ts` / `note-store.ts` (validation, dual-write, version bump, per-block merge) and keep `rebuildNoteIndex` in the same transaction; `DocBlock`/`DocLink` and inline-task sources are derived from it.
+- Keyword search uses `Doc.searchText`. Keep it current through `contentColumns`; the startup backfill handles existing notes.
 - Read content through `readNoteContent` / `noteText` / `noteMarkdown` / `noteHtml` so `NOTE_CONTENT_READ=legacy` can roll every reader back.
 - Never spread a shared object into a Prisma `select` inside nested selects; it made `tsc` take minutes. List the fields.
 
@@ -44,6 +46,7 @@ focused skills listed under [Skills](#skills).
   - Use `resource()` (non-latest) only when you intentionally want loading-state transitions or explicit visual refresh bumps.
   - Writes: server actions
   - Avoid `fetch()` in UI components for app data, and avoid adding React Query/SWR/etc.
+  - Note views stay live through `docs-*`/`activity-*` query keys. A view that holds a note in `createResource` must use `useLiveNoteResource` (swap with `mutate`, not `refetch`, and read with `fetchDocLatest`); see [live-note-updates.md](app/docs/live-note-updates.md#adding-a-note-view).
 - Component size & composition
   - Prefer small components; keep files ~200 lines when feasible and split early.
   - Split into separate files for subcomponents/hooks/helpers/types when possible.

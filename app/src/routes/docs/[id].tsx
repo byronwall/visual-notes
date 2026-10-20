@@ -9,9 +9,10 @@ import {
   Suspense,
   createResource,
 } from "solid-js";
-import { fetchDoc } from "~/services/docs.service";
+import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
 import TableOfContents from "../../components/TableOfContents";
 import DocumentViewer from "../../components/DocumentViewer";
+import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Box, Container, Stack } from "styled-system/jsx";
@@ -65,10 +66,16 @@ const NoteSkeleton: VoidComponent = () => (
 const DocView: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [doc] = createResource(
+  const [doc, { mutate }] = createResource(
     () => params.id,
     (id) => fetchDocDetail(id!),
   );
+  useLiveNoteResource({
+    docId: () => params.id,
+    current: () => doc.latest,
+    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    mutate: (next) => mutate(next),
+  });
 
   const handleDeleted = (deletedDocId: string) => {
     if (params.id !== deletedDocId) return;
