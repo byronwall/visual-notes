@@ -1,8 +1,14 @@
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import sanitizeHtml from "sanitize-html";
-import { contentFromLegacy, toPlainText } from "~/lib/note-content/convert";
+import {
+  contentFromLegacy,
+  fromHtml,
+  toPlainText,
+} from "~/lib/note-content/convert";
 import { prisma } from "~/server/db";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { stripIdTags } from "~/lib/note-content/markdown";
 import { rebuildNoteIndex } from "./note-index";
 import { contentColumns } from "./note-store";
 
@@ -39,14 +45,16 @@ const unmigrated = { content: { equals: Prisma.DbNull } } as const;
 const visibleChars = (text: string) => text.replace(/\s+/g, "").length;
 
 export function legacyText(row: { html: string; markdown: string }): string {
-  if (row.html.trim()) {
-    return sanitizeHtml(row.html, {
-      allowedTags: [],
-      allowedAttributes: {},
-      nonTextTags: ["style", "script", "textarea", "noscript"],
-    });
-  }
-  return row.markdown.replace(/[#>*_`~|-]/g, "");
+  const html = row.html.trim()
+    ? row.html
+    : normalizeMarkdownToHtml(stripIdTags(row.markdown));
+  const text = sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: {},
+    nonTextTags: ["head", "style", "script", "textarea", "noscript"],
+  });
+  // Decode escaped text only after flattening, so unsupported nodes still count.
+  return toPlainText(fromHtml(text));
 }
 
 export function measureConversion(row: {
