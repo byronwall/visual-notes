@@ -209,3 +209,27 @@ export function stripIdTags(markdown: string): string {
     .replace(/[ \t]+\^[A-Za-z0-9]{6,24}[ \t]*$/gm, "")
     .replace(/^\^[A-Za-z0-9]{6,24}[ \t]*$/gm, "");
 }
+
+const flatText = (node: NoteNode) => nodeText(node).replace(/\s+/g, " ").trim();
+
+/** Text of the H1 that opens the note, if its first block is an H1. */
+export function leadingHeadingText(doc: NoteDoc): string | undefined {
+  const first = doc.content?.[0];
+  if (first?.type !== "heading" || Number(first.attrs?.level) !== 1) return;
+  return flatText(first) || undefined;
+}
+
+/** Text of the first H1 anywhere in the note. */
+export function firstHeadingText(doc: NoteDoc): string | undefined {
+  let found: string | undefined;
+  const visit = (node: NoteNode) => {
+    if (found !== undefined) return;
+    if (node.type === "heading" && Number(node.attrs?.level) === 1) {
+      found = flatText(node) || undefined;
+      return;
+    }
+    node.content?.forEach(visit);
+  };
+  visit(doc);
+  return found;
+}

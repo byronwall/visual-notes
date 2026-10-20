@@ -16,7 +16,10 @@ import { Tooltip } from "~/components/ui/tooltip";
 import { DocSharePanel } from "./DocSharePanel";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
-import { extractFirstHeading } from "~/utils/extractHeading";
+import {
+  firstHeadingText,
+  leadingHeadingText,
+} from "~/lib/note-content/markdown";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
@@ -26,14 +29,13 @@ import { useToasts } from "./Toast";
 import { DocActionsMenu } from "./doc-header/DocActionsMenu";
 import { DocSaveStatus, type SaveState } from "./doc-header/DocSaveStatus";
 import { DocVersionsPopover } from "./doc-header/DocVersionsPopover";
-import { leadingH1Text, titlesMatch } from "./doc-header/leading-heading";
-import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { titlesMatch } from "./doc-header/leading-heading";
+import type { NoteDoc } from "~/lib/note-content/types";
 
 type DocumentData = {
   id: string;
   title: string;
-  markdown?: string;
-  html?: string;
+  content: NoteDoc;
   path?: string | null;
   meta?: Record<string, unknown> | null;
   createdAt?: string;
@@ -77,19 +79,12 @@ const DocumentViewer: VoidComponent<{
   let lastLoggedDocId = "";
   const isCurrentVisit = (id: string, generation: number) =>
     ownerActive && props.doc.id === id && docGeneration === generation;
-  const firstH1 = () =>
-    extractFirstHeading({
-      markdown: props.doc.markdown,
-      html: props.doc.html,
-    }) || "";
+  const firstH1 = () => firstHeadingText(props.doc.content) || "";
   const showSync = () => {
     const heading = firstH1();
     return heading.length > 0 && heading !== title();
   };
-  const leadingHeading = () =>
-    leadingH1Text(
-      props.doc.html || normalizeMarkdownToHtml(props.doc.markdown || ""),
-    );
+  const leadingHeading = () => leadingHeadingText(props.doc.content);
   // When the note opens with an H1 that matches its title, that heading *is*
   // the title: the page skips the duplicate display title and edits to the
   // heading keep the stored title in sync.

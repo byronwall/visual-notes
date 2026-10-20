@@ -5,6 +5,9 @@ import {
   fromMarkdown,
   legacyColumns,
   normalizeNoteDoc,
+  toHtml,
+  toMarkdown,
+  toPlainText,
 } from "~/lib/note-content/convert";
 import { NOTE_SCHEMA_VERSION } from "~/lib/note-content/schema";
 import type { NoteDoc } from "~/lib/note-content/types";
@@ -77,3 +80,19 @@ export function revisionSnapshot(row: {
     content: (row.content ?? undefined) as Prisma.InputJsonValue | undefined,
   };
 }
+
+type StoredBody = {
+  content?: unknown;
+  html?: string | null;
+  markdown?: string | null;
+};
+
+/** Plain text of a stored note (search, previews, embeddings). */
+export const noteText = (row: StoredBody) => toPlainText(readNoteContent(row));
+
+/** Markdown view of a stored note; headings survive for chunking. */
+export const noteMarkdown = (row: StoredBody) =>
+  toMarkdown(readNoteContent(row));
+
+/** Rendered HTML of a stored note (share page, read-only views). */
+export const noteHtml = (row: StoredBody) => toHtml(readNoteContent(row));

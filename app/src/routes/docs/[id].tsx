@@ -18,11 +18,12 @@ import { Box, Container, Stack } from "styled-system/jsx";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useMobileBarTitleOnScroll } from "~/components/sidebar/useMobileBarTitleOnScroll";
 
+import type { NoteDoc } from "~/lib/note-content/types";
+
 type DocDetail = {
   id: string;
   title: string;
-  markdown: string;
-  html: string;
+  content: NoteDoc;
   path?: string | null;
   meta?: Record<string, unknown> | null;
   originalSource?: string | null;

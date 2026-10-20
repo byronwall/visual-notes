@@ -17,11 +17,12 @@ import { fetchDoc } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import type { DocumentEditorApi } from "./DocumentEditor";
 
+import type { NoteDoc } from "~/lib/note-content/types";
+
 type DocDetail = {
   id: string;
   title: string;
-  markdown?: string;
-  html?: string;
+  content: NoteDoc;
   createdAt?: string;
   updatedAt?: string;
 };

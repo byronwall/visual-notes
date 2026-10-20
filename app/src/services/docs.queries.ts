@@ -2,7 +2,10 @@ import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import type { DocItem } from "~/types/notes";
 import type { NoteDoc } from "~/lib/note-content/types";
-import { readNoteContent } from "~/server/notes/note-store";
+import {
+  noteText,
+  readNoteContent,
+} from "~/server/notes/note-store";
 import { resolveNoteLinks } from "~/server/notes/note-links";
 
 export type DocDetail = {
@@ -201,6 +204,15 @@ export const buildDocPreviewText = (
   return "No preview available.";
 };
 
+/** Preview text from a note's blocks. */
+export const buildNotePreviewText = (
+  row: { content?: unknown; html?: string | null; markdown?: string | null },
+  maxLen = 240,
+) => {
+  const plain = normalizePreviewText(limitPreviewInput(noteText(row)));
+  return plain.length > 0 ? plain.slice(0, maxLen) : "No preview available.";
+};
+
 export const fetchDocPreviews = query(
   async (ids: string[]): Promise<DocPreview[]> => {
     "use server";
@@ -214,8 +226,9 @@ export const fetchDocPreviews = query(
       where: { id: { in: unique } },
       select: {
         id: true,
-        markdown: true,
-        html: true,
+        content: true,
+          html: true,
+          markdown: true,
         path: true,
         meta: true,
       },
@@ -231,7 +244,7 @@ export const fetchDocPreviews = query(
         id: row.id,
         path: row.path,
         meta: row.meta as Record<string, unknown> | null,
-        previewText: buildDocPreviewText(row.markdown, row.html),
+        previewText: buildNotePreviewText(row),
       }));
 
     console.log("[services] fetchDocPreviews", {

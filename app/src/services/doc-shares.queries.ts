@@ -1,16 +1,9 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
-import {
-  normalizeMarkdownToHtml,
-  sanitizeHtmlContent,
-} from "~/server/lib/markdown";
-import { buildDocPreviewText } from "./docs.queries";
-
-// Keep checklist state visible on public shares (read-only presentation).
-const SHARE_EXTRA_ALLOWED_ATTRIBUTES = {
-  ul: ["data-type"],
-  li: ["data-type", "data-checked"],
-};
+import { buildNotePreviewText } from "./docs.queries";
+import { toHtml, toMarkdown } from "~/lib/note-content/convert";
+import { resolveNoteLinks } from "~/server/notes/note-links";
+import { readNoteContent } from "~/server/notes/note-store";
 
 export type DocShareSummary = {
   id: string;
@@ -76,8 +69,9 @@ export const fetchPublicSharedDoc = query(
           select: {
             id: true,
             title: true,
-            html: true,
-            markdown: true,
+            content: true,
+          html: true,
+          markdown: true,
             path: true,
             updatedAt: true,
           },
@@ -87,16 +81,14 @@ export const fetchPublicSharedDoc = query(
 
     if (!share?.doc) return null;
 
-    const html = sanitizeHtmlContent(
-      share.doc.html || normalizeMarkdownToHtml(share.doc.markdown),
-      SHARE_EXTRA_ALLOWED_ATTRIBUTES,
-    );
+    const content = await resolveNoteLinks(readNoteContent(share.doc));
+    const html = toHtml(content);
 
     return {
       id: share.doc.id,
       title: share.doc.title,
       html,
-      markdown: share.doc.markdown,
+      markdown: toMarkdown(content),
       path: share.doc.path,
       updatedAt: share.doc.updatedAt.toISOString(),
       share: {
@@ -106,7 +98,7 @@ export const fetchPublicSharedDoc = query(
         createdAt: share.createdAt.toISOString(),
         updatedAt: share.updatedAt.toISOString(),
       },
-      previewText: buildDocPreviewText(share.doc.markdown, share.doc.html, 220),
+      previewText: buildNotePreviewText(share.doc, 220),
     };
   },
   "doc-share-public",

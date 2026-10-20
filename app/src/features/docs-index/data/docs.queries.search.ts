@@ -1,8 +1,7 @@
 import { query } from "@solidjs/router";
-import sanitizeHtml from "sanitize-html";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
-import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { noteText } from "~/server/notes/note-store";
 import type { ServerSearchItem } from "./docs.types";
 import {
   buildDocsWhere,
@@ -151,6 +150,7 @@ export const searchDocs = query(
           title: true,
           updatedAt: true,
           path: true,
+          content: true,
           html: true,
           markdown: true,
           share: {
@@ -169,11 +169,8 @@ export const searchDocs = query(
 
       for (const d of docs) {
         bodyDocsScanned += 1;
-        bodyBytesLoaded +=
-          Buffer.byteLength(d.html, "utf8") +
-          Buffer.byteLength(d.markdown, "utf8");
-        const html = d.html || normalizeMarkdownToHtml(d.markdown);
-        const text = htmlToSearchText(html);
+        const text = noteText(d).replace(/\s+/g, " ").trim();
+        bodyBytesLoaded += Buffer.byteLength(text, "utf8");
         if (!text) continue;
 
         const bodyScore = scoreBodyText(text, termLower, terms);
@@ -466,32 +463,6 @@ function normalizeForContains(value: string): string {
     .trim();
 }
 
-function htmlToSearchText(html: string): string {
-  const blockTags =
-    /(<\/?(?:address|article|blockquote|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>)/gi;
-  const htmlWithSpacing = html
-    .replace(/(<br\b[^>]*\/?\s*>)/gi, " $1 ")
-    .replace(blockTags, " $1 ");
-  let text = "";
-
-  sanitizeHtml(
-    `<vn-search-root data-search-root="true">${htmlWithSpacing}</vn-search-root>`,
-    {
-      allowedTags: ["vn-search-root"],
-      exclusiveFilter: (frame) => {
-        if (
-          frame.tag === "vn-search-root" &&
-          frame.attribs["data-search-root"] === "true"
-        ) {
-          text = frame.text;
-        }
-        return false;
-      },
-    }
-  );
-
-  return text.replace(/\s+/g, " ").trim();
-}
 
 function collectTokenHits(text: string, terms: string[]): Set<string> {
   const normalized = normalizeForContains(text);

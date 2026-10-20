@@ -1,6 +1,6 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
-import { buildDocPreviewText } from "~/services/docs.queries";
+import { buildNotePreviewText } from "~/services/docs.queries";
 import { parseUmapRegionsSnapshot } from "~/services/umap/umap.regions";
 import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 
@@ -157,8 +157,9 @@ export const fetchUmapRegionDetail = query(
         updatedAt: true,
         path: true,
         meta: true,
-        markdown: true,
-        html: true,
+        content: true,
+          html: true,
+          markdown: true,
       },
     });
 
@@ -172,7 +173,7 @@ export const fetchUmapRegionDetail = query(
         updatedAt: row.updatedAt.toISOString(),
         path: row.path,
         meta: row.meta as Record<string, unknown> | null,
-        previewText: buildDocPreviewText(row.markdown, row.html),
+        previewText: buildNotePreviewText(row),
       }));
 
     return {
