@@ -14,7 +14,13 @@ import { NOTE_LINK_NAVIGATE_EVENT } from "./editor/extensions/NoteLinkSuggestion
 import { toaster } from "~/components/ui/toast";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { NoteDoc } from "~/lib/note-content/types";
-import { fetchDoc, type MetaRecord } from "~/services/docs.service";
+import {
+  fetchDoc,
+  fetchDocLatest,
+  type MetaRecord,
+} from "~/services/docs.service";
+import { useRemoteNoteChanges } from "~/features/live-sync/useRemoteNoteChanges";
+import { shouldCheckRemote } from "~/features/live-sync/remote-note-change";
 import { fetchDocContentVersion } from "~/services/docs.queries";
 import { topLevelHashes } from "~/lib/note-content/ids";
 import { applyRemoteContent } from "./editor/core/applyRemoteContent";
@@ -141,8 +147,11 @@ const DocumentEditor: VoidComponent<{
 
   // The stored version this editor last agreed with. Saves send it so the
   // server can merge per block when another tab or ChatGPT wrote since.
-  let base: { docId: string; version: number; hashes: Record<string, string> } | null =
-    null;
+  let base: {
+    docId: string;
+    version: number;
+    hashes: Record<string, string>;
+  } | null = null;
   const setBase = (docId: string, version: number, content: NoteDoc) => {
     base = { docId, version, hashes: topLevelHashes(content) };
   };
@@ -154,7 +163,12 @@ const DocumentEditor: VoidComponent<{
 
   // A merged or remote version waiting for the cursor to leave its block.
   let pendingRemote: NoteDoc | null = null;
-  const adoptRemote = (ed: Editor, docId: string, version: number, next: NoteDoc) => {
+  const adoptRemote = (
+    ed: Editor,
+    docId: string,
+    version: number,
+    next: NoteDoc,
+  ) => {
     const result = applyRemoteContent(ed, next as JSONContent, {
       deferIfCursorInside: true,
     });
@@ -165,7 +179,9 @@ const DocumentEditor: VoidComponent<{
     pendingRemote = null;
     setBase(docId, version, next);
     mutate((current) =>
-      current?.id === docId ? { ...current, content: next, contentVersion: version } : current,
+      current?.id === docId
+        ? { ...current, content: next, contentVersion: version }
+        : current,
     );
     return true;
   };
@@ -182,7 +198,47 @@ const DocumentEditor: VoidComponent<{
     onCleanup(() => ed.off("blur", onBlur));
   });
 
-  // Pick up edits made elsewhere while this editor sits idle.
+  // Brings an idle editor up to the stored version. A dirty draft is left
+  // alone: its next save sends `base`, and the server merges per block.
+  // Reads with fetchDocLatest because a server-rendered page leaves the
+  // `docs-get` cache entry holding its stale SSR payload.
+  let recheckAfterSave = false;
+  const checkRemote = async (reason: string, knownVersion?: number | null) => {
+    const ed = editor();
+    const d = doc();
+    if (!ed || !d || !base || !props.autosave || isNew()) return;
+    if (dirty() || saving()) {
+      if (saving()) recheckAfterSave = true;
+      return;
+    }
+    if (knownVersion !== undefined) {
+      if (knownVersion === null || knownVersion <= base.version) return;
+    }
+    try {
+      const fresh = (await fetchDocLatest(d.id)) as DocData;
+      if (fresh.id !== d.id || fresh.contentVersion <= (base?.version ?? 0))
+        return;
+      if (dirty() || saving() || editor() !== ed || ed.isDestroyed) return;
+      console.info("[doc-editor] applying remote version", {
+        version: fresh.contentVersion,
+        reason,
+      });
+      adoptRemote(ed, d.id, fresh.contentVersion, fresh.content);
+    } catch (e) {
+      console.debug("[doc-editor] remote check failed", e);
+    }
+  };
+
+  // Live: a write elsewhere (ChatGPT, another tab, the CLI) pushes an event.
+  useRemoteNoteChanges(
+    () => props.docId,
+    (change) => {
+      if (!shouldCheckRemote(change, doc()?.updatedAt)) return;
+      void checkRemote("live");
+    },
+  );
+
+  // Fallback for missed events: poll the stored version while idle.
   const REMOTE_POLL_MS = 15000;
   createEffect(() => {
     const ed = editor();
@@ -192,12 +248,7 @@ const DocumentEditor: VoidComponent<{
       if (!d || !base || document.visibilityState !== "visible") return;
       if (dirty() || saving()) return;
       try {
-        const version = await fetchDocContentVersion(d.id);
-        if (version === null || version <= base.version) return;
-        const fresh = await fetchDoc(d.id);
-        if (dirty() || saving() || editor() !== ed || ed.isDestroyed) return;
-        console.info("[doc-editor] applying remote version", version);
-        adoptRemote(ed, d.id, fresh.contentVersion, fresh.content);
+        void checkRemote("poll", await fetchDocContentVersion(d.id));
       } catch (e) {
         console.debug("[doc-editor] remote check failed", e);
       }
@@ -524,7 +575,12 @@ const DocumentEditor: VoidComponent<{
             // the draft has not moved on; otherwise keep the old base so the
             // next save merges again.
             if (draftUnchanged) {
-              adoptRemote(ed, updated.id, updated.contentVersion, updated.mergedContent);
+              adoptRemote(
+                ed,
+                updated.id,
+                updated.contentVersion,
+                updated.mergedContent,
+              );
               setDirty(false);
             }
             if (updated.conflicts.length) {
@@ -544,9 +600,7 @@ const DocumentEditor: VoidComponent<{
             current?.id === updated.id
               ? {
                   ...current,
-                  ...(draftUnchanged
-                    ? { content: content as NoteDoc }
-                    : {}),
+                  ...(draftUnchanged ? { content: content as NoteDoc } : {}),
                   contentVersion: updated.contentVersion,
                   updatedAt: updated.updatedAt,
                 }
@@ -583,6 +637,11 @@ const DocumentEditor: VoidComponent<{
       setSaving(false);
       // Edits made while the request was in flight still need a save.
       if (dirty() && !error()) scheduleAutosave();
+      // A live event that arrived mid-save may be newer than what we wrote.
+      if (recheckAfterSave) {
+        recheckAfterSave = false;
+        void checkRemote("after-save");
+      }
     }
   }
 
