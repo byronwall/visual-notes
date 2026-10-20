@@ -63,6 +63,8 @@ describe("useDocsIndexBulkActions bulk path", () => {
       id: "note-1",
       updatedAt: "2026-01-01T00:00:00.000Z",
       contentVersion: 1,
+      mergedContent: null,
+      conflicts: [],
     });
     let dispose!: () => void;
     const actions = createRoot((stop) => {
@@ -111,6 +113,8 @@ describe("useDocsIndexBulkActions bulk path", () => {
       id: "note-1",
       updatedAt: "2026-01-01T00:00:00.000Z",
       contentVersion: 1,
+      mergedContent: null,
+      conflicts: [],
     });
     await actions.handleApplyBulkPath("/new/path");
     expect(updateDoc).toHaveBeenLastCalledWith({
@@ -130,6 +134,8 @@ describe("useDocsIndexBulkActions bulk path", () => {
         id: "note-1",
         updatedAt: "2026-01-01T00:00:00.000Z",
       contentVersion: 1,
+      mergedContent: null,
+      conflicts: [],
       })
       .mockRejectedValueOnce(new Error("write failed"));
     let dispose!: () => void;

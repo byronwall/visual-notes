@@ -562,3 +562,13 @@ export const fetchMetaValues = query(
   },
   "docs-meta-values"
 );
+
+/** Cheap check for edits made elsewhere (another tab, ChatGPT). */
+export const fetchDocContentVersion = query(async (id: string) => {
+  "use server";
+  const row = await prisma.doc.findUnique({
+    where: { id },
+    select: { contentVersion: true },
+  });
+  return row?.contentVersion ?? null;
+}, "doc-content-version");

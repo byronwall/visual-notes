@@ -15,6 +15,9 @@ import { toaster } from "~/components/ui/toast";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import type { NoteDoc } from "~/lib/note-content/types";
 import { fetchDoc, type MetaRecord } from "~/services/docs.service";
+import { fetchDocContentVersion } from "~/services/docs.queries";
+import { topLevelHashes } from "~/lib/note-content/ids";
+import { applyRemoteContent } from "./editor/core/applyRemoteContent";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
@@ -135,6 +138,72 @@ const DocumentEditor: VoidComponent<{
   const initialContent = createMemo(
     () => doc()?.content as JSONContent | undefined,
   );
+
+  // The stored version this editor last agreed with. Saves send it so the
+  // server can merge per block when another tab or ChatGPT wrote since.
+  let base: { docId: string; version: number; hashes: Record<string, string> } | null =
+    null;
+  const setBase = (docId: string, version: number, content: NoteDoc) => {
+    base = { docId, version, hashes: topLevelHashes(content) };
+  };
+  createEffect(() => {
+    const d = doc();
+    if (!d || base?.docId === d.id) return;
+    setBase(d.id, d.contentVersion, d.content);
+  });
+
+  // A merged or remote version waiting for the cursor to leave its block.
+  let pendingRemote: NoteDoc | null = null;
+  const adoptRemote = (ed: Editor, docId: string, version: number, next: NoteDoc) => {
+    const result = applyRemoteContent(ed, next as JSONContent, {
+      deferIfCursorInside: true,
+    });
+    if (result === "deferred") {
+      pendingRemote = next;
+      return false;
+    }
+    pendingRemote = null;
+    setBase(docId, version, next);
+    mutate((current) =>
+      current?.id === docId ? { ...current, content: next, contentVersion: version } : current,
+    );
+    return true;
+  };
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed) return;
+    const onBlur = () => {
+      const d = doc();
+      if (!pendingRemote || !d || dirty()) return;
+      if (base) adoptRemote(ed, d.id, base.version, pendingRemote);
+    };
+    ed.on("blur", onBlur);
+    onCleanup(() => ed.off("blur", onBlur));
+  });
+
+  // Pick up edits made elsewhere while this editor sits idle.
+  const REMOTE_POLL_MS = 15000;
+  createEffect(() => {
+    const ed = editor();
+    if (!ed || !props.autosave || isNew()) return;
+    const timer = setInterval(async () => {
+      const d = doc();
+      if (!d || !base || document.visibilityState !== "visible") return;
+      if (dirty() || saving()) return;
+      try {
+        const version = await fetchDocContentVersion(d.id);
+        if (version === null || version <= base.version) return;
+        const fresh = await fetchDoc(d.id);
+        if (dirty() || saving() || editor() !== ed || ed.isDestroyed) return;
+        console.info("[doc-editor] applying remote version", version);
+        adoptRemote(ed, d.id, fresh.contentVersion, fresh.content);
+      } catch (e) {
+        console.debug("[doc-editor] remote check failed", e);
+      }
+    }, REMOTE_POLL_MS);
+    onCleanup(() => clearInterval(timer));
+  });
 
   const initialHTML = createMemo(() => {
     if (props.initialHTML) return props.initialHTML;
@@ -430,9 +499,13 @@ const DocumentEditor: VoidComponent<{
         const syncedTitle = props.syncTitleFromH1 ? firstH1Text(ed) : undefined;
         const titleChanged =
           !!syncedTitle && syncedTitle !== (d!.title || "").trim();
+        const saveBase = base?.docId === d!.id ? base : null;
         const updated = await runSaveContent({
           id: d!.id,
           content,
+          ...(saveBase
+            ? { baseVersion: saveBase.version, baseHashes: saveBase.hashes }
+            : {}),
           ...(titleChanged ? { title: syncedTitle } : {}),
         });
         if (titleChanged && syncedTitle) {
@@ -446,6 +519,26 @@ const DocumentEditor: VoidComponent<{
         if (props.docId === updated.id && doc()?.id === updated.id) {
           const draftUnchanged =
             editor() === ed && !ed.isDestroyed && draftKey() === submittedKey;
+          if (updated.mergedContent) {
+            // Someone else wrote since our base. Show the merged result when
+            // the draft has not moved on; otherwise keep the old base so the
+            // next save merges again.
+            if (draftUnchanged) {
+              adoptRemote(ed, updated.id, updated.contentVersion, updated.mergedContent);
+              setDirty(false);
+            }
+            if (updated.conflicts.length) {
+              toaster.create({
+                title: "Merged with changes made elsewhere",
+                description:
+                  "A paragraph you edited was also changed elsewhere; the other version is in Versions.",
+                type: "info",
+              });
+            }
+            props.onSaved?.(updated);
+            return;
+          }
+          setBase(updated.id, updated.contentVersion, content as NoteDoc);
           if (draftUnchanged) setDirty(false);
           mutate((current) =>
             current?.id === updated.id
