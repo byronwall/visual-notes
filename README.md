@@ -45,79 +45,22 @@ The app runs at `http://localhost:3000`.
 
 ## API
 
-### POST /api/docs
+Notes are created and edited in the app, by in-app AI, and by the ChatGPT MCP connector. Bulk ingest (the old `cli-ingest` tool and its sync endpoints) has been removed.
 
-Ingest a Markdown document. Returns the created `id`.
-
-Request body:
+`POST /api/docs` creates one note for a signed-in client (the e2e fixtures use it):
 
 ```json
 { "title": "My Doc", "markdown": "# Hello\nSome text." }
 ```
 
-Example:
-
-```bash
-curl -s -X POST http://localhost:3000/api/docs \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Hello","markdown":"# Hello\nSome text."}'
-```
-
-Response:
-
-```json
-{ "id": "doc_123" }
-```
-
-### GET /api/docs/[id]
-
-Fetch a previously ingested document.
-
-Response body:
-
-```json
-{
-  "id": "doc_123",
-  "title": "Hello",
-  "html": "<h1>Hello</h1>\n<p>Some text.</p>"
-}
-```
-
-Notes:
-
-- The server converts Markdown to HTML using `normalizeAiOutputToHtml`.
-- Authentication is not enforced for this minimal slice.
-
-## Client Usage
-
-- Open the home page and paste Markdown into the ingest form; upon success, you will be navigated to `/docs/[id]` to view it.
-
-## Key Files
-
-- Prisma model: `app/prisma/schema.prisma` (model `Doc`)
-- Markdown normalization: `app/src/server/lib/markdown.ts`
-- API handlers:
-  - `app/src/routes/api/docs/index.ts` (POST)
-  - `app/src/routes/api/docs/[id].ts` (GET)
-- Client routes:
-  - Ingest form (home): `app/src/routes/index.tsx`
-  - Viewer: `app/src/routes/docs/[id].tsx`
+It returns `{ "id": "..." }` with status 201.
 
 ## Testing
-
-### Run tests
 
 ```bash
 cd app
 pnpm test
 ```
-
-### What’s tested
-
-- `app/src/routes/api/docs/index.test.ts` runs an integration-style test that:
-  - Mocks Prisma via `vi.spyOn(db, "prisma", "get")`
-  - Calls POST `/api/docs` handler and then GET `/api/docs/[id]`
-  - Verifies the created id and returned HTML
 
 ## Docker Quickstart
 
@@ -160,14 +103,6 @@ docker compose up --build
 ```
 
 Inside the app container, `DATABASE_URL` is set to `postgresql://postgres:postgres@db:5432/visual_notes?schema=public` by default.
-
-### Test the API (optional)
-
-```bash
-curl -s -X POST http://localhost:3000/api/docs \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Hello","markdown":"# Hello\nSome text."}' | jq .
-```
 
 ## Embeddings + UMAP (New)
 

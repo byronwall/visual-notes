@@ -2,6 +2,7 @@ import {
   ActivityIcon,
   CalendarClockIcon,
   CompassIcon,
+  HashIcon,
   FileTextIcon,
   LayoutGridIcon,
   ListTodoIcon,
@@ -81,6 +82,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
       isSectionActive("/path", pathname) || pathname === "/paths",
   },
   {
+    label: "Tags",
+    href: "/tags",
+    icon: HashIcon,
+    keywords: "labels topics hashtags",
+    isActive: (pathname) => isSectionActive("/tags", pathname),
+  },
+  {
     label: "Time Blocks",
     href: "/time-blocks",
     icon: CalendarClockIcon,
@@ -91,8 +99,10 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     label: "Tasks",
     href: "/tasks",
     icon: ListTodoIcon,
-    keywords: "todo",
-    isActive: (pathname) => isSectionActive("/tasks", pathname),
+    keywords: "todo open tasks in notes",
+    isActive: (pathname) =>
+      isSectionActive("/tasks", pathname) ||
+      pathname === "/views/note-tasks",
   },
   {
     label: "Explorer",

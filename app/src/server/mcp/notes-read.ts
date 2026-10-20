@@ -1,6 +1,8 @@
 import { searchDocs } from "~/features/docs-index/data/docs.queries.search";
 import { prisma } from "~/server/db";
-import { noteToMarkdown } from "./note-content";
+import { toMarkdown } from "~/lib/note-content/convert";
+import { resolveNoteReferences } from "~/server/notes/note-links";
+import { readNoteContent } from "~/server/notes/note-store";
 import {
   CHATGPT_SOURCE,
   isChatGptNote,
@@ -118,7 +120,13 @@ export async function getNotes(
   const ids = Array.from(new Set(input.ids)).slice(0, MAX_NOTES_PER_GET);
   const rows = await prisma.doc.findMany({
     where: { id: { in: ids } },
-    select: { ...summarySelect, createdAt: true, html: true, markdown: true },
+    select: {
+      ...summarySelect,
+      createdAt: true,
+      html: true,
+      markdown: true,
+      content: true,
+    },
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
   const notes: FullNote[] = [];
@@ -131,7 +139,9 @@ export async function getNotes(
     }
     notes.push({
       ...toSummary(ctx, row),
-      markdown: noteToMarkdown(row),
+      markdown: toMarkdown(await resolveNoteReferences(readNoteContent(row)), {
+        withIds: true,
+      }),
       createdAt: row.createdAt.toISOString(),
       editable: isChatGptNote(row),
     });

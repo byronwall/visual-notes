@@ -1,10 +1,19 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import type { DocItem } from "~/types/notes";
+import type { NoteDoc } from "~/lib/note-content/types";
+import {
+  noteText,
+  readNoteContent,
+} from "~/server/notes/note-store";
+import { resolveNoteReferences } from "~/server/notes/note-links";
 
 export type DocDetail = {
   id: string;
   title: string;
+  /** Canonical blocks (converted from the legacy columns when not yet migrated). */
+  content: NoteDoc;
+  contentVersion: number;
   markdown?: string | null;
   html?: string | null;
   path?: string | null;
@@ -80,21 +89,11 @@ export const fetchDoc = query(async (id: string): Promise<DocDetail> => {
       })
     : await prisma.doc.findUnique({ where: { id: docId }, include: { share: true } });
   if (!resolvedDoc) throw new Error("Not found");
-  try {
-    const html = String(resolvedDoc.html || "");
-    const imgCount = (html.match(/<img\b/gi) || []).length;
-    const dataImgCount = (html.match(/<img[^>]*src=["']data:/gi) || []).length;
-    console.log(
-      "[docs.get] doc:%s html len:%d imgs:%d dataImgs:%d",
-      resolvedDoc.id,
-      html.length,
-      imgCount,
-      dataImgCount
-    );
-  } catch {}
   return {
     id: resolvedDoc.id,
     title: resolvedDoc.title,
+    content: await resolveNoteReferences(readNoteContent(resolvedDoc)),
+    contentVersion: resolvedDoc.contentVersion,
     markdown: resolvedDoc.markdown,
     html: resolvedDoc.html,
     path: resolvedDoc.path,
@@ -205,6 +204,15 @@ export const buildDocPreviewText = (
   return "No preview available.";
 };
 
+/** Preview text from a note's blocks. */
+export const buildNotePreviewText = (
+  row: { content?: unknown; html?: string | null; markdown?: string | null },
+  maxLen = 240,
+) => {
+  const plain = normalizePreviewText(limitPreviewInput(noteText(row)));
+  return plain.length > 0 ? plain.slice(0, maxLen) : "No preview available.";
+};
+
 export const fetchDocPreviews = query(
   async (ids: string[]): Promise<DocPreview[]> => {
     "use server";
@@ -218,8 +226,9 @@ export const fetchDocPreviews = query(
       where: { id: { in: unique } },
       select: {
         id: true,
-        markdown: true,
-        html: true,
+        content: true,
+          html: true,
+          markdown: true,
         path: true,
         meta: true,
       },
@@ -235,7 +244,7 @@ export const fetchDocPreviews = query(
         id: row.id,
         path: row.path,
         meta: row.meta as Record<string, unknown> | null,
-        previewText: buildDocPreviewText(row.markdown, row.html),
+        previewText: buildNotePreviewText(row),
       }));
 
     console.log("[services] fetchDocPreviews", {
@@ -553,3 +562,13 @@ export const fetchMetaValues = query(
   },
   "docs-meta-values"
 );
+
+/** Cheap check for edits made elsewhere (another tab, ChatGPT). */
+export const fetchDocContentVersion = query(async (id: string) => {
+  "use server";
+  const row = await prisma.doc.findUnique({
+    where: { id },
+    select: { contentVersion: true },
+  });
+  return row?.contentVersion ?? null;
+}, "doc-content-version");

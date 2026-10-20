@@ -1,3 +1,4 @@
+import { A } from "@solidjs/router";
 import { ChevronRightIcon } from "lucide-solid";
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { css } from "styled-system/css";
@@ -11,6 +12,18 @@ import {
   statusColorClass,
 } from "./TaskStatusIcon";
 import { isDoneStatus } from "./taskFormat";
+
+const sourceLinkClass = css({
+  alignSelf: "center",
+  maxW: "16rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "xs",
+  color: "blue.11",
+  textDecorationLine: "none",
+  _hover: { textDecorationLine: "underline" },
+});
 import { handleMoveKey, handleRowKeyDown } from "./taskRowKeys";
 import { useTaskTree, type DropKind } from "./TaskTreeContext";
 
@@ -318,6 +331,19 @@ export const TaskRow = (props: Props) => {
                 }
               }}
             />
+          )}
+        </Show>
+
+        <Show when={props.task.source}>
+          {(source) => (
+            <A
+              href={`/docs/${source().docId}${source().blockId ? `#b-${source().blockId}` : ""}`}
+              class={sourceLinkClass}
+              title="Open the note this task was written in"
+              onClick={(event) => event.stopPropagation()}
+            >
+              ↗ {source().title}
+            </A>
           )}
         </Show>
 

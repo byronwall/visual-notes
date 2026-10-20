@@ -29,7 +29,8 @@
     "push": "prisma db push",
     "postinstall": "prisma generate",
     "knip": "pnpm dlx knip",
-    "type-check": "tsc --noEmit && echo 'Type check passed'"
+    "type-check": "tsc --noEmit && echo 'Type check passed'",
+    "migrate:blocks": "vite-node --config vitest.config.ts scripts/migrate-block-content.ts --"
   },
   "type": "module",
   "devDependencies": {
@@ -49,6 +50,7 @@
     "solid-devtools": "^0.34.4",
     "typescript": "^5.6.2",
     "vite": "^6.2.2",
+    "vite-node": "2.1.9",
     "vite-plugin-lucide-preprocess": "^1.4.6",
     "vite-tsconfig-paths": "^6.0.3",
     "vitest": "^2.1.4"
@@ -75,6 +77,8 @@
     "@tiptap/extension-table-cell": "^3.9.0",
     "@tiptap/extension-table-header": "^3.9.0",
     "@tiptap/extension-table-row": "^3.9.0",
+    "@tiptap/html": "3.7.2",
+    "@tiptap/pm": "3.7.2",
     "@tiptap/starter-kit": "^3.7.2",
     "@tiptap/suggestion": "^3.7.2",
     "@types/sanitize-html": "^2.16.0",
