@@ -2,6 +2,7 @@ import {
   ActivityIcon,
   CalendarClockIcon,
   CompassIcon,
+  DatabaseIcon,
   HashIcon,
   FileTextIcon,
   LayoutGridIcon,
@@ -80,6 +81,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     keywords: "folders tree",
     isActive: (pathname) =>
       isSectionActive("/path", pathname) || pathname === "/paths",
+  },
+  {
+    label: "Collections",
+    href: "/collections",
+    icon: DatabaseIcon,
+    keywords: "database table board gallery",
+    isActive: (pathname) => isSectionActive("/collections", pathname),
   },
   {
     label: "Tags",

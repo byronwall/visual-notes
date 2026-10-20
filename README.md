@@ -55,6 +55,26 @@ Notes are created and edited in the app, by in-app AI, and by the ChatGPT MCP co
 
 It returns `{ "id": "..." }` with status 201.
 
+## Live note updates
+
+Open tabs refresh when notes change elsewhere (ChatGPT, other tabs, the CLI). See [app/docs/live-note-updates.md](app/docs/live-note-updates.md). A reverse proxy must forward WebSocket upgrades for `/ws/notes`.
+
+## Collections
+
+Collections are typed sets of notes, like Notion databases. Each row is an ordinary note, so search, links, revisions, and the ChatGPT connector all work on rows. The collection adds a property schema on top.
+
+- **Pages:** `/collections` lists them, and `/collections/:id` shows saved views as tabs.
+- **Views:**
+  - *Table:* inline editing, filters, sorts, footer summaries, bulk edit, and windowed rows.
+  - *Board:* grouped by a select or status property; drag cards to change the value.
+  - *Gallery:* cards with a cover image and a body preview.
+  - *Calendar:* a month grid by a date property; drag to reschedule.
+- **Property kinds:** text (formats: plain, URL, email, phone), number (formats: plain, decimal, percent, currency, rating, progress), select, status (options grouped into To do, In progress, and Done), multi-select, date (with optional end date and time), checkbox, and created or updated time.
+- **In notes:** type `/collection` to embed a live, editable view. A row's note page shows its properties and a link back to its collection.
+- **Existing notes:** use "Add notes" on a collection page, or "Add to collection…" in a note's ⋯ menu. Meta keys that match property names fill those properties.
+- **Storage:** values live on `Doc.properties`, keyed by property id; the row's body is the note's block content (`Doc.content`). Views and their filters live in `CollectionView`. The embed is the `collectionView` node in the shared note schema, and gallery covers and previews read bodies through the note store (`services/collections/note-summary.ts`). Plan and design notes are in [docs/intent/collections](docs/intent/collections/shape-brief.md).
+- **Local fixtures:** run `cd app && node --experimental-strip-types --env-file=.env scripts/seed-collections.ts` against an audit database (`visual_notes_audit_*` only), then run `pnpm migrate:blocks --apply` to give the seeded rows block bodies.
+
 ## Testing
 
 ```bash
@@ -85,6 +105,8 @@ This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.
 - Builds the app image, then runs it on port 3000.
 - On container start, the app runs `prisma migrate deploy` automatically.
+- Before serving requests, it fills missing `Doc.searchText` values in batches. This preserves note edit dates.
+- Content writes keep plain search text current. PostgreSQL uses a `pg_trgm` index for substring matches.
 
 ### Environment (overrides)
 

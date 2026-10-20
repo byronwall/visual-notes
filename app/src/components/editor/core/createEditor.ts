@@ -1,3 +1,4 @@
+import { getOwner } from "solid-js";
 import { createTiptapEditor } from "solid-tiptap";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { buildExtensions } from "../extensions/index";
@@ -169,11 +170,15 @@ function serializeClipboardText(slice: {
 export function createEditor(
   element: () => HTMLElement | undefined,
   initial: string | JSONContent,
-  onPrompt: Parameters<typeof buildExtensions>[0]
+  onPrompt: Parameters<typeof buildExtensions>[0],
+  noteId?: () => string | undefined
 ) {
+  // Node views mount in their own Solid roots; embeds borrow this owner to
+  // reach the router and app contexts.
+  const owner = getOwner();
   return createTiptapEditor(() => ({
     element: element()!,
-    extensions: buildExtensions(onPrompt),
+    extensions: buildExtensions(onPrompt, undefined, { owner, noteId }),
     // DeferredFocusEvents (in buildExtensions) replaces this; see its comment.
     enableCoreExtensions: { focusEvents: false },
     editorProps: {

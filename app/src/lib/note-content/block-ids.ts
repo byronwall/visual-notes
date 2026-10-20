@@ -13,6 +13,7 @@ export const BLOCK_ID_TYPES = [
   "image",
   "horizontalRule",
   "taskRef",
+  "collectionView",
 ] as const;
 
 const ID_ALPHABET =

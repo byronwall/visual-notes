@@ -26,6 +26,7 @@ import { Toaster } from "~/components/ui/toast";
 import { GlobalErrorOverlay } from "~/components/errors/GlobalErrorOverlay";
 import { sectionTitleForPath } from "~/components/sidebar/nav-items";
 import { loginPathFor } from "~/utils/safe-next";
+import { NoteLiveSyncProvider } from "~/features/live-sync/NoteLiveSyncProvider";
 import { whenHydrationSettles } from "~/utils/hydration-settled";
 
 type ClientExceptionState = {
@@ -196,7 +197,9 @@ const AuthGate = (props: { children: JSX.Element }) => {
 
       {/* Hide navbar and content flash when not authed (non-login pages) */}
       <Match when={authed()}>
-        <AppSidebarLayout>{props.children}</AppSidebarLayout>
+        <NoteLiveSyncProvider>
+          <AppSidebarLayout>{props.children}</AppSidebarLayout>
+        </NoteLiveSyncProvider>
       </Match>
     </Switch>
   );
