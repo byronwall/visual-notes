@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { Parser } from "htmlparser2";
 import {
   contentFromLegacy,
   fromHtml,
@@ -10,7 +11,9 @@ import {
   toPlainText,
 } from "~/lib/note-content/convert";
 import { NOTE_SCHEMA_VERSION } from "~/lib/note-content/schema";
-import type { NoteDoc } from "~/lib/note-content/types";
+import { stripIdTags } from "~/lib/note-content/markdown";
+import { isNoteDoc, type NoteDoc } from "~/lib/note-content/types";
+import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 
 /**
  * Server-side home for note bodies. Blocks (`Doc.content`) are canonical; the
@@ -38,10 +41,12 @@ export function prepareContent(input: ContentInput): NoteDoc {
 
 /** Column values for a content write (version bump handled by callers). */
 export function contentColumns(doc: NoteDoc) {
+  const legacy = legacyColumns(doc);
   return {
     content: doc as unknown as Prisma.InputJsonValue,
     contentSchemaVersion: NOTE_SCHEMA_VERSION,
-    ...legacyColumns(doc),
+    searchText: searchableText({ content: doc, ...legacy }),
+    ...legacy,
   };
 }
 
@@ -88,7 +93,75 @@ type StoredBody = {
 };
 
 /** Plain text of a stored note (search, previews, embeddings). */
-export const noteText = (row: StoredBody) => toPlainText(readNoteContent(row));
+export function noteText(row: StoredBody): string {
+  if (!readsLegacyContent() && isNoteDoc(row.content)) {
+    return toPlainText(row.content);
+  }
+  const html = row.html?.trim()
+    ? row.html
+    : normalizeMarkdownToHtml(stripIdTags(row.markdown ?? ""));
+  return legacyPlainText(html);
+}
+
+/** Stored search text uses the same whitespace as ranking and snippets. */
+export const searchableText = (row: StoredBody) =>
+  noteText(row).replace(/\s+/g, " ").trim();
+
+const textBreaks = new Set([
+  "p",
+  "div",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "br",
+  "hr",
+  "li",
+  "ul",
+  "ol",
+  "blockquote",
+  "pre",
+  "table",
+  "tr",
+  "td",
+  "th",
+]);
+const hiddenText = new Set(["script", "style", "textarea", "noscript"]);
+
+/** Text-only reads must not allocate an editor document for every legacy note. */
+function legacyPlainText(html: string): string {
+  const text: string[] = [];
+  let hiddenDepth = 0;
+  const parser = new Parser(
+    {
+      onopentag(name) {
+        if (hiddenDepth || hiddenText.has(name)) {
+          hiddenDepth++;
+          return;
+        }
+        if (textBreaks.has(name)) text.push("\n");
+      },
+      ontext(value) {
+        if (!hiddenDepth) text.push(value);
+      },
+      onclosetag(name) {
+        if (hiddenDepth) {
+          hiddenDepth--;
+          return;
+        }
+        if (textBreaks.has(name)) text.push("\n");
+      },
+    },
+    { decodeEntities: true },
+  );
+  parser.end(html);
+  return text
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 /** Markdown view of a stored note; headings survive for chunking. */
 export const noteMarkdown = (row: StoredBody) =>

@@ -2,6 +2,7 @@ export type MetaRecord = Record<string, string | number | boolean | null>;
 
 export {
   fetchDoc,
+  fetchDocLatest,
   fetchDocPreviews,
   fetchDocPreviewsBatched,
   fetchDocs,

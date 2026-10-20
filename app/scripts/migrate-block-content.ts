@@ -33,7 +33,6 @@ let cursor: string | null = null;
 for (;;) {
   const batch = await runBlockMigrationBatch({
     dryRun: !apply,
-    limit: 200,
     cursor,
   });
   rows.push(...batch.rows);

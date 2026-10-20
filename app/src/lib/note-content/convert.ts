@@ -1,4 +1,5 @@
 import { getSchema } from "@tiptap/core";
+import sanitizeHtml from "sanitize-html";
 import { generateHTML, generateJSON } from "@tiptap/html";
 import type { Schema } from "@tiptap/pm/model";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
@@ -40,7 +41,21 @@ export function normalizeNoteDoc(input: unknown): NoteDoc {
 export function fromHtml(html: string): NoteDoc {
   const trimmed = html.trim();
   if (!trimmed) return assignBlockIds(emptyNoteDoc());
-  const json = generateJSON(trimmed, noteExtensions()) as NoteDoc;
+  // Empty imported links have no text node to carry their href in ProseMirror.
+  const htmlWithLinkLabels = trimmed.replace(/<a\b[^>]*>\s*<\/a>/gi, (anchor) =>
+    sanitizeHtml(anchor, {
+      allowedTags: ["a"],
+      allowedAttributes: { a: ["href", "title", "target", "rel"] },
+      transformTags: {
+        a: (tagName, attribs) => ({
+          tagName,
+          attribs,
+          text: attribs.href ?? "",
+        }),
+      },
+    }),
+  );
+  const json = generateJSON(htmlWithLinkLabels, noteExtensions()) as NoteDoc;
   return normalizeNoteDoc(json);
 }
 
@@ -74,4 +89,3 @@ export function contentFromLegacy(doc: {
 export function legacyColumns(doc: NoteDoc) {
   return { html: toHtml(doc), markdown: toMarkdown(doc) };
 }
-
