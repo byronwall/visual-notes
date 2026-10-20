@@ -92,6 +92,7 @@ const DocumentEditor: VoidComponent<{
   onTitleSynced?: (title: string) => void;
   minEditorHeight?: string;
   borderless?: boolean;
+  phoneToolbar?: "inline" | "keyboard";
 }> = (props) => {
   const [editor, setEditor] = createSignal<Editor | undefined>(undefined);
   const [saving, setSaving] = createSignal(false);
@@ -567,6 +568,7 @@ const DocumentEditor: VoidComponent<{
         showAiPromptsMenu={shouldShowAiPromptsBar()}
         minEditorHeight={props.minEditorHeight}
         borderless={props.borderless}
+        phoneToolbar={props.phoneToolbar}
       />
       <Show when={shouldShowNewDocPropertiesAfterEditor()}>
         <Stack gap="2" mt="3">

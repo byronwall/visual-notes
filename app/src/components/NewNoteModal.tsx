@@ -53,6 +53,7 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
       onClose={handleCancel}
       maxW="900px"
       closeOnInteractOutside={false}
+      phoneSheet
       skipPortal={props.skipPortal}
       footer={
         <HStack justifyContent="space-between" gap="2" w="full">

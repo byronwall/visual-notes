@@ -405,6 +405,7 @@ const DocumentViewer: VoidComponent<{
         showTopBar={false}
         borderless
         autosave
+        phoneToolbar={props.panelMode ? "inline" : "keyboard"}
         hideInlineError={!props.panelMode}
         syncTitleFromH1={titleLinked()}
         onTitleSynced={setTitle}

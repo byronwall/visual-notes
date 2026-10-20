@@ -10,6 +10,7 @@ import type { Component } from "solid-js";
 import { createEditor } from "./editor/core/createEditor";
 import { documentContentClass } from "./document-content-styles";
 import { ToolbarContents } from "./editor/toolbar/ToolbarContents";
+import { PhoneKeyboardToolbar } from "./editor/toolbar/PhoneKeyboardToolbar";
 import { useCsvPrompt } from "./editor/ui/CsvPrompt";
 import { useMarkdownPrompt } from "./editor/ui/MarkdownPrompt";
 import { setMarkdownPrompt } from "./editor/core/promptRegistry";
@@ -34,6 +35,11 @@ type TiptapEditorProps = {
   fillHeight?: boolean;
   minEditorHeight?: string;
   borderless?: boolean;
+  /**
+   * Below the md breakpoint, "keyboard" hides the inline toolbar and shows
+   * it docked above the on-screen keyboard only while editing.
+   */
+  phoneToolbar?: "inline" | "keyboard";
 };
 
 const TiptapEditor: Component<TiptapEditorProps> = (props) => {
@@ -115,6 +121,11 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
         {/* Sentinel: once it scrolls out of view the toolbar is stuck. */}
         <Box ref={setSentinel} h="0" mb="-2" aria-hidden="true" />
         <Box
+          display={
+            props.phoneToolbar === "keyboard"
+              ? { base: "none", md: "block" }
+              : undefined
+          }
           flexShrink="0"
           position="sticky"
           top="0"
@@ -164,6 +175,16 @@ const TiptapEditor: Component<TiptapEditorProps> = (props) => {
           ref={setContainer}
         />
       </Box>
+
+      <Show when={props.phoneToolbar === "keyboard" && stableEditor()}>
+        {(ed) => (
+          <PhoneKeyboardToolbar
+            editor={ed()}
+            noteId={props.noteId}
+            showAiPromptsMenu={props.showAiPromptsMenu}
+          />
+        )}
+      </Show>
 
       {csvPromptView}
       {mdPromptView}
