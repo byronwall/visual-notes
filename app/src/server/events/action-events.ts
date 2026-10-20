@@ -1,6 +1,6 @@
 import { type Prisma } from "@prisma/client";
 import { getRequestEvent } from "solid-js/web";
-import { prisma } from "~/server/db";
+import { prisma, type DbTransactionClient } from "~/server/db";
 import { isRequestAuthenticated } from "~/server/magic-auth";
 import { getMagicUserIdFromRequest } from "~/services/ai/ai-auth";
 
@@ -33,11 +33,13 @@ type ResolvedContext = {
 
 function startOfUtcDay(input: Date): Date {
   return new Date(
-    Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate())
+    Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()),
   );
 }
 
-function getDocMetricFromEventType(eventType: string): DocMetricKind | undefined {
+function getDocMetricFromEventType(
+  eventType: string,
+): DocMetricKind | undefined {
   if (eventType === "doc.view") return "view";
   if (eventType === "doc.update") return "edit";
   if (eventType === "search.result.opened") return "search_click";
@@ -46,7 +48,7 @@ function getDocMetricFromEventType(eventType: string): DocMetricKind | undefined
 
 function activityClassForWindow(
   views30d: number,
-  edits30d: number
+  edits30d: number,
 ): "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD" {
   if (views30d <= 0 && edits30d <= 0) return "COLD";
   if (edits30d >= 2 * Math.max(views30d, 1)) return "EDIT_HEAVY";
@@ -96,9 +98,9 @@ function resolveContext(context?: EventContext): ResolvedContext {
 }
 
 async function recomputeSnapshot(
-  tx: Prisma.TransactionClient,
+  tx: DbTransactionClient,
   docId: string,
-  now: Date
+  now: Date,
 ) {
   const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const dailyRows = await tx.docActivityDaily.findMany({
@@ -117,7 +119,7 @@ async function recomputeSnapshot(
   const edits30d = dailyRows.reduce((acc, row) => acc + row.editCount, 0);
   const searchClicks30d = dailyRows.reduce(
     (acc, row) => acc + row.searchClickCount,
-    0
+    0,
   );
 
   const [lastViewed, lastEdited, lastSearchClick] = await Promise.all([
@@ -167,10 +169,13 @@ async function recomputeSnapshot(
   });
 }
 
-export async function logActionEvent(input: LogActionEventInput): Promise<void> {
+export async function logActionEvent(
+  input: LogActionEventInput,
+): Promise<void> {
   const now = new Date();
   const context = resolveContext(input.context);
-  const docMetric = input.docMetric ?? getDocMetricFromEventType(input.eventType);
+  const docMetric =
+    input.docMetric ?? getDocMetricFromEventType(input.eventType);
   const shouldTrackDocMetrics = Boolean(input.relatedDocId && docMetric);
 
   try {
@@ -226,7 +231,10 @@ export async function logActionEvent(input: LogActionEventInput): Promise<void> 
   }
 }
 
-export function lengthDeltaBucket(beforeLength: number, afterLength: number): string {
+export function lengthDeltaBucket(
+  beforeLength: number,
+  afterLength: number,
+): string {
   const delta = afterLength - beforeLength;
   if (delta <= -500) return "down_500_plus";
   if (delta < -100) return "down_100_499";
@@ -237,7 +245,10 @@ export function lengthDeltaBucket(beforeLength: number, afterLength: number): st
   return "up_500_plus";
 }
 
-export async function logDocView(docId: string, payload?: Prisma.InputJsonValue) {
+export async function logDocView(
+  docId: string,
+  payload?: Prisma.InputJsonValue,
+) {
   await logActionEvent({
     eventType: "doc.view",
     entityType: "doc",
@@ -251,7 +262,7 @@ export async function logDocView(docId: string, payload?: Prisma.InputJsonValue)
 export async function logDocUpdate(
   docId: string,
   fieldsChanged: string[],
-  payload?: Prisma.InputJsonValue
+  payload?: Prisma.InputJsonValue,
 ) {
   await logActionEvent({
     eventType: "doc.update",

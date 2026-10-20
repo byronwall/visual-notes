@@ -1,12 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { serverEnv } from "~/env/server";
+import { noteChangeExtension } from "./note-change-extension";
 
 declare global {
   // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma =
+const baseClient =
   global.prisma ||
   new PrismaClient({
     log:
@@ -16,5 +17,14 @@ export const prisma =
   });
 
 if (serverEnv.NODE_ENV !== "production") {
-  global.prisma = prisma;
+  global.prisma = baseClient;
 }
+
+// Every Doc write publishes a notes:changed signal so open tabs refresh.
+export const prisma = baseClient.$extends(noteChangeExtension);
+
+/** The `tx` client handed to interactive `prisma.$transaction` callbacks. */
+export type DbTransactionClient = Omit<
+  typeof prisma,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
+>;
