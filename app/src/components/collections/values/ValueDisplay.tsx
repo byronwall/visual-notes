@@ -1,4 +1,4 @@
-import { ArrowUpRightIcon } from "lucide-solid";
+import { ArrowUpRightIcon, MailIcon, PhoneIcon } from "lucide-solid";
 import { For, Match, Show, Switch } from "solid-js";
 import { css } from "styled-system/css";
 import type {
@@ -179,10 +179,23 @@ export const ValueDisplay = (props: {
                   props.property.config.format === "url" ? "_blank" : undefined
                 }
                 rel="noreferrer"
-                aria-label={`Open ${linkLabel()}`}
+                aria-label={
+                  props.property.config.format === "email"
+                    ? `Email ${linkLabel()}`
+                    : props.property.config.format === "phone"
+                      ? `Call ${linkLabel()}`
+                      : `Open ${linkLabel()}`
+                }
                 onClick={(e) => e.stopPropagation()}
               >
-                <ArrowUpRightIcon size={13} />
+                <Switch fallback={<ArrowUpRightIcon size={13} />}>
+                  <Match when={props.property.config.format === "email"}>
+                    <MailIcon size={13} />
+                  </Match>
+                  <Match when={props.property.config.format === "phone"}>
+                    <PhoneIcon size={13} />
+                  </Match>
+                </Switch>
               </a>
             </Show>
           )}

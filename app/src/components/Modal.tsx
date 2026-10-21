@@ -40,7 +40,7 @@ export default function Modal(props: {
         <Box
           position="fixed"
           inset="0"
-          zIndex="50"
+          zIndex="modal"
           overflow="hidden"
           overscrollBehavior="contain"
           role="dialog"

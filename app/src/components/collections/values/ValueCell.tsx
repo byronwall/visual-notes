@@ -54,7 +54,17 @@ const fieldVariant = css({
   _focusVisible: { bg: "bg.default", borderColor: "border.accent" },
   "&[data-open]": { bg: "bg.default", borderColor: "border" },
   "&[data-editing]": { w: "full", maxW: "28rem" },
+  // Narrow lists (phones, the peek panel): fields fill the value column.
+  "@container (max-width: 30rem)": { w: "full", minW: "0" },
   "&:focus-visible [data-chevron]": { opacity: "1" },
+});
+// Spans the field's padding so pickers line up with its outer edge.
+const fieldAnchor = css({
+  alignSelf: "stretch",
+  mx: "-2",
+  px: "2",
+  w: "calc(100% + token(spacing.4))",
+  gap: "1.5",
 });
 const chevron = css({
   ml: "auto",
@@ -294,13 +304,16 @@ export const ValueCell = (props: {
           placement="bottom-start"
           offset={4}
           class={fitContent}
-          anchorClass={css({
-            minW: "0",
-            w: "full",
-            display: "flex",
-            alignItems: "center",
-            minH: "6",
-          })}
+          anchorClass={cx(
+            css({
+              minW: "0",
+              w: "full",
+              display: "flex",
+              alignItems: "center",
+              minH: "6",
+            }),
+            props.variant === "field" && fieldAnchor,
+          )}
           anchor={
             <>
               {display()}

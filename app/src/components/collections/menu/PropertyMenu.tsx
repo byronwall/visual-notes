@@ -88,7 +88,12 @@ export const PropertyMenu = (props: {
         anchor={props.anchor(() => setOpen(true))}
         anchorClass={css({ minW: "0", flex: "1", display: "flex", h: "full" })}
       >
-        <div class={`${menuPanel} ${scroll}`} style={{ width: "17rem" }}>
+        <div
+          class={`${menuPanel} ${scroll}`}
+          style={{
+            width: props.property.kind === "status" ? "19rem" : "17rem",
+          }}
+        >
           <Show
             when={!isTitle()}
             fallback={<div class={menuSection}>Name (the note title)</div>}
