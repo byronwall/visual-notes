@@ -13,7 +13,12 @@ const idTag = (node: NoteNode, ctx: Ctx) =>
   ctx.withIds && node.attrs?.id ? ` ^${node.attrs.id}` : "";
 
 function escapeText(text: string): string {
-  return text.replace(/([\\`*_[\]])/g, "\\$1");
+  // `#word` would read back as a tag (see note-markdown.ts).
+  return text
+    .replace(/([\\`*_[\]])/g, "\\$1")
+    .replace(/(^|[\s(])#(?=[A-Za-z])/g, "$1\\#")
+    // A paragraph that reads like an embed placeholder stays text.
+    .replace(/^\{\{collection-view:/, "\\{{collection-view:");
 }
 
 function applyMarks(text: string, marks: NoteNode["marks"]): string {
@@ -47,7 +52,11 @@ export function inlineToMarkdown(nodes: NoteNode[] | undefined): string {
         case "image":
           return `![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""})`;
         case "noteLink": {
-          const label = node.attrs?.label || "note";
+          // The label is display only (refreshed from the target on read), so
+          // drop the characters that would end the link and escape markup.
+          const label = String(node.attrs?.label || "note")
+            .replace(/[[\]|\n]/g, " ")
+            .replace(/([\\`*_~=])/g, "\\$1");
           const target = node.attrs?.blockId
             ? `${node.attrs?.docId}#${node.attrs.blockId}`
             : node.attrs?.docId;
@@ -153,6 +162,10 @@ function blockToMarkdown(node: NoteNode, ctx: Ctx, topLevel: boolean): string {
       return `![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""})${tag}`;
     case "table":
       return tableToMarkdown(node) + trailingIdLine;
+    case "collectionView":
+      return node.attrs?.viewId
+        ? `{{collection-view:${node.attrs.viewId}}}${tag}`
+        : "";
     case "taskRef": {
       const done = node.attrs?.status === "complete" || node.attrs?.status === "cancelled";
       return `- [${done ? "x" : " "}] ${inlineToMarkdown(node.content)}${tag}`;
