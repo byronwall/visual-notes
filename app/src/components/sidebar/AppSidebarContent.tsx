@@ -145,6 +145,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
 
       <AppSidebarActions
         expanded={props.expanded}
+        showShortcuts={!isMobile()}
         onChatOpen={() => {
           closeIfMobile();
           props.onChatOpen();

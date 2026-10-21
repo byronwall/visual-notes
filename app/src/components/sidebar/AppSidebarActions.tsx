@@ -12,6 +12,8 @@ import {
 
 type AppSidebarActionsProps = {
   expanded: boolean;
+  /** Keyboard hints are noise in the touch drawer. */
+  showShortcuts: boolean;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
   onSearchOpen: () => void;
@@ -22,6 +24,7 @@ type AppSidebarActionsProps = {
 /** Icon-only action with its label and shortcut in a tooltip. */
 const SidebarIconAction = (props: {
   expanded: boolean;
+  showShortcuts: boolean;
   label: string;
   shortcut: string;
   icon: SidebarNavIcon;
@@ -29,7 +32,7 @@ const SidebarIconAction = (props: {
   status?: JSX.Element;
 }) => (
   <Tooltip
-    content={`${props.label}  ${props.shortcut}`}
+    content={props.showShortcuts ? `${props.label}  ${props.shortcut}` : props.label}
     openDelay={150}
     closeDelay={0}
     positioning={{ placement: props.expanded ? "bottom" : "right", gutter: 8 }}
@@ -73,6 +76,7 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         fallback={
           <SidebarIconAction
             expanded={false}
+            showShortcuts={props.showShortcuts}
             label="Search"
             shortcut="⌘K"
             icon={SearchIcon}
@@ -92,13 +96,16 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
           <Box as="span" class={sidebarRowLabelClass}>
             Search
           </Box>
-          <Box as="kbd" class={sidebarShortcutClass}>
-            ⌘K
-          </Box>
+          <Show when={props.showShortcuts}>
+            <Box as="kbd" class={sidebarShortcutClass}>
+              ⌘K
+            </Box>
+          </Show>
         </button>
       </Show>
       <SidebarIconAction
         expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
         label="New note"
         shortcut="⌘D"
         icon={FilePlusIcon}
@@ -106,6 +113,7 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
       />
       <SidebarIconAction
         expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
         label="Chat"
         shortcut="⌘I"
         icon={BotMessageSquareIcon}

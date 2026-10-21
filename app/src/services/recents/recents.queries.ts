@@ -129,7 +129,7 @@ export const fetchRecentItems = query(
         items.push({
           kind: "tag",
           id: touch.id,
-          title: `#${touch.id}`,
+          title: touch.id,
           href: `/tags/${encodeURIComponent(touch.id)}`,
           at,
         });

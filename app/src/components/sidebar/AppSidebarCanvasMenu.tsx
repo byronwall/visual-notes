@@ -69,7 +69,9 @@ export const AppSidebarCanvasMenu = (props: {
                 <Box as="span" class={sidebarRowLabelClass}>
                   {CANVAS_DESTINATION.label}
                 </Box>
-                <ChevronRightIcon size={12} />
+                <Box as="span" display="inline-flex" color="fg.subtle">
+                  <ChevronRightIcon size={12} />
+                </Box>
               </Show>
             </a>
           )}

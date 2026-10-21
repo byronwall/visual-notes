@@ -29,7 +29,7 @@ test.describe("visual notes app", () => {
     await page.goto(`/tags/${tag}`);
     const recent = page.getByRole("region", { name: "Recent" });
     await expect(
-      recent.getByRole("link", { name: new RegExp(`#${tag}`) }),
+      recent.getByRole("link", { name: new RegExp(tag) }),
     ).toHaveAttribute("href", `/tags/${tag}`);
   });
 });

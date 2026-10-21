@@ -1,5 +1,5 @@
-export function formatRelativeTime(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
+export function formatRelativeTime(iso: string, now = Date.now()): string {
+  const ms = now - new Date(iso).getTime();
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec}s ago`;
   const min = Math.floor(sec / 60);
