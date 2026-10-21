@@ -4,7 +4,7 @@ import { generateHTML, generateJSON } from "@tiptap/html";
 import type { Schema } from "@tiptap/pm/model";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
 import { assignBlockIds } from "./ids";
-import { stripIdTags, toMarkdown, toPlainText } from "./markdown";
+import { stripIdTags, toMarkdown } from "./markdown";
 import { buildNoteExtensions } from "./schema";
 import { emptyNoteDoc, isNoteDoc, type NoteDoc } from "./types";
 

@@ -125,6 +125,19 @@ describe("MCP connector boundary", () => {
   });
 });
 
+describe("calendar feed boundary", () => {
+  it("lets /cal/<token>.ics through so the route can check its token", () => {
+    expect(isAllowedUnauthed(serverRequest("/cal/abc123.ics"))).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/cal/abc123"))).toBe(true);
+  });
+
+  it("keeps the feed manager and other event pages behind login", () => {
+    expect(isAllowedUnauthed(serverRequest("/cal"))).toBe(false);
+    expect(isAllowedUnauthed(serverRequest("/events/feeds"))).toBe(false);
+    expect(isAllowedUnauthed(serverRequest("/calendar/x"))).toBe(false);
+  });
+});
+
 describe("OAuth endpoints", () => {
   it("leaves metadata, registration, and token public but keeps consent behind login", () => {
     expect(
