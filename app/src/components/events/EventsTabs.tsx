@@ -12,8 +12,10 @@ export const EVENTS_TABS = [
 ] as const;
 
 const tabClass = css({
-  px: "3",
+  px: { base: "2", md: "3" },
   py: "1.5",
+  flexShrink: 0,
+  whiteSpace: "nowrap",
   borderRadius: "l2",
   fontSize: "sm",
   fontWeight: "medium",
@@ -32,7 +34,14 @@ export function EventsTabs(props: { actions?: JSX.Element }) {
       : location.pathname.startsWith(href);
   return (
     <HStack justify="space-between" gap="3" flexWrap="wrap" mb="4">
-      <HStack as="nav" gap="1" aria-label="Events sections" flexWrap="wrap">
+      <HStack
+        as="nav"
+        gap="0.5"
+        aria-label="Events sections"
+        minW="0"
+        maxW="full"
+        overflowX="auto"
+      >
         <For each={EVENTS_TABS}>
           {(tab) => (
             <A
