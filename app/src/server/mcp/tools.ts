@@ -11,6 +11,11 @@ import {
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
 import {
+  EVENT_INSTRUCTIONS,
+  EVENT_TOOL_SCOPES,
+  registerEventTools,
+} from "./event-tools";
+import {
   registerResearchTools,
   RESEARCH_INSTRUCTIONS,
   RESEARCH_TOOL_SCOPES,
@@ -63,6 +68,7 @@ const SERVER_INSTRUCTIONS = [
   TIME_BLOCK_INSTRUCTIONS,
   ARCHIVE_INSTRUCTIONS,
   ACTIVITY_INSTRUCTIONS,
+  EVENT_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -114,6 +120,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   ...TIME_BLOCK_TOOL_SCOPES,
   ...ARCHIVE_TOOL_SCOPES,
   ...ACTIVITY_TOOL_SCOPES,
+  ...EVENT_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -348,6 +355,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerTimeBlockTools(server, ctx, guarded);
   registerArchiveTools(server, ctx, guarded);
   registerActivityTools(server, ctx, guarded);
+  registerEventTools(server, ctx, guarded);
 
   return server;
 }
