@@ -93,7 +93,7 @@ const appendId = process.env.NOTE_APPEND_ID;
 const result = (await client.callTool(
   appendId
     ? {
-        name: "append_to_note",
+        name: "notes_append",
         arguments: {
           id: appendId,
           markdown:
@@ -102,7 +102,7 @@ const result = (await client.callTool(
         },
       }
     : {
-        name: "create_note",
+        name: "notes_create",
         arguments: {
           title: process.env.NOTE_TITLE ?? "Live smoke note",
           path: `note-live-smoke.${Date.now()}`,
@@ -113,7 +113,7 @@ const result = (await client.callTool(
 const id = appendId ?? result.structuredContent?.id;
 check(
   !result.isError && id,
-  `MCP ${appendId ? "append_to_note" : "create_note"} succeeds`,
+  `MCP ${appendId ? "notes_append" : "notes_create"} succeeds`,
 );
 
 const deadline = Date.now() + 3000;

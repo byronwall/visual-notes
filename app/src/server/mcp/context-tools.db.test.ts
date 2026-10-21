@@ -74,11 +74,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     const result = await client.callTool({ name, arguments: args });
     const text = (result.content as { text: string }[])[0].text;
     const parsed = result.isError ? null : JSON.parse(text);
-    return {
-      error: Boolean(result.isError),
-      text,
-      json: parsed?.results ?? parsed,
-    };
+    return { error: Boolean(result.isError), text, json: parsed };
   };
   const userNote = async (title: string) => {
     const doc = await prisma().doc.create({
@@ -107,7 +103,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     await prisma().$disconnect();
   });
 
-  it("shows backlinks, tags, and open note tasks", async () => {
+  it("shows backlinks, tags, and open task lines in notes", async () => {
     const client = await connect();
     const target = await createNote(ctx, {
       title: `Target ${suffix}`,
@@ -120,27 +116,33 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     });
     docIds.push(source.id);
 
-    const backlinks = await call(client, "get_backlinks", { id: target.id });
-    expect(backlinks.json).toEqual([
+    const backlinks = await call(client, "notes_get_backlinks", {
+      id: target.id,
+    });
+    expect(backlinks.json.backlinks).toEqual([
       expect.objectContaining({
-        docId: source.id,
-        url: `https://notes.test/docs/${source.id}`,
+        noteId: source.id,
+        appUrl: `https://notes.test/docs/${source.id}`,
       }),
     ]);
-    expect(backlinks.json[0].blocks[0].text).toContain("See Target");
+    expect(backlinks.json.backlinks[0].blocks[0].text).toContain("See Target");
 
-    const tagged = await call(client, "list_tags", { tag: `#ctx${suffix}` });
-    expect(tagged.json.map((g: Json) => g.docId)).toEqual([source.id]);
-    const tags = await call(client, "list_tags", {});
-    expect(tags.json).toContainEqual({
+    const tagged = await call(client, "notes_list_tags", {
+      tag: `#ctx${suffix}`,
+    });
+    expect(tagged.json.notes.map((g: Json) => g.noteId)).toEqual([source.id]);
+    expect(tagged.json.notes[0].blocks[0]).not.toHaveProperty("docId");
+    const tags = await call(client, "notes_list_tags", {});
+    expect(tags.json.tags).toContainEqual({
       tag: `ctx${suffix}`,
       blocks: 1,
       notes: 1,
     });
 
-    const tasks = await call(client, "list_note_tasks", {});
-    const group = tasks.json.find((g: Json) => g.docId === source.id);
-    expect(group.items).toEqual([
+    const tasks = await call(client, "tasks_query", { inNotes: true });
+    expect(
+      tasks.json.tasks.filter((t: Json) => t.note?.id === source.id),
+    ).toEqual([
       expect.objectContaining({
         description: `Follow up ${suffix}`,
         status: "waiting",
@@ -161,22 +163,24 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       markdown: "Second draft.",
     });
 
-    const versions = await call(client, "list_revisions", { id: note.id });
+    const versions = await call(client, "notes_list_revisions", {
+      id: note.id,
+    });
     expect(versions.json).toMatchObject({
       editable: true,
       revisions: [{ reason: "chatgpt.update", title: `Versioned ${suffix}` }],
     });
-    const restored = await call(client, "restore_revision", {
+    const restored = await call(client, "notes_restore_revision", {
       id: note.id,
       revisionId: versions.json.revisions[0].id,
     });
     expect(restored.json).toMatchObject({ title: `Versioned ${suffix}` });
-    const [got] = (await call(client, "get_notes", { ids: [note.id] })).json
+    const [got] = (await call(client, "notes_get", { ids: [note.id] })).json
       .notes;
     expect(got.markdown).toContain("First draft.");
     expect(
-      (await call(client, "list_revisions", { id: note.id })).json.revisions[0]
-        .reason,
+      (await call(client, "notes_list_revisions", { id: note.id })).json
+        .revisions[0].reason,
     ).toBe("restore");
 
     const mine = await userNote(`Mine ${suffix}`);
@@ -190,43 +194,45 @@ describe.skipIf(!enabled)("context tools (database)", () => {
         reason: "restore",
       },
     });
-    const userRevision = (await call(client, "list_revisions", { id: mine }))
-      .json.revisions[0];
-    const refused = await call(client, "restore_revision", {
+    const userRevision = (
+      await call(client, "notes_list_revisions", { id: mine })
+    ).json.revisions[0];
+    const refused = await call(client, "notes_restore_revision", {
       id: mine,
       revisionId: userRevision.id,
     });
     expect(refused).toMatchObject({ error: true });
     expect(refused.text).toContain("not_owner");
-    const crossed = await call(client, "restore_revision", {
+    const crossed = await call(client, "notes_restore_revision", {
       id: note.id,
       revisionId: userRevision.id,
     });
     expect(crossed.text).toContain("not_found");
 
-    const meta = await call(client, "set_note_meta", {
+    const meta = await call(client, "notes_set_meta", {
       ids: [mine],
       set: { status: "draft", score: 3 },
     });
-    expect(meta.json).toEqual([
+    expect(meta.json.notes).toEqual([
       {
         id: mine,
         title: `Mine ${suffix}`,
         meta: { status: "draft", score: 3 },
+        appUrl: `https://notes.test/docs/${mine}`,
       },
     ]);
-    await call(client, "set_note_meta", { ids: [mine], remove: ["score"] });
-    const [read] = (await call(client, "get_notes", { ids: [mine] })).json
+    await call(client, "notes_set_meta", { ids: [mine], remove: ["score"] });
+    const [read] = (await call(client, "notes_get", { ids: [mine] })).json
       .notes;
     expect(read.meta).toEqual({ status: "draft" });
     const key = `stage${suffix}`;
-    await call(client, "set_note_meta", { ids: [mine], set: { [key]: 2 } });
-    const keys = await call(client, "list_meta_keys", {});
+    await call(client, "notes_set_meta", { ids: [mine], set: { [key]: 2 } });
+    const keys = await call(client, "notes_list_meta_keys", {});
     expect(keys.json.keys).toContainEqual({ key, count: 1 });
-    const values = await call(client, "list_meta_keys", { key });
+    const values = await call(client, "notes_list_meta_keys", { key });
     expect(values.json).toEqual({ key, values: [{ value: "2", count: 1 }] });
     expect(
-      (await call(client, "set_note_meta", { ids: ["nope"], set: { a: 1 } }))
+      (await call(client, "notes_set_meta", { ids: ["nope"], set: { a: 1 } }))
         .text,
     ).toContain("not_found");
   });
@@ -261,7 +267,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
         },
       ],
     });
-    expect(moved.json[0]).toMatchObject({
+    expect(moved.json.blocks[0]).toMatchObject({
       start: "2031-03-04T13:00:00.000Z",
       end: "2031-03-04T14:30:00.000Z",
       note: null,
@@ -297,7 +303,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     });
     expect(again.json).toMatchObject({ id: day.json.id, value: "8h" });
 
-    const listed = await call(client, "time_blocks_list", {
+    const listed = await call(client, "time_blocks_query", {
       from: "2031-03-03",
       to: "2031-03-05",
     });
@@ -336,10 +342,10 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     });
     pageIds.push(page.id);
 
-    const found = await call(client, "archive_search", {
+    const found = await call(client, "archive_query", {
       query: `quote ${suffix}`,
     });
-    expect(found.json).toEqual([
+    expect(found.json.pages).toEqual([
       expect.objectContaining({
         id: page.id,
         notesCount: 1,
@@ -400,7 +406,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     pageIds.push(page.id);
 
     const plain = await call(client, "search", { query: word });
-    expect(plain.json).toEqual([]);
+    expect(plain.json).toEqual({ notes: [] });
     const grouped = await call(client, "search", {
       query: word,
       include: ["research", "tasks", "archive"],
@@ -409,7 +415,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     expect(grouped.json.research).toEqual([
       expect.objectContaining({
         title: `About ${word}`,
-        url: `https://notes.test/research/topic-${suffix}`,
+        appUrl: `https://notes.test/research/topic-${suffix}`,
       }),
     ]);
     expect(grouped.json.tasks).toEqual([
@@ -434,11 +440,11 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       select: { id: true },
     });
     eventIds.push(event.id);
-    const recent = await call(client, "activity_recent", {
+    const recent = await call(client, "activity_query", {
       domain: "time_block",
       limit: 50,
     });
-    expect(recent.json).toContainEqual(
+    expect(recent.json.events).toContainEqual(
       expect.objectContaining({
         type: "time_block.created",
         summary: `Planned “Gym ${suffix}” 2031-03-04`,
@@ -446,7 +452,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       }),
     );
     expect(
-      recent.json.every((e: Json) => e.type.startsWith("time_block")),
+      recent.json.events.every((e: Json) => e.type.startsWith("time_block")),
     ).toBe(true);
     const note = await userNote(`Watched ${suffix}`);
     const noteEvent = await prisma().actionEvent.create({
@@ -461,12 +467,12 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       select: { id: true },
     });
     eventIds.push(noteEvent.id);
-    const history = await call(client, "activity_recent", { noteId: note });
-    expect(history.json).toEqual([
+    const history = await call(client, "activity_query", { noteId: note });
+    expect(history.json.events).toEqual([
       expect.objectContaining({ type: "doc.update", noteId: note }),
     ]);
     expect(
-      (await call(client, "activity_recent", { since: "not a date" })).text,
+      (await call(client, "activity_query", { since: "not a date" })).text,
     ).toContain("invalid");
   });
 });

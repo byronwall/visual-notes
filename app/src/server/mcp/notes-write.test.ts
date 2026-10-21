@@ -13,7 +13,11 @@ const db = vi.hoisted(() => ({
   docRevision: { create: vi.fn(), count: vi.fn() },
   docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
   docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
-  taskItem: { findMany: vi.fn(async () => []), update: vi.fn(), updateMany: vi.fn() },
+  taskItem: {
+    findMany: vi.fn(async () => []),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
   logActionEvent: vi.fn(),
 }));
@@ -27,7 +31,7 @@ vi.mock("~/server/events/action-events", () => ({
 }));
 
 import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
-import { ConnectorError } from "./notes-shared";
+import { ConnectorError } from "./shared";
 
 const ctx = {
   origin: "https://notes.test",
@@ -98,7 +102,7 @@ describe("createNote", () => {
       id: "n2",
       pathIsNew: true,
       deduplicated: false,
-      url: "https://notes.test/docs/n2",
+      appUrl: "https://notes.test/docs/n2",
     });
     expect(db.logActionEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -192,8 +196,16 @@ describe("editNote", () => {
     content: {
       type: "doc",
       content: [
-        { type: "paragraph", attrs: { id: "keep0001" }, content: [{ type: "text", text: "keep me" }] },
-        { type: "paragraph", attrs: { id: "edit0001" }, content: [{ type: "text", text: "old" }] },
+        {
+          type: "paragraph",
+          attrs: { id: "keep0001" },
+          content: [{ type: "text", text: "keep me" }],
+        },
+        {
+          type: "paragraph",
+          attrs: { id: "edit0001" },
+          content: [{ type: "text", text: "old" }],
+        },
       ],
     },
   };
@@ -208,8 +220,12 @@ describe("editNote", () => {
     const blocks = db.doc.update.mock.calls[0][0].data.content.content;
     expect(blocks[0]).toEqual(blockNote.content.content[0]);
     expect(blocks[1].attrs.id).toBe("edit0001");
-    expect(blocks[1].content.map((n: { text: string }) => n.text).join("")).toBe("new text");
-    expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe("chatgpt.edit");
+    expect(
+      blocks[1].content.map((n: { text: string }) => n.text).join(""),
+    ).toBe("new text");
+    expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
+      "chatgpt.edit",
+    );
   });
 
   it("reports unknown block ids with the valid ones", async () => {

@@ -1,18 +1,13 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { describeActivityEvent } from "~/components/activity/activity-format";
 import { listTimelineEvents } from "~/server/activity/activity-store";
-import { ConnectorError, type ConnectorContext } from "./notes-shared";
+import { appLink, limitArg, noteIdArg, parseSince } from "./shared";
+import type { ToolRegistrar } from "./tool-registry";
 
 // The Activity page's timeline, read-only: what changed recently, by whom.
 
-export const ACTIVITY_TOOL_SCOPES: Record<string, string> = {
-  activity_recent: "notes:read",
-};
-
 export const ACTIVITY_INSTRUCTIONS =
-  "activity_recent answers 'what changed lately' across the app or for one note, including who did it (via is set for agents).";
+  "activity_query answers 'what changed lately' across the app or for one note, including who did it (via is set for agents).";
 
 const DOMAINS = [
   "doc",
@@ -20,58 +15,43 @@ const DOMAINS = [
   "research",
   "collection",
   "time_block",
+  "event",
   "archive",
   "search",
   "ai",
   "admin",
 ] as const;
 
-type Guarded = (
-  ctx: ConnectorContext,
-  tool: string,
-  fn: () => Promise<unknown>,
-) => Promise<CallToolResult>;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function registerActivityTools(
-  server: McpServer,
-  ctx: ConnectorContext,
-  guarded: Guarded,
-): void {
-  server.registerTool(
-    "activity_recent",
+export function registerActivityTools(tools: ToolRegistrar): void {
+  const { ctx } = tools;
+
+  tools.read(
+    "activity_query",
     {
-      title: "Recent activity",
+      title: "Query activity",
       description:
-        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = calendar) or by noteId for one note's history.",
-      inputSchema: {
+        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = time blocks, event = events and places) or by noteId for one note's history.",
+      input: {
         since: z.string().optional().describe("ISO date or date-time"),
         domain: z.enum(DOMAINS).optional(),
-        noteId: z
-          .string()
+        noteId: noteIdArg
           .optional()
           .describe("Only events about this note (pair with an early since)"),
-        limit: z.number().int().min(1).max(200).optional(),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        openWorldHint: false,
+        limit: limitArg(200, 50),
       },
     },
-    ({ since, domain, noteId, limit }) =>
-      guarded(ctx, "activity_recent", async () => {
-        const from = since
-          ? new Date(since)
-          : new Date(Date.now() - 24 * 60 * 60 * 1000);
-        if (Number.isNaN(from.getTime()))
-          throw new ConnectorError("invalid", `since is not a date: ${since}`);
-        const events = await listTimelineEvents({
-          from: from.toISOString(),
-          eventDomain: domain,
-          relatedDocId: noteId,
-          take: limit ?? 50,
-        });
-        return events.map((event) => {
+    async ({ since, domain, noteId, limit }) => {
+      const from = parseSince(since, "since") ?? new Date(Date.now() - DAY_MS);
+      const events = await listTimelineEvents({
+        from: from.toISOString(),
+        eventDomain: domain,
+        relatedDocId: noteId,
+        take: limit ?? 50,
+      });
+      return {
+        events: events.map((event) => {
           const d = describeActivityEvent(event);
           const href = d.docHref ?? d.href;
           return {
@@ -83,9 +63,10 @@ export function registerActivityTools(
             via: d.via,
             noteId: event.relatedDocId,
             entityId: event.entityId,
-            url: href ? `${ctx.origin}${href}` : null,
+            appUrl: href ? appLink(ctx, href) : null,
           };
-        });
-      }),
+        }),
+      };
+    },
   );
 }

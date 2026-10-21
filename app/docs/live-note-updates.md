@@ -11,7 +11,7 @@ Open tabs refresh when a note is written somewhere else: an agent through [MCP](
 
 ## Other areas
 
-The same socket carries `app:changed` events for areas that are not notes: `research`, `tasks`, `collections`, `time-blocks`, and `archive`. Server code calls `publishAppChange(area, ids)` (`src/server/note-events.ts`) after a write, with the ids it touched (topic, task list, collection, …) (`null` for "everything"). The provider revalidates that area's query keys (`APP_LIVE_QUERY_KEYS` in `note-live-keys.ts`). A view that holds data in `createResource` instead calls `useAppChanges(area, reload, matches)`. A reconnect or a long-hidden tab catches up every area.
+The same socket carries `app:changed` events for areas that are not notes: `research`, `tasks`, `collections`, `time-blocks`, `archive`, and `events`. Server code calls `publishAppChange(area, ids)` (`src/server/note-events.ts`) after a write, with the ids it touched (topic, task list, collection, …) (`null` for "everything"). The provider revalidates that area's query keys (`APP_LIVE_QUERY_KEYS` in `note-live-keys.ts`). A view that holds data in `createResource` instead calls `useAppChanges(area, reload, matches)`. A reconnect or a long-hidden tab catches up every area.
 
 ## Adding a note view
 

@@ -24,12 +24,14 @@ import {
 import type { NoteNode } from "~/lib/note-content/types";
 import { appendBlocks, contentFromMarkdown } from "./note-content";
 import {
+  agentContext,
   CHATGPT_SOURCE,
   ConnectorError,
-  isChatGptNote,
-  noteUrl,
+  isAgentNote,
+  noteAppUrl,
+  nothingWritten,
   type ConnectorContext,
-} from "./notes-shared";
+} from "./shared";
 import { normalizeNotePath } from "./paths";
 import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 import { publishAppChange } from "~/server/note-events";
@@ -40,7 +42,7 @@ export type WriteResult = {
   id: string;
   title: string;
   path: string | null;
-  url: string;
+  appUrl: string;
   version: number;
 };
 
@@ -51,10 +53,6 @@ export type CreateResult = WriteResult & {
 
 function sha256(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
-}
-
-function eventContext(ctx: ConnectorContext) {
-  return { actorId: ctx.actorId, actorType: "chatgpt" as const };
 }
 
 async function countVersions(docId: string): Promise<number> {
@@ -85,7 +83,10 @@ async function assertReferencesExist(
   const viewIds = collectionViewIds(blocks).filter((id) => !had.has(id));
   const [docs, views] = await Promise.all([
     docIds.length
-      ? prisma.doc.findMany({ where: { id: { in: docIds } }, select: { id: true } })
+      ? prisma.doc.findMany({
+          where: { id: { in: docIds } },
+          select: { id: true },
+        })
       : [],
     viewIds.length
       ? prisma.collectionView.findMany({
@@ -105,10 +106,7 @@ async function assertReferencesExist(
       .map((id) => `{{collection-view:${id}}} is not a collection view`),
   ];
   if (problems.length) {
-    throw new ConnectorError(
-      "invalid",
-      `Nothing was written. Fix these and retry:\n${problems.map((p) => `- ${p}`).join("\n")}`,
-    );
+    throw new ConnectorError("invalid", nothingWritten(problems));
   }
 }
 
@@ -141,7 +139,7 @@ export async function createNote(
   if (existing) {
     return {
       ...existing,
-      url: noteUrl(ctx, existing.id),
+      appUrl: noteAppUrl(ctx, existing.id),
       version: await countVersions(existing.id),
       pathIsNew: false,
       deduplicated: true,
@@ -153,7 +151,10 @@ export async function createNote(
   await assertReferencesExist(parsed.content ?? []);
   const created = await prisma.$transaction(async (tx) => {
     // Task lines become Inbox tasks; the index rebuild points them at the note.
-    const content = await materializeTaskRefs(tx, { previous: null, next: parsed });
+    const content = await materializeTaskRefs(tx, {
+      previous: null,
+      next: parsed,
+    });
     const columns = contentColumns(content);
     const row = await tx.doc.create({
       data: {
@@ -176,13 +177,13 @@ export async function createNote(
     entityId: created.id,
     relatedDocId: created.id,
     payload: { source: CHATGPT_SOURCE, hasPath: Boolean(path), pathIsNew },
-    context: eventContext(ctx),
+    context: agentContext(ctx),
   });
   scheduleEmbeddingRefresh();
   if (hasTaskLines(input.markdown)) publishAppChange("tasks", null);
   return {
     ...created,
-    url: noteUrl(ctx, created.id),
+    appUrl: noteAppUrl(ctx, created.id),
     version: 1,
     pathIsNew,
     deduplicated: false,
@@ -205,7 +206,7 @@ async function loadOwnedNote(id: string) {
     select: ownedDocSelect,
   });
   if (!doc) throw new ConnectorError("not_found", `No note with id ${id}`);
-  if (!isChatGptNote(doc)) {
+  if (!isAgentNote(doc)) {
     throw new ConnectorError(
       "not_owner",
       "This note was written by the user, so it is read-only for agents. Create a new note that links to it instead.",
@@ -237,9 +238,16 @@ async function applyOwnedEdit(
     // Lock and re-read inside the transaction so edits apply to the latest
     // blocks, not a copy read before a concurrent save.
     const [locked] = await tx.$queryRaw<
-      { content: unknown; html: string; markdown: string; title: string; path: string | null }[]
+      {
+        content: unknown;
+        html: string;
+        markdown: string;
+        title: string;
+        path: string | null;
+      }[]
     >`SELECT "content", "html", "markdown", "title", "path" FROM "Doc" WHERE "id" = ${doc.id} FOR UPDATE`;
-    if (!locked) throw new ConnectorError("not_found", `No note with id ${doc.id}`);
+    if (!locked)
+      throw new ConnectorError("not_found", `No note with id ${doc.id}`);
     await tx.docRevision.create({
       data: {
         docId: doc.id,
@@ -289,13 +297,13 @@ async function applyOwnedEdit(
         (field) => changes[field as keyof typeof changes] !== undefined,
       ),
     },
-    context: eventContext(ctx),
+    context: agentContext(ctx),
   });
   scheduleEmbeddingRefresh();
   if (touchesTasks) publishAppChange("tasks", null);
   return {
     ...updated,
-    url: noteUrl(ctx, doc.id),
+    appUrl: noteAppUrl(ctx, doc.id),
     version: await countVersions(doc.id),
   };
 }
@@ -350,7 +358,7 @@ export type BlockEdit = {
 };
 
 /**
- * Applies block-addressed edits (ids from get_notes' `^id` tags) without
+ * Applies block-addressed edits (ids from notes_get's `^id` tags) without
  * touching any other block.
  */
 export async function editNote(
@@ -383,7 +391,7 @@ export async function editNote(
           const valid = listBlockIds(current).slice(0, 60).join(", ");
           throw new ConnectorError(
             "invalid",
-            `Unknown block id ${e.blockId}. Call get_notes again for current ids. Valid ids: ${valid}`,
+            `Unknown block id ${e.blockId}. Call notes_get again for current ids. Valid ids: ${valid}`,
           );
         }
         throw e;

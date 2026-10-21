@@ -6,6 +6,7 @@ export type ActivityDomain =
   | "task"
   | "collection"
   | "time_block"
+  | "event"
   | "archive"
   | "search"
   | "ai"
@@ -22,6 +23,7 @@ export const ACTIVITY_DOMAINS: {
   { value: "task", label: "Tasks" },
   { value: "collection", label: "Collections" },
   { value: "time_block", label: "Calendar" },
+  { value: "event", label: "Events" },
   { value: "archive", label: "Archive" },
   { value: "search", label: "Search" },
   { value: "ai", label: "AI" },
@@ -65,6 +67,7 @@ export const activityDomainOf = (eventType: string): ActivityDomain => {
   if (domain === "time_block" || domain === "time_block_day")
     return "time_block";
   if (domain === "archive") return "archive";
+  if (domain === "event") return "event";
   if (
     domain === "doc" ||
     domain === "research" ||
@@ -231,6 +234,35 @@ const describeArchive = (
   return archive;
 };
 
+const EVENT_VERBS: Record<string, string> = {
+  "event.created": "Added event",
+  "event.updated": "Updated event",
+  "event.shows_added": "Added shows to",
+  "event.show_updated": "Changed a show of",
+  "event.place_created": "Added place",
+  "event.place_updated": "Updated place",
+};
+
+const describeEvent = (
+  event: ActionEventItem,
+  base: ActivityDescription,
+): ActivityDescription => {
+  const payload = event.payload;
+  const isPlace = event.eventType.startsWith("event.place");
+  const shows = num(payload, "showCount");
+  return {
+    ...base,
+    verb: EVENT_VERBS[event.eventType] ?? base.verb,
+    docTitle: isPlace ? str(payload, "name") : base.docTitle,
+    docHref: isPlace ? "/events/places" : base.docHref,
+    detail: isPlace
+      ? str(payload, "city")
+      : shows
+        ? plural(shows, "show")
+        : str(payload, "decision"),
+  };
+};
+
 const describeResearch = (
   event: ActionEventItem,
   base: ActivityDescription,
@@ -310,6 +342,7 @@ export const describeActivityEvent = (
   if (domain === "collection") return describeCollection(event, base);
   if (domain === "time_block") return describeTimeBlock(event, base);
   if (domain === "archive") return describeArchive(event, base);
+  if (domain === "event") return describeEvent(event, base);
 
   switch (event.eventType) {
     case "doc.view":

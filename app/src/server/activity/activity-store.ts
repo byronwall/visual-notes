@@ -5,7 +5,7 @@ import type {
 } from "~/services/activity/activity.types";
 
 // The activity timeline read, shared by the Activity page and the MCP
-// connector's activity_recent tool.
+// connector's activity_query tool.
 
 function parseIsoDate(input?: string): Date | undefined {
   if (!input) return undefined;

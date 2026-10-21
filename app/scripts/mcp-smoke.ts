@@ -4,12 +4,12 @@
 //   node --experimental-strip-types scripts/mcp-smoke.ts \
 //     [--human-note <id>] [--archive-page <id>]
 //
-// Checks the tool list, then runs the note tools in depth (create, update,
-// append, block edit, search) and one read and one write for every other
-// family. Everything it makes is named `mcp-smoke <run id>`. Deleting is
+// Checks the tool list and its naming, then runs the note tools in depth
+// (create, update, append, block edit, search) and one read and one write
+// for every other family. Everything it makes is named `mcp-smoke <run id>`. Deleting is
 // human-only, so it cancels its task, removes its row from its collection,
 // undoes its research card, and archives its topic; the notes, collection,
-// and time block stay as named fixtures. With --human-note it checks that a
+// time block, and event stay as named fixtures. With --human-note it checks that a
 // user-written note is refused; with --archive-page it adds a note to that
 // saved page. Run it only against a local or disposable database.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -64,12 +64,15 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 57;
+const EXPECTED_TOOL_COUNT = 63;
 const FAMILIES = [
+  "notes_",
   "research_",
   "tasks_",
   "collections_",
   "time_blocks_",
+  "events_",
+  "places_",
   "archive_",
   "activity_",
 ];
@@ -83,12 +86,18 @@ check(
   FAMILIES.every((prefix) => toolNames.some((n) => n.startsWith(prefix))),
   "every tool family is registered",
 );
+check(
+  toolNames.every(
+    (n) => n === "search" || FAMILIES.some((prefix) => n.startsWith(prefix)),
+  ),
+  "every tool but search is named <area>_<verb>",
+);
 
 const runId = `${Date.now()}`;
 const fixture = `mcp-smoke ${runId}`;
 const path = `mcp-smoke.run-${runId}`;
 const key = `smoke-${runId}`;
-const created = await call("create_note", {
+const created = await call("notes_create", {
   title: `MCP smoke plan ${runId}`,
   path,
   markdown: "# Plan\n\n- first step",
@@ -97,10 +106,10 @@ const created = await call("create_note", {
 const note = created.structuredContent;
 check(
   !created.isError && note?.pathIsNew === true,
-  "create_note at a new path reports pathIsNew",
+  "notes_create at a new path reports pathIsNew",
 );
 
-const retry = await call("create_note", {
+const retry = await call("notes_create", {
   title: "dup",
   path,
   markdown: "dup",
@@ -112,78 +121,81 @@ check(
   "retry with same key returns the first note",
 );
 
-const updated = await call("update_note", {
+const updated = await call("notes_update", {
   id: note.id,
   markdown: "# Plan\n\n- first step\n- second step",
 });
 check(
   updated.structuredContent?.version === 2,
-  "update_note snapshots the prior version",
+  "notes_update snapshots the prior version",
 );
 
-const appended = await call("append_to_note", {
+const appended = await call("notes_append", {
   id: note.id,
   markdown: "## Log\n\nAppended line",
 });
 check(
   appended.structuredContent?.version === 3,
-  "append_to_note snapshots again",
+  "notes_append snapshots again",
 );
 
-const fetched = await call("get_notes", { ids: [note.id] });
+const fetched = await call("notes_get", { ids: [note.id] });
 const markdown: string = fetched.structuredContent?.notes?.[0]?.markdown ?? "";
 check(
   markdown.includes("second step") && markdown.includes("Appended line"),
-  "get_notes returns the latest markdown",
+  "notes_get returns the latest markdown",
 );
 
 // Block edit: change one block by its ^id and leave every other line as-is.
 const tagged = markdown.split("\n");
 const target = tagged.find((line) => line.includes("Appended line"));
 const blockId = target?.match(/\^([A-Za-z0-9]+)\s*$/)?.[1];
-check(Boolean(blockId), "get_notes tags blocks with ^ids");
-const edited = await call("edit_note", {
+check(Boolean(blockId), "notes_get tags blocks with ^ids");
+const edited = await call("notes_edit_blocks", {
   id: note.id,
   edits: [{ op: "replace", blockId, markdown: "Edited by block id" }],
 });
-check(edited.structuredContent?.version === 4, "edit_note snapshots again");
-const refetched = await call("get_notes", { ids: [note.id] });
+check(
+  edited.structuredContent?.version === 4,
+  "notes_edit_blocks snapshots again",
+);
+const refetched = await call("notes_get", { ids: [note.id] });
 const after: string[] = (
   refetched.structuredContent?.notes?.[0]?.markdown ?? ""
 ).split("\n");
 check(
   after.some((line) => line.startsWith("Edited by block id ^" + blockId)),
-  "edit_note replaced the block and kept its id",
+  "notes_edit_blocks replaced the block and kept its id",
 );
 check(
-  tagged.filter((line) => line !== target).every((line) => after.includes(line)),
-  "edit_note left every other block byte-identical",
+  tagged
+    .filter((line) => line !== target)
+    .every((line) => after.includes(line)),
+  "notes_edit_blocks left every other block byte-identical",
 );
 
 const found = await call("search", { query: "MCP smoke plan" });
 check(
-  found.structuredContent?.results?.some(
-    (r: { id: string }) => r.id === note.id,
-  ),
+  found.structuredContent?.notes?.some((r: { id: string }) => r.id === note.id),
   "search finds the new note",
 );
 
-const recent = await call("list_recent", { createdBy: "chatgpt", limit: 5 });
+const recent = await call("notes_query", { createdBy: "agent", limit: 5 });
 check(
-  recent.structuredContent?.results?.[0]?.id === note.id,
-  "list_recent shows it first",
+  recent.structuredContent?.notes?.[0]?.id === note.id,
+  "notes_query shows it first",
 );
 
-const paths = await call("list_paths", { prefix: "mcp-smoke" });
+const paths = await call("notes_list_paths", { prefix: "mcp-smoke" });
 check(
-  paths.structuredContent?.results?.some(
+  paths.structuredContent?.paths?.some(
     (p: { path: string }) => p.path === path,
   ),
-  "list_paths includes the new path",
+  "notes_list_paths includes the new path",
 );
 
 if (humanNoteId) {
-  const refused = await call("update_note", {
+  const refused = await call("notes_update", {
     id: humanNoteId,
     title: "hijacked",
   });
@@ -195,33 +207,32 @@ if (humanNoteId) {
 
 // Note context: meta on the smoke note, then read it back by key.
 const metaKey = `smoke${runId}`;
-const meta = await call("set_note_meta", {
+const meta = await call("notes_set_meta", {
   ids: [note.id],
   set: { [metaKey]: "yes" },
 });
-check(!meta.isError, "set_note_meta writes a field");
-const keys = await call("list_meta_keys", { key: metaKey });
+check(!meta.isError, "notes_set_meta writes a field");
+const keys = await call("notes_list_meta_keys", { key: metaKey });
 check(
   keys.structuredContent?.values?.[0]?.value === "yes",
-  "list_meta_keys reads it back",
+  "notes_list_meta_keys reads it back",
 );
-const tags = await call("list_tags", {});
-check(!tags.isError, "list_tags reads");
+const tags = await call("notes_list_tags", {});
+check(!tags.isError, "notes_list_tags reads");
 
 // Research: a topic with one card, then undo the card and archive the topic.
 const topic = (await call("research_create_topic", { title: fixture }))
   .structuredContent;
 check(Boolean(topic?.id), "research_create_topic");
-const card = await call("research_add_card", {
+const card = await call("research_add_cards", {
   topic: topic.id,
-  type: "question",
-  title: `Does the ${fixture} card show up?`,
+  cards: [{ type: "question", title: `Does the ${fixture} card show up?` }],
   agent: "mcp-smoke",
 });
-const read = await call("research_read_topic", { topic: topic.id });
+const read = await call("research_get_topic", { topic: topic.id });
 check(
   String(read.structuredContent?.markdown ?? "").includes(fixture),
-  "research_read_topic shows the new card",
+  "research_get_topic shows the new card",
 );
 const undone = await call("research_undo_batch", {
   topic: topic.id,
@@ -236,11 +247,16 @@ check(!archived.isError, "research_update_topic archives the topic");
 
 // Tasks: create in the Inbox, find it, then cancel it.
 const task = (
-  await call("tasks_create", { description: `${fixture} task`, tags: ["smoke"] })
+  await call("tasks_create", {
+    description: `${fixture} task`,
+    tags: ["smoke"],
+  })
 ).structuredContent;
 const tasks = await call("tasks_query", { text: fixture });
 check(
-  tasks.structuredContent?.results?.some((t: { id: string }) => t.id === task?.id),
+  tasks.structuredContent?.tasks?.some(
+    (t: { id: string }) => t.id === task?.id,
+  ),
   "tasks_query finds the new task",
 );
 const cancelled = await call("tasks_update", {
@@ -288,7 +304,7 @@ const block = await call("time_blocks_create", {
   noteId: note.id,
 });
 check(!block.isError, "time_blocks_create");
-const blocks = await call("time_blocks_list", {
+const blocks = await call("time_blocks_query", {
   from: "2000-12-31",
   to: "2001-01-02",
   noteId: note.id,
@@ -297,8 +313,37 @@ check(
   blocks.structuredContent?.blocks?.some(
     (b: { id: string }) => b.id === block.structuredContent?.id,
   ),
-  "time_blocks_list finds it by note",
+  "time_blocks_query finds it by note",
 );
+
+// Events: one event on the smoke note's day nobody plans, found by query.
+const event = await call("events_create", {
+  title: `${fixture} event`,
+  path,
+  summary: "Smoke test event",
+  shows: [{ date: "2001-01-01", time: "19:00" }],
+  idempotencyKey: `${key}-event`,
+});
+check(!event.isError, "events_create");
+const shows = await call("events_query", {
+  from: "2001-01-01",
+  to: "2001-01-01",
+  search: fixture,
+});
+check(
+  shows.structuredContent?.shows?.some(
+    (s: { noteId: string }) => s.noteId === event.structuredContent?.noteId,
+  ),
+  "events_query finds its show",
+);
+const showId = event.structuredContent?.shows?.[0]?.showId;
+const cancelledShow = await call("events_update_show", {
+  showId,
+  status: "cancelled",
+});
+check(!cancelledShow.isError, "events_update_show cancels the show");
+const places = await call("places_list", { limit: 1 });
+check(!places.isError, "places_list reads");
 
 // Web archive: an unsaved url reads as not archived; a note only on request.
 const unsaved = await call("archive_get", {
@@ -320,13 +365,13 @@ if (archivePageId) {
 }
 
 // Activity: the smoke note's own history.
-const history = await call("activity_recent", { noteId: note.id });
+const history = await call("activity_query", { noteId: note.id });
 check(
-  history.structuredContent?.results?.some(
+  history.structuredContent?.events?.some(
     (e: { type: string }) => e.type === "doc.create",
   ),
-  "activity_recent shows the note's history",
+  "activity_query shows the note's history",
 );
 
-console.info(`[mcp-smoke] note ${note.url}`);
+console.info(`[mcp-smoke] note ${note.appUrl}`);
 await client.close();

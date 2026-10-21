@@ -86,6 +86,31 @@ const topic = {
 afterEach(() => vi.clearAllMocks());
 
 describe("research MCP tools", () => {
+  it("logs a links-only batch as a link", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.ingestTree.mockResolvedValue({
+      batchId: "b3",
+      batchKey: "l1",
+      replayed: false,
+      refs: {},
+      cardCount: 0,
+      linkCount: 1,
+      summaryCount: 0,
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "research_add_cards",
+      arguments: { topic: "learn-rust", links: [{ from: "c1", to: "c2" }] },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(service.logResearchEvent).toHaveBeenCalledWith(
+      "research.batch_added",
+      topic,
+      expect.objectContaining({ kind: "link" }),
+      expect.any(Object),
+    );
+  });
+
   it("are listed next to the notes tools", async () => {
     const client = await connect();
     const names = (await client.listTools()).tools.map((tool) => tool.name);
@@ -94,13 +119,10 @@ describe("research MCP tools", () => {
         "search",
         "research_list_topics",
         "research_create_topic",
-        "research_read_topic",
-        "research_list_frontier",
+        "research_get_topic",
         "research_get_card",
-        "research_ingest_tree",
-        "research_add_card",
-        "research_link_cards",
-        "research_set_state",
+        "research_add_cards",
+        "research_set_card_states",
         "research_list_batches",
         "research_update_topic",
         "research_update_cards",
@@ -124,8 +146,11 @@ describe("research MCP tools", () => {
     });
     const client = await connect();
     await client.callTool({
-      name: "research_add_card",
-      arguments: { topic: "learn-rust", type: "task", title: "Read" },
+      name: "research_add_cards",
+      arguments: {
+        topic: "learn-rust",
+        cards: [{ type: "task", title: "Read" }],
+      },
     });
     expect(service.logResearchEvent).toHaveBeenCalledWith(
       "research.batch_added",
@@ -211,7 +236,7 @@ describe("research MCP tools", () => {
     });
     const client = await connect();
     const result = await client.callTool({
-      name: "research_ingest_tree",
+      name: "research_add_cards",
       arguments: {
         topic: "learn-rust",
         under: "q1",
@@ -240,7 +265,7 @@ describe("research MCP tools", () => {
     });
     expect(JSON.parse(textOf(result))).toMatchObject({
       cardCount: 1,
-      url: "https://notes.test/research/learn-rust",
+      appUrl: "https://notes.test/research/learn-rust",
     });
   });
 
@@ -251,7 +276,7 @@ describe("research MCP tools", () => {
     );
     const client = await connect();
     const result = await client.callTool({
-      name: "research_ingest_tree",
+      name: "research_add_cards",
       arguments: { topic: "learn-rust", links: [{ from: "a", to: "ghost" }] },
     });
     expect(result.isError).toBe(true);
@@ -264,8 +289,8 @@ describe("research MCP tools", () => {
     service.resolveTopic.mockResolvedValue(null);
     const client = await connect();
     const result = await client.callTool({
-      name: "research_add_card",
-      arguments: { topic: "nope", type: "task", title: "x" },
+      name: "research_add_cards",
+      arguments: { topic: "nope", cards: [{ type: "task", title: "x" }] },
     });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("not_found");
@@ -335,11 +360,11 @@ describe("research MCP tools", () => {
     });
     const client = await connect();
     const result = await client.callTool({
-      name: "research_read_topic",
+      name: "research_get_topic",
       arguments: { topic: "learn-rust" },
     });
-    const { markdown, url } = JSON.parse(textOf(result));
-    expect(url).toBe("https://notes.test/research/learn-rust");
+    const { markdown, appUrl } = JSON.parse(textOf(result));
+    expect(appUrl).toBe("https://notes.test/research/learn-rust");
     expect(markdown).toContain(
       "[q2] question (open): When Unpin?  ← Why Pin? › Self refs",
     );

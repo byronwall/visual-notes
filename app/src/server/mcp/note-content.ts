@@ -13,7 +13,7 @@ export function noteToMarkdown(
   return toMarkdown(readNoteContent(doc), opts);
 }
 
-/** Reads the get_notes markdown dialect: task lines, [[links]], #tags, embeds. */
+/** Reads the notes_get markdown dialect: task lines, [[links]], #tags, embeds. */
 export function contentFromMarkdown(markdown: string): NoteDoc {
   return fromNoteMarkdown(markdown);
 }

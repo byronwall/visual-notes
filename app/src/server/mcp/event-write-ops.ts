@@ -1,6 +1,7 @@
-// Write-side handlers for the event MCP tools. Event, show, and place writes
-// go through the calendar stores; only create_event touches note content, and
-// it does so through the connector's createNote.
+// Write-side handlers for the event and place MCP tools. Event, show, and
+// place writes go through the calendar stores; only events_create touches note
+// content, and it does so through the connector's createNote. Every write is
+// logged as an `event.*` activity and refreshes open event views.
 import { prisma } from "~/server/db";
 import type {
   EventPatch,
@@ -9,15 +10,16 @@ import type {
   PlaceInput,
   RepeatOccurrencesInput,
 } from "~/lib/events/schemas";
-import { effectiveDecision, type EventDecision } from "~/lib/events/types";
+import type { EventDecision } from "~/lib/events/types";
 import {
   addOccurrences,
   addRepeatingOccurrences,
-  deleteOccurrence,
   getNoteEvent,
   updateOccurrence,
   upsertNoteEvent,
 } from "~/server/calendar/event-store";
+import { logActionEvent } from "~/server/events/action-events";
+import { publishAppChange } from "~/server/note-events";
 import { geocodePlace, type GeocodeResult } from "~/server/calendar/geocode";
 import {
   findOrCreatePlace,
@@ -25,32 +27,44 @@ import {
   updatePlace,
 } from "~/server/calendar/place-store";
 import type { Place } from "~/lib/events/types";
+import { attachNotes } from "~/services/collections/collections.server";
 import {
-  applyRowPatch,
-  attachNotes,
-} from "~/services/collections/collections.server";
+  checkRowValues,
+  resolveCollection,
+  setRowValues,
+} from "./collections-agent";
 import {
   findEventDuplicates,
   getEventDetails,
-  resolveCollection,
+  showView,
 } from "./event-read-ops";
-import { rowPatchByName } from "./event-row-values";
-import { ConnectorError, type ConnectorContext } from "./notes-shared";
+import {
+  agentContext,
+  ConnectorError,
+  requireNotes,
+  type ConnectorContext,
+} from "./shared";
 import { createNote } from "./notes-write";
 
-const LOG_PREFIX = "[mcp-events]";
-
-/** Store "not found" errors become refusals the agent can act on. */
-async function store<T>(work: () => Promise<T>): Promise<T> {
-  try {
-    return await work();
-  } catch (error) {
-    if (error instanceof Error && /not found/i.test(error.message))
-      throw new ConnectorError("not_found", error.message);
-    if (error instanceof Error && (error as { code?: string }).code === "P2025")
-      throw new ConnectorError("not_found", "Record not found");
-    throw error;
-  }
+/** Logs an agent's event or place write and refreshes open event views. */
+async function recordChange(
+  ctx: ConnectorContext,
+  eventType: string,
+  input: {
+    entityId: string;
+    noteId?: string | null;
+    payload: Record<string, string | number | null>;
+  },
+) {
+  await logActionEvent({
+    eventType,
+    entityType: eventType.startsWith("event.place") ? "place" : "event",
+    entityId: input.entityId,
+    relatedDocId: input.noteId ?? null,
+    payload: input.payload,
+    context: agentContext(ctx),
+  });
+  publishAppChange("events", input.noteId ? [input.noteId] : null);
 }
 
 type GeocodeReport = {
@@ -89,7 +103,10 @@ export type UpsertPlaceInput = PlaceInput & {
 };
 
 /** Finds a place by normalized name + city or creates it; optionally patches and geocodes. */
-export async function upsertPlace(input: UpsertPlaceInput) {
+export async function upsertPlace(
+  ctx: ConnectorContext,
+  input: UpsertPlaceInput,
+) {
   const { update, geocode, ...fields } = input;
   const found = await findOrCreatePlace(fields);
   let place = found.place;
@@ -106,6 +123,16 @@ export async function upsertPlace(input: UpsertPlaceInput) {
     }
   }
   const geo = geocode ? await geocodeInto(place) : null;
+  if (found.created || updated || geo?.geocode.status === "found") {
+    await recordChange(
+      ctx,
+      found.created ? "event.place_created" : "event.place_updated",
+      {
+        entityId: place.id,
+        payload: { name: place.name, city: place.city ?? null },
+      },
+    );
+  }
   return {
     place: geo?.place ?? place,
     created: found.created,
@@ -125,18 +152,18 @@ type PlaceArgs = {
 };
 
 /** The place id an event should use: an existing id or a found/created place. */
-async function resolveEventPlace(args: PlaceArgs) {
+async function resolveEventPlace(ctx: ConnectorContext, args: PlaceArgs) {
   if (args.placeId) {
     if (!(await getPlace(args.placeId)))
       throw new ConnectorError(
         "not_found",
-        `No place ${args.placeId}. Use list_places or upsert_place.`,
+        `No place ${args.placeId}. Use places_list or places_upsert.`,
       );
     return { placeId: args.placeId };
   }
   if (args.placeId === null) return { placeId: null };
   if (!args.place) return {};
-  const result = await upsertPlace({ ...args.place, update: false });
+  const result = await upsertPlace(ctx, { ...args.place, update: false });
   return {
     placeId: result.place.id,
     placeResult: {
@@ -165,7 +192,7 @@ async function checkShowPlaces(shows: Array<{ placeId?: string | null }>) {
   if (missing.length)
     throw new ConnectorError(
       "not_found",
-      `Unknown placeId ${missing.join(", ")}. Use list_places or upsert_place.`,
+      `Unknown placeId ${missing.join(", ")}. Use places_list or places_upsert.`,
     );
 }
 
@@ -183,7 +210,7 @@ export type CreateEventInput = PlaceArgs &
     markdown?: string;
     idempotencyKey?: string;
     collection?: string;
-    properties?: Record<string, unknown>;
+    values?: Record<string, unknown>;
     url?: string;
     summary?: string;
     decision?: EventDecision;
@@ -218,7 +245,7 @@ export async function createEvent(
       .join("\n");
     throw new ConnectorError(
       "duplicate",
-      `Nothing was created. This looks like an existing event:\n${list}\nUse get_event, then add_shows or update_event. Pass allowDuplicate: true only if it is really a different event.`,
+      `Nothing was written. This looks like an existing event:\n${list}\nUse events_get, then events_add_shows or events_update. Pass allowDuplicate: true only if it is really a different event.`,
     );
   }
 
@@ -226,17 +253,16 @@ export async function createEvent(
   const collection = input.collection
     ? await resolveCollection(input.collection)
     : null;
-  if (input.properties && Object.keys(input.properties).length && !collection)
-    throw new ConnectorError("invalid", "properties need a collection.");
-  const rowPatch =
-    collection && input.properties
-      ? await rowPatchByName(collection.id, input.properties)
-      : null;
+  const values =
+    input.values && Object.keys(input.values).length ? input.values : null;
+  if (values && !collection)
+    throw new ConnectorError("invalid", "values need a collection.");
+  if (collection && values) await checkRowValues(collection.id, [values]);
   await checkShowPlaces([
     ...(input.shows ?? []),
     ...(input.repeat ? [input.repeat.show] : []),
   ]);
-  const place = await resolveEventPlace(input);
+  const place = await resolveEventPlace(ctx, input);
 
   const note = await createNote(ctx, {
     title: input.title,
@@ -245,13 +271,12 @@ export async function createEvent(
     idempotencyKey: input.idempotencyKey,
   });
   if (note.deduplicated) {
-    console.info(`${LOG_PREFIX} create_event replayed ${note.id}`);
     return { ...(await getEventDetails(ctx, note.id)), replayed: true };
   }
   if (collection) {
     await attachNotes(collection.id, [note.id]);
-    if (rowPatch && Object.keys(rowPatch).length)
-      await applyRowPatch(collection.id, note.id, rowPatch);
+    if (values) await setRowValues(collection.id, [note.id], values);
+    publishAppChange("collections", [collection.id]);
   }
   await upsertNoteEvent(note.id, {
     url: input.url,
@@ -261,7 +286,11 @@ export async function createEvent(
     decisionNote: input.decisionNote,
   });
   await writeShows(note.id, input);
-  console.info(`${LOG_PREFIX} created event ${note.id}`);
+  await recordChange(ctx, "event.created", {
+    entityId: note.id,
+    noteId: note.id,
+    payload: { title: input.title, showCount: dates.length },
+  });
   return {
     ...(await getEventDetails(ctx, note.id)),
     ...(place.placeResult ? { placeResult: place.placeResult } : {}),
@@ -277,16 +306,30 @@ export async function updateEvent(
   input: UpdateEventInput,
 ) {
   const { noteId, url, summary, decision, decisionNote } = input;
-  const place = await resolveEventPlace(input);
-  await store(() =>
-    upsertNoteEvent(noteId, {
-      url,
-      summary,
-      decision,
-      decisionNote,
-      ...(place.placeId !== undefined ? { placeId: place.placeId } : {}),
-    }),
-  );
+  await requireNotes([noteId]);
+  const place = await resolveEventPlace(ctx, input);
+  await upsertNoteEvent(noteId, {
+    url,
+    summary,
+    decision,
+    decisionNote,
+    ...(place.placeId !== undefined ? { placeId: place.placeId } : {}),
+  });
+  const fieldsChanged = Object.entries({
+    url,
+    summary,
+    decision,
+    decisionNote,
+    place: place.placeId,
+  })
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key)
+    .join(", ");
+  await recordChange(ctx, "event.updated", {
+    entityId: noteId,
+    noteId,
+    payload: { fieldsChanged, decision: decision ?? null },
+  });
   return {
     ...(await getEventDetails(ctx, noteId)),
     ...(place.placeResult ? { placeResult: place.placeResult } : {}),
@@ -303,21 +346,27 @@ export async function addShows(
     ...(input.shows ?? []),
     ...(input.repeat ? [input.repeat.show] : []),
   ]);
+  await requireNotes([input.noteId]);
   const before = new Set(
     (await getNoteEvent(input.noteId))?.occurrences.map((o) => o.id) ?? [],
   );
-  await store(() => writeShows(input.noteId, input));
+  await writeShows(input.noteId, input);
   const details = await getEventDetails(ctx, input.noteId);
-  const added = details.shows.filter((s) => !before.has(s.occurrenceId));
+  const added = details.shows.filter((s) => !before.has(s.showId));
+  await recordChange(ctx, "event.shows_added", {
+    entityId: input.noteId,
+    noteId: input.noteId,
+    payload: { showCount: added.length },
+  });
   return {
     noteId: input.noteId,
+    appUrl: details.appUrl,
     added,
-    addedCount: added.length,
     totalShows: details.shows.length,
   };
 }
 
-async function eventDecisionOf(eventId: string) {
+async function eventOf(eventId: string) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: { decision: true, docId: true },
@@ -325,80 +374,23 @@ async function eventDecisionOf(eventId: string) {
   return event ?? { decision: "unreviewed" as const, docId: null };
 }
 
+/** Patches one show; the result reads like a show from events_get. */
 export async function updateShow(
-  input: OccurrencePatch & { occurrenceId: string },
-) {
-  const { occurrenceId, ...patch } = input;
-  if (patch.placeId) await checkShowPlaces([patch]);
-  const show = await store(() => updateOccurrence(occurrenceId, patch));
-  const event = await eventDecisionOf(show.eventId);
-  return {
-    ...show,
-    noteId: event.docId,
-    effectiveDecision: effectiveDecision(show.decision, event.decision),
-  };
-}
-
-export async function removeShow(input: { occurrenceId: string }) {
-  await store(() => deleteOccurrence(input.occurrenceId));
-  return { removed: input.occurrenceId };
-}
-
-export type SetDecisionInput = {
-  noteId?: string;
-  occurrenceId?: string;
-  decision: EventDecision;
-  note?: string | null;
-};
-
-/**
- * Sets the event-level decision (noteId) or one show's decision
- * (occurrenceId). The two levels never write each other.
- */
-export async function setDecision(
   ctx: ConnectorContext,
-  input: SetDecisionInput,
+  input: OccurrencePatch & { showId: string },
 ) {
-  if (Boolean(input.noteId) === Boolean(input.occurrenceId))
-    throw new ConnectorError(
-      "invalid",
-      "Pass exactly one of noteId (event decision) or occurrenceId (show decision).",
-    );
-  const notePatch =
-    input.note !== undefined ? { decisionNote: input.note } : {};
-  if (input.occurrenceId) {
-    const show = await updateShow({
-      occurrenceId: input.occurrenceId,
-      decision: input.decision,
-      ...notePatch,
-    });
-    return {
-      target: "show",
-      occurrenceId: show.id,
-      noteId: show.noteId,
-      showDecision: show.decision,
-      decisionNote: show.decisionNote,
-      effectiveDecision: show.effectiveDecision,
-    };
-  }
-  const noteId = input.noteId!;
-  if (!(await getNoteEvent(noteId)))
-    throw new ConnectorError(
-      "not_found",
-      `Note ${noteId} has no event details. Use update_event first.`,
-    );
-  await upsertNoteEvent(noteId, { decision: input.decision, ...notePatch });
-  const details = await getEventDetails(ctx, noteId);
-  return {
-    target: "event",
-    noteId,
-    eventDecision: details.decision,
-    decisionNote: details.decisionNote,
-    shows: details.shows.map((s) => ({
-      occurrenceId: s.occurrenceId,
-      when: s.when,
-      showDecision: s.decision,
-      effectiveDecision: s.effectiveDecision,
-    })),
-  };
+  const { showId, ...patch } = input;
+  if (patch.placeId) await checkShowPlaces([patch]);
+  const show = await updateOccurrence(showId, patch);
+  const event = await eventOf(show.eventId);
+  await recordChange(ctx, "event.show_updated", {
+    entityId: showId,
+    noteId: event.docId,
+    payload: {
+      fieldsChanged: Object.keys(patch).join(", "),
+      decision: patch.decision ?? null,
+      status: patch.status ?? null,
+    },
+  });
+  return { noteId: event.docId, ...showView(show, event.decision) };
 }
