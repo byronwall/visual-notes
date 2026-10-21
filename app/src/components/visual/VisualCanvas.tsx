@@ -149,12 +149,15 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const docsArr = createMemo(() => props.docs || []);
   const listOrdered = createMemo(() => docsArr());
 
+  // 0 at overview, 1 once notes are the thing you interact with. Dots,
+  // their tint, and their size all follow it, so nothing pops on zoom.
+  const noteEmphasis = createMemo(() =>
+    smoothstep(0.45, 0.95, Math.max(0.001, props.scale?.() ?? 1)),
+  );
   const circleRadius = createMemo(() => {
     const s = Math.max(0.001, props.scale?.() ?? 1);
-    // Small dots at overview keep dense maps readable; full size
-    // once notes become the thing you interact with.
     const screenRadius =
-      2.4 + smoothstep(0.35, 0.95, s) * 2.8 - smoothstep(1.2, 4.2, s) * 0.7;
+      2 + noteEmphasis() * 3.2 - smoothstep(1.2, 4.2, s) * 0.7;
     return screenRadius / s;
   });
 
@@ -178,14 +181,19 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     () => (normalizedRegions()?.regions.length ?? 0) > 0,
   );
   const isSearching = createMemo(() => !!props.matchingDocIds?.());
+  const noteFocus = createMemo(
+    () => !hasRegions() || !!props.selectedRegionId?.() || isSearching(),
+  );
   const noteOpacity = createMemo(() => {
     if (props.regionsOnly?.()) return 0;
-    if (!hasRegions() || props.selectedRegionId?.()) return 1;
-    if (isSearching()) return 1;
-    // Region-first overview: notes sit quietly under the region
-    // bubbles and take over as the regions fade on zoom-in.
-    return 0.32 + 0.68 * smoothstep(0.5, 0.95, zoomScale());
+    if (noteFocus()) return 1;
+    // Region-first overview: dots sit faintly inside their region shapes
+    // and take over as the shapes fade on zoom-in.
+    return 0.3 + 0.7 * noteEmphasis();
   });
+  const dotTintAmount = createMemo(() =>
+    noteFocus() ? 0 : 0.85 * (1 - noteEmphasis()),
+  );
   const notesInteractive = () => props.notesInteractive?.() ?? false;
   const visibleDocsForRender = createMemo(() => {
     if (noteOpacity() <= 0.01) return [] as DocItem[];
@@ -301,6 +309,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
         radius={circleRadius}
         opacity={noteOpacity}
         matchingDocIds={() => props.matchingDocIds?.() ?? null}
+        tints={regionShapes.dotTints}
+        tintAmount={dotTintAmount}
       />
       <svg
         width="100%"

@@ -10,6 +10,7 @@ import {
 import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
 import { colorFor } from "~/utils/colors";
+import { mixHslColors } from "./regions/region-colors";
 
 type Point = { x: number; y: number; approximate?: true };
 
@@ -18,6 +19,8 @@ type DotBatch = {
   fill: string;
   /** Alpha multiplier; dots placed by neighbor guess draw faded. */
   alpha: number;
+  /** Region tint the batch fades toward at overview zoom, if any. */
+  tint?: string;
   ids: string[];
   xs: Float64Array;
   ys: Float64Array;
@@ -37,6 +40,10 @@ export type CanvasDotLayerProps = {
   opacity: Accessor<number>;
   /** Ids matching the search, or null when no search is active. */
   matchingDocIds: Accessor<Set<string> | null>;
+  /** Region tint per note id; dots mix toward it by `tintAmount`. */
+  tints?: Accessor<Map<string, string>>;
+  /** 0 draws each note's own color, 1 its region's tint. */
+  tintAmount?: Accessor<number>;
 };
 
 function readCssColor(name: string, fallback: string) {
@@ -61,9 +68,17 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
   const batches = createMemo(() => {
     const docs = props.docs();
     const positions = props.positions();
+    const tints = props.tints?.();
     const byFill = new Map<
       string,
-      { fill: string; alpha: number; ids: string[]; xs: number[]; ys: number[] }
+      {
+        fill: string;
+        alpha: number;
+        tint?: string;
+        ids: string[];
+        xs: number[];
+        ys: number[];
+      }
     >();
     docs.forEach((doc, index) => {
       const pos =
@@ -71,10 +86,11 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
       const fill = colorFor(doc.path || doc.title);
       const alpha =
         "approximate" in pos && pos.approximate ? APPROXIMATE_ALPHA : 1;
-      const key = `${fill}|${alpha}`;
+      const tint = tints?.get(doc.id);
+      const key = `${fill}|${alpha}|${tint ?? ""}`;
       let batch = byFill.get(key);
       if (!batch) {
-        batch = { fill, alpha, ids: [], xs: [], ys: [] };
+        batch = { fill, alpha, tint, ids: [], xs: [], ys: [] };
         byFill.set(key, batch);
       }
       batch.ids.push(doc.id);
@@ -86,6 +102,7 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
       result.push({
         fill: batch.fill,
         alpha: batch.alpha,
+        tint: batch.tint,
         ids: batch.ids,
         xs: Float64Array.from(batch.xs),
         ys: Float64Array.from(batch.ys),
@@ -135,6 +152,7 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
     const opacity = props.opacity();
     const matching = props.matchingDocIds();
     const list = batches();
+    const tintAmount = props.tintAmount?.() ?? 0;
     themeVersion();
     if (!canvas || width <= 0 || height <= 0) return;
 
@@ -162,6 +180,10 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
     const maxY = (height - offset.y) / scale + radius * 2;
     // Strokes stay one screen pixel wide at any zoom.
     const hairline = 1 / scale;
+    const fillOf = (batch: DotBatch) =>
+      batch.tint
+        ? mixHslColors(batch.fill, batch.tint, tintAmount)
+        : batch.fill;
 
     const drawBatch = (
       batch: DotBatch,
@@ -188,7 +210,7 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
       for (const batch of list) {
         if (drawBatch(batch, radius, () => true) === 0) continue;
         ctx.globalAlpha = opacity * batch.alpha;
-        ctx.fillStyle = batch.fill;
+        ctx.fillStyle = fillOf(batch);
         ctx.fill();
         ctx.stroke();
       }
@@ -228,7 +250,7 @@ export const CanvasDotLayer: VoidComponent<CanvasDotLayerProps> = (props) => {
         continue;
       }
       ctx.globalAlpha = opacity * batch.alpha;
-      ctx.fillStyle = batch.fill;
+      ctx.fillStyle = fillOf(batch);
       ctx.fill();
       ctx.stroke();
     }
