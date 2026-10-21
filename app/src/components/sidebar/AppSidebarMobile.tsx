@@ -1,6 +1,7 @@
 import type { Accessor } from "solid-js";
 import { useLocation } from "@solidjs/router";
-import { FilePlusIcon, MenuIcon, SearchIcon } from "lucide-solid";
+import { FilePlusIcon, MenuIcon, MicIcon, SearchIcon } from "lucide-solid";
+import { useStartVoiceNote } from "~/components/doc-audio/useStartVoiceNote";
 import { Box } from "styled-system/jsx";
 import * as Drawer from "~/components/ui/drawer";
 import { AppSidebarContent } from "./AppSidebarContent";
@@ -30,6 +31,7 @@ type AppSidebarMobileProps = {
  */
 export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
   const location = useLocation();
+  const startVoiceNote = useStartVoiceNote();
   let openButton: HTMLButtonElement | undefined;
   const barTitle = () =>
     props.title ?? sectionTitleForPath(location.pathname) ?? "Visual Notes";
@@ -80,6 +82,14 @@ export const AppSidebarMobile = (props: AppSidebarMobileProps) => {
           onClick={() => props.onSearchOpen()}
         >
           <SearchIcon size={18} strokeWidth={1.8} />
+        </button>
+        <button
+          type="button"
+          class={barButtonClass}
+          aria-label="New voice note"
+          onClick={() => void startVoiceNote()}
+        >
+          <MicIcon size={18} strokeWidth={1.8} />
         </button>
         <button
           type="button"

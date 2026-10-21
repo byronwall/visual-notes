@@ -20,6 +20,7 @@ import type { PaletteAction } from "~/components/command-palette/palette-command
 import { initializeConsoleLogCapture } from "~/lib/console-log-capture";
 import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
 import { trackVisualViewport } from "~/lib/visual-viewport";
+import { RecordingIndicator } from "~/components/doc-audio/RecordingIndicator";
 import { RouteProgressBar } from "./RouteProgressBar";
 import { MobileAppBarContext } from "./mobile-app-bar";
 import {
@@ -65,8 +66,8 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
     on(
       () => location.pathname,
       () => setMobileOpen(false),
-      { defer: true }
-    )
+      { defer: true },
+    ),
   );
 
   const handleChatOpen = () => {
@@ -187,6 +188,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   return (
     <MobileAppBarContext.Provider value={mobileAppBar}>
       <RouteProgressBar />
+      <RecordingIndicator />
       <Box minH="100dvh" bg="bg.default">
         <AppSidebarMobile
           open={mobileOpen()}

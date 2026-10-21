@@ -1,4 +1,5 @@
-import { Match, Show, Switch, createSignal } from "solid-js";
+import { ChevronDownIcon } from "lucide-solid";
+import { Match, Show, Switch, createEffect, createSignal, on } from "solid-js";
 import { css, cx } from "styled-system/css";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import type {
@@ -19,6 +20,7 @@ import { OptionPicker } from "./OptionPicker";
 import { RatingStars } from "./RatingStars";
 import { ValueDisplay } from "./ValueDisplay";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const base = css({
   display: "flex",
@@ -31,13 +33,47 @@ const base = css({
   position: "relative",
 });
 const cellVariant = css({ px: "2", minH: "8", fontSize: "sm" });
+// Fields read as form inputs: a soft resting fill sized to the value, an
+// outline on hover, and the full column while typing.
 const fieldVariant = css({
+  gap: "1.5",
+  w: "fit-content",
+  minW: "44",
+  maxW: "full",
   px: "2",
   minH: "8",
   fontSize: "sm",
   borderRadius: "l2",
-  _hover: { bg: "bg.muted" },
-  _focusVisible: { boxShadow: "inset 0 0 0 2px token(colors.border.accent)" },
+  borderWidth: "1px",
+  borderColor: "transparent",
+  bg: "gray.a2",
+  transitionProperty: "background-color, border-color",
+  transitionDuration: "140ms",
+  "[data-property-line]:hover &": { bg: "bg.default", borderColor: "border" },
+  "&[data-readonly]": { bg: "transparent", borderColor: "transparent" },
+  _focusVisible: { bg: "bg.default", borderColor: "border.accent" },
+  "&[data-open]": { bg: "bg.default", borderColor: "border" },
+  "&[data-editing]": { w: "full", maxW: "28rem" },
+  // Narrow lists (phones, the peek panel): fields fill the value column.
+  "@container (max-width: 30rem)": { w: "full", minW: "0" },
+  "&:focus-visible [data-chevron]": { opacity: "1" },
+});
+// Spans the field's padding so pickers line up with its outer edge.
+const fieldAnchor = css({
+  alignSelf: "stretch",
+  mx: "-2",
+  px: "2",
+  w: "calc(100% + token(spacing.4))",
+  gap: "1.5",
+});
+const chevron = css({
+  ml: "auto",
+  flexShrink: "0",
+  color: "fg.subtle",
+  opacity: "0",
+  transitionProperty: "opacity",
+  transitionDuration: "140ms",
+  "[data-property-line]:hover &": { opacity: "1" },
 });
 const editable = css({ cursor: "pointer" });
 const inlineInput = css({
@@ -59,6 +95,29 @@ const isPopoverKind = (property: CollectionProperty) =>
   property.kind === "multi_select" ||
   property.kind === "date";
 
+/** What an empty field offers to do, so blank values still read as inputs. */
+const emptyPrompt = (property: CollectionProperty) => {
+  if (isComputedKind(property.kind)) return "—";
+  switch (property.kind) {
+    case "select":
+    case "status":
+      return "Choose…";
+    case "multi_select":
+      return "Add…";
+    case "date":
+      return "Pick a date";
+    case "number":
+      return property.config.format === "currency"
+        ? "Add amount"
+        : "Add number";
+    default:
+      if (property.config.format === "url") return "Add link";
+      if (property.config.format === "email") return "Add email";
+      if (property.config.format === "phone") return "Add phone";
+      return "Add text";
+  }
+};
+
 const isInlineKind = (property: CollectionProperty) =>
   (property.kind === "text" || property.kind === "number") &&
   property.config.format !== "rating";
@@ -73,6 +132,8 @@ export const ValueCell = (props: {
   store: CollectionStore;
   variant?: "cell" | "field";
   wrap?: boolean;
+  /** Open the editor on mount, e.g. for a property that was just added. */
+  autoEdit?: boolean;
   /** Called with the element so a grid can manage focus. */
   ref?: (el: HTMLDivElement) => void;
   onEditEnd?: (reason: "commit" | "cancel" | "tab" | "shift-tab") => void;
@@ -144,6 +205,19 @@ export const ValueCell = (props: {
     props.onEditEnd?.(reason);
   };
 
+  createEffect(
+    on(
+      () => props.autoEdit,
+      (auto) => {
+        if (
+          auto &&
+          (isInlineKind(props.property) || isPopoverKind(props.property))
+        )
+          start();
+      },
+    ),
+  );
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (editing()) return;
     if (e.key === "Enter" || e.key === "F2") {
@@ -178,7 +252,10 @@ export const ValueCell = (props: {
           property={props.property}
           value={value()}
           wrap={props.wrap}
-          placeholder={props.variant === "field" ? "Empty" : undefined}
+          placeholder={
+            props.variant === "field" ? emptyPrompt(props.property) : undefined
+          }
+          linkOpens={props.variant === "field" ? "button" : "text"}
         />
       }
     >
@@ -210,6 +287,9 @@ export const ValueCell = (props: {
       )}
       tabIndex={0}
       data-cell=""
+      data-editing={editing() && isInlineKind(props.property) ? "" : undefined}
+      data-open={editing() ? "" : undefined}
+      data-readonly={readOnly() ? "" : undefined}
       data-property-id={props.property.id}
       aria-label={props.property.name}
       onKeyDown={onKeyDown}
@@ -224,14 +304,24 @@ export const ValueCell = (props: {
           placement="bottom-start"
           offset={4}
           class={fitContent}
-          anchorClass={css({
-            minW: "0",
-            w: "full",
-            display: "flex",
-            alignItems: "center",
-            minH: "6",
-          })}
-          anchor={display()}
+          anchorClass={cx(
+            css({
+              minW: "0",
+              w: "full",
+              display: "flex",
+              alignItems: "center",
+              minH: "6",
+            }),
+            props.variant === "field" && fieldAnchor,
+          )}
+          anchor={
+            <>
+              {display()}
+              <Show when={props.variant === "field"}>
+                <ChevronDownIcon size={14} class={chevron} data-chevron="" />
+              </Show>
+            </>
+          }
         >
           <Show
             when={props.property.kind === "date"}
@@ -258,6 +348,7 @@ export const ValueCell = (props: {
       </Show>
       <Show when={editing() && isInlineKind(props.property)}>
         <input
+          {...noAutofill}
           class={inlineInput}
           value={draft()}
           inputMode={
@@ -266,6 +357,9 @@ export const ValueCell = (props: {
               : props.property.config.format === "email"
                 ? "email"
                 : undefined
+          }
+          placeholder={
+            props.variant === "field" ? emptyPrompt(props.property) : undefined
           }
           aria-label={`Edit ${props.property.name}`}
           ref={(el) =>

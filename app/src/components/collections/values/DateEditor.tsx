@@ -1,6 +1,7 @@
 import { Show, createSignal, untrack } from "solid-js";
 import { css } from "styled-system/css";
 import type { DateValue } from "~/lib/collections/types";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const panel = css({
   display: "flex",
@@ -97,6 +98,7 @@ export const DateEditor = (props: {
       <div class={row}>
         <span class={label}>{hasEnd() ? "Start" : "Date"}</span>
         <input
+          {...noAutofill}
           class={field}
           type={inputType()}
           value={fit(props.value?.start)}
@@ -114,6 +116,7 @@ export const DateEditor = (props: {
         <div class={row}>
           <span class={label}>End</span>
           <input
+            {...noAutofill}
             class={field}
             type={inputType()}
             value={fit(props.value?.end)}

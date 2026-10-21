@@ -9,6 +9,7 @@ import type {
 import { STATUS_GROUPS } from "~/lib/collections/types";
 import { optionById } from "~/lib/collections/values";
 import { OptionChip } from "./OptionChip";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const GROUP_LABELS: Record<StatusGroup, string> = {
   todo: "To do",
@@ -30,9 +31,9 @@ const selectedRow = css({
   alignItems: "center",
   px: "2",
   py: "1.5",
+  minH: "9",
   borderBottomWidth: "1px",
   borderColor: "border",
-  bg: "bg.subtle",
 });
 const input = css({
   flex: "1",
@@ -235,10 +236,11 @@ export const OptionPicker = (props: {
           )}
         </For>
         <input
+          {...noAutofill}
           ref={inputEl}
           class={input}
           value={query()}
-          placeholder={selectedIds().length ? "" : "Search or create…"}
+          placeholder={selectedIds().length ? "Search…" : "Search or create…"}
           aria-label={`Search ${props.property.name} options`}
           onInput={(e) => {
             setQuery(e.currentTarget.value);

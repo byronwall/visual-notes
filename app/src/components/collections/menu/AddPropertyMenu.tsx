@@ -8,6 +8,7 @@ import { PropertyKindIcon } from "../PropertyKindIcon";
 import { MenuItem, menuInput, menuPanel, menuSection } from "./MenuList";
 import { PROPERTY_PRESETS } from "./propertyPresets";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const trigger = css({
   display: "inline-flex",
@@ -27,6 +28,10 @@ export const AddPropertyMenu = (props: {
   onAdded?: (property: CollectionProperty) => void;
   label?: string;
   class?: string;
+  /** Inline triggers open under themselves; the table's "+" column opens leftward. */
+  placement?: "bottom-start" | "bottom-end";
+  /** Class for the anchor wrapper; inline triggers size it to the button. */
+  anchorClass?: string;
 }) => {
   const { store } = useCollection();
   const [open, setOpen] = createSignal(false);
@@ -55,8 +60,9 @@ export const AddPropertyMenu = (props: {
       class={fitContent}
       open={open()}
       onClose={() => setOpen(false)}
-      placement="bottom-end"
+      placement={props.placement ?? "bottom-end"}
       offset={4}
+      anchorClass={props.anchorClass}
       anchor={
         <button
           type="button"
@@ -71,6 +77,7 @@ export const AddPropertyMenu = (props: {
     >
       <div class={menuPanel} style={{ width: "22rem" }}>
         <input
+          {...noAutofill}
           class={menuInput}
           placeholder="Property name"
           aria-label="New property name"

@@ -28,6 +28,7 @@ import {
 import { NUMBER_FORMAT_LABELS, TEXT_FORMAT_LABELS } from "./propertyPresets";
 import { OptionsEditor } from "./OptionsEditor";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const scroll = css({ maxH: "min(70vh, 34rem)", overflowY: "auto" });
 
@@ -87,12 +88,18 @@ export const PropertyMenu = (props: {
         anchor={props.anchor(() => setOpen(true))}
         anchorClass={css({ minW: "0", flex: "1", display: "flex", h: "full" })}
       >
-        <div class={`${menuPanel} ${scroll}`} style={{ width: "17rem" }}>
+        <div
+          class={`${menuPanel} ${scroll}`}
+          style={{
+            width: props.property.kind === "status" ? "19rem" : "17rem",
+          }}
+        >
           <Show
             when={!isTitle()}
             fallback={<div class={menuSection}>Name (the note title)</div>}
           >
             <input
+              {...noAutofill}
               class={menuInput}
               value={props.property.name}
               aria-label="Property name"

@@ -4,7 +4,8 @@
 @layer base {
   :root {
     --bg: #ffffff;
-    --fg: #0b1621;
+    /* Follows the theme so prose and note titles stay readable in dark mode. */
+    --fg: var(--colors-fg-default);
     --muted: #5b6875;
     --chip: #f1f5f9;
     --accent: #2b6ff8;

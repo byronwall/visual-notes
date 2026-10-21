@@ -221,6 +221,7 @@ model Doc {
   outgoingLinks        DocLink[]              @relation("DocLinkSource")
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
+  audioRecordings      DocAudio[]
 
   // Collections: a note can be a row in at most one collection. Values are
   // keyed by CollectionProperty id; they are kept if the note leaves the
@@ -235,6 +236,35 @@ model Doc {
   @@index([path])
   @@index([collectionId])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// An audio recording attached to a note. The audio lives on disk (see
+// server/notes/doc-audio-storage.ts); chunks are appended while recording so
+// an interrupted session still leaves a playable file.
+model DocAudio {
+  id         String         @id @default(cuid())
+  docId      String
+  // User-editable name; null falls back to the recording time in the UI.
+  label      String?
+  mimeType   String
+  fileName   String         @unique
+  status     DocAudioStatus @default(recording)
+  // Next chunk sequence number expected; also the count of stored chunks.
+  chunkCount Int            @default(0)
+  sizeBytes  Int            @default(0)
+  // Elapsed recording time reported with the latest chunk or on finish.
+  durationMs Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([docId, createdAt])
+}
+
+enum DocAudioStatus {
+  recording
+  ready
 }
 
 /// Prior content captured before an automated edit (e.g. ChatGPT via MCP)

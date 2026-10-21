@@ -4,6 +4,7 @@ import { PanelLeftCloseIcon, PanelLeftOpenIcon, XIcon } from "lucide-solid";
 import { css } from "styled-system/css";
 import { Box, HStack } from "styled-system/jsx";
 import { Tooltip } from "~/components/ui/tooltip";
+import { useStartVoiceNote } from "~/components/doc-audio/useStartVoiceNote";
 import { AppSidebarActions } from "./AppSidebarActions";
 import { AppSidebarFooter } from "./AppSidebarFooter";
 import { AppSidebarNav } from "./AppSidebarNav";
@@ -68,6 +69,7 @@ const brandLinkClass = css({
 });
 
 export const AppSidebarContent = (props: AppSidebarContentProps) => {
+  const startVoiceNote = useStartVoiceNote();
   const isMobile = () => props.mode === "mobile";
   const closeIfMobile = () => {
     if (isMobile()) props.onClose();
@@ -109,7 +111,9 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
           when={isMobile()}
           fallback={
             <Tooltip
-              content={props.expanded ? "Collapse sidebar  ⌘\\" : "Expand sidebar  ⌘\\"}
+              content={
+                props.expanded ? "Collapse sidebar  ⌘\\" : "Expand sidebar  ⌘\\"
+              }
               openDelay={300}
               closeDelay={0}
               positioning={{ placement: "right", gutter: 8 }}
@@ -117,7 +121,9 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
               <button
                 type="button"
                 class={headerIconButtonClass}
-                aria-label={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
+                aria-label={
+                  props.expanded ? "Collapse sidebar" : "Expand sidebar"
+                }
                 aria-keyshortcuts="Meta+\\"
                 aria-expanded={props.expanded}
                 onClick={() => props.onToggleCollapse()}
@@ -152,6 +158,10 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
         onNewNoteOpen={() => {
           closeIfMobile();
           props.onNewNoteOpen();
+        }}
+        onVoiceNoteStart={() => {
+          closeIfMobile();
+          void startVoiceNote();
         }}
         onSearchOpen={() => {
           closeIfMobile();

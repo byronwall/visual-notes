@@ -17,6 +17,7 @@ import { useCollection } from "../CollectionContext";
 import { startPointerDrag } from "../drag/startPointerDrag";
 import { OptionChip } from "../values/OptionChip";
 import { CardFields } from "./CardFields";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const board = css({
   display: "flex",
@@ -351,6 +352,7 @@ export const CollectionBoard = (props: { view: CollectionView }) => {
                   }
                 >
                   <input
+                    {...noAutofill}
                     class={newInput}
                     placeholder="Name, then Enter"
                     aria-label="New card name"
