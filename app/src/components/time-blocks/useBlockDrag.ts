@@ -366,7 +366,16 @@ export const useBlockDrag = (options: Options) => {
       return;
     }
     if (s.type === "idle") return;
-    if (s.didDrag) suppressClick = true;
+    if (s.didDrag) {
+      // Swallow only the click this pointerup produces, which the browser
+      // dispatches before any timer. When the pointer comes up off the block
+      // (a move to another day) no click reaches it, and a flag left set
+      // would eat the next real click on a block.
+      suppressClick = true;
+      setTimeout(() => {
+        suppressClick = false;
+      }, 0);
+    }
     const next = { start: s.start, end: s.end };
     if (s.type === "move") {
       if (!sameRange(next, original(s.block)) || (s.duplicate && s.didDrag)) {

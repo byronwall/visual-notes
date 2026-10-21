@@ -47,6 +47,8 @@ const itemClass = css({
   alignItems: "flex-start",
   gap: "2",
   minH: "8",
+  // In the scrolling column, shrinking would clip wrapped names into the next row.
+  flexShrink: 0,
   maxW: "full",
   pl: "2.5",
   pr: "1",
