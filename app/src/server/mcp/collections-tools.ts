@@ -359,7 +359,9 @@ export function registerCollectionTools(server: McpServer, ctx: ConnectorContext
         // Check the values before anything is written.
         planValues(await loadLiveProperties(found.id), values ?? {});
         const note = await createNote(ctx, { title, markdown: markdown ?? "", path, idempotencyKey }, { allowEmptyBody: true });
-        if (!note.deduplicated) {
+        // A retry after a failure between create and attach finishes the job.
+        const placed = await prisma.doc.findUnique({ where: { id: note.id }, select: { collectionId: true } });
+        if (!note.deduplicated || placed?.collectionId !== found.id) {
           await attachNotes(found.id, [note.id]);
           if (values && Object.keys(values).length) await setValues(found.id, [note.id], values);
           await log("collection.row_added", found, { rowTitle: title });
