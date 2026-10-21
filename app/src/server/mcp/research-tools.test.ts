@@ -28,6 +28,7 @@ const service = vi.hoisted(() => {
     listTopics: vi.fn(),
     loadTopicGraph: vi.fn(),
     resolveTopic: vi.fn(),
+    findBatch: vi.fn(),
     undoBatch: vi.fn(),
     redoBatch: vi.fn(),
     editCards: vi.fn(),
@@ -122,7 +123,7 @@ describe("research MCP tools", () => {
 
   it("undoes a batch by its key and reports refusals", async () => {
     service.resolveTopic.mockResolvedValue(topic);
-    service.loadTopicGraph.mockResolvedValue({ topic, cards: [], links: [], groups: [], batches: [{ id: "b9", batchKey: "round-1" }], generatedAt: "" });
+    service.findBatch.mockResolvedValue({ id: "b9" });
     service.undoBatch.mockResolvedValueOnce({ ok: true });
     const client = await connect();
     const ok = await client.callTool({ name: "research_undo_batch", arguments: { topic: "learn-rust", batch: "round-1" } });

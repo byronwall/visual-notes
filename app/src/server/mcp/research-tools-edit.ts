@@ -5,7 +5,7 @@ import { z } from "zod";
 import { batchPayload, logResearchEvent, logUndoRedo } from "~/services/research/research.activity";
 import { editCards, removeCards, updateTopic } from "~/services/research/research.edits";
 import { redoBatch, undoBatch } from "~/services/research/research.ingest";
-import { loadTopicGraph, resolveTopic } from "~/services/research/research.store";
+import { findBatch, loadTopicGraph, resolveTopic } from "~/services/research/research.store";
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { formatBatches } from "./research-format";
 
@@ -49,8 +49,8 @@ export function registerResearchEditTools(
   };
   /** Accepts a batch id or the batchKey the agent used. */
   const resolveBatch = async (topic: Topic, batch: string) => {
-    const graph = await loadTopicGraph(topic.id);
-    const match = graph?.batches.find((b) => b.id === batch || b.batchKey === batch);
+    // Not from the topic graph, which only carries the newest 50 batches.
+    const match = await findBatch(topic.id, batch);
     if (!match) throw new ConnectorError("not_found", `No batch "${batch}" in this topic. Use research_list_batches.`);
     return match.id;
   };

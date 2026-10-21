@@ -36,6 +36,8 @@ export const TopicTitle = (props: {
   };
 
   const save = async () => {
+    // Enter submits, then the input's blur fires as it unmounts.
+    if (busy()) return;
     const title = draft().trim();
     if (!title || title === props.topic.title) return setEditing(false);
     setBusy(true);
