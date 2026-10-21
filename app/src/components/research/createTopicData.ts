@@ -1,4 +1,5 @@
 import { createMemo, createResource, createSignal, type Accessor } from "solid-js";
+import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { groupChildren } from "~/services/research/research.graph";
 import { fetchResearchTopicGraph } from "~/services/research/research.queries";
 import type { ResearchCard } from "~/services/research/research.types";
@@ -22,6 +23,10 @@ export const createTopicData = (slug: Accessor<string>) => {
       .filter((entry): entry is { group: typeof entry.group; card: ResearchCard } => !!entry.card);
   });
 
+  const reload = () => setNonce((n) => n + 1);
+  // Agents write over MCP while the canvas is open; pick their batches up.
+  useAppChanges("research", reload, (id) => id === current()?.topic.id);
+
   return {
     graph,
     current,
@@ -29,7 +34,7 @@ export const createTopicData = (slug: Accessor<string>) => {
     cardsById,
     children,
     summaries,
-    reload: () => setNonce((n) => n + 1),
+    reload,
   };
 };
 

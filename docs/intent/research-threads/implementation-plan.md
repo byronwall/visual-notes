@@ -3,7 +3,7 @@ title: "Research threads — implementation plan"
 slug: "research-threads"
 phase: plan
 status: executed
-last_updated: "2026-10-19"
+last_updated: "2026-10-20"
 ---
 
 # Research threads: implementation plan
@@ -14,6 +14,8 @@ All three milestones shipped as a PR stack (#108 → #111 → #115), and the fir
 
 - **MCP reuses the existing connector.** `main` gained an MCP server with OAuth 2.1 during this work, so M3 registers `research_*` tools on `/mcp` (`notes:read` / `notes:write`) instead of adding `/api/mcp`. As a result, ChatGPT access is available now rather than below the cut line. `RESEARCH_AGENT_TOKEN` guards only the REST ingest routes.
 - **The layout spike chose a hand-rolled tidy tree.** It adds no new dependency and reserves room for hull labels.
+
+Later, #155 added editing: the detail panel and the `research_update_cards` / `research_remove_cards` / `research_update_topic` tools change and hide cards as undoable batches, rename and archive topics, log `research.*` activity, and refresh open canvases live. See [app/docs/research-threads.md](../../../app/docs/research-threads.md).
 
 The proof also drove three fixes: folding takes a card's descendants along, fit picks the shallowest readable level, and history names agent state changes. Next slice: in-app summary drafting and manual capture.
 
@@ -144,8 +146,7 @@ This introduces the MCP protocol and token auth together. Nothing else in the mi
 ## Below the cut line
 
 - In-app summary drafting with `callLLM` (the first slice after the proof).
-- Manual card capture and linking on the canvas, and rich-note editing.
+- Manual card capture and linking on the canvas, and rich-note editing. (Plain card edits and removal shipped in #155.)
 - Report, notes, and web-capture ingest that splits a source into a draft tree.
-- ChatGPT connector: public HTTPS, OAuth, and dynamic client registration.
 - Decision view (options × criteria). Collapsing the frontier into counts. Cross-topic links. A library meta-canvas.
 - Multi-user permissions, and any migration of Tasks or Explorer data.

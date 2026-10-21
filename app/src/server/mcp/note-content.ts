@@ -1,4 +1,5 @@
-import { fromMarkdown, toMarkdown } from "~/lib/note-content/convert";
+import { toMarkdown } from "~/lib/note-content/convert";
+import { fromNoteMarkdown } from "~/lib/note-content/note-markdown";
 import type { NoteDoc } from "~/lib/note-content/types";
 import { readNoteContent } from "~/server/notes/note-store";
 
@@ -12,8 +13,9 @@ export function noteToMarkdown(
   return toMarkdown(readNoteContent(doc), opts);
 }
 
+/** Reads the get_notes markdown dialect: task lines, [[links]], #tags, embeds. */
 export function contentFromMarkdown(markdown: string): NoteDoc {
-  return fromMarkdown(markdown);
+  return fromNoteMarkdown(markdown);
 }
 
 /** Appends markdown as new blocks below the current ones, leaving them untouched. */
@@ -22,7 +24,7 @@ export function appendMarkdown(doc: StoredNote, addition: string): NoteDoc {
 }
 
 export function appendBlocks(current: NoteDoc, addition: string): NoteDoc {
-  const added = fromMarkdown(addition);
+  const added = fromNoteMarkdown(addition);
   return {
     ...current,
     content: [...(current.content ?? []), ...(added.content ?? [])],
