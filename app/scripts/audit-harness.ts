@@ -408,6 +408,17 @@ async function start(options: Options) {
     );
   }
 
+  // A client generated on another branch fails every query that touches a
+  // newer model ("Unknown field ... for select statement").
+  const prismaGenerate = spawnSync(
+    process.execPath,
+    [pnpmPath, "exec", "prisma", "generate"],
+    { cwd: dirname(packageJsonPath), env: childEnv, stdio: "inherit" },
+  );
+  if (prismaGenerate.status !== 0) {
+    throw new Error("prisma generate failed.");
+  }
+
   if (options.production) {
     const build = spawnSync(
       process.execPath,
