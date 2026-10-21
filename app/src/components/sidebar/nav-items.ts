@@ -11,6 +11,7 @@ import {
   NetworkIcon,
   ShieldIcon,
   SparklesIcon,
+  TelescopeIcon,
   WaypointsIcon,
 } from "lucide-solid";
 import type { JSX } from "solid-js";
@@ -111,6 +112,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     isActive: (pathname) =>
       isSectionActive("/tasks", pathname) ||
       pathname === "/views/note-tasks",
+  },
+  {
+    label: "Research",
+    href: "/research",
+    icon: TelescopeIcon,
+    keywords: "topics threads frontier findings",
+    isActive: (pathname) => isSectionActive("/research", pathname),
   },
   {
     label: "Explorer",
