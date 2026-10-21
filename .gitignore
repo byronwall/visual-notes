@@ -4,3 +4,7 @@ comp_refs
 
 # Agent scratch output (screenshots, probe scripts). Never commit it.
 tmp/
+
+# Claude Code worktrees and local launch config
+.claude/worktrees/
+.claude/launch.json

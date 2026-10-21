@@ -1,0 +1,29 @@
+name: Stack base
+
+# A stacked PR whose base branch already merged would merge into that dead
+# branch instead of main (#106 did). Fail it until it is retargeted.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  base:
+    name: Base branch is still open
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+    steps:
+      - name: Check that the base branch has not merged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.base_ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          merged=$(gh pr list --repo "$REPO" --state merged --head "$BASE" --json number --jq '.[0].number // empty')
+          if [ -n "$merged" ]; then
+            echo "::error::Base branch $BASE already merged as #$merged. Retarget this PR: gh pr edit ${{ github.event.pull_request.number }} --base main"
+            exit 1
+          fi
+          echo "Base $BASE has not merged yet."
