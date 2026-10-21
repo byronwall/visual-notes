@@ -18,6 +18,7 @@ import {
 } from "~/lib/note-content/markdown";
 import { DocAudioStrip } from "./doc-audio/DocAudioStrip";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
+import { NoteEventSection } from "./events/note/NoteEventSection";
 import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { BacklinksSection } from "./docs/BacklinksSection";
@@ -62,6 +63,7 @@ const DocumentViewer: VoidComponent<{
   const [busy, setBusy] = createSignal(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = createSignal(false);
+  const [addingEventDates, setAddingEventDates] = createSignal(false);
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
@@ -254,16 +256,14 @@ const DocumentViewer: VoidComponent<{
       headingTitle={showSync() ? firstH1() : undefined}
       onUseHeadingTitle={() => void handleSync()}
       onAddToCollection={() => setAddToCollectionOpen(true)}
+      onAddEventDates={() => setAddingEventDates(true)}
       trailing={props.headerTrailing}
     />
   );
 
   return (
     <Box class="prose" maxW="none">
-      <Show
-        when={props.panelMode}
-        fallback={<Box mb="2">{header()}</Box>}
-      >
+      <Show when={props.panelMode} fallback={<Box mb="2">{header()}</Box>}>
         {/* The panel scrolls inside itself, so its header stays pinned with
             the close button in reach. */}
         <Box
@@ -292,6 +292,12 @@ const DocumentViewer: VoidComponent<{
         </Show>
       </Show>
       {props.subheader ?? <DocCollectionHeader docId={props.doc.id} />}
+      <NoteEventSection
+        docId={props.doc.id}
+        hideWhenEmpty={!props.panelMode}
+        adding={addingEventDates()}
+        onAddingDone={() => setAddingEventDates(false)}
+      />
       <DocAudioStrip docId={props.doc.id} />
       <DocumentEditor
         docId={props.doc.id}

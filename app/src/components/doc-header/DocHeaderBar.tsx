@@ -43,6 +43,7 @@ export const DocHeaderBar: VoidComponent<{
   headingTitle?: string;
   onUseHeadingTitle: () => void;
   onAddToCollection: () => void;
+  onAddEventDates?: () => void;
   trailing?: JSX.Element;
 }> = (props) => {
   const properties = () => (
@@ -94,6 +95,7 @@ export const DocHeaderBar: VoidComponent<{
         headingTitle={props.headingTitle}
         onUseHeadingTitle={props.onUseHeadingTitle}
         onAddToCollection={props.onAddToCollection}
+        onAddEventDates={props.onAddEventDates}
       />
       {props.trailing}
     </HStack>
