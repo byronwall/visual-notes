@@ -8,7 +8,7 @@ focused skills listed under [Skills](#skills).
 | Need | Where |
 | --- | --- |
 | Setup (Node 22.6+, pinned pnpm 9.15.9 via Corepack) | [README Getting Started](README.md#getting-started) |
-| Checks | `cd app && pnpm lint && pnpm type-check && pnpm test`; CI runs the same in [checks.yml](.github/workflows/checks.yml) |
+| Checks | `cd app && pnpm lint && pnpm type-check && pnpm test` (oxlint ~2s, TypeScript 7 ~5s cold / <1s warm); CI runs the same in [checks.yml](.github/workflows/checks.yml) |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
 | Test database (`pnpm audit:db -- --owner <slug>`), isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
 | One-off Playwright checks (sign-in, hydration wait, widths, layout report, exit codes) | [app/docs/browser-checks.md](app/docs/browser-checks.md) |
@@ -71,11 +71,15 @@ focused skills listed under [Skills](#skills).
   - Keep route modules focused on routing + data + page composition; move reusable UI to `app/src/components/` (or `~/components/*`).
 - End-of-session cleanup (optional, before commit)
   - Command: `cd app && pnpm run fix:unstaged`
-  - Use at the end of a series of edits to auto-run ESLint fix + Prettier on unstaged files under `app/`.
+  - Use at the end of a series of edits to auto-run oxlint fix + Prettier on unstaged files under `app/`.
   - Optional: skip when you do not want automatic formatting/content changes yet.
 - Verification after sizable changes
   - In `app/`, run `pnpm lint`, `pnpm type-check`, and `pnpm test` after sizable refactors or feature edits.
   - Treat this as the default verification gate before handing work off or committing.
+  - While iterating, scope checks to what you touched: `pnpm exec oxlint <paths>` and `pnpm exec vitest related --run <files>`. `pnpm type-check` is incremental, so re-runs are cheap.
+  - Run checks one at a time, not in parallel shells. Several worktrees type-checking at once have been killed for memory (exit 137).
+  - `pnpm type-check` runs TypeScript 7 (`typescript7` alias). Keep `typescript` 5.x installed: Panda and Prisma use its JavaScript API. Lint is oxlint with `eslint-plugin-solid` as a JS plugin; repo guard rules live in `app/lint/oxlint-plugin-vn.mjs`.
+  - For Playwright: point specs at your running audit-harness server (`PLAYWRIGHT_BASE_URL=…`, printed by `pnpm audit:db`) and run one spec or `--last-failed`; without a server, `PLAYWRIGHT_WEB_SERVER=dev` skips the production build. Write one-off checks with the browser-check kit ([app/docs/browser-checks.md](app/docs/browser-checks.md)), never with `waitForTimeout`.
   - For UI work that changes navigation, drawers, popovers, or row actions, add a Playwright smoke pass that covers:
     - route render for every affected page/utility route
     - hover states for primary and nested interactive targets
