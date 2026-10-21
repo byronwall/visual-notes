@@ -7,6 +7,7 @@ import { createTopicData } from "./createTopicData";
 import { CardDetailPanel } from "./detail/CardDetailPanel";
 import { TopicBatchList } from "./TopicBatchList";
 import { TopicOutline } from "./TopicOutline";
+import { TopicTitle } from "./TopicTitle";
 
 const crumbLinkClass = css({ color: "blue.11", textDecoration: "none", _hover: { color: "blue.12" } });
 
@@ -63,10 +64,10 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               borderColor: "border",
             })}
           >
-            <nav aria-label="Breadcrumb" class={css({ fontSize: "sm", display: "flex", gap: "1.5", minW: 0 })}>
+            <nav aria-label="Breadcrumb" class={css({ fontSize: "sm", display: "flex", alignItems: "center", gap: "1.5", minW: 0 })}>
               <A href="/research" class={crumbLinkClass}>Research</A>
               <span class={css({ color: "fg.subtle" })}>/</span>
-              <h1 class={css({ fontWeight: "semibold" })}>{graph().topic.title}</h1>
+              <TopicTitle topic={graph().topic} onChanged={data.reload} />
             </nav>
             <span class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums", flex: 1 })}>
               <span class={css({ color: "amber.11" })}>{countOpen(data.cards())} open</span> · {plainCount()} cards

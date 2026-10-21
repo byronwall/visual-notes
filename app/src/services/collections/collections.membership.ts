@@ -1,31 +1,19 @@
 // Bringing existing notes into collections and moving them between them.
 import { action, json, query } from "@solidjs/router";
-import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import { mapBetweenCollections } from "~/lib/collections/mapping";
 import {
-  mapBetweenCollections,
-  mapMetaToProperties,
-  resolveNewOptions,
-  type MappedValues,
-} from "~/lib/collections/mapping";
-import {
-  OPTION_COLORS,
-  type CollectionProperty,
-  type CollectionRow,
   type PropertyConfig,
   type RowProperties,
 } from "~/lib/collections/types";
 import {
-  ROW_SELECT,
   asObject,
-  attachNotes,
   loadLiveProperties,
-  mapRow,
-  newOptionId,
   requireCollection,
 } from "./collections.server";
 import { fetchCollections } from "./collections.queries";
+import { addNotes } from "~/server/collections/collection-store";
 
 const id = z.string().min(1).max(64);
 
@@ -81,130 +69,6 @@ export const searchNotesForCollection = query(
   },
   "collections-note-candidates",
 );
-
-/** Adds any missing option names to select-like properties; returns the fresh schema. */
-async function ensureOptions(
-  tx: Prisma.TransactionClient,
-  properties: CollectionProperty[],
-  newOptions: Record<string, string[]>,
-): Promise<CollectionProperty[]> {
-  const next = properties.map((p) => ({
-    ...p,
-    config: { ...p.config, options: [...(p.config.options ?? [])] },
-  }));
-  for (const [propertyId, names] of Object.entries(newOptions)) {
-    const property = next.find((p) => p.id === propertyId);
-    if (!property) continue;
-    const options = property.config.options!;
-    for (const name of names) {
-      if (options.some((o) => o.name.toLowerCase() === name.toLowerCase()))
-        continue;
-      options.push({
-        id: newOptionId(),
-        name,
-        color: OPTION_COLORS[(options.length + 1) % OPTION_COLORS.length]!,
-        ...(property.kind === "status" ? { group: "todo" as const } : {}),
-      });
-    }
-    await tx.collectionProperty.update({
-      where: { id: property.id },
-      data: { config: property.config as Prisma.InputJsonValue },
-    });
-  }
-  return next;
-}
-
-const mergeAll = (mapped: MappedValues[]) => {
-  const newOptions: Record<string, string[]> = {};
-  for (const m of mapped)
-    for (const [pid, names] of Object.entries(m.newOptions))
-      newOptions[pid] = [...(newOptions[pid] ?? []), ...names];
-  return newOptions;
-};
-
-/**
- * Adds existing notes to a collection. Values already stored for this
- * collection come back; meta keys matching property names fill the rest.
- * Notes in another collection are moved (their values carry over by name).
- */
-async function addNotes(collectionId: string, docIds: string[]) {
-  const input = { collectionId, docIds };
-  await requireCollection(input.collectionId);
-  const properties = await loadLiveProperties(input.collectionId);
-  const docs = await prisma.doc.findMany({
-    where: { id: { in: input.docIds } },
-    select: { id: true, meta: true, properties: true, collectionId: true },
-  });
-  const sourceIds = [
-    ...new Set(
-      docs
-        .map((d) => d.collectionId)
-        .filter((c): c is string => Boolean(c) && c !== input.collectionId),
-    ),
-  ];
-  const sourceSchemas = new Map<string, CollectionProperty[]>();
-  for (const sid of sourceIds)
-    sourceSchemas.set(sid, await loadLiveProperties(sid));
-
-  const plans = docs.map((doc) => {
-    const stored = asObject<RowProperties>(doc.properties);
-    const fromMeta = mapMetaToProperties(
-      asObject<Record<string, unknown>>(doc.meta),
-      properties,
-    );
-    const fromOther =
-      doc.collectionId && sourceSchemas.has(doc.collectionId)
-        ? mapBetweenCollections(
-            sourceSchemas.get(doc.collectionId)!,
-            properties,
-            stored,
-          )
-        : null;
-    return { doc, stored, fromMeta, fromOther };
-  });
-
-  const rows = await prisma.$transaction(async (tx) => {
-    const schema = await ensureOptions(
-      tx,
-      properties,
-      mergeAll(
-        plans.flatMap((p) => [
-          p.fromMeta,
-          ...(p.fromOther ? [p.fromOther] : []),
-        ]),
-      ),
-    );
-    for (const plan of plans) {
-      const ownKeys = new Set(schema.map((p) => p.id));
-      // Precedence: values previously stored for this collection, then values
-      // carried from the old collection, then meta.
-      const kept = Object.fromEntries(
-        Object.entries(plan.stored).filter(([k]) => ownKeys.has(k)),
-      );
-      const values = {
-        ...resolveNewOptions(plan.fromMeta, schema),
-        ...(plan.fromOther ? resolveNewOptions(plan.fromOther, schema) : {}),
-        ...kept,
-      };
-      await tx.doc.update({
-        where: { id: plan.doc.id },
-        data: { properties: values as Prisma.InputJsonValue },
-      });
-    }
-    return schema;
-  });
-  await attachNotes(input.collectionId, input.docIds);
-  const updated = await prisma.doc.findMany({
-    where: { id: { in: input.docIds } },
-    select: ROW_SELECT,
-  });
-  console.info(
-    "[collections] added %d notes to %s",
-    updated.length,
-    input.collectionId,
-  );
-  return { rows: updated.map(mapRow) as CollectionRow[], properties: rows };
-}
 
 export const addNotesToCollection = action(
   async (payload: { collectionId: string; docIds: string[] }) => {

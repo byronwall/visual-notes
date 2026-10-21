@@ -67,6 +67,12 @@ vi.mock("./notes-write", () => ({
   editNote: vi.fn(),
   updateNote: vi.fn(),
 }));
+// The other tool modules share the server; keep their env-bound imports inert.
+vi.mock("~/server/events/action-events", () => ({ logActionEvent: vi.fn() }));
+vi.mock("./semantic", () => ({
+  scheduleEmbeddingRefresh: vi.fn(),
+  semanticSearch: vi.fn(),
+}));
 
 const { createNotesMcpServer } = await import("./tools");
 

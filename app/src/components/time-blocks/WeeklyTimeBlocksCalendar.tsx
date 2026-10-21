@@ -12,6 +12,8 @@ import {
 import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import { forgetQuery } from "~/features/live-sync/forget-query";
+import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import {
   fetchDateRangeTimeBlockMeta,
   fetchWeeklyTimeBlocks,
@@ -265,6 +267,27 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
       else void mutations.setTimes(block, start, end);
     },
     onResize: (block, start, end) => void mutations.setTimes(block, start, end),
+  });
+
+  // Agents and other tabs plan time too. While this tab is writing, its own
+  // refresh after the write covers any remote change (and skips the echo of
+  // its own); during a drag the refresh waits for the drop.
+  // The query cache still holds the old rows, so clear it before refetching.
+  const refreshRemote = () =>
+    void forgetQuery([
+      fetchWeeklyTimeBlocks.key,
+      fetchDateRangeTimeBlockMeta.key,
+    ]).then(refresh);
+  const [remoteChanged, setRemoteChanged] = createSignal(false);
+  useAppChanges("time-blocks", () => {
+    if (mutations.writing()) return;
+    if (drag.state().type !== "idle") setRemoteChanged(true);
+    else refreshRemote();
+  });
+  createEffect(() => {
+    if (!remoteChanged() || drag.state().type !== "idle") return;
+    setRemoteChanged(false);
+    if (!mutations.writing()) refreshRemote();
   });
 
   const dragPreview = createMemo(() => {

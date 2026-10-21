@@ -7,6 +7,7 @@ import {
   insertTaskLocally,
   isDescendantOf,
   moveTaskLocally,
+  removeSubtreeLocally,
 } from "./taskTreeOps";
 
 const task = (id: string, sortOrder: number, overrides: Partial<TaskItem> = {}): TaskItem => ({
@@ -55,6 +56,15 @@ describe("insertTaskLocally", () => {
 describe("deleteTaskLocally", () => {
   it("promotes children into the deleted task's slot", () => {
     expect(order(deleteTaskLocally(base, "a"))).toEqual(["a1", "b", "c"]);
+  });
+});
+
+describe("removeSubtreeLocally", () => {
+  it("drops the task with its descendants and closes the gap", () => {
+    const deep = [...base, task("a1x", 0, { parentTaskId: "a1" })];
+    const next = removeSubtreeLocally(deep, "a");
+    expect(next.map((item) => item.id).sort()).toEqual(["b", "c"]);
+    expect(next.map((item) => item.sortOrder)).toEqual([0, 1]);
   });
 });
 
