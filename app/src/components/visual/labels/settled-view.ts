@@ -34,6 +34,7 @@ export class SettledViewGate {
   settled: CanvasView;
   private pending: CanvasView | undefined;
   private lastChangeAt = 0;
+  private forced = false;
 
   constructor(initial: CanvasView) {
     this.settled = initial;
@@ -42,11 +43,24 @@ export class SettledViewGate {
   /** Record a live view at `now`. Returns true when a commit is pending. */
   observe(view: CanvasView, now: number) {
     if (!isSignificantViewChange(this.pending ?? this.settled, view)) {
+      // Too small to restart the wait, but commit the latest view.
+      if (this.pending) this.pending = view;
       return this.pending !== undefined;
     }
     this.pending = view;
     this.lastChangeAt = now;
     return true;
+  }
+
+  /**
+   * Ask for a commit once things are still, even if the view has not moved
+   * (labels re-plan for new data). Restarts the idle timer, so a data change
+   * that comes with a camera move commits once, after the move.
+   */
+  touch(now: number) {
+    this.pending ??= this.settled;
+    this.lastChangeAt = now;
+    this.forced = true;
   }
 
   /** Commit the pending view if it has been idle long enough. */
@@ -55,8 +69,12 @@ export class SettledViewGate {
       return undefined;
     }
     const next = this.pending;
+    const forced = this.forced;
     this.pending = undefined;
-    if (!isSignificantViewChange(this.settled, next)) return undefined;
+    this.forced = false;
+    if (!forced && !isSignificantViewChange(this.settled, next)) {
+      return undefined;
+    }
     this.settled = next;
     return next;
   }

@@ -240,6 +240,29 @@ describe("label count during a gesture", () => {
     expect(gate.observe({ zoom: 1.01, offset: { x: 0, y: 0 } }, 0)).toBe(true);
   });
 
+  it("commits the final view, not the last big step", () => {
+    const gate = new SettledViewGate({ zoom: 1, offset: { x: 0, y: 0 } });
+    gate.observe({ zoom: 1.5, offset: { x: 0, y: 0 } }, 0);
+    // The ease-out tail: tiny steps that do not restart the wait.
+    gate.observe({ zoom: 1.503, offset: { x: 0.2, y: 0 } }, 50);
+    expect(gate.tick(SETTLE_IDLE_MS)?.zoom).toBe(1.503);
+  });
+
+  it("re-plans for new data once still, folding in a camera move", () => {
+    const gate = new SettledViewGate({ zoom: 1, offset: { x: 0, y: 0 } });
+    // A click selects a region (data) and starts a camera move.
+    gate.touch(0);
+    for (let t = 16; t <= 320; t += 16) {
+      gate.observe({ zoom: 1 + t / 160, offset: { x: t, y: 0 } }, t);
+      expect(gate.tick(t)).toBeUndefined();
+    }
+    expect(gate.tick(320 + SETTLE_IDLE_MS)?.zoom).toBe(3);
+    // Data alone, with no movement, still commits once.
+    gate.touch(1000);
+    expect(gate.tick(1000 + SETTLE_IDLE_MS)?.zoom).toBe(3);
+    expect(gate.tick(5000)).toBeUndefined();
+  });
+
   it("uses a relative zoom threshold", () => {
     const gate = new SettledViewGate({ zoom: 0.38, offset: { x: 0, y: 0 } });
     // 0.0019 absolute is 0.5% at 0.38×: the old 0.02 absolute threshold

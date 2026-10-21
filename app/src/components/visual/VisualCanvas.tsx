@@ -164,10 +164,11 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const zoomScale = createMemo(() => Math.max(0.001, props.scale?.() ?? 1));
   // Labels are planned for this view, which moves only once zoom and pan
   // have been still for a moment.
-  const settledView = useSettledView({
+  const settled = useSettledView({
     zoom: zoomScale,
     offset: () => props.offset(),
   });
+  const settledView = settled.view;
   const settledLabelBounds = createMemo(() => {
     const view = settledView();
     return labelBoundsFor(view.zoom, view.offset);
@@ -225,6 +226,8 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     dotHoveredId,
     zoomScale,
     settledView,
+    planEpoch: settled.epoch,
+    requestReplan: settled.requestReplan,
     settledBounds: settledLabelBounds,
     liveBounds: labelViewportBounds,
     regions: regionList,

@@ -21,7 +21,7 @@ export function createCanvasStore() {
   const [navHeight, setNavHeight] = createSignal(56);
   const [isPanning, setIsPanning] = createSignal(false);
   const [mouseScreen, setMouseScreen] = createSignal<Point | undefined>(
-    undefined
+    undefined,
   );
 
   let frame = 0 as number | undefined;
@@ -132,18 +132,48 @@ export function createCanvasStore() {
     const durationMs = target.durationMs ?? 320;
     const start = performance.now();
 
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+    // Strong ease-in-out: the camera is moving across the screen, so it
+    // accelerates out of rest and settles into the target.
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    // Zoom is interpolated in log space so every frame zooms by the same
+    // ratio. Any two views are related by a zoom about one fixed screen
+    // point; animating around it moves every world point in a straight
+    // line, so the target region grows from where it is instead of
+    // swinging sideways first.
+    const ratio = target.scale / startScale;
+    const logRatio = Math.log(ratio);
+    const fixedPoint =
+      Math.abs(logRatio) > 0.02
+        ? {
+            x: (target.offset.x - ratio * startOffset.x) / (1 - ratio),
+            y: (target.offset.y - ratio * startOffset.y) / (1 - ratio),
+          }
+        : undefined;
 
     const tick = (now: number) => {
       const progress = Math.min(1, (now - start) / durationMs);
-      const eased = easeOutCubic(progress);
-      setView({
-        scale: startScale + (target.scale - startScale) * eased,
-        offset: {
-          x: startOffset.x + (target.offset.x - startOffset.x) * eased,
-          y: startOffset.y + (target.offset.y - startOffset.y) * eased,
-        },
-      });
+      const eased = easeInOutCubic(progress);
+      if (progress >= 1) {
+        setView({ scale: target.scale, offset: target.offset });
+      } else if (fixedPoint) {
+        const frameRatio = Math.exp(logRatio * eased);
+        setView({
+          scale: startScale * frameRatio,
+          offset: {
+            x: fixedPoint.x - (fixedPoint.x - startOffset.x) * frameRatio,
+            y: fixedPoint.y - (fixedPoint.y - startOffset.y) * frameRatio,
+          },
+        });
+      } else {
+        setView({
+          scale: startScale * Math.exp(logRatio * eased),
+          offset: {
+            x: startOffset.x + (target.offset.x - startOffset.x) * eased,
+            y: startOffset.y + (target.offset.y - startOffset.y) * eased,
+          },
+        });
+      }
       scheduleTransform();
       motionFrame = progress < 1 ? requestAnimationFrame(tick) : 0;
     };

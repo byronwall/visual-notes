@@ -1,4 +1,4 @@
-import { createMemo, untrack, type Accessor } from "solid-js";
+import { createEffect, createMemo, on, untrack, type Accessor } from "solid-js";
 import type { UmapRegionItem } from "~/features/umap/region-types";
 import type { DocItem } from "~/types/notes";
 import { measureCanvasWork } from "./canvas-perf";
@@ -39,6 +39,10 @@ export function useCanvasNoteLabels(args: {
   dotHoveredId: Accessor<string | undefined>;
   zoomScale: Accessor<number>;
   settledView: Accessor<CanvasView>;
+  /** Bumps when ranked labels should re-plan (see `useSettledView`). */
+  planEpoch: Accessor<number>;
+  /** Ask for a re-plan once the view is still. */
+  requestReplan: () => void;
   /** Label area (world units) for the settled view. */
   settledBounds: Accessor<Bounds | undefined>;
   /** Label area for the live view; only the hovered label uses it. */
@@ -71,16 +75,32 @@ export function useCanvasNoteLabels(args: {
   });
   const frozen = useFrozenHoveredNoteLabel(() => anchoredHoveredLayout());
 
-  const plan = createMemo((): PlacedNoteLabel[] => {
+  // Data, search, selection, and interactivity changes only request a
+  // re-plan; the plan itself runs on the epoch, i.e. once the view is
+  // still. Selecting a region therefore never labels the old view while the
+  // camera flies to the new one.
+  createEffect(
+    on(
+      [
+        candidateDocs,
+        args.positions,
+        args.selectedRegionId,
+        args.notesInteractive,
+        args.regions,
+      ],
+      () => args.requestReplan(),
+      { defer: true },
+    ),
+  );
+
+  const planNow = (): PlacedNoteLabel[] => {
     const view = args.settledView();
     const bounds = args.settledBounds();
     const docs = candidateDocs();
     const positions = args.positions();
     const selectedRegionId = args.selectedRegionId();
     const occupied = args.regionLabelBoxes();
-    // Read without tracking: interactivity flips at a live zoom threshold,
-    // and the plan must only change once the view settles.
-    if (!untrack(args.notesInteractive)) return [];
+    if (!args.notesInteractive()) return [];
     return measureCanvasWork("noteLabelPlan", () => {
       const ranked = rankNoteLabelCandidates({ docs, positions, bounds });
       const count = getVisibleNoteLabelCount({
@@ -111,6 +131,10 @@ export function useCanvasNoteLabels(args: {
       });
       return layouts.map((layout) => ({ layout, layoutZoom: view.zoom }));
     });
+  };
+  const plan = createMemo((): PlacedNoteLabel[] => {
+    args.planEpoch();
+    return untrack(() => planNow());
   });
 
   const placed = createMemo((): PlacedNoteLabel[] => {
