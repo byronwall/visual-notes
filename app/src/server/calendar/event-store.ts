@@ -223,9 +223,15 @@ export async function addRepeatingOccurrences(
     until: input.until,
   });
   const existing = await getNoteEvent(docId);
-  const taken = new Set(existing?.occurrences.map((o) => o.startsAt) ?? []);
+  // One show per local day: a repeat never doubles up a day that already has
+  // a show, even when the existing show's time differs.
+  const taken = new Set(
+    existing?.occurrences.map(
+      (o) => instantToWallClock(o.startsAt, o.timeZone).date,
+    ) ?? [],
+  );
   const shows = dates
-    .filter((d) => !taken.has(d.startsAt))
+    .filter((d) => !taken.has(d.date))
     .map((d) => {
       const end = d.endsAt ? instantToWallClock(d.endsAt, timeZone) : null;
       return {
@@ -328,14 +334,33 @@ export async function listOccurrences(
         }
       : {}),
     ...(input.includeCancelled ? {} : { status: { not: "cancelled" } }),
-    ...(input.placeId
-      ? {
-          OR: [
-            { placeId: input.placeId },
-            { placeId: null, event: { placeId: input.placeId } },
-          ],
-        }
-      : {}),
+    AND: [
+      ...(input.placeId
+        ? [
+            {
+              OR: [
+                { placeId: input.placeId },
+                { placeId: null, event: { placeId: input.placeId } },
+              ],
+            },
+          ]
+        : []),
+      // Effective decision: the show's own, or the event's when unreviewed.
+      // Filtered in SQL so `take` counts only matching shows.
+      ...(input.decisions?.length
+        ? [
+            {
+              OR: [
+                { decision: { in: input.decisions } },
+                {
+                  decision: "unreviewed" as const,
+                  event: { decision: { in: input.decisions } },
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
     event: {
       ...(input.docIds ? { docId: { in: input.docIds } } : {}),
       ...(input.collectionId
@@ -361,7 +386,7 @@ export async function listOccurrences(
     orderBy: { startsAt: "asc" },
     take: input.limit ?? 500,
   });
-  const items = rows.map((row): OccurrenceListItem => {
+  return rows.map((row): OccurrenceListItem => {
     const occurrence = mapOccurrence(row);
     const eventPlace = row.event.place
       ? mapPlaceSummary(row.event.place)
@@ -381,10 +406,6 @@ export async function listOccurrences(
       ),
     };
   });
-  const decisions = input.decisions?.length ? new Set(input.decisions) : null;
-  return decisions
-    ? items.filter((i) => decisions.has(i.effectiveDecision))
-    : items;
 }
 
 export type EventListItem = {
