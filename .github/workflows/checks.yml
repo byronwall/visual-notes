@@ -119,11 +119,24 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # canvas-note-panel is left out: it needs an audit run manifest to seed
-      # a UMAP region and skips without one. late-note-share-responses and the
-      # path-editor specs still fail on main. Add specs here once they pass.
+      # Runs every spec. A spec that is broken on main goes in
+      # tests/e2e/known-broken.ts with a reason; new specs need no edit here.
       - name: Playwright
-        run: pnpm exec playwright test archive-title-cancel auth-helper new-note-mobile live-note-updates homepage inline-title-failed-save task-lists time-blocks-interactions time-blocks-layout
+        run: pnpm exec playwright test
+
+      # Dev builds hydrate differently: #125 and the open-tasks page crash
+      # only showed under `vinxi dev`, so smoke every route there too.
+      - name: Route hydration smoke (dev server)
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
+        run: |
+          set -a; source .env; set +a
+          PORT=3100 HOST=127.0.0.1 pnpm dev > dev-server.log 2>&1 &
+          for _ in $(seq 1 90); do
+            curl -fs -o /dev/null http://127.0.0.1:3100/login && break
+            sleep 2
+          done
+          pnpm exec playwright test route-hydration-smoke
 
       - name: Upload report
         if: failure()
@@ -133,4 +146,5 @@ jobs:
           path: |
             app/playwright-report
             app/test-results
+            app/dev-server.log
           retention-days: 7

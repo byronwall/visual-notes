@@ -17,6 +17,7 @@ export type DocRowProps = {
   path?: string | null;
   meta?: Record<string, unknown> | null;
   share?: { slug: string; shareUrl: string } | null;
+  collection?: { id: string; name: string; icon: string | null } | null;
   snippet?: string | null;
   query?: string;
   active?: boolean;
@@ -32,6 +33,23 @@ export type DocRowProps = {
     meta?: Record<string, unknown> | null;
   } | null;
 };
+
+const collectionChipClass = css({
+  display: "inline-flex",
+  alignItems: "center",
+  ml: "1.5",
+  px: "1.5",
+  h: "4.5",
+  borderRadius: "l1",
+  bg: "bg.subtle",
+  borderWidth: "1px",
+  borderColor: "border",
+  color: "fg.muted",
+  fontSize: "2xs",
+  verticalAlign: "1px",
+  textDecoration: "none",
+  _hover: { color: "fg.default", borderColor: "border.emphasized" },
+});
 
 // Fixed columns so paths and times scan as columns; the title column always
 // keeps room. Meta shows only where there is width for it.
@@ -228,6 +246,18 @@ export const DocRow = (props: DocRowProps) => {
             >
               <GlobeIcon size={13} />
             </Box>
+          )}
+        </Show>
+        <Show when={props.collection}>
+          {(collection) => (
+            <a
+              href={`/collections/${collection().id}`}
+              class={collectionChipClass}
+              title={`Row in ${collection().name}`}
+            >
+              {collection().icon ? `${collection().icon} ` : ""}
+              {collection().name}
+            </a>
           )}
         </Show>
       </Box>

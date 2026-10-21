@@ -22,6 +22,7 @@ export const searchDocs = query(
     updatedFrom?: string;
     updatedTo?: string;
     activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
+    collectionRows?: "hide" | "only";
     sortMode?:
       | "relevance"
       | "recent_activity"
@@ -51,6 +52,7 @@ export const searchDocs = query(
       updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
       updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
       activityClass: q.activityClass,
+      collectionRows: q.collectionRows,
     });
 
     const titlePathTake = Math.min(Math.max(take * 4, 120), 800);

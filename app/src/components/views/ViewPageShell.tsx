@@ -1,5 +1,5 @@
 import { Title } from "@solidjs/meta";
-import type { JSX } from "solid-js";
+import { Show, children, type JSX } from "solid-js";
 import { Box, Stack } from "styled-system/jsx";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
@@ -10,6 +10,10 @@ export function ViewPageShell(props: {
   subtitle?: JSX.Element;
   children: JSX.Element;
 }) {
+  // Resolve the subtitle once. Reading a JSX prop twice builds it twice, and
+  // a subtitle with a component in it (the open-tasks page's <A>) then
+  // claimed hydration keys out of order: "template2 is not a function".
+  const subtitle = children(() => props.subtitle);
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Title>{`${props.title} • Visual Notes`}</Title>
@@ -18,11 +22,11 @@ export function ViewPageShell(props: {
           <Heading as="h1" fontSize="2xl">
             {props.title}
           </Heading>
-          {props.subtitle ? (
+          <Show when={subtitle()}>
             <Text color="fg.muted" textStyle="sm">
-              {props.subtitle}
+              {subtitle()}
             </Text>
-          ) : null}
+          </Show>
         </Stack>
         {props.children}
       </Stack>

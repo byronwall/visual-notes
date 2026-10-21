@@ -36,14 +36,19 @@ export const PathEditor: VoidComponent<{
   actions?: JSX.Element;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
-  let lastAppliedDocId: string | undefined;
+  // Seed with the mounted doc so the sync effect's first run is not treated as
+  // a doc switch; that run can land after the user starts typing and would
+  // wipe the in-progress segment.
+  let lastAppliedDocId = props.docId;
   let lastAppliedInitialPath = (props.initialPath || "").trim();
   let saveVersion = 0;
 
   const [draft, setDraft] = createSignal<PathDraft>(
     parsePersistedPathDraft(props.initialPath),
   );
-  const [pendingDocIds, setPendingDocIds] = createSignal<Set<string>>(new Set());
+  const [pendingDocIds, setPendingDocIds] = createSignal<Set<string>>(
+    new Set(),
+  );
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [isFocused, setIsFocused] = createSignal(false);
 
@@ -60,13 +65,18 @@ export const PathEditor: VoidComponent<{
     ) {
       return;
     }
+    const previousInitialPath = lastAppliedInitialPath;
     lastAppliedDocId = incomingDocId;
     lastAppliedInitialPath = incoming;
     if (docChanged) {
       saveVersion += 1;
       setError(undefined);
-    } else if (incoming === serializePathDraft(draft()).trim()) {
-      return;
+    } else {
+      const current = serializePathDraft(draft()).trim();
+      if (incoming === current) return;
+      // Keep a draft the user changed since the last saved path. A late save
+      // or a live refresh of the same note must not wipe what they are typing.
+      if (current !== previousInitialPath) return;
     }
     setDraft(parsePersistedPathDraft(incoming));
     setIsFocused(false);
@@ -198,10 +208,7 @@ export const PathEditor: VoidComponent<{
   return (
     <Stack gap="2" onFocusOut={handleEditorFocusOut}>
       <Suspense fallback={null}>
-        <Stack
-          gap="2"
-          onFocusIn={() => setIsFocused(true)}
-        >
+        <Stack gap="2" onFocusIn={() => setIsFocused(true)}>
           <Box
             borderWidth="1px"
             borderColor="gray.outline.border"
@@ -261,6 +268,7 @@ export const PathEditor: VoidComponent<{
               borderColor="transparent"
               bg="transparent"
               placeholder="e.g. work.projects.alpha"
+              data-path-segment-input="true"
               _focus={{ borderColor: "transparent", boxShadow: "none" }}
               _focusVisible={{ outline: "none", boxShadow: "none" }}
               value={draft().current}

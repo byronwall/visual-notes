@@ -10,6 +10,8 @@ export const serverScheme = z.object({
   DATABASE_URL: z.string(),
   MAGIC_PASSWORD: z.string(),
   ARCHIVE_INGEST_TOKEN: z.string().optional(),
+  // Bearer token for the research REST ingest routes (agents, seed scripts). Unset = disabled.
+  RESEARCH_AGENT_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   UMAP_PYTHON_BIN: z.string().optional(),

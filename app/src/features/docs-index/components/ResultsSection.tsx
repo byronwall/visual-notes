@@ -160,6 +160,7 @@ export const ResultsSection = (props: {
                         path={d.path}
                         meta={d.meta}
                         share={d.share}
+                        collection={d.collection}
                         snippet={"snippet" in d ? d.snippet : undefined}
                         query={isSearching() ? q.searchText() : undefined}
                         previewDoc={previewDocsById().get(d.id) || null}

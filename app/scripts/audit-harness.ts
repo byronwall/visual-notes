@@ -234,6 +234,7 @@ function makeChildEnv(
     PUBLIC_BASE_URL: baseUrl,
     MAGIC_PASSWORD: auditMagicPassword,
     ARCHIVE_INGEST_TOKEN: "audit-harness-token",
+    RESEARCH_AGENT_TOKEN: "audit-harness-research-token",
     VITE_AUTH_PATH: source.VITE_AUTH_PATH ?? "/api/auth",
     VITE_PUBLIC_BASE_URL: baseUrl,
     PORT: String(options.port),
@@ -243,6 +244,10 @@ function makeChildEnv(
     PLAYWRIGHT_BASE_URL: baseUrl,
     OPENAI_API_KEY: "",
   });
+  // Optional MCP connector for local agent runs (the dev token is ignored in production).
+  for (const key of ["MCP_CONNECTOR_ENABLED", "MCP_DEV_TOKEN"] as const) {
+    if (source[key]) childEnv[key] = source[key];
+  }
   return childEnv;
 }
 
@@ -401,6 +406,17 @@ async function start(options: Options) {
     throw new Error(
       "Panda codegen did not create styled-system/css/index.mjs.",
     );
+  }
+
+  // A client generated on another branch fails every query that touches a
+  // newer model ("Unknown field ... for select statement").
+  const prismaGenerate = spawnSync(
+    process.execPath,
+    [pnpmPath, "exec", "prisma", "generate"],
+    { cwd: dirname(packageJsonPath), env: childEnv, stdio: "inherit" },
+  );
+  if (prismaGenerate.status !== 0) {
+    throw new Error("prisma generate failed.");
   }
 
   if (options.production) {

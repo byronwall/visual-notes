@@ -16,6 +16,10 @@ import { DeferredFocusEvents } from "./DeferredFocusEvents";
 import { NoteLinkSuggestion } from "./NoteLinkSuggestion";
 import { TaskRefEditor } from "./TaskRefView";
 import { TagSuggestion } from "./TagSuggestion";
+import {
+  CollectionViewNode,
+  type CollectionViewNodeOptions,
+} from "./CollectionViewNode";
 
 export function buildExtensions(
   csvPrompt: (
@@ -25,7 +29,8 @@ export function buildExtensions(
   _mdPrompt?: (
     text: string,
     src: "paste" | "drop" | "file"
-  ) => Promise<"formatted" | "text" | "cancel">
+  ) => Promise<"formatted" | "text" | "cancel">,
+  embed?: Partial<CollectionViewNodeOptions>
 ) {
   return [
     DeferredFocusEvents,
@@ -46,6 +51,10 @@ export function buildExtensions(
       tableHeader: CustomTableHeader,
       tableCell: CustomTableCell,
       taskRef: TaskRefEditor,
+      collectionView: CollectionViewNode.configure({
+        owner: embed?.owner ?? null,
+        noteId: embed?.noteId,
+      }),
     }),
     ListItemReorderShortcuts,
     SelectionMarkShortcuts,

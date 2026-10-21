@@ -67,6 +67,7 @@ const DocsIndexPage = () => {
     activityClass: (q.activityClass() || undefined) as
       | ActivityClass
       | undefined,
+    collectionRows: q.collectionRows() || undefined,
     sortMode: q.sortMode(),
   });
 

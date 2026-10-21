@@ -31,12 +31,38 @@
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": [
       "warn",
-      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "no-empty": "off",
     "no-useless-escape": "off",
     "prefer-const": "warn",
     "solid/no-innerhtml": "off",
-    "solid/prefer-for": "warn"
-  }
+    "solid/prefer-for": "warn",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.object.property.name='doc'][callee.property.name=/^(create|createMany|update|updateMany|upsert)$/] Property[key.name=/^(data|create|update)$/] > ObjectExpression > Property[key.name=/^(content|html|markdown)$/]",
+        "message": "Write note bodies only through server/notes/note-write.ts or note-store.ts (contentColumns), so validation, dual-write, search text, and the block index stay in step."
+      },
+      {
+        "selector": "Property[key.name='select'] Property[key.name='select'] > ObjectExpression > SpreadElement",
+        "message": "List nested Prisma select fields explicitly. Spreading a shared object into a nested select made tsc take minutes."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/server/notes/note-write.ts",
+        "src/server/notes/note-store.ts",
+        "src/server/notes/block-migration.ts"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }
