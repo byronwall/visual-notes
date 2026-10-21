@@ -36,9 +36,19 @@ export type CanvasSideRailProps = {
 
 const RAIL_LIST_LIMIT = 400;
 
-const RailHeader = (props: { label: string; count: number; children?: JSX.Element }) => (
+const RailHeader = (props: {
+  label: string;
+  count: number;
+  children?: JSX.Element;
+}) => (
   <Flex align="baseline" justify="space-between" gap="2" px="3" pt="3" pb="2">
-    <Text fontSize="xs" fontWeight="semibold" color="fg.muted" textTransform="uppercase" letterSpacing="0.06em">
+    <Text
+      fontSize="xs"
+      fontWeight="semibold"
+      color="fg.muted"
+      textTransform="uppercase"
+      letterSpacing="0.06em"
+    >
       {props.label}
     </Text>
     <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums">
@@ -52,7 +62,9 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
     props
       .regions()
       .slice()
-      .sort((a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title))
+      .sort(
+        (a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title),
+      ),
   );
   const listedDocs = createMemo(() => props.docs().slice(0, RAIL_LIST_LIMIT));
   const docsLabel = () => (props.mode() === "matches" ? "Matches" : "Notes");
@@ -89,7 +101,13 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
                 <Text fontSize="sm" fontWeight="semibold" lineHeight="tight">
                   {region().title}
                 </Text>
-                <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0" mt="0.5">
+                <Text
+                  fontSize="xs"
+                  color="fg.muted"
+                  fontVariantNumeric="tabular-nums"
+                  flexShrink="0"
+                  mt="0.5"
+                >
                   {props.searchQuery().trim()
                     ? `${props.docs().length} / ${region().docCount}`
                     : region().docCount}
@@ -112,7 +130,14 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
         <RailHeader label={docsLabel()} count={props.docs().length} />
       </Show>
 
-      <Box flex="1" minH="0" overflowY="auto" px="1.5" pb="2" pt={props.mode() === "region" ? "1.5" : "0"}>
+      <Box
+        flex="1"
+        minH="0"
+        overflowY="auto"
+        px="1.5"
+        pb="2"
+        pt={props.mode() === "region" ? "1.5" : "0"}
+      >
         <Show
           when={props.mode() === "regions"}
           fallback={
@@ -176,7 +201,12 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
                   <Text fontSize="sm" flex="1" minW="0" lineHeight="snug">
                     {region.title}
                   </Text>
-                  <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" flexShrink="0">
+                  <Text
+                    fontSize="xs"
+                    color="fg.muted"
+                    fontVariantNumeric="tabular-nums"
+                    flexShrink="0"
+                  >
                     {region.docCount}
                   </Text>
                 </Box>

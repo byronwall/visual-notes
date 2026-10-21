@@ -17,11 +17,13 @@ import { SPREAD, smoothstep, type Point } from "./labels/label-geometry";
 import { CanvasBrushRect } from "./layers/CanvasBrushRect";
 import { CanvasNoteMarkers } from "./layers/CanvasNoteMarkers";
 import { NoteLabelLayer } from "./layers/NoteLabelLayer";
-import { RegionCircleLayer } from "./layers/RegionCircleLayer";
 import { RegionLabelLayer } from "./layers/RegionLabelLayer";
+import { RegionShapeLayer } from "./layers/RegionShapeLayer";
 import type { RegionInteraction } from "./layers/region-interaction";
 import { useCanvasNoteLabels } from "./useCanvasNoteLabels";
 import { useCanvasRegionLabels } from "./useCanvasRegionLabels";
+import { useCanvasRegionShapes } from "./useCanvasRegionShapes";
+import { shapeContains } from "./regions/region-shape";
 import { useRegionLabelDisplayZoom } from "./useRegionLabelDisplayZoom";
 
 type PanZoomHandlers = {
@@ -113,19 +115,16 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     });
     props.eventHandlers.onPointerMove(e);
   };
+  const regionShapes = useCanvasRegionShapes({
+    regions: () => props.umapRegions?.()?.regions ?? [],
+    positions: () => props.positions(),
+  });
   const selectedRegionPointerInside = createMemo(() => {
     const selectedId = props.selectedRegionId?.();
     const pointer = pointerCanvasPosition();
-    const regions = props.umapRegions?.()?.regions ?? [];
     if (!selectedId || !pointer) return false;
-    const selectedRegion = regions.find((region) => region.id === selectedId);
-    if (!selectedRegion) return false;
-    return (
-      Math.hypot(
-        pointer.x - selectedRegion.centroid.x,
-        pointer.y - selectedRegion.centroid.y,
-      ) <= Math.max(18, selectedRegion.radius)
-    );
+    const shape = regionShapes.shapes().get(selectedId);
+    return !!shape && shapeContains(shape, pointer);
   });
   const isRegionHoverBlocked = (regionId: string) => {
     const selectedId = props.selectedRegionId?.();
@@ -283,8 +282,10 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       >
         <g transform={props.viewTransform()}>
           <Show when={showRegions()}>
-            <RegionCircleLayer
+            <RegionShapeLayer
               regions={regionLabels.renderOrder}
+              shapes={regionShapes.shapes}
+              tones={regionShapes.tones}
               regionOpacity={regionOpacity}
               dotHoveredId={dotHoveredId}
               interaction={regionInteraction}
@@ -309,7 +310,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           inset: "0",
           display: "block",
           // Only labels and the hovered note take pointers; the rest falls
-          // through to the region circles underneath the dot canvas.
+          // through to the region shapes underneath the dot canvas.
           "pointer-events": "none",
         }}
       >

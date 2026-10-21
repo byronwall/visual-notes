@@ -34,7 +34,7 @@ const ControlTip = (props: {
 );
 
 export const CanvasZoomControls: VoidComponent<CanvasZoomControlsProps> = (
-  props
+  props,
 ) => {
   const percent = () => `${Math.round(props.scale() * 100)}%`;
   return (

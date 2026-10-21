@@ -15,7 +15,7 @@ export type CanvasViewport = {
 
 export function boundsOfPoints(
   points: Iterable<Point>,
-  padding = 0
+  padding = 0,
 ): WorldBounds | null {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -50,7 +50,12 @@ export function unionBounds(items: WorldBounds[]): WorldBounds | null {
 export function fitBoundsView(
   bounds: WorldBounds,
   viewport: CanvasViewport,
-  options: { fill?: number; minSize?: number; minScale?: number; maxScale?: number } = {}
+  options: {
+    fill?: number;
+    minSize?: number;
+    minScale?: number;
+    maxScale?: number;
+  } = {},
 ) {
   const fill = options.fill ?? 0.92;
   const minSize = options.minSize ?? 240;
@@ -62,8 +67,8 @@ export function fitBoundsView(
     options.minScale ?? 0.2,
     Math.min(
       options.maxScale ?? 2,
-      fill * Math.min(viewport.width / width, viewport.height / height)
-    )
+      fill * Math.min(viewport.width / width, viewport.height / height),
+    ),
   );
   return {
     scale,
@@ -78,7 +83,7 @@ export function fitBoundsView(
 export function centerOnPointView(
   world: Point,
   scale: number,
-  viewport: CanvasViewport
+  viewport: CanvasViewport,
 ) {
   return {
     scale,

@@ -18,7 +18,9 @@ export type CanvasRailDocRowProps = {
 };
 
 /** One note in the canvas rail; hovering it spotlights the dot on the map. */
-export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (props) => (
+export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (
+  props,
+) => (
   <HoverCard.Root
     openDelay={450}
     closeDelay={60}
@@ -45,7 +47,13 @@ export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (props) =>
           focusVisibleRing="inside"
           transitionProperty="background-color"
           transitionDuration="fast"
-          bg={props.active ? "gray.a4" : props.highlighted ? "gray.a3" : "transparent"}
+          bg={
+            props.active
+              ? "gray.a4"
+              : props.highlighted
+                ? "gray.a3"
+                : "transparent"
+          }
           _hover={{ bg: props.active ? "gray.a4" : "gray.a3" }}
           _active={{ bg: "gray.a5" }}
           aria-current={props.active ? "true" : undefined}
@@ -82,7 +90,12 @@ export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (props) =>
               {props.doc.title}
             </Text>
             <Show when={props.doc.path}>
-              <Text fontSize="xs" color="fg.muted" fontFamily="mono" wordBreak="break-all">
+              <Text
+                fontSize="xs"
+                color="fg.muted"
+                fontFamily="mono"
+                wordBreak="break-all"
+              >
                 {renderHighlighted(props.doc.path ?? "", props.query)}
               </Text>
             </Show>

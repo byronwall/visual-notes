@@ -40,7 +40,12 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
   createEffect(() => {
     const width = hasQuery() ? endWidth() : 0;
     // InputGroup pins input padding with !important, so match its priority.
-    if (width) input?.style.setProperty("padding-inline-end", `${width + 16}px`, "important");
+    if (width)
+      input?.style.setProperty(
+        "padding-inline-end",
+        `${width + 16}px`,
+        "important",
+      );
     else input?.style.removeProperty("padding-inline-end");
   });
 
@@ -64,7 +69,12 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
               </Kbd>
             }
           >
-            <Flex ref={observeEndGroup} align="center" gap="1" pointerEvents="auto">
+            <Flex
+              ref={observeEndGroup}
+              align="center"
+              gap="1"
+              pointerEvents="auto"
+            >
               <Box
                 fontSize="xs"
                 color={props.matchCount() === 0 ? "error" : "fg.muted"}
