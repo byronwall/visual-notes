@@ -12,7 +12,11 @@ export type ConnectorContext = {
   scopeChallenge: string;
 };
 
-export type ConnectorErrorCode = "not_found" | "not_owner" | "invalid";
+export type ConnectorErrorCode =
+  | "not_found"
+  | "not_owner"
+  | "invalid"
+  | "duplicate";
 
 export class ConnectorError extends Error {
   constructor(
