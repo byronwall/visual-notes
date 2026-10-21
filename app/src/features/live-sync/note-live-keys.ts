@@ -17,6 +17,7 @@ export const APP_LIVE_QUERY_KEYS: Record<AppArea, readonly string[]> = {
   tasks: ["task-", "note-open-tasks"],
   collections: ["collections-"],
   "time-blocks": ["time-block"],
+  archive: ["archive-"],
 };
 
 /** Coalesces bursts (bulk moves, multi-step MCP writes) into one refresh. */

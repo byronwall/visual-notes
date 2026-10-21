@@ -25,19 +25,44 @@ import {
   TASK_INSTRUCTIONS,
   TASK_TOOL_SCOPES,
 } from "./tasks-tools";
+import {
+  NOTE_CONTEXT_INSTRUCTIONS,
+  NOTE_CONTEXT_TOOL_SCOPES,
+  registerNoteContextTools,
+} from "./notes-context-tools";
+import {
+  registerTimeBlockTools,
+  TIME_BLOCK_INSTRUCTIONS,
+  TIME_BLOCK_TOOL_SCOPES,
+} from "./time-blocks-tools";
+import {
+  ARCHIVE_INSTRUCTIONS,
+  ARCHIVE_TOOL_SCOPES,
+  registerArchiveTools,
+} from "./archive-tools";
+import {
+  ACTIVITY_INSTRUCTIONS,
+  ACTIVITY_TOOL_SCOPES,
+  registerActivityTools,
+} from "./activity-tools";
+import { SEARCH_KINDS, searchOtherKinds } from "./search-groups";
 
 const LOG_PREFIX = "[mcp]";
 
 const SERVER_INSTRUCTIONS = [
   "Visual Notes is the user's personal knowledge base. Notes are markdown documents organized by dot paths such as `work.visual-notes.canvas`.",
   "To save something: call list_paths first, choose the most fitting existing path (or a sensible new sub-path), then create_note. Tell the user the title, path, and url.",
-  "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content.",
+  "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content. Add include (research, tasks, archive) to search those too in one call.",
   "get_notes returns markdown where each block ends with a block id tag like ` ^a1B2c3D4e5` (and code blocks/tables have it on the line after). For small changes use edit_note with those ids; it leaves every other block untouched. Never include the ^id tags in markdown you send.",
   "Notes use the same markdown dialect in both directions. Write [[Label|noteId]] or [[Label|noteId#blockId]] to link a note (the id must exist), #tag (starting with a letter) to tag a block, and a top-level `- [ ] task` / `- [x] task` line to create a real task in the user's Inbox. Rewriting a task line keeps its task and its checkbox sets the task's status. `{{collection-view:viewId}}` on its own line is an embedded collection table; keep it in place (get_notes lists each one under `embeds`). Write \\# or \\[ for a literal character.",
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
   COLLECTION_INSTRUCTIONS,
+  NOTE_CONTEXT_INSTRUCTIONS,
+  TIME_BLOCK_INSTRUCTIONS,
+  ARCHIVE_INSTRUCTIONS,
+  ACTIVITY_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -85,6 +110,10 @@ export const TOOL_SCOPES: Record<string, string> = {
   ...RESEARCH_TOOL_SCOPES,
   ...TASK_TOOL_SCOPES,
   ...COLLECTION_TOOL_SCOPES,
+  ...NOTE_CONTEXT_TOOL_SCOPES,
+  ...TIME_BLOCK_TOOL_SCOPES,
+  ...ARCHIVE_TOOL_SCOPES,
+  ...ACTIVITY_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -139,18 +168,36 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     {
       title: "Search notes",
       description:
-        "Search notes by keywords and, when embeddings are configured, by meaning. Each result says how it matched; use get_notes for full content.",
+        "Search notes by keywords and, when embeddings are configured, by meaning. Each result says how it matched; use get_notes for full content. With include, the response is { notes, research?, tasks?, archive? }: one group per kind, matched by the words.",
       inputSchema: {
         query: z.string().min(1).describe("Keywords to look for"),
         path: z
           .string()
           .optional()
-          .describe("Limit to this dot path and its children"),
+          .describe("Limit notes to this dot path and its children"),
         limit: z.number().int().min(1).max(25).optional(),
+        include: z
+          .array(z.enum(SEARCH_KINDS))
+          .optional()
+          .describe(
+            "Also search research cards, tasks, and/or archived web pages",
+          ),
       },
       annotations: readOnly,
     },
-    (args) => guarded(ctx, "search", () => searchNotes(ctx, args)),
+    ({ include, ...args }) =>
+      guarded(ctx, "search", async () => {
+        if (!include?.length) return searchNotes(ctx, args);
+        const [notes, others] = await Promise.all([
+          searchNotes(ctx, args),
+          searchOtherKinds(ctx, {
+            query: args.query,
+            include,
+            limit: args.limit ?? 10,
+          }),
+        ]);
+        return { notes, ...others };
+      }),
   );
 
   server.registerTool(
@@ -297,6 +344,10 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerResearchTools(server, ctx, guarded);
   registerTaskTools(server, ctx, guarded);
   registerCollectionTools(server, ctx, guarded);
+  registerNoteContextTools(server, ctx, guarded);
+  registerTimeBlockTools(server, ctx, guarded);
+  registerArchiveTools(server, ctx, guarded);
+  registerActivityTools(server, ctx, guarded);
 
   return server;
 }

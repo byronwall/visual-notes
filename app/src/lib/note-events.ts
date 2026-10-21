@@ -17,7 +17,13 @@ export type NotesChangedEvent = {
 };
 
 /** Non-note areas that agents and other tabs change. */
-export const APP_AREAS = ["research", "tasks", "collections", "time-blocks"] as const;
+export const APP_AREAS = [
+  "research",
+  "tasks",
+  "collections",
+  "time-blocks",
+  "archive",
+] as const;
 export type AppArea = (typeof APP_AREAS)[number];
 
 /**
@@ -43,5 +49,7 @@ export const isNoteSocketServerMessage = (
   value: unknown,
 ): value is NoteSocketServerMessage => {
   const type = (value as { type?: unknown } | null)?.type;
-  return type === "notes:changed" || type === "app:changed" || type === "notes:ping";
+  return (
+    type === "notes:changed" || type === "app:changed" || type === "notes:ping"
+  );
 };

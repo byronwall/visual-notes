@@ -14,7 +14,15 @@ vi.mock("./notes-read", () => ({
 }));
 vi.mock("~/server/db", () => ({ prisma: {} }));
 vi.mock("~/server/events/action-events", () => ({ logActionEvent: vi.fn() }));
-vi.mock("./notes-write", () => ({ appendToNote: vi.fn(), createNote: vi.fn(), updateNote: vi.fn() }));
+vi.mock("./semantic", () => ({
+  scheduleEmbeddingRefresh: vi.fn(),
+  semanticSearch: vi.fn(),
+}));
+vi.mock("./notes-write", () => ({
+  appendToNote: vi.fn(),
+  createNote: vi.fn(),
+  updateNote: vi.fn(),
+}));
 
 const service = vi.hoisted(() => {
   class ResearchIngestError extends Error {
@@ -56,15 +64,24 @@ const connect = async (scopes = ["notes:read", "notes:write"]) => {
     scopeChallenge: 'Bearer error="insufficient_scope"',
   });
   const client = new Client({ name: "contract-test", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
   return client;
 };
 
 const textOf = (result: Awaited<ReturnType<Client["callTool"]>>) =>
   (result.content as { type: string; text: string }[])[0].text;
 
-const topic = { id: "t1", slug: "learn-rust", title: "Learn Rust", archivedAt: null };
+const topic = {
+  id: "t1",
+  slug: "learn-rust",
+  title: "Learn Rust",
+  archivedAt: null,
+};
 
 afterEach(() => vi.clearAllMocks());
 
@@ -96,24 +113,52 @@ describe("research MCP tools", () => {
 
   it("logs agent batches to the activity timeline", async () => {
     service.resolveTopic.mockResolvedValue(topic);
-    service.ingestTree.mockResolvedValue({ batchId: "b1", batchKey: "k1", replayed: false, refs: {}, cardCount: 2, linkCount: 0, summaryCount: 0 });
+    service.ingestTree.mockResolvedValue({
+      batchId: "b1",
+      batchKey: "k1",
+      replayed: false,
+      refs: {},
+      cardCount: 2,
+      linkCount: 0,
+      summaryCount: 0,
+    });
     const client = await connect();
-    await client.callTool({ name: "research_add_card", arguments: { topic: "learn-rust", type: "task", title: "Read" } });
+    await client.callTool({
+      name: "research_add_card",
+      arguments: { topic: "learn-rust", type: "task", title: "Read" },
+    });
     expect(service.logResearchEvent).toHaveBeenCalledWith(
       "research.batch_added",
       topic,
-      expect.objectContaining({ batchId: "b1", agent: "chatgpt:test", kind: "ingest" }),
+      expect.objectContaining({
+        batchId: "b1",
+        agent: "chatgpt:test",
+        kind: "ingest",
+      }),
       { actorId: "chatgpt:test", actorType: "chatgpt" },
     );
   });
 
   it("edits cards through the edit service", async () => {
     service.resolveTopic.mockResolvedValue(topic);
-    service.editCards.mockResolvedValue({ batchId: "b2", batchKey: "e1", replayed: false, refs: {}, cardCount: 0, linkCount: 0, summaryCount: 0 });
+    service.editCards.mockResolvedValue({
+      batchId: "b2",
+      batchKey: "e1",
+      replayed: false,
+      refs: {},
+      cardCount: 0,
+      linkCount: 0,
+      summaryCount: 0,
+    });
     const client = await connect();
     const result = await client.callTool({
       name: "research_update_cards",
-      arguments: { topic: "learn-rust", batchKey: "e1", agent: "claude-code", edits: [{ id: "c1", title: "Sharper" }] },
+      arguments: {
+        topic: "learn-rust",
+        batchKey: "e1",
+        agent: "claude-code",
+        edits: [{ id: "c1", title: "Sharper" }],
+      },
     });
     expect(result.isError).toBeFalsy();
     expect(service.editCards).toHaveBeenCalledWith("t1", {
@@ -128,20 +173,42 @@ describe("research MCP tools", () => {
     service.findBatch.mockResolvedValue({ id: "b9" });
     service.undoBatch.mockResolvedValueOnce({ ok: true });
     const client = await connect();
-    const ok = await client.callTool({ name: "research_undo_batch", arguments: { topic: "learn-rust", batch: "round-1" } });
+    const ok = await client.callTool({
+      name: "research_undo_batch",
+      arguments: { topic: "learn-rust", batch: "round-1" },
+    });
     expect(ok.isError).toBeFalsy();
     expect(service.undoBatch).toHaveBeenCalledWith("b9");
-    expect(service.logUndoRedo).toHaveBeenCalledWith("b9", "research.batch_undone", expect.any(Object));
+    expect(service.logUndoRedo).toHaveBeenCalledWith(
+      "b9",
+      "research.batch_undone",
+      expect.any(Object),
+    );
 
-    service.undoBatch.mockResolvedValueOnce({ ok: false, reason: "Later batches build on this one.", blockingBatchIds: ["b10"] });
-    const refused = await client.callTool({ name: "research_undo_batch", arguments: { topic: "learn-rust", batch: "b9" } });
+    service.undoBatch.mockResolvedValueOnce({
+      ok: false,
+      reason: "Later batches build on this one.",
+      blockingBatchIds: ["b10"],
+    });
+    const refused = await client.callTool({
+      name: "research_undo_batch",
+      arguments: { topic: "learn-rust", batch: "b9" },
+    });
     expect(refused.isError).toBe(true);
     expect(textOf(refused)).toContain("b10");
   });
 
   it("ingests through the service with the caller as agent and a link back", async () => {
     service.resolveTopic.mockResolvedValue(topic);
-    service.ingestTree.mockResolvedValue({ batchId: "b1", batchKey: "k1", replayed: false, refs: {}, cardCount: 1, linkCount: 0, summaryCount: 0 });
+    service.ingestTree.mockResolvedValue({
+      batchId: "b1",
+      batchKey: "k1",
+      replayed: false,
+      refs: {},
+      cardCount: 1,
+      linkCount: 0,
+      summaryCount: 0,
+    });
     const client = await connect();
     const result = await client.callTool({
       name: "research_ingest_tree",
@@ -149,7 +216,13 @@ describe("research MCP tools", () => {
         topic: "learn-rust",
         under: "q1",
         batchKey: "k1",
-        cards: [{ type: "finding", title: "Pin stops moves", children: [{ type: "source", title: "docs" }] }],
+        cards: [
+          {
+            type: "finding",
+            title: "Pin stops moves",
+            children: [{ type: "source", title: "docs" }],
+          },
+        ],
       },
     });
     expect(result.isError).toBeFalsy();
@@ -157,27 +230,43 @@ describe("research MCP tools", () => {
       under: "q1",
       agent: "chatgpt:test",
       batchKey: "k1",
-      cards: [{ type: "finding", title: "Pin stops moves", children: [{ type: "source", title: "docs" }] }],
+      cards: [
+        {
+          type: "finding",
+          title: "Pin stops moves",
+          children: [{ type: "source", title: "docs" }],
+        },
+      ],
     });
-    expect(JSON.parse(textOf(result))).toMatchObject({ cardCount: 1, url: "https://notes.test/research/learn-rust" });
+    expect(JSON.parse(textOf(result))).toMatchObject({
+      cardCount: 1,
+      url: "https://notes.test/research/learn-rust",
+    });
   });
 
   it("returns validation issues as a fixable refusal", async () => {
     service.resolveTopic.mockResolvedValue(topic);
-    service.ingestTree.mockRejectedValue(new service.ResearchIngestError(['links.0.to: unknown ref "ghost"']));
+    service.ingestTree.mockRejectedValue(
+      new service.ResearchIngestError(['links.0.to: unknown ref "ghost"']),
+    );
     const client = await connect();
     const result = await client.callTool({
       name: "research_ingest_tree",
       arguments: { topic: "learn-rust", links: [{ from: "a", to: "ghost" }] },
     });
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain('Nothing was written. Fix these and retry:\n- links.0.to: unknown ref "ghost"');
+    expect(textOf(result)).toContain(
+      'Nothing was written. Fix these and retry:\n- links.0.to: unknown ref "ghost"',
+    );
   });
 
   it("reports an unknown topic as not found", async () => {
     service.resolveTopic.mockResolvedValue(null);
     const client = await connect();
-    const result = await client.callTool({ name: "research_add_card", arguments: { topic: "nope", type: "task", title: "x" } });
+    const result = await client.callTool({
+      name: "research_add_card",
+      arguments: { topic: "nope", type: "task", title: "x" },
+    });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("not_found");
   });
@@ -185,11 +274,19 @@ describe("research MCP tools", () => {
   it("needs notes:write for writes but not for reads", async () => {
     service.listTopics.mockResolvedValue([]);
     const client = await connect(["notes:read"]);
-    const write = await client.callTool({ name: "research_create_topic", arguments: { title: "x" } });
+    const write = await client.callTool({
+      name: "research_create_topic",
+      arguments: { title: "x" },
+    });
     expect(write.isError).toBe(true);
-    expect(write._meta).toMatchObject({ "mcp/www_authenticate": ['Bearer error="insufficient_scope"'] });
+    expect(write._meta).toMatchObject({
+      "mcp/www_authenticate": ['Bearer error="insufficient_scope"'],
+    });
     expect(service.createTopic).not.toHaveBeenCalled();
-    const read = await client.callTool({ name: "research_list_topics", arguments: {} });
+    const read = await client.callTool({
+      name: "research_list_topics",
+      arguments: {},
+    });
     expect(read.isError).toBeFalsy();
   });
 
@@ -197,9 +294,39 @@ describe("research MCP tools", () => {
     service.loadTopicGraph.mockResolvedValue({
       topic,
       cards: [
-        { id: "q1", type: "question", title: "Why Pin?", body: "", state: "open", parentId: null, sortOrder: 0, createdAt: "", updatedAt: "" },
-        { id: "f1", type: "finding", title: "Self refs", body: "", state: null, parentId: "q1", sortOrder: 0, createdAt: "", updatedAt: "" },
-        { id: "q2", type: "question", title: "When Unpin?", body: "", state: "open", parentId: "f1", sortOrder: 0, createdAt: "", updatedAt: "" },
+        {
+          id: "q1",
+          type: "question",
+          title: "Why Pin?",
+          body: "",
+          state: "open",
+          parentId: null,
+          sortOrder: 0,
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "f1",
+          type: "finding",
+          title: "Self refs",
+          body: "",
+          state: null,
+          parentId: "q1",
+          sortOrder: 0,
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "q2",
+          type: "question",
+          title: "When Unpin?",
+          body: "",
+          state: "open",
+          parentId: "f1",
+          sortOrder: 0,
+          createdAt: "",
+          updatedAt: "",
+        },
       ],
       links: [],
       groups: [],
@@ -207,10 +334,15 @@ describe("research MCP tools", () => {
       generatedAt: "",
     });
     const client = await connect();
-    const result = await client.callTool({ name: "research_read_topic", arguments: { topic: "learn-rust" } });
+    const result = await client.callTool({
+      name: "research_read_topic",
+      arguments: { topic: "learn-rust" },
+    });
     const { markdown, url } = JSON.parse(textOf(result));
     expect(url).toBe("https://notes.test/research/learn-rust");
-    expect(markdown).toContain("[q2] question (open): When Unpin?  ← Why Pin? › Self refs");
+    expect(markdown).toContain(
+      "[q2] question (open): When Unpin?  ← Why Pin? › Self refs",
+    );
     expect(markdown).toContain("3 cards, 2 open.");
   });
 });

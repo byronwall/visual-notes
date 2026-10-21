@@ -1,5 +1,7 @@
 import {
   ActivityIcon,
+  ArchiveIcon,
+  CalendarClockIcon,
   FileTextIcon,
   FlaskConicalIcon,
   ListChecksIcon,
@@ -19,6 +21,8 @@ const domainIcon: Record<ActivityDomain, typeof ActivityIcon> = {
   research: FlaskConicalIcon,
   task: ListChecksIcon,
   collection: TableIcon,
+  time_block: CalendarClockIcon,
+  archive: ArchiveIcon,
   search: SearchIcon,
   ai: SparklesIcon,
   admin: WrenchIcon,
@@ -81,7 +85,9 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
               {" "}
               <Show
                 when={description().docHref}
-                fallback={<styled.span fontWeight="medium">{title()}</styled.span>}
+                fallback={
+                  <styled.span fontWeight="medium">{title()}</styled.span>
+                }
               >
                 {(href) => (
                   <styled.a

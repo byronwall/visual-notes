@@ -1,28 +1,9 @@
 import { action } from "@solidjs/router";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
+import { metaActionSchema, updateNotesMeta } from "~/server/notes/note-meta";
 import type { BulkMetaAction } from "./docs.types";
-
-const jsonPrimitive = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-
-const bulkMetaActionSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("add"),
-    key: z.string().min(1).max(128),
-    value: jsonPrimitive,
-  }),
-  z.object({
-    type: z.literal("update"),
-    key: z.string().min(1).max(128),
-    value: jsonPrimitive,
-  }),
-  z.object({
-    type: z.literal("remove"),
-    key: z.string().min(1).max(128),
-  }),
-]);
 
 const bulkDeleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(1000),
@@ -30,44 +11,12 @@ const bulkDeleteSchema = z.object({
 
 const bulkMetaSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(2000),
-  actions: z.array(bulkMetaActionSchema).min(1).max(50),
+  actions: z.array(metaActionSchema).min(1).max(50),
 });
 
 const sourceSchema = z.object({
   originalSource: z.string().trim().min(1).max(128),
 });
-
-type MetaValue = Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
-
-type MetaAction = z.infer<typeof bulkMetaActionSchema>;
-
-function applyActionsToMeta(
-  current: Prisma.JsonValue | null | undefined,
-  actions: MetaAction[]
-): Record<string, MetaValue> {
-  const base: Record<string, MetaValue> =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? (current as Record<string, MetaValue>)
-      : {};
-  const next: Record<string, MetaValue> = { ...base };
-  for (const a of actions) {
-    const key = a.key;
-    if (a.type === "remove") {
-      if (key in next) delete next[key];
-      continue;
-    }
-    if (a.type === "add") {
-      if (!(key in next))
-        next[key] = a.value === null ? Prisma.JsonNull : a.value;
-      continue;
-    }
-    if (a.type === "update") {
-      next[key] = a.value === null ? Prisma.JsonNull : a.value;
-      continue;
-    }
-  }
-  return next;
-}
 
 export const deleteAllDocs = action(async () => {
   "use server";
@@ -84,7 +33,9 @@ export const deleteAllDocs = action(async () => {
 export const deleteBySource = action(async (source: string) => {
   "use server";
   if (!source) throw new Error("Missing originalSource");
-  const result = await prisma.doc.deleteMany({ where: { originalSource: source } });
+  const result = await prisma.doc.deleteMany({
+    where: { originalSource: source },
+  });
   await logActionEvent({
     eventType: "doc.bulk_delete",
     entityType: "doc",
@@ -141,52 +92,7 @@ export const bulkUpdateMeta = action(
     const uniqueIds = Array.from(new Set(parsed.ids));
     if (uniqueIds.length === 0) return { ok: true, updated: 0 };
 
-    const rows = await prisma.doc.findMany({
-      where: { id: { in: uniqueIds } },
-      select: { id: true, meta: true },
-    });
-
-    const byId = new Map<string, Prisma.JsonValue | null>();
-    for (const r of rows) byId.set(r.id, r.meta ?? null);
-
-    const updates: { id: string; next: Record<string, MetaValue> }[] = [];
-    for (const id of uniqueIds) {
-      const current = byId.get(id) ?? null;
-      const next = applyActionsToMeta(current, parsed.actions);
-      updates.push({ id, next });
-    }
-
-    if (updates.length === 0) return { ok: true, updated: 0 };
-
-    const chunkSize = 100;
-    let updated = 0;
-    for (let i = 0; i < updates.length; i += chunkSize) {
-      const chunk = updates.slice(i, i + chunkSize);
-      try {
-        await prisma.$transaction(
-          chunk.map((u) =>
-            prisma.doc.update({
-              where: { id: u.id },
-              data: { meta: u.next as unknown as Prisma.InputJsonValue },
-            })
-          )
-        );
-        updated += chunk.length;
-      } catch (e) {
-        console.error("[docs.bulk-meta] chunk failed, retrying individually", e);
-        for (const u of chunk) {
-          try {
-            await prisma.doc.update({
-              where: { id: u.id },
-              data: { meta: u.next as unknown as Prisma.InputJsonValue },
-            });
-            updated++;
-          } catch (_e) {
-            // skip failed item
-          }
-        }
-      }
-    }
+    const updated = (await updateNotesMeta(uniqueIds, parsed.actions)).length;
 
     await logActionEvent({
       eventType: "doc.bulk_update_meta",
@@ -200,5 +106,5 @@ export const bulkUpdateMeta = action(
     });
     return { ok: true, updated };
   },
-  "docs-bulk-meta"
+  "docs-bulk-meta",
 );
