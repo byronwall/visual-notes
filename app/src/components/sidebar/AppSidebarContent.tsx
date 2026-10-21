@@ -8,7 +8,7 @@ import { useStartVoiceNote } from "~/components/doc-audio/useStartVoiceNote";
 import { AppSidebarActions } from "./AppSidebarActions";
 import { AppSidebarFooter } from "./AppSidebarFooter";
 import { AppSidebarNav } from "./AppSidebarNav";
-import { AppSidebarRecentDocs } from "./AppSidebarRecentDocs";
+import { AppSidebarRecent } from "./AppSidebarRecent";
 
 export type AppSidebarContentProps = {
   expanded: boolean;
@@ -88,7 +88,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
       px="2"
       pt="2"
       pb="2"
-      gap="3"
+      gap="2"
     >
       <HStack
         gap="1"
@@ -151,6 +151,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
 
       <AppSidebarActions
         expanded={props.expanded}
+        showShortcuts={!isMobile()}
         onChatOpen={() => {
           closeIfMobile();
           props.onChatOpen();
@@ -174,7 +175,7 @@ export const AppSidebarContent = (props: AppSidebarContentProps) => {
       <AppSidebarNav expanded={props.expanded} />
 
       <Box flex="1" minH="0" display="flex" flexDirection="column">
-        <AppSidebarRecentDocs expanded={props.expanded} />
+        <AppSidebarRecent expanded={props.expanded} />
       </Box>
 
       <AppSidebarFooter

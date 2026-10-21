@@ -44,8 +44,6 @@ export const AppSidebarCanvasMenu = (props: {
   onCleanup(() => clearCloseTimer());
 
   const active = () => isCanvasSectionActive(props.pathname);
-  const activeChild = () =>
-    CANVAS_CHILD_DESTINATIONS.find((item) => item.isActive(props.pathname));
 
   return (
     <Box onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
@@ -64,21 +62,16 @@ export const AppSidebarCanvasMenu = (props: {
               aria-current={active() ? "page" : undefined}
               aria-label={props.expanded ? undefined : "Canvas"}
               data-collapsed={props.expanded ? undefined : ""}
+              data-density="compact"
             >
               <CANVAS_DESTINATION.icon size={16} strokeWidth={1.8} />
               <Show when={props.expanded}>
                 <Box as="span" class={sidebarRowLabelClass}>
                   {CANVAS_DESTINATION.label}
-                  <Show when={activeChild()}>
-                    {(child) => (
-                      <Box as="span" color="fg.subtle" fontWeight="normal">
-                        {" / "}
-                        {child().label}
-                      </Box>
-                    )}
-                  </Show>
                 </Box>
-                <ChevronRightIcon size={14} />
+                <Box as="span" display="inline-flex" color="fg.subtle">
+                  <ChevronRightIcon size={12} />
+                </Box>
               </Show>
             </a>
           )}

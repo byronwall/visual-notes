@@ -26,6 +26,8 @@ type DocHoverPreviewLinkProps = {
   } | null;
   triggerClass: string;
   ariaCurrent?: "page";
+  /** Sets `data-density` on the link, for row styles keyed on it. */
+  density?: "compact";
   onNavigate?: () => void;
   children: JSX.Element;
 };
@@ -79,6 +81,7 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
         href={props.href}
         class={props.triggerClass}
         aria-current={props.ariaCurrent}
+        data-density={props.density}
         onClick={() => {
           clearTimeout(timer);
           setOpen(false);

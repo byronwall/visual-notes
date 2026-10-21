@@ -72,7 +72,6 @@ export const AppSidebarFooter = (props: AppSidebarFooterProps) => {
       alignItems="center"
       gap="0.5"
       pt="2"
-      px={props.expanded ? "1" : "0"}
     >
       <For each={visibleDestinations()}>
         {(item) => (

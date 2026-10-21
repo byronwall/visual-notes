@@ -6,10 +6,10 @@ import {
   MicIcon,
   SearchIcon,
 } from "lucide-solid";
-import { Box, Stack } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
+import { Tooltip } from "~/components/ui/tooltip";
 import type { SidebarNavIcon } from "./nav-items";
 import {
-  SidebarRailTooltip,
   sidebarRowClass,
   sidebarRowLabelClass,
   sidebarShortcutClass,
@@ -17,6 +17,8 @@ import {
 
 type AppSidebarActionsProps = {
   expanded: boolean;
+  /** Keyboard hints are noise in the touch drawer. */
+  showShortcuts: boolean;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
   onVoiceNoteStart: () => void;
@@ -25,42 +27,48 @@ type AppSidebarActionsProps = {
   hasLoadingAny: Accessor<boolean>;
 };
 
-const SidebarActionButton = (props: {
+/** Icon-only action with its label and shortcut in a tooltip. */
+const SidebarIconAction = (props: {
   expanded: boolean;
+  showShortcuts: boolean;
   label: string;
   shortcut?: string;
   icon: SidebarNavIcon;
   onClick: () => void;
   status?: JSX.Element;
+  statusLabel?: string;
 }) => (
-  <SidebarRailTooltip
-    expanded={props.expanded}
-    label={props.shortcut ? `${props.label}  ${props.shortcut}` : props.label}
+  <Tooltip
+    content={[
+      props.label,
+      props.showShortcuts && props.shortcut,
+      props.statusLabel && `· ${props.statusLabel}`,
+    ]
+      .filter(Boolean)
+      .join("  ")}
+    openDelay={150}
+    closeDelay={0}
+    positioning={{ placement: props.expanded ? "bottom" : "right", gutter: 8 }}
   >
     <button
       type="button"
       class={sidebarRowClass}
-      data-collapsed={props.expanded ? undefined : ""}
+      data-collapsed=""
+      data-icon-only={props.expanded ? "" : undefined}
       aria-label={props.label}
       aria-keyshortcuts={props.shortcut?.replace("⌘", "Meta+")}
       onClick={() => props.onClick()}
     >
       <props.icon size={16} strokeWidth={1.8} />
-      <Show when={props.expanded}>
-        <Box as="span" class={sidebarRowLabelClass}>
-          {props.label}
-        </Box>
-      </Show>
       {props.status}
-      <Show when={props.expanded && props.shortcut}>
-        <Box as="kbd" class={sidebarShortcutClass}>
-          {props.shortcut}
-        </Box>
-      </Show>
     </button>
-  </SidebarRailTooltip>
+  </Tooltip>
 );
 
+/**
+ * Search, New note, Voice note, and Chat on one row: search is the wide
+ * target, the rest are icons. The collapsed rail stacks all three as icons.
+ */
 export const AppSidebarActions = (props: AppSidebarActionsProps) => {
   const chatStatus = () =>
     props.hasUnreadAny()
@@ -70,33 +78,73 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         : undefined;
 
   return (
-    <Stack gap="0.5">
-      <SidebarActionButton
+    <Box
+      display="flex"
+      flexDirection={props.expanded ? "row" : "column"}
+      alignItems="center"
+      gap="0.5"
+    >
+      <Show
+        when={props.expanded}
+        fallback={
+          <SidebarIconAction
+            expanded={false}
+            showShortcuts={props.showShortcuts}
+            label="Search"
+            shortcut="⌘K"
+            icon={SearchIcon}
+            onClick={props.onSearchOpen}
+          />
+        }
+      >
+        <button
+          type="button"
+          class={sidebarRowClass}
+          data-variant="field"
+          aria-label="Search"
+          aria-keyshortcuts="Meta+K"
+          onClick={() => props.onSearchOpen()}
+        >
+          <SearchIcon size={16} strokeWidth={1.8} />
+          <Box as="span" class={sidebarRowLabelClass}>
+            Search
+          </Box>
+          <Show when={props.showShortcuts}>
+            <Box as="kbd" class={sidebarShortcutClass}>
+              ⌘K
+            </Box>
+          </Show>
+        </button>
+      </Show>
+      <SidebarIconAction
         expanded={props.expanded}
-        label="Search"
-        shortcut="⌘K"
-        icon={SearchIcon}
-        onClick={props.onSearchOpen}
-      />
-      <SidebarActionButton
-        expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
         label="New note"
         shortcut="⌘D"
         icon={FilePlusIcon}
         onClick={props.onNewNoteOpen}
       />
-      <SidebarActionButton
+      <SidebarIconAction
         expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
         label="Voice note"
         icon={MicIcon}
         onClick={props.onVoiceNoteStart}
       />
-      <SidebarActionButton
+      <SidebarIconAction
         expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
         label="Chat"
         shortcut="⌘I"
         icon={BotMessageSquareIcon}
         onClick={props.onChatOpen}
+        statusLabel={
+          chatStatus() === "unread"
+            ? "Unread replies"
+            : chatStatus() === "loading"
+              ? "Responding…"
+              : undefined
+        }
         status={
           <Show when={chatStatus()}>
             {(status) => (
@@ -104,32 +152,20 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
                 as="span"
                 role="status"
                 aria-label={
-                  status() === "unread"
-                    ? "Unread chat replies"
-                    : "Chat is responding"
-                }
-                title={
-                  status() === "unread"
-                    ? "Unread chat replies"
-                    : "Chat is responding"
+                  status() === "unread" ? "Unread chat replies" : "Chat is responding"
                 }
                 boxSize="2"
                 borderRadius="full"
-                flexShrink="0"
+                position="absolute"
+                top="1"
+                right="1"
                 bg={status() === "unread" ? "blue.9" : "amber.9"}
-                position={props.expanded ? "static" : "absolute"}
-                top="1.5"
-                right="3"
-                animation={
-                  status() === "loading"
-                    ? "pulse 1.6s ease-in-out infinite"
-                    : undefined
-                }
+                animation={status() === "loading" ? "pulse 1.6s ease-in-out infinite" : undefined}
               />
             )}
           </Show>
         }
       />
-    </Stack>
+    </Box>
   );
 };

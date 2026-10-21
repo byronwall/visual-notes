@@ -42,6 +42,13 @@ export const sidebarRowClass = css({
     color: "fg.default",
     fontWeight: "medium",
   },
+  "&[data-density=compact]": { h: "7", px: "2", gap: "2" },
+  "&[data-icon-only]": { w: "8", flexShrink: "0" },
+  "&[data-variant=field]": {
+    bg: "gray.a3",
+    _hover: { bg: "gray.a4" },
+    _active: { bg: "gray.a5" },
+  },
   "&[data-collapsed]": { justifyContent: "center", px: "0", gap: "0" },
   "& svg": { flexShrink: "0" },
 });
