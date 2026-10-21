@@ -25,6 +25,8 @@ export const DocSaveStatus: VoidComponent<{
   state: SaveState;
   onClick?: () => void;
   onRetry?: () => void;
+  /** Makes "Unsaved" a button that saves now instead of waiting. */
+  onSave?: () => void;
   ariaLabel?: string;
 }> = (props) => {
   const [now, setNow] = createSignal(Date.now());
@@ -91,6 +93,27 @@ export const DocSaveStatus: VoidComponent<{
       </Match>
       <Match when={props.state.saving}>
         <StatusText>Saving…</StatusText>
+      </Match>
+      <Match when={props.state.dirty && props.onSave}>
+        <styled.button
+          type="button"
+          onClick={() => props.onSave?.()}
+          aria-label="Save note changes"
+          title="Save now"
+          fontSize="xs"
+          color="fg.subtle"
+          px="1.5"
+          h="7"
+          borderRadius="l2"
+          cursor="pointer"
+          whiteSpace="nowrap"
+          focusVisibleRing="outside"
+          transitionProperty="background-color, color"
+          transitionDuration="140ms"
+          _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
+        >
+          Unsaved
+        </styled.button>
       </Match>
       <Match when={props.state.dirty}>
         <StatusText>Unsaved</StatusText>

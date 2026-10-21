@@ -1,6 +1,6 @@
-import { A, useAction, useNavigate } from "@solidjs/router";
-import { ExternalLinkIcon, SaveIcon, Trash2Icon } from "lucide-solid";
+import { useAction, useNavigate } from "@solidjs/router";
 import {
+  type JSX,
   Show,
   type VoidComponent,
   createEffect,
@@ -8,31 +8,23 @@ import {
   onCleanup,
   untrack,
 } from "solid-js";
-import { Box, HStack } from "styled-system/jsx";
-import { IconButton } from "~/components/ui/icon-button";
+import { Box } from "styled-system/jsx";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
-import { Link } from "~/components/ui/link";
-import { Tooltip } from "~/components/ui/tooltip";
-import { DocSharePanel } from "./DocSharePanel";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import { logDocViewEvent } from "~/services/activity/activity.actions";
 import {
   firstHeadingText,
   leadingHeadingText,
 } from "~/lib/note-content/markdown";
-import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocAudioStrip } from "./doc-audio/DocAudioStrip";
-import { RecordAudioButton } from "./doc-audio/RecordAudioButton";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
 import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
-import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
 import { BacklinksSection } from "./docs/BacklinksSection";
-import { InPlaceEditableText } from "./InPlaceEditableText";
 import { useToasts } from "./Toast";
-import { DocActionsMenu } from "./doc-header/DocActionsMenu";
-import { DocSaveStatus, type SaveState } from "./doc-header/DocSaveStatus";
-import { DocVersionsPopover } from "./doc-header/DocVersionsPopover";
+import { DocHeaderBar } from "./doc-header/DocHeaderBar";
+import { type SaveState } from "./doc-header/DocSaveStatus";
+import { DocTitleField } from "./doc-header/DocTitleField";
 import { titlesMatch } from "./doc-header/leading-heading";
 import type { NoteDoc } from "~/lib/note-content/types";
 
@@ -57,8 +49,14 @@ const DocumentViewer: VoidComponent<{
   doc: DocumentData;
   onDeleted?: (docId: string) => void;
   onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
-  fullPageHref?: string;
+  /** Side-panel layout: pinned header, inline phone toolbar, no min height. */
   panelMode?: boolean;
+  /** Host controls at the end of the header row, e.g. a panel's close. */
+  headerTrailing?: JSX.Element;
+  /** Replaces the collection header under the title, e.g. a row's properties. */
+  subheader?: JSX.Element;
+  /** Called after the note's title is saved or follows its first heading. */
+  onTitleChange?: (docId: string, title: string) => void;
 }> = (props) => {
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
@@ -168,6 +166,7 @@ const DocumentViewer: VoidComponent<{
     setTitle(newTitle);
     try {
       await runUpdateDoc({ id: editDocId, title: newTitle });
+      props.onTitleChange?.(editDocId, newTitle);
     } catch (error) {
       if (isCurrentVisit(editDocId, editGeneration)) {
         setTitle(previousTitle);
@@ -182,6 +181,7 @@ const DocumentViewer: VoidComponent<{
     if (!newTitle) return;
     try {
       await runUpdateDoc({ id: syncDocId, title: newTitle });
+      props.onTitleChange?.(syncDocId, newTitle);
       if (isCurrentVisit(syncDocId, syncGeneration)) {
         setTitle(newTitle);
         if (titlesMatch(leadingHeading(), newTitle)) setTitleLinked(true);
@@ -241,172 +241,58 @@ const DocumentViewer: VoidComponent<{
     if (api?.dirty()) await api.save();
   };
 
+  const header = () => (
+    <DocHeaderBar
+      doc={props.doc}
+      saveState={saveState()}
+      busy={busy()}
+      wrapOnMobile={!props.panelMode}
+      onSave={() => void editorApi()?.save()}
+      onBeforeRestore={flushEditorChanges}
+      onDelete={() => setDeleteDialogOpen(true)}
+      onCopyLink={() => void handleCopyLink()}
+      headingTitle={showSync() ? firstH1() : undefined}
+      onUseHeadingTitle={() => void handleSync()}
+      onAddToCollection={() => setAddToCollectionOpen(true)}
+      trailing={props.headerTrailing}
+    />
+  );
+
   return (
     <Box class="prose" maxW="none">
       <Show
-        when={!props.panelMode}
-        fallback={
-          <HStack gap="2" alignItems="center" flexWrap="wrap" mb="3">
-            <DocSharePanel
-              docId={props.doc.id}
-              initialShare={props.doc.share}
-              iconOnly
-            />
-            <Tooltip
-              content={editorApi()?.dirty() ? "Save changes" : "Save note"}
-              showArrow
-              portalled={false}
-              contentProps={{ zIndex: "tooltip" }}
-            >
-              <IconButton
-                size="sm"
-                variant="outline"
-                colorPalette="gray"
-                aria-label={
-                  editorApi()?.dirty() ? "Save note changes" : "Save note"
-                }
-                disabled={!editorApi()?.canSave() || busy()}
-                onClick={() => void editorApi()?.save()}
-              >
-                <SaveIcon size={14} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip
-              content="Delete note"
-              showArrow
-              portalled={false}
-              contentProps={{ zIndex: "tooltip" }}
-            >
-              <IconButton
-                size="sm"
-                variant="subtle"
-                colorPalette="red"
-                aria-label="Delete note"
-                disabled={busy()}
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                <Trash2Icon size={14} />
-              </IconButton>
-            </Tooltip>
-            <Show when={props.fullPageHref}>
-              {(href) => (
-                <Tooltip
-                  content="Open full page"
-                  showArrow
-                  portalled={false}
-                  contentProps={{ zIndex: "tooltip" }}
-                >
-                  <Link
-                    as={A}
-                    href={href()}
-                    aria-label="Open full page"
-                    display="inline-flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    boxSize="9"
-                    borderWidth="1px"
-                    borderColor="border"
-                    borderRadius="l2"
-                    textDecoration="none"
-                    color="fg.default"
-                    bg="bg.default"
-                    _hover={{ bg: "bg.subtle" }}
-                  >
-                    <ExternalLinkIcon size={14} />
-                  </Link>
-                </Tooltip>
-              )}
-            </Show>
-            <DocActivitySummaryPopover
-              docId={props.doc.id}
-              createdAt={props.doc.createdAt}
-              updatedAt={savedUpdatedAt()}
-              iconOnly
-            />
-          </HStack>
-        }
+        when={props.panelMode}
+        fallback={<Box mb="2">{header()}</Box>}
       >
-        <HStack
-          gap="2"
-          rowGap="1"
-          alignItems="flex-start"
-          justifyContent="space-between"
-          flexWrap={{ base: "wrap", md: "nowrap" }}
-          mb="2"
+        {/* The panel scrolls inside itself, so its header stays pinned with
+            the close button in reach. */}
+        <Box
+          position="sticky"
+          top="0"
+          zIndex="docked"
+          mx="-5"
+          px="5"
+          pt="3"
+          pb="2"
+          mb="1"
+          bg="bg.default"
         >
-          <Box flex="1" minW="0" display={{ base: "contents", md: "block" }}>
-            <DocPropertiesCompactEditors
-              docId={props.doc.id}
-              initialPath={props.doc.path}
-              initialMeta={props.doc.meta}
+          {header()}
+        </Box>
+      </Show>
+      <Show when={!titleLinked()}>
+        <Show when={props.doc.id} keyed>
+          {(_docId) => (
+            <DocTitleField
+              value={title()}
+              placeholder={firstH1() || "Untitled note"}
+              onCommit={handleConfirmEdit}
             />
-          </Box>
-          <HStack
-            gap="0.5"
-            flexShrink="0"
-            alignItems="center"
-            order="1"
-            ml="auto"
-          >
-            <RecordAudioButton docId={props.doc.id} />
-            <DocVersionsPopover
-              docId={props.doc.id}
-              onBeforeRestore={flushEditorChanges}
-              // The editor loads its content once per note, so a restored
-              // version needs a fresh load rather than a live patch.
-              onRestored={() => window.location.reload()}
-            />
-            <DocActivitySummaryPopover
-              docId={props.doc.id}
-              createdAt={props.doc.createdAt}
-              updatedAt={savedUpdatedAt()}
-              renderTrigger={(trigger) => (
-                <DocSaveStatus
-                  state={saveState()}
-                  onClick={trigger.onClick}
-                  ariaLabel={trigger.ariaLabel}
-                  onRetry={() => void editorApi()?.save()}
-                />
-              )}
-            />
-            <DocSharePanel
-              docId={props.doc.id}
-              initialShare={props.doc.share}
-              iconOnly
-            />
-            <DocActionsMenu
-              disabled={busy()}
-              onDelete={() => setDeleteDialogOpen(true)}
-              onCopyLink={() => void handleCopyLink()}
-              headingTitle={showSync() ? firstH1() : undefined}
-              onUseHeadingTitle={() => void handleSync()}
-              onAddToCollection={() => setAddToCollectionOpen(true)}
-            />
-          </HStack>
-        </HStack>
-        <Show when={!titleLinked()}>
-          <Show when={props.doc.id} keyed>
-            {(_docId) => (
-              <Box mb="4">
-                <InPlaceEditableText
-                  value={title()}
-                  placeholder={firstH1() || "Untitled note"}
-                  onCommit={handleConfirmEdit}
-                  fontSize="3xl"
-                  lineHeight="1.15"
-                  fontWeight="bold"
-                  fillWidth
-                  wrapPreview
-                />
-              </Box>
-            )}
-          </Show>
+          )}
         </Show>
       </Show>
-      <Show when={!props.panelMode}>
-        <DocCollectionHeader docId={props.doc.id} />
-        <DocAudioStrip docId={props.doc.id} />
-      </Show>
+      {props.subheader ?? <DocCollectionHeader docId={props.doc.id} />}
+      <DocAudioStrip docId={props.doc.id} />
       <DocumentEditor
         docId={props.doc.id}
         showTopBar={false}
@@ -415,7 +301,10 @@ const DocumentViewer: VoidComponent<{
         phoneToolbar={props.panelMode ? "inline" : "keyboard"}
         hideInlineError={!props.panelMode}
         syncTitleFromH1={titleLinked()}
-        onTitleSynced={setTitle}
+        onTitleSynced={(next) => {
+          setTitle(next);
+          props.onTitleChange?.(props.doc.id, next);
+        }}
         minEditorHeight={props.panelMode ? undefined : "50vh"}
         apiRef={(api) => {
           setEditorApi(api);

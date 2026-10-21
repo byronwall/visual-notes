@@ -1,4 +1,11 @@
-import { JSX, Show, createEffect, onCleanup } from "solid-js";
+import {
+  JSX,
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  untrack,
+} from "solid-js";
 import { Portal } from "solid-js/web";
 import { Box } from "styled-system/jsx";
 import { acquireBodyScrollLock } from "./overlay/bodyScrollLock";
@@ -20,10 +27,47 @@ type SidePanelProps = {
   modal?: boolean;
 };
 
+const ENTER_MS = 260;
+const EXIT_MS = 180;
+// Drawer curve for the entrance; a strong ease-out for the quicker exit.
+const ENTER_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+const EXIT_EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const motion = (open: boolean, properties: string[]) =>
+  properties
+    .map((property) =>
+      open
+        ? `${property} ${ENTER_MS}ms ${ENTER_EASE}`
+        : `${property} ${EXIT_MS}ms ${EXIT_EASE}`,
+    )
+    .join(", ");
+
 export const SidePanel = (props: SidePanelProps) => {
   const shouldCloseOnEsc = () => props.closeOnEsc !== false;
   const isModal = () => props.modal !== false;
   let panelElement: HTMLDivElement | undefined;
+
+  // The panel stays mounted through its exit so it can slide out. `shown`
+  // drives the CSS transition; flipping it a frame after mount gives the
+  // browser a closed starting point, and transitions (unlike keyframes)
+  // retarget smoothly when the panel is reopened mid-exit.
+  const [mounted, setMounted] = createSignal(untrack(() => props.open));
+  const [shown, setShown] = createSignal(untrack(() => props.open));
+  createEffect(() => {
+    if (props.open) {
+      setMounted(true);
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setShown(true));
+      });
+      onCleanup(() => cancelAnimationFrame(frame));
+      return;
+    }
+    setShown(false);
+    const timer = setTimeout(() => setMounted(false), EXIT_MS);
+    onCleanup(() => clearTimeout(timer));
+  });
 
   createEffect(() => {
     if (!props.open || !shouldCloseOnEsc()) return;
@@ -49,7 +93,7 @@ export const SidePanel = (props: SidePanelProps) => {
   });
 
   return (
-    <Show when={props.open}>
+    <Show when={mounted()}>
       <Portal>
         <Box
           position="fixed"
@@ -57,7 +101,9 @@ export const SidePanel = (props: SidePanelProps) => {
           zIndex="modal"
           overflow="hidden"
           overscrollBehavior="contain"
-          pointerEvents={isModal() ? "auto" : "none"}
+          pointerEvents={isModal() && props.open ? "auto" : "none"}
+          data-state={shown() ? "open" : "closed"}
+          aria-hidden={props.open ? undefined : "true"}
           role="dialog"
           aria-modal={isModal() ? "true" : "false"}
           aria-label={props.ariaLabel || "Side panel"}
@@ -69,7 +115,11 @@ export const SidePanel = (props: SidePanelProps) => {
               inset="0"
               bg="black.a3"
               onClick={props.onClose}
-              style={{ "backdrop-filter": "blur(6px)" }}
+              style={{
+                "backdrop-filter": "blur(6px)",
+                opacity: shown() ? 1 : 0,
+                transition: motion(shown(), ["opacity"]),
+              }}
             />
           </Show>
           <Box
@@ -82,15 +132,26 @@ export const SidePanel = (props: SidePanelProps) => {
             maxH="full"
             overflowY="auto"
             overscrollBehavior="contain"
+            data-side-panel-scroll
             bg="bg.default"
             borderLeftWidth="1px"
             borderColor="border"
             boxShadow="2xl"
-            pointerEvents="auto"
+            pointerEvents={props.open ? "auto" : "none"}
+            willChange="transform"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: props.width || "min(94vw, 560px)",
-              "backdrop-filter": "blur(10px)",
+              // Reduced motion keeps the fade and drops the slide.
+              ...(prefersReducedMotion()
+                ? {
+                    opacity: shown() ? 1 : 0,
+                    transition: motion(shown(), ["opacity"]),
+                  }
+                : {
+                    transform: shown() ? "translateX(0)" : "translateX(100%)",
+                    transition: motion(shown(), ["transform"]),
+                  }),
             }}
           >
             {props.children}
