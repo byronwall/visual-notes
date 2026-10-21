@@ -11,6 +11,7 @@ import {
 } from "./collections.server";
 
 export type CollectionText = {
+  collectionId: string;
   collection: string;
   properties: Record<string, string>;
 };
@@ -46,7 +47,7 @@ export async function collectionTextForNotes(
       const text = formatValueText(p, readValue(row, p));
       if (text) properties[p.name] = text;
     }
-    out[doc.id] = { collection: collection.name, properties };
+    out[doc.id] = { collectionId: collection.id, collection: collection.name, properties };
   }
   return out;
 }

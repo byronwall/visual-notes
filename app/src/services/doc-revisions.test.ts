@@ -5,8 +5,14 @@ const db = vi.hoisted(() => ({
   docRevision: { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn() },
   docBlock: { deleteMany: vi.fn(), createMany: vi.fn() },
   docLink: { deleteMany: vi.fn(), createMany: vi.fn() },
-  taskItem: { findMany: vi.fn(async () => []), update: vi.fn(), updateMany: vi.fn() },
+  taskItem: {
+    findMany: vi.fn(async () => []),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
+  // writeNoteContent locks and re-reads the row.
+  $queryRaw: vi.fn(),
   logActionEvent: vi.fn(),
 }));
 
@@ -44,12 +50,16 @@ describe("restoreDocRevision", () => {
       markdown: "old",
       html: "<p>old</p>",
     });
-    db.doc.findUnique.mockResolvedValue({
+    const current = {
       title: "New",
       path: "work.new",
       markdown: "new",
       html: "<p>new</p>",
-    });
+    };
+    db.doc.findUnique.mockResolvedValue(current);
+    db.$queryRaw.mockResolvedValue([
+      { ...current, contentVersion: 3, content: null },
+    ]);
 
     await restoreDocRevision("r1");
 

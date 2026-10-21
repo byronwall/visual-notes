@@ -26,6 +26,17 @@ export const useTimeBlockMutations = (
   const [hiddenIds, setHiddenIds] = createSignal<ReadonlySet<string>>(
     new Set(),
   );
+  // Writes in flight; each refreshes when it lands, which also picks up any
+  // change an agent or another tab made meanwhile.
+  const [pendingWrites, setPendingWrites] = createSignal(0);
+  const tracked = async <T>(write: () => Promise<T>): Promise<T> => {
+    setPendingWrites((count) => count + 1);
+    try {
+      return await write();
+    } finally {
+      setPendingWrites((count) => count - 1);
+    }
+  };
   const runCreate = useAction(createTimeBlock);
   const runUpdate = useAction(updateTimeBlock);
   const runBulkUpdate = useAction(bulkUpdateTimeBlocks);
@@ -64,7 +75,7 @@ export const useTimeBlockMutations = (
 
   const withRollback = async (ids: string[], write: () => Promise<unknown>) => {
     try {
-      await write();
+      await tracked(write);
     } catch (error) {
       console.error("[time-blocks] write failed", error);
       setPatches((current) => {
@@ -129,11 +140,13 @@ export const useTimeBlockMutations = (
   };
 
   const duplicate = async (block: TimeBlockItem, start: Date, end: Date) => {
-    await runDuplicate({
-      id: block.id,
-      startTimeIso: start.toISOString(),
-      endTimeIso: end.toISOString(),
-    }).catch((error) => console.error("[time-blocks] duplicate failed", error));
+    await tracked(() =>
+      runDuplicate({
+        id: block.id,
+        startTimeIso: start.toISOString(),
+        endTimeIso: end.toISOString(),
+      }),
+    ).catch((error) => console.error("[time-blocks] duplicate failed", error));
     refresh();
   };
 
@@ -144,19 +157,22 @@ export const useTimeBlockMutations = (
     color: string;
     noteId?: string;
   }) => {
-    const created = await runCreate({
-      title: input.title,
-      startTimeIso: input.start.toISOString(),
-      endTimeIso: input.end.toISOString(),
-      color: input.color,
-      noteId: input.noteId ?? null,
-    });
+    const created = await tracked(() =>
+      runCreate({
+        title: input.title,
+        startTimeIso: input.start.toISOString(),
+        endTimeIso: input.end.toISOString(),
+        color: input.color,
+        noteId: input.noteId ?? null,
+      }),
+    );
     refresh();
     return created.id;
   };
 
   return {
     blocks,
+    writing: () => pendingWrites() > 0,
     setTimes,
     setMany,
     rename,
