@@ -14,6 +14,23 @@ The app serves an MCP endpoint at `/mcp` (Streamable HTTP, stateless, JSON respo
 | `update_note` | write | ChatGPT-created notes only; snapshots a `DocRevision` first |
 | `append_to_note` | write | Same ownership rule; keeps existing HTML intact |
 
+### Research tools
+
+The same server exposes research topics (see [research-threads.md](research-threads.md)). Reads need `notes:read` and writes need `notes:write`, so a connected ChatGPT can use them without reconnecting.
+
+| Tool | Kind | Notes |
+| --- | --- | --- |
+| `research_list_topics` | read | Topics with open/card counts, top accepted summary, and link |
+| `research_read_topic` | read | Markdown with card ids: summaries, the open frontier with pedigree, recent batches; `depth: "full"` for every card |
+| `research_list_frontier` | read | Open tasks/questions with the chain each came from |
+| `research_get_card` | read | One card in full, what it led to, and what a summary covers |
+| `research_create_topic` | write | One topic = one canvas |
+| `research_ingest_tree` | write | Nested cards, links, and draft summaries as one transactional, undoable batch; `batchKey` makes retries safe |
+| `research_add_card` / `research_link_cards` | write | One-card and one-link shortcuts over the same ingest |
+| `research_set_state` | write | Open/done/dropped as an undoable batch |
+
+Research writes record the caller (`actorId`, or the `agent` argument) on the batch shown in the topic's history, where the user can undo it.
+
 A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don't change that. Every call is logged as an `ActionEvent` with `actorType = chatgpt`.
 
 ## Configuration

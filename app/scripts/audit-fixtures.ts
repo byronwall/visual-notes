@@ -15,6 +15,8 @@ export const fixtureModels = {
   TimeBlock: "timeBlock",
   // Deleting an EmbeddingRun cascades to its UmapRun and UmapPoint rows.
   EmbeddingRun: "embeddingRun",
+  // Deleting a ResearchTopic cascades to its cards, links, summaries, and batches.
+  ResearchTopic: "researchTopic",
 } as const;
 
 export type EntityKind = keyof typeof fixtureModels;

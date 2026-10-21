@@ -10,6 +10,11 @@ import {
 } from "./notes-read";
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
+import {
+  registerResearchTools,
+  RESEARCH_INSTRUCTIONS,
+  RESEARCH_TOOL_SCOPES,
+} from "./research-tools";
 
 const LOG_PREFIX = "[mcp]";
 
@@ -20,6 +25,7 @@ const SERVER_INSTRUCTIONS = [
   "get_notes returns markdown where each block ends with a block id tag like ` ^a1B2c3D4e5` (and code blocks/tables have it on the line after). For small changes use edit_note with those ids; it leaves every other block untouched. Never include the ^id tags in markdown you send.",
   "Links to other notes appear as [[Title|noteId]] or [[Text|noteId#blockId]].",
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
+  RESEARCH_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -64,6 +70,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   update_note: "notes:write",
   append_to_note: "notes:write",
   edit_note: "notes:write",
+  ...RESEARCH_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -272,6 +279,8 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     },
     (args) => guarded(ctx, "edit_note", () => editNote(ctx, args)),
   );
+
+  registerResearchTools(server, ctx, guarded);
 
   return server;
 }
