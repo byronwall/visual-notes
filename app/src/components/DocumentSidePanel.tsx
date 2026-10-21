@@ -13,6 +13,7 @@ import { CloseButton } from "~/components/ui/close-button";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
 import DocumentViewer from "./DocumentViewer";
+import { NoteEventSection } from "./events/note/NoteEventSection";
 import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { InPlaceEditableText } from "./InPlaceEditableText";
 import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
@@ -141,6 +142,9 @@ export const DocumentSidePanel: VoidComponent<{
 
       <Box px="3" py="3">
         {props.header}
+        <Show when={props.docId} keyed>
+          {(id) => <NoteEventSection docId={id} />}
+        </Show>
         <Suspense
           fallback={
             <Text fontSize="sm" color="fg.muted">

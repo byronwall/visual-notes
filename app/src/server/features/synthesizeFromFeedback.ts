@@ -1,15 +1,6 @@
 import { prisma } from "~/server/db";
 import { callLLM } from "~/server/lib/ai";
 
-function stripHtml(html: string): string {
-  return (html || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export async function generatePromptTemplateFromFeedback({
   task,
   minRating,
