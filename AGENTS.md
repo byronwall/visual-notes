@@ -10,7 +10,7 @@ focused skills listed under [Skills](#skills).
 | Setup (Node 22.6+, pinned pnpm 9.15.9 via Corepack) | [README Getting Started](README.md#getting-started) |
 | Checks | `cd app && pnpm lint && pnpm type-check && pnpm test`; CI runs the same in [checks.yml](.github/workflows/checks.yml) |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
-| Isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
+| Test database (`pnpm audit:db -- --owner <slug>`), isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
 | UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |
 | Live note updates (`/ws/notes`, open-note refresh, kill switch) | [app/docs/live-note-updates.md](app/docs/live-note-updates.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |

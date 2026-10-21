@@ -14,33 +14,31 @@ test -s styled-system/css/index.mjs
 
 For a managed worktree outside the shared checkout, grant the requested scoped write access for dependency installation and code generation. Keep each worktree's `node_modules` independent. Use absolute worktree paths and explicit command working directories. Check `git status --short --branch` from the assigned worktree before and after edits.
 
-The launcher does not create a database, apply schema changes, reset data, or delete records. Ask the audit coordinator to provision a blank synthetic database and prepare its schema before starting the app. The env file must contain the local PostgreSQL connection and `AUTH_SECRET`. Pass the file by path; do not copy its contents into a worktree. Create a new test-only credential file for each run and point both the app and browser tests at it. Do not reuse a password from the env file or another running app.
+## Get a database and start the app
 
-## Start the app
-
-Use an explicitly assigned free port and a database name that starts with `visual_notes_audit_`:
-
-| Owner                  | Port |
-| ---------------------- | ---: |
-| workflow               | 3111 |
-| data                   | 3112 |
-| editor                 | 3113 |
-| organization           | 3114 |
-| harness                | 3115 |
-| editor-TOC             | 3116 |
-| data-notes-search      | 3117 |
-| organization-follow-up | 3118 |
-| archive-create-pending | 3121 |
-
-Example for the harness owner:
+Provision your own synthetic database with one command. Pick a short owner slug for your work (lowercase, digits, underscores):
 
 ```sh
-corepack pnpm audit:harness:check
-umask 077 && openssl rand -hex 16 > "$TMPDIR/vn-audit-<owner>.password"
+corepack pnpm audit:db -- --owner <owner>
+```
+
+It reads the main checkout's `app/.env` itself (pass `--env-file <path>` to use another), creates `visual_notes_audit_<owner>` on the loopback PostgreSQL server, applies every migration, writes a fresh 0600 sign-in credential to `$TMPDIR/vn-audit-<owner>.password`, picks a free port from 3200–3399, and prints the exact `export` and `audit:harness` lines to run next. Rerunning it is safe: it reuses the database, credential, and (when free) the same port. Never open or grep the env file yourself; the scripts read it.
+
+Paste the printed commands. They look like:
+
+```sh
 export AUDIT_MAGIC_PASSWORD_FILE="$TMPDIR/vn-audit-<owner>.password"
 export PLAYWRIGHT_MAGIC_PASSWORD_FILE="$TMPDIR/vn-audit-<owner>.password"
-corepack pnpm audit:harness -- --env-file /path/to/secure/local.env --port 3115 --database visual_notes_audit_harness --worktree /path/to/assigned-worktree --branch codex/assigned-branch
+corepack pnpm audit:harness -- --env-file <main checkout>/app/.env --port <port> --database visual_notes_audit_<owner> --worktree <this worktree> --branch <this branch>
 ```
+
+When you are finished, drop the database and credential:
+
+```sh
+corepack pnpm audit:db -- --owner <owner> --drop
+```
+
+`--drop` only accepts `visual_notes_audit_` names on a loopback host. The launcher itself never creates, resets, or deletes data.
 
 The launcher ignores any `MAGIC_PASSWORD` from the env file and requires this explicit value. Browser tests refuse a credential file that is readable by group or others, and they skip the local `.env` fallback whenever `PLAYWRIGHT_BASE_URL` is set. Delete the credential file when the owner stops the run.
 The `--worktree` and `--branch` values must match the app's current Git checkout. The launcher rejects another worktree, `main`, and detached worktrees.
