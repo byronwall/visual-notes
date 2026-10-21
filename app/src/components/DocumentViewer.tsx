@@ -246,7 +246,7 @@ const DocumentViewer: VoidComponent<{
       doc={props.doc}
       saveState={saveState()}
       busy={busy()}
-      wrapOnMobile={!props.panelMode}
+      stacked={props.panelMode}
       onSave={() => void editorApi()?.save()}
       onBeforeRestore={flushEditorChanges}
       onDelete={() => setDeleteDialogOpen(true)}
