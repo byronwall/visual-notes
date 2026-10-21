@@ -731,7 +731,7 @@ const CanvasRoute: VoidComponent = () => {
           bottom="3"
           display={{ base: mobileRailOpen() ? "block" : "none", md: "block" }}
           // Keep in sync with CANVAS_SIDE_RAIL_WIDTH_PX (Panda needs a literal).
-          w={{ base: "auto", md: "248px" }}
+          w={{ base: "auto", md: "272px" }}
           left={{ base: "3", md: "auto" }}
           mt={{ base: "12", md: "0" }}
           bg="bg.default"
@@ -744,6 +744,8 @@ const CanvasRoute: VoidComponent = () => {
           <CanvasSideRail
             mode={railMode}
             regions={regionList}
+            islands={() => umapRegions()?.islands ?? []}
+            allDocs={() => loadedDocs() ?? []}
             selectedRegion={selectedRegion}
             docs={railDocs}
             searchQuery={searchQuery}

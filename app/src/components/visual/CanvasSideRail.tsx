@@ -9,17 +9,29 @@ import {
 } from "solid-js";
 import { Box, Flex } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
-import type { UmapRegionItem } from "~/features/umap/region-types";
+import type {
+  UmapIslandItem,
+  UmapRegionItem,
+} from "~/features/umap/region-types";
 import type { DocItem } from "~/types/notes";
 import { CanvasRailDocRow } from "./CanvasRailDocRow";
+import { CanvasRegionList } from "./CanvasRegionList";
+import {
+  formatRegionActivity,
+  regionActivity,
+  type RegionActivity,
+} from "./canvas-region-list";
 
-export const CANVAS_SIDE_RAIL_WIDTH_PX = 248;
+export const CANVAS_SIDE_RAIL_WIDTH_PX = 272;
 
 export type CanvasRailMode = "regions" | "region" | "matches" | "notes";
 
 export type CanvasSideRailProps = {
   mode: Accessor<CanvasRailMode>;
   regions: Accessor<UmapRegionItem[]>;
+  islands: Accessor<UmapIslandItem[]>;
+  /** Every loaded note; region activity reads their `updatedAt`. */
+  allDocs: Accessor<DocItem[]>;
   selectedRegion: Accessor<UmapRegionItem | null>;
   /** Notes listed in region, matches, and notes modes. */
   docs: Accessor<DocItem[]>;
@@ -58,14 +70,22 @@ const RailHeader = (props: {
 );
 
 export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
-  const regionsSorted = createMemo(() =>
-    props
-      .regions()
-      .slice()
-      .sort(
-        (a, b) => b.docCount - a.docCount || a.title.localeCompare(b.title),
-      ),
-  );
+  const activityById = createMemo(() => {
+    const updatedAtById = new Map(
+      props.allDocs().map((doc) => [doc.id, doc.updatedAt]),
+    );
+    const now = Date.now();
+    return new Map<string, RegionActivity>(
+      props
+        .regions()
+        .map((region) => [
+          region.id,
+          regionActivity(region.docIds, updatedAtById, now),
+        ]),
+    );
+  });
+  const islandTitle = (region: UmapRegionItem) =>
+    props.islands().find((island) => island.id === region.islandId)?.title;
   const listedDocs = createMemo(() => props.docs().slice(0, RAIL_LIST_LIMIT));
   const docsLabel = () => (props.mode() === "matches" ? "Matches" : "Notes");
   const hiddenCount = () => props.docs().length - RAIL_LIST_LIMIT;
@@ -97,6 +117,11 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
               All regions
             </Box>
             <Box px="1.5" pt="1">
+              <Show when={islandTitle(region())}>
+                <Text fontSize="xs" color="fg.subtle" truncate>
+                  {islandTitle(region())}
+                </Text>
+              </Show>
               <Flex align="flex-start" justify="space-between" gap="2">
                 <Text fontSize="sm" fontWeight="semibold" lineHeight="tight">
                   {region().title}
@@ -118,103 +143,79 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
                   {region().summary}
                 </Text>
               </Show>
+              <Show
+                when={formatRegionActivity(activityById().get(region().id))}
+              >
+                {(label) => (
+                  <Text
+                    fontSize="xs"
+                    color="fg.subtle"
+                    mt="1"
+                    fontVariantNumeric="tabular-nums"
+                  >
+                    {label()}
+                  </Text>
+                )}
+              </Show>
             </Box>
           </Box>
         )}
       </Show>
 
-      <Show when={props.mode() === "regions"}>
-        <RailHeader label="Regions" count={regionsSorted().length} />
-      </Show>
       <Show when={props.mode() === "matches" || props.mode() === "notes"}>
         <RailHeader label={docsLabel()} count={props.docs().length} />
       </Show>
 
-      <Box
-        flex="1"
-        minH="0"
-        overflowY="auto"
-        px="1.5"
-        pb="2"
-        pt={props.mode() === "region" ? "1.5" : "0"}
+      <Show
+        when={props.mode() !== "regions"}
+        fallback={
+          <CanvasRegionList
+            regions={props.regions}
+            islands={props.islands}
+            activityById={activityById}
+            hoveredRegionId={props.hoveredRegionId}
+            onHoveredRegionChange={props.onHoveredRegionChange}
+            onZoomToRegion={props.onZoomToRegion}
+            onOpenDoc={props.onOpenDoc}
+          />
+        }
       >
-        <Show
-          when={props.mode() === "regions"}
-          fallback={
-            <>
-              <For each={listedDocs()}>
-                {(doc) => (
-                  <CanvasRailDocRow
-                    doc={doc}
-                    query={props.searchQuery()}
-                    active={props.selectedDocId() === doc.id}
-                    highlighted={props.hoveredDocId() === doc.id}
-                    onHover={props.onHoveredDocChange}
-                    onOpen={props.onOpenDoc}
-                  />
-                )}
-              </For>
-              <Show when={props.docs().length > RAIL_LIST_LIMIT}>
-                <Text fontSize="xs" color="fg.muted" px="2" py="2">
-                  {props.searchQuery().trim()
-                    ? `${hiddenCount().toLocaleString()} more — refine the search to narrow the list`
-                    : `${hiddenCount().toLocaleString()} more — search to find the rest`}
-                </Text>
-              </Show>
-              <Show when={props.docs().length === 0}>
-                <Text fontSize="sm" color="fg.muted" px="2" py="3">
-                  {props.searchQuery().trim()
-                    ? `No notes match “${props.searchQuery().trim()}”`
-                    : "No notes yet"}
-                </Text>
-              </Show>
-            </>
-          }
+        <Box
+          flex="1"
+          minH="0"
+          overflowY="auto"
+          px="1.5"
+          pb="2"
+          pt={props.mode() === "region" ? "1.5" : "0"}
         >
-          <For each={regionsSorted()}>
-            {(region) => {
-              const isHovered = () => props.hoveredRegionId() === region.id;
-              return (
-                <Box
-                  as="button"
-                  display="flex"
-                  alignItems="baseline"
-                  gap="2"
-                  w="full"
-                  textAlign="left"
-                  px="2"
-                  py="1.5"
-                  borderRadius="l2"
-                  cursor="pointer"
-                  focusVisibleRing="inside"
-                  transitionProperty="background-color"
-                  transitionDuration="fast"
-                  bg={isHovered() ? "gray.a3" : "transparent"}
-                  _hover={{ bg: "gray.a3" }}
-                  _active={{ bg: "gray.a5" }}
-                  onMouseEnter={() => props.onHoveredRegionChange(region.id)}
-                  onMouseLeave={() => props.onHoveredRegionChange(undefined)}
-                  onFocus={() => props.onHoveredRegionChange(region.id)}
-                  onBlur={() => props.onHoveredRegionChange(undefined)}
-                  onClick={() => props.onZoomToRegion(region.id)}
-                >
-                  <Text fontSize="sm" flex="1" minW="0" lineHeight="snug">
-                    {region.title}
-                  </Text>
-                  <Text
-                    fontSize="xs"
-                    color="fg.muted"
-                    fontVariantNumeric="tabular-nums"
-                    flexShrink="0"
-                  >
-                    {region.docCount}
-                  </Text>
-                </Box>
-              );
-            }}
+          <For each={listedDocs()}>
+            {(doc) => (
+              <CanvasRailDocRow
+                doc={doc}
+                query={props.searchQuery()}
+                active={props.selectedDocId() === doc.id}
+                highlighted={props.hoveredDocId() === doc.id}
+                onHover={props.onHoveredDocChange}
+                onOpen={props.onOpenDoc}
+              />
+            )}
           </For>
-        </Show>
-      </Box>
+          <Show when={props.docs().length > RAIL_LIST_LIMIT}>
+            <Text fontSize="xs" color="fg.muted" px="2" py="2">
+              {props.searchQuery().trim()
+                ? `${hiddenCount().toLocaleString()} more — refine the search to narrow the list`
+                : `${hiddenCount().toLocaleString()} more — search to find the rest`}
+            </Text>
+          </Show>
+          <Show when={props.docs().length === 0}>
+            <Text fontSize="sm" color="fg.muted" px="2" py="3">
+              {props.searchQuery().trim()
+                ? `No notes match “${props.searchQuery().trim()}”`
+                : "No notes yet"}
+            </Text>
+          </Show>
+        </Box>
+      </Show>
     </Flex>
   );
 };
