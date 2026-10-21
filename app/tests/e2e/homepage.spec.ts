@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
+import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 
 test.describe("visual notes app", () => {
   test("loads homepage", async ({ page }) => {
@@ -21,15 +22,25 @@ test.describe("visual notes app", () => {
     }
   });
 
-  test("recent list includes visited tags, not only notes", async ({
+  test("recent list includes visited paths, not only notes", async ({
     page,
   }) => {
     await ensureAuthed(page);
-    const tag = `recent${Date.now().toString(36)}`;
-    await page.goto(`/tags/${tag}`);
+    const leaf = `recent${uniqueSuffix()}`;
+    await createNoteFixture(page, {
+      title: `Recent path fixture ${leaf}`,
+      markdown: "Body",
+      path: `e2e.${leaf}`,
+    });
+    await page.goto(`/path/e2e/${leaf}`);
     const recent = page.getByRole("region", { name: "Recent" });
-    await expect(
-      recent.getByRole("link", { name: new RegExp(tag) }),
-    ).toHaveAttribute("href", `/tags/${tag}`);
+    await expect(recent.locator(`a[href="/path/e2e/${leaf}"]`)).toContainText(
+      leaf,
+    );
+
+    // A tag with no blocks is a typo, not a place worth listing.
+    await page.goto(`/tags/missing${leaf}`);
+    await page.goto("/");
+    await expect(recent.getByRole("link", { name: /missing/ })).toHaveCount(0);
   });
 });

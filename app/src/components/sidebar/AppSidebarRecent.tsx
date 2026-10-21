@@ -15,6 +15,15 @@ import { fetchRecentItems } from "~/services/recents/recents.queries";
 import type { RecentItem } from "~/services/recents/recents.types";
 import { RecentRow } from "./RecentRow";
 
+/** A malformed escape in the URL must not take down the sidebar. */
+const safeDecode = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const PLACEHOLDER_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 const CLOCK_TICK_MS = 30_000;
 
@@ -72,7 +81,7 @@ const RecentList = () => {
     (items() || []).filter((item) => item.kind === "note").map((item) => item.id)
   );
   const isCurrent = (item: RecentItem) =>
-    decodeURIComponent(location.pathname) === decodeURIComponent(item.href);
+    safeDecode(location.pathname) === safeDecode(item.href);
 
   return (
     <Suspense

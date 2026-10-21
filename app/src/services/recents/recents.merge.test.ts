@@ -20,7 +20,8 @@ describe("mergeRecentTouches", () => {
 
 describe("recentKindForEvent", () => {
   it("maps visit and edit events to kinds and ignores the rest", () => {
-    expect(recentKindForEvent("doc.update")).toBe("note");
+    expect(recentKindForEvent("doc.view")).toBe("note");
+    expect(recentKindForEvent("doc.update")).toBeUndefined();
     expect(recentKindForEvent("research.view")).toBe("research");
     expect(recentKindForEvent("search.query.executed")).toBeUndefined();
   });

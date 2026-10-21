@@ -30,9 +30,16 @@ const SidebarIconAction = (props: {
   icon: SidebarNavIcon;
   onClick: () => void;
   status?: JSX.Element;
+  statusLabel?: string;
 }) => (
   <Tooltip
-    content={props.showShortcuts ? `${props.label}  ${props.shortcut}` : props.label}
+    content={[
+      props.label,
+      props.showShortcuts && props.shortcut,
+      props.statusLabel && `· ${props.statusLabel}`,
+    ]
+      .filter(Boolean)
+      .join("  ")}
     openDelay={150}
     closeDelay={0}
     positioning={{ placement: props.expanded ? "bottom" : "right", gutter: 8 }}
@@ -118,6 +125,13 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         shortcut="⌘I"
         icon={BotMessageSquareIcon}
         onClick={props.onChatOpen}
+        statusLabel={
+          chatStatus() === "unread"
+            ? "Unread replies"
+            : chatStatus() === "loading"
+              ? "Responding…"
+              : undefined
+        }
         status={
           <Show when={chatStatus()}>
             {(status) => (
