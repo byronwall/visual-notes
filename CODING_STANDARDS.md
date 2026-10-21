@@ -20,3 +20,8 @@ implementation rules live in [AGENTS.md](AGENTS.md).
 ## UI review evidence
 
 - A UI PR needs before/after screenshots that someone has actually looked at. If the author couldn't view them, the PR carries the `visuals-unverified` label. Don't merge it until someone has looked.
+
+## Note storage and scale
+
+- A change to note storage, search, previews, embeddings, or migrations needs evidence from a production-scale database (`pnpm audit:db -- --owner <slug> --seed-scale 6000`), not only the small audit fixtures. Ask for the timing or memory numbers when a code path reads every note.
+- Code that reads note bodies in bulk should page or stream them and avoid building a full editor document per note. Flag loops that load every `Doc` row's content into memory at once.

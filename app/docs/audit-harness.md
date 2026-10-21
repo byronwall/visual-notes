@@ -32,6 +32,16 @@ export PLAYWRIGHT_MAGIC_PASSWORD_FILE="$TMPDIR/vn-audit-<owner>.password"
 corepack pnpm audit:harness -- --env-file <main checkout>/app/.env --port <port> --database visual_notes_audit_<owner> --worktree <this worktree> --branch <this branch>
 ```
 
+### Production-scale data
+
+Production holds about 6,300 notes, and some bugs only appear at that size: the block migration's false loss reports (#143), swap exhaustion from loading every note body (#144), and 11–20 second keyword searches (#145) all passed on a 62-note database. Before you merge a change to note storage, search, previews, embeddings, or migrations, test it against a scale database too:
+
+```sh
+corepack pnpm audit:db -- --owner <owner>_scale --seed-scale 6000
+```
+
+The seed is deterministic. It mixes the imported-markdown shapes in `src/server/notes/imported-markdown-corpus.ts` (setext headings, empty links, tables, entities, raw HTML, code, tasks) with filler text. Half the notes are legacy rows (markdown and html only, `content` NULL), like unmigrated production notes; the other half go through the note store. Seeding appends, so seed a fresh owner when you need an exact count. When a new import shape breaks something, add it to the corpus: `imported-markdown-corpus.test.ts` runs every sample through the block migration.
+
 When you are finished, drop the database and credential:
 
 ```sh
