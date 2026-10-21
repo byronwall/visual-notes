@@ -1,6 +1,6 @@
 # Live note updates
 
-Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, another tab or device, the CLI ingest API, the extension, or a bulk action. No reload is needed, and unsaved typing is never replaced.
+Open tabs refresh when a note is written somewhere else: an agent through [MCP](mcp-connector.md), another tab or device, the CLI ingest API, the extension, or a bulk action. No reload is needed, and unsaved typing is never replaced.
 
 ## How it works
 
@@ -8,6 +8,10 @@ Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, an
 2. **Fan out.** `src/server/broadcast-bus.ts` delivers the event in-process. It keeps one listener set per thread on `globalThis`, because vinxi loads each router's modules separately. The `/ws/notes` router (`src/ws/notes.ts`) sends the event to each signed-in socket.
 3. **Refresh.** `NoteLiveSyncProvider` (`src/features/live-sync/`) is mounted in the signed-in shell. It debounces events by 250 ms, then calls `revalidate(["docs-", "activity-"])`. After a reconnect, or when a tab returns from being hidden more than 5 minutes, it does one catch-up refresh.
 4. **Open note.** `DocumentEditor` runs `checkRemote` when an event names its note, plus a 15s version poll as a fallback. An idle editor adopts the newer version with `applyRemoteContent`, a minimal diff that waits while the cursor is inside a changed block. A dirty draft is left alone: its next save sends the base version, and the server merges per block (`server/notes/note-write.ts`). A same-block conflict keeps the incoming save and stores the other version in Versions, with a toast. An event that arrives mid-save is checked once the save settles. The tab's own save echoing back is skipped by `updatedAt`. `useLiveNoteResource` keeps the note page and side panel headers current.
+
+## Other areas
+
+The same socket carries `app:changed` events for areas that are not notes: `research`, `tasks`, `collections`, `time-blocks`, and `archive`. Server code calls `publishAppChange(area, ids)` (`src/server/note-events.ts`) after a write, with the ids it touched (topic, task list, collection, …) (`null` for "everything"). The provider revalidates that area's query keys (`APP_LIVE_QUERY_KEYS` in `note-live-keys.ts`). A view that holds data in `createResource` instead calls `useAppChanges(area, reload, matches)`. A reconnect or a long-hidden tab catches up every area.
 
 ## Adding a note view
 

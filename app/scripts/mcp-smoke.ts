@@ -1,12 +1,17 @@
-// End-to-end smoke for the ChatGPT MCP connector, driven by the official MCP client.
+// End-to-end smoke for the MCP connector, driven by the official MCP client.
 //
 //   MCP_URL=http://127.0.0.1:3161/mcp MCP_BEARER=<token> \
-//   node --experimental-strip-types scripts/mcp-smoke.ts --human-note <id>
+//   node --experimental-strip-types scripts/mcp-smoke.ts \
+//     [--human-note <id>] [--archive-page <id>]
 //
-// Creates one note under `mcp-smoke.<timestamp>`, updates, appends, and edits one
-// block of it (checking the other blocks are untouched), and
-// checks that updating the given user-authored note is refused. Run it only
-// against a local or disposable database.
+// Checks the tool list, then runs the note tools in depth (create, update,
+// append, block edit, search) and one read and one write for every other
+// family. Everything it makes is named `mcp-smoke <run id>`. Deleting is
+// human-only, so it cancels its task, removes its row from its collection,
+// undoes its research card, and archives its topic; the notes, collection,
+// and time block stay as named fixtures. With --human-note it checks that a
+// user-written note is refused; with --archive-page it adds a note to that
+// saved page. Run it only against a local or disposable database.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
@@ -59,16 +64,32 @@ function check(condition: unknown, message: string): void {
   }
 }
 
+const EXPECTED_TOOL_COUNT = 57;
+const FAMILIES = [
+  "research_",
+  "tasks_",
+  "collections_",
+  "time_blocks_",
+  "archive_",
+  "activity_",
+];
 const tools = await client.listTools();
+const toolNames = tools.tools.map((t) => t.name);
 check(
-  tools.tools.length === 7,
-  `lists 7 tools (${tools.tools.map((t) => t.name).join(", ")})`,
+  toolNames.length === EXPECTED_TOOL_COUNT,
+  `lists ${EXPECTED_TOOL_COUNT} tools (got ${toolNames.length})`,
+);
+check(
+  FAMILIES.every((prefix) => toolNames.some((n) => n.startsWith(prefix))),
+  "every tool family is registered",
 );
 
-const path = `mcp-smoke.run-${Date.now()}`;
-const key = `smoke-${Date.now()}`;
+const runId = `${Date.now()}`;
+const fixture = `mcp-smoke ${runId}`;
+const path = `mcp-smoke.run-${runId}`;
+const key = `smoke-${runId}`;
 const created = await call("create_note", {
-  title: "MCP smoke plan",
+  title: `MCP smoke plan ${runId}`,
   path,
   markdown: "# Plan\n\n- first step",
   idempotencyKey: key,
@@ -171,6 +192,141 @@ if (humanNoteId) {
     "update of a user note is refused",
   );
 }
+
+// Note context: meta on the smoke note, then read it back by key.
+const metaKey = `smoke${runId}`;
+const meta = await call("set_note_meta", {
+  ids: [note.id],
+  set: { [metaKey]: "yes" },
+});
+check(!meta.isError, "set_note_meta writes a field");
+const keys = await call("list_meta_keys", { key: metaKey });
+check(
+  keys.structuredContent?.values?.[0]?.value === "yes",
+  "list_meta_keys reads it back",
+);
+const tags = await call("list_tags", {});
+check(!tags.isError, "list_tags reads");
+
+// Research: a topic with one card, then undo the card and archive the topic.
+const topic = (await call("research_create_topic", { title: fixture }))
+  .structuredContent;
+check(Boolean(topic?.id), "research_create_topic");
+const card = await call("research_add_card", {
+  topic: topic.id,
+  type: "question",
+  title: `Does the ${fixture} card show up?`,
+  agent: "mcp-smoke",
+});
+const read = await call("research_read_topic", { topic: topic.id });
+check(
+  String(read.structuredContent?.markdown ?? "").includes(fixture),
+  "research_read_topic shows the new card",
+);
+const undone = await call("research_undo_batch", {
+  topic: topic.id,
+  batch: card.structuredContent?.batchId,
+});
+check(!undone.isError, "research_undo_batch hides it again");
+const archived = await call("research_update_topic", {
+  topic: topic.id,
+  archived: true,
+});
+check(!archived.isError, "research_update_topic archives the topic");
+
+// Tasks: create in the Inbox, find it, then cancel it.
+const task = (
+  await call("tasks_create", { description: `${fixture} task`, tags: ["smoke"] })
+).structuredContent;
+const tasks = await call("tasks_query", { text: fixture });
+check(
+  tasks.structuredContent?.results?.some((t: { id: string }) => t.id === task?.id),
+  "tasks_query finds the new task",
+);
+const cancelled = await call("tasks_update", {
+  updates: [{ id: task?.id, status: "cancelled" }],
+});
+check(!cancelled.isError, "tasks_update cancels it");
+
+// Collections: a collection with one row, queried by value, then removed.
+const collection = (
+  await call("collections_create", {
+    name: fixture,
+    properties: [{ name: "Score", kind: "number" }],
+  })
+).structuredContent;
+const row = (
+  await call("collections_add_row", {
+    collection: collection?.id,
+    title: `${fixture} row`,
+    path,
+    values: { Score: "3" },
+  })
+).structuredContent;
+const rows = await call("collections_query", {
+  collection: collection?.id,
+  where: [{ property: "Score", op: "eq", value: 3 }],
+});
+check(
+  rows.structuredContent?.rows?.[0]?.id === row?.id,
+  "collections_query finds the row by value",
+);
+const removed = await call("collections_remove_notes", {
+  collection: collection?.id,
+  noteIds: [row?.id],
+});
+check(
+  removed.structuredContent?.removed === 1,
+  "collections_remove_notes takes it out",
+);
+
+// Time blocks: one block on a day nobody plans, linked to the smoke note.
+const block = await call("time_blocks_create", {
+  title: fixture,
+  start: "2001-01-01T09:00:00Z",
+  end: "2001-01-01T09:30:00Z",
+  noteId: note.id,
+});
+check(!block.isError, "time_blocks_create");
+const blocks = await call("time_blocks_list", {
+  from: "2000-12-31",
+  to: "2001-01-02",
+  noteId: note.id,
+});
+check(
+  blocks.structuredContent?.blocks?.some(
+    (b: { id: string }) => b.id === block.structuredContent?.id,
+  ),
+  "time_blocks_list finds it by note",
+);
+
+// Web archive: an unsaved url reads as not archived; a note only on request.
+const unsaved = await call("archive_get", {
+  url: `https://example.invalid/${path}`,
+});
+check(
+  unsaved.structuredContent?.archived === false,
+  "archive_get reports an unsaved url",
+);
+const archivePageIndex = process.argv.indexOf("--archive-page");
+const archivePageId =
+  archivePageIndex > 0 ? process.argv[archivePageIndex + 1] : undefined;
+if (archivePageId) {
+  const added = await call("archive_add_note", {
+    pageId: archivePageId,
+    text: fixture,
+  });
+  check(!added.isError, "archive_add_note");
+}
+
+// Activity: the smoke note's own history.
+const history = await call("activity_recent", { noteId: note.id });
+check(
+  history.structuredContent?.results?.some(
+    (e: { type: string }) => e.type === "doc.create",
+  ),
+  "activity_recent shows the note's history",
+);
 
 console.info(`[mcp-smoke] note ${note.url}`);
 await client.close();

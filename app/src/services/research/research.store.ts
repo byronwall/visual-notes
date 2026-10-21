@@ -26,6 +26,13 @@ export const resolveTopic = async (idOrSlug: string) =>
     select: { id: true, slug: true, title: true, archivedAt: true },
   });
 
+/** A topic's batch by id or batchKey, however old. */
+export const findBatch = (topicId: string, idOrKey: string) =>
+  prisma.researchBatch.findFirst({
+    where: { topicId, OR: [{ id: idOrKey }, { batchKey: idOrKey }] },
+    select: { id: true },
+  });
+
 export const loadTopicGraph = async (idOrSlug: string): Promise<ResearchTopicGraph | null> => {
   const topic = await resolveTopic(idOrSlug);
   if (!topic) return null;

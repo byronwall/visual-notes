@@ -86,6 +86,30 @@ export const deleteTaskLocally = (items: TaskItem[], taskId: string) => {
   return nextItems;
 };
 
+/** Drops a task and everything under it (moved to another list), closing the gap. */
+export const removeSubtreeLocally = (items: TaskItem[], taskId: string) => {
+  const target = items.find((task) => task.id === taskId);
+  if (!target) return items;
+  const gone = new Set([taskId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const task of items) {
+      if (task.parentTaskId && gone.has(task.parentTaskId) && !gone.has(task.id)) {
+        gone.add(task.id);
+        grew = true;
+      }
+    }
+  }
+  const nextItems = items.filter((task) => !gone.has(task.id)).map((task) => ({ ...task }));
+  nextItems
+    .filter((task) => task.parentTaskId === target.parentTaskId)
+    .sort(bySortOrder)
+    .forEach((task, index) => {
+      task.sortOrder = index;
+    });
+  return nextItems;
+};
+
 export const isDescendantOf = (
   tasksById: Map<string, TaskItem>,
   taskId: string,

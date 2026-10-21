@@ -71,6 +71,9 @@ export type TaskTreeContextValue = {
   toggleStatus: (task: TaskItem, status: TaskStatus) => void;
   addSubtask: (task: TaskItem) => void;
   deleteTask: (task: TaskItem) => void;
+  /** Lists other than the open one, for "Move to list". */
+  otherLists: () => { id: string; name: string }[];
+  moveToList: (task: TaskItem, listId: string) => void;
 };
 
 const TaskTreeContext = createContext<TaskTreeContextValue>();
