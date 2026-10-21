@@ -1,20 +1,34 @@
+// Type-only: the runtime modules load lazily so writes stay cheap.
+import type { prisma } from "~/server/db";
+import type { processEmbeddingRun } from "~/services/embeddings/embeddings.actions";
+
 const LOG_PREFIX = "[embedding-refresh]";
 const REFRESH_DEBOUNCE_MS = 10_000;
 const REFRESH_BATCH = 25;
-/** Upper bound on back-to-back batches after one burst of writes. */
+/** Upper bound on back-to-back batches in one refresh; the sweep resumes. */
 const MAX_FOLLOW_UPS = 40;
+const SWEEP_INTERVAL_MS = 15 * 60_000;
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
 let refreshing = false;
 let pendingAfterRun = false;
+let pendingSweep = false;
+
+/** Timers here must not keep a script or test process alive. */
+function unref(timer: unknown) {
+  (timer as { unref?: () => void }).unref?.();
+}
 
 /**
- * Embeds new and changed notes into the latest embedding run shortly after a
- * write, which also projects them into that run's trained UMAP maps so they
- * land on the canvas. Never retrains a map. Safe to call from inside a write:
- * it only arms a timer, loads its dependencies lazily, and swallows failures.
+ * Embeds new and changed notes shortly after a write, which also projects
+ * them into the trained UMAP maps so they land on the canvas. Never retrains
+ * a map. Safe to call from inside a write: it only arms a timer, loads its
+ * dependencies lazily, and swallows failures. `sweep` also projects notes
+ * that were embedded but never placed, and bootstraps the first runs.
  */
-export function scheduleEmbeddingRefresh(): void {
+export function scheduleEmbeddingRefresh(options?: { sweep?: boolean }): void {
+  if (options?.sweep) pendingSweep = true;
   if (refreshing) {
     pendingAfterRun = true;
     return;
@@ -22,41 +36,139 @@ export function scheduleEmbeddingRefresh(): void {
   if (refreshTimer) return;
   refreshTimer = setTimeout(() => {
     refreshTimer = null;
-    void refreshLatestRun();
+    const sweep = pendingSweep;
+    pendingSweep = false;
+    void refreshLatestRun({ sweep });
   }, REFRESH_DEBOUNCE_MS);
-  // A pending refresh must not keep a script or test process alive.
-  const timer = refreshTimer as unknown as { unref?: () => void };
-  timer.unref?.();
+  unref(refreshTimer);
 }
 
-export async function refreshLatestRun(): Promise<void> {
+/**
+ * Starts the background sweep once per server process: one pass soon after
+ * boot, then one every 15 minutes. The sweep is the catch-all for writes that
+ * bypass `contentColumns` (raw SQL, admin migrations) and for refreshes lost
+ * to a restart.
+ */
+export function startEmbeddingSweep(): void {
+  if (sweepTimer || process.env.NODE_ENV === "test") return;
+  sweepTimer = setInterval(
+    () => scheduleEmbeddingRefresh({ sweep: true }),
+    SWEEP_INTERVAL_MS,
+  );
+  unref(sweepTimer);
+  scheduleEmbeddingRefresh({ sweep: true });
+}
+
+type Deps = {
+  prisma: typeof prisma;
+  processEmbeddingRun: typeof processEmbeddingRun;
+};
+
+/** Embed missing and changed notes into one run, in follow-up batches. */
+async function drainRun(deps: Deps, runId: string) {
+  for (const mode of ["missing", "changed"] as const) {
+    for (let pass = 0; pass <= MAX_FOLLOW_UPS; pass += 1) {
+      const result = await deps.processEmbeddingRun({
+        id: runId,
+        mode,
+        limit: REFRESH_BATCH,
+      });
+      console.info(`${LOG_PREFIX} refreshed ${mode} run=${runId}`, result);
+      if (!result?.addedDocs || !result.remaining) break;
+    }
+  }
+}
+
+/**
+ * First-run setup: embed every note when there is no embedding run, then
+ * train one map when there is none at all. An existing map is never
+ * replaced, so saved `?region=` links stay valid.
+ */
+async function bootstrapRuns(deps: Deps): Promise<boolean> {
+  const [embeddingRuns, umapRuns] = await Promise.all([
+    deps.prisma.embeddingRun.count(),
+    deps.prisma.umapRun.count(),
+  ]);
+  if (embeddingRuns > 0 && umapRuns > 0) return false;
+  if (embeddingRuns === 0) {
+    const { createEmbeddingRun } = await import(
+      "~/services/embeddings/embeddings.actions"
+    );
+    console.info(`${LOG_PREFIX} bootstrapping the first embedding run`);
+    await createEmbeddingRun({});
+  }
+  if (umapRuns === 0) {
+    const run = await deps.prisma.embeddingRun.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { id: true, _count: { select: { docEmbeddings: true } } },
+    });
+    if (!run?._count.docEmbeddings) return true;
+    const { createUmapRun } = await import("~/services/umap/umap.actions");
+    console.info(`${LOG_PREFIX} bootstrapping the first map run=${run.id}`);
+    await createUmapRun({ embeddingRunId: run.id, dims: 2 });
+  }
+  return true;
+}
+
+/** Places embedded notes that the canvas map has no point for yet. */
+async function projectUnplaced(deps: Deps, umapRun: UmapTarget) {
+  const [points, embeddings] = await Promise.all([
+    deps.prisma.umapPoint.count({ where: { runId: umapRun.id } }),
+    deps.prisma.docEmbedding.count({
+      where: { runId: umapRun.embeddingRunId },
+    }),
+  ]);
+  if (points >= embeddings) return;
+  const { projectDocEmbeddingsIntoUmapRun } = await import(
+    "~/services/umap/umap.projection"
+  );
+  const result = await projectDocEmbeddingsIntoUmapRun({
+    umapRunId: umapRun.id,
+    mode: "missing",
+  });
+  console.info(`${LOG_PREFIX} projected unplaced notes`, result);
+}
+
+type UmapTarget = { id: string; embeddingRunId: string };
+
+export async function refreshLatestRun(options?: {
+  sweep?: boolean;
+}): Promise<void> {
   if (refreshing) return;
   refreshing = true;
   try {
-    const [{ serverEnv }, { prisma }, { processEmbeddingRun }] =
-      await Promise.all([
-        import("~/env/server"),
-        import("~/server/db"),
-        import("~/services/embeddings/embeddings.actions"),
-      ]);
+    const [{ serverEnv }, db, embeddings] = await Promise.all([
+      import("~/env/server"),
+      import("~/server/db"),
+      import("~/services/embeddings/embeddings.actions"),
+    ]);
     if (!serverEnv.OPENAI_API_KEY?.trim()) return;
-    const run = await prisma.embeddingRun.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    if (!run) return;
-    for (const mode of ["missing", "changed"] as const) {
-      // Large imports drain in batches instead of waiting for the next write.
-      for (let pass = 0; pass <= MAX_FOLLOW_UPS; pass += 1) {
-        const result = await processEmbeddingRun({
-          id: run.id,
-          mode,
-          limit: REFRESH_BATCH,
-        });
-        console.info(`${LOG_PREFIX} refreshed ${mode}`, result);
-        if (!result?.addedDocs || !result.remaining) break;
-      }
-    }
+    const deps: Deps = {
+      prisma: db.prisma,
+      processEmbeddingRun: embeddings.processEmbeddingRun,
+    };
+    const { prisma } = deps;
+    // Bootstrapping embeds and places everything, so it ends the pass.
+    if (options?.sweep && (await bootstrapRuns(deps))) return;
+
+    // Search reads the newest embedding run; the canvas shows the newest
+    // map, which may be built on an older run. Keep both current.
+    const [latest, map] = await Promise.all([
+      prisma.embeddingRun.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      }),
+      prisma.umapRun.findFirst({
+        where: { artifactPath: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, embeddingRunId: true },
+      }),
+    ]);
+    const runIds = new Set<string>();
+    if (latest) runIds.add(latest.id);
+    if (map) runIds.add(map.embeddingRunId);
+    for (const runId of runIds) await drainRun(deps, runId);
+    if (options?.sweep && map) await projectUnplaced(deps, map);
   } catch (error) {
     console.warn(`${LOG_PREFIX} embedding refresh failed`, error);
   } finally {
