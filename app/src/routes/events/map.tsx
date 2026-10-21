@@ -1,20 +1,10 @@
-import { Title } from "@solidjs/meta";
-import { Box, Container } from "styled-system/jsx";
-import { EventsTabs } from "~/components/events/EventsTabs";
+import { EventsMapView } from "~/components/events/map/EventsMapView";
+import { EventsPageShell } from "~/components/events/views/EventsPageShell";
 
-// Placeholder; the Map view lands in its own layer of the events stack.
 export default function EventsMapRoute() {
   return (
-    <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Title>Map • Events • Visual Notes</Title>
-      <Container
-        maxW="6xl"
-        pt={{ base: "4", md: "6" }}
-        pb="24"
-        px={{ base: "4", md: "8" }}
-      >
-        <EventsTabs />
-      </Container>
-    </Box>
+    <EventsPageShell title="Map">
+      <EventsMapView />
+    </EventsPageShell>
   );
 }
