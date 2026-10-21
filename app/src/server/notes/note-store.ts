@@ -14,7 +14,6 @@ import { NOTE_SCHEMA_VERSION } from "~/lib/note-content/schema";
 import { stripIdTags } from "~/lib/note-content/markdown";
 import { isNoteDoc, type NoteDoc } from "~/lib/note-content/types";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
-import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
 /**
  * Server-side home for note bodies. Blocks (`Doc.content`) are canonical; the
@@ -40,13 +39,24 @@ export function prepareContent(input: ContentInput): NoteDoc {
   return fromMarkdown(input.markdown ?? "");
 }
 
+let onContentWrite: (() => void) | null = null;
+
+/**
+ * Registers the callback every content write runs; middleware.ts sets it
+ * to the embedding refresh. A hook, not an import, because client bundles
+ * reach this module and the refresh's lazy imports are server-only.
+ */
+export function setContentWriteHook(hook: (() => void) | null) {
+  onContentWrite = hook;
+}
+
 /**
  * Column values for a content write (version bump handled by callers). Every
  * content write builds its columns here, so this is also where the write
  * queues the debounced embedding refresh that places the note on the canvas.
  */
 export function contentColumns(doc: NoteDoc) {
-  scheduleEmbeddingRefresh();
+  onContentWrite?.();
   const legacy = legacyColumns(doc);
   return {
     content: doc as unknown as Prisma.InputJsonValue,

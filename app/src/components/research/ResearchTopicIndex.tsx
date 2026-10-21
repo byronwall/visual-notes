@@ -3,6 +3,7 @@ import { createResource, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
 import { formatRelativeShort } from "~/components/doc-header/relative-time";
+import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { createResearchTopic } from "~/services/research/research.actions";
 import { fetchResearchTopics } from "~/services/research/research.queries";
 
@@ -38,7 +39,12 @@ const metaClass = css({
 
 export const ResearchTopicIndex = () => {
   const [refresh, setRefresh] = createSignal(0);
-  const [data] = createResource(refresh, (n) => fetchResearchTopics({ refresh: n }));
+  const [showArchived, setShowArchived] = createSignal(false);
+  const [data] = createResource(
+    () => ({ refresh: refresh(), includeArchived: showArchived() }),
+    (input) => fetchResearchTopics(input),
+  );
+  useAppChanges("research", () => setRefresh((n) => n + 1));
   const runCreate = useAction(createResearchTopic);
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("");
@@ -89,6 +95,14 @@ export const ResearchTopicIndex = () => {
             Create
           </Button>
         </form>
+        <label class={css({ display: "inline-flex", alignItems: "center", gap: "1.5", fontSize: "sm", color: "fg.muted", cursor: "pointer" })}>
+          <input
+            type="checkbox"
+            checked={showArchived()}
+            onChange={(event) => setShowArchived(event.currentTarget.checked)}
+          />
+          Show archived
+        </label>
       </div>
 
       <Show
@@ -96,7 +110,7 @@ export const ResearchTopicIndex = () => {
         fallback={
           <Show when={data.latest}>
             <p class={css({ color: "fg.muted", fontSize: "sm", px: "2", py: "6" })}>
-              No topics yet. Create one here, or have an agent call <code>create_topic</code> over MCP.
+              No topics yet. Create one here, or have an agent call <code>research_create_topic</code> over MCP.
             </p>
           </Show>
         }
@@ -107,6 +121,9 @@ export const ResearchTopicIndex = () => {
               <div class={rowClass} data-testid="research-topic-row">
                 <A href={`/research/${topic.slug}`} class={titleLinkClass}>
                   {topic.title}
+                  <Show when={topic.archivedAt}>
+                    <span class={css({ ml: "1.5", fontSize: "xs", color: "fg.muted", fontWeight: "normal" })}>archived</span>
+                  </Show>
                 </A>
                 <span class={metaClass}>
                   <Show when={topic.openCount > 0}>

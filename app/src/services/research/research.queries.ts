@@ -4,11 +4,14 @@ import type { ResearchTopicGraph, ResearchTopicListItem } from "./research.types
 
 export const fetchResearchTopics = query(
   async (
-    _input: { refresh?: number } = {},
+    input: { refresh?: number; includeArchived?: boolean } = {},
   ): Promise<{ topics: ResearchTopicListItem[]; generatedAt: string }> => {
     "use server";
     // generatedAt lets SSR and hydration compute identical relative times.
-    return { topics: await listTopics(), generatedAt: new Date().toISOString() };
+    return {
+      topics: await listTopics({ includeArchived: Boolean(input?.includeArchived) }),
+      generatedAt: new Date().toISOString(),
+    };
   },
   "research-topics",
 );

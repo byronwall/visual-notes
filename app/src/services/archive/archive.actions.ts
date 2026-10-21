@@ -1,6 +1,7 @@
 import { action } from "@solidjs/router";
 import { z } from "zod";
 import { prisma } from "~/server/db";
+import { addArchivedPageNote } from "~/server/archive/archive-store";
 import {
   persistDataImage,
   resolveDocImageStorageDir,
@@ -460,29 +461,8 @@ export const createArchivedPageNote = action(
   async (payload: z.infer<typeof createArchivedPageNoteInput>) => {
     "use server";
     const input = createArchivedPageNoteInput.parse(payload);
-    const noteText = input.noteText?.trim() ?? "";
-    const imageUrls = input.imageUrl ? [input.imageUrl.trim()] : [];
-
-    if (!noteText && imageUrls.length === 0) {
-      throw new Error("Add note text or an image URL");
-    }
-
-    const created = await prisma.archivedPageNote.create({
-      data: {
-        archivedPageId: input.pageId,
-        noteText,
-        imageUrls,
-      },
-      select: {
-        id: true,
-        archivedPageId: true,
-      },
-    });
-
-    return {
-      id: created.id,
-      pageId: created.archivedPageId,
-    };
+    const created = await addArchivedPageNote(input);
+    return { id: created.id, pageId: created.pageId };
   },
   "archive-create-note",
 );
@@ -598,7 +578,9 @@ export const deleteArchivedPageNoteImage = action(
       throw new Error("Image not found");
     }
 
-    const nextImageUrls = existing.imageUrls.filter((_, index) => index !== input.index);
+    const nextImageUrls = existing.imageUrls.filter(
+      (_, index) => index !== input.index,
+    );
     if (!existing.noteText.trim() && nextImageUrls.length === 0) {
       await prisma.archivedPageNote.delete({ where: { id: input.noteId } });
       return { id: input.noteId, deleted: true };

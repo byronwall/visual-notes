@@ -7,6 +7,12 @@ import {
 import { isRequestAuthenticated } from "~/server/magic-auth";
 import { handleWellKnown } from "~/server/oauth/route-helpers";
 import { loginPathFor } from "~/utils/safe-next";
+import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
+import { setContentWriteHook } from "~/server/notes/note-store";
+
+// Middleware loads for every server router (pages, server functions, API), so
+// content writes from any of them queue the embedding refresh.
+setContentWriteHook(scheduleEmbeddingRefresh);
 
 // SolidStart's pinned transform builds IDs from the root-relative module path
 // and exported function name. Keep these IDs in sync with those public functions.
@@ -86,7 +92,10 @@ export default createMiddleware({
         if (isArchiveIngestAuthorized(event.request)) return;
       }
 
-      if (isResearchAgentPath(pathname) && isResearchAgentAuthorized(event.request)) {
+      if (
+        isResearchAgentPath(pathname) &&
+        isResearchAgentAuthorized(event.request)
+      ) {
         return;
       }
 
