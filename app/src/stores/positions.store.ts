@@ -2,6 +2,7 @@ import { createMemo, createSignal, type Accessor } from "solid-js";
 import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
 import { normalizeUmap } from "~/layout/umap-normalize";
 import { seededPositionFor } from "~/layout/seeded";
+import { placeApproximate } from "~/layout/approximate-placement";
 import { buildKdTree, type KDNode } from "~/spatial/kdtree";
 import {
   docMatchesCanvasQuery,
@@ -12,7 +13,8 @@ const SPREAD = 1000;
 const NODE_RADIUS = 10;
 const MIN_SEP = NODE_RADIUS * 2 + 2; // minimal center distance to avoid overlap
 
-type Point = { x: number; y: number };
+/** `approximate` marks a note placed by neighbor guess, not by the map. */
+type Point = { x: number; y: number; approximate?: true };
 
 export function createPositionsStore(deps: {
   docs: Accessor<DocItem[] | undefined>;
@@ -33,58 +35,32 @@ export function createPositionsStore(deps: {
     const map = new Map<string, Point>();
     if (!list) return map;
 
-    const unknown: { id: string; title: string; seeded: Point }[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const d = list[i]!;
-      const fromUmap = index.get(d.id);
-      if (fromUmap) {
-        map.set(d.id, fromUmap);
-      } else {
-        const seeded = seededPositionFor(d.title, i, SPREAD);
-        unknown.push({ id: d.id, title: d.title, seeded });
-      }
-    }
-
-    if (unknown.length === 0) {
-      return map;
-    }
-
+    // Without a map there is nothing to be near; seed the whole set.
     if (index.size === 0) {
-      for (const u of unknown) map.set(u.id, u.seeded);
+      list.forEach((d, i) =>
+        map.set(d.id, seededPositionFor(d.title, i, SPREAD)),
+      );
       return map;
     }
 
-    let minY = Number.POSITIVE_INFINITY;
-    for (const p of index.values()) {
-      if (p.y < minY) minY = p.y;
+    let unknownCount = 0;
+    for (const d of list) {
+      const fromUmap = index.get(d.id);
+      if (fromUmap) map.set(d.id, fromUmap);
+      else unknownCount++;
     }
-    if (!Number.isFinite(minY)) minY = 0;
+    if (unknownCount === 0) return map;
 
-    // Lay out unknowns in a compact grid centered at x=0, above known minY
-    const count = unknown.length;
-    const cols = Math.ceil(Math.sqrt(count));
-    const rows = Math.ceil(count / cols);
-    const cell = MIN_SEP;
-    const gridW = cols * cell;
-    const gridH = rows * cell;
-    const margin = cell * 2;
-    const startX = -gridW / 2 + cell / 2;
-    const startY = minY - margin - gridH;
-
-    for (let i = 0; i < count; i++) {
-      const c = i % cols;
-      const r = Math.floor(i / cols);
-      const x = startX + c * cell;
-      const y = startY + r * cell;
-      map.set(unknown[i]!.id, { x, y });
-    }
-
+    const approximate = placeApproximate({
+      docs: list,
+      known: map,
+      minSep: MIN_SEP,
+      spread: SPREAD,
+    });
+    for (const [id, p] of approximate) map.set(id, p);
     console.debug(
-      `[positions.store] Clustered ${count} unknown points at top-center (startY=${startY.toFixed(
-        1
-      )})`
+      `[positions.store] placed ${approximate.size} notes without a map point near neighbors`,
     );
-
     return map;
   });
 

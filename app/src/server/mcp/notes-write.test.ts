@@ -19,7 +19,9 @@ const db = vi.hoisted(() => ({
 }));
 
 vi.mock("~/server/db", () => ({ prisma: db }));
-vi.mock("./semantic", () => ({ scheduleEmbeddingRefresh: vi.fn() }));
+vi.mock("~/server/notes/embedding-refresh", () => ({
+  scheduleEmbeddingRefresh: vi.fn(),
+}));
 vi.mock("~/server/events/action-events", () => ({
   logActionEvent: db.logActionEvent,
 }));

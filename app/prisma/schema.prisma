@@ -653,6 +653,10 @@ model UmapRun {
   artifactPath     String?
   regionsJson      Json?
   regionsUpdatedAt DateTime?
+  /// Similarity transform into the frame of the map this run replaced; applied to every projected point.
+  alignment        Json?
+  /// Notes the model was trained on; the retrain trigger counts projections beyond it.
+  trainedDocCount  Int?
   createdAt        DateTime  @default(now())
 
   embeddingRun EmbeddingRun @relation(fields: [embeddingRunId], references: [id], onDelete: Cascade)

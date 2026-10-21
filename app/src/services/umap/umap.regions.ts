@@ -8,6 +8,7 @@ import type {
   UmapRegionsSnapshot,
   UmapRegionSample,
 } from "~/features/umap/region-types";
+import { matchRegionsToPrevious } from "~/services/umap/umap.region-matching";
 
 const MAX_GROUPS = 50;
 const REGION_SAMPLE_COUNT = 5;
@@ -15,7 +16,7 @@ const MIN_REGION_LABEL_SAMPLES = 2;
 const LLM_MODEL = "gpt-4o-mini";
 const MIN_CLUSTER_SIZE = 12;
 
-type RegionPointRow = {
+export type RegionPointRow = {
   docId: string;
   title: string;
   path: string | null;
@@ -43,6 +44,53 @@ export async function regenerateUmapRegions(
   const startedAt = Date.now();
   console.info(`[umap.regions] start run=${runId}`);
 
+  const [rows, run] = await Promise.all([
+    loadRegionPoints(runId),
+    prisma.umapRun.findUnique({
+      where: { id: runId },
+      select: { regionsJson: true },
+    }),
+  ]);
+
+  if (!rows.length) {
+    console.info(`[umap.regions] empty run=${runId} clearing snapshot`);
+    await prisma.umapRun.update({
+      where: { id: runId },
+      data: {
+        regionsJson: Prisma.DbNull,
+        regionsUpdatedAt: new Date(),
+      },
+    });
+    return null;
+  }
+
+  // Re-clustering the same run matches its own last snapshot so ids hold.
+  const snapshot = await buildUmapRegionsSnapshot(
+    rows,
+    runId,
+    parseUmapRegionsSnapshot(run?.regionsJson)
+  );
+
+  await prisma.umapRun.update({
+    where: { id: runId },
+    data: {
+      regionsJson: snapshot,
+      regionsUpdatedAt: new Date(snapshot.generatedAt),
+    },
+  });
+
+  console.info(
+    `[umap.regions] complete run=${runId} groups=${snapshot.regions.length} islands=${snapshot.islands.length} points=${snapshot.totalPoints} ms=${
+      Date.now() - startedAt
+    }`
+  );
+
+  return snapshot;
+}
+
+export async function loadRegionPoints(
+  runId: string
+): Promise<RegionPointRow[]> {
   const rows = await prisma.umapPoint.findMany({
     where: { runId },
     select: {
@@ -57,54 +105,58 @@ export async function regenerateUmapRegions(
       },
     },
   });
-
-  if (!rows.length) {
-    console.info(`[umap.regions] empty run=${runId} clearing snapshot`);
-    await prisma.umapRun.update({
-      where: { id: runId },
-      data: {
-        regionsJson: Prisma.DbNull,
-        regionsUpdatedAt: new Date(),
-      },
-    });
-    return null;
-  }
-
-  const points: RegionPointRow[] = rows.map((row) => ({
+  return rows.map((row) => ({
     docId: row.docId,
     title: row.doc.title,
     path: row.doc.path,
     x: row.x,
     y: row.y,
   }));
+}
 
+/**
+ * Clusters points into named regions. Regions inherit ids (and, when they
+ * barely changed, titles) from `previous`, so only new or reshaped regions
+ * are sent for LLM labels. Writes nothing.
+ */
+export async function buildUmapRegionsSnapshot(
+  points: RegionPointRow[],
+  seed: string,
+  previous: UmapRegionsSnapshot | null
+): Promise<UmapRegionsSnapshot> {
   const clusterCount = chooseClusterCount(points.length);
   const mapDiagonal = computeBoundsDiagonal(computeBounds(points));
   const maxDocsPerRegion = chooseMaxDocsPerRegion(points.length);
   const maxRadius = chooseMaxRadius(mapDiagonal);
   console.info(
-    `[umap.regions] clustering run=${runId} points=${points.length} targetGroups=${clusterCount} maxDocs=${maxDocsPerRegion} maxRadius=${maxRadius.toFixed(
+    `[umap.regions] clustering run=${seed} points=${points.length} targetGroups=${clusterCount} maxDocs=${maxDocsPerRegion} maxRadius=${maxRadius.toFixed(
       2
     )}`
   );
-  const clusters = buildClusters(points, clusterCount, runId, {
+  const clusters = buildClusters(points, clusterCount, seed, {
     maxGroups: MAX_GROUPS,
     maxDocsPerRegion,
     maxRadius,
   });
-  const unlabeledRegions = clusters
-    .filter((cluster) => cluster.rows.length > 0)
-    .map((cluster, index) => buildRegion(cluster, index));
+  const matched = matchRegionsToPrevious(
+    previous,
+    clusters
+      .filter((cluster) => cluster.rows.length > 0)
+      .map((cluster, index) => buildRegion(cluster, index))
+  );
+  const unlabeledRegions = matched.regions;
   console.info(
-    `[umap.regions] clustered run=${runId} groups=${unlabeledRegions.length}`
+    `[umap.regions] clustered run=${seed} groups=${unlabeledRegions.length} keptTitles=${matched.keptTitleIds.size} redirects=${Object.keys(matched.redirects).length}`
   );
 
-  const regionLabels = await labelRegions(unlabeledRegions).catch((error) => {
-    console.warn(`[umap.regions] region labeling failed run=${runId}`, error);
+  const regionLabels = await labelRegions(
+    unlabeledRegions.filter((region) => !matched.keptTitleIds.has(region.id))
+  ).catch((error) => {
+    console.warn(`[umap.regions] region labeling failed run=${seed}`, error);
     return new Map<string, LabelPayload>();
   });
   console.info(
-    `[umap.regions] region labels run=${runId} labeled=${regionLabels.size}/${unlabeledRegions.length}`
+    `[umap.regions] region labels run=${seed} labeled=${regionLabels.size}/${unlabeledRegions.length}`
   );
 
   const labeledRegions = unlabeledRegions.map((region) => {
@@ -128,16 +180,16 @@ export async function regenerateUmapRegions(
 
   const unlabeledIslands = buildIslands(regions);
   console.info(
-    `[umap.regions] islands built run=${runId} islands=${unlabeledIslands.length}`
+    `[umap.regions] islands built run=${seed} islands=${unlabeledIslands.length}`
   );
   const islandLabels = await labelIslands(unlabeledIslands, regions).catch(
     (error) => {
-      console.warn(`[umap.regions] island labeling failed run=${runId}`, error);
+      console.warn(`[umap.regions] island labeling failed run=${seed}`, error);
       return new Map<string, LabelPayload>();
     }
   );
   console.info(
-    `[umap.regions] island labels run=${runId} labeled=${islandLabels.size}/${unlabeledIslands.length}`
+    `[umap.regions] island labels run=${seed} labeled=${islandLabels.size}/${unlabeledIslands.length}`
   );
 
   const islands = unlabeledIslands.map((island) => {
@@ -167,21 +219,8 @@ export async function regenerateUmapRegions(
       islandId: islandByRegionId.get(region.id) ?? region.islandId,
     })),
     islands,
+    redirects: matched.redirects,
   };
-
-  await prisma.umapRun.update({
-    where: { id: runId },
-    data: {
-      regionsJson: snapshot,
-      regionsUpdatedAt: new Date(snapshot.generatedAt),
-    },
-  });
-
-  console.info(
-    `[umap.regions] complete run=${runId} groups=${snapshot.regions.length} islands=${snapshot.islands.length} points=${snapshot.totalPoints} ms=${
-      Date.now() - startedAt
-    }`
-  );
 
   return snapshot;
 }

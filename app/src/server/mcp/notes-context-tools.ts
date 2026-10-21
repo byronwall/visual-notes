@@ -27,7 +27,7 @@ import {
   noteUrl,
   type ConnectorContext,
 } from "./notes-shared";
-import { scheduleEmbeddingRefresh } from "./semantic";
+import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 
 // What surrounds a note: who links to it, tags, the open task lines in notes,
 // its version history, and its meta fields. Agents may restore versions only

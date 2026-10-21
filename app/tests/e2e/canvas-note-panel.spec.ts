@@ -31,12 +31,9 @@ const openFromRail = async (page: Page, title: string) => {
   await page.getByRole("button", { name: title, exact: true }).first().click();
   await expect(panel(page)).toBeVisible();
   await expect(panel(page)).toContainText(title);
+  // The editor loads its own copy of the note; its body text means that load
+  // finished, so typing does not race it.
   await expect(editor(page)).toContainText("Body of ");
-  // The editor loads its own copy of the note; wait until it can save so
-  // typing does not race that load.
-  await expect(
-    panel(page).getByRole("button", { name: "Save note", exact: true }),
-  ).toBeEnabled();
   await page.waitForLoadState("networkidle");
 };
 
@@ -45,7 +42,7 @@ const typeIntoEditor = async (page: Page, text: string) => {
   await expect(editor(page)).toBeFocused();
   await page.keyboard.type(text);
   await expect(editor(page)).toContainText(text);
-  // The panel's save control reports the editor as dirty.
+  // The header's save status reports the editor as dirty.
   await expect(
     panel(page).getByRole("button", { name: "Save note changes" }),
   ).toBeVisible();
@@ -180,7 +177,10 @@ test.describe("canvas note panel", () => {
     });
 
     await openFromRail(page, title);
-    await panel(page).getByRole("button", { name: "Delete note" }).click();
+    await panel(page)
+      .getByRole("button", { name: "More note actions" })
+      .click();
+    await page.getByRole("menuitem", { name: "Delete note" }).click();
     const confirm = page.getByRole("dialog", { name: "Delete this note?" });
     await expect(confirm).toBeVisible();
     const remove = await holdNextServerAction(page, "deleteDoc", [noteId]);

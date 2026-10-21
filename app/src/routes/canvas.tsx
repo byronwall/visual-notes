@@ -29,13 +29,16 @@ import {
   type CanvasViewport,
 } from "~/components/visual/canvas-view";
 import {
-  docMatchesCanvasQuery,
+  matchCanvasDocs,
   normalizeCanvasQuery,
+  parseCanvasSearchScope,
+  type CanvasSearchScope,
 } from "~/components/visual/canvas-search";
 import { useCanvasKeyboard } from "~/components/visual/useCanvasKeyboard";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { normalizeUmapRegions } from "~/layout/umap-normalize";
+import { resolveUmapRegionId } from "~/features/umap/region-types";
 import {
   useUmapPointsResource,
   useUmapRunResource,
@@ -68,19 +71,22 @@ const CanvasRoute: VoidComponent = () => {
   const [searchParams, setSearchParams] = useSearchParams<{
     region?: string;
     doc?: string;
+    scope?: string;
   }>();
   const [docs, { refetch: refetchDocs }] = createResource(
     () => true,
-    () => fetchDocs({})
+    () => fetchDocs({}),
   );
   // Reading an errored resource throws; the canvas shows its own error state.
   const loadedDocs = () =>
-    docs.state === "errored" ? undefined : (docs.latest as DocItem[] | undefined);
+    docs.state === "errored"
+      ? undefined
+      : (docs.latest as DocItem[] | undefined);
   const umapRun = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
   const umapPoints = useUmapPointsResource(() => umapRun()?.id);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
-    untrack(() => searchParams.doc) || undefined
+    untrack(() => searchParams.doc) || undefined,
   );
   const [activeEditor, setActiveEditor] = createSignal<{
     docId: string;
@@ -134,6 +140,10 @@ const CanvasRoute: VoidComponent = () => {
   const [viewportW, setViewportW] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
   const [searchQuery, setSearchQuery] = createSignal("");
+  // Search is global unless the open region's scope chip is on.
+  const [searchScope, setSearchScope] = createSignal<CanvasSearchScope>(
+    parseCanvasSearchScope(untrack(() => searchParams.scope)),
+  );
   const [hoveredRegionId, setHoveredRegionId] = createSignal<
     string | undefined
   >(undefined);
@@ -167,7 +177,7 @@ const CanvasRoute: VoidComponent = () => {
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
   const umapRegions = createMemo(() =>
-    normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD)
+    normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD),
   );
   const regionList = createMemo(() => umapRegions()?.regions ?? []);
   const hasRegions = createMemo(() => regionList().length > 0);
@@ -176,7 +186,6 @@ const CanvasRoute: VoidComponent = () => {
     if (!regionId) return null;
     return regionList().find((item) => item.id === regionId) ?? null;
   });
-
 
   // Selection store (brush + isolation)
   const selectionStore = createSelectionStore({
@@ -189,14 +198,16 @@ const CanvasRoute: VoidComponent = () => {
   createEffect(() => {
     const region = selectedRegionId();
     const doc = selectedId();
+    const scope = region && searchScope() === "region" ? "region" : undefined;
     untrack(() => {
       if (
         (searchParams.region || undefined) === region &&
-        (searchParams.doc || undefined) === doc
+        (searchParams.doc || undefined) === doc &&
+        (searchParams.scope || undefined) === scope
       ) {
         return;
       }
-      setSearchParams({ region, doc }, { replace: true, scroll: false });
+      setSearchParams({ region, doc, scope }, { replace: true, scroll: false });
     });
   });
 
@@ -237,7 +248,9 @@ const CanvasRoute: VoidComponent = () => {
   }
 
   function measureFullViewBounds() {
-    const regionBounds = unionBounds(regionList().map((region) => region.bounds));
+    const regionBounds = unionBounds(
+      regionList().map((region) => region.bounds),
+    );
     if (regionBounds) {
       return {
         minX: regionBounds.minX - FULL_VIEW_PADDING,
@@ -288,7 +301,7 @@ const CanvasRoute: VoidComponent = () => {
     const regionHeight = Math.max(120, region.bounds.maxY - region.bounds.minY);
     const fitScale = Math.min(
       (viewport.width * 0.56) / regionWidth,
-      (viewport.height * 0.56) / regionHeight
+      (viewport.height * 0.56) / regionHeight,
     );
     const targetScale = Math.max(0.55, Math.min(2.8, fitScale));
 
@@ -301,23 +314,39 @@ const CanvasRoute: VoidComponent = () => {
     });
   }
 
-  const visibleDocs = createMemo<DocItem[]>(() => {
+  const isolatedDocs = createMemo<DocItem[]>(() => {
     const list: DocItem[] = loadedDocs() ?? [];
-    const region = selectedRegion();
-    if (region) {
-      const docIds = new Set(region.docIds);
-      return list.filter((doc: DocItem) => docIds.has(doc.id));
-    }
     const iso = selectionStore.isolatedIdSet();
     if (!iso) return list;
     return list.filter((d: DocItem) => iso.has(d.id));
   });
+  const selectedRegionDocIds = createMemo(() => {
+    const region = selectedRegion();
+    return region ? new Set(region.docIds) : null;
+  });
+  const visibleDocs = createMemo<DocItem[]>(() => {
+    const docIds = selectedRegionDocIds();
+    if (!docIds) return isolatedDocs();
+    return (loadedDocs() ?? []).filter((doc: DocItem) => docIds.has(doc.id));
+  });
 
   const normalizedQuery = createMemo(() => normalizeCanvasQuery(searchQuery()));
-  const matchingDocs = createMemo(() => {
-    const q = normalizedQuery();
-    if (!q) return null;
-    return visibleDocs().filter((doc) => docMatchesCanvasQuery(doc, q));
+  const searchScopedToRegion = createMemo(
+    () => searchScope() === "region" && !!selectedRegion(),
+  );
+  const matchingDocs = createMemo(() =>
+    searchScopedToRegion()
+      ? matchCanvasDocs(visibleDocs(), normalizedQuery())
+      : matchCanvasDocs(isolatedDocs(), normalizedQuery()),
+  );
+  // A global search inside an open region also draws the matches outside it.
+  const canvasDocs = createMemo<DocItem[]>(() => {
+    const regionDocIds = selectedRegionDocIds();
+    const matches = matchingDocs();
+    if (!regionDocIds || searchScopedToRegion() || !matches)
+      return visibleDocs();
+    const outside = matches.filter((doc) => !regionDocIds.has(doc.id));
+    return outside.length ? [...visibleDocs(), ...outside] : visibleDocs();
   });
   const matchingDocIds = createMemo(() => {
     const matches = matchingDocs();
@@ -337,7 +366,7 @@ const CanvasRoute: VoidComponent = () => {
         const pos = map.get(doc.id);
         return pos ? [pos] : [];
       }),
-      40
+      40,
     );
     if (!bounds) return;
     userMovedView = true;
@@ -416,12 +445,19 @@ const CanvasRoute: VoidComponent = () => {
     },
   });
 
-  // Drop a region or note from the URL once we know it no longer exists.
+  // Drop a region or note from the URL once we know it no longer exists. A
+  // region retired by a merge or retrain follows its redirect instead.
   createEffect(() => {
     const regionId = selectedRegionId();
     if (regionId && umapRegions() && !selectedRegion()) {
-      setSelectedRegionId(undefined);
+      setSelectedRegionId(
+        resolveUmapRegionId(umapRun()?.regions, regionId) ?? undefined
+      );
     }
+  });
+  // Closing the region drops its search scope.
+  createEffect(() => {
+    if (!selectedRegionId()) setSearchScope("all");
   });
   createEffect(() => {
     const docId = selectedId();
@@ -457,11 +493,13 @@ const CanvasRoute: VoidComponent = () => {
       (!hasRegions() ||
         !!selectedRegionId() ||
         !!matchingDocIds() ||
-        canvasStore.scale() >= 0.9)
+        canvasStore.scale() >= 0.9),
   );
 
   const railMode = createMemo<CanvasRailMode>(() => {
-    if (selectedRegion()) return "region";
+    if (selectedRegion() && !(matchingDocIds() && !searchScopedToRegion())) {
+      return "region";
+    }
     if (matchingDocIds()) return "matches";
     if (!hasRegions()) return "notes";
     return "regions";
@@ -574,12 +612,21 @@ const CanvasRoute: VoidComponent = () => {
           </Box>
         }
       >
-        <Box position="absolute" zIndex="10" left="3" style={{ top: overlayTop() }}>
+        <Box
+          position="absolute"
+          zIndex="10"
+          left="3"
+          style={{ top: overlayTop() }}
+        >
           <ControlPanel
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             matchCount={() => matchingDocs()?.length ?? 0}
-            totalCount={() => visibleDocs().length}
+            regionTitle={() => selectedRegion()?.title ?? null}
+            scopedToRegion={searchScopedToRegion}
+            onToggleRegionScope={() =>
+              setSearchScope((scope) => (scope === "region" ? "all" : "region"))
+            }
             onSubmitSearch={fitToMatches}
             inputRef={(el) => (searchInput = el)}
           />
@@ -600,7 +647,7 @@ const CanvasRoute: VoidComponent = () => {
               userMovedView = true;
               canvasStore.animateZoomAt(
                 viewportCenter(),
-                1 / canvasStore.scale()
+                1 / canvasStore.scale(),
               );
             }}
             onFit={() => {
@@ -640,7 +687,7 @@ const CanvasRoute: VoidComponent = () => {
 
         <Suspense fallback={null}>
           <VisualCanvas
-            docs={visibleDocs()}
+            docs={canvasDocs()}
             positions={positions}
             umapRegions={umapRegions}
             viewportWidth={() =>
@@ -727,7 +774,7 @@ const CanvasRoute: VoidComponent = () => {
           bottom="3"
           display={{ base: mobileRailOpen() ? "block" : "none", md: "block" }}
           // Keep in sync with CANVAS_SIDE_RAIL_WIDTH_PX (Panda needs a literal).
-          w={{ base: "auto", md: "248px" }}
+          w={{ base: "auto", md: "272px" }}
           left={{ base: "3", md: "auto" }}
           mt={{ base: "12", md: "0" }}
           bg="bg.default"
@@ -740,6 +787,9 @@ const CanvasRoute: VoidComponent = () => {
           <CanvasSideRail
             mode={railMode}
             regions={regionList}
+            islands={() => umapRegions()?.islands ?? []}
+            allDocs={() => loadedDocs() ?? []}
+            noteOpen={() => !!selectedId()}
             selectedRegion={selectedRegion}
             docs={railDocs}
             searchQuery={searchQuery}

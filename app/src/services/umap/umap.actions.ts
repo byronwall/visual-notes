@@ -144,7 +144,7 @@ export const createUmapRun = action(
       await prisma.$transaction([
         prisma.umapRun.update({
           where: { id: run.id },
-          data: { artifactPath },
+          data: { artifactPath, trainedDocCount: points.length },
         }),
         prisma.umapPoint.createMany({
           data: points,

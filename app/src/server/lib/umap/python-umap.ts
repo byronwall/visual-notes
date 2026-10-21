@@ -180,6 +180,8 @@ export async function trainUmapModel(params: {
   matrix: number[][];
   dims: 2 | 3;
   umapParams?: UmapPythonParams;
+  /** Starting layout, one row per matrix row; overrides `umapParams.init`. */
+  initPoints?: number[][];
 }): Promise<{
   points: number[][];
   artifactPath: string;
@@ -196,6 +198,7 @@ export async function trainUmapModel(params: {
       matrix: params.matrix,
       dims: params.dims,
       params: params.umapParams ?? {},
+      ...(params.initPoints ? { initPoints: params.initPoints } : {}),
     },
     artifactAbsolutePath
   )) as TrainOutput;
