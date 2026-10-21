@@ -1,5 +1,5 @@
 import { useSearchParams } from "@solidjs/router";
-import { createMemo, createResource, createSignal } from "solid-js";
+import { createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import {
   fetchTaskLists,
@@ -130,16 +130,26 @@ export const createTaskData = () => {
   const refreshTasks = () => setTasksNonce((value) => value + 1);
 
   // Agents and other tabs change tasks too. This tab's own saves echo back
-  // as events; its optimistic state is already current, so skip those.
+  // as events, and a refetch mid-edit would fight its optimistic state, so
+  // an event within 2s of a local save waits until that window has passed.
+  const ECHO_WINDOW_MS = 2_000;
   let localWriteAt = 0;
+  let deferred: ReturnType<typeof setTimeout> | undefined;
   const noteLocalWrite = () => {
     localWriteAt = Date.now();
   };
-  useAppChanges("tasks", () => {
-    if (Date.now() - localWriteAt < 2_000) return;
+  const refreshFromRemote = () => {
+    clearTimeout(deferred);
+    const wait = localWriteAt + ECHO_WINDOW_MS - Date.now();
+    if (wait > 0) {
+      deferred = setTimeout(refreshFromRemote, wait);
+      return;
+    }
     refreshLists();
     refreshTasks();
-  });
+  };
+  useAppChanges("tasks", refreshFromRemote);
+  onCleanup(() => clearTimeout(deferred));
 
   return {
     lists,

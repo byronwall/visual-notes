@@ -71,7 +71,9 @@ const refusing = async <T>(work: () => Promise<T>): Promise<T> => {
     if (error instanceof ZodError) {
       throw new ConnectorError("invalid", error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
     }
-    if (error instanceof Error && /not found|invalid|cannot/i.test(error.message)) {
+    // Only the store's own plain errors; Prisma errors stay internal.
+    const plain = error instanceof Error && error.constructor === Error;
+    if (plain && /not found|invalid|cannot/i.test(error.message)) {
       throw new ConnectorError("invalid", error.message);
     }
     throw error;
