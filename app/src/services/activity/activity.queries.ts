@@ -26,7 +26,9 @@ export const fetchTimelineEvents = query(
     if (input.eventType?.trim()) {
       where.eventType = input.eventType.trim();
     } else if (input.eventDomain?.trim()) {
-      where.eventType = { startsWith: `${input.eventDomain.trim()}.` };
+      const domain = input.eventDomain.trim();
+      // "task" covers task.* and task_list.* events.
+      where.eventType = { startsWith: domain === "task" ? "task" : `${domain}.` };
     }
     if (input.entityType?.trim()) where.entityType = input.entityType.trim();
     if (input.actorId?.trim()) where.actorId = input.actorId.trim();

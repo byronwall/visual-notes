@@ -48,6 +48,25 @@ Research writes record the caller (`actorId`, or the `agent` argument) on the ba
 | `{{collection-view:viewId}}` on its own line | An embedded collection view. `get_notes` names each one under `embeds`. |
 | `\#`, `\[`, `\]` | The literal character. `toMarkdown` escapes these itself. |
 
+### Task tools
+
+Tasks go through `server/tasks/task-store.ts`, the same store the Tasks page's router actions call. Every write publishes an `app:changed` tasks event, so an open Tasks page refreshes; the page skips its own echo for 2 seconds after a local save.
+
+| Tool | Kind | Notes |
+| --- | --- | --- |
+| `tasks_list_lists` | read | Lists in rail order with open and total counts |
+| `tasks_query` | read | Filter by list (id or name), status (open by default), due range, tag, source note, text, top level only |
+| `tasks_create` | write | Inbox when no list is given; optional parent, due date, duration, tags, meta |
+| `tasks_update` | write | Up to 50 tasks: status, description, due date, duration, tags, meta |
+| `tasks_move` | write | To another list (with its subtasks), or to a new parent and position |
+| `tasks_create_list` / `tasks_rename_list` | write | |
+
+- A task that is a line in a note the user wrote (`textEditable: false`) keeps its text. Agents can still change its status, dates, tags, and place. This matches the note ownership rule.
+- Deleting tasks and lists is left to the user; agents set `cancelled` instead.
+- Agent task writes log `task.*` and `task_list.*` events, which show under Tasks in the activity timeline. The Tasks page's own edits are not logged.
+- "Move to list" is in the task row menu too, so a task line from the Inbox can be filed anywhere.
+- `tests/e2e/task-agent-sync.spec.ts` drives `/mcp` against a dev server. It needs `MCP_DEV_TOKEN`, so it skips in CI's production build.
+
 A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don't change that. Every call is logged as an `ActionEvent` with `actorType = chatgpt`.
 
 ## Configuration

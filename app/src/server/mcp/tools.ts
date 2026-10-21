@@ -15,6 +15,11 @@ import {
   RESEARCH_INSTRUCTIONS,
   RESEARCH_TOOL_SCOPES,
 } from "./research-tools";
+import {
+  registerTaskTools,
+  TASK_INSTRUCTIONS,
+  TASK_TOOL_SCOPES,
+} from "./tasks-tools";
 
 const LOG_PREFIX = "[mcp]";
 
@@ -26,6 +31,7 @@ const SERVER_INSTRUCTIONS = [
   "Notes use the same markdown dialect in both directions. Write [[Label|noteId]] or [[Label|noteId#blockId]] to link a note (the id must exist), #tag (starting with a letter) to tag a block, and a top-level `- [ ] task` / `- [x] task` line to create a real task in the user's Inbox. Rewriting a task line keeps its task and its checkbox sets the task's status. `{{collection-view:viewId}}` on its own line is an embedded collection table; keep it in place (get_notes lists each one under `embeds`). Write \\# or \\[ for a literal character.",
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
   RESEARCH_INSTRUCTIONS,
+  TASK_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -71,6 +77,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   append_to_note: "notes:write",
   edit_note: "notes:write",
   ...RESEARCH_TOOL_SCOPES,
+  ...TASK_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -281,6 +288,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   );
 
   registerResearchTools(server, ctx, guarded);
+  registerTaskTools(server, ctx, guarded);
 
   return server;
 }

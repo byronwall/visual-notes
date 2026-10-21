@@ -2,6 +2,7 @@ import {
   ActivityIcon,
   FileTextIcon,
   FlaskConicalIcon,
+  ListChecksIcon,
   SearchIcon,
   SparklesIcon,
   WrenchIcon,
@@ -15,6 +16,7 @@ import { type ActivityDomain, describeActivityEvent } from "./activity-format";
 const domainIcon: Record<ActivityDomain, typeof ActivityIcon> = {
   doc: FileTextIcon,
   research: FlaskConicalIcon,
+  task: ListChecksIcon,
   search: SearchIcon,
   ai: SparklesIcon,
   admin: WrenchIcon,

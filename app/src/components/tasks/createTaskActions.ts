@@ -4,6 +4,7 @@ import {
   createTask,
   deleteTask,
   moveTask,
+  moveTaskToList,
   updateTask,
   type TaskItem,
   type TaskStatus,
@@ -20,6 +21,7 @@ import {
   insertTaskLocally,
   isDescendantOf,
   moveTaskLocally,
+  removeSubtreeLocally,
 } from "./taskTreeOps";
 import type {
   DropKind,
@@ -36,10 +38,18 @@ export const createTaskActions = (
   data: TaskData,
   options: { focusQuickAdd: () => void; openDetails: (task: TaskItem) => void },
 ) => {
-  const runCreateTask = useAction(createTask);
-  const runUpdateTask = useAction(updateTask);
-  const runDeleteTask = useAction(deleteTask);
-  const runMoveTask = useAction(moveTask);
+  // Marks each save so the live refresh skips this tab's own echo.
+  const local =
+    <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
+    (...args: A) => {
+      data.noteLocalWrite();
+      return run(...args);
+    };
+  const runCreateTask = local(useAction(createTask));
+  const runUpdateTask = local(useAction(updateTask));
+  const runDeleteTask = local(useAction(deleteTask));
+  const runMoveTask = local(useAction(moveTask));
+  const runMoveToList = local(useAction(moveTaskToList));
 
   const [todayKey] = createSignal(toDateKey(new Date()));
   const [expandedIds, setExpandedIds] = createSignal<Set<string>>(new Set());
@@ -369,6 +379,19 @@ export const createTaskActions = (
     );
   };
 
+  /** Sends a task, with its subtasks, to the end of another list. */
+  const moveToList = (task: TaskItem, listId: string) => {
+    setError(null);
+    const ids = visibleIds();
+    const nextId =
+      ids[ids.indexOf(task.id) + 1] ?? ids[ids.indexOf(task.id) - 1] ?? null;
+    data.mutateTasks((current) => removeSubtreeLocally(current ?? [], task.id));
+    select(nextId);
+    runMoveToList({ taskId: task.id, listId })
+      .then(() => data.refreshLists())
+      .catch((err) => reportError("move to list", err, "Could not move task"));
+  };
+
   // ---- moves -----------------------------------------------------------
   const applyMove = (
     taskId: string,
@@ -574,6 +597,12 @@ export const createTaskActions = (
     toggleStatus,
     addSubtask,
     deleteTask: removeTask,
+    otherLists: () =>
+      data
+        .mergedLists()
+        .filter((list) => list.id !== data.selectedListId())
+        .map((list) => ({ id: list.id, name: list.name })),
+    moveToList,
   };
 
   return {

@@ -1,12 +1,13 @@
 import type { ActionEventItem } from "~/services/activity/activity.types";
 
-export type ActivityDomain = "doc" | "research" | "search" | "ai" | "admin" | "other";
+export type ActivityDomain = "doc" | "research" | "task" | "search" | "ai" | "admin" | "other";
 
 export const ACTIVITY_DOMAINS: { value: ActivityDomain | "all"; label: string }[] =
   [
     { value: "all", label: "All" },
     { value: "doc", label: "Notes" },
     { value: "research", label: "Research" },
+    { value: "task", label: "Tasks" },
     { value: "search", label: "Search" },
     { value: "ai", label: "AI" },
     { value: "admin", label: "Admin" },
@@ -44,6 +45,7 @@ const plural = (count: number, one: string, many = `${one}s`) =>
 
 export const activityDomainOf = (eventType: string): ActivityDomain => {
   const domain = eventType.split(".")[0];
+  if (domain === "task" || domain === "task_list") return "task";
   if (
     domain === "doc" ||
     domain === "research" ||
@@ -81,6 +83,28 @@ const BATCH_VERBS: Record<string, string> = {
   state: "Changed card states in",
   edit: "Edited cards in",
   remove: "Removed cards from",
+};
+
+const describeTask = (event: ActionEventItem, base: ActivityDescription): ActivityDescription => {
+  const payload = event.payload;
+  const task = { ...base, docTitle: str(payload, "description") ?? str(payload, "name"), docHref: "/tasks" };
+  const list = str(payload, "list");
+  switch (event.eventType) {
+    case "task.created":
+      return { ...task, verb: "Added task", detail: list ? `to ${list}` : null };
+    case "task.updated": {
+      const status = str(payload, "status");
+      return { ...task, verb: status ? `Marked ${status}` : "Updated task" };
+    }
+    case "task.moved":
+      return { ...task, verb: "Moved task", detail: list ? `to ${list}` : null };
+    case "task_list.created":
+      return { ...task, verb: "Created task list" };
+    case "task_list.renamed":
+      return { ...task, verb: "Renamed task list", detail: str(payload, "previousName") ? `from ${quote(str(payload, "previousName")!)}` : null };
+    default:
+      return task;
+  }
 };
 
 const describeResearch = (event: ActionEventItem, base: ActivityDescription): ActivityDescription => {
@@ -138,6 +162,7 @@ export const describeActivityEvent = (
   };
   const query = str(payload, "queryPreview") ?? str(payload, "queryText");
   if (domain === "research") return describeResearch(event, base);
+  if (domain === "task") return describeTask(event, base);
 
   switch (event.eventType) {
     case "doc.view":

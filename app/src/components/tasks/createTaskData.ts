@@ -1,5 +1,6 @@
 import { useSearchParams } from "@solidjs/router";
 import { createMemo, createResource, createSignal } from "solid-js";
+import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import {
   fetchTaskLists,
   fetchTaskTree,
@@ -125,6 +126,21 @@ export const createTaskData = () => {
   const markRecentlyDone = (taskId: string) =>
     setRecentlyDone((current) => new Set(current).add(taskId));
 
+  const refreshLists = () => setListsNonce((value) => value + 1);
+  const refreshTasks = () => setTasksNonce((value) => value + 1);
+
+  // Agents and other tabs change tasks too. This tab's own saves echo back
+  // as events; its optimistic state is already current, so skip those.
+  let localWriteAt = 0;
+  const noteLocalWrite = () => {
+    localWriteAt = Date.now();
+  };
+  useAppChanges("tasks", () => {
+    if (Date.now() - localWriteAt < 2_000) return;
+    refreshLists();
+    refreshTasks();
+  });
+
   return {
     lists,
     mergedLists,
@@ -144,8 +160,9 @@ export const createTaskData = () => {
     progress,
     selectList,
     markRecentlyDone,
-    refreshLists: () => setListsNonce((value) => value + 1),
-    refreshTasks: () => setTasksNonce((value) => value + 1),
+    refreshLists,
+    refreshTasks,
+    noteLocalWrite,
   };
 };
 

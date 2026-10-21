@@ -32,6 +32,9 @@ import {
 } from "./notes-shared";
 import { normalizeNotePath } from "./paths";
 import { scheduleEmbeddingRefresh } from "./semantic";
+import { publishAppChange } from "~/server/note-events";
+
+const hasTaskLines = (markdown: string) => /^[-*+] \[[ xX]\] /m.test(markdown);
 
 export type WriteResult = {
   id: string;
@@ -175,6 +178,7 @@ export async function createNote(
     context: eventContext(ctx),
   });
   scheduleEmbeddingRefresh();
+  if (hasTaskLines(input.markdown)) publishAppChange("tasks", null);
   return {
     ...created,
     url: noteUrl(ctx, created.id),
@@ -227,6 +231,7 @@ async function applyOwnedEdit(
     ...(changes.title !== undefined ? { title: changes.title } : {}),
     ...(changes.path !== undefined ? { path: changes.path } : {}),
   };
+  let touchesTasks = false;
   const updated = await prisma.$transaction(async (tx) => {
     // Lock and re-read inside the transaction so edits apply to the latest
     // blocks, not a copy read before a concurrent save.
@@ -257,6 +262,9 @@ async function applyOwnedEdit(
       next: proposed,
       docId: doc.id,
     });
+    touchesTasks = [current, next].some((d) =>
+      JSON.stringify(d).includes('"taskRef"'),
+    );
     await writeNoteContent(tx, {
       docId: doc.id,
       doc: next,
@@ -283,6 +291,7 @@ async function applyOwnedEdit(
     context: eventContext(ctx),
   });
   scheduleEmbeddingRefresh();
+  if (touchesTasks) publishAppChange("tasks", null);
   return {
     ...updated,
     url: noteUrl(ctx, doc.id),
