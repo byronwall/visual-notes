@@ -1,11 +1,5 @@
 import { Show, createSignal } from "solid-js";
-import {
-  DatabaseIcon,
-  FileTextIcon,
-  HashIcon,
-  TelescopeIcon,
-  WaypointsIcon,
-} from "lucide-solid";
+import { DatabaseIcon, FileTextIcon, TelescopeIcon } from "lucide-solid";
 import { css } from "styled-system/css";
 import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
 import { Tooltip } from "~/components/ui/tooltip";
@@ -18,16 +12,12 @@ const KIND_ICONS: Record<RecentKind, SidebarNavIcon> = {
   note: FileTextIcon,
   collection: DatabaseIcon,
   research: TelescopeIcon,
-  tag: HashIcon,
-  path: WaypointsIcon,
 };
 
 const KIND_LABELS: Record<RecentKind, string> = {
   note: "Note",
   collection: "Collection",
   research: "Research topic",
-  tag: "Tag",
-  path: "Path",
 };
 
 const rowClass = css({
@@ -52,29 +42,6 @@ const titleClass = css({
   textOverflow: "ellipsis",
 });
 
-const pathTitleClass = css({
-  flex: "1",
-  minW: "0",
-  display: "flex",
-  whiteSpace: "nowrap",
-});
-
-// Truncates from the left so the end of the parent path stays next to the leaf.
-const pathParentClass = css({
-  minW: "0",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  direction: "rtl",
-  color: "fg.subtle",
-});
-
-const pathLeafClass = css({
-  flexShrink: "0",
-  maxW: "full",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-});
-
 const timeClass = css({
   minW: "5",
   textAlign: "right",
@@ -90,21 +57,12 @@ export const compactAge = (iso: string, now: number) =>
     ? "now"
     : formatRelativeTime(iso, now).replace(" ago", "");
 
-/** Splits "a.b.c" into parent "a.b." and leaf "c" so the leaf never truncates. */
-const splitPath = (path: string) => {
-  const cut = path.lastIndexOf(".");
-  return cut < 0
-    ? { leaf: path, parent: "" }
-    : { leaf: path.slice(cut + 1), parent: path.slice(0, cut + 1) };
-};
-
 const RowBody = (props: {
   item: RecentItem;
   now: number;
   titleRef?: (el: HTMLSpanElement) => void;
 }) => {
   const Icon = KIND_ICONS[props.item.kind];
-  const path = () => splitPath(props.item.title);
   return (
     <>
       <span class={kindIconClass} aria-label={KIND_LABELS[props.item.kind]} role="img">
@@ -112,22 +70,9 @@ const RowBody = (props: {
           {props.item.icon}
         </Show>
       </span>
-      <Show
-        when={props.item.kind === "path"}
-        fallback={
-          <span class={titleClass} ref={props.titleRef}>
-            {props.item.title}
-          </span>
-        }
-      >
-        <span class={pathTitleClass} ref={props.titleRef}>
-          <Show when={path().parent}>
-            {/* LRM marks keep the dots in place inside the rtl box. */}
-            <span class={pathParentClass}>{`\u200E${path().parent}\u200E`}</span>
-          </Show>
-          <span class={pathLeafClass}>{path().leaf}</span>
-        </span>
-      </Show>
+      <span class={titleClass} ref={props.titleRef}>
+        {props.item.title}
+      </span>
       <span class={timeClass}>{compactAge(props.item.at, props.now)}</span>
     </>
   );
@@ -146,8 +91,7 @@ export const RecentRow = (props: {
   let titleEl: HTMLSpanElement | undefined;
   const [open, setOpen] = createSignal(false);
   const truncated = () =>
-    !!titleEl &&
-    [titleEl, ...titleEl.children].some((el) => el.scrollWidth > el.clientWidth);
+    !!titleEl && titleEl.scrollWidth > titleEl.clientWidth;
 
   return (
     <Show

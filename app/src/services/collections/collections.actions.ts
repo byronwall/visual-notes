@@ -20,6 +20,7 @@ import {
   type ViewConfig,
 } from "~/lib/collections/types";
 import { coerceValue } from "~/lib/collections/values";
+import { fetchRecentItems } from "~/services/recents/recents.queries";
 import { rankBetween } from "~/lib/collections/rank";
 import {
   ROW_SELECT,
@@ -111,7 +112,7 @@ export const createCollection = action(
       return collection;
     });
     console.info("[collections] created %s", created.id);
-    return json({ id: created.id }, { revalidate: [fetchCollections.key] });
+    return json({ id: created.id }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
   },
   "collections-create",
 );
@@ -135,7 +136,7 @@ export const updateCollection = action(
     await requireCollection(input.id);
     const { id: collectionId, ...data } = input;
     await prisma.collection.update({ where: { id: collectionId }, data });
-    return json({ ok: true }, { revalidate: [fetchCollections.key] });
+    return json({ ok: true }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
   },
   "collections-update",
 );
@@ -155,7 +156,7 @@ export const deleteCollection = action(async (collectionId: string) => {
     }),
   ]);
   console.info("[collections] deleted %s", collectionId);
-  return json({ ok: true }, { revalidate: [fetchCollections.key] });
+  return json({ ok: true }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
 }, "collections-delete");
 
 // ---------- Properties ----------

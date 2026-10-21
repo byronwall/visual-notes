@@ -102,7 +102,7 @@ const RecentList = () => {
         when={(items()?.length ?? 0) > 0}
         fallback={
           <Box class={messageClass}>
-            Notes, collections, and topics you open show up here.
+            Notes, collections, and topics you create or edit show up here.
           </Box>
         }
       >
@@ -126,8 +126,8 @@ const RecentList = () => {
 };
 
 /**
- * Recently visited or edited things of every kind (notes, collections,
- * research topics, tags, paths), newest first. Fills the rest of the sidebar.
+ * Recently created or edited notes, collections, and research topics, newest
+ * first. Opening something does not move it. Fills the rest of the sidebar.
  */
 export const AppSidebarRecent = (props: { expanded: boolean }) => (
   <Show when={props.expanded}>

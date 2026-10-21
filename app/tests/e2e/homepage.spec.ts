@@ -22,25 +22,30 @@ test.describe("visual notes app", () => {
     }
   });
 
-  test("recent list includes visited paths, not only notes", async ({
-    page,
-  }) => {
+  test("recent list follows edits, not visits", async ({ page }) => {
     await ensureAuthed(page);
-    const leaf = `recent${uniqueSuffix()}`;
-    await createNoteFixture(page, {
-      title: `Recent path fixture ${leaf}`,
+    const suffix = uniqueSuffix();
+    const older = await createNoteFixture(page, {
+      title: `Recent older ${suffix}`,
       markdown: "Body",
-      path: `e2e.${leaf}`,
     });
-    await page.goto(`/path/e2e/${leaf}`);
+    const newer = await createNoteFixture(page, {
+      title: `Recent newer ${suffix}`,
+      markdown: "Body",
+    });
     const recent = page.getByRole("region", { name: "Recent" });
-    await expect(recent.locator(`a[href="/path/e2e/${leaf}"]`)).toContainText(
-      leaf,
-    );
+    const rowHrefs = () =>
+      recent
+        .locator("a[href^='/docs/']")
+        .evaluateAll((links) => links.map((a) => a.getAttribute("href")));
 
-    // A tag with no blocks is a typo, not a place worth listing.
-    await page.goto(`/tags/missing${leaf}`);
+    // Opening the older note must not move it above the newer one.
+    await page.goto(`/docs/${older}`);
     await page.goto("/");
-    await expect(recent.getByRole("link", { name: /missing/ })).toHaveCount(0);
+    await expect(recent.locator(`a[href="/docs/${newer}"]`)).toBeVisible();
+    const hrefs = await rowHrefs();
+    expect(hrefs.indexOf(`/docs/${newer}`)).toBeLessThan(
+      hrefs.indexOf(`/docs/${older}`),
+    );
   });
 });

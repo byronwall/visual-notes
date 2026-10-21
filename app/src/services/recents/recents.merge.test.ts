@@ -1,28 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { mergeRecentTouches, recentKindForEvent } from "./recents.merge";
+import { mergeRecentItems } from "./recents.merge";
+import type { RecentItem } from "./recents.types";
 
-describe("mergeRecentTouches", () => {
+const item = (kind: RecentItem["kind"], id: string, at: string): RecentItem => ({
+  kind,
+  id,
+  title: id,
+  href: `/${kind}/${id}`,
+  at: new Date(at).toISOString(),
+});
+
+describe("mergeRecentItems", () => {
   it("keeps one entry per entity at its latest time, newest first", () => {
-    const merged = mergeRecentTouches([
-      { kind: "note", id: "a", at: new Date("2026-10-01") },
-      { kind: "collection", id: "c", at: new Date("2026-10-03") },
-      { kind: "note", id: "a", at: new Date("2026-10-05") },
-      { kind: "tag", id: "a", at: new Date("2026-10-02") },
-    ]);
+    const merged = mergeRecentItems(
+      [
+        item("note", "a", "2026-10-01"),
+        item("collection", "c", "2026-10-03"),
+        item("note", "a", "2026-10-05"),
+        item("research", "a", "2026-10-02"),
+      ],
+      10,
+    );
     expect(merged.map((t) => `${t.kind}:${t.id}`)).toEqual([
       "note:a",
       "collection:c",
-      "tag:a",
+      "research:a",
     ]);
-    expect(merged[0].at.toISOString()).toBe("2026-10-05T00:00:00.000Z");
+    expect(merged[0].at).toBe("2026-10-05T00:00:00.000Z");
   });
-});
 
-describe("recentKindForEvent", () => {
-  it("maps visit and edit events to kinds and ignores the rest", () => {
-    expect(recentKindForEvent("doc.view")).toBe("note");
-    expect(recentKindForEvent("doc.update")).toBeUndefined();
-    expect(recentKindForEvent("research.view")).toBe("research");
-    expect(recentKindForEvent("search.query.executed")).toBeUndefined();
+  it("caps the list at take", () => {
+    const merged = mergeRecentItems(
+      [item("note", "a", "2026-10-01"), item("note", "b", "2026-10-02")],
+      1,
+    );
+    expect(merged.map((t) => t.id)).toEqual(["b"]);
   });
 });

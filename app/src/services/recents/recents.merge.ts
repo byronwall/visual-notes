@@ -1,34 +1,17 @@
-import type { RecentKind } from "./recents.types";
-
-export type RecentTouch = { kind: RecentKind; id: string; at: Date };
-
-// Visits only: note edits arrive through `Doc.updatedAt`, and leaving out the
-// high-volume `doc.update` autosave events keeps the grouped scan small.
-const VIEW_EVENT_KINDS: Record<string, RecentKind> = {
-  "doc.view": "note",
-  "collection.view": "collection",
-  "research.view": "research",
-  "tag.view": "tag",
-  "path.view": "path",
-};
-
-export const RECENT_EVENT_TYPES = Object.keys(VIEW_EVENT_KINDS);
-
-export const recentKindForEvent = (eventType: string): RecentKind | undefined =>
-  VIEW_EVENT_KINDS[eventType];
-
-export const recentKey = (kind: RecentKind, id: string) => `${kind}:${id}`;
+import type { RecentItem } from "./recents.types";
 
 /**
- * Collapses touches (visits, edits, `updatedAt`) to one per entity at its
- * latest time, newest first.
+ * Interleaves notes, collections, and research topics by their latest edit,
+ * newest first, keeping one entry per entity.
  */
-export function mergeRecentTouches(touches: RecentTouch[]): RecentTouch[] {
-  const latest = new Map<string, RecentTouch>();
-  for (const touch of touches) {
-    const key = recentKey(touch.kind, touch.id);
+export function mergeRecentItems(items: RecentItem[], take: number): RecentItem[] {
+  const latest = new Map<string, RecentItem>();
+  for (const item of items) {
+    const key = `${item.kind}:${item.id}`;
     const current = latest.get(key);
-    if (!current || touch.at > current.at) latest.set(key, touch);
+    if (!current || item.at > current.at) latest.set(key, item);
   }
-  return [...latest.values()].sort((a, b) => b.at.getTime() - a.at.getTime());
+  return [...latest.values()]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, take);
 }
