@@ -77,6 +77,14 @@ export const SidePanel = (props: SidePanelProps) => {
       const targetDialog =
         target instanceof Element ? target.closest('[role="dialog"]') : null;
       if (targetDialog && targetDialog !== panelElement) return;
+      // A portalled menu or popover from the panel closes itself first.
+      if (
+        target instanceof Element &&
+        !panelElement?.contains(target) &&
+        target.closest('[data-scope][data-part="content"]')
+      ) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       props.onClose();

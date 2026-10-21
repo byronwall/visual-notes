@@ -6,6 +6,7 @@ import {
   Trash2Icon,
 } from "lucide-solid";
 import { Show, type VoidComponent } from "solid-js";
+import { Portal } from "solid-js/web";
 import { IconButton } from "~/components/ui/icon-button";
 import * as Menu from "~/components/ui/menu";
 import { Tooltip } from "~/components/ui/tooltip";
@@ -46,45 +47,48 @@ export const DocActionsMenu: VoidComponent<{
           )}
         />
       </Tooltip>
-      <Menu.Positioner>
-        <Menu.Content>
-          <Show when={props.headingTitle}>
-            {(heading) => (
-              <Menu.Item
-                value="use-heading-title"
-                onSelect={() => props.onUseHeadingTitle?.()}
-                title={heading()}
-              >
-                <HeadingIcon size={14} />
-                Use first heading as title
-              </Menu.Item>
-            )}
-          </Show>
-          <Menu.Item value="copy-link" onSelect={() => props.onCopyLink()}>
-            <CopyIcon size={14} />
-            Copy link
-          </Menu.Item>
-          <Show when={props.onAddToCollection}>
-            <Menu.Item
-              value="add-to-collection"
-              onSelect={() => props.onAddToCollection?.()}
-            >
-              <DatabaseIcon size={14} />
-              Add to collection…
+      {/* Portalled so the menu clears the editor toolbar and side panels. */}
+      <Portal>
+        <Menu.Positioner zIndex="popover">
+          <Menu.Content zIndex="popover">
+            <Show when={props.headingTitle}>
+              {(heading) => (
+                <Menu.Item
+                  value="use-heading-title"
+                  onSelect={() => props.onUseHeadingTitle?.()}
+                  title={heading()}
+                >
+                  <HeadingIcon size={14} />
+                  Use first heading as title
+                </Menu.Item>
+              )}
+            </Show>
+            <Menu.Item value="copy-link" onSelect={() => props.onCopyLink()}>
+              <CopyIcon size={14} />
+              Copy link
             </Menu.Item>
-          </Show>
-          <Menu.Separator />
-          <Menu.Item
-            value="delete"
-            color="red.11"
-            _highlighted={{ bg: "red.a3", color: "red.11" }}
-            onSelect={() => props.onDelete()}
-          >
-            <Trash2Icon size={14} />
-            Delete note…
-          </Menu.Item>
-        </Menu.Content>
-      </Menu.Positioner>
+            <Show when={props.onAddToCollection}>
+              <Menu.Item
+                value="add-to-collection"
+                onSelect={() => props.onAddToCollection?.()}
+              >
+                <DatabaseIcon size={14} />
+                Add to collection…
+              </Menu.Item>
+            </Show>
+            <Menu.Separator />
+            <Menu.Item
+              value="delete"
+              color="red.11"
+              _highlighted={{ bg: "red.a3", color: "red.11" }}
+              onSelect={() => props.onDelete()}
+            >
+              <Trash2Icon size={14} />
+              Delete note…
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Positioner>
+      </Portal>
     </Menu.Root>
   );
 };
