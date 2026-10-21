@@ -102,6 +102,14 @@ def _train(args: argparse.Namespace) -> None:
       continue
     umap_kwargs[out_key] = caster(value)
 
+  # A retrain starts from the previous map's layout so clusters stay put.
+  init_points = payload.get("initPoints")
+  if init_points is not None:
+    init_array = np.asarray(init_points, dtype=np.float32)
+    if init_array.shape != (matrix.shape[0], dims):
+      raise ValueError("initPoints must have one row of dims values per matrix row")
+    umap_kwargs["init"] = init_array
+
   fit_start = time.perf_counter()
   reducer = umap.UMAP(**umap_kwargs)
   points = reducer.fit_transform(fit_matrix).astype(np.float32, copy=False)

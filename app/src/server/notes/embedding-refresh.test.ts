@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createEmbeddingRun: vi.fn(),
   createUmapRun: vi.fn(),
   project: vi.fn(),
+  maybeRetrain: vi.fn(),
 }));
 vi.mock("~/env/server", () => env);
 vi.mock("~/server/db", () => ({
@@ -33,6 +34,9 @@ vi.mock("~/services/embeddings/embeddings.actions", () => ({
 }));
 vi.mock("~/services/umap/umap.actions", () => ({
   createUmapRun: mocks.createUmapRun,
+}));
+vi.mock("~/services/umap/umap.retrain", () => ({
+  maybeRetrainUmapRun: mocks.maybeRetrain,
 }));
 vi.mock("~/services/umap/umap.projection", () => ({
   projectDocEmbeddingsIntoUmapRun: mocks.project,
@@ -133,6 +137,18 @@ describe("sweep", () => {
       umapRunId: "map1",
       mode: "missing",
     });
+  });
+
+  it("checks the canvas map for a retrain", async () => {
+    scheduleEmbeddingRefresh({ sweep: true });
+    await vi.runAllTimersAsync();
+    expect(mocks.maybeRetrain).toHaveBeenCalledWith("map1");
+  });
+
+  it("never retrains on a plain write refresh", async () => {
+    scheduleEmbeddingRefresh();
+    await vi.runAllTimersAsync();
+    expect(mocks.maybeRetrain).not.toHaveBeenCalled();
   });
 
   it("skips projection when every embedding already has a point", async () => {

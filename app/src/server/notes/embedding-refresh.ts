@@ -27,8 +27,8 @@ function unref(timer: unknown) {
 
 /**
  * Embeds new and changed notes shortly after a write, which also projects
- * them into the trained UMAP maps so they land on the canvas. Never retrains
- * a map. Safe to call from inside a write: it only arms a timer, loads its
+ * them into the trained UMAP maps so they land on the canvas. Only the sweep
+ * retrains a map, once it has drifted (see `umap.retrain.ts`). Safe to call from inside a write: it only arms a timer, loads its
  * dependencies lazily, and swallows failures. `sweep` also projects notes
  * that were embedded but never placed, and bootstraps the first runs.
  */
@@ -94,8 +94,8 @@ async function drainRun(deps: Deps, runId: string) {
 
 /**
  * First-run setup: embed every note when there is no embedding run, then
- * train one map when there is none at all. An existing map is never
- * replaced, so saved `?region=` links stay valid.
+ * train one map when there is none at all. Later maps come only from the
+ * aligned retrain, which keeps saved `?region=` links valid.
  */
 async function bootstrapRuns(deps: Deps): Promise<boolean> {
   const [embeddingRuns, umapRuns] = await Promise.all([
@@ -181,7 +181,15 @@ export async function refreshLatestRun(options?: {
     if (latest) runIds.add(latest.id);
     if (map) runIds.add(map.embeddingRunId);
     for (const runId of runIds) await drainRun(deps, runId);
-    if (options?.sweep && map) await projectUnplaced(deps, map);
+    if (options?.sweep && map) {
+      await projectUnplaced(deps, map);
+      // Retraining takes minutes, so it runs on its own and never blocks
+      // later refreshes; the old map stays live until the new one is ready.
+      const { maybeRetrainUmapRun } = await import(
+        "~/services/umap/umap.retrain"
+      );
+      void maybeRetrainUmapRun(map.id);
+    }
   } catch (error) {
     console.warn(`${LOG_PREFIX} embedding refresh failed`, error);
   } finally {

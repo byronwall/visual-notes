@@ -36,6 +36,7 @@ import { useCanvasKeyboard } from "~/components/visual/useCanvasKeyboard";
 import { createHoverDerivations } from "~/hooks/useHover";
 import { createPanZoomHandlers } from "~/hooks/usePanZoom";
 import { normalizeUmapRegions } from "~/layout/umap-normalize";
+import { resolveUmapRegionId } from "~/features/umap/region-types";
 import {
   useUmapPointsResource,
   useUmapRunResource,
@@ -416,11 +417,14 @@ const CanvasRoute: VoidComponent = () => {
     },
   });
 
-  // Drop a region or note from the URL once we know it no longer exists.
+  // Drop a region or note from the URL once we know it no longer exists. A
+  // region retired by a merge or retrain follows its redirect instead.
   createEffect(() => {
     const regionId = selectedRegionId();
     if (regionId && umapRegions() && !selectedRegion()) {
-      setSelectedRegionId(undefined);
+      setSelectedRegionId(
+        resolveUmapRegionId(umapRun()?.regions, regionId) ?? undefined
+      );
     }
   });
   createEffect(() => {

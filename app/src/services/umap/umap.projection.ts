@@ -1,5 +1,9 @@
 import { prisma } from "~/server/db";
 import { transformWithUmapModel } from "~/server/lib/umap/python-umap";
+import {
+  applyAlignment,
+  parseUmapAlignment,
+} from "~/services/umap/umap.alignment";
 import { regenerateUmapRegions } from "~/services/umap/umap.regions";
 import { prepareUmapVectorRows, type UmapVectorRow } from "~/services/umap/umap.vectors";
 
@@ -53,9 +57,11 @@ export async function projectVectorsIntoUmapRun(params: {
   );
   const run = await prisma.umapRun.findUnique({
     where: { id: params.umapRunId },
-    select: { id: true, dims: true, artifactPath: true },
+    select: { id: true, dims: true, artifactPath: true, alignment: true },
   });
   if (!run) throw new Error("UMAP run not found");
+  // A retrained run's model has its own frame; its points are stored aligned.
+  const alignment = parseUmapAlignment(run.alignment);
   if (!run.artifactPath) {
     throw new Error(
       "UMAP run has no persisted model artifact. Re-train this run first."
@@ -116,11 +122,13 @@ export async function projectVectorsIntoUmapRun(params: {
 
   const projectedRows = preparedRows.rows.map((row, index) => {
     const coords = transformed.points[index] ?? [];
+    const raw = { x: coords[0] ?? 0, y: coords[1] ?? 0 };
+    const point = alignment ? applyAlignment(alignment, raw) : raw;
     return {
       runId: run.id,
       docId: row.docId,
-      x: coords[0] ?? 0,
-      y: coords[1] ?? 0,
+      x: point.x,
+      y: point.y,
       z: run.dims === 3 ? (coords[2] ?? 0) : null,
     };
   });
