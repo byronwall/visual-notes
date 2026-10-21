@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from "solid-js";
-import { css } from "styled-system/css";
+import { css, cx } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
 import { AddPropertyMenu } from "./menu/AddPropertyMenu";
@@ -48,6 +48,10 @@ const label = css({
     whiteSpace: "nowrap",
   },
 });
+const staticLabel = css({
+  cursor: "default",
+  _hover: { color: "fg.muted", bg: "transparent" },
+});
 const addBtn = css({
   display: "inline-flex",
   alignItems: "center",
@@ -64,7 +68,8 @@ const addBtn = css({
 /** A row's properties as label/value lines, shown above its note body. */
 export const PropertyList = (props: {
   row: CollectionRow;
-  allowAdd?: boolean;
+  /** Add, rename, retype, and delete properties. Off in embedded views. */
+  allowSchemaEdits?: boolean;
 }) => {
   const { store } = useCollection();
   // A property added here opens its editor right away.
@@ -74,20 +79,30 @@ export const PropertyList = (props: {
       <For each={store.state.properties}>
         {(property) => (
           <div class={line} data-property-line="">
-            <PropertyMenu
-              property={property}
-              anchor={(open) => (
-                <button
-                  type="button"
-                  class={label}
-                  aria-label={`${property.name} property settings`}
-                  onClick={open}
-                >
+            <Show
+              when={props.allowSchemaEdits !== false}
+              fallback={
+                <div class={cx(label, staticLabel)}>
                   <PropertyKindIcon property={property} />
                   <span>{property.name}</span>
-                </button>
-              )}
-            />
+                </div>
+              }
+            >
+              <PropertyMenu
+                property={property}
+                anchor={(open) => (
+                  <button
+                    type="button"
+                    class={label}
+                    aria-label={`${property.name} property settings`}
+                    onClick={open}
+                  >
+                    <PropertyKindIcon property={property} />
+                    <span>{property.name}</span>
+                  </button>
+                )}
+              />
+            </Show>
             <ValueCell
               autoEdit={justAdded() === property.id}
               property={property}
@@ -99,7 +114,7 @@ export const PropertyList = (props: {
           </div>
         )}
       </For>
-      <Show when={props.allowAdd !== false}>
+      <Show when={props.allowSchemaEdits !== false}>
         <div>
           <AddPropertyMenu
             class={addBtn}

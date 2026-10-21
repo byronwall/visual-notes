@@ -29,6 +29,8 @@ const row = css({
   "& [data-row-action]": { opacity: "0" },
   // Actions sit at the right edge whether or not a status group select is shown.
   "& > input + [data-row-action]": { ml: "auto" },
+  // Touch screens can't hover, so the actions stay visible there.
+  "@media (hover: none)": { "& [data-row-action]": { opacity: "1" } },
   "&:hover [data-row-action], &:focus-within [data-row-action]": {
     opacity: "1",
   },
