@@ -12,7 +12,7 @@ A research topic is one canvas of cards: tasks, questions, findings, sources, op
 | Fold + layout | `components/research/layout/fold.ts` and `tree-layout.ts` (pure, unit tested) |
 | UI | `/research` (topic index, "Show archived"), `/research/:slug` (canvas; `?view=outline`, `?card=<id>`). The detail panel edits and removes cards as batches by "you"; the header renames and archives the topic. Open pages refresh on `app:changed` research events. |
 | Activity | `research.activity.ts` logs `research.*` events for agent, API, and in-app writes |
-| Agents | MCP `research_*` tools in `server/mcp/research-tools.ts`, and REST `POST /api/research/topics[/:topic/ingest]` with `Authorization: Bearer $RESEARCH_AGENT_TOKEN` |
+| Agents | MCP `research_*` tools in `server/mcp/research-tools.ts` and `research-tools-edit.ts` ([mcp-connector.md](mcp-connector.md#research)), and REST `POST /api/research/topics[/:topic/ingest]` with `Authorization: Bearer $RESEARCH_AGENT_TOKEN` |
 
 ## Behavior worth knowing
 

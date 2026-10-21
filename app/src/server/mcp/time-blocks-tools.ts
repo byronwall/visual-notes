@@ -25,7 +25,7 @@ export const TIME_BLOCK_TOOL_SCOPES: Record<string, string> = {
 };
 
 export const TIME_BLOCK_INSTRUCTIONS =
-  "The time-blocks calendar plans the user's days. time_blocks_list returns blocks and per-day values for a date range and the calendar's time zone; write times as ISO 8601 with that zone's offset. time_blocks_create/time_blocks_update plan or move blocks (link a note with noteId); time_blocks_set_day_value records a value for a day and key. Deleting stays with the user.";
+  "The time-blocks calendar plans the user's days. time_blocks_list returns blocks, per-day values, and the calendar's time zone; write times as ISO 8601 with that zone's offset. time_blocks_create / time_blocks_update plan or move blocks (noteId links a note), and time_blocks_set_day_value records a value for a day, such as sleep.";
 
 type Guarded = (
   ctx: ConnectorContext,

@@ -50,12 +50,12 @@ import { SEARCH_KINDS, searchOtherKinds } from "./search-groups";
 const LOG_PREFIX = "[mcp]";
 
 const SERVER_INSTRUCTIONS = [
-  "Visual Notes is the user's personal knowledge base. Notes are markdown documents organized by dot paths such as `work.visual-notes.canvas`.",
-  "To save something: call list_paths first, choose the most fitting existing path (or a sensible new sub-path), then create_note. Tell the user the title, path, and url.",
-  "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content. Add include (research, tasks, archive) to search those too in one call.",
-  "get_notes returns markdown where each block ends with a block id tag like ` ^a1B2c3D4e5` (and code blocks/tables have it on the line after). For small changes use edit_note with those ids; it leaves every other block untouched. Never include the ^id tags in markdown you send.",
-  "Notes use the same markdown dialect in both directions. Write [[Label|noteId]] or [[Label|noteId#blockId]] to link a note (the id must exist), #tag (starting with a letter) to tag a block, and a top-level `- [ ] task` / `- [x] task` line to create a real task in the user's Inbox. Rewriting a task line keeps its task and its checkbox sets the task's status. `{{collection-view:viewId}}` on its own line is an embedded collection table; keep it in place (get_notes lists each one under `embeds`). Write \\# or \\[ for a literal character.",
-  "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
+  "Visual Notes is the user's knowledge base: markdown notes filed by dot path (`work.visual-notes.canvas`), plus research topics, task lists, collections, a time-blocks calendar, and a web archive.",
+  "Find: search with a few keywords (retry with synonyms; add include for research, tasks, or archive), list_recent for time-based questions, then get_notes for full content.",
+  "Save: call list_paths, pick the best existing path or a sensible new sub-path, then create_note. Tell the user the title, path, and url.",
+  "Edit: get_notes ends each block with a ` ^blockId` tag (on the next line for code blocks and tables). Use edit_note with those ids to change only those blocks. Never send ^id tags back.",
+  "Markdown, both ways: [[Label|noteId]] or [[Label|noteId#blockId]] links a note (it must exist); #tag (starting with a letter) tags a block; a top-level `- [ ] task` / `- [x] task` line is a real task in the Inbox whose checkbox sets its status; `{{collection-view:viewId}}` on its own line is an embedded table, so keep it in place. Write \\# or \\[ for a literal character.",
+  "Rules: change the body, title, or path only of notes you created (get_notes says editable). For the user's notes, create a new note that links to the original. Metadata (note meta, task status and dates, collection values) can change on any record. Deleting is the user's: cancel tasks, hide research cards, or remove notes from a collection instead.",
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
   COLLECTION_INSTRUCTIONS,
@@ -247,7 +247,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     "get_notes",
     {
       title: "Get notes",
-      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id, with a ^id tag on each block for edit_note. 'editable' tells whether you may change the note.`,
+      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id, with a ^id tag on each block for edit_note, plus meta, collection values, and embeds. 'editable' says whether you may change the body, title, or path.`,
       inputSchema: {
         ids: z.array(z.string().min(1)).min(1).max(MAX_NOTES_PER_GET),
       },
@@ -286,7 +286,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     {
       title: "Update note",
       description:
-        "Replace the title, path, and/or full markdown of a note created by ChatGPT. The previous version is kept for rollback.",
+        "Replace the title, path, and/or full markdown of a note you created. The previous version is kept for rollback.",
       inputSchema: {
         id: z.string().min(1),
         title: z.string().min(1).max(200).optional(),
@@ -307,7 +307,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     {
       title: "Append to note",
       description:
-        "Add markdown to the end of a note created by ChatGPT, e.g. a running log. The previous version is kept for rollback.",
+        "Add markdown to the end of a note you created, e.g. a running log. The previous version is kept for rollback.",
       inputSchema: { id: z.string().min(1), markdown: z.string().min(1) },
       annotations: write,
     },
@@ -319,7 +319,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
     {
       title: "Edit note blocks",
       description:
-        "Change specific blocks of a note created by ChatGPT, by the block ids from get_notes. replace and insert_after take markdown; delete takes only the id. Other blocks are left exactly as they are. The previous version is kept for rollback.",
+        "Change specific blocks of a note you created, by the block ids from get_notes. replace and insert_after take markdown; delete takes only the id. Other blocks are left exactly as they are. The previous version is kept for rollback.",
       inputSchema: {
         id: z.string().min(1),
         edits: z

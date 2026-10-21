@@ -28,10 +28,8 @@ export const RESEARCH_TOOL_SCOPES: Record<string, string> = {
   ...RESEARCH_EDIT_TOOL_SCOPES,
 };
 
-export const RESEARCH_INSTRUCTIONS = [
-  "Research topics are canvases of tasks, questions, findings, sources, options, and criteria, linked by what each came from.",
-  "Start with research_list_topics or research_read_topic (summaries plus the open frontier). Work on an open card, then record what you found with one research_ingest_tree under that card per round of work. Mark finished work with research_set_state.",
-].join("\n");
+export const RESEARCH_INSTRUCTIONS =
+  "Research topics are canvases of tasks, questions, findings, sources, options, and criteria. Start with research_read_topic (summaries plus the open frontier), work an open card, record each round with one research_ingest_tree under that card, and mark finished work with research_set_state. Every write is a batch the user can undo.";
 
 type Guarded = (ctx: ConnectorContext, tool: string, fn: () => Promise<unknown>) => Promise<CallToolResult>;
 

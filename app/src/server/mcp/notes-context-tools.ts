@@ -5,6 +5,8 @@ import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import { listBacklinks } from "~/server/notes/note-links";
 import {
+  listMetaKeys,
+  listMetaValues,
   readMeta,
   updateNotesMeta,
   type MetaAction,
@@ -37,11 +39,12 @@ export const NOTE_CONTEXT_TOOL_SCOPES: Record<string, string> = {
   list_note_tasks: "notes:read",
   list_revisions: "notes:read",
   restore_revision: "notes:write",
+  list_meta_keys: "notes:read",
   set_note_meta: "notes:write",
 };
 
 export const NOTE_CONTEXT_INSTRUCTIONS =
-  "get_backlinks shows which notes link to a note; list_tags lists tags, or the blocks carrying one tag; list_note_tasks lists open task lines across notes. list_revisions and restore_revision roll back a note created by ChatGPT. get_notes returns each note's `meta` fields; set_note_meta changes them on any note.";
+  "Around a note: get_backlinks, list_tags, list_note_tasks (open task lines in notes), list_revisions / restore_revision (your notes only), and list_meta_keys / set_note_meta for `meta` fields on any note.";
 
 type Guarded = (
   ctx: ConnectorContext,
@@ -161,7 +164,7 @@ export function registerNoteContextTools(
     {
       title: "Restore note version",
       description:
-        "Put an earlier version (from list_revisions) back as the title, path, and content of a note created by ChatGPT. The current version is kept first, so a restore can be undone.",
+        "Put an earlier version (from list_revisions) back as the title, path, and content of a note you created. The current version is kept first, so a restore can be undone.",
       inputSchema: {
         id: z.string().min(1).describe("Note id"),
         revisionId: z.string().min(1),
@@ -208,6 +211,25 @@ export function registerNoteContextTools(
           url: noteUrl(ctx, id),
         };
       }),
+  );
+
+  server.registerTool(
+    "list_meta_keys",
+    {
+      title: "List meta keys",
+      description:
+        "Without key: every `meta` field name in use with note counts, most used first. With key: the values it holds, as text, with counts. Check before set_note_meta to reuse existing names and values.",
+      inputSchema: {
+        key: z.string().min(1).max(128).optional(),
+      },
+      annotations: readOnly,
+    },
+    ({ key }) =>
+      guarded(ctx, "list_meta_keys", async () =>
+        key
+          ? { key, values: await listMetaValues(key) }
+          : { keys: await listMetaKeys() },
+      ),
   );
 
   server.registerTool(

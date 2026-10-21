@@ -17,7 +17,7 @@ export const ARCHIVE_TOOL_SCOPES: Record<string, string> = {
 };
 
 export const ARCHIVE_INSTRUCTIONS =
-  "The web archive holds pages the user saved from the browser, each with their own notes. archive_search finds pages by words in the title, url, or notes; archive_get loads one page (by id, or by url to check whether it was saved) with its notes; archive_add_note adds a note to a saved page.";
+  "The web archive holds pages the user saved from the browser. archive_search finds pages, archive_get loads one with its notes (by url to check whether it was saved), and archive_add_note adds a note to a page.";
 
 type Guarded = (
   ctx: ConnectorContext,

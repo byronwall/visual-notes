@@ -219,6 +219,12 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     const [read] = (await call(client, "get_notes", { ids: [mine] })).json
       .notes;
     expect(read.meta).toEqual({ status: "draft" });
+    const key = `stage${suffix}`;
+    await call(client, "set_note_meta", { ids: [mine], set: { [key]: 2 } });
+    const keys = await call(client, "list_meta_keys", {});
+    expect(keys.json.keys).toContainEqual({ key, count: 1 });
+    const values = await call(client, "list_meta_keys", { key });
+    expect(values.json).toEqual({ key, values: [{ value: "2", count: 1 }] });
     expect(
       (await call(client, "set_note_meta", { ids: ["nope"], set: { a: 1 } }))
         .text,
@@ -442,6 +448,23 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     expect(
       recent.json.every((e: Json) => e.type.startsWith("time_block")),
     ).toBe(true);
+    const note = await userNote(`Watched ${suffix}`);
+    const noteEvent = await prisma().actionEvent.create({
+      data: {
+        eventType: "doc.update",
+        entityType: "doc",
+        entityId: note,
+        relatedDocId: note,
+        actorType: "chatgpt",
+        actorId: "chatgpt:test",
+      },
+      select: { id: true },
+    });
+    eventIds.push(noteEvent.id);
+    const history = await call(client, "activity_recent", { noteId: note });
+    expect(history.json).toEqual([
+      expect.objectContaining({ type: "doc.update", noteId: note }),
+    ]);
     expect(
       (await call(client, "activity_recent", { since: "not a date" })).text,
     ).toContain("invalid");

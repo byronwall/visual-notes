@@ -12,7 +12,7 @@ export const ACTIVITY_TOOL_SCOPES: Record<string, string> = {
 };
 
 export const ACTIVITY_INSTRUCTIONS =
-  "activity_recent answers 'what changed lately' across notes, tasks, research, collections, the calendar, and the archive, with who did it (via is set for agents).";
+  "activity_recent answers 'what changed lately' across the app or for one note, including who did it (via is set for agents).";
 
 const DOMAINS = [
   "doc",
@@ -42,10 +42,14 @@ export function registerActivityTools(
     {
       title: "Recent activity",
       description:
-        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = calendar).",
+        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = calendar) or by noteId for one note's history.",
       inputSchema: {
         since: z.string().optional().describe("ISO date or date-time"),
         domain: z.enum(DOMAINS).optional(),
+        noteId: z
+          .string()
+          .optional()
+          .describe("Only events about this note (pair with an early since)"),
         limit: z.number().int().min(1).max(200).optional(),
       },
       annotations: {
@@ -54,7 +58,7 @@ export function registerActivityTools(
         openWorldHint: false,
       },
     },
-    ({ since, domain, limit }) =>
+    ({ since, domain, noteId, limit }) =>
       guarded(ctx, "activity_recent", async () => {
         const from = since
           ? new Date(since)
@@ -64,6 +68,7 @@ export function registerActivityTools(
         const events = await listTimelineEvents({
           from: from.toISOString(),
           eventDomain: domain,
+          relatedDocId: noteId,
           take: limit ?? 50,
         });
         return events.map((event) => {

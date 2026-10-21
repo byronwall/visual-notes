@@ -208,7 +208,7 @@ async function loadOwnedNote(id: string) {
   if (!isChatGptNote(doc)) {
     throw new ConnectorError(
       "not_owner",
-      "This note was written by the user, so it is read-only for ChatGPT. Create a new note that links to it instead.",
+      "This note was written by the user, so it is read-only for agents. Create a new note that links to it instead.",
     );
   }
   return doc;

@@ -97,3 +97,48 @@ export async function updateNotesMeta(
   }
   return updated;
 }
+
+type Counted<K extends string> = { [P in K]: string } & { count: number };
+
+function byCount<K extends string>(
+  name: K,
+  counts: Map<string, number>,
+): Counted<K>[] {
+  return Array.from(counts.entries())
+    .map(([value, count]) => ({ [name]: value, count }) as Counted<K>)
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Every meta key in use, with how many notes carry it, most used first. */
+export async function listMetaKeys(): Promise<Counted<"key">[]> {
+  const docs = await prisma.doc.findMany({
+    where: { meta: { not: Prisma.DbNull } },
+    select: { meta: true },
+  });
+  const counts = new Map<string, number>();
+  for (const d of docs) {
+    for (const k of Object.keys(readMeta(d.meta))) {
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+  }
+  return byCount("key", counts);
+}
+
+/** The values one meta key holds, as text, with note counts. */
+export async function listMetaValues(
+  key: string,
+): Promise<Counted<"value">[]> {
+  if (!key) return [];
+  const docs = await prisma.doc.findMany({
+    where: { meta: { path: [key], not: Prisma.AnyNull } },
+    select: { meta: true },
+  });
+  const counts = new Map<string, number>();
+  for (const d of docs) {
+    const raw = readMeta(d.meta)[key];
+    if (raw === null || raw === undefined) continue;
+    const val = String(raw);
+    counts.set(val, (counts.get(val) || 0) + 1);
+  }
+  return byCount("value", counts);
+}

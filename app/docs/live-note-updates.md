@@ -1,6 +1,6 @@
 # Live note updates
 
-Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, another tab or device, the CLI ingest API, the extension, or a bulk action. No reload is needed, and unsaved typing is never replaced.
+Open tabs refresh when a note is written somewhere else: an agent through [MCP](mcp-connector.md), another tab or device, the CLI ingest API, the extension, or a bulk action. No reload is needed, and unsaved typing is never replaced.
 
 ## How it works
 
@@ -11,7 +11,7 @@ Open tabs refresh when a note is written somewhere else: ChatGPT through MCP, an
 
 ## Other areas
 
-The same socket carries `app:changed` events for areas that are not notes: `research`, `tasks`, `collections`, and `time-blocks`. Server code calls `publishAppChange(area, ids)` (`src/server/note-events.ts`) after a write, with the topic, task list, or collection ids it touched (`null` for "everything"). The provider revalidates that area's query keys (`APP_LIVE_QUERY_KEYS` in `note-live-keys.ts`). A view that holds data in `createResource` instead calls `useAppChanges(area, reload, matches)`. A reconnect or a long-hidden tab catches up every area.
+The same socket carries `app:changed` events for areas that are not notes: `research`, `tasks`, `collections`, `time-blocks`, and `archive`. Server code calls `publishAppChange(area, ids)` (`src/server/note-events.ts`) after a write, with the ids it touched (topic, task list, collection, …) (`null` for "everything"). The provider revalidates that area's query keys (`APP_LIVE_QUERY_KEYS` in `note-live-keys.ts`). A view that holds data in `createResource` instead calls `useAppChanges(area, reload, matches)`. A reconnect or a long-hidden tab catches up every area.
 
 ## Adding a note view
 

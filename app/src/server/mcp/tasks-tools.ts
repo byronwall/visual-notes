@@ -25,7 +25,7 @@ export const TASK_TOOL_SCOPES: Record<string, string> = {
 };
 
 export const TASK_INSTRUCTIONS =
-  "Tasks live in lists (Inbox holds task lines written in notes). Use tasks_query to find work (open tasks, due dates, tags, a note's tasks), tasks_update to change status/dates/tags (cancel instead of deleting), tasks_create for new work, and tasks_move to re-parent or move to another list.";
+  "Tasks live in lists; Inbox also holds the task lines written in notes. tasks_query finds work (open tasks by default), tasks_create adds it, tasks_update changes status, dates, and tags (cancel instead of deleting), and tasks_move re-parents or files a task in another list.";
 
 type Guarded = (ctx: ConnectorContext, tool: string, fn: () => Promise<unknown>) => Promise<CallToolResult>;
 
@@ -286,6 +286,7 @@ export function registerTaskTools(server: McpServer, ctx: ConnectorContext, guar
     "tasks_rename_list",
     {
       title: "Rename task list",
+      description: "Rename a task list. Deleting and reordering lists stay with the user.",
       inputSchema: { list: listArg, name: z.string().min(1).max(200) },
       annotations: write,
     },

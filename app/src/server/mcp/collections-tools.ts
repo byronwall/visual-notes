@@ -61,7 +61,7 @@ export const COLLECTION_TOOL_SCOPES: Record<string, string> = {
 };
 
 export const COLLECTION_INSTRUCTIONS =
-  "Collections are typed tables whose rows are notes. Read the schema with collections_get, find rows with collections_query (filters and sorts by property name; option values by name), add rows with collections_add_row, and set values with collections_set_properties using plain text (\"In progress\", \"2026-11-01\", [\"a\", \"b\"]). To show a table in a note you wrote, create a view hosted by that note (collections_create_view with hostNoteId) and put its `{{collection-view:id}}` line in the note.";
+  "Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_set_properties write values as plain text by property and option name (\"In progress\", \"2026-11-01\", [\"a\", \"b\"]). To show a table in a note you created, call collections_create_view with hostNoteId and put the returned embed line in the note.";
 
 type Guarded = (ctx: ConnectorContext, tool: string, fn: () => Promise<unknown>) => Promise<CallToolResult>;
 
@@ -292,6 +292,8 @@ export function registerCollectionTools(server: McpServer, ctx: ConnectorContext
     "collections_add_property",
     {
       title: "Add collection property",
+      description:
+        "Add a property (column) to a collection, with options for select, status, or multi-select kinds.",
       inputSchema: { collection: collectionArg, ...propertySpec.shape },
       annotations: write,
     },
