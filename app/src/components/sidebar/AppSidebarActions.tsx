@@ -1,6 +1,11 @@
 import type { Accessor, JSX } from "solid-js";
 import { Show } from "solid-js";
-import { BotMessageSquareIcon, FilePlusIcon, SearchIcon } from "lucide-solid";
+import {
+  BotMessageSquareIcon,
+  FilePlusIcon,
+  MicIcon,
+  SearchIcon,
+} from "lucide-solid";
 import { Box, Stack } from "styled-system/jsx";
 import type { SidebarNavIcon } from "./nav-items";
 import {
@@ -14,6 +19,7 @@ type AppSidebarActionsProps = {
   expanded: boolean;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
+  onVoiceNoteStart: () => void;
   onSearchOpen: () => void;
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
@@ -22,21 +28,21 @@ type AppSidebarActionsProps = {
 const SidebarActionButton = (props: {
   expanded: boolean;
   label: string;
-  shortcut: string;
+  shortcut?: string;
   icon: SidebarNavIcon;
   onClick: () => void;
   status?: JSX.Element;
 }) => (
   <SidebarRailTooltip
     expanded={props.expanded}
-    label={`${props.label}  ${props.shortcut}`}
+    label={props.shortcut ? `${props.label}  ${props.shortcut}` : props.label}
   >
     <button
       type="button"
       class={sidebarRowClass}
       data-collapsed={props.expanded ? undefined : ""}
       aria-label={props.label}
-      aria-keyshortcuts={props.shortcut.replace("⌘", "Meta+")}
+      aria-keyshortcuts={props.shortcut?.replace("⌘", "Meta+")}
       onClick={() => props.onClick()}
     >
       <props.icon size={16} strokeWidth={1.8} />
@@ -46,7 +52,7 @@ const SidebarActionButton = (props: {
         </Box>
       </Show>
       {props.status}
-      <Show when={props.expanded}>
+      <Show when={props.expanded && props.shortcut}>
         <Box as="kbd" class={sidebarShortcutClass}>
           {props.shortcut}
         </Box>
@@ -81,6 +87,12 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
       />
       <SidebarActionButton
         expanded={props.expanded}
+        label="Voice note"
+        icon={MicIcon}
+        onClick={props.onVoiceNoteStart}
+      />
+      <SidebarActionButton
+        expanded={props.expanded}
         label="Chat"
         shortcut="⌘I"
         icon={BotMessageSquareIcon}
@@ -92,10 +104,14 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
                 as="span"
                 role="status"
                 aria-label={
-                  status() === "unread" ? "Unread chat replies" : "Chat is responding"
+                  status() === "unread"
+                    ? "Unread chat replies"
+                    : "Chat is responding"
                 }
                 title={
-                  status() === "unread" ? "Unread chat replies" : "Chat is responding"
+                  status() === "unread"
+                    ? "Unread chat replies"
+                    : "Chat is responding"
                 }
                 boxSize="2"
                 borderRadius="full"
@@ -104,7 +120,11 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
                 position={props.expanded ? "static" : "absolute"}
                 top="1.5"
                 right="3"
-                animation={status() === "loading" ? "pulse 1.6s ease-in-out infinite" : undefined}
+                animation={
+                  status() === "loading"
+                    ? "pulse 1.6s ease-in-out infinite"
+                    : undefined
+                }
               />
             )}
           </Show>

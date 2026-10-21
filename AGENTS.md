@@ -14,6 +14,7 @@ focused skills listed under [Skills](#skills).
 | UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |
 | Merging a PR or stack (base check, review, merge, prove it landed) | [merge-prs skill](.agents/skills/merge-prs/SKILL.md) |
 | Live note updates (`/ws/notes`, open-note refresh, kill switch) | [app/docs/live-note-updates.md](app/docs/live-note-updates.md) |
+| Note audio recordings (recorder, chunked upload, iOS caveats) | [app/docs/note-audio.md](app/docs/note-audio.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 
 ## Note storage (blocks)
