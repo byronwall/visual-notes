@@ -387,9 +387,9 @@ export const createTaskActions = (
       ids[ids.indexOf(task.id) + 1] ?? ids[ids.indexOf(task.id) - 1] ?? null;
     data.mutateTasks((current) => removeSubtreeLocally(current ?? [], task.id));
     select(nextId);
-    runMoveToList({ taskId: task.id, listId })
-      .then(() => data.refreshLists())
-      .catch((err) => reportError("move to list", err, "Could not move task"));
+    queueWrite("move to list", "Could not move task", () =>
+      runMoveToList({ taskId: task.id, listId }).then(() => data.refreshLists()),
+    );
   };
 
   // ---- moves -----------------------------------------------------------
