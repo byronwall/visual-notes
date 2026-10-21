@@ -11,6 +11,7 @@ focused skills listed under [Skills](#skills).
 | Checks | `cd app && pnpm lint && pnpm type-check && pnpm test`; CI runs the same in [checks.yml](.github/workflows/checks.yml) |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
 | Test database (`pnpm audit:db -- --owner <slug>`), isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
+| One-off Playwright checks (sign-in, hydration wait, widths, layout report, exit codes) | [app/docs/browser-checks.md](app/docs/browser-checks.md) |
 | UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |
 | Merging a PR or stack (base check, review, merge, prove it landed) | [merge-prs skill](.agents/skills/merge-prs/SKILL.md) |
 | Live note updates (`/ws/notes`, open-note refresh, kill switch) | [app/docs/live-note-updates.md](app/docs/live-note-updates.md) |
