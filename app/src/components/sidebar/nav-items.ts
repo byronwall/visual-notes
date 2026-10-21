@@ -73,16 +73,11 @@ export const isCanvasSectionActive = (pathname: string) =>
   CANVAS_DESTINATION.isActive(pathname) ||
   CANVAS_CHILD_DESTINATIONS.some((item) => item.isActive(pathname));
 
-/** Primary sections listed below Notes + Canvas in the sidebar. */
+/**
+ * Primary sections after Notes + Canvas, in sidebar grid order (row-major,
+ * two columns): Collections | Paths, Tasks | Time Blocks, Research | Tags.
+ */
 export const PRIMARY_DESTINATIONS: AppDestination[] = [
-  {
-    label: "Paths",
-    href: "/path",
-    icon: WaypointsIcon,
-    keywords: "folders tree",
-    isActive: (pathname) =>
-      isSectionActive("/path", pathname) || pathname === "/paths",
-  },
   {
     label: "Collections",
     href: "/collections",
@@ -91,18 +86,12 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     isActive: (pathname) => isSectionActive("/collections", pathname),
   },
   {
-    label: "Tags",
-    href: "/tags",
-    icon: HashIcon,
-    keywords: "labels topics hashtags",
-    isActive: (pathname) => isSectionActive("/tags", pathname),
-  },
-  {
-    label: "Time Blocks",
-    href: "/time-blocks",
-    icon: CalendarClockIcon,
-    keywords: "calendar schedule week",
-    isActive: (pathname) => isSectionActive("/time-blocks", pathname),
+    label: "Paths",
+    href: "/path",
+    icon: WaypointsIcon,
+    keywords: "folders tree",
+    isActive: (pathname) =>
+      isSectionActive("/path", pathname) || pathname === "/paths",
   },
   {
     label: "Tasks",
@@ -114,11 +103,25 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
       pathname === "/views/note-tasks",
   },
   {
+    label: "Time Blocks",
+    href: "/time-blocks",
+    icon: CalendarClockIcon,
+    keywords: "calendar schedule week",
+    isActive: (pathname) => isSectionActive("/time-blocks", pathname),
+  },
+  {
     label: "Research",
     href: "/research",
     icon: TelescopeIcon,
     keywords: "topics threads frontier findings",
     isActive: (pathname) => isSectionActive("/research", pathname),
+  },
+  {
+    label: "Tags",
+    href: "/tags",
+    icon: HashIcon,
+    keywords: "labels topics hashtags",
+    isActive: (pathname) => isSectionActive("/tags", pathname),
   },
   {
     label: "Explorer",

@@ -2,7 +2,7 @@ import type { JSX } from "solid-js";
 import { Box } from "styled-system/jsx";
 import { AppSidebarContent, type AppSidebarContentProps } from "./AppSidebarContent";
 
-export const SIDEBAR_EXPANDED_WIDTH = "240px";
+export const SIDEBAR_EXPANDED_WIDTH = "256px";
 export const SIDEBAR_COLLAPSED_WIDTH = "56px";
 
 type AppSidebarDesktopProps = Omit<AppSidebarContentProps, "mode"> & {

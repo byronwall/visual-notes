@@ -20,4 +20,16 @@ test.describe("visual notes app", () => {
       ).toHaveAttribute("href", href);
     }
   });
+
+  test("recent list includes visited tags, not only notes", async ({
+    page,
+  }) => {
+    await ensureAuthed(page);
+    const tag = `recent${Date.now().toString(36)}`;
+    await page.goto(`/tags/${tag}`);
+    const recent = page.getByRole("region", { name: "Recent" });
+    await expect(
+      recent.getByRole("link", { name: new RegExp(`#${tag}`) }),
+    ).toHaveAttribute("href", `/tags/${tag}`);
+  });
 });

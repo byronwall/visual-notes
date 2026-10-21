@@ -1,6 +1,6 @@
 import { For } from "solid-js";
 import { useLocation } from "@solidjs/router";
-import { Stack } from "styled-system/jsx";
+import { Grid } from "styled-system/jsx";
 import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
 import { NOTES_DESTINATION, PRIMARY_DESTINATIONS } from "./nav-items";
 import { SidebarNavLink } from "./SidebarNavLink";
@@ -14,7 +14,18 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
   const pathname = () => location.pathname;
 
   return (
-    <Stack as="ul" gap="0.5" listStyle="none" m="0" p="0" aria-label="Sections">
+    // Two columns when expanded: nine sections in five short rows, so the
+    // Recent list starts high in the sidebar.
+    <Grid
+      as="ul"
+      gridTemplateColumns={props.expanded ? "repeat(2, minmax(0, 1fr))" : "1fr"}
+      columnGap="0.5"
+      rowGap="0.5"
+      listStyle="none"
+      m="0"
+      p="0"
+      aria-label="Sections"
+    >
       <li>
         <SidebarNavLink
           expanded={props.expanded}
@@ -22,6 +33,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
           label={NOTES_DESTINATION.label}
           href={NOTES_DESTINATION.href}
           icon={NOTES_DESTINATION.icon}
+          data-density="compact"
         />
       </li>
       <li>
@@ -39,10 +51,11 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
               label={item.label}
               href={item.href}
               icon={item.icon}
+              data-density="compact"
             />
           </li>
         )}
       </For>
-    </Stack>
+    </Grid>
   );
 };

@@ -4,6 +4,7 @@ import { css } from "styled-system/css";
 import { NoteGroupList, rowLinkClass } from "~/components/views/NoteGroupList";
 import { ViewPageShell } from "~/components/views/ViewPageShell";
 import { fetchTagBlocks } from "~/services/note-views.queries";
+import { useRecordRecentView } from "~/services/recents/useRecordRecentView";
 
 const textClass = css({
   flex: "1",
@@ -16,6 +17,7 @@ export default function TagRoute() {
   const params = useParams();
   const tag = () => decodeURIComponent(params.tag ?? "").toLowerCase();
   const [groups] = createResource(tag, fetchTagBlocks);
+  useRecordRecentView("tag", tag);
   const count = () =>
     (groups.latest ?? []).reduce((sum, g) => sum + g.items.length, 0);
 
