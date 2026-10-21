@@ -31,6 +31,18 @@ The same server exposes research topics (see [research-threads.md](research-thre
 
 Research writes record the caller (`actorId`, or the `agent` argument) on the batch shown in the topic's history, where the user can undo it.
 
+### Markdown dialect
+
+`get_notes` and every note write use one markdown dialect, parsed by `fromNoteMarkdown` in `lib/note-content/note-markdown.ts` (the inverse of `toMarkdown`). Imports and legacy rows still go through plain `fromMarkdown`.
+
+| Markdown | Becomes |
+| --- | --- |
+| `- [ ] text` / `- [x] text` (top level) | A task line backed by a `TaskItem` in the Inbox list. Rewriting a line keeps its task (same block id, else same text), and the checkbox sets the task's status. |
+| `[[Label\|noteId]]`, `[[Label\|noteId#blockId]]` | A note link (and a `DocLink` backlink). New links to missing notes are refused. |
+| `#tag` (starting with a letter) | A tag on that block. `#42` stays text. |
+| `{{collection-view:viewId}}` on its own line | An embedded collection view. `get_notes` names each one under `embeds`. |
+| `\#`, `\[`, `\]` | The literal character. `toMarkdown` escapes these itself. |
+
 A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don't change that. Every call is logged as an `ActionEvent` with `actorType = chatgpt`.
 
 ## Configuration

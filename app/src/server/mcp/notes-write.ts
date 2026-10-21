@@ -16,6 +16,12 @@ import {
   revisionSnapshot,
 } from "~/server/notes/note-store";
 import { writeNoteContent } from "~/server/notes/note-write";
+import { materializeTaskRefs } from "~/server/notes/inline-tasks";
+import {
+  collectionViewIds,
+  noteLinkTargets,
+} from "~/lib/note-content/note-markdown";
+import type { NoteNode } from "~/lib/note-content/types";
 import { appendBlocks, contentFromMarkdown } from "./note-content";
 import {
   CHATGPT_SOURCE,
@@ -60,6 +66,49 @@ async function isExistingPath(path: string): Promise<boolean> {
   return Boolean(match);
 }
 
+/**
+ * Refuses new links to missing notes and new embeds of missing collection
+ * views. References already in `previous` are left as they are.
+ */
+async function assertReferencesExist(
+  blocks: NoteNode[],
+  previous: NoteNode[] = [],
+): Promise<void> {
+  const had = new Set([
+    ...noteLinkTargets(previous),
+    ...collectionViewIds(previous),
+  ]);
+  const docIds = noteLinkTargets(blocks).filter((id) => !had.has(id));
+  const viewIds = collectionViewIds(blocks).filter((id) => !had.has(id));
+  const [docs, views] = await Promise.all([
+    docIds.length
+      ? prisma.doc.findMany({ where: { id: { in: docIds } }, select: { id: true } })
+      : [],
+    viewIds.length
+      ? prisma.collectionView.findMany({
+          where: { id: { in: viewIds }, collection: { deletedAt: null } },
+          select: { id: true },
+        })
+      : [],
+  ]);
+  const foundDocs = new Set(docs.map((d) => d.id));
+  const foundViews = new Set(views.map((v) => v.id));
+  const problems = [
+    ...docIds
+      .filter((id) => !foundDocs.has(id))
+      .map((id) => `[[…|${id}]] links to a note that does not exist`),
+    ...viewIds
+      .filter((id) => !foundViews.has(id))
+      .map((id) => `{{collection-view:${id}}} is not a collection view`),
+  ];
+  if (problems.length) {
+    throw new ConnectorError(
+      "invalid",
+      `Nothing was written. Fix these and retry:\n${problems.map((p) => `- ${p}`).join("\n")}`,
+    );
+  }
+}
+
 export async function createNote(
   ctx: ConnectorContext,
   input: {
@@ -96,9 +145,12 @@ export async function createNote(
   }
 
   const pathIsNew = path ? !(await isExistingPath(path)) : false;
-  const content = contentFromMarkdown(input.markdown);
-  const columns = contentColumns(content);
+  const parsed = contentFromMarkdown(input.markdown);
+  await assertReferencesExist(parsed.content ?? []);
   const created = await prisma.$transaction(async (tx) => {
+    // Task lines become Inbox tasks; the index rebuild points them at the note.
+    const content = await materializeTaskRefs(tx, { previous: null, next: parsed });
+    const columns = contentColumns(content);
     const row = await tx.doc.create({
       data: {
         title,
@@ -197,7 +249,14 @@ async function applyOwnedEdit(
         select: { id: true, title: true, path: true },
       });
     }
-    const next = changes.content(readNoteContent(locked));
+    const current = readNoteContent(locked);
+    const proposed = changes.content(current);
+    await assertReferencesExist(proposed.content ?? [], current.content ?? []);
+    const next = await materializeTaskRefs(tx, {
+      previous: current,
+      next: proposed,
+      docId: doc.id,
+    });
     await writeNoteContent(tx, {
       docId: doc.id,
       doc: next,

@@ -23,7 +23,7 @@ const SERVER_INSTRUCTIONS = [
   "To save something: call list_paths first, choose the most fitting existing path (or a sensible new sub-path), then create_note. Tell the user the title, path, and url.",
   "To find something: use search with a few keywords (retry with synonyms if empty), list_recent for time-based questions, and get_notes to load full content.",
   "get_notes returns markdown where each block ends with a block id tag like ` ^a1B2c3D4e5` (and code blocks/tables have it on the line after). For small changes use edit_note with those ids; it leaves every other block untouched. Never include the ^id tags in markdown you send.",
-  "Links to other notes appear as [[Title|noteId]] or [[Text|noteId#blockId]].",
+  "Notes use the same markdown dialect in both directions. Write [[Label|noteId]] or [[Label|noteId#blockId]] to link a note (the id must exist), #tag (starting with a letter) to tag a block, and a top-level `- [ ] task` / `- [x] task` line to create a real task in the user's Inbox. Rewriting a task line keeps its task and its checkbox sets the task's status. `{{collection-view:viewId}}` on its own line is an embedded collection table; keep it in place (get_notes lists each one under `embeds`). Write \\# or \\[ for a literal character.",
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
   RESEARCH_INSTRUCTIONS,
 ].join("\n");
