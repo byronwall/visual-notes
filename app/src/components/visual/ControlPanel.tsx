@@ -1,4 +1,4 @@
-import { SearchIcon, XIcon } from "lucide-solid";
+import { CheckIcon, SearchIcon, XIcon } from "lucide-solid";
 import {
   Show,
   createEffect,
@@ -11,18 +11,28 @@ import { Box, Flex } from "styled-system/jsx";
 import { Input } from "~/components/ui/input";
 import { InputGroup } from "~/components/ui/input-group";
 import { Kbd } from "~/components/ui/kbd";
+import {
+  canvasMatchCountLabel,
+  canvasSearchPlaceholder,
+} from "./canvas-search";
 
 export type ControlPanelProps = {
   searchQuery: Accessor<string>;
   setSearchQuery: (value: string) => void;
   matchCount: Accessor<number>;
-  totalCount: Accessor<number>;
+  /** Title of the open region, or null when no region is open. */
+  regionTitle: Accessor<string | null>;
+  /** True when matches are limited to the open region. */
+  scopedToRegion: Accessor<boolean>;
+  onToggleRegionScope: () => void;
   onSubmitSearch: () => void;
   inputRef?: (el: HTMLInputElement) => void;
 };
 
 /** Floating search for the canvas; matches light up on the map and in the rail. */
 export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
+  const scopeTitle = () =>
+    props.scopedToRegion() ? props.regionTitle() : null;
   const hasQuery = () => props.searchQuery().trim().length > 0;
   // The count + clear group grows with the numbers, so the input reserves
   // exactly that much room and typed text never runs underneath it.
@@ -81,8 +91,10 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 fontVariantNumeric="tabular-nums"
                 whiteSpace="nowrap"
               >
-                {props.matchCount().toLocaleString()} of{" "}
-                {props.totalCount().toLocaleString()}
+                {canvasMatchCountLabel(
+                  props.matchCount(),
+                  props.scopedToRegion(),
+                )}
               </Box>
               <Box
                 as="button"
@@ -112,8 +124,12 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
             props.inputRef?.(el);
           }}
           type="search"
-          aria-label="Search notes on the canvas"
-          placeholder="Search notes"
+          aria-label={
+            scopeTitle()
+              ? `Search notes in ${scopeTitle()}`
+              : "Search notes on the canvas"
+          }
+          placeholder={canvasSearchPlaceholder(scopeTitle())}
           borderColor="transparent"
           value={props.searchQuery()}
           onInput={(event) => props.setSearchQuery(event.currentTarget.value)}
@@ -130,6 +146,67 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
           }}
         />
       </InputGroup>
+      <Show when={props.regionTitle()}>
+        {(title) => (
+          <RegionScopeChip
+            title={title()}
+            active={props.scopedToRegion()}
+            onToggle={props.onToggleRegionScope}
+          />
+        )}
+      </Show>
     </Box>
   );
 };
+
+/** Toggle under the search field: on limits matches to the open region. */
+const RegionScopeChip: VoidComponent<{
+  title: string;
+  active: boolean;
+  onToggle: () => void;
+}> = (props) => (
+  <Flex px="2" pb="2" pt="0.5">
+    <Box
+      as="button"
+      aria-pressed={props.active}
+      title={
+        props.active ? "Search all notes instead" : `Only search ${props.title}`
+      }
+      display="inline-flex"
+      alignItems="center"
+      gap="1"
+      maxW="full"
+      h="6"
+      px="2"
+      borderRadius="full"
+      borderWidth="1px"
+      fontSize="xs"
+      cursor="pointer"
+      focusVisibleRing="outside"
+      transitionProperty="background-color, border-color, color"
+      transitionDuration="fast"
+      borderColor={props.active ? "blue.a7" : "border"}
+      bg={props.active ? "blue.a3" : "transparent"}
+      color={props.active ? "blue.11" : "fg.muted"}
+      _hover={
+        props.active
+          ? { bg: "blue.a4" }
+          : { bg: "gray.a3", color: "fg.default" }
+      }
+      onClick={() => props.onToggle()}
+    >
+      <Show when={props.active}>
+        <CheckIcon size={12} />
+      </Show>
+      <Box as="span" flexShrink="0">
+        In:
+      </Box>
+      <Box as="span" truncate fontWeight="medium">
+        {props.title}
+      </Box>
+      <Show when={props.active}>
+        <XIcon size={12} />
+      </Show>
+    </Box>
+  </Flex>
+);
