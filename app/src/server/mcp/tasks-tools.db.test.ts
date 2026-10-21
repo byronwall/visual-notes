@@ -20,6 +20,7 @@ vi.mock("./semantic", () => ({ scheduleEmbeddingRefresh: vi.fn(), semanticSearch
 
 const { createNotesMcpServer } = await import("./tools");
 const { createNote } = await import("./notes-write");
+const { contentColumns, prepareContent } = await import("~/server/notes/note-store");
 
 const ctx = {
   origin: "https://notes.test",
@@ -96,7 +97,7 @@ describe.skipIf(!enabled)("task tools (database)", () => {
   it("updates status on any task but leaves text in the user's notes alone", async () => {
     const client = await connect();
     const userDoc = await prisma().doc.create({
-      data: { title: `User note ${suffix}`, markdown: "", html: "" },
+      data: { title: `User note ${suffix}`, ...contentColumns(prepareContent({ markdown: "" })) },
       select: { id: true },
     });
     docIds.push(userDoc.id);
