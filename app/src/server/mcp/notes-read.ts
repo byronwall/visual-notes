@@ -7,12 +7,14 @@ import { readNoteContent } from "~/server/notes/note-store";
 import { collectionViewIds } from "~/lib/note-content/note-markdown";
 import {
   CHATGPT_SOURCE,
-  isChatGptNote,
+  isAgentNote,
+  parseSince,
   summarySelect,
   toSummary,
   type ConnectorContext,
+  type CreatedBy,
   type NoteSummary,
-} from "./notes-shared";
+} from "./shared";
 import { buildPathTree, normalizeNotePath, type PathCount } from "./paths";
 import { fuseRankings, type FusedHit } from "./rank-fusion";
 import { semanticSearch } from "./semantic";
@@ -75,21 +77,27 @@ export async function listRecentNotes(
   input: {
     since?: string;
     path?: string;
-    createdBy?: "chatgpt" | "any";
+    createdBy?: CreatedBy;
     limit?: number;
   },
 ): Promise<NoteSummary[]> {
-  const since = input.since ? new Date(input.since) : null;
+  const since = parseSince(input.since, "since");
   const path = normalizeNotePath(input.path);
   const rows = await prisma.doc.findMany({
     where: {
-      ...(since && !Number.isNaN(since.getTime())
-        ? { updatedAt: { gte: since } }
-        : {}),
-      ...(path ? { OR: [{ path }, { path: { startsWith: `${path}.` } }] } : {}),
-      ...(input.createdBy === "chatgpt"
-        ? { originalSource: CHATGPT_SOURCE }
-        : {}),
+      AND: [
+        since ? { updatedAt: { gte: since } } : {},
+        path ? { OR: [{ path }, { path: { startsWith: `${path}.` } }] } : {},
+        input.createdBy === "agent" ? { originalSource: CHATGPT_SOURCE } : {},
+        input.createdBy === "user"
+          ? {
+              OR: [
+                { originalSource: null },
+                { originalSource: { not: CHATGPT_SOURCE } },
+              ],
+            }
+          : {},
+      ],
     },
     select: summarySelect,
     orderBy: { updatedAt: "desc" },
@@ -117,7 +125,7 @@ export type FullNote = NoteSummary & {
   markdown: string;
   createdAt: string;
   editable: boolean;
-  /** Free-form fields on the note (set_note_meta changes them). */
+  /** Free-form fields on the note (notes_set_meta changes them). */
   meta: Record<string, unknown>;
   /** Set when the note is a row in a collection: its typed properties as text. */
   collection?: CollectionText;
@@ -205,7 +213,7 @@ export async function getNotes(
         withIds: true,
       }),
       createdAt: row.createdAt.toISOString(),
-      editable: isChatGptNote(row),
+      editable: isAgentNote(row),
       meta: readMeta(row.meta),
       ...(collectionText[id] ? { collection: collectionText[id] } : {}),
       ...embedsField(viewIdsById.get(id) ?? [], views),

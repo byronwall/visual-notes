@@ -27,34 +27,12 @@ import {
   listPlaces,
 } from "~/server/calendar/place-store";
 import { collectionTextForNotes } from "~/services/collections/collection-text";
-import { ConnectorError, noteUrl, type ConnectorContext } from "./notes-shared";
+import { resolveCollection } from "./collections-agent";
+import { ConnectorError, noteAppUrl, type ConnectorContext } from "./shared";
 
 const today = () => instantToWallClock(new Date(), DEFAULT_TIME_ZONE).date;
 const startOfLocalDay = (date: string) =>
   wallClockToInstant(date, "00:00", DEFAULT_TIME_ZONE).toISOString();
-
-/** A collection by id, or by case-insensitive name. */
-export async function resolveCollection(ref: string) {
-  const byId = await prisma.collection.findFirst({
-    where: { id: ref, deletedAt: null },
-    select: { id: true, name: true },
-  });
-  if (byId) return byId;
-  const byName = await prisma.collection.findMany({
-    where: {
-      name: { equals: ref.trim(), mode: "insensitive" },
-      deletedAt: null,
-    },
-    select: { id: true, name: true },
-  });
-  if (byName.length === 1) return byName[0]!;
-  if (byName.length > 1)
-    throw new ConnectorError(
-      "invalid",
-      `Several collections are named "${ref}"; pass one id: ${byName.map((c) => c.id).join(", ")}`,
-    );
-  throw new ConnectorError("not_found", `No collection "${ref}".`);
-}
 
 /** A place by id, or by name when exactly one matches. */
 export async function resolvePlaceRef(ref: string) {
@@ -66,7 +44,7 @@ export async function resolvePlaceRef(ref: string) {
   if (!matches.length)
     throw new ConnectorError(
       "not_found",
-      `No place "${ref}". Use list_places.`,
+      `No place "${ref}". Use places_list.`,
     );
   throw new ConnectorError(
     "invalid",
@@ -84,6 +62,21 @@ type ShowLike = Pick<
 
 const whenOf = (show: ShowLike) =>
   formatShowWhen(show, Number(today().slice(0, 4)));
+
+/** One show as every event tool returns it. */
+export const showView = (o: Occurrence, eventDecision: EventDecision) => ({
+  showId: o.id,
+  ...localFields(o),
+  when: whenOf(o),
+  timeConfirmed: o.timeConfirmed,
+  label: o.label,
+  place: o.place,
+  ticketStatus: o.ticketStatus,
+  status: o.status,
+  decision: o.decision,
+  decisionNote: o.decisionNote,
+  effectiveDecision: effectiveDecision(o.decision, eventDecision),
+});
 
 export type ListEventsInput = {
   from?: string;
@@ -110,7 +103,7 @@ export async function listEventShows(
     docIds = (
       await listEvents({ search: input.search.trim(), limit: 500 })
     ).map((e) => e.docId);
-    if (!docIds.length) return { shows: [], count: 0 };
+    if (!docIds.length) return { shows: [], truncated: false };
   }
   // The store applies its take before the decision filter, so ask for a wide
   // page and trim here.
@@ -126,8 +119,7 @@ export async function listEventShows(
   });
   const limit = input.limit ?? 50;
   const shows = rows.slice(0, limit).map((o) => ({
-    occurrenceId: o.id,
-    eventId: o.eventId,
+    showId: o.id,
     noteId: o.docId,
     title: o.title,
     when: whenOf(o),
@@ -139,9 +131,13 @@ export async function listEventShows(
     eventDecision: o.eventDecision,
     status: o.status,
     url: o.eventUrl,
-    noteUrl: noteUrl(ctx, o.docId),
+    appUrl: noteAppUrl(ctx, o.docId),
   }));
-  return { shows, count: shows.length, truncated: rows.length > limit };
+  return {
+    timeZone: DEFAULT_TIME_ZONE,
+    shows,
+    truncated: rows.length > limit,
+  };
 }
 
 /** One note's event details, every show in local terms, and its collection. */
@@ -155,16 +151,15 @@ export async function getEventDetails(ctx: ConnectorContext, noteId: string) {
   if (!event)
     throw new ConnectorError(
       "not_found",
-      `Note ${noteId} has no event details. Use update_event or add_shows to make it an event.`,
+      `Note ${noteId} has no event details. Use events_update or events_add_shows to make it an event.`,
     );
   const collection = doc.collectionId
     ? (await collectionTextForNotes([noteId]))[noteId]
     : undefined;
   return {
     noteId: doc.id,
-    eventId: event.id,
     title: doc.title,
-    noteUrl: noteUrl(ctx, doc.id),
+    appUrl: noteAppUrl(ctx, doc.id),
     collection: doc.collectionId
       ? {
           id: doc.collectionId,
@@ -177,19 +172,7 @@ export async function getEventDetails(ctx: ConnectorContext, noteId: string) {
     place: event.place,
     decision: event.decision,
     decisionNote: event.decisionNote,
-    shows: event.occurrences.map((o) => ({
-      occurrenceId: o.id,
-      ...localFields(o),
-      when: whenOf(o),
-      timeConfirmed: o.timeConfirmed,
-      label: o.label,
-      place: o.place,
-      ticketStatus: o.ticketStatus,
-      status: o.status,
-      decision: o.decision,
-      decisionNote: o.decisionNote,
-      effectiveDecision: effectiveDecision(o.decision, event.decision),
-    })),
+    shows: event.occurrences.map((o) => showView(o, event.decision)),
   };
 }
 
@@ -225,18 +208,17 @@ export async function findEventDuplicates(
   const matches = findDuplicateMatches(query, await loadDuplicateCandidates());
   const candidates = matches.slice(0, 10).map(({ candidate, match }) => ({
     noteId: candidate.noteId,
-    eventId: candidate.eventId,
     title: candidate.title,
     url: candidate.url,
-    noteUrl: noteUrl(ctx, candidate.noteId),
+    appUrl: noteAppUrl(ctx, candidate.noteId),
     confidence: match.confidence,
     reasons: match.reasons,
   }));
   return {
     exists: candidates.length > 0,
     recommendation: candidates.length
-      ? "Review the candidates with get_event; add missing shows (add_shows) or patch the match (update_event) instead of creating another event."
-      : "No likely match; create_event is reasonable.",
+      ? "Review the candidates with events_get; add missing shows (events_add_shows) or patch the match (events_update) instead of creating another event."
+      : "No likely match; events_create is reasonable.",
     candidates,
   };
 }
@@ -258,7 +240,6 @@ export async function listPlacesCompact(input: {
       longitude: p.longitude,
       url: p.url,
     })),
-    count: Math.min(places.length, limit),
     truncated: places.length > limit,
   };
 }

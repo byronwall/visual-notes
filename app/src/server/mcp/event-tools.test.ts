@@ -7,7 +7,7 @@ import type { NoteEvent, Occurrence, Place } from "~/lib/events/types";
 // talking to the SDK client in memory. Prisma, stores, and geocoding are fakes.
 
 const db = vi.hoisted(() => ({
-  doc: { findUnique: vi.fn() },
+  doc: { findUnique: vi.fn(), findMany: vi.fn() },
   event: { findMany: vi.fn(), findUnique: vi.fn() },
   place: { findMany: vi.fn() },
   collection: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -68,7 +68,10 @@ vi.mock("./notes-write", () => ({
   updateNote: vi.fn(),
 }));
 // The other tool modules share the server; keep their env-bound imports inert.
-vi.mock("~/server/events/action-events", () => ({ logActionEvent: vi.fn() }));
+const activity = vi.hoisted(() => ({ logActionEvent: vi.fn() }));
+vi.mock("~/server/events/action-events", () => activity);
+const live = vi.hoisted(() => ({ publishAppChange: vi.fn() }));
+vi.mock("~/server/note-events", () => live);
 vi.mock("./semantic", () => ({
   scheduleEmbeddingRefresh: vi.fn(),
   semanticSearch: vi.fn(),
@@ -167,6 +170,10 @@ const noteEvent = (overrides: Partial<NoteEvent> = {}): NoteEvent => ({
 
 beforeEach(() => {
   db.event.findMany.mockResolvedValue([]);
+  db.doc.findMany.mockImplementation(
+    async ({ where }: { where: { id: { in: string[] } } }) =>
+      where.id.in.filter((id) => id === "n1").map((id) => ({ id })),
+  );
   db.doc.findUnique.mockResolvedValue({
     id: "n1",
     title: "Jazz Late Set",
@@ -178,7 +185,7 @@ beforeEach(() => {
     id: "n1",
     title: "Jazz Late Set",
     path: null,
-    url: "",
+    appUrl: "",
     version: 1,
     pathIsNew: false,
     deduplicated: false,
@@ -194,20 +201,19 @@ describe("event MCP tools", () => {
     expect(names).toEqual(
       expect.arrayContaining([
         "search",
-        "list_events",
-        "get_event",
-        "find_event_duplicates",
-        "create_event",
-        "update_event",
-        "add_shows",
-        "update_show",
-        "remove_show",
-        "set_decision",
-        "list_places",
-        "upsert_place",
-        "list_feeds",
+        "events_query",
+        "events_get",
+        "events_find_duplicates",
+        "events_create",
+        "events_update",
+        "events_add_shows",
+        "events_update_show",
+        "events_list_feeds",
+        "places_list",
+        "places_upsert",
       ]),
     );
+    expect(names).not.toContain("events_remove_show");
   });
 
   it("refuses a likely duplicate and creates nothing", async () => {
@@ -227,7 +233,7 @@ describe("event MCP tools", () => {
     ]);
     const client = await connect();
     const result = await client.callTool({
-      name: "create_event",
+      name: "events_create",
       arguments: {
         title: "Late Set",
         url: "http://thejazzkitchen.test/events/42",
@@ -235,14 +241,14 @@ describe("event MCP tools", () => {
       },
     });
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("duplicate: Nothing was created");
+    expect(textOf(result)).toContain("duplicate: Nothing was written");
     expect(textOf(result)).toContain("noteId n9, high");
     expect(textOf(result)).toContain("same canonical URL");
     expect(notesWrite.createNote).not.toHaveBeenCalled();
     expect(events.upsertNoteEvent).not.toHaveBeenCalled();
 
     const check = await client.callTool({
-      name: "find_event_duplicates",
+      name: "events_find_duplicates",
       arguments: { title: "Jazz Kitchen - Late Set", dates: ["2026-11-07"] },
     });
     expect(jsonOf(check)).toMatchObject({
@@ -251,7 +257,7 @@ describe("event MCP tools", () => {
     });
 
     const forced = await client.callTool({
-      name: "create_event",
+      name: "events_create",
       arguments: {
         title: "Late Set",
         url: "http://thejazzkitchen.test/events/42",
@@ -303,13 +309,13 @@ describe("event MCP tools", () => {
     };
     const client = await connect();
     const result = await client.callTool({
-      name: "create_event",
+      name: "events_create",
       arguments: {
         title: "Jazz Late Set",
         url: "https://thejazzkitchen.test/events/42",
         summary: "Late set",
         collection: "date nights",
-        properties: { category: "music" },
+        values: { category: "music" },
         place: {
           name: "The Jazz Kitchen",
           street: "5377 N College Ave",
@@ -351,6 +357,15 @@ describe("event MCP tools", () => {
       geocode: { status: "found" },
     });
     expect(body.collection).toMatchObject({ id: "c1", name: "Date Nights" });
+    expect(body.appUrl).toBe("https://notes.test/docs/n1");
+    expect(activity.logActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "event.created",
+        relatedDocId: "n1",
+        context: { actorId: "chatgpt:test", actorType: "chatgpt" },
+      }),
+    );
+    expect(live.publishAppChange).toHaveBeenCalledWith("events", ["n1"]);
     expect(body.shows[0]).toMatchObject({
       date: "2026-11-07",
       time: "20:00",
@@ -358,7 +373,7 @@ describe("event MCP tools", () => {
     });
   });
 
-  it("refuses an unknown select option before creating the note", async () => {
+  it("refuses an unknown property before creating the note", async () => {
     db.collection.findFirst.mockResolvedValue({
       id: "c1",
       name: "Date Nights",
@@ -376,16 +391,16 @@ describe("event MCP tools", () => {
     ]);
     const client = await connect();
     const result = await client.callTool({
-      name: "create_event",
+      name: "events_create",
       arguments: {
         title: "Ballet Gala",
         collection: "c1",
-        properties: { Category: "Dance" },
+        values: { Mood: "Fancy" },
       },
     });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain(
-      'Category: unknown option "Dance". Options: Music',
+      'No property "Mood". Properties: Category',
     );
     expect(notesWrite.createNote).not.toHaveBeenCalled();
   });
@@ -396,8 +411,12 @@ describe("event MCP tools", () => {
     );
     const client = await connect();
     const eventLevel = await client.callTool({
-      name: "set_decision",
-      arguments: { noteId: "n1", decision: "interested", note: "Looks fun" },
+      name: "events_update",
+      arguments: {
+        noteId: "n1",
+        decision: "interested",
+        decisionNote: "Looks fun",
+      },
     });
     expect(events.upsertNoteEvent).toHaveBeenCalledWith("n1", {
       decision: "interested",
@@ -406,13 +425,13 @@ describe("event MCP tools", () => {
     expect(events.updateOccurrence).not.toHaveBeenCalled();
     expect(jsonOf(eventLevel).shows).toEqual([
       expect.objectContaining({
-        occurrenceId: "o1",
-        showDecision: "unreviewed",
+        showId: "o1",
+        decision: "unreviewed",
         effectiveDecision: "interested",
       }),
       expect.objectContaining({
-        occurrenceId: "o2",
-        showDecision: "booked",
+        showId: "o2",
+        decision: "booked",
         effectiveDecision: "booked",
       }),
     ]);
@@ -426,32 +445,39 @@ describe("event MCP tools", () => {
       docId: "n1",
     });
     const showLevel = await client.callTool({
-      name: "set_decision",
-      arguments: { occurrenceId: "o1", decision: "skipped" },
+      name: "events_update_show",
+      arguments: { showId: "o1", decision: "skipped" },
     });
     expect(events.updateOccurrence).toHaveBeenCalledWith("o1", {
       decision: "skipped",
     });
     expect(events.upsertNoteEvent).not.toHaveBeenCalled();
     expect(jsonOf(showLevel)).toMatchObject({
-      target: "show",
-      showDecision: "skipped",
+      showId: "o1",
+      noteId: "n1",
+      decision: "skipped",
       effectiveDecision: "skipped",
+      date: "2026-11-07",
     });
+  });
 
-    const both = await client.callTool({
-      name: "set_decision",
-      arguments: { noteId: "n1", occurrenceId: "o1", decision: "booked" },
+  it("refuses to update an event on a note that does not exist", async () => {
+    const client = await connect();
+    const result = await client.callTool({
+      name: "events_update",
+      arguments: { noteId: "ghost", decision: "booked" },
     });
-    expect(both.isError).toBe(true);
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain("not_found");
+    expect(events.upsertNoteEvent).not.toHaveBeenCalled();
   });
 
   it("reports a missing show as not found", async () => {
     events.updateOccurrence.mockRejectedValue(new Error("Show not found"));
     const client = await connect();
     const result = await client.callTool({
-      name: "update_show",
-      arguments: { occurrenceId: "nope", status: "cancelled" },
+      name: "events_update_show",
+      arguments: { showId: "nope", status: "cancelled" },
     });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toBe("not_found: Show not found");
@@ -461,7 +487,7 @@ describe("event MCP tools", () => {
     events.listOccurrences.mockResolvedValue([]);
     const client = await connect(["notes:read"]);
     const write = await client.callTool({
-      name: "create_event",
+      name: "events_create",
       arguments: { title: "x" },
     });
     expect(write.isError).toBe(true);
@@ -470,11 +496,11 @@ describe("event MCP tools", () => {
     });
     expect(db.event.findMany).not.toHaveBeenCalled();
     const decision = await client.callTool({
-      name: "set_decision",
+      name: "events_update",
       arguments: { noteId: "n1", decision: "booked" },
     });
     expect(decision.isError).toBe(true);
-    const read = await client.callTool({ name: "list_events", arguments: {} });
+    const read = await client.callTool({ name: "events_query", arguments: {} });
     expect(read.isError).toBeFalsy();
   });
 
@@ -492,12 +518,15 @@ describe("event MCP tools", () => {
       },
     ]);
     const client = await connect(["notes:read"]);
-    const result = await client.callTool({ name: "list_feeds", arguments: {} });
+    const result = await client.callTool({
+      name: "events_list_feeds",
+      arguments: {},
+    });
     expect(textOf(result)).not.toContain("token");
     expect(
       db.calendarFeed.findMany.mock.calls[0]![0].select.token,
     ).toBeUndefined();
-    expect(jsonOf(result).results[0].rule).toBe(
+    expect(jsonOf(result).feeds[0].rule).toBe(
       'rows of "Date Nights" matching view "Upcoming"; decisions: interested, booked; 90 past days; +1 included; 1 excluded',
     );
   });

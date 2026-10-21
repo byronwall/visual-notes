@@ -12,7 +12,8 @@ import {
   mcpNotFoundResponse,
   resolvePublicOrigin,
 } from "./config";
-import { createNotesMcpServer, TOOL_SCOPES } from "./tools";
+import { scopeForAnnotations } from "./tool-registry";
+import { createNotesMcpServer } from "./tools";
 
 type Caller = { actorId: string; scopes: string[] };
 type AuthResult =
@@ -55,7 +56,9 @@ async function authenticate(request: Request): Promise<AuthResult> {
   };
 }
 
-type JsonRpcMessage = { result?: { tools?: { name: string }[] } };
+type JsonRpcMessage = {
+  result?: { tools?: { annotations?: { readOnlyHint?: boolean } }[] };
+};
 
 /**
  * ChatGPT reads per-tool `securitySchemes` from tools/list, a field the MCP
@@ -75,9 +78,10 @@ async function withSecuritySchemes(response: Response): Promise<Response> {
   const messages = Array.isArray(body) ? body : [body];
   for (const message of messages) {
     for (const tool of message.result?.tools ?? []) {
-      const scope = TOOL_SCOPES[tool.name];
       Object.assign(tool, {
-        securitySchemes: [{ type: "oauth2", scopes: scope ? [scope] : [] }],
+        securitySchemes: [
+          { type: "oauth2", scopes: [scopeForAnnotations(tool.annotations)] },
+        ],
       });
     }
   }

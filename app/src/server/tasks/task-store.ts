@@ -572,6 +572,8 @@ export type TaskQuery = {
   dueAfter?: string;
   tag?: string;
   sourceDocId?: string;
+  /** Only tasks written as lines in notes. */
+  inNotes?: boolean;
   /** Case-insensitive match on the description. */
   text?: string;
   parentTaskId?: string | null;
@@ -623,7 +625,11 @@ export async function queryTasks(query: TaskQuery): Promise<TaskRow[]> {
       ...(query.tag
         ? { tags: { has: query.tag.trim().replace(/^#/, "") } }
         : {}),
-      ...(query.sourceDocId ? { sourceDocId: query.sourceDocId } : {}),
+      ...(query.sourceDocId
+        ? { sourceDocId: query.sourceDocId }
+        : query.inNotes
+          ? { sourceDocId: { not: null } }
+          : {}),
       ...(query.text?.trim()
         ? {
             description: {

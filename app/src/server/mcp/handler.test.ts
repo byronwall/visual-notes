@@ -8,7 +8,7 @@ const env = vi.hoisted(() => ({
   },
 }));
 vi.mock("~/env/server", () => env);
-vi.mock("./tools", () => ({ createNotesMcpServer: vi.fn(), TOOL_SCOPES: {} }));
+vi.mock("./tools", () => ({ createNotesMcpServer: vi.fn() }));
 vi.mock("~/server/db", () => ({
   prisma: { oAuthGrant: { findUnique: vi.fn() } },
 }));

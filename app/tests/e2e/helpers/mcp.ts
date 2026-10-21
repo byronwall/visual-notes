@@ -16,14 +16,20 @@ export const callMcpTool = async <T = any>(
       authorization: `Bearer ${mcpToken()}`,
       accept: "application/json, text/event-stream",
     },
-    data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+    data: {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name, arguments: args },
+    },
   });
-  if (!response.ok()) throw new Error(`[e2e-mcp] ${name} HTTP ${response.status()}`);
+  if (!response.ok())
+    throw new Error(`[e2e-mcp] ${name} HTTP ${response.status()}`);
   const body = (await response.json()) as {
     result: { isError?: boolean; content: { text: string }[] };
   };
   const text = body.result.content[0].text;
-  if (body.result.isError) throw new Error(`[e2e-mcp] ${name} refused: ${text}`);
-  const parsed = JSON.parse(text);
-  return (parsed?.results ?? parsed) as T;
+  if (body.result.isError)
+    throw new Error(`[e2e-mcp] ${name} refused: ${text}`);
+  return JSON.parse(text) as T;
 };

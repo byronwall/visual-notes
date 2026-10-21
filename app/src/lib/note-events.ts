@@ -23,6 +23,7 @@ export const APP_AREAS = [
   "collections",
   "time-blocks",
   "archive",
+  "events",
 ] as const;
 export type AppArea = (typeof APP_AREAS)[number];
 

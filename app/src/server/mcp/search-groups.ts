@@ -2,7 +2,7 @@ import { prisma } from "~/server/db";
 import { searchArchivedPages } from "~/server/archive/archive-store";
 import { queryTasks } from "~/server/tasks/task-store";
 import { archivePageUrl } from "./archive-tools";
-import { noteUrl, type ConnectorContext } from "./notes-shared";
+import { appLink, noteRef, type ConnectorContext } from "./shared";
 
 // The other kinds `search` can include beside notes, each matched by plain
 // words (case-insensitive) and returned as its own labeled group.
@@ -42,18 +42,18 @@ async function searchResearchCards(
     },
   });
   return cards.map((card) => ({
-    cardId: card.id,
+    id: card.id,
     type: card.type,
     title: card.title,
     state: card.state,
     snippet: (card.snippet || card.body).slice(0, 240) || null,
-    sourceUrl: card.url,
+    url: card.url,
     topic: {
       id: card.topic.id,
       title: card.topic.title,
       archived: Boolean(card.topic.archivedAt),
     },
-    url: `${ctx.origin}/research/${card.topic.slug}`,
+    appUrl: appLink(ctx, `/research/${card.topic.slug}`),
   }));
 }
 
@@ -65,13 +65,7 @@ async function searchTasks(ctx: ConnectorContext, text: string, limit: number) {
     status: task.status,
     list: task.list.name,
     dueDate: task.dueDate ? task.dueDate.toISOString().slice(0, 10) : null,
-    note: task.sourceDocId
-      ? {
-          id: task.sourceDocId,
-          title: task.sourceDoc?.title ?? null,
-          url: noteUrl(ctx, task.sourceDocId),
-        }
-      : null,
+    note: noteRef(ctx, task.sourceDocId, task.sourceDoc?.title),
   }));
 }
 
