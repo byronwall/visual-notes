@@ -7,29 +7,38 @@ import {
   type ParentComponent,
 } from "solid-js";
 import {
+  APP_AREAS,
   NOTE_SOCKET_DISABLED_CLOSE_CODE,
   isNoteSocketServerMessage,
+  type AppArea,
+  type AppChangedEvent,
   type NoteSocketServerMessage,
   type NotesChangedEvent,
 } from "~/lib/note-events";
 import { createSocketClient, type SocketStatus } from "~/lib/socket-client";
 import {
+  APP_LIVE_QUERY_KEYS,
   NOTE_LIVE_DEBOUNCE_MS,
   NOTE_LIVE_QUERY_KEYS,
   NOTE_LIVE_STALE_AFTER_HIDDEN_MS,
 } from "./note-live-keys";
 
 type NotesChangedListener = (event: NotesChangedEvent) => void;
+type AppChangedListener = (event: AppChangedEvent) => void;
 
 type NoteLiveSyncContextValue = {
   /** Called for every notes:changed event, and with `changes: null` after a gap. */
   onNotesChanged: (listener: NotesChangedListener) => () => void;
+  /** Called for every app:changed event, and with `ids: null` after a gap. */
+  onAppChanged: (listener: AppChangedListener) => () => void;
 };
 
 const NoteLiveSyncContext = createContext<NoteLiveSyncContextValue>();
 
 export const NoteLiveSyncProvider: ParentComponent = (props) => {
   const listeners = new Set<NotesChangedListener>();
+  const appListeners = new Set<AppChangedListener>();
+  const pendingKeys = new Set<string>();
   let refreshTimer: number | undefined;
 
   const emit = (event: NotesChangedEvent) => {
@@ -42,12 +51,31 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
     }
   };
 
-  const scheduleListRefresh = () => {
+  const scheduleRefresh = (keys: readonly string[]) => {
+    for (const key of keys) pendingKeys.add(key);
     window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => {
-      console.debug("[note-live] revalidating note queries");
-      void revalidate([...NOTE_LIVE_QUERY_KEYS]);
+      const due = [...pendingKeys];
+      pendingKeys.clear();
+      console.debug("[note-live] revalidating queries", { keys: due });
+      void revalidate(due);
     }, NOTE_LIVE_DEBOUNCE_MS);
+  };
+  const scheduleListRefresh = () => scheduleRefresh(NOTE_LIVE_QUERY_KEYS);
+
+  const handleAppChanged = (event: AppChangedEvent) => {
+    console.debug("[note-live] app changed", {
+      area: event.area,
+      ids: event.ids?.length ?? "all",
+    });
+    scheduleRefresh(APP_LIVE_QUERY_KEYS[event.area] ?? []);
+    for (const listener of appListeners) {
+      try {
+        listener(event);
+      } catch (err) {
+        console.error("[note-live] app listener failed", err);
+      }
+    }
   };
 
   const handleChanged = (event: NotesChangedEvent) => {
@@ -60,11 +88,11 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
 
   const catchUp = (reason: string) => {
     console.info("[note-live] catching up", { reason });
-    handleChanged({
-      type: "notes:changed",
-      changes: null,
-      at: new Date().toISOString(),
-    });
+    const at = new Date().toISOString();
+    handleChanged({ type: "notes:changed", changes: null, at });
+    for (const area of APP_AREAS) {
+      handleAppChanged({ type: "app:changed", area, ids: null, at });
+    }
   };
 
   // Client-only: the socket and visibility events exist only in the browser,
@@ -83,6 +111,7 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
       parse: (value) => (isNoteSocketServerMessage(value) ? value : null),
       onMessage: (message) => {
         if (message.type === "notes:changed") handleChanged(message);
+        else if (message.type === "app:changed") handleAppChanged(message);
       },
       onStatus: (next) => {
         status = next;
@@ -127,6 +156,10 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    onAppChanged(listener) {
+      appListeners.add(listener);
+      return () => appListeners.delete(listener);
+    },
   };
 
   return (
@@ -138,3 +171,22 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
 
 /** Live note-change events, or `undefined` outside the signed-in app shell. */
 export const useNoteLiveSync = () => useContext(NoteLiveSyncContext);
+
+/**
+ * Runs `onChange` when another tab or an agent changes records in `area`
+ * that `matches` (all of them for a catch-up). Outside the signed-in shell
+ * it does nothing.
+ */
+export const useAppChanges = (
+  area: AppArea,
+  onChange: (ids: string[] | null) => void,
+  matches: (id: string) => boolean = () => true,
+) => {
+  const live = useNoteLiveSync();
+  if (!live) return;
+  const stop = live.onAppChanged((event) => {
+    if (event.area !== area) return;
+    if (event.ids === null || event.ids.some(matches)) onChange(event.ids);
+  });
+  onCleanup(stop);
+};

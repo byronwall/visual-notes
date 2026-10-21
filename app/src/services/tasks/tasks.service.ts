@@ -6,6 +6,7 @@ export {
   deleteTask,
   deleteTaskList,
   moveTask,
+  moveTaskToList,
   reorderTaskLists,
   updateTask,
   updateTaskList,

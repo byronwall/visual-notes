@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { ensureInboxList } from "~/server/notes/inline-tasks";
+import { publishAppChange } from "~/server/note-events";
 
 // Plain server functions (not router actions): the editor calls them from a
 // ProseMirror plugin and a NodeView, outside any component's router context.
@@ -30,6 +31,7 @@ export async function createInlineTask(input: {
     select: { id: true, status: true },
   });
   console.info("[inline-tasks] created task %s", task.id);
+  publishAppChange("tasks", [listId]);
   return task;
 }
 
@@ -37,9 +39,11 @@ export async function createInlineTask(input: {
 export async function setInlineTaskDone(input: { taskId: string; done: boolean }) {
   "use server";
   const parsed = z.object({ taskId: z.string().min(1), done: z.boolean() }).parse(input);
-  return prisma.taskItem.update({
+  const task = await prisma.taskItem.update({
     where: { id: parsed.taskId },
     data: { status: parsed.done ? "complete" : "waiting" },
-    select: { id: true, status: true },
+    select: { id: true, status: true, listId: true },
   });
+  publishAppChange("tasks", [task.listId]);
+  return { id: task.id, status: task.status };
 }

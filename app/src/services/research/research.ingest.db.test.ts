@@ -1,18 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, describe, expect, it, vi } from "vitest";
-
-// Runs against a real synthetic Postgres only when RESEARCH_TEST_DATABASE_URL
-// points at a loopback database named visual_notes_audit_* or visual_notes_ci.
-const url = process.env.RESEARCH_TEST_DATABASE_URL;
-const isSafeTestDb = (value: string | undefined) => {
-  if (!value) return false;
-  const parsed = new URL(value);
-  return (
-    ["127.0.0.1", "localhost", "[::1]"].includes(parsed.hostname) &&
-    /^\/(visual_notes_audit_\w+|visual_notes_ci)$/.test(parsed.pathname)
-  );
-};
-const enabled = isSafeTestDb(url);
+import { testDatabaseEnabled as enabled, testDatabaseUrl as url } from "~/test/database";
 
 const { client } = vi.hoisted(() => ({ client: { current: null as PrismaClient | null } }));
 vi.mock("~/server/db", () => ({
