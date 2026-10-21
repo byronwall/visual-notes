@@ -9,12 +9,12 @@ import { ValueCell } from "./values/ValueCell";
 const list = css({
   display: "flex",
   flexDirection: "column",
-  gap: "0.5",
+  gap: "1",
   mb: "4",
 });
 const line = css({
   display: "grid",
-  gridTemplateColumns: "minmax(7rem, 11rem) 1fr",
+  gridTemplateColumns: "minmax(7rem, 10rem) minmax(0, 1fr)",
   alignItems: "center",
   gap: "2",
 });
@@ -56,7 +56,7 @@ export const PropertyList = (props: {
     <div class={list} aria-label="Properties">
       <For each={store.state.properties}>
         {(property) => (
-          <div class={line}>
+          <div class={line} data-property-line="">
             <div class={label}>
               <PropertyKindIcon property={property} />
               <span>{property.name}</span>

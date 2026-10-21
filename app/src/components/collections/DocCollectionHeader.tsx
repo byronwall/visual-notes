@@ -42,23 +42,26 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
   const row = () => store.state.rows[0];
   return (
     <CollectionProvider store={store} openRow={() => {}} embedded={false}>
-      <div class={crumbRow}>
-        <A href={`/collections/${props.info.collection.id}`} class={crumb}>
-          <Show
-            when={props.info.collection.icon}
-            fallback={<DatabaseIcon size={12} />}
-          >
-            <span>{props.info.collection.icon}</span>
-          </Show>
-          {props.info.collection.name}
-        </A>
-        <NoteCollectionMenu
-          docId={props.info.row.id}
-          collectionId={props.info.collection.id}
-          collectionName={props.info.collection.name}
-        />
+      {/* App chrome inside the note's prose: opt out of prose link styling. */}
+      <div class="not-prose">
+        <div class={crumbRow}>
+          <A href={`/collections/${props.info.collection.id}`} class={crumb}>
+            <Show
+              when={props.info.collection.icon}
+              fallback={<DatabaseIcon size={12} />}
+            >
+              <span>{props.info.collection.icon}</span>
+            </Show>
+            {props.info.collection.name}
+          </A>
+          <NoteCollectionMenu
+            docId={props.info.row.id}
+            collectionId={props.info.collection.id}
+            collectionName={props.info.collection.name}
+          />
+        </div>
+        <Show when={row()}>{(r) => <PropertyList row={r()} />}</Show>
       </div>
-      <Show when={row()}>{(r) => <PropertyList row={r()} />}</Show>
     </CollectionProvider>
   );
 };
