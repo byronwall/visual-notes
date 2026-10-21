@@ -113,17 +113,6 @@ export function shiftLabelBoxIntoBounds(box: LabelBox, bounds?: Bounds) {
   return shiftLabelBox(box, shiftX, shiftY);
 }
 
-/** Rounds a world coordinate so it lands on a half screen pixel. */
-export function snapWorldCoordinate(
-  value: number,
-  zoomScale: number,
-  screenOffset: number,
-) {
-  const screenValue = value * zoomScale + screenOffset;
-  const snappedScreenValue = Math.round(screenValue * 2) / 2;
-  return (snappedScreenValue - screenOffset) / zoomScale;
-}
-
 /** Sum of overlap areas between `box` (grown by spacing) and placed boxes. */
 export function measureBoxOverlap(
   box: Bounds,

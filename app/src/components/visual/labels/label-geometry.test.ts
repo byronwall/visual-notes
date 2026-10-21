@@ -3,7 +3,6 @@ import {
   computeLabelBox,
   measureBoxOverlap,
   shiftLabelBoxIntoBounds,
-  snapWorldCoordinate,
   truncateLabelText,
   wrapRegionTitle,
 } from "./label-geometry";
@@ -94,13 +93,5 @@ describe("measureBoxOverlap", () => {
     expect(
       measureBoxOverlap(box, [{ minX: 12, minY: 0, maxX: 20, maxY: 10 }], 3, 0),
     ).toBe(10);
-  });
-});
-
-describe("snapWorldCoordinate", () => {
-  it("lands on a half screen pixel", () => {
-    const value = snapWorldCoordinate(10.37, 1.7, 33.3);
-    const screen = value * 1.7 + 33.3;
-    expect(screen * 2).toBeCloseTo(Math.round(screen * 2), 9);
   });
 });
