@@ -1,5 +1,6 @@
 import { For } from "solid-js";
 import { css } from "styled-system/css";
+import { optionInk } from "~/lib/collections/colors";
 
 const row = css({
   display: "inline-flex",
@@ -14,7 +15,8 @@ const star = css({
   p: "0",
   border: "none",
   cursor: "inherit",
-  "&[data-on]": { color: "amber.9" },
+  // Ochre ink from the option palette, not a UI warning yellow.
+  "&[data-on]": { color: "var(--star-on)" },
   "&:is(button)": { cursor: "pointer", _hover: { transform: "scale(1.15)" } },
   transition: "transform 80ms",
 });
@@ -27,6 +29,7 @@ export const RatingStars = (props: {
 }) => (
   <span
     class={row}
+    style={{ "--star-on": optionInk("yellow") }}
     role={props.onChange ? "radiogroup" : "img"}
     aria-label={`Rating ${props.value} of ${props.max}`}
   >

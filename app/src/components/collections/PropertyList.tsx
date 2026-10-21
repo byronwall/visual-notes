@@ -12,12 +12,19 @@ const list = css({
   flexDirection: "column",
   gap: "1",
   mb: "4",
+  // The list sits in note columns and the narrow peek panel alike, so it
+  // adapts to its own width rather than the viewport.
+  containerType: "inline-size",
 });
 const line = css({
   display: "grid",
   gridTemplateColumns: "minmax(7rem, 10rem) minmax(0, 1fr)",
   alignItems: "center",
   gap: "2",
+  "@container (max-width: 30rem)": {
+    gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+    gap: "1",
+  },
 });
 const label = css({
   display: "flex",

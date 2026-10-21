@@ -54,7 +54,7 @@ export const SidePanel = (props: SidePanelProps) => {
         <Box
           position="fixed"
           inset="0"
-          zIndex="50"
+          zIndex="modal"
           overflow="hidden"
           overscrollBehavior="contain"
           pointerEvents={isModal() ? "auto" : "none"}
