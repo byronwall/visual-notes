@@ -27,6 +27,8 @@ const panel = css({
   p: "3",
   w: "min(40rem, 92vw)",
   fontSize: "sm",
+  // With nothing to edit, size to the hint and buttons instead of a wide sheet.
+  "&[data-empty]": { w: "auto", minW: "18rem" },
 });
 const line = css({
   display: "flex",
@@ -325,7 +327,7 @@ export const FilterEditor = (props: {
     );
 
   return (
-    <div class={panel}>
+    <div class={panel} data-empty={tree().items.length === 0 ? "" : undefined}>
       <Show when={tree().items.length === 0}>
         <span class={empty}>No filters. Rows are shown unfiltered.</span>
       </Show>
