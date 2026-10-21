@@ -2,10 +2,10 @@ import type { RecentKind } from "./recents.types";
 
 export type RecentTouch = { kind: RecentKind; id: string; at: Date };
 
+// Visits only: note edits arrive through `Doc.updatedAt`, and leaving out the
+// high-volume `doc.update` autosave events keeps the grouped scan small.
 const VIEW_EVENT_KINDS: Record<string, RecentKind> = {
   "doc.view": "note",
-  "doc.update": "note",
-  "doc.create": "note",
   "collection.view": "collection",
   "research.view": "research",
   "tag.view": "tag",

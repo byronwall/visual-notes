@@ -10,7 +10,8 @@ import {
 } from "./recents.merge";
 import type { RecentItem } from "./recents.types";
 
-const WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_TAKE = 50;
 
 /**
  * Recently visited or edited notes, collections, research topics, tags, and
@@ -18,8 +19,10 @@ const WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
  * edits that never logged one (imports, agents).
  */
 export const fetchRecentItems = query(
-  async (take = 30): Promise<RecentItem[]> => {
+  async (requested = 30): Promise<RecentItem[]> => {
     "use server";
+    // Server functions take client input; never let it size the queries.
+    const take = Math.min(Math.max(Math.floor(Number(requested) || 30), 1), MAX_TAKE);
     const startedAt = Date.now();
     const since = new Date(Date.now() - WINDOW_MS);
     const [events, docs, collections, topics] = await Promise.all([

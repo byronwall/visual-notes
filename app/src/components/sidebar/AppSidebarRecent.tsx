@@ -17,6 +17,15 @@ import type { RecentItem, RecentKind } from "~/services/recents/recents.types";
 import type { SidebarNavIcon } from "./nav-items";
 import { sidebarRowClass } from "./SidebarNavLink";
 
+/** A malformed escape in the URL must not take down the sidebar. */
+const safeDecode = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 const PLACEHOLDER_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
 
 const KIND_ICONS: Record<RecentKind, SidebarNavIcon> = {
@@ -101,7 +110,7 @@ export const AppSidebarRecent = (props: { expanded: boolean }) => {
     (items() || []).filter((item) => item.kind === "note").map((item) => item.id)
   );
   const isCurrent = (item: RecentItem) =>
-    decodeURIComponent(location.pathname) === decodeURIComponent(item.href);
+    safeDecode(location.pathname) === safeDecode(item.href);
 
   return (
     <Show when={props.expanded}>
