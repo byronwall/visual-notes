@@ -16,6 +16,11 @@ import {
   RESEARCH_TOOL_SCOPES,
 } from "./research-tools";
 import {
+  COLLECTION_INSTRUCTIONS,
+  COLLECTION_TOOL_SCOPES,
+  registerCollectionTools,
+} from "./collections-tools";
+import {
   registerTaskTools,
   TASK_INSTRUCTIONS,
   TASK_TOOL_SCOPES,
@@ -32,6 +37,7 @@ const SERVER_INSTRUCTIONS = [
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
+  COLLECTION_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -78,6 +84,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   edit_note: "notes:write",
   ...RESEARCH_TOOL_SCOPES,
   ...TASK_TOOL_SCOPES,
+  ...COLLECTION_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -289,6 +296,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
 
   registerResearchTools(server, ctx, guarded);
   registerTaskTools(server, ctx, guarded);
+  registerCollectionTools(server, ctx, guarded);
 
   return server;
 }

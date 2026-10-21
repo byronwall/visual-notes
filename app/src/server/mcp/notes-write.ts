@@ -120,10 +120,11 @@ export async function createNote(
     markdown: string;
     idempotencyKey?: string;
   },
+  options: { allowEmptyBody?: boolean } = {},
 ): Promise<CreateResult> {
   const title = input.title.trim();
   if (!title) throw new ConnectorError("invalid", "title is required");
-  if (!input.markdown.trim())
+  if (!input.markdown.trim() && !options.allowEmptyBody)
     throw new ConnectorError("invalid", "markdown is required");
   const path = normalizeNotePath(input.path);
   const key = input.idempotencyKey?.trim() || randomUUID();

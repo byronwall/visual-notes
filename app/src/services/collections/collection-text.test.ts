@@ -54,6 +54,7 @@ describe("collectionTextForNotes", () => {
   it("returns the collection name and non-empty values as text", async () => {
     expect(await collectionTextForNotes(["d1"])).toEqual({
       d1: {
+        collectionId: "c1",
         collection: "Reading",
         properties: { Status: "Done", Pages: "600" },
       },

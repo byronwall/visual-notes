@@ -67,6 +67,23 @@ Tasks go through `server/tasks/task-store.ts`, the same store the Tasks page's r
 - "Move to list" is in the task row menu too, so a task line from the Inbox can be filed anywhere.
 - `tests/e2e/task-agent-sync.spec.ts` drives `/mcp` against a dev server. It needs `MCP_DEV_TOKEN`, so it skips in CI's production build.
 
+### Collection tools
+
+Rows are notes, so a new row is a note the agent owns. Property values are metadata, so agents can set them on any row. Agents refer to properties and options by name and send plain text; `server/mcp/collections-agent.ts` maps those to ids, the same way paste does on the collection page. Option names that don't exist yet are created.
+
+| Tool | Kind | Notes |
+| --- | --- | --- |
+| `collections_list` / `collections_get` | read | Collections with counts; schema with kinds, options, and views |
+| `collections_query` | read | Start from a saved `view`, then add `where` (`{ property, op, value }`, all must match), `sort`, and `search`. Values come back as text. |
+| `collections_create` / `collections_update` | write | New collection (Status, Tags, plus any properties); rename or describe |
+| `collections_add_property` / `collections_update_property` | write | Add a property; rename one or add options |
+| `collections_add_row` | write | A new note in the collection with values; the body is optional |
+| `collections_set_properties` | write | Up to 200 rows, each with its own values; validated before anything is written |
+| `collections_add_notes` / `collections_remove_notes` | write | Membership. Moving carries values by name; removing keeps them stored. |
+| `collections_create_view` | write | Table, board, gallery, or calendar with filters and sorts. With `hostNoteId` (a note the agent owns), it returns the `{{collection-view:id}}` line to put in that note. |
+
+The schema and row logic the page shares with the connector lives in `server/collections/collection-store.ts`. Deleting collections, rows, properties, and views stays with the user, and so do layout choices: column widths, manual row order, and property kind changes. Agent writes log `collection.*` events, and open collection pages and embeds refresh through `app:changed`. `get_notes` reports a row's `collectionId` next to its values.
+
 A note belongs to ChatGPT when `Doc.originalSource = "chatgpt"`. User edits don't change that. Every call is logged as an `ActionEvent` with `actorType = chatgpt`.
 
 ## Configuration

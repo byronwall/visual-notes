@@ -36,6 +36,11 @@ import {
   validatePatch,
 } from "./collections.server";
 import { fetchCollections } from "./collections.queries";
+import {
+  createCollectionRecord,
+  createPropertyRecord,
+  createViewRecord,
+} from "~/server/collections/collection-store";
 
 // Collection edits are applied optimistically by the client store, so most
 // actions revalidate nothing; a bare action would refetch every query.
@@ -75,43 +80,7 @@ export const createCollection = action(
         icon: z.string().max(16).optional(),
       })
       .parse(payload);
-    const created = await prisma.$transaction(async (tx) => {
-      const collection = await tx.collection.create({
-        data: {
-          name: input.name,
-          description: input.description,
-          icon: input.icon,
-        },
-      });
-      await tx.collectionProperty.createMany({
-        data: [
-          {
-            collectionId: collection.id,
-            name: "Status",
-            kind: "status",
-            position: 0,
-            config: defaultConfigFor("status") as Prisma.InputJsonValue,
-          },
-          {
-            collectionId: collection.id,
-            name: "Tags",
-            kind: "multi_select",
-            position: 1,
-            config: defaultConfigFor("multi_select") as Prisma.InputJsonValue,
-          },
-        ],
-      });
-      await tx.collectionView.create({
-        data: {
-          collectionId: collection.id,
-          name: "Table",
-          type: "table",
-          position: 0,
-        },
-      });
-      return collection;
-    });
-    console.info("[collections] created %s", created.id);
+    const created = await createCollectionRecord(input);
     return json({ id: created.id }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
   },
   "collections-create",
@@ -177,23 +146,12 @@ export const createProperty = action(
         config: configSchema.optional(),
       })
       .parse(payload);
-    await requireCollection(input.collectionId);
-    const last = await prisma.collectionProperty.findFirst({
-      where: { collectionId: input.collectionId },
-      orderBy: { position: "desc" },
-      select: { position: true },
-    });
-    const created = await prisma.collectionProperty.create({
-      data: {
-        collectionId: input.collectionId,
-        name: input.name,
-        kind: input.kind,
-        position: (last?.position ?? -1) + 1,
-        config: (input.config ??
-          defaultConfigFor(input.kind)) as Prisma.InputJsonValue,
-      },
-    });
-    return quiet(mapProperty(created));
+    return quiet(
+      await createPropertyRecord({
+        ...input,
+        config: input.config as PropertyConfig | undefined,
+      }),
+    );
   },
   "collections-property-create",
 );
@@ -517,23 +475,8 @@ export const createView = action(
         hostDocId: id.nullable().optional(),
       })
       .parse(payload);
-    await requireCollection(input.collectionId);
-    const last = await prisma.collectionView.findFirst({
-      where: { collectionId: input.collectionId, hostDocId: null },
-      orderBy: { position: "desc" },
-      select: { position: true },
-    });
-    const created = await prisma.collectionView.create({
-      data: {
-        collectionId: input.collectionId,
-        name: input.name,
-        type: input.type,
-        config: (input.config ?? {}) as Prisma.InputJsonValue,
-        hostDocId: input.hostDocId ?? null,
-        position: input.hostDocId ? 0 : (last?.position ?? -1) + 1,
-      },
-    });
-    return quiet(mapView(created)) as unknown as CollectionView;
+    const created = await createViewRecord(input);
+    return quiet(created) as unknown as CollectionView;
   },
   "collections-view-create",
 );

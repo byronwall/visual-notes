@@ -1,6 +1,6 @@
 import type { ActionEventItem } from "~/services/activity/activity.types";
 
-export type ActivityDomain = "doc" | "research" | "task" | "search" | "ai" | "admin" | "other";
+export type ActivityDomain = "doc" | "research" | "task" | "collection" | "search" | "ai" | "admin" | "other";
 
 export const ACTIVITY_DOMAINS: { value: ActivityDomain | "all"; label: string }[] =
   [
@@ -8,6 +8,7 @@ export const ACTIVITY_DOMAINS: { value: ActivityDomain | "all"; label: string }[
     { value: "doc", label: "Notes" },
     { value: "research", label: "Research" },
     { value: "task", label: "Tasks" },
+    { value: "collection", label: "Collections" },
     { value: "search", label: "Search" },
     { value: "ai", label: "AI" },
     { value: "admin", label: "Admin" },
@@ -46,6 +47,7 @@ const plural = (count: number, one: string, many = `${one}s`) =>
 export const activityDomainOf = (eventType: string): ActivityDomain => {
   const domain = eventType.split(".")[0];
   if (domain === "task" || domain === "task_list") return "task";
+  if (domain === "collection") return "collection";
   if (
     domain === "doc" ||
     domain === "research" ||
@@ -107,6 +109,34 @@ const describeTask = (event: ActionEventItem, base: ActivityDescription): Activi
   }
 };
 
+const COLLECTION_VERBS: Record<string, string> = {
+  "collection.created": "Created collection",
+  "collection.updated": "Renamed collection",
+  "collection.property_added": "Added a property to",
+  "collection.property_updated": "Changed a property in",
+  "collection.row_added": "Added a row to",
+  "collection.rows_updated": "Updated rows in",
+  "collection.notes_added": "Added notes to",
+  "collection.notes_removed": "Removed notes from",
+  "collection.view_created": "Created a view in",
+};
+
+const describeCollection = (event: ActionEventItem, base: ActivityDescription): ActivityDescription => {
+  const payload = event.payload;
+  const rows = num(payload, "rowCount");
+  return {
+    ...base,
+    verb: COLLECTION_VERBS[event.eventType] ?? base.verb,
+    docTitle: str(payload, "collectionName"),
+    docHref: event.entityId ? `/collections/${event.entityId}` : null,
+    detail:
+      str(payload, "rowTitle") ??
+      str(payload, "property") ??
+      str(payload, "view") ??
+      (rows ? plural(rows, "row") : null),
+  };
+};
+
 const describeResearch = (event: ActionEventItem, base: ActivityDescription): ActivityDescription => {
   const payload = event.payload;
   const slug = str(payload, "topicSlug");
@@ -163,6 +193,7 @@ export const describeActivityEvent = (
   const query = str(payload, "queryPreview") ?? str(payload, "queryText");
   if (domain === "research") return describeResearch(event, base);
   if (domain === "task") return describeTask(event, base);
+  if (domain === "collection") return describeCollection(event, base);
 
   switch (event.eventType) {
     case "doc.view":
