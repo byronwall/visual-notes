@@ -175,13 +175,11 @@ function placeRegionLabel(
     ...buildExternalCandidates(region, lines, context, flags.isSelected),
     ...buildInsideCandidates(region, lines, context, flags),
   ];
-  const rankedCandidates = candidates
-    .slice()
-    .sort((a, b) => a.score - b.score);
+  const rankedCandidates = candidates.slice().sort((a, b) => a.score - b.score);
   const chosen =
     flags.isSelected && !flags.canOverlapSelectedRegion
-      ? (rankedCandidates.find((candidate) => candidate.showLeader) ??
-        rankedCandidates[0])
+      ? rankedCandidates.find((candidate) => candidate.showLeader) ??
+        rankedCandidates[0]
       : rankedCandidates[0];
   if (!chosen) return undefined;
   const leaderEndX = clamp(region.centroid.x, chosen.box.minX, chosen.box.maxX);
