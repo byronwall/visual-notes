@@ -232,6 +232,10 @@ model Doc {
   collection     Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   hostedViews    CollectionView[] @relation("CollectionViewHost")
 
+  // Events: set when this note is an event (see Event) or a place write-up.
+  event Event?
+  place Place?
+
   @@unique([originalSource, originalContentId])
   @@index([path])
   @@index([collectionId])
@@ -792,6 +796,7 @@ model Collection {
   properties CollectionProperty[]
   views      CollectionView[]
   rows       Doc[]
+  feeds      CalendarFeed[]
 
   @@index([deletedAt, updatedAt])
 }
@@ -826,8 +831,9 @@ model CollectionView {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
-  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  hostDoc    Doc?       @relation("CollectionViewHost", fields: [hostDocId], references: [id], onDelete: SetNull)
+  collection Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  hostDoc    Doc?           @relation("CollectionViewHost", fields: [hostDocId], references: [id], onDelete: SetNull)
+  feeds      CalendarFeed[]
 
   @@index([collectionId, position])
   @@index([hostDocId])
@@ -972,4 +978,153 @@ model ResearchSummaryMember {
 
   @@id([groupId, cardId])
   @@index([cardId])
+}
+
+// ── Events + iCal feeds ─────────────────────────────────────────────────────
+// An event is a note: `Event` holds the details an iCal entry needs and the
+// note-level decision; each dated show is an `EventOccurrence`. Feeds pick
+// events by rule (collection view filter + decisions) plus manual entries.
+
+enum EventDecision {
+  unreviewed
+  interested
+  tentative
+  booked
+  skipped
+  rejected
+}
+
+enum OccurrenceStatus {
+  scheduled
+  cancelled
+  postponed
+  sold_out
+}
+
+enum PlaceKind {
+  venue
+  restaurant
+  shop
+  other
+}
+
+enum FeedEntryMode {
+  include
+  exclude
+}
+
+model Event {
+  id           String        @id @default(cuid())
+  docId        String        @unique
+  /// Official or ticket link; becomes the iCal URL.
+  url          String?
+  /// Short plain-text blurb for calendar entries (no visual-notes link).
+  summary      String?
+  /// Default place for shows that do not set their own.
+  placeId      String?
+  decision     EventDecision @default(unreviewed)
+  decisionNote String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  doc         Doc                 @relation(fields: [docId], references: [id], onDelete: Cascade)
+  place       Place?              @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  occurrences EventOccurrence[]
+  feedEntries CalendarFeedEntry[]
+
+  @@index([placeId])
+}
+
+model EventOccurrence {
+  id            String           @id @default(cuid())
+  eventId       String
+  label         String?
+  startsAt      DateTime
+  endsAt        DateTime?
+  allDay        Boolean          @default(false)
+  /// False publishes the show as an all-day "time TBD" entry.
+  timeConfirmed Boolean          @default(true)
+  timeZone      String           @default("America/Indiana/Indianapolis")
+  placeId       String?
+  ticketStatus  String?
+  status        OccurrenceStatus @default(scheduled)
+  decision      EventDecision    @default(unreviewed)
+  decisionNote  String?
+  /// Note block this show was written from, when it came from note content.
+  sourceBlockId String?
+  /// iCal SEQUENCE; bumped whenever published fields change.
+  sequence      Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  place Place? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
+  @@index([startsAt])
+  @@index([eventId, startsAt])
+  @@index([placeId])
+}
+
+model Place {
+  id             String    @id @default(cuid())
+  name           String
+  normalizedName String
+  kind           PlaceKind @default(venue)
+  street         String?
+  city           String?
+  state          String?
+  postalCode     String?
+  latitude       Float?
+  longitude      Float?
+  url            String?
+  notes          String?
+  /// Optional note with the write-up for this place.
+  docId          String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  doc         Doc?              @relation(fields: [docId], references: [id], onDelete: SetNull)
+  events      Event[]
+  occurrences EventOccurrence[]
+
+  @@index([normalizedName])
+  @@index([kind])
+}
+
+model CalendarFeed {
+  id           String          @id @default(cuid())
+  name         String
+  description  String?
+  /// Secret in the subscribe URL `/cal/<token>.ics`; rotate to revoke.
+  token        String          @unique
+  /// Rule: events whose notes are rows of this collection...
+  collectionId String?
+  /// ...that match this view's filter (absent = every row)...
+  viewId       String?
+  /// ...with an effective decision in this set (empty = any).
+  decisions    EventDecision[] @default([])
+  /// Past shows kept in the feed.
+  pastDays     Int             @default(90)
+  deletedAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  collection Collection?         @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  view       CollectionView?     @relation(fields: [viewId], references: [id], onDelete: SetNull)
+  entries    CalendarFeedEntry[]
+
+  @@index([deletedAt])
+}
+
+model CalendarFeedEntry {
+  feedId    String
+  eventId   String
+  mode      FeedEntryMode
+  createdAt DateTime      @default(now())
+
+  feed  CalendarFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  event Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([feedId, eventId])
+  @@index([eventId])
 }
