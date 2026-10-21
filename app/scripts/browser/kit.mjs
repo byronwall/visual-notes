@@ -104,7 +104,13 @@ export const openApp = async (options = {}) => {
   const ignoreErrors = options.ignoreErrors ?? [];
   const browser = await chromium.launch();
   const authPath = authPathFor(base);
-  if (options.auth !== false) await signIn(browser, base, authPath);
+  if (options.auth !== false) {
+    // Close the browser on a failed sign-in, or its process keeps the script alive.
+    await signIn(browser, base, authPath).catch(async (error) => {
+      await browser.close();
+      throw error;
+    });
+  }
   mkdirSync(out, { recursive: true });
 
   const failures = [];
