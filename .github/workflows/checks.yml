@@ -118,9 +118,9 @@ jobs:
 
       # Database-backed unit tests skip unless this points at a loopback test DB.
       - name: Database unit tests
-        run: pnpm vitest run src/services/research
+        run: pnpm test .db.test
         env:
-          RESEARCH_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium

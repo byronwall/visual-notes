@@ -41,7 +41,10 @@ const start = () => {
     unsubscribe = subscribeNoteChanges((event) => {
       console.debug("[note-socket] broadcast", {
         peers: peers.size,
-        changes: event.changes?.length ?? "all",
+        type: event.type,
+        changes:
+          (event.type === "app:changed" ? event.ids : event.changes)?.length ??
+          "all",
       });
       broadcast(event);
     });
