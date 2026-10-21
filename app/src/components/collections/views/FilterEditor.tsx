@@ -18,6 +18,7 @@ import type {
 import { STATUS_GROUPS } from "~/lib/collections/types";
 import { OptionChip } from "../values/OptionChip";
 import { GROUP_LABELS } from "../values/OptionPicker";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const panel = css({
   display: "flex",
@@ -124,6 +125,7 @@ const ConditionValue = (props: {
       <Switch
         fallback={
           <input
+            {...noAutofill}
             class={control}
             value={String(props.condition.value ?? "")}
             placeholder="Value"
@@ -189,6 +191,7 @@ const ConditionValue = (props: {
           }
         >
           <input
+            {...noAutofill}
             class={control}
             style={{ width: "6rem" }}
             type="number"
@@ -209,6 +212,7 @@ const ConditionValue = (props: {
           )}
         >
           <input
+            {...noAutofill}
             class={control}
             type="date"
             value={String(props.condition.value ?? "")}

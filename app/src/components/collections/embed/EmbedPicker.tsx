@@ -11,6 +11,7 @@ import {
   fetchCollectionBundle,
   fetchCollections,
 } from "~/services/collections/collections.queries";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const box = css({
   borderWidth: "1px",
@@ -150,6 +151,7 @@ export const EmbedPicker = (props: {
         </button>
       </div>
       <input
+        {...noAutofill}
         class={search}
         placeholder="Search collections or type a new name"
         aria-label="Search collections"

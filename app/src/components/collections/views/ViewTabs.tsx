@@ -26,6 +26,7 @@ import {
   menuSeparator,
 } from "../menu/MenuList";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 export const VIEW_ICONS: Record<ViewType, typeof TableIcon> = {
   table: TableIcon,
@@ -92,6 +93,7 @@ const ViewMenu = (props: {
   return (
     <div class={menuPanel} style={{ width: "15rem" }}>
       <input
+        {...noAutofill}
         class={menuInput}
         value={props.view.name}
         aria-label="View name"

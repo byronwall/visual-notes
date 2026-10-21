@@ -11,6 +11,7 @@ import {
 import { GROUP_LABELS } from "../values/OptionPicker";
 import { useCollection } from "../CollectionContext";
 import { menuSection } from "./MenuList";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const row = css({
   display: "flex",
@@ -123,6 +124,7 @@ export const OptionsEditor = (props: { property: CollectionProperty }) => {
                 }}
               />
               <input
+                {...noAutofill}
                 class={nameInput}
                 value={option.name}
                 aria-label="Option name"

@@ -9,6 +9,7 @@ import {
   searchNotesForCollection,
 } from "~/services/collections/collections.membership";
 import { useCollection } from "../CollectionContext";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const filters = css({ display: "flex", gap: "2", mb: "2", w: "full" });
 const input = css({
@@ -156,6 +157,7 @@ export const AddNotesDialog = (props: {
     >
       <div class={filters}>
         <input
+          {...noAutofill}
           class={input}
           placeholder="Search titles"
           aria-label="Search notes"
@@ -163,6 +165,7 @@ export const AddNotesDialog = (props: {
           onInput={(e) => setQ(e.currentTarget.value)}
         />
         <input
+          {...noAutofill}
           class={input}
           placeholder="Path starts with, e.g. work.papers"
           aria-label="Path prefix"

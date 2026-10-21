@@ -9,6 +9,7 @@ import type {
 import { STATUS_GROUPS } from "~/lib/collections/types";
 import { optionById } from "~/lib/collections/values";
 import { OptionChip } from "./OptionChip";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const GROUP_LABELS: Record<StatusGroup, string> = {
   todo: "To do",
@@ -235,6 +236,7 @@ export const OptionPicker = (props: {
           )}
         </For>
         <input
+          {...noAutofill}
           ref={inputEl}
           class={input}
           value={query()}
