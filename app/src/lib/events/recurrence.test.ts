@@ -113,3 +113,36 @@ describe("expandRepeat", () => {
     ).toThrow();
   });
 });
+
+describe("formatShowWhen", () => {
+  it("formats in the show's zone, with TBD and all-day cases", async () => {
+    const { formatShowWhen } = await import("./format");
+    const base = { timeZone: TZ, allDay: false, timeConfirmed: true };
+    expect(
+      formatShowWhen({
+        ...base,
+        startsAt: "2026-11-08T01:00:00.000Z",
+        endsAt: "2026-11-08T04:30:00.000Z",
+      }),
+    ).toBe("Sat, Nov 7 · 8:00 PM – 11:30 PM");
+    expect(
+      formatShowWhen({
+        ...base,
+        timeConfirmed: false,
+        startsAt: "2026-11-08T05:00:00.000Z",
+        endsAt: null,
+      }),
+    ).toBe("Sun, Nov 8 · Time TBD");
+    expect(
+      formatShowWhen(
+        {
+          ...base,
+          allDay: true,
+          startsAt: "2026-11-08T05:00:00.000Z",
+          endsAt: null,
+        },
+        2025,
+      ),
+    ).toBe("Sun, Nov 8, 2026 · All day");
+  });
+});
