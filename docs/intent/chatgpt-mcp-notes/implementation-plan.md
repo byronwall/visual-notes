@@ -3,10 +3,16 @@ title: "ChatGPT read/write access to Visual Notes via MCP — implementation pla
 slug: "chatgpt-mcp-notes"
 phase: plan
 status: draft
-last_updated: "2026-10-18"
+last_updated: "2026-10-20"
 ---
 
 # ChatGPT notes connector — implementation plan
+
+## Status
+
+Milestones 1, 2, 4, and 5 shipped; the connector, OAuth, and semantic recall are on `main`. The prod ChatGPT loop (M3 smoke) and the recall eval are still the user's to run.
+
+A six-PR stack then grew the connector from notes to the whole app (#154, #155, #161, #165, #169, and the parity layer). Agents now read and write research topics, tasks, collections, the time-blocks calendar, the web archive, note meta, and versions, and every write is logged and refreshes open tabs. The rules from this plan held: agents change only the content of notes they created, metadata is open on any record, and deleting stays with the user. [app/docs/mcp-connector.md](../../../app/docs/mcp-connector.md) is the reference, and [app/docs/mcp-parity.md](../../../app/docs/mcp-parity.md) maps every app action to a tool or a reason it stays human-only.
 
 ## Plan at a glance
 
@@ -131,7 +137,7 @@ This is the only live proof. It needs you to deploy and to act in ChatGPT.
 
 ## Below the cut line
 
-- Tasks, time blocks, and web archive tools. Delete. Edits to notes you wrote.
+- Delete, and edits to the content of notes you wrote. (Tasks, time blocks, and web archive tools shipped later in the parity stack.)
 - CIMD client registration, mTLS or ChatGPT egress-IP allowlisting, and multi-user accounts.
 - Snapshots for your own app edits, and diff views between versions.
 - Apps SDK UI widgets inside ChatGPT. Changes to the in-app search UI.

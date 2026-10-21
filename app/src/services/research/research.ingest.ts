@@ -6,6 +6,8 @@ import {
   ingestPayloadSchema,
   type IngestPayloadInput,
 } from "./research.payload";
+import { publishAppChange } from "~/server/note-events";
+import { reapplyEffects, revertEffects, type EditEffects } from "./research.edits";
 import { planIngest } from "./research.plan";
 import type { ResearchCardState } from "./research.types";
 
@@ -27,9 +29,10 @@ export type IngestResult = {
   summaryCount: number;
 };
 
-type StoredResult = Omit<IngestResult, "replayed" | "batchId" | "batchKey"> & {
-  stateChanges?: StateChange[];
-};
+type StoredResult = Omit<IngestResult, "replayed" | "batchId" | "batchKey"> &
+  EditEffects & {
+    stateChanges?: StateChange[];
+  };
 
 type StateChange = { id: string; from: ResearchCardState | null; to: ResearchCardState };
 
@@ -130,6 +133,7 @@ export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<
     console.info(
       `[research-ingest] topic=${topicId} batch=${result.batchKey} cards=${result.cardCount} links=${result.linkCount} summaries=${result.summaryCount} replayed=${result.replayed} ms=${Date.now() - started}`,
     );
+    if (!result.replayed) publishAppChange("research", [topicId]);
     return result;
   } catch (error) {
     // Two concurrent retries of one batchKey: the loser returns the winner's result.
@@ -162,7 +166,7 @@ export const setCardStates = async (
   });
   if (existing) return replay(existing);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const cards = await tx.researchCard.findMany({
       where: { topicId, hiddenAt: null, id: { in: input.changes.map((change) => change.id) } },
       select: { id: true, type: true, state: true },
@@ -196,6 +200,8 @@ export const setCardStates = async (
     }
     return { batchId, batchKey: input.batchKey, replayed: false, ...stored };
   });
+  publishAppChange("research", [topicId]);
+  return result;
 };
 
 export type UndoResult = { ok: true } | { ok: false; reason: string; blockingBatchIds: string[] };
@@ -205,7 +211,10 @@ export type UndoResult = { ok: true } | { ok: false; reason: string; blockingBat
  * a later, still-active batch built on top of it, so nothing is orphaned.
  */
 export const undoBatch = async (batchId: string): Promise<UndoResult> =>
-  prisma.$transaction(async (tx) => {
+  withTopicChange(batchId, (tx) => undoInTx(tx, batchId));
+
+const undoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<UndoResult> => {
+  {
     const batch = await tx.researchBatch.findUnique({ where: { id: batchId } });
     if (!batch) return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
     if (batch.undoneAt) return { ok: true };
@@ -240,19 +249,25 @@ export const undoBatch = async (batchId: string): Promise<UndoResult> =>
     }
 
     const now = new Date();
+    const stored = (batch.result ?? {}) as Partial<StoredResult>;
+    const refused = await revertEffects(tx, stored);
+    if (refused) return { ok: false, reason: refused, blockingBatchIds: [] };
     await tx.researchCard.updateMany({ where: { batchId }, data: { hiddenAt: now } });
     await tx.researchLink.updateMany({ where: { batchId }, data: { hiddenAt: now } });
-    const stored = (batch.result ?? {}) as Partial<StoredResult>;
     for (const change of stored.stateChanges ?? []) {
       await tx.researchCard.update({ where: { id: change.id }, data: { state: change.from } });
     }
     await tx.researchBatch.update({ where: { id: batchId }, data: { undoneAt: now } });
     return { ok: true };
-  });
+  }
+};
 
 /** Restore an undone batch, refusing if anything it hangs from is now hidden. */
 export const redoBatch = async (batchId: string): Promise<UndoResult> =>
-  prisma.$transaction(async (tx) => {
+  withTopicChange(batchId, (tx) => redoInTx(tx, batchId));
+
+const redoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<UndoResult> => {
+  {
     const batch = await tx.researchBatch.findUnique({ where: { id: batchId } });
     if (!batch) return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
     if (!batch.undoneAt) return { ok: true };
@@ -269,11 +284,26 @@ export const redoBatch = async (batchId: string): Promise<UndoResult> =>
     await tx.researchCard.updateMany({ where: { batchId }, data: { hiddenAt: null } });
     await tx.researchLink.updateMany({ where: { batchId }, data: { hiddenAt: null } });
     const stored = (batch.result ?? {}) as Partial<StoredResult>;
+    await reapplyEffects(tx, stored);
     for (const change of stored.stateChanges ?? []) {
       await tx.researchCard.update({ where: { id: change.id }, data: { state: change.to } });
     }
     await tx.researchBatch.update({ where: { id: batchId }, data: { undoneAt: null } });
     return { ok: true };
-  });
+  }
+};
+
+/** Runs an undo/redo and tells open canvases of that topic when it lands. */
+const withTopicChange = async (
+  batchId: string,
+  work: (tx: Prisma.TransactionClient) => Promise<UndoResult>,
+): Promise<UndoResult> => {
+  const result = await prisma.$transaction(work);
+  if (result.ok) {
+    const batch = await prisma.researchBatch.findUnique({ where: { id: batchId }, select: { topicId: true } });
+    if (batch) publishAppChange("research", [batch.topicId]);
+  }
+  return result;
+};
 
 export type { IngestPayloadInput };

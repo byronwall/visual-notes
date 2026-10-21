@@ -363,6 +363,8 @@ export const TaskRow = (props: Props) => {
         onEditDetails={() => ctx.openDetails(props.task)}
         onAddSubtask={() => ctx.addSubtask(props.task)}
         onDelete={() => ctx.deleteTask(props.task)}
+        otherLists={ctx.otherLists()}
+        onMoveToList={(listId) => ctx.moveToList(props.task, listId)}
       />
     </div>
   );
