@@ -9,8 +9,13 @@ const REFRESH_BATCH = 25;
 const MAX_FOLLOW_UPS = 40;
 const SWEEP_INTERVAL_MS = 15 * 60_000;
 
+/** The sweep timer lives on `globalThis` so HMR and duplicate bundles share it. */
+const SWEEP_TIMER_KEY = Symbol.for("visual-notes.embedding-sweep");
+type SweepGlobal = typeof globalThis & {
+  [SWEEP_TIMER_KEY]?: ReturnType<typeof setInterval>;
+};
+
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-let sweepTimer: ReturnType<typeof setInterval> | null = null;
 let refreshing = false;
 let pendingAfterRun = false;
 let pendingSweep = false;
@@ -50,12 +55,20 @@ export function scheduleEmbeddingRefresh(options?: { sweep?: boolean }): void {
  * to a restart.
  */
 export function startEmbeddingSweep(): void {
-  if (sweepTimer || process.env.NODE_ENV === "test") return;
-  sweepTimer = setInterval(
+  if (process.env.NODE_ENV === "test") return;
+  const store = globalThis as SweepGlobal;
+  const previous = store[SWEEP_TIMER_KEY];
+  // A re-evaluated module (dev HMR) re-arms the timer with its own code but
+  // skips the boot pass, which already ran.
+  if (previous) clearInterval(previous);
+  const timer = setInterval(
     () => scheduleEmbeddingRefresh({ sweep: true }),
     SWEEP_INTERVAL_MS,
   );
-  unref(sweepTimer);
+  unref(timer);
+  store[SWEEP_TIMER_KEY] = timer;
+  if (previous) return;
+  console.info(`${LOG_PREFIX} sweep started`);
   scheduleEmbeddingRefresh({ sweep: true });
 }
 
