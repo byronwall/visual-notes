@@ -1,11 +1,12 @@
 import type { ActionEventItem } from "~/services/activity/activity.types";
 
-export type ActivityDomain = "doc" | "search" | "ai" | "admin" | "other";
+export type ActivityDomain = "doc" | "research" | "search" | "ai" | "admin" | "other";
 
 export const ACTIVITY_DOMAINS: { value: ActivityDomain | "all"; label: string }[] =
   [
     { value: "all", label: "All" },
     { value: "doc", label: "Notes" },
+    { value: "research", label: "Research" },
     { value: "search", label: "Search" },
     { value: "ai", label: "AI" },
     { value: "admin", label: "Admin" },
@@ -22,6 +23,8 @@ export type ActivityDescription = {
   /** Link for events that point somewhere other than a note. */
   href: string | null;
   tone: "default" | "danger";
+  /** Who did it, when it was not you in the app (an agent or the API). */
+  via: string | null;
 };
 
 const str = (payload: ActionEventItem["payload"], key: string) => {
@@ -41,7 +44,13 @@ const plural = (count: number, one: string, many = `${one}s`) =>
 
 export const activityDomainOf = (eventType: string): ActivityDomain => {
   const domain = eventType.split(".")[0];
-  if (domain === "doc" || domain === "search" || domain === "ai" || domain === "admin") {
+  if (
+    domain === "doc" ||
+    domain === "research" ||
+    domain === "search" ||
+    domain === "ai" ||
+    domain === "admin"
+  ) {
     return domain;
   }
   return "other";
@@ -53,6 +62,61 @@ const humanizeEventType = (eventType: string) => {
 };
 
 const quote = (value: string) => `“${value}”`;
+
+/** "Claude Code", "ChatGPT", or the API caller for non-user events. */
+const viaOf = (event: ActionEventItem): string | null => {
+  const agent = str(event.payload, "agent");
+  if (agent && agent !== "you") return agent;
+  if (event.actorType === "chatgpt") {
+    const id = event.actorId ?? "";
+    return id.startsWith("chatgpt") || !id ? "ChatGPT" : id;
+  }
+  if (event.actorType === "system" && event.actorId?.startsWith("research-api")) return "research API";
+  return null;
+};
+
+const BATCH_VERBS: Record<string, string> = {
+  ingest: "Added research to",
+  link: "Linked cards in",
+  state: "Changed card states in",
+  edit: "Edited cards in",
+  remove: "Removed cards from",
+};
+
+const describeResearch = (event: ActionEventItem, base: ActivityDescription): ActivityDescription => {
+  const payload = event.payload;
+  const slug = str(payload, "topicSlug");
+  const topic = {
+    ...base,
+    docTitle: str(payload, "topicTitle"),
+    docHref: slug ? `/research/${slug}` : null,
+  };
+  const summary = str(payload, "summary");
+  const cards = num(payload, "cardCount");
+  switch (event.eventType) {
+    case "research.topic_created":
+      return { ...topic, verb: "Created research topic" };
+    case "research.topic_updated": {
+      const change = str(payload, "change") ?? "updated";
+      return { ...topic, verb: `${change.charAt(0).toUpperCase()}${change.slice(1)} research topic` };
+    }
+    case "research.batch_added": {
+      const kind = str(payload, "kind") ?? "ingest";
+      return {
+        ...topic,
+        verb: BATCH_VERBS[kind] ?? "Changed",
+        detail: [summary ? quote(summary) : null, cards ? plural(cards, "card") : null].filter(Boolean).join(" · ") || null,
+        tone: kind === "remove" ? "danger" : "default",
+      };
+    }
+    case "research.batch_undone":
+      return { ...topic, verb: "Undid a batch in", detail: summary ? quote(summary) : null };
+    case "research.batch_redone":
+      return { ...topic, verb: "Redid a batch in", detail: summary ? quote(summary) : null };
+    default:
+      return topic;
+  }
+};
 
 export const describeActivityEvent = (
   event: ActionEventItem,
@@ -70,8 +134,10 @@ export const describeActivityEvent = (
     detail: null,
     href: null,
     tone: "default",
+    via: viaOf(event),
   };
   const query = str(payload, "queryPreview") ?? str(payload, "queryText");
+  if (domain === "research") return describeResearch(event, base);
 
   switch (event.eventType) {
     case "doc.view":

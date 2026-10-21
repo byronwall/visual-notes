@@ -118,7 +118,7 @@ jobs:
 
       # Database-backed unit tests skip unless this points at a loopback test DB.
       - name: Database unit tests
-        run: pnpm vitest run .db.test
+        run: pnpm test .db.test
         env:
           TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
 

@@ -7,10 +7,11 @@ A research topic is one canvas of cards: tasks, questions, findings, sources, op
 | Piece | Location |
 | --- | --- |
 | Data model | `ResearchTopic`, `ResearchCard`, `ResearchLink`, `ResearchSummaryGroup`, `ResearchBatch` in `prisma/schema.prisma` |
-| Write seam | `services/research/research.ingest.ts`: `ingestTree` (one transaction, `batchKey` idempotency, summaries land as drafts), `setCardStates`, `undoBatch`, `redoBatch` |
+| Write seam | `services/research/research.ingest.ts`: `ingestTree` (one transaction, `batchKey` idempotency, summaries land as drafts), `setCardStates`, `undoBatch`, `redoBatch`; `research.edits.ts`: `editCards`, `removeCards` (undoable batches that store before/after), `updateTopic` |
 | Payload rules | `research.payload.ts` (zod) and `research.plan.ts` (pure planner: refs, `$0.1` paths, every error at once) |
 | Fold + layout | `components/research/layout/fold.ts` and `tree-layout.ts` (pure, unit tested) |
-| UI | `/research` (topic index), `/research/:slug` (canvas; `?view=outline`, `?card=<id>`) |
+| UI | `/research` (topic index, "Show archived"), `/research/:slug` (canvas; `?view=outline`, `?card=<id>`). The detail panel edits and removes cards as batches by "you"; the header renames and archives the topic. Open pages refresh on `app:changed` research events. |
+| Activity | `research.activity.ts` logs `research.*` events for agent, API, and in-app writes |
 | Agents | MCP `research_*` tools in `server/mcp/research-tools.ts`, and REST `POST /api/research/topics[/:topic/ingest]` with `Authorization: Bearer $RESEARCH_AGENT_TOKEN` |
 
 ## Behavior worth knowing
@@ -25,9 +26,9 @@ A research topic is one canvas of cards: tasks, questions, findings, sources, op
 cd app
 pnpm test -- src/services/research src/components/research src/server/mcp/research-tools.test.ts
 # DB-backed ingest tests (loopback synthetic DB only)
-RESEARCH_TEST_DATABASE_URL=postgresql://…/visual_notes_audit_x pnpm test -- src/services/research
+TEST_DATABASE_URL=postgresql://…/visual_notes_audit_x pnpm test .db.test
 # Seed fixture topics through REST against a running app
 pnpm research:seed --base http://127.0.0.1:<port> --token <RESEARCH_AGENT_TOKEN> tests/fixtures/research/learn-rust-async.json
 ```
 
-The audit harness sets `RESEARCH_AGENT_TOKEN=audit-harness-research-token`. It also forwards `MCP_CONNECTOR_ENABLED` and `MCP_DEV_TOKEN` from the env file, so a local agent can connect to `/mcp`. The browser spec is `tests/e2e/research-canvas.spec.ts`; set `RESEARCH_SHOTS_DIR` to save a screenshot of each zoom level.
+The audit harness sets `RESEARCH_AGENT_TOKEN=audit-harness-research-token`. It also forwards `MCP_CONNECTOR_ENABLED` and `MCP_DEV_TOKEN` from the launching shell or the env file, so a local agent can connect to `/mcp`. The browser specs are `tests/e2e/research-canvas.spec.ts` and `research-editing.spec.ts`; set `RESEARCH_SHOTS_DIR` to save screenshots.

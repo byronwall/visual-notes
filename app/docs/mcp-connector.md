@@ -28,8 +28,13 @@ The same server exposes research topics (see [research-threads.md](research-thre
 | `research_ingest_tree` | write | Nested cards, links, and draft summaries as one transactional, undoable batch; `batchKey` makes retries safe |
 | `research_add_card` / `research_link_cards` | write | One-card and one-link shortcuts over the same ingest |
 | `research_set_state` | write | Open/done/dropped as an undoable batch |
+| `research_update_cards` | write | Title, body, url, snippet, imageUrl of existing cards, as an undoable batch |
+| `research_remove_cards` | write | Hide cards as an undoable batch; a card with children goes only with them |
+| `research_list_batches` | read | The topic's history with batch ids and undone flags |
+| `research_undo_batch` / `research_redo_batch` | write | By batch id or batchKey; refused while later batches build on it |
+| `research_update_topic` | write | Rename and/or archive; `research_list_topics` takes `includeArchived` |
 
-Research writes record the caller (`actorId`, or the `agent` argument) on the batch shown in the topic's history, where the user can undo it.
+Research writes record the caller (`actorId`, or the `agent` argument) on the batch shown in the topic's history, where the user can undo it. Each one also lands in the activity timeline as a `research.*` event marked "via" the agent, and open canvases refresh through the live socket. Accepting summaries and dragging cards stay with the user.
 
 ### Markdown dialect
 

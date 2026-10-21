@@ -1,12 +1,17 @@
 import { useAction } from "@solidjs/router";
 import { XIcon } from "lucide-solid";
-import { createMemo, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import { css } from "styled-system/css";
-import { setResearchCardNudge, setResearchCardState } from "~/services/research/research.actions";
+import {
+  removeResearchCards,
+  setResearchCardNudge,
+  setResearchCardState,
+} from "~/services/research/research.actions";
 import { RESEARCH_CARD_STATES, type ResearchCard } from "~/services/research/research.types";
 import { CardBody } from "../CardBody";
 import { CARD_STATE_META, CARD_TYPE_META, CardTypeIcon } from "../cardTypeMeta";
 import type { TopicData } from "../createTopicData";
+import { CardEditForm } from "./CardEditForm";
 import { CardLinkList } from "./CardLinkList";
 import { sectionLabelClass, textButtonClass } from "./detailStyles";
 import { SummaryReview } from "./SummaryReview";
@@ -32,7 +37,39 @@ const stateButtonClass = css({
 export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; onSelect: (id: string | null) => void }) => {
   const runState = useAction(setResearchCardState);
   const runNudge = useAction(setResearchCardNudge);
+  const runRemove = useAction(removeResearchCards);
+  const [editing, setEditing] = createSignal(false);
+  const [confirmRemove, setConfirmRemove] = createSignal(false);
+  // Selecting another card closes the editor and any pending remove.
+  createEffect(
+    on(
+      () => props.card.id,
+      () => {
+        setEditing(false);
+        setConfirmRemove(false);
+      },
+      { defer: true },
+    ),
+  );
   const byId = () => props.data.cardsById();
+  const topicId = () => props.data.current()?.topic.id ?? "";
+  const isSummary = () => props.card.type === "summary";
+
+  /** The card and every visible card that came from it. */
+  const subtree = () => {
+    const ids: string[] = [];
+    const walk = (id: string) => {
+      ids.push(id);
+      for (const child of props.data.children().get(id) ?? []) walk(child.id);
+    };
+    walk(props.card.id);
+    return ids;
+  };
+  const remove = async () => {
+    await runRemove({ topicId: topicId(), ids: subtree() });
+    props.onSelect(null);
+    props.data.reload();
+  };
 
   const pedigree = createMemo(() => {
     const chain: ResearchCard[] = [];
@@ -75,7 +112,21 @@ export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; on
           <XIcon size={14} />
         </button>
       </div>
-      <h2 class={css({ fontSize: "md", fontWeight: "semibold", mb: "1.5" })}>{props.card.title}</h2>
+      <Show
+        when={editing()}
+        fallback={
+          <h2 class={css({ fontSize: "md", fontWeight: "semibold", mb: "1.5" })}>{props.card.title}</h2>
+        }
+      >
+        <CardEditForm
+          topicId={topicId()}
+          card={props.card}
+          onDone={(changed) => {
+            setEditing(false);
+            if (changed) props.data.reload();
+          }}
+        />
+      </Show>
 
       <Show when={props.card.state}>
         <div class={css({ display: "flex", gap: "0.5", mb: "2" })} role="group" aria-label="State">
@@ -98,9 +149,33 @@ export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; on
         </div>
       </Show>
 
-      <div class={css({ display: "flex", flexDirection: "column", gap: "1.5" })}>
-        <CardBody card={props.card} />
-      </div>
+      <Show when={!editing()}>
+        <div class={css({ display: "flex", flexDirection: "column", gap: "1.5" })}>
+          <CardBody card={props.card} />
+        </div>
+        <Show when={!isSummary()}>
+          <div class={css({ display: "flex", gap: "1", mt: "1.5", flexWrap: "wrap" })}>
+            <button type="button" class={textButtonClass} onClick={() => setEditing(true)}>
+              Edit
+            </button>
+            <Show
+              when={confirmRemove()}
+              fallback={
+                <button type="button" class={textButtonClass} data-tone="danger" onClick={() => setConfirmRemove(true)}>
+                  Remove
+                </button>
+              }
+            >
+              <button type="button" class={textButtonClass} data-tone="danger" onClick={remove}>
+                {subtree().length > 1 ? `Remove with ${subtree().length - 1} below` : "Confirm remove"}
+              </button>
+              <button type="button" class={textButtonClass} onClick={() => setConfirmRemove(false)}>
+                Keep
+              </button>
+            </Show>
+          </div>
+        </Show>
+      </Show>
 
       <Show when={ownGroup()}>
         {(group) => (

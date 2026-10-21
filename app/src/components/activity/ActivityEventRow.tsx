@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   FileTextIcon,
+  FlaskConicalIcon,
   SearchIcon,
   SparklesIcon,
   WrenchIcon,
@@ -13,6 +14,7 @@ import { type ActivityDomain, describeActivityEvent } from "./activity-format";
 
 const domainIcon: Record<ActivityDomain, typeof ActivityIcon> = {
   doc: FileTextIcon,
+  research: FlaskConicalIcon,
   search: SearchIcon,
   ai: SparklesIcon,
   admin: WrenchIcon,
@@ -126,6 +128,14 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
                 View
               </styled.a>
             </>
+          )}
+        </Show>
+        <Show when={description().via}>
+          {(via) => (
+            <styled.span color="fg.subtle" fontSize="xs">
+              {" · via "}
+              {via()}
+            </styled.span>
           )}
         </Show>
         <Show when={props.count > 1}>

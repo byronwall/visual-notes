@@ -6,8 +6,10 @@ import { listFrontier } from "~/services/research/research.graph";
 import { ingestTree, ResearchIngestError, setCardStates } from "~/services/research/research.ingest";
 import { createTopic, listTopics, loadTopicGraph, resolveTopic } from "~/services/research/research.store";
 import { RESEARCH_CARD_STATES, RESEARCH_CARD_TYPES } from "~/services/research/research.types";
+import { batchPayload, logResearchEvent } from "~/services/research/research.activity";
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { formatCard, formatTopicOutline, formatTopicSummary } from "./research-format";
+import { registerResearchEditTools, RESEARCH_EDIT_TOOL_SCOPES } from "./research-tools-edit";
 
 // Research topics over the same connector as notes. Every write goes through
 // ingestTree or setCardStates, so agent writes are validated, batched, and
@@ -23,6 +25,7 @@ export const RESEARCH_TOOL_SCOPES: Record<string, string> = {
   research_add_card: "notes:write",
   research_link_cards: "notes:write",
   research_set_state: "notes:write",
+  ...RESEARCH_EDIT_TOOL_SCOPES,
 };
 
 export const RESEARCH_INSTRUCTIONS = [
@@ -99,17 +102,30 @@ const asConnectorError = async <T>(work: () => Promise<T>): Promise<T> => {
 
 export function registerResearchTools(server: McpServer, ctx: ConnectorContext, guarded: Guarded): void {
   const agentOf = (agent: string | undefined) => agent?.trim() || ctx.actorId;
+  const context = { actorId: ctx.actorId, actorType: "chatgpt" as const };
+  /** Logs a batch the agent just wrote (replays were logged the first time). */
+  const logBatch = async (
+    topic: { id: string; slug: string; title: string },
+    result: { batchId: string; batchKey: string; replayed: boolean; cardCount: number },
+    agent: string,
+    kind: string,
+    summary?: string,
+  ) => {
+    if (result.replayed) return;
+    await logResearchEvent("research.batch_added", topic, batchPayload(result, { agent, kind, summary }), context);
+  };
 
   server.registerTool(
     "research_list_topics",
     {
       title: "List research topics",
-      description: "Research topics with open counts, card counts, top summary, and link.",
+      description: "Research topics with open counts, card counts, top summary, and link. Archived topics are left out unless includeArchived.",
+      inputSchema: { includeArchived: z.boolean().optional() },
       annotations: readOnly,
     },
-    () =>
+    ({ includeArchived }) =>
       guarded(ctx, "research_list_topics", async () =>
-        (await listTopics()).map((topic) => ({ ...topic, url: topicUrl(ctx, topic.slug) })),
+        (await listTopics({ includeArchived })).map((topic) => ({ ...topic, url: topicUrl(ctx, topic.slug) })),
       ),
   );
 
@@ -124,6 +140,7 @@ export function registerResearchTools(server: McpServer, ctx: ConnectorContext, 
     ({ title }) =>
       guarded(ctx, "research_create_topic", async () => {
         const topic = await createTopic({ title });
+        await logResearchEvent("research.topic_created", topic, {}, context);
         return { ...topic, url: topicUrl(ctx, topic.slug) };
       }),
   );
@@ -215,9 +232,11 @@ export function registerResearchTools(server: McpServer, ctx: ConnectorContext, 
     ({ topic, agent, batchKey, ...payload }) =>
       guarded(ctx, "research_ingest_tree", async () => {
         const found = await requireTopic(topic);
+        const who = agentOf(agent);
         const result = await asConnectorError(() =>
-          ingestTree(found.id, { ...payload, agent: agentOf(agent), batchKey: batchKey || randomUUID() }),
+          ingestTree(found.id, { ...payload, agent: who, batchKey: batchKey || randomUUID() }),
         );
+        await logBatch(found, result, who, "ingest", payload.summary);
         return { ...result, url: topicUrl(ctx, found.slug) };
       }),
   );
@@ -239,9 +258,12 @@ export function registerResearchTools(server: McpServer, ctx: ConnectorContext, 
     ({ topic, under, agent, batchKey, ...card }) =>
       guarded(ctx, "research_add_card", async () => {
         const found = await requireTopic(topic);
-        return asConnectorError(() =>
-          ingestTree(found.id, { under, agent: agentOf(agent), batchKey: batchKey || randomUUID(), cards: [card] }),
+        const who = agentOf(agent);
+        const result = await asConnectorError(() =>
+          ingestTree(found.id, { under, agent: who, batchKey: batchKey || randomUUID(), cards: [card] }),
         );
+        await logBatch(found, result, who, "ingest", card.title);
+        return result;
       }),
   );
 
@@ -256,9 +278,12 @@ export function registerResearchTools(server: McpServer, ctx: ConnectorContext, 
     ({ topic, from, to, agent, batchKey }) =>
       guarded(ctx, "research_link_cards", async () => {
         const found = await requireTopic(topic);
-        return asConnectorError(() =>
-          ingestTree(found.id, { agent: agentOf(agent), batchKey: batchKey || randomUUID(), links: [{ from, to }] }),
+        const who = agentOf(agent);
+        const result = await asConnectorError(() =>
+          ingestTree(found.id, { agent: who, batchKey: batchKey || randomUUID(), links: [{ from, to }] }),
         );
+        await logBatch(found, result, who, "link");
+        return result;
       }),
   );
 
@@ -278,9 +303,17 @@ export function registerResearchTools(server: McpServer, ctx: ConnectorContext, 
     ({ topic, changes, agent, batchKey }) =>
       guarded(ctx, "research_set_state", async () => {
         const found = await requireTopic(topic);
-        return asConnectorError(() =>
-          setCardStates(found.id, { agent: agentOf(agent), batchKey: batchKey || randomUUID(), changes }),
+        const who = agentOf(agent);
+        const result = await asConnectorError(() =>
+          setCardStates(found.id, { agent: who, batchKey: batchKey || randomUUID(), changes }),
         );
+        await logBatch(found, { ...result, cardCount: changes.length }, who, "state");
+        return result;
       }),
   );
+
+  registerResearchEditTools(server, ctx, guarded, {
+    asConnectorError,
+    topicUrl: (slug) => topicUrl(ctx, slug),
+  });
 }

@@ -28,10 +28,20 @@ const service = vi.hoisted(() => {
     listTopics: vi.fn(),
     loadTopicGraph: vi.fn(),
     resolveTopic: vi.fn(),
+    undoBatch: vi.fn(),
+    redoBatch: vi.fn(),
+    editCards: vi.fn(),
+    removeCards: vi.fn(),
+    updateTopic: vi.fn(),
+    logResearchEvent: vi.fn(),
+    logUndoRedo: vi.fn(),
+    batchPayload: (result: object, extra: object) => ({ ...result, ...extra }),
   };
 });
 vi.mock("~/services/research/research.ingest", () => service);
 vi.mock("~/services/research/research.store", () => service);
+vi.mock("~/services/research/research.edits", () => service);
+vi.mock("~/services/research/research.activity", () => service);
 
 const { createNotesMcpServer } = await import("./tools");
 
@@ -71,8 +81,59 @@ describe("research MCP tools", () => {
         "research_add_card",
         "research_link_cards",
         "research_set_state",
+        "research_list_batches",
+        "research_update_topic",
+        "research_update_cards",
+        "research_remove_cards",
+        "research_undo_batch",
+        "research_redo_batch",
       ]),
     );
+  });
+
+  it("logs agent batches to the activity timeline", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.ingestTree.mockResolvedValue({ batchId: "b1", batchKey: "k1", replayed: false, refs: {}, cardCount: 2, linkCount: 0, summaryCount: 0 });
+    const client = await connect();
+    await client.callTool({ name: "research_add_card", arguments: { topic: "learn-rust", type: "task", title: "Read" } });
+    expect(service.logResearchEvent).toHaveBeenCalledWith(
+      "research.batch_added",
+      topic,
+      expect.objectContaining({ batchId: "b1", agent: "chatgpt:test", kind: "ingest" }),
+      { actorId: "chatgpt:test", actorType: "chatgpt" },
+    );
+  });
+
+  it("edits cards through the edit service", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.editCards.mockResolvedValue({ batchId: "b2", batchKey: "e1", replayed: false, refs: {}, cardCount: 0, linkCount: 0, summaryCount: 0 });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "research_update_cards",
+      arguments: { topic: "learn-rust", batchKey: "e1", agent: "claude-code", edits: [{ id: "c1", title: "Sharper" }] },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(service.editCards).toHaveBeenCalledWith("t1", {
+      agent: "claude-code",
+      batchKey: "e1",
+      edits: [{ id: "c1", title: "Sharper" }],
+    });
+  });
+
+  it("undoes a batch by its key and reports refusals", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.loadTopicGraph.mockResolvedValue({ topic, cards: [], links: [], groups: [], batches: [{ id: "b9", batchKey: "round-1" }], generatedAt: "" });
+    service.undoBatch.mockResolvedValueOnce({ ok: true });
+    const client = await connect();
+    const ok = await client.callTool({ name: "research_undo_batch", arguments: { topic: "learn-rust", batch: "round-1" } });
+    expect(ok.isError).toBeFalsy();
+    expect(service.undoBatch).toHaveBeenCalledWith("b9");
+    expect(service.logUndoRedo).toHaveBeenCalledWith("b9", "research.batch_undone", expect.any(Object));
+
+    service.undoBatch.mockResolvedValueOnce({ ok: false, reason: "Later batches build on this one.", blockingBatchIds: ["b10"] });
+    const refused = await client.callTool({ name: "research_undo_batch", arguments: { topic: "learn-rust", batch: "b9" } });
+    expect(refused.isError).toBe(true);
+    expect(textOf(refused)).toContain("b10");
   });
 
   it("ingests through the service with the caller as agent and a link back", async () => {
