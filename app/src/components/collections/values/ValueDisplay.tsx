@@ -1,3 +1,4 @@
+import { ArrowUpRightIcon } from "lucide-solid";
 import { For, Match, Show, Switch } from "solid-js";
 import { css } from "styled-system/css";
 import type {
@@ -33,12 +34,26 @@ const chipsWrap = css({
   flexWrap: "wrap",
   minW: "0",
 });
+// Colored text only, matching links in the note body.
 const link = css({
-  color: "fg.default",
-  textDecoration: "underline",
-  textDecorationColor: "border",
-  textUnderlineOffset: "2px",
-  _hover: { textDecorationColor: "fg.muted" },
+  color: "amber.11",
+  textDecoration: "none",
+  transitionProperty: "color",
+  transitionDuration: "140ms",
+  _hover: { color: "amber.12" },
+});
+const linkText = css({ color: "amber.11" });
+const openButton = css({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: "0",
+  boxSize: "5",
+  borderRadius: "l1",
+  color: "fg.subtle",
+  transitionProperty: "color, background-color",
+  transitionDuration: "140ms",
+  _hover: { color: "fg.default", bg: "gray.a3" },
 });
 const progressTrack = css({
   flex: "1",
@@ -85,13 +100,22 @@ const hrefFor = (property: CollectionProperty, text: string) => {
 const displayUrl = (text: string) =>
   text.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
 
-/** Read-only rendering of a value; `wrap` lets chips and text use more lines. */
+/**
+ * Read-only rendering of a value; `wrap` lets chips and text use more lines.
+ * `linkOpens: "button"` keeps link text clickable for editing and opens the
+ * link from a trailing icon instead.
+ */
 export const ValueDisplay = (props: {
   property: CollectionProperty;
   value: PropertyValue;
   wrap?: boolean;
   placeholder?: string;
+  linkOpens?: "text" | "button";
 }) => {
+  const linkLabel = () =>
+    props.property.config.format === "url"
+      ? displayUrl(String(props.value))
+      : String(props.value);
   const empty = () =>
     props.value === null ||
     props.value === undefined ||
@@ -129,19 +153,38 @@ export const ValueDisplay = (props: {
           }
         >
           {(href) => (
-            <a
-              class={`${link} ${truncate}`}
-              href={href()}
-              target={
-                props.property.config.format === "url" ? "_blank" : undefined
+            <Show
+              when={props.linkOpens === "button"}
+              fallback={
+                <a
+                  class={`${link} ${truncate}`}
+                  href={href()}
+                  target={
+                    props.property.config.format === "url"
+                      ? "_blank"
+                      : undefined
+                  }
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {linkLabel()}
+                </a>
               }
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
             >
-              {props.property.config.format === "url"
-                ? displayUrl(String(props.value))
-                : String(props.value)}
-            </a>
+              <span class={`${linkText} ${truncate}`}>{linkLabel()}</span>
+              <a
+                class={openButton}
+                href={href()}
+                target={
+                  props.property.config.format === "url" ? "_blank" : undefined
+                }
+                rel="noreferrer"
+                aria-label={`Open ${linkLabel()}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRightIcon size={13} />
+              </a>
+            </Show>
           )}
         </Match>
         <Match
