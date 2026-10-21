@@ -1,13 +1,10 @@
 import { serverEnv } from "~/env/server";
 import { prisma } from "~/server/db";
-import { processEmbeddingRun } from "~/services/embeddings/embeddings.actions";
 import { embedWithOpenAI } from "~/services/embeddings/embeddings.utils";
 
 const LOG_PREFIX = "[mcp-semantic]";
 /** Below this cosine similarity a doc is treated as unrelated. */
 export const MIN_SIMILARITY = 0.25;
-const REFRESH_DEBOUNCE_MS = 10_000;
-const REFRESH_BATCH = 25;
 const INDEX_BATCH = 250;
 
 type RunInfo = { id: string; model: string };
@@ -135,36 +132,5 @@ export async function semanticSearch(
   } catch (error) {
     console.warn(`${LOG_PREFIX} search failed; using keyword only`, error);
     return null;
-  }
-}
-
-let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * Embeds new and changed notes into the latest run shortly after a connector
- * write, so they become findable by meaning without a manual run.
- */
-export function scheduleEmbeddingRefresh(): void {
-  if (!semanticAvailable() || refreshTimer) return;
-  refreshTimer = setTimeout(() => {
-    refreshTimer = null;
-    void refreshLatestRun();
-  }, REFRESH_DEBOUNCE_MS);
-}
-
-export async function refreshLatestRun(): Promise<void> {
-  try {
-    const run = await latestRun();
-    if (!run) return;
-    for (const mode of ["missing", "changed"] as const) {
-      const result = await processEmbeddingRun({
-        id: run.id,
-        mode,
-        limit: REFRESH_BATCH,
-      });
-      console.info(`${LOG_PREFIX} refreshed ${mode}`, result);
-    }
-  } catch (error) {
-    console.warn(`${LOG_PREFIX} embedding refresh failed`, error);
   }
 }

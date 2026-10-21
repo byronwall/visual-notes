@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
   aggregate: vi.fn(),
   findMany: vi.fn(),
   embed: vi.fn(),
-  process: vi.fn(),
 }));
 vi.mock("~/env/server", () => env);
 vi.mock("~/server/db", () => ({
@@ -20,13 +19,9 @@ vi.mock("~/server/db", () => ({
 vi.mock("~/services/embeddings/embeddings.utils", () => ({
   embedWithOpenAI: mocks.embed,
 }));
-vi.mock("~/services/embeddings/embeddings.actions", () => ({
-  processEmbeddingRun: mocks.process,
-}));
 
 import {
   rankBySimilarity,
-  scheduleEmbeddingRefresh,
   semanticSearch,
 } from "./semantic";
 
@@ -139,27 +134,5 @@ describe("semanticSearch", () => {
       "mid",
     ]);
     expect(mocks.findMany).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("scheduleEmbeddingRefresh", () => {
-  it("debounces bursts of writes into one refresh of the latest run", async () => {
-    vi.useFakeTimers();
-    mocks.process.mockResolvedValue({ addedDocs: 1 });
-    mocks.findFirst.mockResolvedValue({ id: "run1", model: "m" });
-    scheduleEmbeddingRefresh();
-    scheduleEmbeddingRefresh();
-    await vi.runAllTimersAsync();
-    expect(mocks.process).toHaveBeenCalledTimes(2);
-    expect(mocks.process).toHaveBeenCalledWith({
-      id: "run1",
-      mode: "missing",
-      limit: 25,
-    });
-    expect(mocks.process).toHaveBeenCalledWith({
-      id: "run1",
-      mode: "changed",
-      limit: 25,
-    });
   });
 });

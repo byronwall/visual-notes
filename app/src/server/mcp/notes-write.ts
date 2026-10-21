@@ -25,7 +25,7 @@ import {
   type ConnectorContext,
 } from "./notes-shared";
 import { normalizeNotePath } from "./paths";
-import { scheduleEmbeddingRefresh } from "./semantic";
+import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 
 export type WriteResult = {
   id: string;

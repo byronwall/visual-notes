@@ -14,6 +14,7 @@ import { NOTE_SCHEMA_VERSION } from "~/lib/note-content/schema";
 import { stripIdTags } from "~/lib/note-content/markdown";
 import { isNoteDoc, type NoteDoc } from "~/lib/note-content/types";
 import { normalizeMarkdownToHtml } from "~/server/lib/markdown";
+import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
 /**
  * Server-side home for note bodies. Blocks (`Doc.content`) are canonical; the
@@ -39,8 +40,13 @@ export function prepareContent(input: ContentInput): NoteDoc {
   return fromMarkdown(input.markdown ?? "");
 }
 
-/** Column values for a content write (version bump handled by callers). */
+/**
+ * Column values for a content write (version bump handled by callers). Every
+ * content write builds its columns here, so this is also where the write
+ * queues the debounced embedding refresh that places the note on the canvas.
+ */
 export function contentColumns(doc: NoteDoc) {
+  scheduleEmbeddingRefresh();
   const legacy = legacyColumns(doc);
   return {
     content: doc as unknown as Prisma.InputJsonValue,
