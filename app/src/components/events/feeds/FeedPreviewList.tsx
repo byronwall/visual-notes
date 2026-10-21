@@ -73,7 +73,7 @@ export function FeedPreviewList(props: { feed: CalendarFeed }) {
   const refresh = useFeedsRefresh();
   const [preview] = createResource(
     () => ({ feedId: props.feed.id, v: refresh.version() }),
-    ({ feedId }) => fetchFeedPreview({ feedId, limit: 10 }),
+    ({ feedId, v }) => fetchFeedPreview({ feedId, limit: 10, refresh: v }),
   );
   const year = new Date().getFullYear();
   const summary = () => {

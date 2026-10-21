@@ -29,7 +29,7 @@ export function FeedManualEntries(props: { feed: CalendarFeed }) {
   const runSetEntry = useAction(setCalendarFeedEntry);
   const [entries] = createResource(
     () => ({ feedId: props.feed.id, v: refresh.version() }),
-    ({ feedId }) => fetchFeedEntries(feedId),
+    ({ feedId, v }) => fetchFeedEntries(feedId, v),
   );
 
   const setEntry = async (eventId: string, mode: FeedEntryMode | null) => {

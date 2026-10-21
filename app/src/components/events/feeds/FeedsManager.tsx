@@ -15,7 +15,7 @@ import { useFeedsRefresh } from "./feedsRefresh";
 /** The /events/feeds page body: every feed with its rule and subscribe URL. */
 export function FeedsManager() {
   const refresh = useFeedsRefresh();
-  const [feeds] = createResource(refresh.version, () => fetchFeeds());
+  const [feeds] = createResource(refresh.version, (v) => fetchFeeds(v));
   const [ruleOptions] = createResource(() => fetchFeedRuleOptions());
   const [origin] = createResource(() => fetchFeedOrigin());
 

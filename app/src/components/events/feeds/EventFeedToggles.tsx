@@ -36,7 +36,7 @@ export function EventFeedToggles(props: EventFeedTogglesProps) {
   const [busyFeed, setBusyFeed] = createSignal<string | null>(null);
   const [feeds] = createResource(
     () => ({ eventId: props.eventId, v: refresh.version() }),
-    ({ eventId }) => fetchEventFeeds(eventId),
+    ({ eventId, v }) => fetchEventFeeds(eventId, v),
   );
 
   const apply = async (

@@ -10,7 +10,7 @@ import {
   resolveFeedOccurrences,
 } from "~/server/calendar/feed-store";
 
-export const fetchFeeds = query(async () => {
+export const fetchFeeds = query(async (_refresh = 0) => {
   "use server";
   return listFeeds();
 }, "feeds-list");
@@ -24,7 +24,12 @@ export type FeedPreview = {
 };
 
 export const fetchFeedPreview = query(
-  async (input: { feedId: string; limit?: number }): Promise<FeedPreview> => {
+  async (input: {
+    feedId: string;
+    limit?: number;
+    /** Changes after each write so the read skips the query cache. */
+    refresh?: number;
+  }): Promise<FeedPreview> => {
     "use server";
     const feed = await getFeed(input.feedId);
     if (!feed) return { upcoming: [], upcomingCount: 0, pastCount: 0 };
@@ -41,13 +46,15 @@ export const fetchFeedPreview = query(
   "feeds-preview",
 );
 
-export const fetchFeedEntries = query(async (feedId: string) => {
+// `_refresh` is part of the cache key only: callers bump it after a write so
+// the next read is fresh (resources do not track revalidated query keys).
+export const fetchFeedEntries = query(async (feedId: string, _refresh = 0) => {
   "use server";
   return listFeedEntries(feedId);
 }, "feeds-entries");
 
 /** Every feed with whether this event is in it (rule or manual). */
-export const fetchEventFeeds = query(async (eventId: string) => {
+export const fetchEventFeeds = query(async (eventId: string, _refresh = 0) => {
   "use server";
   return feedsForEvent(eventId);
 }, "feeds-for-event");
