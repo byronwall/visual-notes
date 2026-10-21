@@ -1,24 +1,13 @@
-/** Things the sidebar can list as recently visited or edited. */
-export type RecentKind = "note" | "collection" | "research" | "tag" | "path";
-
-export const RECENT_KINDS: readonly RecentKind[] = [
-  "note",
-  "collection",
-  "research",
-  "tag",
-  "path",
-];
-
-/** Kinds logged by `logRecentView`; notes log `doc.view` on their own. */
-export type RecentViewKind = Exclude<RecentKind, "note">;
+/** Things the sidebar can list as recently created or edited. */
+export type RecentKind = "note" | "collection" | "research";
 
 export type RecentItem = {
   kind: RecentKind;
-  /** Doc id, collection id, research slug, tag name, or dot path. */
+  /** Doc id, collection id, or research slug. */
   id: string;
   title: string;
   href: string;
-  /** Latest visit or edit, ISO string. */
+  /** Latest create or edit, ISO string. */
   at: string;
   /** Collection emoji, when one is set. */
   icon?: string | null;

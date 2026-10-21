@@ -7,12 +7,10 @@ import { CollectionPage } from "~/components/collections/CollectionPage";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import { fetchCollectionBundle } from "~/services/collections/collections.queries";
-import { useRecordRecentView } from "~/services/recents/useRecordRecentView";
 
 export default function CollectionRoute() {
   const params = useParams();
   const [bundle] = createResource(() => params.id, (id) => fetchCollectionBundle(id));
-  useRecordRecentView("collection", () => bundle.latest?.collection.id);
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
