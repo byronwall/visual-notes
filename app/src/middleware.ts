@@ -51,6 +51,8 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
+  // iCal subscriptions; the route checks the secret token itself.
+  if (pathname.startsWith("/cal/")) return true;
   // The MCP connector and its OAuth endpoints authenticate on their own.
   // /oauth/authorize is deliberately absent: it needs the login cookie.
   if (pathname === "/mcp") return true;

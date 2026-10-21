@@ -1,8 +1,9 @@
 import { Title } from "@solidjs/meta";
 import { Box, Container } from "styled-system/jsx";
 import { EventsTabs } from "~/components/events/EventsTabs";
+import { FeedsManager } from "~/components/events/feeds/FeedsManager";
+import { FeedsRefreshProvider } from "~/components/events/feeds/feedsRefresh";
 
-// Placeholder; the Feeds view lands in its own layer of the events stack.
 export default function EventsFeedsRoute() {
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
@@ -14,6 +15,9 @@ export default function EventsFeedsRoute() {
         px={{ base: "4", md: "8" }}
       >
         <EventsTabs />
+        <FeedsRefreshProvider>
+          <FeedsManager />
+        </FeedsRefreshProvider>
       </Container>
     </Box>
   );
