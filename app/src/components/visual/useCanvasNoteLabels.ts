@@ -1,144 +1,157 @@
-import { createMemo, type Accessor } from "solid-js";
-import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
-import { seededPositionFor } from "~/layout/seeded";
+import { createMemo, untrack, type Accessor } from "solid-js";
+import type { UmapRegionItem } from "~/features/umap/region-types";
 import type { DocItem } from "~/types/notes";
 import { measureCanvasWork } from "./canvas-perf";
-import {
-  SPREAD,
-  toBounds,
-  type Bounds,
-  type Point,
-} from "./labels/label-geometry";
+import { toBounds, type Bounds, type Point } from "./labels/label-geometry";
 import {
   buildAnchoredHoveredNoteLabelLayout,
   buildNoteLabelLayouts,
   type NoteLabelLayout,
 } from "./labels/note-label-layout";
 import {
-  buildStableNoteLabelOrder,
   getVisibleNoteLabelCount,
+  rankNoteLabelCandidates,
 } from "./labels/note-label-order";
-import type { RegionLabelLayout } from "./labels/region-label-geometry";
+import type { CanvasView } from "./labels/settled-view";
+import { useCrossFade } from "./useCrossFade";
 import { useFrozenHoveredNoteLabel } from "./useFrozenHoveredNoteLabel";
 
+export const NOTE_LABEL_FONT_PX = 12.5;
+
+/** A placed note label plus the zoom it was laid out at. */
+export type PlacedNoteLabel = {
+  layout: NoteLabelLayout;
+  layoutZoom: number;
+  hovered?: boolean;
+};
+
 /**
- * Note label state for the canvas: a few spread-out note titles placed
- * around the region labels, plus the hovered note's anchored label.
+ * Note label state for the canvas. Ranked labels are planned for the
+ * settled view only (see `rankNoteLabelCandidates` for the rule), so which
+ * notes are labeled never changes mid-gesture; changes cross-fade. The
+ * hovered note's anchored label follows the live zoom.
  */
 export function useCanvasNoteLabels(args: {
-  visibleDocs: Accessor<DocItem[]>;
+  docs: Accessor<DocItem[]>;
   positions: Accessor<Map<string, Point>>;
   matchingDocIds: Accessor<Set<string> | null | undefined>;
   notesInteractive: Accessor<boolean>;
   dotHoveredId: Accessor<string | undefined>;
   zoomScale: Accessor<number>;
-  labelFontSize: Accessor<number>;
-  viewportBounds: Accessor<Bounds | undefined>;
-  regions: Accessor<UmapRegionsSnapshot | null>;
+  settledView: Accessor<CanvasView>;
+  /** Label area (world units) for the settled view. */
+  settledBounds: Accessor<Bounds | undefined>;
+  /** Label area for the live view; only the hovered label uses it. */
+  liveBounds: Accessor<Bounds | undefined>;
+  regions: Accessor<UmapRegionItem[]>;
   selectedRegionId: Accessor<string | undefined>;
-  regionLabelLayouts: Accessor<RegionLabelLayout[]>;
-  fixedSelectedRegionLayout: Accessor<RegionLabelLayout | null>;
+  regionLabelBoxes: Accessor<Bounds[]>;
 }) {
-  const labelCandidateDocs = createMemo(() => {
+  const docMap = createMemo(
+    () => new Map(args.docs().map((doc) => [doc.id, doc])),
+  );
+  const candidateDocs = createMemo(() => {
     const matching = args.matchingDocIds();
-    const docs = args.visibleDocs();
+    const docs = args.docs();
     return matching ? docs.filter((doc) => matching.has(doc.id)) : docs;
   });
-  const visibleCount = createMemo(() =>
-    args.notesInteractive()
-      ? getVisibleNoteLabelCount({
-          visibleCount: labelCandidateDocs().length,
-          zoomScale: args.zoomScale(),
-        })
-      : 0,
-  );
-  const visibleDocMap = createMemo(
-    () => new Map(args.visibleDocs().map((doc) => [doc.id, doc])),
-  );
   const anchoredHoveredLayout = createMemo(() => {
     const hoveredDocId = args.dotHoveredId();
     if (!args.notesInteractive() || !hoveredDocId) return null;
-    const doc = visibleDocMap().get(hoveredDocId);
-    if (!doc) return null;
-    const docsForLabels = args.visibleDocs();
-    const docIndex = docsForLabels.findIndex(
-      (item) => item.id === hoveredDocId,
-    );
-    if (docIndex < 0) return null;
-    const position =
-      args.positions().get(hoveredDocId) ??
-      seededPositionFor(doc.title, docIndex, SPREAD);
+    const doc = docMap().get(hoveredDocId);
+    const position = args.positions().get(hoveredDocId);
+    if (!doc || !position) return null;
     return buildAnchoredHoveredNoteLabelLayout({
       doc,
       position,
       zoomScale: args.zoomScale(),
-      labelFontSize: args.labelFontSize(),
-      viewportBounds: args.viewportBounds(),
+      labelFontSize: NOTE_LABEL_FONT_PX / args.zoomScale(),
+      viewportBounds: args.liveBounds(),
     });
   });
   const frozen = useFrozenHoveredNoteLabel(() => anchoredHoveredLayout());
-  // Ordering ignores hover so moving between notes never re-ranks the map.
-  const candidateOrder = createMemo(() => {
-    if (!args.notesInteractive()) return [] as string[];
-    const count = visibleCount();
-    if (count <= 0) return [] as string[];
-    const docs = labelCandidateDocs();
+
+  const plan = createMemo((): PlacedNoteLabel[] => {
+    const view = args.settledView();
+    const bounds = args.settledBounds();
+    const docs = candidateDocs();
     const positions = args.positions();
-    const viewportBounds = args.viewportBounds();
-    return measureCanvasWork("noteLabelOrder", () =>
-      buildStableNoteLabelOrder({
+    const selectedRegionId = args.selectedRegionId();
+    const occupied = args.regionLabelBoxes();
+    // Read without tracking: interactivity flips at a live zoom threshold,
+    // and the plan must only change once the view settles.
+    if (!untrack(args.notesInteractive)) return [];
+    return measureCanvasWork("noteLabelPlan", () => {
+      const ranked = rankNoteLabelCandidates({ docs, positions, bounds });
+      const count = getVisibleNoteLabelCount({
+        visibleCount: ranked.length,
+        zoomScale: view.zoom,
+      });
+      if (count <= 0) return [];
+      const selectedRegion = args
+        .regions()
+        .find((region) => region.id === selectedRegionId);
+      const layouts = buildNoteLabelLayouts({
         docs,
         positions,
-        viewportBounds,
-        // Extra candidates cover labels that fail placement.
-        limit: count * 3 + 1,
-      }),
-    );
-  });
-  const visibleOrder = createMemo(() => {
-    const anchoredDocId = frozen.activeLayout()?.docId;
-    return candidateOrder()
-      .filter((docId) => docId !== anchoredDocId)
-      .slice(0, visibleCount());
-  });
-  const layouts = createMemo(() => {
-    const selectedRegionId = args.selectedRegionId();
-    if (!args.notesInteractive()) return [] as NoteLabelLayout[];
-    const fixedRegionLayout = args.fixedSelectedRegionLayout();
-    const regionBoxes = fixedRegionLayout
-      ? [...args.regionLabelLayouts(), fixedRegionLayout]
-      : args.regionLabelLayouts();
-    const occupiedBoxes = regionBoxes.map(toBounds);
-    const anchoredLayout = frozen.activeLayout();
-    if (anchoredLayout) {
-      occupiedBoxes.push(toBounds(anchoredLayout));
-    }
-    const selectedRegion = (args.regions()?.regions ?? []).find(
-      (region) => region.id === selectedRegionId,
-    );
-    const placed = buildNoteLabelLayouts({
-      docs: labelCandidateDocs(),
-      positions: args.positions(),
-      labeledIds: new Set(visibleOrder()),
-      labelOrder: visibleOrder(),
-      zoomScale: args.zoomScale(),
-      labelFontSize: args.labelFontSize(),
-      selectedRegion: selectedRegion
-        ? {
-            centroid: selectedRegion.centroid,
-            radius: Math.max(18, selectedRegion.radius),
-          }
-        : undefined,
-      viewportBounds: args.viewportBounds(),
-      occupiedBoxes,
+        labeledIds: new Set(ranked),
+        labelOrder: ranked,
+        zoomScale: view.zoom,
+        labelFontSize: NOTE_LABEL_FONT_PX / view.zoom,
+        selectedRegion: selectedRegion
+          ? {
+              centroid: selectedRegion.centroid,
+              radius: Math.max(18, selectedRegion.radius),
+            }
+          : undefined,
+        viewportBounds: bounds,
+        occupiedBoxes: occupied,
+        maxCount: count,
+        skipOverlapping: true,
+      });
+      return layouts.map((layout) => ({ layout, layoutZoom: view.zoom }));
     });
-    return anchoredLayout ? [anchoredLayout, ...placed] : placed;
   });
 
+  const placed = createMemo((): PlacedNoteLabel[] => {
+    const anchored = frozen.activeLayout();
+    if (!anchored) return plan();
+    const anchoredBox = toBounds(anchored);
+    const zoom = untrack(args.zoomScale);
+    return [
+      { layout: anchored, layoutZoom: zoom, hovered: true },
+      // Ranked labels under the hover bubble step aside until it clears.
+      ...plan().filter(
+        (item) =>
+          item.layout.docId !== anchored.docId &&
+          !boxesTouch(toBounds(item.layout), anchoredBox),
+      ),
+    ];
+  });
+
+  // A label that moves to a new spot fades out and back in rather than
+  // sliding; one that keeps its spot keeps its element.
+  const labels = useCrossFade(
+    () => placed(),
+    (item) => {
+      if (item.hovered) return `hover:${item.layout.docId}`;
+      const { layout, layoutZoom } = item;
+      const dx = Math.round((layout.minX - layout.leaderStartX) * layoutZoom);
+      const dy = Math.round((layout.minY - layout.leaderStartY) * layoutZoom);
+      return `${layout.docId}@${dx},${dy}`;
+    },
+  );
+
   return {
-    layouts,
-    visibleDocMap,
+    labels,
+    docMap,
     setPointerOverNoteLabelId: frozen.setPointerOverNoteLabelId,
     resetHoveredLabel: frozen.reset,
   };
+}
+
+function boxesTouch(a: Bounds, b: Bounds) {
+  return (
+    a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY
+  );
 }

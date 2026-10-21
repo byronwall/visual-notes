@@ -9,11 +9,9 @@ import {
 import { Box } from "styled-system/jsx";
 import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
 import { CanvasDotLayer } from "./CanvasDotLayer";
-import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
 import type { createSelectionStore } from "~/stores/selection.store";
-import { measureCanvasWork } from "./canvas-perf";
-import { SPREAD, smoothstep, type Point } from "./labels/label-geometry";
+import { smoothstep, type Point } from "./labels/label-geometry";
 import { CanvasBrushRect } from "./layers/CanvasBrushRect";
 import { CanvasNoteMarkers } from "./layers/CanvasNoteMarkers";
 import { NoteLabelLayer } from "./layers/NoteLabelLayer";
@@ -24,7 +22,7 @@ import { useCanvasNoteLabels } from "./useCanvasNoteLabels";
 import { useCanvasRegionLabels } from "./useCanvasRegionLabels";
 import { useCanvasRegionShapes } from "./useCanvasRegionShapes";
 import { shapeContains } from "./regions/region-shape";
-import { useRegionLabelDisplayZoom } from "./useRegionLabelDisplayZoom";
+import { useSettledView } from "./useSettledView";
 
 type PanZoomHandlers = {
   onWheel: (e: WheelEvent) => void;
@@ -80,11 +78,9 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   const [pointerCanvasPosition, setPointerCanvasPosition] = createSignal<
     Point | undefined
   >();
-  const viewportBounds = createMemo(() => {
+  const boundsFor = (scale: number, offset: Point) => {
     const width = props.viewportWidth?.() ?? 0;
     const height = props.viewportHeight?.() ?? 0;
-    const scale = Math.max(0.001, props.scale?.() ?? 1);
-    const offset = props.offset();
     if (width <= 0 || height <= 0) return undefined;
     const padding = 16 / scale;
     return {
@@ -93,18 +89,20 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
       maxX: (width - offset.x - padding) / scale,
       maxY: (height - offset.y - padding) / scale,
     };
-  });
+  };
   // Labels avoid the floating search bar (top) and zoom controls (bottom).
-  const labelViewportBounds = createMemo(() => {
-    const bounds = viewportBounds();
+  const labelBoundsFor = (scale: number, offset: Point) => {
+    const bounds = boundsFor(scale, offset);
     if (!bounds) return undefined;
-    const scale = Math.max(0.001, props.scale?.() ?? 1);
     return {
       ...bounds,
       minY: bounds.minY + LABEL_CHROME_INSET_PX / scale,
       maxY: bounds.maxY - LABEL_CHROME_INSET_PX / scale,
     };
-  });
+  };
+  const labelViewportBounds = createMemo(() =>
+    labelBoundsFor(Math.max(0.001, props.scale?.() ?? 1), props.offset()),
+  );
   const handlePointerMove = (e: PointerEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const scale = Math.max(0.001, props.scale?.() ?? 1);
@@ -162,20 +160,35 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
   });
 
   const normalizedRegions = createMemo(() => props.umapRegions?.() ?? null);
+  const regionList = createMemo(() => normalizedRegions()?.regions ?? []);
   const zoomScale = createMemo(() => Math.max(0.001, props.scale?.() ?? 1));
-  const regionLabelDisplayZoom = useRegionLabelDisplayZoom(() => zoomScale());
+  // Labels are planned for this view, which moves only once zoom and pan
+  // have been still for a moment.
+  const settledView = useSettledView({
+    zoom: zoomScale,
+    offset: () => props.offset(),
+  });
+  const settledLabelBounds = createMemo(() => {
+    const view = settledView();
+    return labelBoundsFor(view.zoom, view.offset);
+  });
+  // Mid-gesture, labels laid out for a closer zoom fade as you zoom out
+  // past it instead of piling up; they return once the view settles.
+  const labelGestureFade = createMemo(() =>
+    smoothstep(0.55, 0.85, zoomScale() / settledView().zoom),
+  );
 
-  const regionLabelFontSize = createMemo(() => 16 / zoomScale());
-  const noteLabelFontSize = createMemo(() => 12.5 / zoomScale());
   const regionOpacity = createMemo(() =>
     props.regionsOnly?.()
       ? Math.max(0.65, 1 - smoothstep(0.4, 0.9, zoomScale()))
       : Math.max(0.2, 1 - smoothstep(0.4, 0.9, zoomScale())),
   );
-  const regionLabelOpacity = createMemo(() =>
-    props.regionsOnly?.()
-      ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
-      : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale())),
+  const regionLabelOpacity = createMemo(
+    () =>
+      labelGestureFade() *
+      (props.regionsOnly?.()
+        ? Math.max(0.88, 1 - smoothstep(0.45, 0.8, zoomScale()))
+        : Math.max(0.22, 1 - smoothstep(0.45, 0.8, zoomScale()))),
   );
   const hasRegions = createMemo(
     () => (normalizedRegions()?.regions.length ?? 0) > 0,
@@ -195,50 +208,28 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
     noteFocus() ? 0 : 0.85 * (1 - noteEmphasis()),
   );
   const notesInteractive = () => props.notesInteractive?.() ?? false;
-  const visibleDocsForRender = createMemo(() => {
-    if (noteOpacity() <= 0.01) return [] as DocItem[];
-    const bounds = viewportBounds();
-    if (!bounds) return listOrdered();
-    const overscan = Math.max(48, circleRadius() * 8);
-    const minX = bounds.minX - overscan;
-    const minY = bounds.minY - overscan;
-    const maxX = bounds.maxX + overscan;
-    const maxY = bounds.maxY + overscan;
-    const positionMap = props.positions();
-    const orderedDocs = listOrdered();
-    return measureCanvasWork("visibleDocsForRender", () =>
-      orderedDocs.filter((doc, index) => {
-        const pos =
-          positionMap.get(doc.id) ??
-          seededPositionFor(doc.title, index, SPREAD);
-        return pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY;
-      }),
-    );
-  });
 
   const regionLabels = useCanvasRegionLabels({
-    regions: normalizedRegions,
-    zoomScale,
-    offset: () => props.offset(),
-    labelFontSize: regionLabelFontSize,
-    viewportBounds: labelViewportBounds,
+    regions: regionList,
+    shapes: regionShapes.shapes,
+    settledZoom: () => settledView().zoom,
     regionsOnly: () => props.regionsOnly?.() ?? false,
     selectedRegionId: () => props.selectedRegionId?.(),
     hoveredRegionId: () => props.hoveredRegionId(),
   });
   const noteLabels = useCanvasNoteLabels({
-    visibleDocs: visibleDocsForRender,
+    docs: listOrdered,
     positions: () => props.positions(),
     matchingDocIds: () => props.matchingDocIds?.(),
     notesInteractive,
     dotHoveredId,
     zoomScale,
-    labelFontSize: noteLabelFontSize,
-    viewportBounds: labelViewportBounds,
-    regions: normalizedRegions,
+    settledView,
+    settledBounds: settledLabelBounds,
+    liveBounds: labelViewportBounds,
+    regions: regionList,
     selectedRegionId: () => props.selectedRegionId?.(),
-    regionLabelLayouts: regionLabels.layouts,
-    fixedSelectedRegionLayout: regionLabels.fixedSelectedLayout,
+    regionLabelBoxes: regionLabels.occupiedBoxes,
   });
 
   const regionInteraction: RegionInteraction = {
@@ -291,7 +282,7 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
         <g transform={props.viewTransform()}>
           <Show when={showRegions()}>
             <RegionShapeLayer
-              regions={regionLabels.renderOrder}
+              regions={regionLabels.shapeOrder}
               shapes={regionShapes.shapes}
               tones={regionShapes.tones}
               regionOpacity={regionOpacity}
@@ -343,21 +334,20 @@ export const VisualCanvas: VoidComponent<VisualCanvasProps> = (props) => {
           </defs>
           <Show when={showRegions()}>
             <RegionLabelLayer
-              regions={regionLabels.renderOrder}
+              regions={regionLabels.labelOrder}
+              layouts={regionLabels.layouts}
               labeledRegionIds={regionLabels.labeledRegionIds}
-              layoutById={regionLabels.layoutById}
-              fixedSelectedLayout={regionLabels.fixedSelectedLayout}
               labelOpacity={regionLabelOpacity}
-              displayZoom={regionLabelDisplayZoom}
+              zoom={zoomScale}
               interaction={regionInteraction}
             />
           </Show>
           <NoteLabelLayer
-            layouts={noteLabels.layouts}
-            docMap={noteLabels.visibleDocMap}
+            labels={noteLabels.labels}
+            docMap={noteLabels.docMap}
             hoveredId={effectiveHoveredId}
             zoomScale={zoomScale}
-            fontSize={noteLabelFontSize}
+            gestureFade={labelGestureFade}
             noteOpacity={noteOpacity}
             onPointerOverLabel={noteLabels.setPointerOverNoteLabelId}
             onHoveredDocChange={(id) => props.onHoveredDocChange?.(id)}

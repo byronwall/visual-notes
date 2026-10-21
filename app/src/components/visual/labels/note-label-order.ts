@@ -2,98 +2,38 @@ import type { DocItem } from "~/types/notes";
 import { smoothstep, type Bounds, type Point } from "./label-geometry";
 
 /**
- * Farthest-point ordering of notes, starting from the note farthest from the
- * viewport center (or the notes' centroid without a viewport). Long titles
- * are nudged later.
+ * The note-label ranking rule: among notes inside the settled view, the
+ * most recently edited come first (ties by title, then id). Placement then
+ * walks this list, skips any note whose label would overlap one already
+ * placed, and stops at the zoom's count. The rank ignores hover, pan
+ * distance, and the live zoom, so the same view always shows the same
+ * labels.
  */
-export function buildStableNoteLabelOrder(args: {
+export function rankNoteLabelCandidates(args: {
   docs: DocItem[];
   positions: Map<string, Point>;
-  /** Stop once this many ids are ordered; keeps dense views cheap. */
+  bounds?: Bounds;
   limit?: number;
-  viewportBounds?: Bounds;
 }) {
-  if (args.docs.length <= 1) return args.docs.map((doc) => doc.id);
-  const center = args.viewportBounds
-    ? {
-        x: (args.viewportBounds.minX + args.viewportBounds.maxX) / 2,
-        y: (args.viewportBounds.minY + args.viewportBounds.maxY) / 2,
-      }
-    : args.docs.reduce(
-        (acc, doc) => {
-          const pos = args.positions.get(doc.id);
-          if (!pos) return acc;
-          acc.x += pos.x;
-          acc.y += pos.y;
-          acc.count += 1;
-          return acc;
-        },
-        { x: 0, y: 0, count: 0 },
-      );
-  const centerPoint =
-    "count" in center
-      ? {
-          x: center.count > 0 ? center.x / center.count : 0,
-          y: center.count > 0 ? center.y / center.count : 0,
-        }
-      : center;
-
-  const entries: Array<{ doc: DocItem; pos: Point }> = [];
-  for (const doc of args.docs) {
+  const { bounds } = args;
+  const inView = args.docs.filter((doc) => {
     const pos = args.positions.get(doc.id);
-    if (pos) entries.push({ doc, pos });
-  }
-  if (entries.length === 0) return [];
-
-  // Farthest-point ordering. Each candidate keeps its distance to the nearest
-  // already-ordered note, refreshed only against the newest pick, so a pass
-  // costs O(limit × notes) rather than O(limit² × notes).
-  const count = entries.length;
-  const baseScore = new Float64Array(count);
-  const nearest = new Float64Array(count).fill(Number.POSITIVE_INFINITY);
-  const taken = new Uint8Array(count);
-  let firstIndex = -1;
-  let firstDist = Number.NEGATIVE_INFINITY;
-  for (let i = 0; i < count; i++) {
-    const { doc, pos } = entries[i]!;
-    const centerDistance = Math.hypot(
-      pos.x - centerPoint.x,
-      pos.y - centerPoint.y,
+    if (!pos) return false;
+    return (
+      !bounds ||
+      (pos.x >= bounds.minX &&
+        pos.x <= bounds.maxX &&
+        pos.y >= bounds.minY &&
+        pos.y <= bounds.maxY)
     );
-    if (centerDistance > firstDist) {
-      firstDist = centerDistance;
-      firstIndex = i;
-    }
-    const titlePenalty = Math.max(0, doc.title.length - 28) * 0.08;
-    baseScore[i] = centerDistance * 0.22 - titlePenalty;
-  }
-  if (firstIndex < 0) return [];
-
-  const ordered = [entries[firstIndex]!.doc.id];
-  taken[firstIndex] = 1;
-  let last = entries[firstIndex]!.pos;
-  const limit = Math.min(args.limit ?? Number.POSITIVE_INFINITY, count);
-  while (ordered.length < limit) {
-    let bestIndex = -1;
-    let bestScore = Number.NEGATIVE_INFINITY;
-    for (let i = 0; i < count; i++) {
-      if (taken[i]) continue;
-      const pos = entries[i]!.pos;
-      const dist = Math.hypot(pos.x - last.x, pos.y - last.y);
-      if (dist < nearest[i]!) nearest[i] = dist;
-      const score = nearest[i]! + baseScore[i]!;
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndex = i;
-      }
-    }
-    if (bestIndex < 0) break;
-    taken[bestIndex] = 1;
-    ordered.push(entries[bestIndex]!.doc.id);
-    last = entries[bestIndex]!.pos;
-  }
-
-  return ordered;
+  });
+  inView.sort(
+    (a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt) ||
+      a.title.localeCompare(b.title) ||
+      a.id.localeCompare(b.id),
+  );
+  return inView.slice(0, args.limit ?? inView.length).map((doc) => doc.id);
 }
 
 /** How many note labels to show at this zoom, from 5 up to 13. */

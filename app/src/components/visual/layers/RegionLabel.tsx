@@ -1,45 +1,54 @@
-import { For, Show, type Accessor, type VoidComponent } from "solid-js";
-import type { RegionLabelLayout } from "../labels/region-label-geometry";
+import { For, type Accessor, type VoidComponent } from "solid-js";
+import {
+  REGION_LABEL_FONT_PX,
+  REGION_LABEL_LINE_PX,
+  type RegionLabelLayout,
+} from "../labels/region-label-plan";
 import type { RegionInteraction } from "./region-interaction";
 
 type RegionLabelProps = {
-  regionId: string;
   layout: Accessor<RegionLabelLayout>;
-  /** Debounced zoom the label text is drawn at. */
-  displayZoom: Accessor<number>;
+  /** Live zoom: the label keeps its screen size at any zoom. */
+  zoom: Accessor<number>;
+  /** Whether the label is in the shown set; changes cross-fade. */
+  shown: Accessor<boolean>;
+  /**
+   * Whether the label takes pointers. A label shown only because its region
+   * is hovered stays read-only, so it can never cover and steal a press
+   * meant for the shape beneath it.
+   */
+  clickable: Accessor<boolean>;
   labelOpacity: Accessor<number>;
   interaction: RegionInteraction;
 };
 
 const PAD_X = 6;
 const PAD_Y = 4;
+/** Baseline of the first line below the top of the text block. */
+const FIRST_BASELINE_PX = 15;
 
 /**
- * One region label: text with a halo, an optional elbow leader to the
- * circle edge, and a transparent hit box. Drawn in screen pixels and scaled
- * back by the display zoom so text size stays constant.
+ * One region label: centered text with a halo and a transparent hit box.
+ * It translates to its world anchor and scales by 1 / zoom, so position and
+ * size update together in the same frame.
  */
 export const RegionLabel: VoidComponent<RegionLabelProps> = (props) => {
-  const isHovered = () =>
-    props.interaction.hoveredRegionId() === props.regionId;
-  const isSelected = () =>
-    props.interaction.selectedRegionId() === props.regionId;
-  const toLocalX = (value: number) =>
-    (value - props.layout().minX) * props.displayZoom();
-  const toLocalY = (value: number) =>
-    (value - props.layout().minY) * props.displayZoom();
+  const regionId = () => props.layout().regionId;
+  const isHovered = () => props.interaction.hoveredRegionId() === regionId();
+  const isSelected = () => props.interaction.selectedRegionId() === regionId();
+  const box = () => props.layout().box;
   const onPointerDown = () => {
-    props.interaction.onPressedRegionChange(props.regionId);
+    props.interaction.onPressedRegionChange(regionId());
     props.interaction.suppressNextOpen?.();
   };
-  const onClick = (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    props.interaction.onZoomToRegion?.(props.regionId);
-  };
+  const interactive = () =>
+    props.shown() &&
+    props.clickable() &&
+    !props.interaction.isRegionHoverBlocked(regionId());
 
   return (
     <g
+      transform={`translate(${props.layout().anchorX} ${props.layout().anchorY}) scale(${1 / props.zoom()})`}
       opacity={
         isSelected()
           ? 1
@@ -47,84 +56,64 @@ export const RegionLabel: VoidComponent<RegionLabelProps> = (props) => {
             ? Math.max(0.95, props.labelOpacity())
             : props.labelOpacity()
       }
-      style={{
-        cursor: "pointer",
-        "pointer-events": props.interaction.isRegionHoverBlocked(props.regionId)
-          ? "none"
-          : "auto",
-        transform: `translate(${props.layout().minX}px, ${props.layout().minY}px) scale(${1 / props.displayZoom()})`,
-        "transform-origin": "0 0",
-      }}
-      onPointerDown={onPointerDown}
-      onClick={onClick}
     >
-      <rect
-        x={-PAD_X}
-        y={-PAD_Y}
-        width={
-          (props.layout().maxX - props.layout().minX) * props.displayZoom() +
-          PAD_X * 2
-        }
-        height={
-          (props.layout().maxY - props.layout().minY) * props.displayZoom() +
-          PAD_Y * 2
-        }
-        rx={8}
-        ry={8}
-        fill="transparent"
+      <g
+        data-region-label={regionId()}
+        style={{
+          opacity: props.shown() ? 1 : 0,
+          transition: "opacity 180ms ease-out",
+          cursor: "pointer",
+          "pointer-events": interactive() ? "auto" : "none",
+        }}
         onPointerDown={onPointerDown}
-        onClick={onClick}
-      />
-      <Show when={props.layout().showLeader}>
-        <path
-          d={`M ${toLocalX(props.layout().edgeX)} ${toLocalY(props.layout().edgeY)} L ${toLocalX(props.layout().elbowX)} ${toLocalY(props.layout().elbowY)} L ${toLocalX(props.layout().leaderEndX)} ${toLocalY(props.layout().leaderEndY)}`}
-          fill="none"
+        onPointerEnter={() => {
+          if (!interactive()) return;
+          props.interaction.onHoveredRegionChange(regionId());
+        }}
+        onPointerLeave={() => {
+          if (!interactive()) return;
+          props.interaction.onHoveredRegionChange(undefined);
+        }}
+      >
+        <rect
+          x={box().left - PAD_X}
+          y={box().top - PAD_Y}
+          width={box().width + PAD_X * 2}
+          height={box().height + PAD_Y * 2}
+          rx={8}
+          ry={8}
+          fill="transparent"
+        />
+        <text
+          x={0}
+          y={box().top + FIRST_BASELINE_PX}
+          fill={isSelected() || isHovered() ? "#0f172a" : "#172554"}
+          font-size={String(REGION_LABEL_FONT_PX)}
+          font-weight="700"
+          text-anchor="middle"
+          paint-order="stroke"
           stroke={
             isSelected()
-              ? "rgba(30, 64, 175, 0.72)"
+              ? "rgba(255, 255, 255, 0.98)"
               : isHovered()
-                ? "rgba(30, 64, 175, 0.5)"
-                : "rgba(37, 99, 235, 0.3)"
+                ? "rgba(255, 255, 255, 0.96)"
+                : "rgba(255, 255, 255, 0.88)"
           }
-          stroke-width={isSelected() ? "1.9" : isHovered() ? "1.6" : "1.25"}
-          vector-effect="non-scaling-stroke"
-          onPointerDown={onPointerDown}
-          onClick={onClick}
-        />
-      </Show>
-      <text
-        x={toLocalX(props.layout().textX)}
-        y={toLocalY(props.layout().textY)}
-        fill={isSelected() || isHovered() ? "#0f172a" : "#172554"}
-        font-size="16"
-        font-weight="700"
-        text-anchor={props.layout().textAnchor}
-        paint-order="stroke"
-        stroke={
-          isSelected()
-            ? "rgba(219, 234, 254, 0.98)"
-            : isHovered()
-              ? "rgba(255, 237, 213, 0.98)"
-              : "rgba(255,255,255,0.88)"
-        }
-        stroke-width={String(isSelected() ? 7 : isHovered() ? 6 : 4)}
-        stroke-linejoin="round"
-        onPointerDown={onPointerDown}
-        onClick={onClick}
-      >
-        <For each={props.layout().lines}>
-          {(line, lineIndex) => (
-            <tspan
-              x={toLocalX(props.layout().textX)}
-              dy={lineIndex() === 0 ? "0" : "15.2"}
-              onPointerDown={onPointerDown}
-              onClick={onClick}
-            >
-              {line}
-            </tspan>
-          )}
-        </For>
-      </text>
+          stroke-width={String(isSelected() || isHovered() ? 6 : 4)}
+          stroke-linejoin="round"
+        >
+          <For each={props.layout().lines}>
+            {(line, lineIndex) => (
+              <tspan
+                x={0}
+                dy={lineIndex() === 0 ? "0" : String(REGION_LABEL_LINE_PX)}
+              >
+                {line}
+              </tspan>
+            )}
+          </For>
+        </text>
+      </g>
     </g>
   );
 };

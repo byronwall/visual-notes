@@ -27,7 +27,11 @@ export type NoteLabelLayout = {
   leaderEndY: number;
 };
 
-type ScoredNoteLabelLayout = NoteLabelLayout & { score: number };
+type ScoredNoteLabelLayout = NoteLabelLayout & {
+  score: number;
+  /** Padded overlap with labels already placed; 0 when clear. */
+  overlap: number;
+};
 
 type NotePlacementContext = {
   zoomScale: number;
@@ -62,6 +66,10 @@ export function buildNoteLabelLayouts(args: {
   selectedRegion?: { centroid: Point; radius: number };
   viewportBounds?: Bounds;
   occupiedBoxes?: Bounds[];
+  /** Stop after this many labels are placed. */
+  maxCount?: number;
+  /** Drop a note whose best spot still overlaps a placed label. */
+  skipOverlapping?: boolean;
 }) {
   const docsById = new Map(args.docs.map((doc) => [doc.id, doc]));
   const selected = args.labelOrder
@@ -93,18 +101,22 @@ export function buildNoteLabelLayouts(args: {
   };
   const layouts: NoteLabelLayout[] = [];
 
+  const maxCount = args.maxCount ?? Number.POSITIVE_INFINITY;
   for (const doc of selected) {
+    if (layouts.length >= maxCount) break;
     const pos = args.positions.get(doc.id);
     if (!pos) continue;
     const best = placeNoteLabel(doc, pos, context);
     if (!best) continue;
+    if (args.skipOverlapping && best.overlap > 0) continue;
     context.placed.push({
       minX: best.minX - context.labelSpacingX,
       minY: best.minY - context.labelSpacingY,
       maxX: best.maxX + context.labelSpacingX,
       maxY: best.maxY + context.labelSpacingY,
     });
-    layouts.push(best);
+    const { score: _score, overlap: _overlap, ...layout } = best;
+    layouts.push(layout);
   }
 
   return layouts;
@@ -295,6 +307,7 @@ function scoreNoteLabelCandidate(args: {
     leaderEndX,
     leaderEndY,
     score,
+    overlap: overlapPenalty,
   };
 }
 

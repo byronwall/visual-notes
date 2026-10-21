@@ -4,8 +4,8 @@ import {
   buildNoteLabelLayouts,
 } from "./note-label-layout";
 import {
-  buildStableNoteLabelOrder,
   getVisibleNoteLabelCount,
+  rankNoteLabelCandidates,
 } from "./note-label-order";
 import type { Bounds } from "./label-geometry";
 import { makeDocs, overlappingPairs, viewportAt } from "./test-fixtures";
@@ -14,99 +14,72 @@ const offset = { x: 200, y: 150 };
 
 /** Labels for the notes inside the viewport, as the canvas computes them. */
 function noteLayoutsAt(zoomScale: number, docCount = 80) {
-  const all = makeDocs(docCount);
-  const positions = all.positions;
+  const { docs, positions } = makeDocs(docCount);
   const viewportBounds = viewportAt({ zoomScale, offset });
-  const docs = all.docs.filter((doc) => {
-    const pos = positions.get(doc.id)!;
-    return (
-      pos.x >= viewportBounds.minX &&
-      pos.x <= viewportBounds.maxX &&
-      pos.y >= viewportBounds.minY &&
-      pos.y <= viewportBounds.maxY
-    );
-  });
-  const count = getVisibleNoteLabelCount({
-    visibleCount: docs.length,
-    zoomScale,
-  });
-  const order = buildStableNoteLabelOrder({
+  const ranked = rankNoteLabelCandidates({
     docs,
     positions,
-    viewportBounds,
-    limit: count * 3 + 1,
-  }).slice(0, count);
+    bounds: viewportBounds,
+  });
+  const count = getVisibleNoteLabelCount({
+    visibleCount: ranked.length,
+    zoomScale,
+  });
   return buildNoteLabelLayouts({
     docs,
     positions,
-    labeledIds: new Set(order),
-    labelOrder: order,
+    labeledIds: new Set(ranked),
+    labelOrder: ranked,
     zoomScale,
     labelFontSize: 12.5 / zoomScale,
     viewportBounds,
+    maxCount: count,
+    skipOverlapping: true,
   });
 }
 
-describe("buildStableNoteLabelOrder", () => {
-  it("returns each positioned note once", () => {
+describe("rankNoteLabelCandidates", () => {
+  it("ranks notes in view by most recent edit", () => {
     const { docs, positions } = makeDocs(40);
+    const ranked = rankNoteLabelCandidates({ docs, positions });
+    expect(ranked).toHaveLength(40);
+    const updated = ranked.map(
+      (id) => docs.find((doc) => doc.id === id)!.updatedAt,
+    );
+    expect(updated).toEqual(updated.slice().sort().reverse());
+  });
+
+  it("only includes positioned notes inside the bounds", () => {
+    const { docs, positions } = makeDocs(60);
     positions.delete("doc-3");
-    const order = buildStableNoteLabelOrder({ docs, positions });
-    expect(order).toHaveLength(39);
-    expect(new Set(order).size).toBe(39);
-    expect(order).not.toContain("doc-3");
+    const bounds = { minX: 0, minY: 0, maxX: 300, maxY: 200 };
+    const ranked = rankNoteLabelCandidates({ docs, positions, bounds });
+    expect(ranked).not.toContain("doc-3");
+    for (const id of ranked) {
+      const pos = positions.get(id)!;
+      expect(pos.x).toBeLessThanOrEqual(300);
+      expect(pos.y).toBeLessThanOrEqual(200);
+    }
   });
 
-  it("with a limit, returns a prefix of the full order", () => {
-    const { docs, positions } = makeDocs(60);
-    const viewportBounds = viewportAt({ zoomScale: 1.5, offset });
-    const full = buildStableNoteLabelOrder({ docs, positions, viewportBounds });
-    const limited = buildStableNoteLabelOrder({
-      docs,
+  it("breaks ties by title, then id, regardless of input order", () => {
+    const { docs, positions } = makeDocs(30);
+    const tied = docs.map((doc) => ({
+      ...doc,
+      updatedAt: "2026-02-01T00:00:00.000Z",
+    }));
+    const a = rankNoteLabelCandidates({ docs: tied, positions });
+    const b = rankNoteLabelCandidates({
+      docs: tied.slice().reverse(),
       positions,
-      viewportBounds,
-      limit: 10,
     });
-    expect(limited).toEqual(full.slice(0, 10));
-  });
-
-  it("is unchanged by a small pan of the viewport", () => {
-    const { docs, positions } = makeDocs(60);
-    const at = (dx: number) =>
-      buildStableNoteLabelOrder({
-        docs,
-        positions,
-        viewportBounds: viewportAt({
-          zoomScale: 1.5,
-          offset: { x: offset.x + dx, y: offset.y },
-        }),
-        limit: 13,
-      });
-    expect(at(1)).toEqual(at(0));
+    expect(b).toEqual(a);
   });
 
   it("is unchanged by a small zoom change", () => {
-    const { docs, positions } = makeDocs(60);
-    const at = (zoomScale: number) =>
-      buildStableNoteLabelOrder({
-        docs,
-        positions,
-        viewportBounds: viewportAt({ zoomScale, offset }),
-        limit: 13,
-      });
-    expect(at(1.515)).toEqual(at(1.5));
-  });
-
-  it("spreads early picks apart", () => {
-    const { docs, positions } = makeDocs(80);
-    const [first, second] = buildStableNoteLabelOrder({
-      docs,
-      positions,
-      limit: 2,
-    });
-    const a = positions.get(first!)!;
-    const b = positions.get(second!)!;
-    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(200);
+    expect(noteLayoutsAt(1.515).map((layout) => layout.docId)).toEqual(
+      noteLayoutsAt(1.5).map((layout) => layout.docId),
+    );
   });
 });
 
@@ -141,11 +114,11 @@ describe("buildNoteLabelLayouts", () => {
     },
   );
 
-  it("moves a label off a box that becomes occupied", () => {
+  it("moves or drops a label when its box becomes occupied", () => {
     const zoomScale = 1.8;
     const { docs, positions } = makeDocs(40);
     const viewportBounds = viewportAt({ zoomScale, offset });
-    const order = buildStableNoteLabelOrder({ docs, positions, limit: 6 });
+    const order = rankNoteLabelCandidates({ docs, positions, limit: 6 });
     const place = (occupiedBoxes?: Bounds[]) =>
       buildNoteLabelLayouts({
         docs,
@@ -156,6 +129,7 @@ describe("buildNoteLabelLayouts", () => {
         labelFontSize: 12.5 / zoomScale,
         viewportBounds,
         occupiedBoxes,
+        skipOverlapping: true,
       });
     const first = place()[0]!;
     const occupied = {
@@ -164,10 +138,11 @@ describe("buildNoteLabelLayouts", () => {
       maxX: first.maxX,
       maxY: first.maxY,
     };
-    const moved = place([occupied]).find(
-      (layout) => layout.docId === first.docId,
-    )!;
-    expect(overlappingPairs([occupied, moved])).toEqual([]);
+    const placed = place([occupied]);
+    expect(placed.length).toBeGreaterThan(0);
+    for (const layout of placed) {
+      expect(overlappingPairs([occupied, layout])).toEqual([]);
+    }
   });
 
   it("draws each leader from the note to the edge of its bubble", () => {
@@ -194,6 +169,28 @@ describe("buildNoteLabelLayouts", () => {
       labelFontSize: 6.25,
     });
     expect(layouts.map((layout) => layout.docId)).toEqual(["doc-2"]);
+  });
+
+  it("skips crowded notes instead of overlapping, up to the count", () => {
+    const { docs } = makeDocs(20);
+    // Every note in one tiny clump: only a few labels can fit around it.
+    const positions = new Map(
+      docs.map((doc, index) => [doc.id, { x: 100 + index * 0.5, y: 100 }]),
+    );
+    const order = docs.map((doc) => doc.id);
+    const layouts = buildNoteLabelLayouts({
+      docs,
+      positions,
+      labeledIds: new Set(order),
+      labelOrder: order,
+      zoomScale: 2,
+      labelFontSize: 6.25,
+      maxCount: 8,
+      skipOverlapping: true,
+    });
+    expect(layouts.length).toBeGreaterThan(0);
+    expect(layouts.length).toBeLessThanOrEqual(8);
+    expect(overlappingPairs(layouts)).toEqual([]);
   });
 });
 

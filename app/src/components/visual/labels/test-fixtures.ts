@@ -70,7 +70,10 @@ export function makeDocs(count: number, seed = 11) {
       id,
       title: `${TITLES[index % TITLES.length]} ${index}`,
       createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
+      // Edited an hour apart, in a shuffled order.
+      updatedAt: new Date(
+        Date.UTC(2026, 0, 1) + ((index * 37) % count) * 3_600_000,
+      ).toISOString(),
     });
     positions.set(id, { x: random() * 600, y: random() * 400 });
   }

@@ -1,38 +1,54 @@
 import { describe, expect, it } from "vitest";
-import { buildRegionLabelLayouts } from "./region-label-layout";
+import { buildRegionShapes } from "../regions/region-shape";
+import {
+  planRegionLabels,
+  regionLabelTier,
+  regionLabelWorldBox,
+  tierMinZoom,
+} from "./region-label-plan";
 import {
   buildStableRegionLabelOrder,
   getVisibleRegionLabelCount,
 } from "./region-label-order";
-import { SELECTED_REGION_INSIDE_LABEL_ZOOM } from "./region-label-geometry";
-import { buildFixedSelectedRegionLabelLayout } from "./selected-region-label";
-import { makeRegions, overlappingPairs, viewportAt } from "./test-fixtures";
+import { SettledViewGate, SETTLE_IDLE_MS } from "./settled-view";
+import { makeRegions, overlappingPairs, seededRandom } from "./test-fixtures";
 
-const offset = { x: 120, y: 80 };
-
-function layoutAt(
-  zoomScale: number,
-  regions = makeRegions(16),
-  extra: Partial<Parameters<typeof buildRegionLabelLayouts>[0]> = {},
-) {
+/** Regions plus notes scattered inside each region's circle. */
+function makeScene(count = 16) {
+  const regions = makeRegions(count);
+  const random = seededRandom(5);
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const region of regions) {
+    for (let i = 0; i < 12; i++) {
+      const id = `${region.id}-doc-${i}`;
+      const angle = random() * Math.PI * 2;
+      const distance = Math.sqrt(random()) * region.radius;
+      positions.set(id, {
+        x: region.centroid.x + Math.cos(angle) * distance,
+        y: region.centroid.y + Math.sin(angle) * distance,
+      });
+      region.docIds.push(id);
+    }
+  }
+  const shapes = buildRegionShapes(regions, positions);
   const order = buildStableRegionLabelOrder(regions);
-  const count = getVisibleRegionLabelCount({
-    regionCount: regions.length,
-    zoomScale,
+  return { regions, shapes, order };
+}
+
+function planAt(zoom: number, scene = makeScene(), selectedRegionId?: string) {
+  return planRegionLabels({
+    ...scene,
+    zoom,
     regionsOnly: false,
+    selectedRegionId,
   });
-  const labelOrder = order.slice(0, count);
-  return buildRegionLabelLayouts({
-    regions,
-    labeledIds: new Set(labelOrder),
-    labelOrder,
-    zoomScale,
-    offset,
-    labelFontSize: 16 / zoomScale,
-    allowRegionOverlap: false,
-    viewportBounds: viewportAt({ zoomScale, offset }),
-    ...extra,
-  });
+}
+
+/** Shown labels' world boxes when drawn at `zoom`. */
+function shownBoxes(plan: ReturnType<typeof planAt>, zoom: number) {
+  return plan.labeledIds.map((id) =>
+    regionLabelWorldBox(plan.layouts.get(id)!, zoom),
+  );
 }
 
 describe("buildStableRegionLabelOrder", () => {
@@ -99,114 +115,138 @@ describe("getVisibleRegionLabelCount", () => {
   });
 });
 
-describe("buildRegionLabelLayouts", () => {
-  it.each([0.45, 0.6, 0.8, 1])(
-    "places labels without overlapping each other at zoom %s",
-    (zoomScale) => {
-      const layouts = layoutAt(zoomScale);
-      expect(layouts.length).toBeGreaterThan(0);
-      expect(overlappingPairs(layouts)).toEqual([]);
+describe("planRegionLabels", () => {
+  it.each([0.3, 0.45, 0.6, 0.8, 1, 1.5])(
+    "labels regions without overlap at zoom %s",
+    (zoom) => {
+      const plan = planAt(zoom);
+      expect(plan.labeledIds.length).toBeGreaterThan(0);
+      expect(overlappingPairs(shownBoxes(plan, zoom))).toEqual([]);
     },
   );
 
-  it("keeps labels inside the viewport", () => {
-    const zoomScale = 0.6;
-    const bounds = viewportAt({ zoomScale, offset });
-    const halfPixel = 0.5 / zoomScale;
-    for (const layout of layoutAt(zoomScale)) {
-      expect(layout.minX).toBeGreaterThanOrEqual(bounds.minX - halfPixel);
-      expect(layout.minY).toBeGreaterThanOrEqual(bounds.minY - halfPixel);
-      expect(layout.maxX).toBeLessThanOrEqual(bounds.maxX + halfPixel);
-      expect(layout.maxY).toBeLessThanOrEqual(bounds.maxY + halfPixel);
+  it("stays overlap-free at every zoom inside the tier", () => {
+    const scene = makeScene();
+    const tier = regionLabelTier(0.6);
+    const plan = planAt(0.6, scene);
+    for (
+      let zoom = tierMinZoom(tier);
+      zoom < tierMinZoom(tier + 1);
+      zoom *= 1.01
+    ) {
+      expect(overlappingPairs(shownBoxes(plan, zoom))).toEqual([]);
     }
   });
 
-  it("avoids occupied boxes", () => {
-    const zoomScale = 0.8;
-    const base = layoutAt(zoomScale);
-    const blocker = base[0]!;
-    const occupied = [
-      {
-        minX: blocker.minX,
-        minY: blocker.minY,
-        maxX: blocker.maxX,
-        maxY: blocker.maxY,
-      },
-    ];
-    const layouts = layoutAt(zoomScale, makeRegions(16), {
-      occupiedBoxes: occupied,
-    });
-    for (const layout of layouts) {
-      expect(overlappingPairs([layout, occupied[0]!])).toEqual([]);
+  // This was the known flutter (an `it.fails` before the rewrite): labels
+  // jumped between inside and outside spots on a 1% zoom change. Placement
+  // is now a world anchor chosen once per zoom tier.
+  it("keeps each label's placement across a small zoom change", () => {
+    const scene = makeScene();
+    for (let zoom = 0.3; zoom <= 1.5; zoom *= 1.01) {
+      const next = zoom * 1.01;
+      if (regionLabelTier(next) !== regionLabelTier(zoom)) continue;
+      const before = planAt(zoom, scene);
+      const after = planAt(next, scene);
+      expect(after.labeledIds).toEqual(before.labeledIds);
+      for (const id of before.labeledIds) {
+        expect(after.layouts.get(id)).toEqual(before.layouts.get(id));
+      }
     }
   });
 
-  it("labels the same regions in the same order across a small zoom change", () => {
-    for (const zoomScale of [0.45, 0.6, 0.8, 1]) {
-      const before = layoutAt(zoomScale);
-      const after = layoutAt(zoomScale * 1.01);
-      expect(after.map((layout) => layout.regionId)).toEqual(
-        before.map((layout) => layout.regionId),
-      );
+  it("is the same plan for any zoom in a tier", () => {
+    const scene = makeScene();
+    const tier = regionLabelTier(0.5);
+    const low = planAt(tierMinZoom(tier), scene);
+    const high = planAt(tierMinZoom(tier + 1) * 0.999, scene);
+    expect(high).toEqual(low);
+  });
+
+  it("only gains labels as zoom grows across tiers", () => {
+    const scene = makeScene(30);
+    let previous = 0;
+    for (
+      let tier = regionLabelTier(0.3);
+      tier <= regionLabelTier(1.5);
+      tier++
+    ) {
+      const count = planAt(tierMinZoom(tier), scene).labeledIds.length;
+      expect(count).toBeGreaterThanOrEqual(previous - 1);
+      previous = count;
     }
   });
 
-  // Known flutter: a label can jump between an inside spot and an outside
-  // spot (with leader) on a 1% zoom change. On this fixture it happens 30
-  // times over 162 steps from 0.3 to 1.5, with jumps up to ~88 px. The
-  // stable-label rewrite should fix this; then drop `.fails`.
-  it.fails("keeps each label's placement across a small zoom change", () => {
-    const zoomScale = 0.6;
-    const before = layoutAt(zoomScale);
-    const after = layoutAt(zoomScale * 1.01);
-    expect(
-      after.map((layout) => [layout.textAnchor, layout.showLeader]),
-    ).toEqual(before.map((layout) => [layout.textAnchor, layout.showLeader]));
+  it("labels only the selected region, above its shape", () => {
+    const scene = makeScene();
+    const selected = scene.regions[5]!;
+    const plan = planAt(2, scene, selected.id);
+    expect(plan.labeledIds).toEqual([selected.id]);
+    const layout = plan.layouts.get(selected.id)!;
+    expect(layout.placement).toBe("above");
+    const shape = scene.shapes.get(selected.id)!;
+    expect(regionLabelWorldBox(layout, 2).maxY).toBeLessThanOrEqual(
+      shape.bounds.minY,
+    );
   });
 
-  it("snaps label edges to half screen pixels", () => {
-    const zoomScale = 0.73;
-    for (const layout of layoutAt(zoomScale)) {
-      const screenX = layout.minX * zoomScale + offset.x;
-      const screenY = layout.minY * zoomScale + offset.y;
-      expect(screenX * 2).toBeCloseTo(Math.round(screenX * 2), 6);
-      expect(screenY * 2).toBeCloseTo(Math.round(screenY * 2), 6);
-    }
-  });
-
-  it("puts a selected region's label outside its circle with a leader", () => {
-    const regions = makeRegions(16);
-    const selected = regions[5]!;
-    const zoomScale = 2;
-    const [layout] = buildRegionLabelLayouts({
-      regions,
-      labeledIds: new Set([selected.id]),
-      labelOrder: [selected.id],
-      emphasizedIds: new Set([selected.id]),
-      zoomScale,
-      offset,
-      labelFontSize: 16 / zoomScale,
-    });
-    expect(layout?.regionId).toBe(selected.id);
-    expect(layout?.showLeader).toBe(true);
-    expect(layout!.minX).toBeGreaterThan(selected.centroid.x);
-    expect(layout!.maxY).toBeLessThan(selected.centroid.y);
+  it("gives every region a layout so hover can show its name", () => {
+    const scene = makeScene();
+    const plan = planAt(0.3, scene);
+    expect(plan.layouts.size).toBe(scene.regions.length);
   });
 });
 
-describe("buildFixedSelectedRegionLabelLayout", () => {
-  it("pins the label above-right of the circle with a leader", () => {
-    const region = makeRegions(4)[2]!;
-    const zoomScale = SELECTED_REGION_INSIDE_LABEL_ZOOM / 2;
-    const layout = buildFixedSelectedRegionLabelLayout({
-      region,
-      zoomScale,
-      offset,
-      labelFontSize: 16 / zoomScale,
-    });
-    expect(layout.regionId).toBe(region.id);
-    expect(layout.showLeader).toBe(true);
-    expect(layout.minX).toBeGreaterThan(region.centroid.x);
-    expect(layout.maxY).toBeLessThan(region.centroid.y);
+describe("label count during a gesture", () => {
+  /** A 1 s wheel zoom from overview to 1.2× at 60 fps, then a rest. */
+  function simulateGesture() {
+    const scene = makeScene(30);
+    const start = { zoom: 0.38, offset: { x: 120, y: 80 } };
+    const gate = new SettledViewGate(start);
+    const counts: number[] = [];
+    let commits = 0;
+    let now = 0;
+    for (let frame = 0; frame <= 60; frame++) {
+      now = frame * 16;
+      const zoom = 0.38 * (1.2 / 0.38) ** (frame / 60);
+      gate.observe({ zoom, offset: { x: 120 - frame, y: 80 } }, now);
+      if (gate.tick(now)) commits++;
+      counts.push(planAt(gate.settled.zoom, scene).labeledIds.length);
+    }
+    const midGestureCommits = commits;
+    now += SETTLE_IDLE_MS;
+    const settled = gate.tick(now);
+    return { scene, counts, midGestureCommits, settled, gate };
+  }
+
+  it("never re-plans mid-gesture, so the label count holds", () => {
+    const { counts, midGestureCommits } = simulateGesture();
+    expect(midGestureCommits).toBe(0);
+    expect(new Set(counts).size).toBe(1);
+  });
+
+  it("re-plans once after the view rests", () => {
+    const { settled, gate, scene } = simulateGesture();
+    expect(settled?.zoom).toBeCloseTo(1.2, 6);
+    expect(gate.tick(10_000)).toBeUndefined();
+    expect(planAt(settled!.zoom, scene).labeledIds.length).toBeGreaterThan(0);
+  });
+
+  it("ignores sub-pixel pans and sub-0.5% zoom noise", () => {
+    const gate = new SettledViewGate({ zoom: 1, offset: { x: 0, y: 0 } });
+    expect(gate.observe({ zoom: 1.004, offset: { x: 0.4, y: 0 } }, 0)).toBe(
+      false,
+    );
+    expect(gate.observe({ zoom: 1.01, offset: { x: 0, y: 0 } }, 0)).toBe(true);
+  });
+
+  it("uses a relative zoom threshold", () => {
+    const gate = new SettledViewGate({ zoom: 0.38, offset: { x: 0, y: 0 } });
+    // 0.0019 absolute is 0.5% at 0.38×: the old 0.02 absolute threshold
+    // would have ignored a 5% change here.
+    expect(gate.observe({ zoom: 0.38 * 1.03, offset: { x: 0, y: 0 } }, 0)).toBe(
+      true,
+    );
+    expect(gate.tick(SETTLE_IDLE_MS)?.zoom).toBeCloseTo(0.38 * 1.03, 9);
   });
 });
