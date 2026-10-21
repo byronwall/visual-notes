@@ -21,6 +21,8 @@ import {
   leadingHeadingText,
 } from "~/lib/note-content/markdown";
 import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
+import { DocAudioStrip } from "./doc-audio/DocAudioStrip";
+import { RecordAudioButton } from "./doc-audio/RecordAudioButton";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
 import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
@@ -346,6 +348,7 @@ const DocumentViewer: VoidComponent<{
             order="1"
             ml="auto"
           >
+            <RecordAudioButton docId={props.doc.id} />
             <DocVersionsPopover
               docId={props.doc.id}
               onBeforeRestore={flushEditorChanges}
@@ -402,6 +405,7 @@ const DocumentViewer: VoidComponent<{
       </Show>
       <Show when={!props.panelMode}>
         <DocCollectionHeader docId={props.doc.id} />
+        <DocAudioStrip docId={props.doc.id} />
       </Show>
       <DocumentEditor
         docId={props.doc.id}

@@ -18,6 +18,7 @@ import type {
 import { STATUS_GROUPS } from "~/lib/collections/types";
 import { OptionChip } from "../values/OptionChip";
 import { GROUP_LABELS } from "../values/OptionPicker";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const panel = css({
   display: "flex",
@@ -26,6 +27,8 @@ const panel = css({
   p: "3",
   w: "min(40rem, 92vw)",
   fontSize: "sm",
+  // With nothing to edit, size to the hint and buttons instead of a wide sheet.
+  "&[data-empty]": { w: "auto", minW: "18rem" },
 });
 const line = css({
   display: "flex",
@@ -124,6 +127,7 @@ const ConditionValue = (props: {
       <Switch
         fallback={
           <input
+            {...noAutofill}
             class={control}
             value={String(props.condition.value ?? "")}
             placeholder="Value"
@@ -189,6 +193,7 @@ const ConditionValue = (props: {
           }
         >
           <input
+            {...noAutofill}
             class={control}
             style={{ width: "6rem" }}
             type="number"
@@ -209,6 +214,7 @@ const ConditionValue = (props: {
           )}
         >
           <input
+            {...noAutofill}
             class={control}
             type="date"
             value={String(props.condition.value ?? "")}
@@ -321,7 +327,7 @@ export const FilterEditor = (props: {
     );
 
   return (
-    <div class={panel}>
+    <div class={panel} data-empty={tree().items.length === 0 ? "" : undefined}>
       <Show when={tree().items.length === 0}>
         <span class={empty}>No filters. Rows are shown unfiltered.</span>
       </Show>

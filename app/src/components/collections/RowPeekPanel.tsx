@@ -26,7 +26,7 @@ export const RowPeekPanel = (props: {
       onTitleChange={(docId, title) => store.applyLocalTitle(docId, title)}
       header={
         <Show when={row()} keyed>
-          {(r) => <PropertyList row={r} allowAdd={!embedded} />}
+          {(r) => <PropertyList row={r} allowSchemaEdits={!embedded} />}
         </Show>
       }
     />

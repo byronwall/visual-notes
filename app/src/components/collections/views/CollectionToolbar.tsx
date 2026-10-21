@@ -19,6 +19,7 @@ import { FilterEditor } from "./FilterEditor";
 import { PropertiesMenu } from "./PropertiesMenu";
 import { SortEditor } from "./SortEditor";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const bar = css({
   display: "flex",
@@ -103,6 +104,7 @@ export const CollectionToolbar = (props: {
       <label class={searchBox}>
         <SearchIcon size={14} />
         <input
+          {...noAutofill}
           placeholder="Search"
           aria-label="Search this view"
           value={store.search(props.view.id)}

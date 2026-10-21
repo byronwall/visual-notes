@@ -1,22 +1,30 @@
-import { For, Show } from "solid-js";
-import { css } from "styled-system/css";
+import { For, Show, createSignal } from "solid-js";
+import { css, cx } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
 import { AddPropertyMenu } from "./menu/AddPropertyMenu";
+import { PropertyMenu } from "./menu/PropertyMenu";
 import { PropertyKindIcon } from "./PropertyKindIcon";
 import { ValueCell } from "./values/ValueCell";
 
 const list = css({
   display: "flex",
   flexDirection: "column",
-  gap: "0.5",
+  gap: "1",
   mb: "4",
+  // The list sits in note columns and the narrow peek panel alike, so it
+  // adapts to its own width rather than the viewport.
+  containerType: "inline-size",
 });
 const line = css({
   display: "grid",
-  gridTemplateColumns: "minmax(7rem, 11rem) 1fr",
+  gridTemplateColumns: "minmax(7rem, 10rem) minmax(0, 1fr)",
   alignItems: "center",
   gap: "2",
+  "@container (max-width: 30rem)": {
+    gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+    gap: "1",
+  },
 });
 const label = css({
   display: "flex",
@@ -25,13 +33,24 @@ const label = css({
   minW: "0",
   h: "8",
   px: "1",
+  w: "full",
   color: "fg.muted",
   fontSize: "sm",
+  textAlign: "left",
+  borderRadius: "l2",
+  cursor: "pointer",
+  transitionProperty: "color, background-color",
+  transitionDuration: "140ms",
+  _hover: { color: "fg.default", bg: "gray.a2" },
   "& span": {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+});
+const staticLabel = css({
+  cursor: "default",
+  _hover: { color: "fg.muted", bg: "transparent" },
 });
 const addBtn = css({
   display: "inline-flex",
@@ -49,19 +68,43 @@ const addBtn = css({
 /** A row's properties as label/value lines, shown above its note body. */
 export const PropertyList = (props: {
   row: CollectionRow;
-  allowAdd?: boolean;
+  /** Add, rename, retype, and delete properties. Off in embedded views. */
+  allowSchemaEdits?: boolean;
 }) => {
   const { store } = useCollection();
+  // A property added here opens its editor right away.
+  const [justAdded, setJustAdded] = createSignal<string>();
   return (
     <div class={list} aria-label="Properties">
       <For each={store.state.properties}>
         {(property) => (
-          <div class={line}>
-            <div class={label}>
-              <PropertyKindIcon property={property} />
-              <span>{property.name}</span>
-            </div>
+          <div class={line} data-property-line="">
+            <Show
+              when={props.allowSchemaEdits !== false}
+              fallback={
+                <div class={cx(label, staticLabel)}>
+                  <PropertyKindIcon property={property} />
+                  <span>{property.name}</span>
+                </div>
+              }
+            >
+              <PropertyMenu
+                property={property}
+                anchor={(open) => (
+                  <button
+                    type="button"
+                    class={label}
+                    aria-label={`${property.name} property settings`}
+                    onClick={open}
+                  >
+                    <PropertyKindIcon property={property} />
+                    <span>{property.name}</span>
+                  </button>
+                )}
+              />
+            </Show>
             <ValueCell
+              autoEdit={justAdded() === property.id}
               property={property}
               row={props.row}
               store={store}
@@ -71,9 +114,15 @@ export const PropertyList = (props: {
           </div>
         )}
       </For>
-      <Show when={props.allowAdd !== false}>
+      <Show when={props.allowSchemaEdits !== false}>
         <div>
-          <AddPropertyMenu class={addBtn} label="Add a property" />
+          <AddPropertyMenu
+            class={addBtn}
+            label="Add a property"
+            placement="bottom-start"
+            anchorClass={css({ display: "inline-flex" })}
+            onAdded={(property) => setJustAdded(property.id)}
+          />
         </div>
       </Show>
     </div>

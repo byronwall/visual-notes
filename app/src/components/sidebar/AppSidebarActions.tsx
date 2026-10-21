@@ -1,6 +1,11 @@
 import type { Accessor, JSX } from "solid-js";
 import { Show } from "solid-js";
-import { BotMessageSquareIcon, FilePlusIcon, SearchIcon } from "lucide-solid";
+import {
+  BotMessageSquareIcon,
+  FilePlusIcon,
+  MicIcon,
+  SearchIcon,
+} from "lucide-solid";
 import { Box } from "styled-system/jsx";
 import { Tooltip } from "~/components/ui/tooltip";
 import type { SidebarNavIcon } from "./nav-items";
@@ -16,6 +21,7 @@ type AppSidebarActionsProps = {
   showShortcuts: boolean;
   onChatOpen: () => void;
   onNewNoteOpen: () => void;
+  onVoiceNoteStart: () => void;
   onSearchOpen: () => void;
   hasUnreadAny: Accessor<boolean>;
   hasLoadingAny: Accessor<boolean>;
@@ -26,7 +32,7 @@ const SidebarIconAction = (props: {
   expanded: boolean;
   showShortcuts: boolean;
   label: string;
-  shortcut: string;
+  shortcut?: string;
   icon: SidebarNavIcon;
   onClick: () => void;
   status?: JSX.Element;
@@ -50,7 +56,7 @@ const SidebarIconAction = (props: {
       data-collapsed=""
       data-icon-only={props.expanded ? "" : undefined}
       aria-label={props.label}
-      aria-keyshortcuts={props.shortcut.replace("⌘", "Meta+")}
+      aria-keyshortcuts={props.shortcut?.replace("⌘", "Meta+")}
       onClick={() => props.onClick()}
     >
       <props.icon size={16} strokeWidth={1.8} />
@@ -60,8 +66,8 @@ const SidebarIconAction = (props: {
 );
 
 /**
- * Search, New note, and Chat on one row: search is the wide target, the other
- * two are icons. The collapsed rail stacks all three as icons.
+ * Search, New note, Voice note, and Chat on one row: search is the wide
+ * target, the rest are icons. The collapsed rail stacks all three as icons.
  */
 export const AppSidebarActions = (props: AppSidebarActionsProps) => {
   const chatStatus = () =>
@@ -117,6 +123,13 @@ export const AppSidebarActions = (props: AppSidebarActionsProps) => {
         shortcut="⌘D"
         icon={FilePlusIcon}
         onClick={props.onNewNoteOpen}
+      />
+      <SidebarIconAction
+        expanded={props.expanded}
+        showShortcuts={props.showShortcuts}
+        label="Voice note"
+        icon={MicIcon}
+        onClick={props.onVoiceNoteStart}
       />
       <SidebarIconAction
         expanded={props.expanded}

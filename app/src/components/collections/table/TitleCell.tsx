@@ -3,6 +3,7 @@ import { Show, createSignal, untrack } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const root = css({
   position: "relative",
@@ -143,6 +144,7 @@ export const TitleCell = (props: {
       </button>
       <Show when={editing()}>
         <input
+          {...noAutofill}
           class={input}
           value={draft()}
           placeholder="Untitled"
