@@ -11,6 +11,11 @@ import {
 import { ConnectorError, type ConnectorContext } from "./notes-shared";
 import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
 import {
+  EVENT_INSTRUCTIONS,
+  EVENT_TOOL_SCOPES,
+  registerEventTools,
+} from "./event-tools";
+import {
   registerResearchTools,
   RESEARCH_INSTRUCTIONS,
   RESEARCH_TOOL_SCOPES,
@@ -26,6 +31,7 @@ const SERVER_INSTRUCTIONS = [
   "Links to other notes appear as [[Title|noteId]] or [[Text|noteId#blockId]].",
   "You may only edit, update, or append to notes with createdBy=chatgpt. For notes the user wrote, create a new note that links to the original.",
   RESEARCH_INSTRUCTIONS,
+  EVENT_INSTRUCTIONS,
 ].join("\n");
 
 async function run(
@@ -71,6 +77,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   append_to_note: "notes:write",
   edit_note: "notes:write",
   ...RESEARCH_TOOL_SCOPES,
+  ...EVENT_TOOL_SCOPES,
 };
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -281,6 +288,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   );
 
   registerResearchTools(server, ctx, guarded);
+  registerEventTools(server, ctx, guarded);
 
   return server;
 }

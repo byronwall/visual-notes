@@ -12,6 +12,8 @@ vi.mock("./notes-read", () => ({
   searchNotes: vi.fn(),
   MAX_NOTES_PER_GET: 10,
 }));
+// The event tools share the server; keep their prisma import inert.
+vi.mock("~/server/db", () => ({ prisma: {} }));
 vi.mock("./notes-write", () => ({ appendToNote: vi.fn(), createNote: vi.fn(), updateNote: vi.fn() }));
 
 const service = vi.hoisted(() => {
