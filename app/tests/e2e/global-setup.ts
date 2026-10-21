@@ -25,8 +25,11 @@ export default async function globalSetup(config: FullConfig) {
   try {
     const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    // A cold `vinxi dev` server re-optimizes deps on the first page load and
+    // force-reloads it, which can interrupt sign-in once. Retry before failing.
+    const signIn = () => ensureAuthed(page, { password });
     try {
-      await ensureAuthed(page, { password });
+      await signIn().catch(signIn);
     } catch {
       throw new Error(
         `[e2e-setup] sign-in failed at ${new URL(page.url()).pathname}; check the test credential source.`,
