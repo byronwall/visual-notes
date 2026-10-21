@@ -1,5 +1,9 @@
 import { createMiddleware } from "@solidjs/start/middleware";
 import { isArchiveIngestAuthorized } from "~/server/lib/archive/auth";
+import {
+  isResearchAgentAuthorized,
+  isResearchAgentPath,
+} from "~/server/lib/research/auth";
 import { isRequestAuthenticated } from "~/server/magic-auth";
 import { handleWellKnown } from "~/server/oauth/route-helpers";
 import { loginPathFor } from "~/utils/safe-next";
@@ -80,6 +84,10 @@ export default createMiddleware({
         pathname.startsWith("/api/archive/groups")
       ) {
         if (isArchiveIngestAuthorized(event.request)) return;
+      }
+
+      if (isResearchAgentPath(pathname) && isResearchAgentAuthorized(event.request)) {
+        return;
       }
 
       const authed = isRequestAuthenticated(event.request);
