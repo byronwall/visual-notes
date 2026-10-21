@@ -41,8 +41,13 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command:
-          "set -a; source .env; set +a; unset NO_COLOR; pnpm build && pnpm start",
+        // PLAYWRIGHT_WEB_SERVER=dev skips the 1-4 minute production build for
+        // a quick local run. CI always tests the production build.
+        command: `set -a; source .env; set +a; unset NO_COLOR; ${
+          process.env.PLAYWRIGHT_WEB_SERVER === "dev" && !process.env.CI
+            ? "pnpm dev"
+            : "pnpm build && pnpm start"
+        }`,
         env: webServerEnv,
         url: baseURL,
         reuseExistingServer: !process.env.CI,

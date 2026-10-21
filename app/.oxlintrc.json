@@ -1,0 +1,90 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc"],
+  "jsPlugins": ["eslint-plugin-solid", "./lint/oxlint-plugin-vn.mjs"],
+  "env": { "browser": true, "node": true, "es2022": true },
+  "categories": { "correctness": "error" },
+  "ignorePatterns": [
+    "dist/",
+    ".output/",
+    ".vinxi/",
+    "playwright-report/",
+    "test-results/",
+    "blob-report/",
+    "playwright/.cache/",
+    "styled-system/",
+    "app.config.timestamp_*.js"
+  ],
+  "rules": {
+    // Solid reads signals as bare expressions to track them, and assigns
+    // `let ref!: HTMLElement` through JSX `ref`, so these two misfire.
+    "no-unused-expressions": "off",
+    "no-unassigned-vars": "off",
+    // Matches typescript-eslint's override of eslint:recommended for TS files.
+    "no-redeclare": "off",
+    // Correctness rules ESLint never ran here; they flag deliberate code
+    // (sized numeric arrays, spread fallbacks, optional fetch bodies).
+    "unicorn/no-new-array": "off",
+    "unicorn/no-useless-fallback-in-spread": "off",
+    "unicorn/no-useless-spread": "off",
+    "unicorn/prefer-string-starts-ends-with": "off",
+    "unicorn/no-invalid-fetch-options": "off",
+    "oxc/only-used-in-recursion": "off",
+    "no-case-declarations": "error",
+    "no-empty": "off",
+    "no-fallthrough": "error",
+    "no-prototype-builtins": "error",
+    "no-regex-spaces": "error",
+    "no-useless-escape": "off",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "no-unused-vars": [
+      "warn",
+      {
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "caughtErrors": "none",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "typescript/ban-ts-comment": "error",
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-explicit-any": "off",
+    "typescript/no-namespace": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/triple-slash-reference": "error",
+
+    "solid/components-return-once": "warn",
+    "solid/event-handlers": "warn",
+    "solid/imports": "warn",
+    "solid/jsx-no-duplicate-props": "error",
+    "solid/jsx-no-script-url": "error",
+    "solid/jsx-no-undef": ["error", { "typescriptEnabled": true }],
+    "solid/no-destructure": "error",
+    "solid/no-react-deps": "warn",
+    "solid/no-react-specific-props": "warn",
+    "solid/prefer-for": "warn",
+    "solid/reactivity": "warn",
+    "solid/self-closing-comp": "warn",
+    "solid/style-prop": "warn",
+
+    "vn/note-body-writes": "error",
+    "vn/no-nested-select-spread": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/server/notes/note-write.ts",
+        "src/server/notes/note-store.ts",
+        "src/server/notes/block-migration.ts"
+      ],
+      "rules": { "vn/note-body-writes": "off" }
+    }
+  ]
+}
