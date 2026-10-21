@@ -13,7 +13,6 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "types": ["vite/client", "@solidjs/start/env", "vinxi/types/client"],
-    "baseUrl": "./",
     "paths": {
       "styled-system/*": ["./styled-system/*"],
       "~/*": ["./src/*"]

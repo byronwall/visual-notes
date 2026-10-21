@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   CalendarClockIcon,
+  CalendarHeartIcon,
   CompassIcon,
   DatabaseIcon,
   HashIcon,
@@ -92,6 +93,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     keywords: "folders tree",
     isActive: (pathname) =>
       isSectionActive("/path", pathname) || pathname === "/paths",
+  },
+  {
+    label: "Events",
+    href: "/events",
+    icon: CalendarHeartIcon,
+    keywords: "date nights shows places map ical feeds subscribe",
+    isActive: (pathname) => isSectionActive("/events", pathname),
   },
   {
     label: "Tasks",
