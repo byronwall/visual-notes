@@ -58,15 +58,18 @@ If details are missing, start from the most likely real user flow and document a
 
 ## Repo-Specific Setup
 
-In this repo, use these local Playwright/MCP assumptions unless the user says otherwise:
+In this repo:
 
-- The app server is usually already running on port `3000`.
-- Use the IPv6 loopback URL `http://[::1]:3000` for local browser access.
-- The Playwright MCP server is configured to run with `--isolated`, so separate
-  Codex threads get independent browser instances and do not fight over shared
-  profile state.
-- If an explicit base URL is needed for Playwright test runs, use
-  `PLAYWRIGHT_BASE_URL=http://[::1]:3000`.
+- Run the app on your own port and database with `pnpm audit:harness` (see
+  `app/docs/audit-harness.md`). Keep that one server running and point every
+  check at it.
+- Write scripted checks with the browser-check kit (`app/docs/browser-checks.md`):
+  copy `app/scripts/browser/example-check.mjs` into `app/tmp/`. It signs in
+  once, waits for hydration instead of sleeping, and exits 1 on a failed check
+  or a page error.
+- For screenshot sweeps across routes and widths, use `pnpm audit:shoot`.
+- The Playwright MCP server runs with `--isolated`, so separate threads get
+  independent browser instances.
 
 ## Priority Rubric
 

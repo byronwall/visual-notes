@@ -1,4 +1,5 @@
 import {
+  CalendarPlusIcon,
   CopyIcon,
   DatabaseIcon,
   HeadingIcon,
@@ -22,6 +23,8 @@ export const DocActionsMenu: VoidComponent<{
   onUseHeadingTitle?: () => void;
   /** Offered when the note is not in a collection yet. */
   onAddToCollection?: () => void;
+  /** Offered when the note has no event dates yet. */
+  onAddEventDates?: () => void;
   disabled?: boolean;
 }> = (props) => {
   return (
@@ -71,6 +74,15 @@ export const DocActionsMenu: VoidComponent<{
             >
               <DatabaseIcon size={14} />
               Add to collection…
+            </Menu.Item>
+          </Show>
+          <Show when={props.onAddEventDates}>
+            <Menu.Item
+              value="add-event-dates"
+              onSelect={() => props.onAddEventDates?.()}
+            >
+              <CalendarPlusIcon size={14} />
+              Add event dates…
             </Menu.Item>
           </Show>
           <Menu.Separator />
