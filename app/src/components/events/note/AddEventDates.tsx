@@ -7,10 +7,21 @@ import { Text } from "~/components/ui/text";
 import { DEFAULT_TIME_ZONE } from "~/lib/events/types";
 import { useNoteEvent } from "./NoteEventContext";
 
-/** Compact "make this note an event" affordance: first show date + time. */
-export const AddEventDates: VoidComponent = () => {
+/**
+ * Compact "make this note an event" affordance: first show date + time.
+ * `startOpen` skips the button (the note page opens it from its menu);
+ * `onClose` runs when the form is cancelled or submitted.
+ */
+export const AddEventDates: VoidComponent<{
+  startOpen?: boolean;
+  onClose?: () => void;
+}> = (props) => {
   const { addShows } = useNoteEvent();
-  const [open, setOpen] = createSignal(false);
+  const [open, setOpenSignal] = createSignal(props.startOpen ?? false);
+  const setOpen = (next: boolean) => {
+    setOpenSignal(next);
+    if (!next) props.onClose?.();
+  };
   const [date, setDate] = createSignal("");
   const [time, setTime] = createSignal("");
   const [busy, setBusy] = createSignal(false);

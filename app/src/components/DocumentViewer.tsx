@@ -24,6 +24,7 @@ import { DocActivitySummaryPopover } from "./DocActivitySummaryPopover";
 import { DocAudioStrip } from "./doc-audio/DocAudioStrip";
 import { RecordAudioButton } from "./doc-audio/RecordAudioButton";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
+import { NoteEventSection } from "./events/note/NoteEventSection";
 import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
 import DocumentEditor, { type DocumentEditorApi } from "./DocumentEditor";
@@ -64,6 +65,7 @@ const DocumentViewer: VoidComponent<{
   const [busy, setBusy] = createSignal(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = createSignal(false);
+  const [addingEventDates, setAddingEventDates] = createSignal(false);
   const [editorApi, setEditorApi] = createSignal<DocumentEditorApi | undefined>(
     undefined,
   );
@@ -381,6 +383,7 @@ const DocumentViewer: VoidComponent<{
               headingTitle={showSync() ? firstH1() : undefined}
               onUseHeadingTitle={() => void handleSync()}
               onAddToCollection={() => setAddToCollectionOpen(true)}
+              onAddEventDates={() => setAddingEventDates(true)}
             />
           </HStack>
         </HStack>
@@ -405,6 +408,12 @@ const DocumentViewer: VoidComponent<{
       </Show>
       <Show when={!props.panelMode}>
         <DocCollectionHeader docId={props.doc.id} />
+        <NoteEventSection
+          docId={props.doc.id}
+          hideWhenEmpty
+          adding={addingEventDates()}
+          onAddingDone={() => setAddingEventDates(false)}
+        />
         <DocAudioStrip docId={props.doc.id} />
       </Show>
       <DocumentEditor

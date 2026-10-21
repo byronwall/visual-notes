@@ -12,7 +12,8 @@ import {
 import { getPlace, listPlaces } from "~/server/calendar/place-store";
 
 /** The event details and shows on one note, or null when it is not an event. */
-export const fetchNoteEvent = query(async (docId: string) => {
+// `_refresh` only varies the cache key so a caller can force a fresh read.
+export const fetchNoteEvent = query(async (docId: string, _refresh = 0) => {
   "use server";
   return getNoteEvent(docId);
 }, "events-note");

@@ -24,6 +24,7 @@ import {
   saveOccurrence,
 } from "~/services/events/events.actions";
 import { fetchNoteEvent } from "~/services/events/events.queries";
+import { useFeedsRefresh } from "~/components/events/feeds/feedsRefresh";
 
 type NoteEventApi = {
   docId: Accessor<string>;
@@ -56,11 +57,18 @@ export function NoteEventProvider(props: {
   docId: string;
   children: JSX.Element;
 }) {
+  // Refetches pass a new count so a read after a write skips the query cache
+  // (resources do not track revalidated query keys). The first read uses 0
+  // on both server and client so hydration reuses the SSR result.
+  let refetches = 0;
   const [resource, { refetch }] = createResource(
     () => props.docId,
-    (id) => fetchNoteEvent(id),
+    (id: string, info: { refetching: unknown }) =>
+      fetchNoteEvent(id, info.refetching ? ++refetches : 0),
   );
   const { show: toast } = useToasts();
+  // Decision and collection edits can change which feeds match by rule.
+  const feedsRefresh = useFeedsRefresh();
   const runSaveEvent = useAction(saveNoteEvent);
   const runRemoveEvent = useAction(removeNoteEvent);
   const runCreate = useAction(createOccurrences);
@@ -73,6 +81,7 @@ export function NoteEventProvider(props: {
     try {
       const result = await work;
       await refetch();
+      feedsRefresh.bump();
       return { ok: true as const, result };
     } catch (error) {
       console.error(`[note-event] ${label} failed`, error);
