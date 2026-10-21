@@ -1,8 +1,9 @@
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
 import { AddPropertyMenu } from "./menu/AddPropertyMenu";
+import { PropertyMenu } from "./menu/PropertyMenu";
 import { PropertyKindIcon } from "./PropertyKindIcon";
 import { ValueCell } from "./values/ValueCell";
 
@@ -25,8 +26,15 @@ const label = css({
   minW: "0",
   h: "8",
   px: "1",
+  w: "full",
   color: "fg.muted",
   fontSize: "sm",
+  textAlign: "left",
+  borderRadius: "l2",
+  cursor: "pointer",
+  transitionProperty: "color, background-color",
+  transitionDuration: "140ms",
+  _hover: { color: "fg.default", bg: "gray.a2" },
   "& span": {
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -52,16 +60,29 @@ export const PropertyList = (props: {
   allowAdd?: boolean;
 }) => {
   const { store } = useCollection();
+  // A property added here opens its editor right away.
+  const [justAdded, setJustAdded] = createSignal<string>();
   return (
     <div class={list} aria-label="Properties">
       <For each={store.state.properties}>
         {(property) => (
           <div class={line} data-property-line="">
-            <div class={label}>
-              <PropertyKindIcon property={property} />
-              <span>{property.name}</span>
-            </div>
+            <PropertyMenu
+              property={property}
+              anchor={(open) => (
+                <button
+                  type="button"
+                  class={label}
+                  aria-label={`${property.name} property settings`}
+                  onClick={open}
+                >
+                  <PropertyKindIcon property={property} />
+                  <span>{property.name}</span>
+                </button>
+              )}
+            />
             <ValueCell
+              autoEdit={justAdded() === property.id}
               property={property}
               row={props.row}
               store={store}
@@ -78,6 +99,7 @@ export const PropertyList = (props: {
             label="Add a property"
             placement="bottom-start"
             anchorClass={css({ display: "inline-flex" })}
+            onAdded={(property) => setJustAdded(property.id)}
           />
         </div>
       </Show>

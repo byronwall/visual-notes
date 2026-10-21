@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-solid";
-import { Match, Show, Switch, createSignal } from "solid-js";
+import { Match, Show, Switch, createEffect, createSignal, on } from "solid-js";
 import { css, cx } from "styled-system/css";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import type {
@@ -122,6 +122,8 @@ export const ValueCell = (props: {
   store: CollectionStore;
   variant?: "cell" | "field";
   wrap?: boolean;
+  /** Open the editor on mount, e.g. for a property that was just added. */
+  autoEdit?: boolean;
   /** Called with the element so a grid can manage focus. */
   ref?: (el: HTMLDivElement) => void;
   onEditEnd?: (reason: "commit" | "cancel" | "tab" | "shift-tab") => void;
@@ -192,6 +194,19 @@ export const ValueCell = (props: {
     if (refocus) queueMicrotask(() => root?.focus());
     props.onEditEnd?.(reason);
   };
+
+  createEffect(
+    on(
+      () => props.autoEdit,
+      (auto) => {
+        if (
+          auto &&
+          (isInlineKind(props.property) || isPopoverKind(props.property))
+        )
+          start();
+      },
+    ),
+  );
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (editing()) return;
