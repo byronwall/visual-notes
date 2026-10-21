@@ -88,4 +88,34 @@ describe("fromNoteMarkdown", () => {
       "text",
     ]);
   });
+
+  it("round-trips note links whose labels hold markup, brackets, or #words", () => {
+    const source: NoteDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "noteLink", attrs: { docId: "d1", blockId: null, label: "*Draft* [v2] | Q4 #plan" } },
+            { type: "text", text: " after" },
+          ],
+        },
+      ],
+    };
+    const parsed = fromNoteMarkdown(toMarkdown(source));
+    const nodes = inline(parsed.content![0]);
+    expect(nodes.map((n) => n.type)).toEqual(["noteLink", "text"]);
+    expect(nodes[0].attrs).toMatchObject({ docId: "d1", label: "*Draft*  v2    Q4 #plan" });
+    expect(noteLinkTargets(parsed.content!)).toEqual(["d1"]);
+  });
+
+  it("keeps literal embed placeholder text as text", () => {
+    const source: NoteDoc = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "{{collection-view:abc}}" }] }],
+    };
+    const parsed = fromNoteMarkdown(toMarkdown(source));
+    expect(types(parsed)).toEqual(["paragraph"]);
+    expect(inline(parsed.content![0]).map((n) => n.text).join("")).toBe("{{collection-view:abc}}");
+  });
 });

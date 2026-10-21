@@ -133,7 +133,7 @@ export type EmbeddedView = {
 async function embeddedViews(viewIds: string[]): Promise<Map<string, EmbeddedView>> {
   if (!viewIds.length) return new Map();
   const views = await prisma.collectionView.findMany({
-    where: { id: { in: viewIds } },
+    where: { id: { in: viewIds }, collection: { deletedAt: null } },
     select: {
       id: true,
       name: true,

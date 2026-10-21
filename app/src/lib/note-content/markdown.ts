@@ -16,7 +16,9 @@ function escapeText(text: string): string {
   // `#word` would read back as a tag (see note-markdown.ts).
   return text
     .replace(/([\\`*_[\]])/g, "\\$1")
-    .replace(/(^|[\s(])#(?=[A-Za-z])/g, "$1\\#");
+    .replace(/(^|[\s(])#(?=[A-Za-z])/g, "$1\\#")
+    // A paragraph that reads like an embed placeholder stays text.
+    .replace(/^\{\{collection-view:/, "\\{{collection-view:");
 }
 
 function applyMarks(text: string, marks: NoteNode["marks"]): string {
@@ -50,7 +52,11 @@ export function inlineToMarkdown(nodes: NoteNode[] | undefined): string {
         case "image":
           return `![${node.attrs?.alt ?? ""}](${node.attrs?.src ?? ""})`;
         case "noteLink": {
-          const label = node.attrs?.label || "note";
+          // The label is display only (refreshed from the target on read), so
+          // drop the characters that would end the link and escape markup.
+          const label = String(node.attrs?.label || "note")
+            .replace(/[[\]|\n]/g, " ")
+            .replace(/([\\`*_~=])/g, "\\$1");
           const target = node.attrs?.blockId
             ? `${node.attrs?.docId}#${node.attrs.blockId}`
             : node.attrs?.docId;

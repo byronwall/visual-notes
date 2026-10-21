@@ -18,7 +18,8 @@ const VIEW_LINE = /^\{\{collection-view:([A-Za-z0-9_-]{1,64})\}\}\s*$/;
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const NOTE_LINK = /\[\[([^\]|\n]+)\|([A-Za-z0-9_-]{1,64})(?:#([A-Za-z0-9_-]{1,64}))?\]\]/g;
 const TAG = /(^|[\s(])#([A-Za-z][A-Za-z0-9_\-/]{0,63})/g;
-const ENTITY_FOR: Record<string, string> = { "#": "&#35;", "[": "&#91;", "]": "&#93;" };
+const LINK_OR_TAG = new RegExp(`${NOTE_LINK.source}|${TAG.source}`, "g");
+const ENTITY_FOR: Record<string, string> = { "#": "&#35;", "[": "&#91;", "]": "&#93;", "{": "&#123;" };
 
 const escapeAttr = (value: string) =>
   value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
@@ -27,7 +28,7 @@ const escapeAttr = (value: string) =>
 function protectEscapes(line: string): string {
   return line
     .split(/(`+[^`]*`+)/)
-    .map((part, i) => (i % 2 ? part : part.replace(/\\([#[\]])/g, (_m, ch: string) => ENTITY_FOR[ch])))
+    .map((part, i) => (i % 2 ? part : part.replace(/\\([#[\]{])/g, (_m, ch: string) => ENTITY_FOR[ch])))
     .join("");
 }
 
@@ -79,15 +80,19 @@ function linkify(html: string): string {
         return part;
       }
       if (skip) return part;
-      return part
-        .replace(NOTE_LINK, (_m, label: string, docId: string, blockId?: string) => {
-          const block = blockId ? ` data-block-id="${escapeAttr(blockId)}"` : "";
-          return `<a data-note-link="" data-doc-id="${escapeAttr(docId)}"${block}>${label}</a>`;
-        })
-        .replace(TAG, (_m, lead: string, name: string) => {
+      // One pass, so a "#word" inside a link label stays part of the label.
+      return part.replace(
+        LINK_OR_TAG,
+        (match, label?: string, docId?: string, blockId?: string, lead?: string, name?: string) => {
+          if (docId) {
+            const block = blockId ? ` data-block-id="${escapeAttr(blockId)}"` : "";
+            return `<a data-note-link="" data-doc-id="${escapeAttr(docId)}"${block}>${label}</a>`;
+          }
+          if (!name) return match;
           const tag = name.toLowerCase();
           return `${lead}<span data-tag="${escapeAttr(tag)}">#${tag}</span>`;
-        });
+        },
+      );
     })
     .join("");
 }
