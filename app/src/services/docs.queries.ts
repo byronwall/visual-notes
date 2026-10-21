@@ -7,6 +7,7 @@ import {
   readNoteContent,
 } from "~/server/notes/note-store";
 import { resolveNoteReferences } from "~/server/notes/note-links";
+import { listMetaKeys, listMetaValues } from "~/server/notes/note-meta";
 
 export type DocDetail = {
   id: string;
@@ -527,21 +528,7 @@ export const fetchPathDiscovery = query(
 export const fetchMetaKeys = query(
   async (): Promise<{ key: string; count: number }[]> => {
     "use server";
-    const docs = await prisma.doc.findMany({
-      where: { meta: { not: null } as any },
-      select: { meta: true },
-    });
-    const counts = new Map<string, number>();
-    for (const d of docs as any[]) {
-      const m = d.meta;
-      if (!m || typeof m !== "object") continue;
-      for (const k of Object.keys(m)) {
-        counts.set(k, (counts.get(k) || 0) + 1);
-      }
-    }
-    const items = Array.from(counts.entries())
-      .map(([key, count]) => ({ key, count }))
-      .sort((a, b) => b.count - a.count);
+    const items = await listMetaKeys();
     console.log(`[services] fetchMetaKeys: count=${items.length}`);
     return items;
   },
@@ -551,23 +538,7 @@ export const fetchMetaKeys = query(
 export const fetchMetaValues = query(
   async (key: string): Promise<{ value: string; count: number }[]> => {
     "use server";
-    if (!key) return [];
-    const docs = await prisma.doc.findMany({
-      where: { meta: { path: [key], not: null } as any },
-      select: { meta: true },
-    });
-    const counts = new Map<string, number>();
-    for (const d of docs as any[]) {
-      const m = d.meta as Record<string, unknown> | null;
-      if (!m || typeof m !== "object") continue;
-      const raw = (m as any)[key];
-      if (raw === null || raw === undefined) continue;
-      const val = String(raw);
-      counts.set(val, (counts.get(val) || 0) + 1);
-    }
-    const items = Array.from(counts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
+    const items = await listMetaValues(key);
     console.log(`[services] fetchMetaValues: key=${key} count=${items.length}`);
     return items;
   },

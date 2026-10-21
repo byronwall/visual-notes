@@ -44,7 +44,7 @@ export const formatTopicSummary = (graph: ResearchTopicGraph): string => {
   if (recent.length) {
     out.push("", "## Recent batches");
     for (const batch of recent) {
-      out.push(`- ${batch.batchKey} by ${batch.agent}: ${batch.summary || "(no summary)"}${batch.undoneAt ? " [undone]" : ""}`);
+      out.push(`- [${batch.id}] ${batch.batchKey} by ${batch.agent}: ${batch.summary || "(no summary)"}${batch.undoneAt ? " [undone]" : ""}`);
     }
   }
   return out.join("\n");
@@ -101,3 +101,15 @@ export const formatCard = (graph: ResearchTopicGraph, cardId: string): string | 
   }
   return out.join("\n");
 };
+
+/** A topic's batch history, newest first, with ids for undo/redo. */
+export const formatBatches = (graph: ResearchTopicGraph) =>
+  graph.batches.map((batch) => ({
+    id: batch.id,
+    batchKey: batch.batchKey,
+    agent: batch.agent,
+    summary: batch.summary,
+    cardCount: batch.cardCount,
+    createdAt: batch.createdAt,
+    undone: Boolean(batch.undoneAt),
+  }));

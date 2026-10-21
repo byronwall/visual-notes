@@ -39,7 +39,7 @@ vi.mock("~/services/umap/umap.projection", () => ({
 }));
 
 import { scheduleEmbeddingRefresh } from "./embedding-refresh";
-import { contentColumns } from "./note-store";
+import { contentColumns, setContentWriteHook } from "./note-store";
 import { fromMarkdown } from "~/lib/note-content/convert";
 
 beforeEach(() => {
@@ -78,6 +78,7 @@ describe("scheduleEmbeddingRefresh", () => {
   });
 
   it("is queued by every content write", async () => {
+    setContentWriteHook(() => scheduleEmbeddingRefresh());
     contentColumns(fromMarkdown("A new note"));
     expect(mocks.process).not.toHaveBeenCalled();
     await vi.runAllTimersAsync();

@@ -2,7 +2,9 @@ import { searchDocs } from "~/features/docs-index/data/docs.queries.search";
 import { prisma } from "~/server/db";
 import { toMarkdown } from "~/lib/note-content/convert";
 import { resolveNoteReferences } from "~/server/notes/note-links";
+import { readMeta } from "~/server/notes/note-meta";
 import { readNoteContent } from "~/server/notes/note-store";
+import { collectionViewIds } from "~/lib/note-content/note-markdown";
 import {
   CHATGPT_SOURCE,
   isChatGptNote,
@@ -115,9 +117,49 @@ export type FullNote = NoteSummary & {
   markdown: string;
   createdAt: string;
   editable: boolean;
+  /** Free-form fields on the note (set_note_meta changes them). */
+  meta: Record<string, unknown>;
   /** Set when the note is a row in a collection: its typed properties as text. */
   collection?: CollectionText;
+  /** Collection views embedded in the note as `{{collection-view:id}}` lines. */
+  embeds?: EmbeddedView[];
 };
+
+export type EmbeddedView = {
+  viewId: string;
+  view: string;
+  type: string;
+  collectionId: string;
+  collection: string;
+};
+
+async function embeddedViews(
+  viewIds: string[],
+): Promise<Map<string, EmbeddedView>> {
+  if (!viewIds.length) return new Map();
+  const views = await prisma.collectionView.findMany({
+    where: { id: { in: viewIds }, collection: { deletedAt: null } },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      collectionId: true,
+      collection: { select: { name: true } },
+    },
+  });
+  return new Map(
+    views.map((v) => [
+      v.id,
+      {
+        viewId: v.id,
+        view: v.name,
+        type: v.type,
+        collectionId: v.collectionId,
+        collection: v.collection.name,
+      },
+    ]),
+  );
+}
 
 export async function getNotes(
   ctx: ConnectorContext,
@@ -132,10 +174,23 @@ export async function getNotes(
       html: true,
       markdown: true,
       content: true,
+      meta: true,
     },
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
   const collectionText = await collectionTextForNotes(rows.map((r) => r.id));
+  const contentById = new Map(
+    rows.map((row) => [row.id, readNoteContent(row)]),
+  );
+  const viewIdsById = new Map(
+    rows.map((row) => [
+      row.id,
+      collectionViewIds(contentById.get(row.id)?.content ?? []),
+    ]),
+  );
+  const views = await embeddedViews([
+    ...new Set([...viewIdsById.values()].flat()),
+  ]);
   const notes: FullNote[] = [];
   const missing: string[] = [];
   for (const id of ids) {
@@ -146,15 +201,25 @@ export async function getNotes(
     }
     notes.push({
       ...toSummary(ctx, row),
-      markdown: toMarkdown(await resolveNoteReferences(readNoteContent(row)), {
+      markdown: toMarkdown(await resolveNoteReferences(contentById.get(id)!), {
         withIds: true,
       }),
       createdAt: row.createdAt.toISOString(),
       editable: isChatGptNote(row),
+      meta: readMeta(row.meta),
       ...(collectionText[id] ? { collection: collectionText[id] } : {}),
+      ...embedsField(viewIdsById.get(id) ?? [], views),
     });
   }
   return { notes, missing };
+}
+
+function embedsField(viewIds: string[], views: Map<string, EmbeddedView>) {
+  const embeds = viewIds.flatMap((id) => {
+    const view = views.get(id);
+    return view ? [view] : [];
+  });
+  return embeds.length ? { embeds } : {};
 }
 
 function clampLimit(
