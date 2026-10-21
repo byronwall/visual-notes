@@ -16,19 +16,16 @@ const chip = css({
   fontWeight: "medium",
   lineHeight: "1",
   whiteSpace: "nowrap",
-  bg: "hsl(var(--chip-h) var(--chip-s) 92%)",
-  color: "hsl(var(--chip-h) var(--chip-s) 26%)",
-  _dark: {
-    bg: "hsl(var(--chip-h) var(--chip-s) 22%)",
-    color: "hsl(var(--chip-h) var(--chip-s) 86%)",
-  },
+  bg: "var(--chip-bg)",
+  color: "var(--chip-fg)",
+  _dark: { bg: "var(--chip-bg-dark)", color: "var(--chip-fg-dark)" },
 });
 
 const dot = css({
   boxSize: "1.5",
   borderRadius: "full",
   flexShrink: "0",
-  bg: "hsl(var(--chip-h) var(--chip-s) 48%)",
+  bg: "var(--chip-ink)",
 });
 
 const label = css({ overflow: "hidden", textOverflow: "ellipsis" });

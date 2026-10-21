@@ -1,7 +1,7 @@
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
-import { OPTION_COLOR_HSL } from "~/lib/collections/colors";
+import { OPTION_PALETTE } from "~/lib/collections/colors";
 import {
   OPTION_COLORS,
   STATUS_GROUPS,
@@ -34,12 +34,14 @@ const nameInput = css({
 });
 const swatch = css({
   boxSize: "4",
-  borderRadius: "full",
+  borderRadius: "l1",
   flexShrink: "0",
   cursor: "pointer",
-  borderWidth: "2px",
-  borderColor: "transparent",
-  "&[data-selected]": { borderColor: "fg.default" },
+  outlineOffset: "1px",
+  transitionProperty: "transform",
+  transitionDuration: "140ms",
+  _hover: { transform: "scale(1.12)" },
+  "&[data-selected]": { outline: "1.5px solid token(colors.fg.default)" },
 });
 const swatches = css({
   display: "flex",
@@ -119,9 +121,7 @@ export const OptionsEditor = (props: { property: CollectionProperty }) => {
             <div class={row}>
               <span
                 class={swatch}
-                style={{
-                  background: `hsl(${OPTION_COLOR_HSL[option.color].h} ${OPTION_COLOR_HSL[option.color].s}% 60%)`,
-                }}
+                style={{ background: OPTION_PALETTE[option.color].ink }}
               />
               <input
                 {...noAutofill}
@@ -182,11 +182,10 @@ export const OptionsEditor = (props: { property: CollectionProperty }) => {
                   <button
                     type="button"
                     class={swatch}
-                    aria-label={`${color} color`}
+                    aria-label={`${OPTION_PALETTE[color].name} color`}
+                    title={OPTION_PALETTE[color].name}
                     data-selected={option.color === color ? "" : undefined}
-                    style={{
-                      background: `hsl(${OPTION_COLOR_HSL[color].h} ${OPTION_COLOR_HSL[color].s}% 60%)`,
-                    }}
+                    style={{ background: OPTION_PALETTE[color].ink }}
                     onClick={() => patch(option.id, { color })}
                   />
                 )}
