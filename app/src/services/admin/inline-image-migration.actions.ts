@@ -1,3 +1,6 @@
+/* eslint-disable no-restricted-syntax -- legacy-column repair: these updates
+   rewrite html/markdown only and leave `content` (blocks) as is.
+   TODO(block-storage): also rewrite image nodes inside blocks. */
 import { action } from "@solidjs/router";
 import { type Prisma } from "@prisma/client";
 import { z } from "zod";
