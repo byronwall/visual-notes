@@ -15,6 +15,7 @@ export type CanvasRailDocRowProps = {
   highlighted: boolean;
   onHover: (docId: string | undefined) => void;
   onOpen: (docId: string) => void;
+  hoverCardDisabled: boolean;
 };
 
 /** One note in the canvas rail; hovering it spotlights the dot on the map. */
@@ -22,6 +23,7 @@ export const CanvasRailDocRow: VoidComponent<CanvasRailDocRowProps> = (
   props,
 ) => (
   <HoverCard.Root
+    disabled={props.hoverCardDisabled}
     openDelay={450}
     closeDelay={60}
     positioning={{

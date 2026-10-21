@@ -44,6 +44,8 @@ export type CanvasSideRailProps = {
   onZoomToRegion: (regionId: string) => void;
   onClearRegion: () => void;
   onOpenDoc: (docId: string) => void;
+  /** The note panel covers the rail, so hover cards would float over it. */
+  noteOpen: Accessor<boolean>;
 };
 
 const RAIL_LIST_LIMIT = 400;
@@ -177,6 +179,7 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
             onHoveredRegionChange={props.onHoveredRegionChange}
             onZoomToRegion={props.onZoomToRegion}
             onOpenDoc={props.onOpenDoc}
+            hoverCardsDisabled={props.noteOpen()}
           />
         }
       >
@@ -197,6 +200,7 @@ export const CanvasSideRail: VoidComponent<CanvasSideRailProps> = (props) => {
                 highlighted={props.hoveredDocId() === doc.id}
                 onHover={props.onHoveredDocChange}
                 onOpen={props.onOpenDoc}
+                hoverCardDisabled={props.noteOpen()}
               />
             )}
           </For>

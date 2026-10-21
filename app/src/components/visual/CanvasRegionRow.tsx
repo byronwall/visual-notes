@@ -15,6 +15,7 @@ export type CanvasRegionRowProps = {
   onHover: (regionId: string | undefined) => void;
   onZoom: (regionId: string) => void;
   onOpenDoc: (docId: string) => void;
+  hoverCardDisabled: boolean;
 };
 
 /**
@@ -28,6 +29,7 @@ export const CanvasRegionRow: VoidComponent<CanvasRegionRowProps> = (props) => {
 
   return (
     <HoverCard.Root
+      disabled={props.hoverCardDisabled}
       openDelay={600}
       closeDelay={80}
       positioning={{

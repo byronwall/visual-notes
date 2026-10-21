@@ -746,6 +746,7 @@ const CanvasRoute: VoidComponent = () => {
             regions={regionList}
             islands={() => umapRegions()?.islands ?? []}
             allDocs={() => loadedDocs() ?? []}
+            noteOpen={() => !!selectedId()}
             selectedRegion={selectedRegion}
             docs={railDocs}
             searchQuery={searchQuery}

@@ -29,6 +29,7 @@ export type CanvasRegionListProps = {
   onHoveredRegionChange: (regionId: string | undefined) => void;
   onZoomToRegion: (regionId: string) => void;
   onOpenDoc: (docId: string) => void;
+  hoverCardsDisabled: boolean;
 };
 
 /** Header plus scrolling region list; Map order groups regions by island. */
@@ -124,6 +125,7 @@ export const CanvasRegionList: VoidComponent<CanvasRegionListProps> = (
                     onHover={props.onHoveredRegionChange}
                     onZoom={props.onZoomToRegion}
                     onOpenDoc={props.onOpenDoc}
+                    hoverCardDisabled={props.hoverCardsDisabled}
                   />
                 )}
               </For>
