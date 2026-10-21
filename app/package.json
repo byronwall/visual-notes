@@ -32,7 +32,7 @@
     "push": "prisma db push",
     "postinstall": "prisma generate",
     "knip": "pnpm dlx knip",
-    "type-check": "tsc --noEmit && echo 'Type check passed'",
+    "type-check": "node node_modules/typescript7/bin/tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/type-check.tsbuildinfo && echo 'Type check passed'",
     "migrate:blocks": "vite-node --config vitest.config.ts scripts/migrate-block-content.ts --",
     "build:search-text": "esbuild scripts/backfill-search-text.ts --bundle --platform=node --format=esm --packages=external --outfile=.output/backfill-search-text.mjs"
   },
@@ -54,6 +54,7 @@
     "prisma": "^6.5.0",
     "solid-devtools": "^0.34.4",
     "typescript": "^5.6.2",
+    "typescript7": "npm:typescript@7.0.2",
     "vite": "^6.2.2",
     "vite-node": "2.1.9",
     "vite-plugin-lucide-preprocess": "^1.4.6",
