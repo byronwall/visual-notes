@@ -1,5 +1,11 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
+import {
+  listDayMeta,
+  listTimeBlocks,
+  mapDayMeta,
+  mapTimeBlock,
+} from "~/server/time-blocks/time-block-store";
 import type {
   TimeBlockCounts,
   TimeBlockDayMetadataItem,
@@ -45,82 +51,15 @@ const addDays = (date: Date, days: number) => {
   return result;
 };
 
-const mapTimeBlock = (
-  row: {
-    id: string;
-    title: string | null;
-    startTime: Date;
-    endTime: Date;
-    color: string | null;
-    isFixedTime: boolean;
-    comments: string | null;
-    noteId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    note?: { title: string } | null;
-  }
-): TimeBlockItem => ({
-  id: row.id,
-  title: row.title,
-  startTime: row.startTime.toISOString(),
-  endTime: row.endTime.toISOString(),
-  color: row.color,
-  isFixedTime: row.isFixedTime,
-  comments: row.comments,
-  noteId: row.noteId,
-  noteTitle: row.note?.title ?? null,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-});
-
-const mapMetadata = (
-  row: {
-    id: string;
-    date: Date;
-    key: string;
-    value: string;
-    contributor: string;
-    comments: string | null;
-    noteId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    note?: { title: string } | null;
-  }
-): TimeBlockDayMetadataItem => ({
-  id: row.id,
-  date: row.date.toISOString(),
-  key: row.key,
-  value: row.value,
-  contributor: row.contributor,
-  comments: row.comments,
-  noteId: row.noteId,
-  noteTitle: row.note?.title ?? null,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-});
-
 export const fetchTimeBlocksForRange = query(
   async (input: RangeInput): Promise<TimeBlockItem[]> => {
     "use server";
     const start = parseIsoDate(String(input?.startIso || ""), "startIso");
     const end = parseIsoDate(String(input?.endIso || ""), "endIso");
     const noteId = String(input?.noteId || "").trim();
-    const rows = await prisma.timeBlock.findMany({
-      where: {
-        startTime: {
-          gte: start,
-          lt: end,
-        },
-        ...(noteId ? { noteId } : {}),
-      },
-      include: {
-        note: { select: { title: true } },
-      },
-      orderBy: [{ startTime: "asc" }, { endTime: "asc" }],
-    });
-    return rows.map(mapTimeBlock);
+    return listTimeBlocks(start, end, noteId || undefined);
   },
-  "time-blocks-range"
+  "time-blocks-range",
 );
 
 export const fetchWeeklyTimeBlocks = query(
@@ -128,7 +67,7 @@ export const fetchWeeklyTimeBlocks = query(
     "use server";
     const weekStart = parseIsoDate(
       String(input?.weekStartIso || ""),
-      "weekStartIso"
+      "weekStartIso",
     );
     const numberOfDays = Math.max(1, Math.min(31, input?.numberOfDays ?? 7));
     const weekEnd = addDays(weekStart, numberOfDays);
@@ -148,7 +87,7 @@ export const fetchWeeklyTimeBlocks = query(
     });
     return rows.map(mapTimeBlock);
   },
-  "time-blocks-weekly"
+  "time-blocks-weekly",
 );
 
 export const fetchTimeBlockById = query(
@@ -164,41 +103,47 @@ export const fetchTimeBlockById = query(
     });
     return row ? mapTimeBlock(row) : null;
   },
-  "time-block-by-id"
+  "time-block-by-id",
 );
 
-export const fetchTimeBlockCounts = query(async (): Promise<TimeBlockCounts> => {
-  "use server";
-  const today = startOfDay(new Date());
-  const todayEnd = endOfDay(today);
-  const nextWeekEnd = endOfDay(addDays(today, 7));
-  const [todayCount, upcomingCount] = await Promise.all([
-    prisma.timeBlock.count({
-      where: {
-        startTime: {
-          gte: today,
-          lte: todayEnd,
+export const fetchTimeBlockCounts = query(
+  async (): Promise<TimeBlockCounts> => {
+    "use server";
+    const today = startOfDay(new Date());
+    const todayEnd = endOfDay(today);
+    const nextWeekEnd = endOfDay(addDays(today, 7));
+    const [todayCount, upcomingCount] = await Promise.all([
+      prisma.timeBlock.count({
+        where: {
+          startTime: {
+            gte: today,
+            lte: todayEnd,
+          },
         },
-      },
-    }),
-    prisma.timeBlock.count({
-      where: {
-        startTime: {
-          gt: todayEnd,
-          lte: nextWeekEnd,
+      }),
+      prisma.timeBlock.count({
+        where: {
+          startTime: {
+            gt: todayEnd,
+            lte: nextWeekEnd,
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
 
-  return {
-    today: todayCount,
-    upcoming: upcomingCount,
-  };
-}, "time-block-counts");
+    return {
+      today: todayCount,
+      upcoming: upcomingCount,
+    };
+  },
+  "time-block-counts",
+);
 
 export const fetchTimeBlockBacklinks = query(
-  async (input: { noteId: string; take?: number }): Promise<TimeBlockItem[]> => {
+  async (input: {
+    noteId: string;
+    take?: number;
+  }): Promise<TimeBlockItem[]> => {
     "use server";
     const noteId = String(input?.noteId || "").trim();
     if (!noteId) return [];
@@ -215,7 +160,7 @@ export const fetchTimeBlockBacklinks = query(
     });
     return rows.map(mapTimeBlock);
   },
-  "time-block-backlinks"
+  "time-block-backlinks",
 );
 
 export const fetchTimeBlockDayMeta = query(
@@ -236,9 +181,9 @@ export const fetchTimeBlockDayMeta = query(
       },
       orderBy: [{ key: "asc" }, { contributor: "asc" }, { createdAt: "asc" }],
     });
-    return rows.map(mapMetadata);
+    return rows.map(mapDayMeta);
   },
-  "time-block-day-meta"
+  "time-block-day-meta",
 );
 
 export const fetchDateRangeTimeBlockMeta = query(
@@ -249,21 +194,9 @@ export const fetchDateRangeTimeBlockMeta = query(
     "use server";
     const start = parseIsoDate(String(input?.startIso || ""), "startIso");
     const end = parseIsoDate(String(input?.endIso || ""), "endIso");
-    const rows = await prisma.timeBlockDayMetadata.findMany({
-      where: {
-        date: {
-          gte: start,
-          lte: end,
-        },
-      },
-      include: {
-        note: { select: { title: true } },
-      },
-      orderBy: [{ date: "asc" }, { key: "asc" }, { contributor: "asc" }],
-    });
-    return rows.map(mapMetadata);
+    return listDayMeta(start, end);
   },
-  "time-block-meta-range"
+  "time-block-meta-range",
 );
 
 export const fetchDateRangeTimeBlockMetaSummary = query(
@@ -297,9 +230,9 @@ export const fetchDateRangeTimeBlockMetaSummary = query(
     return {
       keys,
       rows: Array.from(byDate.values()).sort((a, b) =>
-        a.date.localeCompare(b.date)
+        a.date.localeCompare(b.date),
       ),
     };
   },
-  "time-block-meta-summary"
+  "time-block-meta-summary",
 );

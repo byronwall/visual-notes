@@ -1,4 +1,6 @@
 import {
+  ArrowRightLeftIcon,
+  ChevronRightIcon,
   EllipsisIcon,
   ListPlusIcon,
   SquarePenIcon,
@@ -26,6 +28,9 @@ type Props = {
   onEditDetails: () => void;
   onAddSubtask: () => void;
   onDelete: () => void;
+  /** Lists the task can move to; the submenu hides when there are none. */
+  otherLists: { id: string; name: string }[];
+  onMoveToList: (listId: string) => void;
 };
 
 export const TaskRowMenu = (props: Props) => (
@@ -84,6 +89,33 @@ export const TaskRowMenu = (props: Props) => (
               Add subtask
             </HStack>
           </Menu.Item>
+          <Show when={props.otherLists.length > 0}>
+            <Menu.Root positioning={{ placement: "right-start", gutter: 2 }}>
+              <Menu.TriggerItem>
+                <HStack gap="2" flex="1">
+                  <ArrowRightLeftIcon size={14} />
+                  Move to list
+                </HStack>
+                <ChevronRightIcon size={14} />
+              </Menu.TriggerItem>
+              <Portal>
+                <Menu.Positioner zIndex="popover">
+                  <Menu.Content zIndex="popover" maxH="64" overflowY="auto">
+                    <For each={props.otherLists}>
+                      {(list) => (
+                        <Menu.Item
+                          value={`list-${list.id}`}
+                          onSelect={() => props.onMoveToList(list.id)}
+                        >
+                          {list.name}
+                        </Menu.Item>
+                      )}
+                    </For>
+                  </Menu.Content>
+                </Menu.Positioner>
+              </Portal>
+            </Menu.Root>
+          </Show>
           <Menu.Separator />
           <Menu.Item value="delete" color="red.11" onSelect={props.onDelete}>
             <HStack gap="2" flex="1">
