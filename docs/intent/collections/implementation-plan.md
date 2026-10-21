@@ -3,7 +3,7 @@ title: "Collections — implementation plan"
 slug: "collections"
 phase: plan
 status: current
-last_updated: "2026-10-19"
+last_updated: "2026-10-20"
 ---
 
 # Collections: implementation plan
@@ -228,11 +228,14 @@ Every PR runs `pnpm lint && pnpm type-check && pnpm test`. PRs that change inter
 2. **Virtualizer (PR 3).** Use `@tanstack/solid-virtual`, or hand-roll? The fallback is hand-rolled.
 3. **Rows in the notes list.** Show them by default with a filter to hide them, or hide them by default? The default is to show them. This is your call before PR 8.
 
+## Shipped beyond the plan
+
+- Agent tools to read, query, and edit collections over MCP (`collections_*`, #165). Agents add rows as notes they own, set values on any row by property and option name, and host views in their own notes. Deleting and layout stay with the user. See [app/docs/mcp-connector.md](../../../app/docs/mcp-connector.md#collections).
+
 ## Below the cut line
 
 - Relations, rollups, formulas, files and attachments, and person properties.
 - SQL pushdown and pagination beyond about 5,000 rows per collection.
 - Garbage-collecting hosted views whose block was deleted, and restoring a deleted collection.
 - Chart views, CSV import and export, and templates for new rows.
-- ChatGPT tools to query or edit collections.
 - Variable row heights and wrapped cells.

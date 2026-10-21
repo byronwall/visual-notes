@@ -10,6 +10,7 @@ import { Show, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
 import { fetchCollectionViewBundle } from "~/services/collections/collections.queries";
+import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { CollectionProvider } from "../CollectionContext";
 import { CollectionViewHost } from "../CollectionViewHost";
 import { RowPeekPanel } from "../RowPeekPanel";
@@ -165,9 +166,16 @@ export const CollectionEmbed = (props: {
   onPick: (viewId: string) => void;
   onRemove: () => void;
 }) => {
+  const [refresh, setRefresh] = createSignal(0);
   const [bundle] = createResource(
-    () => props.viewId,
-    (viewId) => fetchCollectionViewBundle(viewId),
+    () => (props.viewId ? { viewId: props.viewId, refresh: refresh() } : false),
+    (source) => fetchCollectionViewBundle(source.viewId),
+  );
+  // An agent may add or change rows while the note is open.
+  useAppChanges(
+    "collections",
+    () => setRefresh((n) => n + 1),
+    (id) => id === bundle.latest?.collection.id,
   );
   return (
     <div class={frame} data-collection-embed="">
