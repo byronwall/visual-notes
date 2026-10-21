@@ -73,7 +73,12 @@ export const PropertyList = (props: {
       </For>
       <Show when={props.allowAdd !== false}>
         <div>
-          <AddPropertyMenu class={addBtn} label="Add a property" />
+          <AddPropertyMenu
+            class={addBtn}
+            label="Add a property"
+            placement="bottom-start"
+            anchorClass={css({ display: "inline-flex" })}
+          />
         </div>
       </Show>
     </div>

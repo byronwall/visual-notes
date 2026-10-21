@@ -1,5 +1,6 @@
 import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const heading = css({
   fontSize: "3xl",
@@ -53,6 +54,7 @@ export const CollectionTitle = (props: {
       }
     >
       <input
+        {...noAutofill}
         class={input}
         value={props.name}
         aria-label="Collection name"

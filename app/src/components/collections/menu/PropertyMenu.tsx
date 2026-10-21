@@ -28,6 +28,7 @@ import {
 import { NUMBER_FORMAT_LABELS, TEXT_FORMAT_LABELS } from "./propertyPresets";
 import { OptionsEditor } from "./OptionsEditor";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const scroll = css({ maxH: "min(70vh, 34rem)", overflowY: "auto" });
 
@@ -93,6 +94,7 @@ export const PropertyMenu = (props: {
             fallback={<div class={menuSection}>Name (the note title)</div>}
           >
             <input
+              {...noAutofill}
               class={menuInput}
               value={props.property.name}
               aria-label="Property name"

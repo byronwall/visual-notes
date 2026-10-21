@@ -20,6 +20,7 @@ import { FooterCell } from "./FooterCell";
 import { TableHeaderCell } from "./TableHeaderCell";
 import { TitleCell } from "./TitleCell";
 import { ROW_HEIGHT, useWindowedRows } from "./useWindowedRows";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const DEFAULT_WIDTH = 180;
 const TITLE_WIDTH = 280;

@@ -22,6 +22,7 @@ import { DateEditor } from "../values/DateEditor";
 import { OptionPicker } from "../values/OptionPicker";
 import { RatingStars } from "../values/RatingStars";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 // Overlays the toolbar row above the table so selecting never shifts rows.
 const bar = css({
@@ -77,6 +78,7 @@ const BulkValueEditor = (props: {
       fallback={
         <div>
           <input
+            {...noAutofill}
             class={menuInput}
             style={{ width: "calc(100% - 1rem)" }}
             placeholder={`New ${props.property.name.toLowerCase()} (blank clears)`}

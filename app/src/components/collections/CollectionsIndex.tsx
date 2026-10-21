@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { useToasts } from "~/components/Toast";
 import { createCollection } from "~/services/collections/collections.actions";
 import type { CollectionListItem } from "~/services/collections/collections.queries";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const header = css({
   display: "flex",
@@ -97,6 +98,7 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
       }}
     >
       <input
+        {...noAutofill}
         class={nameInput}
         placeholder="Collection name, e.g. Reading"
         aria-label="New collection name"

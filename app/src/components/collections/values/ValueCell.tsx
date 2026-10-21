@@ -19,6 +19,7 @@ import { OptionPicker } from "./OptionPicker";
 import { RatingStars } from "./RatingStars";
 import { ValueDisplay } from "./ValueDisplay";
 import { fitContent } from "../popover-styles";
+import { noAutofill } from "~/components/ui/no-autofill";
 
 const base = css({
   display: "flex",
@@ -258,6 +259,7 @@ export const ValueCell = (props: {
       </Show>
       <Show when={editing() && isInlineKind(props.property)}>
         <input
+          {...noAutofill}
           class={inlineInput}
           value={draft()}
           inputMode={
