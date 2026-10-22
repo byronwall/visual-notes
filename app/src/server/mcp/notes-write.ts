@@ -23,6 +23,7 @@ import {
 } from "~/lib/note-content/note-markdown";
 import type { NoteNode } from "~/lib/note-content/types";
 import { appendBlocks, contentFromMarkdown } from "./note-content";
+import { storeInlineImages } from "./note-images";
 import {
   agentContext,
   CHATGPT_SOURCE,
@@ -147,7 +148,7 @@ export async function createNote(
   }
 
   const pathIsNew = path ? !(await isExistingPath(path)) : false;
-  const parsed = contentFromMarkdown(input.markdown);
+  const parsed = contentFromMarkdown(await storeInlineImages(input.markdown));
   await assertReferencesExist(parsed.content ?? []);
   const created = await prisma.$transaction(async (tx) => {
     // Task lines become Inbox tasks; the index rebuild points them at the note.
@@ -329,13 +330,15 @@ export async function updateNote(
     );
   }
   const doc = await loadOwnedNote(input.id);
+  const markdown =
+    input.markdown === undefined
+      ? undefined
+      : await storeInlineImages(input.markdown);
   return applyOwnedEdit(ctx, doc, "chatgpt.update", {
     title,
     path: input.path === undefined ? undefined : normalizeNotePath(input.path),
     content:
-      input.markdown === undefined
-        ? undefined
-        : () => contentFromMarkdown(input.markdown!),
+      markdown === undefined ? undefined : () => contentFromMarkdown(markdown),
   });
 }
 
@@ -346,8 +349,9 @@ export async function appendToNote(
   if (!input.markdown.trim())
     throw new ConnectorError("invalid", "markdown is required");
   const doc = await loadOwnedNote(input.id);
+  const markdown = await storeInlineImages(input.markdown);
   return applyOwnedEdit(ctx, doc, "chatgpt.append", {
-    content: (current) => appendBlocks(current, input.markdown),
+    content: (current) => appendBlocks(current, markdown),
   });
 }
 
@@ -367,21 +371,28 @@ export async function editNote(
 ): Promise<WriteResult> {
   if (input.edits.length === 0)
     throw new ConnectorError("invalid", "edits must not be empty");
-  const ops: BlockOp[] = input.edits.map((edit) => {
-    if (edit.op === "delete") return { op: "delete", blockId: edit.blockId };
-    if (!edit.markdown?.trim()) {
+  for (const edit of input.edits) {
+    if (edit.op !== "delete" && !edit.markdown?.trim()) {
       throw new ConnectorError(
         "invalid",
         `${edit.op} on ${edit.blockId} needs markdown`,
       );
     }
-    return {
+  }
+  const doc = await loadOwnedNote(input.id);
+  const ops: BlockOp[] = [];
+  for (const edit of input.edits) {
+    if (edit.op === "delete") {
+      ops.push({ op: "delete", blockId: edit.blockId });
+      continue;
+    }
+    const markdown = await storeInlineImages(edit.markdown!);
+    ops.push({
       op: edit.op,
       blockId: edit.blockId,
-      blocks: contentFromMarkdown(edit.markdown).content ?? [],
-    };
-  });
-  const doc = await loadOwnedNote(input.id);
+      blocks: contentFromMarkdown(markdown).content ?? [],
+    });
+  }
   return applyOwnedEdit(ctx, doc, "chatgpt.edit", {
     content: (current) => {
       try {
