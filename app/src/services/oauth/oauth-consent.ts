@@ -7,12 +7,15 @@ import {
   denyAuthorizeRequest,
   type AuthorizeParams,
 } from "~/server/oauth/authorize";
+import { isLoopbackRedirectUri } from "~/server/oauth/clients";
 
 export type OAuthConsent =
   | {
       kind: "ask";
       clientName: string | null;
       redirectHost: string;
+      /** The code goes to a program on this computer, such as Claude Code. */
+      redirectIsLocal: boolean;
       scopes: string[];
     }
   | { kind: "redirect"; url: string }
@@ -38,6 +41,7 @@ export const fetchOAuthConsent = query(
       kind: "ask",
       clientName: check.request.clientName,
       redirectHost: new URL(check.request.redirectUri).host,
+      redirectIsLocal: isLoopbackRedirectUri(check.request.redirectUri),
       scopes: check.request.scope.split(" "),
     };
   },

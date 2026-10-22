@@ -1,5 +1,6 @@
 import { prisma } from "~/server/db";
 import { hashToken, randomToken } from "./crypto";
+import { isRegisteredRedirectUri } from "./clients";
 import {
   AUTHORIZATION_CODE_TTL_SECONDS,
   DEFAULT_SCOPE,
@@ -75,7 +76,10 @@ export async function checkAuthorizeRequest(
   const redirectUri =
     params.redirect_uri ??
     (client.redirectUris.length === 1 ? client.redirectUris[0] : undefined);
-  if (!redirectUri || !client.redirectUris.includes(redirectUri)) {
+  if (
+    !redirectUri ||
+    !isRegisteredRedirectUri(client.redirectUris, redirectUri)
+  ) {
     return {
       kind: "fatal",
       message: "The redirect URI is not registered for this client.",
