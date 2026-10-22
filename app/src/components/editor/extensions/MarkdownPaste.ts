@@ -5,6 +5,7 @@ import {
   normalizeMarkdownToHtml,
 } from "~/server/lib/markdown";
 import { insertContentOrText } from "../core/insertContentOrText";
+import { IMPORT_IMAGES_META } from "../images/imagePasteState";
 import { getMarkdownPrompt } from "../core/promptRegistry";
 
 type Choice = "formatted" | "text" | "cancel";
@@ -24,7 +25,13 @@ export const MarkdownPaste = Extension.create<{
     const handleText = (text: string, source: Source) => {
       if (!ask) {
         const html = normalizeMarkdownToHtml(text);
-        editor.chain().focus().insertContent(html).run();
+        editor
+          .chain()
+          .focus()
+          .insertContent(html)
+          // Markdown images point at other sites; copy them in like HTML ones.
+          .setMeta(IMPORT_IMAGES_META, true)
+          .run();
         return true;
       }
 
@@ -32,7 +39,13 @@ export const MarkdownPaste = Extension.create<{
         if (choice === "cancel") return;
         if (choice === "formatted") {
           const html = normalizeMarkdownToHtml(text);
-          editor.chain().focus().insertContent(html).run();
+          editor
+            .chain()
+            .focus()
+            .insertContent(html)
+            // Markdown images point at other sites; copy them in like HTML ones.
+            .setMeta(IMPORT_IMAGES_META, true)
+            .run();
         } else {
           insertContentOrText(editor, null, text);
         }

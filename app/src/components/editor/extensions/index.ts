@@ -7,6 +7,7 @@ import { CustomTableRow } from "./CustomTableRow";
 import { CustomTableHeader } from "./CustomTableHeader";
 import { CustomTableCell } from "./CustomTableCell";
 import { CsvPaste } from "./CsvPaste";
+import { ImagePaste } from "./ImagePaste";
 import { MarkdownPaste } from "./MarkdownPaste";
 import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { SelectionMarkShortcuts } from "./SelectionMarkShortcuts";
@@ -24,13 +25,13 @@ import {
 export function buildExtensions(
   csvPrompt: (
     text: string,
-    src: "paste" | "drop" | "file"
+    src: "paste" | "drop" | "file",
   ) => Promise<"table" | "text" | "cancel">,
   _mdPrompt?: (
     text: string,
-    src: "paste" | "drop" | "file"
+    src: "paste" | "drop" | "file",
   ) => Promise<"formatted" | "text" | "cancel">,
-  embed?: Partial<CollectionViewNodeOptions>
+  embed?: Partial<CollectionViewNodeOptions>,
 ) {
   return [
     DeferredFocusEvents,
@@ -61,6 +62,7 @@ export function buildExtensions(
     SlashCommands,
     NoteLinkSuggestion,
     TagSuggestion,
+    ImagePaste,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here
     MarkdownPaste.configure({}),
