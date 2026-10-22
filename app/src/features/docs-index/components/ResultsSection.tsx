@@ -20,18 +20,25 @@ type Group = {
   items: (DocListItem | ServerSearchItem)[];
 };
 
-const sectionClass = css({ p: "0" });
+// Space between periods lives on the section, so a stuck heading stays slim.
+const sectionClass = css({ p: "0", "& + &": { mt: "3" } });
 
+// Headings stick under the page header, so a long scroll always says which
+// period is on screen. The fallback matches the desktop header before it is
+// measured.
 const groupLabelClass = css({
+  position: "sticky",
+  top: "var(--docs-index-header-h, 6.25rem)",
+  zIndex: "docked",
+  bg: "bg.default",
   display: "flex",
   alignItems: "baseline",
   gap: "2",
-  pt: "4",
+  pt: "1.5",
   pb: "1",
   fontSize: "xs",
   fontWeight: "semibold",
   color: "fg.muted",
-  "&:first-child": { pt: "1" },
 });
 
 // Rows bleed 8px into the gutter so titles line up with the page heading.
