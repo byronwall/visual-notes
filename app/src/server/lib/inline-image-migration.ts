@@ -89,7 +89,10 @@ async function transcodeHeicBufferToJpeg(input: Buffer): Promise<Buffer> {
   }
 }
 
-function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } {
+export function parseDataUrl(dataUrl: string): {
+  mime: string;
+  buffer: Buffer;
+} {
   const m = dataUrl.match(/^data:([^,;]+)((?:;[^,]+)*?),(.*)$/is);
   if (!m) throw new Error("Invalid data URL");
   const mime = (m[1] || "application/octet-stream").toLowerCase();
@@ -103,9 +106,9 @@ function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } {
   return { mime, buffer };
 }
 
-function detectImageType(
+export function detectImageType(
   buffer: Buffer,
-  declaredMime: string
+  declaredMime: string,
 ): { ext: string; mime: string } {
   const first = buffer.subarray(0, 32);
   const asAscii = first.toString("ascii");
@@ -141,7 +144,7 @@ function detectImageType(
   if (
     buffer.length >= 12 &&
     ["ftypheic", "ftypheix", "ftyphevc", "ftyphevx"].includes(
-      buffer.subarray(4, 12).toString("ascii")
+      buffer.subarray(4, 12).toString("ascii"),
     )
   ) {
     return { ext: "heic", mime: "image/heic" };
@@ -212,24 +215,30 @@ export function extractHeicDocImageUrls(text: string): string[] {
 
 export function replaceDataUrls(
   text: string,
-  replacements: Map<string, string>
+  replacements: Map<string, string>,
 ): string {
-  let out = text.replace(/src=(["'])(data:image\/[^"']+)\1/gi, (full, q, src) => {
-    const next = replacements.get(src);
-    if (!next) return full;
-    return `src=${q}${next}${q}`;
-  });
-  out = out.replace(/!\[([^\]]*)]\((data:image\/[^)]+)\)/gi, (full, alt, src) => {
-    const next = replacements.get(src);
-    if (!next) return full;
-    return `![${alt}](${next})`;
-  });
+  let out = text.replace(
+    /src=(["'])(data:image\/[^"']+)\1/gi,
+    (full, q, src) => {
+      const next = replacements.get(src);
+      if (!next) return full;
+      return `src=${q}${next}${q}`;
+    },
+  );
+  out = out.replace(
+    /!\[([^\]]*)]\((data:image\/[^)]+)\)/gi,
+    (full, alt, src) => {
+      const next = replacements.get(src);
+      if (!next) return full;
+      return `![${alt}](${next})`;
+    },
+  );
   return out;
 }
 
 export function replaceExactUrls(
   text: string,
-  replacements: Map<string, string>
+  replacements: Map<string, string>,
 ): string {
   let out = text;
   for (const [from, to] of replacements.entries()) {
@@ -242,7 +251,7 @@ export function parseDocImageNameFromUrl(url: string): string | null {
   try {
     const normalized = new URL(url, "http://localhost");
     const m = normalized.pathname.match(
-      /\/api\/doc-images\/([a-f0-9]{64}\.[a-z0-9]+)$/i
+      /\/api\/doc-images\/([a-f0-9]{64}\.[a-z0-9]+)$/i,
     );
     return m ? m[1] : null;
   } catch {
@@ -253,7 +262,7 @@ export function parseDocImageNameFromUrl(url: string): string | null {
 export async function ensureJpegForHeicFile(
   storageDir: string,
   heicFileName: string,
-  urlPrefix: string = DEFAULT_DOC_IMAGE_URL_PREFIX
+  urlPrefix: string = DEFAULT_DOC_IMAGE_URL_PREFIX,
 ): Promise<{ fileName: string; publicUrl: string }> {
   if (!isValidDocImageName(heicFileName)) {
     throw new Error("Invalid doc image filename");
@@ -280,22 +289,36 @@ export async function ensureJpegForHeicFile(
 export async function persistDataImage(
   dataUrl: string,
   storageDir: string,
-  urlPrefix: string = DEFAULT_DOC_IMAGE_URL_PREFIX
+  urlPrefix: string = DEFAULT_DOC_IMAGE_URL_PREFIX,
 ): Promise<PersistedImage> {
   const parsed = parseDataUrl(dataUrl);
-  const kind = detectImageType(parsed.buffer, parsed.mime);
-  const hash = sha256Hex(parsed.buffer);
+  return persistImageBuffer(
+    parsed.buffer,
+    detectImageType(parsed.buffer, parsed.mime),
+    storageDir,
+    urlPrefix,
+  );
+}
+
+/** Stores image bytes under their content hash; HEIC also gets a JPEG copy. */
+export async function persistImageBuffer(
+  buffer: Buffer,
+  kind: { ext: string; mime: string },
+  storageDir: string,
+  urlPrefix: string = DEFAULT_DOC_IMAGE_URL_PREFIX,
+): Promise<PersistedImage> {
+  const hash = sha256Hex(buffer);
   const filename = `${hash}.${kind.ext}`;
   const abs = path.join(storageDir, filename);
 
   await mkdir(storageDir, { recursive: true });
   if (!existsSync(abs)) {
-    await writeFile(abs, parsed.buffer);
+    await writeFile(abs, buffer);
   }
 
   if (kind.ext === "heic") {
     try {
-      const jpeg = await transcodeHeicBufferToJpeg(parsed.buffer);
+      const jpeg = await transcodeHeicBufferToJpeg(buffer);
       const jpegFilename = `${hash}.jpg`;
       const jpegPath = path.join(storageDir, jpegFilename);
       if (!existsSync(jpegPath)) {
@@ -309,7 +332,7 @@ export async function persistDataImage(
     } catch (e) {
       console.log(
         "[inline-image-migration] HEIC transcode failed; keeping .heic",
-        e
+        e,
       );
     }
   }
@@ -317,7 +340,10 @@ export async function persistDataImage(
   return { filename, publicUrl: `${urlPrefix}/${filename}`, mime: kind.mime };
 }
 
-export function computeContentHashForDoc(html: string, markdown: string): string {
+export function computeContentHashForDoc(
+  html: string,
+  markdown: string,
+): string {
   const input = html.trim().length > 0 ? html : markdown;
   return sha256Hex(input);
 }

@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
@@ -110,6 +113,32 @@ describe("createNote", () => {
         context: { actorId: "chatgpt:test", actorType: "chatgpt" },
       }),
     );
+  });
+
+  it("stores inline base64 images as files instead of in the body", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "vn-notes-write-"));
+    const previousDir = process.env.DOC_IMAGE_STORAGE_DIR;
+    process.env.DOC_IMAGE_STORAGE_DIR = dir;
+    try {
+      db.doc.findUnique.mockResolvedValue(null);
+      db.doc.create.mockResolvedValue({ id: "n3", title: "Pic", path: null });
+      const png =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+      await createNote(ctx, {
+        title: "Pic",
+        markdown: `![dot](data:image/png;base64,${png})`,
+      });
+
+      const { data } = db.doc.create.mock.calls[0][0];
+      expect(JSON.stringify(data.content)).not.toContain("base64");
+      expect(data.markdown).toMatch(
+        /!\[dot]\(\/api\/doc-images\/[a-f0-9]{64}\.png\)/,
+      );
+    } finally {
+      process.env.DOC_IMAGE_STORAGE_DIR = previousDir;
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("returns the first note when the idempotency key repeats", async () => {

@@ -6,6 +6,7 @@ import {
   MAX_NOTES_PER_GET,
   searchNotes,
 } from "./notes-read";
+import { MAX_IMAGE_BYTES, uploadImage } from "./note-images";
 import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
 import { SEARCH_KINDS, searchOtherKinds } from "./search-groups";
 import { limitArg, noteIdArg } from "./shared";
@@ -19,6 +20,7 @@ export const NOTE_INSTRUCTIONS = [
   "Find: `search` with a few keywords (retry with synonyms; add include for research, tasks, or archive), notes_query for time-based questions, then notes_get for full content.",
   "Save: call notes_list_paths, pick the best existing path or a sensible new sub-path, then notes_create. Tell the user the title, path, and appUrl.",
   "Edit: notes_get ends each block with a ` ^blockId` tag (on the next line for code blocks and tables). Use notes_edit_blocks with those ids to change only those blocks. Never send ^id tags back.",
+  "Images: notes_upload_image stores an image (base64 data, or a public url the server downloads) and returns markdown like ![alt](/api/doc-images/…) to place in notes_create, notes_append, or notes_edit_blocks. Inline data:image urls in note markdown are stored the same way. Other image urls stay as links to that site.",
   "Markdown, both ways: [[Label|noteId]] or [[Label|noteId#blockId]] links a note (it must exist); #tag (starting with a letter) tags a block; a top-level `- [ ] task` / `- [x] task` line is a real task in the Inbox whose checkbox sets its status; `{{collection-view:viewId}}` on its own line is an embedded table, so keep it in place. Write \\# or \\[ for a literal character.",
 ].join("\n");
 
@@ -143,6 +145,33 @@ export function registerNoteTools(tools: ToolRegistrar): void {
       },
     },
     (args) => createNote(ctx, args),
+  );
+
+  tools.write(
+    "notes_upload_image",
+    {
+      title: "Upload image",
+      description: `Store an image for use in notes and get back markdown to embed it. Pass data (base64 or a data: URL) or url (a public http(s) address the server downloads, so the note keeps its own copy). PNG, JPEG, GIF, WebP, AVIF, HEIC, or BMP, up to ${MAX_IMAGE_BYTES / 1e6} MB. The same bytes always give the same src. This does not change any note: put the returned markdown in notes_create, notes_append, or notes_edit_blocks.`,
+      input: {
+        data: z
+          .string()
+          .optional()
+          .describe("Image bytes as base64, or a data:image/...;base64 URL"),
+        url: z
+          .string()
+          .url()
+          .optional()
+          .describe("Public http(s) address of the image to download"),
+        alt: z
+          .string()
+          .max(300)
+          .optional()
+          .describe("Alt text for the returned markdown"),
+      },
+      idempotent: true,
+      openWorld: true,
+    },
+    (args) => uploadImage(ctx, args),
   );
 
   tools.write(

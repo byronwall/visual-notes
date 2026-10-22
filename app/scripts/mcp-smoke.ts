@@ -64,7 +64,7 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 63;
+const EXPECTED_TOOL_COUNT = 64;
 const FAMILIES = [
   "notes_",
   "research_",
@@ -173,6 +173,33 @@ check(
     .every((line) => after.includes(line)),
   "notes_edit_blocks left every other block byte-identical",
 );
+
+// Image upload: store bytes, embed the returned markdown, and serve the file.
+const PNG_1X1 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+const image = await call("notes_upload_image", { data: PNG_1X1, alt: "dot" });
+const imageMarkdown: string = image.structuredContent?.markdown ?? "";
+check(
+  /^!\[dot]\(\/api\/doc-images\/[a-f0-9]{64}\.png\)$/.test(imageMarkdown),
+  "notes_upload_image returns embeddable markdown",
+);
+const served = await fetch(new URL(image.structuredContent?.src ?? "/", url));
+check(
+  served.ok && served.headers.get("content-type") === "image/png",
+  "the uploaded image is served from /api/doc-images",
+);
+await call("notes_append", { id: note.id, markdown: imageMarkdown });
+const withImage = await call("notes_get", { ids: [note.id] });
+check(
+  (withImage.structuredContent?.notes?.[0]?.markdown ?? "").includes(
+    image.structuredContent?.src,
+  ),
+  "the note shows the uploaded image",
+);
+const svgRefused = await call("notes_upload_image", {
+  data: Buffer.from("<svg></svg>").toString("base64"),
+});
+check(svgRefused.isError, "notes_upload_image refuses SVG");
 
 const found = await call("search", { query: "MCP smoke plan" });
 check(

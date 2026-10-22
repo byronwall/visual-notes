@@ -14,7 +14,7 @@ The server is built per request in `server/mcp/tools.ts`, which makes one regist
 
 ## Tools
 
-63 tools. Reads need the `notes:read` scope and writes need `notes:write`.
+64 tools. Reads need the `notes:read` scope and writes need `notes:write`.
 
 Every family registers through `tools.read` / `tools.write` in `server/mcp/tool-registry.ts`. That registrar sets the scope from read vs. write, the annotations, the `[mcp]` log line, and how store errors become refusals. ZodError, `ResearchIngestError`, `TimeBlockInputError`, and plain "not found" / "invalid" errors become `invalid` or `not_found`. Each family file exports one `register*Tools(tools)` and a line for the server instructions. `handler.ts` derives the per-tool `securitySchemes` from the same read/write annotation, so there is no scope table to keep in sync.
 
@@ -23,7 +23,7 @@ Every family registers through `tools.read` / `tools.write` in `server/mcp/tool-
 Agents get the same answer shapes from every family:
 
 - **Names** are `<area>_<verb>[_<object>]`: `notes_`, `research_`, `tasks_`, `collections_`, `time_blocks_`, `events_`, `places_`, `archive_`, `activity_`. `search` is the one cross-area tool.
-- **Verbs**: `list` enumerates a small set (lists, paths, tags, topics, places). `query` finds a family's items with filters. `get` reads by id. `create`, `update`, and `set` write. `add` and `remove` change membership.
+- **Verbs**: `list` enumerates a small set (lists, paths, tags, topics, places). `query` finds a family's items with filters. `get` reads by id. `create`, `update`, and `set` write. `add` and `remove` change membership. `upload` stores a file and says where it lives.
 - **Ids**: a tool's own records are `id` / `ids`. Records in other areas are `noteId`, `listId`, `showId`, `pageId`, `parentTaskId`. An event is addressed by its note's `noteId`.
 - **Links**: `appUrl` always opens the record in Visual Notes. `url` is always a web address: a research source, an event's ticket page, an archived page.
 - **Results** are JSON objects. Lists sit under a named key (`{ notes }`, `{ tasks }`, `{ rows }`), never bare. `truncated` says a limit cut the list.
@@ -44,7 +44,18 @@ Agents get the same answer shapes from every family:
 | `notes_append`      | write | Add markdown at the end. Agent notes only.                                                                                                                                                                                                                                                |
 | `notes_edit_blocks` | write | `replace`, `insert_after`, or `delete` blocks by id; other blocks stay byte-identical. Agent notes only.                                                                                                                                                                                  |
 
+| `notes_upload_image` | write | Store an image from `data` (base64 or a data URL) or `url` (downloaded by the server); returns `{ url, src, markdown, mime, bytes }` to embed with a note write. Changes no note. |
+
 Each note write snapshots a `DocRevision` first and logs `doc.create` or `doc.update`.
+
+### Images
+
+Agent images are stored like the app's own: content-addressed files in `DOC_IMAGE_STORAGE_DIR`, served from `/api/doc-images/<sha256>.<ext>` (`server/mcp/note-images.ts`, which reuses `persistImageBuffer` from `server/lib/inline-image-migration.ts`).
+
+- **`notes_upload_image`** is the way in. It stores the bytes and returns markdown (`![alt](/api/doc-images/…)`) for `notes_create`, `notes_append`, or `notes_edit_blocks`, so ownership stays with those tools. The same bytes always give the same `src`. It logs no activity event of its own; the note write that embeds the image does.
+- **Accepted**: PNG, JPEG, GIF, WebP, AVIF, HEIC (also stored as JPEG), and BMP, up to 10 MB, sniffed from the bytes. SVG is refused, because a file served from the app's origin can run script.
+- **`url` uploads** go through `fetchPublicFile` (`server/lib/public-fetch.ts`): http(s) only, at most 3 redirects, 15 s, and every address is checked when the socket connects, so loopback, private, link-local, and metadata addresses are refused even after a redirect or a DNS change.
+- **Inline `data:image/…` sources** in any note write's markdown are stored the same way before parsing, so a note body never holds base64. Other image urls stay as links to that site; agents that want a lasting copy upload them first.
 
 ### Note context
 
