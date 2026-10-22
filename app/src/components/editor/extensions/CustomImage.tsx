@@ -1,6 +1,16 @@
 import { NoteImage } from "~/lib/note-content/schema";
 import { ExpandIcon, MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-solid";
-import { For, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  on,
+  createEffect,
+  onCleanup,
+  untrack,
+  type JSX,
+} from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack } from "styled-system/jsx";
 import { IconButton } from "~/components/ui/icon-button";
@@ -9,6 +19,7 @@ import {
   NodeViewWrapper,
   useSolidNodeView,
 } from "../nodeviews";
+import { ImageLoadFallback } from "../ui/ImageLoadFallback";
 import { openImagePreview } from "../ui/imagePreviewService";
 
 type ImageAttrs = {
@@ -17,6 +28,9 @@ type ImageAttrs = {
   title?: string;
   widthPercent?: number | null;
 };
+
+/** Srcs that failed to load in this tab, shared across node view rebuilds. */
+const failedImageSrcs = new Set<string>();
 
 const MIN_WIDTH_PERCENT = 15;
 const MAX_WIDTH_PERCENT = 100;
@@ -51,9 +65,9 @@ function parseWidthPercent(value: unknown): number {
 const COMMON_WIDTH_PERCENTS = Array.from(
   new Set(
     COMMON_WIDTH_FRACTIONS.map(([numerator, denominator]) =>
-      clampPercent(Math.round((numerator / denominator) * 100))
-    )
-  )
+      clampPercent(Math.round((numerator / denominator) * 100)),
+    ),
+  ),
 ).sort((a, b) => a - b);
 
 const imageNodeClass = css({
@@ -62,6 +76,25 @@ const imageNodeClass = css({
   marginBottom: "3",
   maxWidth: "100%",
   minWidth: "0",
+  // Set by the ImagePaste plugin while the bytes are copied into storage.
+  "&.vn-image-importing .vn-image": {
+    opacity: "0.55",
+    animation: "pulse 1.6s ease-in-out infinite",
+  },
+  "&.vn-image-importing::after": {
+    content: '"Saving image…"',
+    position: "absolute",
+    top: "2",
+    left: "2",
+    px: "2",
+    py: "1",
+    borderRadius: "l2",
+    bg: "bg.default",
+    color: "fg.default",
+    fontSize: "xs",
+    boxShadow: "sm",
+    pointerEvents: "none",
+  },
 });
 const imageNodeSelectedClass = css({
   borderRadius: "l2",
@@ -88,8 +121,34 @@ function CustomImageNodeView() {
     const value = state().node.attrs.title;
     return value ? String(value) : undefined;
   });
+  // A src that will not load (expired link, a site that needs sign-in) gets
+  // a card with Retry/Replace instead of the browser's broken-image icon.
+  // Failures are remembered per src: the node view is rebuilt when the note
+  // refreshes, and a rebuilt <img> may not fire `error` again for a known-bad
+  // url, which would leave an empty gap.
+  const [loadFailed, setLoadFailedSignal] = createSignal(
+    untrack(() => failedImageSrcs.has(src())),
+  );
+  const setLoadFailed = (failed: boolean) => {
+    if (failed) failedImageSrcs.add(src());
+    else failedImageSrcs.delete(src());
+    setLoadFailedSignal(failed);
+  };
+  createEffect(
+    on(src, (value) => setLoadFailedSignal(failedImageSrcs.has(value)), {
+      defer: true,
+    }),
+  );
+  const replaceWithFile = (file: File) => {
+    const pos = state().getPos();
+    if (typeof pos !== "number") return;
+    state().editor.storage.imagePaste?.replaceWithFile(pos, file);
+  };
+  // Success swaps in a stored src, which resets loadFailed above.
+  const retryImport = (value: string) =>
+    state().editor.storage.imagePaste?.importSrc(value);
   const widthPercent = createMemo(() =>
-    parseWidthPercent(state().node.attrs.widthPercent)
+    parseWidthPercent(state().node.attrs.widthPercent),
   );
   const widthOptions = createMemo(() => {
     const current = widthPercent();
@@ -178,7 +237,8 @@ function CustomImageNodeView() {
     setResizing(true);
 
     const host =
-      (rootEl.closest(".ProseMirror") as HTMLElement | null) || rootEl.parentElement;
+      (rootEl.closest(".ProseMirror") as HTMLElement | null) ||
+      rootEl.parentElement;
     if (!host) {
       setResizing(false);
       return;
@@ -379,14 +439,34 @@ function CustomImageNodeView() {
       <img
         ref={(el) => {
           imageEl = el;
+          // An error that fired before the handler attached still shows.
+          requestAnimationFrame(() => {
+            if (
+              el.complete &&
+              el.naturalWidth === 0 &&
+              el.getAttribute("src")
+            ) {
+              setLoadFailed(true);
+            }
+          });
         }}
         class={`${imageElementClass} vn-image`}
         draggable={false}
         src={src()}
         alt={alt()}
         title={title()}
-        style={imageStyle()}
+        style={{ ...imageStyle(), display: loadFailed() ? "none" : "block" }}
+        onError={() => setLoadFailed(true)}
+        onLoad={() => setLoadFailed(false)}
       />
+      <Show when={loadFailed()}>
+        <ImageLoadFallback
+          src={src()}
+          alt={alt()}
+          onReplace={replaceWithFile}
+          onRetry={retryImport}
+        />
+      </Show>
 
       <Box
         as="span"

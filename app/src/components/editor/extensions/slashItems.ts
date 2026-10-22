@@ -75,7 +75,14 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Collection",
     glyph: "▤",
-    keywords: ["database", "collection", "board", "gallery", "calendar", "view"],
+    keywords: [
+      "database",
+      "collection",
+      "board",
+      "gallery",
+      "calendar",
+      "view",
+    ],
     run: (e, r) => chainFor(e, r).insertCollectionView().run(),
   },
   {
@@ -86,6 +93,15 @@ export const SLASH_ITEMS: SlashItem[] = [
       chainFor(e, r)
         .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
         .run(),
+  },
+  {
+    title: "Image",
+    glyph: "▣",
+    keywords: ["picture", "photo", "upload", "screenshot", "img"],
+    run: (e, r) => {
+      chainFor(e, r).run();
+      e.storage.imagePaste?.pickFiles();
+    },
   },
   {
     title: "Task",

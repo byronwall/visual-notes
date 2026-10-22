@@ -1,23 +1,21 @@
 import {
-  detectImageType,
   extractDataImageUrls,
   parseDataUrl,
-  persistImageBuffer,
   replaceDataUrls,
-  resolveDocImageStorageDir,
   type PersistedImage,
 } from "~/server/lib/inline-image-migration";
-import { fetchPublicFile, PublicFetchError } from "~/server/lib/public-fetch";
+import {
+  importImageFromUrl,
+  ImageRejectedError,
+  storeImageBytes as storeRasterBytes,
+} from "~/server/lib/doc-image-store";
 import { appLink, ConnectorError, type ConnectorContext } from "./shared";
 
 // Images in agent-written notes. Bytes are stored like the app's own images
 // (content-addressed files served from /api/doc-images), so a note never holds
 // base64 and never depends on someone else's server staying up.
 
-export const MAX_IMAGE_BYTES = 10_000_000;
-
-/** Raster formats only: an SVG served from the app's origin can run script. */
-const STORABLE = new Set(["png", "jpg", "gif", "webp", "avif", "heic", "bmp"]);
+export { MAX_IMAGE_BYTES } from "~/server/lib/doc-image-store";
 
 export type UploadedImage = {
   /** Full web address of the stored image. */
@@ -29,27 +27,18 @@ export type UploadedImage = {
   bytes: number;
 };
 
+const asConnectorError = (error: unknown): never => {
+  if (error instanceof ImageRejectedError)
+    throw new ConnectorError("invalid", error.message);
+  throw error;
+};
+
 /** Checks the bytes are a raster image and stores them. */
 async function storeImageBytes(
   buffer: Buffer,
   label: string,
 ): Promise<PersistedImage> {
-  if (!buffer.length) throw new ConnectorError("invalid", `${label} is empty`);
-  if (buffer.length > MAX_IMAGE_BYTES) {
-    throw new ConnectorError(
-      "invalid",
-      `${label} is larger than ${MAX_IMAGE_BYTES / 1e6} MB`,
-    );
-  }
-  // Sniff from the bytes alone; a declared type is not trusted.
-  const kind = detectImageType(buffer, "");
-  if (!STORABLE.has(kind.ext)) {
-    throw new ConnectorError(
-      "invalid",
-      `${label} is not a PNG, JPEG, GIF, WebP, AVIF, HEIC, or BMP image`,
-    );
-  }
-  return persistImageBuffer(buffer, kind, resolveDocImageStorageDir());
+  return storeRasterBytes(buffer, label).catch(asConnectorError);
 }
 
 function decodeData(data: string): Buffer {
@@ -76,27 +65,23 @@ export async function uploadImage(
   if (!input.data === !input.url) {
     throw new ConnectorError("invalid", "Pass exactly one of data or url.");
   }
-  let buffer: Buffer;
+  let stored: PersistedImage;
+  let bytes: number;
   if (input.data) {
-    buffer = decodeData(input.data);
+    const buffer = decodeData(input.data);
+    stored = await storeImageBytes(buffer, "data");
+    bytes = buffer.length;
   } else {
-    try {
-      buffer = (await fetchPublicFile(input.url!, { maxBytes: MAX_IMAGE_BYTES }))
-        .buffer;
-    } catch (error) {
-      if (error instanceof PublicFetchError)
-        throw new ConnectorError("invalid", error.message);
-      throw error;
-    }
+    ({ stored, bytes } = await importImageFromUrl(input.url!).catch(
+      asConnectorError,
+    ));
   }
-  const label = input.url ? `The image at ${input.url}` : "data";
-  const stored = await storeImageBytes(buffer, label);
   return {
     url: appLink(ctx, stored.publicUrl),
     src: stored.publicUrl,
     markdown: `![${escapeAlt(input.alt ?? "")}](${stored.publicUrl})`,
     mime: stored.mime,
-    bytes: buffer.length,
+    bytes,
   };
 }
 
