@@ -11,6 +11,7 @@ export type AccessGrant = {
   actorId: string;
   scopes: string[];
   grantId: string;
+  clientName: string | null;
 };
 
 export type AccessCheck =
@@ -65,7 +66,12 @@ export async function verifyBearerAccessToken(
   }
   const grant = await prisma.oAuthGrant.findUnique({
     where: { id: claims.gid },
-    select: { id: true, revokedAt: true, lastUsedAt: true },
+    select: {
+      id: true,
+      revokedAt: true,
+      lastUsedAt: true,
+      client: { select: { clientName: true } },
+    },
   });
   if (!grant || grant.revokedAt) {
     return {
@@ -81,6 +87,7 @@ export async function verifyBearerAccessToken(
       actorId: `chatgpt:${claims.client_id}`,
       scopes: claims.scope.split(/\s+/).filter(Boolean),
       grantId: grant.id,
+      clientName: grant.client?.clientName ?? null,
     },
   };
 }

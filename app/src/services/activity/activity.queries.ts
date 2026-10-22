@@ -1,11 +1,13 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { listTimelineEvents } from "~/server/activity/activity-store";
+import { summarizeMcpActivity } from "~/server/activity/mcp-activity-store";
 import type {
   ActionEventItem,
   ActivityTimelineFilter,
   DocActivityHistory,
   DocActivitySummary,
+  McpActivitySummary,
 } from "./activity.types";
 
 export const fetchTimelineEvents = query(
@@ -14,6 +16,14 @@ export const fetchTimelineEvents = query(
     return listTimelineEvents(input);
   },
   "activity-timeline-events",
+);
+
+export const fetchMcpActivitySummary = query(
+  async (days = 7): Promise<McpActivitySummary> => {
+    "use server";
+    return summarizeMcpActivity(Math.max(1, Math.min(90, days)));
+  },
+  "activity-mcp-summary",
 );
 
 export const fetchDocActivityHistory = query(

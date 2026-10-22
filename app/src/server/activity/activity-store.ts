@@ -29,12 +29,19 @@ export async function listTimelineEvents(
   const cursor = input.cursor?.trim();
 
   const where: Record<string, unknown> = {};
+  const requestId = input.requestId?.trim();
   if (input.eventType?.trim()) {
     where.eventType = input.eventType.trim();
   } else if (input.eventDomain?.trim()) {
     where.eventType = eventTypeFilterForDomain(input.eventDomain.trim());
+  } else if (input.excludeDomains?.length && !requestId) {
+    where.NOT = input.excludeDomains.map((domain) => ({
+      eventType: eventTypeFilterForDomain(domain),
+    }));
   }
+  if (requestId) where.requestId = requestId;
   if (input.entityType?.trim()) where.entityType = input.entityType.trim();
+  if (input.entityId?.trim()) where.entityId = input.entityId.trim();
   if (input.actorId?.trim()) where.actorId = input.actorId.trim();
   if (input.relatedDocId?.trim())
     where.relatedDocId = input.relatedDocId.trim();
@@ -76,6 +83,7 @@ export async function listTimelineEvents(
     relatedDocId: item.relatedDocId,
     relatedDocTitle: item.relatedDoc?.title ?? null,
     relatedDocPath: item.relatedDoc?.path ?? null,
+    requestId: item.requestId,
     payload:
       item.payload &&
       typeof item.payload === "object" &&

@@ -23,6 +23,8 @@ export type ConnectorContext = {
   scopes: string[];
   /** WWW-Authenticate challenge returned when a tool needs more scope. */
   scopeChallenge: string;
+  /** The OAuth client's registered name ("Claude", "ChatGPT"), when known. */
+  clientName?: string | null;
 };
 
 export type ConnectorErrorCode =

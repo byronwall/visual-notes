@@ -19,6 +19,50 @@ const event = (overrides: Partial<ActionEventItem>): ActionEventItem => ({
 });
 
 describe("describeActivityEvent", () => {
+  it("describes an MCP write call with a link to what it changed", () => {
+    const d = describeActivityEvent(
+      event({
+        eventType: "mcp.call.ok",
+        actorType: "chatgpt",
+        actorId: "chatgpt:vn_1",
+        entityType: "mcp_tool",
+        entityId: "notes_create",
+        requestId: "call-1",
+        payload: {
+          tool: "notes_create",
+          kind: "write",
+          durationMs: 42,
+          agent: "Claude",
+          args: '{"title":"Trip"}',
+          changes: 1,
+        },
+      }),
+    );
+    expect(d.domain).toBe("mcp");
+    expect(d.verb).toBe("Called");
+    expect(d.docTitle).toBe("notes_create");
+    expect(d.docHref).toBe("/activity?type=mcp&tool=notes_create");
+    expect(d.detail).toBe('{"title":"Trip"} · 1 change · 42ms');
+    expect(d.href).toBe("/activity?call=call-1");
+    expect(d.via).toBe("Claude");
+  });
+
+  it("shows a refused MCP call as a problem with its reason", () => {
+    const d = describeActivityEvent(
+      event({
+        eventType: "mcp.call.refused",
+        actorType: "chatgpt",
+        entityType: "mcp_tool",
+        entityId: "notes_update",
+        payload: { code: "not_owner", message: "Not your note", durationMs: 5 },
+      }),
+    );
+    expect(d.verb).toBe("Refused");
+    expect(d.tone).toBe("danger");
+    expect(d.detail).toBe("not_owner: Not your note · 5ms");
+    expect(d.href).toBeNull();
+  });
+
   it("describes a search with query and result count", () => {
     const d = describeActivityEvent(
       event({
@@ -41,7 +85,11 @@ describe("describeActivityEvent", () => {
         payload: { fieldsChanged: ["title"] },
       }),
     );
-    expect(d).toMatchObject({ verb: "Renamed", docTitle: "Trip", docHref: "/docs/doc1" });
+    expect(d).toMatchObject({
+      verb: "Renamed",
+      docTitle: "Trip",
+      docHref: "/docs/doc1",
+    });
   });
 
   it("flags failed prompt runs and links the run", () => {
@@ -53,7 +101,12 @@ describe("describeActivityEvent", () => {
         payload: { status: "ERROR", model: "gpt-4o-mini" },
       }),
     );
-    expect(d).toMatchObject({ verb: "Prompt run failed", tone: "danger", href: "/ai/runs/run1", detail: "gpt-4o-mini" });
+    expect(d).toMatchObject({
+      verb: "Prompt run failed",
+      tone: "danger",
+      href: "/ai/runs/run1",
+      detail: "gpt-4o-mini",
+    });
   });
 
   it("summarizes migration counts", () => {
@@ -68,7 +121,9 @@ describe("describeActivityEvent", () => {
   });
 
   it("falls back to a readable event type", () => {
-    expect(describeActivityEvent(event({ eventType: "sync.job_ran" })).verb).toBe("Sync job ran");
+    expect(
+      describeActivityEvent(event({ eventType: "sync.job_ran" })).verb,
+    ).toBe("Sync job ran");
   });
 });
 
@@ -79,7 +134,10 @@ describe("collapseRepeats", () => {
       event({ id: "b", relatedDocId: "d" }),
       event({ id: "c", relatedDocId: "x" }),
     ]);
-    expect(rows.map((r) => [r.event.id, r.count])).toEqual([["a", 2], ["c", 1]]);
+    expect(rows.map((r) => [r.event.id, r.count])).toEqual([
+      ["a", 2],
+      ["c", 1],
+    ]);
   });
 });
 

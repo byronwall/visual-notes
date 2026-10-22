@@ -2,7 +2,15 @@ import { useSearchParams } from "@solidjs/router";
 import { createMemo } from "solid-js";
 import type { ActivityTimelineFilter } from "~/services/activity/activity.types";
 
-export const ADVANCED_FILTER_KEYS = ["event", "actor", "doc", "from", "to"] as const;
+export const ADVANCED_FILTER_KEYS = [
+  "event",
+  "actor",
+  "doc",
+  "tool",
+  "call",
+  "from",
+  "to",
+] as const;
 type AdvancedKey = (typeof ADVANCED_FILTER_KEYS)[number];
 
 const read = (value: string | string[] | undefined) =>
@@ -26,6 +34,12 @@ export const useActivityFilters = () => {
       eventType: advanced("event") || undefined,
       actorId: advanced("actor") || undefined,
       relatedDocId: advanced("doc") || undefined,
+      ...(advanced("tool")
+        ? { entityType: "mcp_tool", entityId: advanced("tool") }
+        : {}),
+      requestId: advanced("call") || undefined,
+      // Connector calls are chatty; they live under the MCP tab.
+      excludeDomains: domain() === "all" ? ["mcp"] : undefined,
       docPathPrefix: pathPrefix() || undefined,
       // Passed through as typed (server-interpreted), matching the old filter.
       from: advanced("from") || undefined,
@@ -38,7 +52,13 @@ export const useActivityFilters = () => {
 
   const clearAll = () =>
     setParams(
-      { type: undefined, path: undefined, event: undefined, actor: undefined, doc: undefined, from: undefined, to: undefined },
+      {
+        type: undefined,
+        path: undefined,
+        ...Object.fromEntries(
+          ADVANCED_FILTER_KEYS.map((key) => [key, undefined]),
+        ),
+      },
       { replace: true },
     );
 
