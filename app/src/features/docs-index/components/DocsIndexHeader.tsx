@@ -2,6 +2,8 @@ import { createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { Heading } from "~/components/ui/heading";
 import { Box, HStack } from "styled-system/jsx";
 
+export const HEADER_HEIGHT_VAR = "--docs-index-header-h";
+
 /**
  * Sticky page header: title + count + search on one row, then a fixed-height
  * toolbar row whose content swaps between filters and bulk selection actions.
@@ -15,6 +17,7 @@ export const DocsIndexHeader = (props: {
   // Show a hairline under the header only once content scrolls beneath it.
   const [stuck, setStuck] = createSignal(false);
   let sentinel: HTMLDivElement | undefined;
+  let bar: HTMLDivElement | undefined;
   onMount(() => {
     if (!sentinel || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(([entry]) =>
@@ -23,11 +26,22 @@ export const DocsIndexHeader = (props: {
     observer.observe(sentinel);
     onCleanup(() => observer.disconnect());
   });
+  // Date headings stick just below this bar; publish its height to them.
+  onMount(() => {
+    const host = bar?.parentElement;
+    if (!bar || !host || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() =>
+      host.style.setProperty(HEADER_HEIGHT_VAR, `${bar!.offsetHeight}px`),
+    );
+    observer.observe(bar);
+    onCleanup(() => observer.disconnect());
+  });
 
   return (
     <>
       <div ref={sentinel} aria-hidden="true" />
       <Box
+        ref={bar}
         position="sticky"
         top="0"
         zIndex="sticky"

@@ -86,7 +86,6 @@ export const RecentRow = (props: {
   item: RecentItem;
   now: number;
   current: boolean;
-  previewDoc?: { previewText?: string } | null;
 }) => {
   let titleEl: HTMLSpanElement | undefined;
   const [open, setOpen] = createSignal(false);
@@ -103,7 +102,7 @@ export const RecentRow = (props: {
           updatedAt={props.item.updatedAt ?? props.item.at}
           path={props.item.path}
           meta={props.item.meta}
-          previewDoc={props.previewDoc ?? null}
+          previewId={props.item.id}
           ariaCurrent={props.current ? "page" : undefined}
           triggerClass={`${sidebarRowClass} ${rowClass}`}
           density="compact"

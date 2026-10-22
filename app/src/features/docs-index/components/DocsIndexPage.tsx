@@ -11,11 +11,8 @@ import {
   createMemo,
   createSignal,
 } from "solid-js";
-import {
-  fetchDocs,
-  fetchDocsServerNow,
-  fetchSources,
-} from "../data/docs.service";
+import { fetchSources } from "../data/docs.service";
+import { useDocsPages } from "../hooks/useDocsPages";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { DocsIndexHeader } from "./DocsIndexHeader";
@@ -71,11 +68,14 @@ const DocsIndexPage = () => {
     sortMode: q.sortMode(),
   });
 
-  const docs = createAsync(() => fetchDocs(filterArgs()));
-  const docsServerNow = createAsync(() => fetchDocsServerNow());
+  const docs = useDocsPages({
+    filters: filterArgs,
+    shown: q.clientShown,
+    setShown: q.setClientShown,
+  });
   const sources = createAsync(() => fetchSources());
   const pathDiscovery = createAsync(() => fetchPathDiscovery());
-  const refreshDocs = () => revalidate(fetchDocs.keyFor(filterArgs()));
+  const refreshDocs = docs.refresh;
   const refreshSources = () => revalidate(fetchSources.key);
 
   const search = useServerSearch(q.searchText, filterArgs, () =>
@@ -101,9 +101,9 @@ const DocsIndexPage = () => {
       const n = search.results().length;
       return `${n.toLocaleString()} ${n === 1 ? "match" : "matches"}`;
     }
-    const list = docs.latest;
-    if (!list) return "";
-    return `${list.length.toLocaleString()} ${list.length === 1 ? "note" : "notes"}`;
+    const total = docs.summary.latest?.total;
+    if (total === undefined) return "";
+    return `${total.toLocaleString()} ${total === 1 ? "note" : "notes"}`;
   });
 
   const setSearch = (v: string) => {
@@ -153,7 +153,7 @@ const DocsIndexPage = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default">
-      <Container px={{ base: "3", md: "6" }} pb="16" maxW="960px">
+      <Container px={{ base: "3", md: "8" }} pb="16" maxW="960px">
         <DocsIndexHeader
           countLabel={countLabel()}
           search={
@@ -217,12 +217,14 @@ const DocsIndexPage = () => {
           <Suspense fallback={<LoadingRows />}>
             {/* The first read must suspend so SSR waits for rows; later
                 revalidations keep showing the latest rows instead. */}
-            <Show when={docs.latest ?? docs()} fallback={<LoadingRows />}>
+            <Show when={docs.items()} fallback={<LoadingRows />}>
               {(items) => (
                 <ResultsSection
                   items={items()}
+                  summary={docs.summary.latest}
+                  onShowMore={docs.showMore}
+                  loadingMore={docs.loadingMore()}
                   query={q}
-                  nowMs={docsServerNow()}
                   serverResults={search.results()}
                   serverLoading={search.loading()}
                   serverStale={

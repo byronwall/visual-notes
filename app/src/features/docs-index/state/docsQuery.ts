@@ -1,4 +1,3 @@
-import { createMemo } from "solid-js";
 import { createStore } from "solid-js/store";
 
 export function createDocsQueryStore() {
@@ -26,23 +25,24 @@ export function createDocsQueryStore() {
     serverShown: 25,
   });
 
-  // Accessors to preserve the existing function-based API
-  const pathPrefix = createMemo(() => state.pathPrefix);
-  const blankPathOnly = createMemo(() => state.blankPathOnly);
-  const metaKey = createMemo(() => state.metaKey);
-  const metaValue = createMemo(() => state.metaValue);
-  const searchText = createMemo(() => state.searchText);
-  const source = createMemo(() => state.source);
-  const originalContentId = createMemo(() => state.originalContentId);
-  const createdFrom = createMemo(() => state.createdFrom);
-  const createdTo = createMemo(() => state.createdTo);
-  const updatedFrom = createMemo(() => state.updatedFrom);
-  const updatedTo = createMemo(() => state.updatedTo);
-  const activityClass = createMemo(() => state.activityClass);
-  const collectionRows = createMemo(() => state.collectionRows);
-  const sortMode = createMemo(() => state.sortMode);
-  const clientShown = createMemo(() => state.clientShown);
-  const serverShown = createMemo(() => state.serverShown);
+  // Plain accessors, not memos: store reads already track, and a server memo
+  // computes once, so it would miss the URL state applied during setup.
+  const pathPrefix = () => state.pathPrefix;
+  const blankPathOnly = () => state.blankPathOnly;
+  const metaKey = () => state.metaKey;
+  const metaValue = () => state.metaValue;
+  const searchText = () => state.searchText;
+  const source = () => state.source;
+  const originalContentId = () => state.originalContentId;
+  const createdFrom = () => state.createdFrom;
+  const createdTo = () => state.createdTo;
+  const updatedFrom = () => state.updatedFrom;
+  const updatedTo = () => state.updatedTo;
+  const activityClass = () => state.activityClass;
+  const collectionRows = () => state.collectionRows;
+  const sortMode = () => state.sortMode;
+  const clientShown = () => state.clientShown;
+  const serverShown = () => state.serverShown;
 
   const setPathPrefix = (v: string) => setState("pathPrefix", v);
   const setBlankPathOnly = (v: boolean) => setState("blankPathOnly", v);
@@ -90,23 +90,21 @@ export function createDocsQueryStore() {
       collectionRows: "",
     });
   };
-  const hasFilters = createMemo(
-    () =>
-      !!(
-        state.pathPrefix.trim() ||
-        state.blankPathOnly ||
-        state.metaKey.trim() ||
-        state.metaValue.trim() ||
-        state.source.trim() ||
-        state.originalContentId.trim() ||
-        state.createdFrom ||
-        state.createdTo ||
-        state.updatedFrom ||
-        state.updatedTo ||
-        state.activityClass ||
-        state.collectionRows
-      ),
-  );
+  const hasFilters = () =>
+    !!(
+      state.pathPrefix.trim() ||
+      state.blankPathOnly ||
+      state.metaKey.trim() ||
+      state.metaValue.trim() ||
+      state.source.trim() ||
+      state.originalContentId.trim() ||
+      state.createdFrom ||
+      state.createdTo ||
+      state.updatedFrom ||
+      state.updatedTo ||
+      state.activityClass ||
+      state.collectionRows
+    );
   const resetPaging = () => {
     setState({ clientShown: 100, serverShown: 25 });
   };

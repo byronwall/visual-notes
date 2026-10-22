@@ -1,5 +1,5 @@
 import { createMemo } from "solid-js";
-import { ActivityIcon, ArrowUpDownIcon, DatabaseIcon } from "lucide-solid";
+import { ArrowUpDownIcon } from "lucide-solid";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Box, HStack } from "styled-system/jsx";
@@ -11,20 +11,6 @@ import {
 } from "./ActiveFilterTokens";
 
 type SortMode = ReturnType<DocsQueryStore["sortMode"]>;
-
-const activityClassItems: SimpleSelectItem[] = [
-  { label: "Any activity", value: "" },
-  { label: "Read-heavy", value: "READ_HEAVY" },
-  { label: "Edit-heavy", value: "EDIT_HEAVY" },
-  { label: "Balanced", value: "BALANCED" },
-  { label: "Cold", value: "COLD" },
-];
-
-const collectionRowItems: SimpleSelectItem[] = [
-  { label: "All notes", value: "" },
-  { label: "Hide collection rows", value: "hide" },
-  { label: "Only collection rows", value: "only" },
-];
 
 export const DocsToolbar = (props: {
   q: DocsQueryStore;
@@ -56,36 +42,6 @@ export const DocsToolbar = (props: {
           onChange={(value) => q.setSortMode(value as SortMode)}
           size="xs"
           minW="9.5rem"
-          sameWidth
-          skipPortal={false}
-        />
-      </HStack>
-      <HStack gap="1" flexShrink="0" smDown={{ display: "none" }}>
-        <Box color="fg.subtle" display="flex">
-          <ActivityIcon size={13} />
-        </Box>
-        <SimpleSelect
-          items={activityClassItems}
-          value={q.activityClass()}
-          placeholder="Any activity"
-          onChange={(value) => q.setActivityClass(value)}
-          size="xs"
-          minW="8rem"
-          sameWidth
-          skipPortal={false}
-        />
-      </HStack>
-      <HStack gap="1" flexShrink="0" smDown={{ display: "none" }}>
-        <Box color="fg.subtle" display="flex">
-          <DatabaseIcon size={13} />
-        </Box>
-        <SimpleSelect
-          items={collectionRowItems}
-          value={q.collectionRows()}
-          placeholder="All notes"
-          onChange={(value) => q.setCollectionRows(value)}
-          size="xs"
-          minW="10rem"
           sameWidth
           skipPortal={false}
         />

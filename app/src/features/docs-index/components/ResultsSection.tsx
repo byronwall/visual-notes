@@ -1,31 +1,47 @@
 import { For, Match, Show, Switch, createEffect, createMemo } from "solid-js";
 import { groupByUpdatedAt } from "../utils/grouping";
-import { DocRow } from "./DocRow";
+import { DocRow, docRowListClass } from "./DocRow";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { ListEmptyState } from "./ListEmptyState";
 import { type createDocsQueryStore } from "../state/docsQuery";
-import type { DocListItem, ServerSearchItem } from "../data/docs.types";
-import { useDocPreviewMap } from "../hooks/useDocPreviewMap";
+import type {
+  DocListItem,
+  DocsSummary,
+  ServerSearchItem,
+} from "../data/docs.types";
 import { Box } from "styled-system/jsx";
 import { css } from "styled-system/css";
 
-type Group = { label: string; items: (DocListItem | ServerSearchItem)[] };
+type Group = {
+  key: string;
+  label: string;
+  /** Matches in this heading across all pages, not just the loaded rows. */
+  count?: number;
+  items: (DocListItem | ServerSearchItem)[];
+};
 
-const sectionClass = css({ p: "0" });
+// Space between periods lives on the section, so a stuck heading stays slim.
+const sectionClass = css({ p: "0", "& + &": { mt: "3" } });
 
+// Headings stick under the page header, so a long scroll always says which
+// period is on screen. The fallback matches the desktop header before it is
+// measured.
 const groupLabelClass = css({
+  position: "sticky",
+  top: "var(--docs-index-header-h, 6.25rem)",
+  zIndex: "docked",
+  bg: "bg.default",
   display: "flex",
   alignItems: "baseline",
   gap: "2",
-  pt: "4",
+  pt: "1.5",
   pb: "1",
   fontSize: "xs",
   fontWeight: "semibold",
   color: "fg.muted",
-  "&:first-child": { pt: "1" },
 });
 
-// Rows bleed into the gutter so checkboxes line up with the page's left edge.
+// Rows bleed 8px into the gutter so titles line up with the page heading.
 const listClass = css({
   mx: "-2",
   display: "flex",
@@ -38,8 +54,10 @@ const listClass = css({
 
 export const ResultsSection = (props: {
   items: DocListItem[];
+  summary?: DocsSummary;
+  onShowMore: () => void | Promise<void>;
+  loadingMore?: boolean;
   query: ReturnType<typeof createDocsQueryStore>;
-  nowMs?: number;
   serverResults: ServerSearchItem[];
   serverLoading: boolean;
   /** Results on screen answer an older query; dim them until the new ones land. */
@@ -56,7 +74,7 @@ export const ResultsSection = (props: {
   onResultOpen?: (id: string) => void;
 }) => {
   const q = props.query;
-  const nowMs = () => props.nowMs ?? Date.now();
+  const nowMs = () => props.summary?.nowMs ?? Date.now();
   const isSearching = () => q.searchText().trim().length > 0;
   // Only "relevance" browses by last update, so date buckets match the order.
   const isGrouped = () => !isSearching() && q.sortMode() === "relevance";
@@ -74,25 +92,38 @@ export const ResultsSection = (props: {
 
   const groups = createMemo<Group[]>(() => {
     if (isSearching()) {
-      return [{ label: "", items: searchResults().slice(0, q.serverShown()) }];
+      return [
+        { key: "", label: "", items: searchResults().slice(0, q.serverShown()) },
+      ];
     }
-    const shown = props.items.slice(0, q.clientShown());
-    if (!isGrouped()) return [{ label: "", items: shown }];
-    return groupByUpdatedAt(shown, nowMs()).filter((g) => g.items.length);
+    if (!isGrouped()) return [{ key: "", label: "", items: props.items }];
+    const counts = props.summary?.bucketCounts ?? {};
+    return groupByUpdatedAt(props.items, nowMs()).map((g) => ({
+      ...g,
+      count: counts[g.key] ?? g.items.length,
+    }));
   });
+
+  const groupKeys = createMemo(() => groups().map((g) => g.key));
+  const groupsByKey = createMemo(
+    () => new Map(groups().map((g) => [g.key, g])),
+  );
 
   const visibleIds = createMemo(() =>
     groups().flatMap((g) => g.items.map((x) => x.id)),
   );
-  const previewDocsById = useDocPreviewMap(visibleIds);
   const selectionMode = () => (props.selectedIds?.size ?? 0) > 0;
 
   createEffect(() => props.onVisibleIdsChange?.(visibleIds()));
 
   const totalCount = () =>
-    isSearching() ? searchResults().length : props.items.length;
+    isSearching()
+      ? searchResults().length
+      : (props.summary?.total ?? props.items.length);
   const shownCount = () =>
-    Math.min(isSearching() ? q.serverShown() : q.clientShown(), totalCount());
+    isSearching()
+      ? Math.min(q.serverShown(), totalCount())
+      : props.items.length;
 
   const onFilterMeta = (k: string, v: string) => {
     q.setMetaKey(k);
@@ -134,24 +165,32 @@ export const ResultsSection = (props: {
       </Match>
       <Match when={true}>
         <Box>
-          <For each={groups()}>
-            {(g) => (
+          {/* Keyed by heading so appending a page keeps mounted rows. */}
+          <For each={groupKeys()}>
+            {(key) => {
+              const g = () => groupsByKey().get(key)!;
+              return (
               <section class={sectionClass}>
-                <Show when={g.label}>
+                <Show when={g().label}>
                   <h2 class={groupLabelClass}>
-                    {g.label}
-                    <Box as="span" fontWeight="normal" color="fg.subtle">
-                      {g.items.length}
+                    {g().label}
+                    <Box
+                      as="span"
+                      fontWeight="normal"
+                      color="fg.subtle"
+                      fontVariantNumeric="tabular-nums"
+                    >
+                      {g().count?.toLocaleString()}
                     </Box>
                   </h2>
                 </Show>
                 <ul
-                  class={listClass}
+                  class={`${listClass} ${docRowListClass}`}
                   data-stale={
                     isSearching() && props.serverStale ? "" : undefined
                   }
                 >
-                  <For each={g.items}>
+                  <For each={g().items}>
                     {(d) => (
                       <DocRow
                         id={d.id}
@@ -163,7 +202,7 @@ export const ResultsSection = (props: {
                         collection={d.collection}
                         snippet={"snippet" in d ? d.snippet : undefined}
                         query={isSearching() ? q.searchText() : undefined}
-                        previewDoc={previewDocsById().get(d.id) || null}
+                        nowMs={nowMs()}
                         active={props.activeId === d.id}
                         selected={props.selectedIds?.has(d.id)}
                         selectionMode={selectionMode()}
@@ -178,13 +217,15 @@ export const ResultsSection = (props: {
                   </For>
                 </ul>
               </section>
-            )}
+              );
+            }}
           </For>
           <LoadMoreButton
             shown={shownCount()}
             total={totalCount()}
+            loading={!isSearching() && props.loadingMore}
             onLoadMore={() =>
-              isSearching() ? q.showMoreServer(25) : q.showMoreClient(100)
+              isSearching() ? q.showMoreServer(25) : void props.onShowMore()
             }
           />
         </Box>

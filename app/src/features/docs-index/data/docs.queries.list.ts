@@ -1,6 +1,7 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
-import type { DocListItem } from "./docs.types";
+import type { DocListItem, DocsSummary } from "./docs.types";
+import { updatedBucket } from "../utils/grouping";
 import {
   buildDocsWhere,
   toIsoDateEnd,
@@ -27,6 +28,8 @@ export const fetchDocs = query(
       | "most_viewed_30d"
       | "most_edited_30d";
     take?: number;
+    /** Rows to skip, for paging; the index loads 100 at a time. */
+    skip?: number;
   }): Promise<DocListItem[]> => {
     "use server";
     const startedAt = Date.now();
@@ -46,7 +49,8 @@ export const fetchDocs = query(
     });
     const take = Math.max(1, Math.min(8000, q.take ?? 8000));
     const sortMode = q.sortMode ?? "recent_activity";
-    const orderBy =
+    // The id tiebreak keeps pages stable when timestamps tie.
+    const primary =
       sortMode === "most_viewed_30d"
         ? [
             { activitySnapshot: { views30d: "desc" as const } },
@@ -59,10 +63,11 @@ export const fetchDocs = query(
             ]
           : sortMode === "recent_activity"
             ? [
-              { activitySnapshot: { lastInteractedAt: "desc" as const } },
-              { updatedAt: "desc" as const },
-            ]
+                { activitySnapshot: { lastInteractedAt: "desc" as const } },
+                { updatedAt: "desc" as const },
+              ]
             : [{ updatedAt: "desc" as const }];
+    const orderBy = [...primary, { id: "desc" as const }];
     const items = await prisma.doc.findMany({
       orderBy,
       where,
@@ -84,11 +89,13 @@ export const fetchDocs = query(
         },
       },
       take,
+      skip: Math.max(0, q.skip ?? 0),
     });
     console.log("[docs-index] fetchDocs", {
       ms: Date.now() - startedAt,
       count: items.length,
       take,
+      skip: q.skip ?? 0,
       sortMode,
       hasFilters: Object.keys(where).length > 0,
     });
@@ -118,7 +125,42 @@ export const fetchDocs = query(
   "docs-index-list"
 );
 
-export const fetchDocsServerNow = query(async (): Promise<number> => {
-  "use server";
-  return Date.now();
-}, "docs-index-server-now");
+type SummaryFilters = Omit<
+  Parameters<typeof fetchDocs>[0],
+  "take" | "skip" | "sortMode"
+>;
+
+/**
+ * Total matches plus counts per "last updated" heading, so the index can
+ * label headings with real totals while it pages rows in 100 at a time.
+ * Reads one timestamp per note, which stays small at production scale.
+ */
+export const fetchDocsSummary = query(
+  async (q: SummaryFilters): Promise<DocsSummary> => {
+    "use server";
+    const startedAt = Date.now();
+    const where = buildDocsWhere({
+      ...q,
+      createdFrom: q.createdFrom ? toIsoDateStart(q.createdFrom) : undefined,
+      createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
+      updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
+      updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
+    });
+    const rows = await prisma.doc.findMany({
+      where,
+      select: { updatedAt: true },
+    });
+    const nowMs = Date.now();
+    const bucketCounts: Record<string, number> = {};
+    for (const row of rows) {
+      const { key } = updatedBucket(row.updatedAt.getTime(), nowMs);
+      bucketCounts[key] = (bucketCounts[key] ?? 0) + 1;
+    }
+    console.log("[docs-index] fetchDocsSummary", {
+      ms: Date.now() - startedAt,
+      total: rows.length,
+    });
+    return { total: rows.length, bucketCounts, nowMs };
+  },
+  "docs-index-summary",
+);

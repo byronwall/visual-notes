@@ -6,7 +6,9 @@
  * Run it through `pnpm audit:db -- --owner <slug> --seed-scale 6000`, which
  * points DATABASE_URL at that owner's synthetic database. Legacy notes get
  * only markdown/html (content NULL), like unmigrated production rows; the
- * rest go through the note store with blocks and a block index.
+ * rest go through the note store with blocks and a block index. Afterwards the
+ * new notes get spread over about three years (skewed recent) and a handful of
+ * paths, so date headings, paging, and path filters look like real data.
  */
 import { parseArgs } from "node:util";
 import { prisma } from "~/server/db";
@@ -71,6 +73,21 @@ for (let offset = 0; offset < total; offset += batchSize) {
   }
   console.info(`[audit-seed] ${offset + notes.length}/${total} notes`);
 }
+// Deterministic per note: md5(id) picks the age and the path.
+const spread = await prisma.$executeRaw`
+  UPDATE "Doc" SET
+    "updatedAt" = now() - power(
+      ('x' || substr(md5(id), 1, 8))::bit(32)::bigint / 4294967295.0, 3
+    ) * interval '1100 days',
+    path = (ARRAY[
+      'audit.scale', 'work.projects', 'work.meetings', 'personal.journal',
+      'reading.books', 'research.ml', 'home.recipes'
+    ])[1 + ('x' || substr(md5(id), 9, 4))::bit(16)::int % 7]
+  WHERE path = 'audit.scale'`;
+await prisma.$executeRaw`
+  UPDATE "Doc" SET "createdAt" = "updatedAt"
+  WHERE "createdAt" > "updatedAt"`;
+console.info(`[audit-seed] spread dates and paths over ${spread} notes`);
 console.info(
   `[audit-seed] seeded ${total} notes (${legacy} legacy, ${total - legacy} blocks) into ${databaseName} in ${Math.round((Date.now() - started) / 1000)}s`,
 );

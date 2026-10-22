@@ -1,13 +1,14 @@
 export type {
   BulkMetaAction,
   DocListItem,
+  DocsSummary,
   MetaRecord,
   ScanRelativeImagesResult,
   ServerSearchItem,
   SourcesResponse,
 } from "./docs.types";
 
-export { fetchDocs, fetchDocsServerNow } from "./docs.queries.list";
+export { fetchDocs, fetchDocsSummary } from "./docs.queries.list";
 export { searchDocs } from "./docs.queries.search";
 export { fetchSources } from "./docs.queries.sources";
 

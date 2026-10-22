@@ -10,7 +10,6 @@ import {
 import { createAsync, revalidate, useLocation } from "@solidjs/router";
 import { Box, Stack } from "styled-system/jsx";
 import { css } from "styled-system/css";
-import { useDocPreviewMap } from "~/features/docs-index/hooks/useDocPreviewMap";
 import { fetchRecentItems } from "~/services/recents/recents.queries";
 import type { RecentItem } from "~/services/recents/recents.types";
 import { RecentRow } from "./RecentRow";
@@ -77,9 +76,6 @@ const RecentList = () => {
   const location = useLocation();
   const now = createClock();
   const items = createAsync(() => fetchRecentItems(30));
-  const previewDocsById = useDocPreviewMap(() =>
-    (items() || []).filter((item) => item.kind === "note").map((item) => item.id)
-  );
   const isCurrent = (item: RecentItem) =>
     safeDecode(location.pathname) === safeDecode(item.href);
 
@@ -114,7 +110,6 @@ const RecentList = () => {
                   item={item}
                   now={now()}
                   current={isCurrent(item)}
-                  previewDoc={previewDocsById().get(item.id) || null}
                 />
               </li>
             )}

@@ -11,6 +11,7 @@ import { css } from "styled-system/css";
 import * as HoverCard from "~/components/ui/hover-card";
 import { DocPreviewSummary } from "~/components/docs/DocPreviewSummary";
 import { normalizePreviewText } from "~/features/docs-index/utils/doc-preview";
+import { fetchDocPreviews } from "~/services/docs.service";
 
 type DocHoverPreviewLinkProps = {
   href: string;
@@ -24,6 +25,11 @@ type DocHoverPreviewLinkProps = {
     path?: string | null;
     meta?: Record<string, unknown> | null;
   } | null;
+  /**
+   * Fetch the preview for this note on first hover when `previewDoc` is not
+   * passed, so long lists do not load every body up front.
+   */
+  previewId?: string;
   triggerClass: string;
   ariaCurrent?: "page";
   /** Sets `data-density` on the link, for row styles keyed on it. */
@@ -59,18 +65,35 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
       next ? OPEN_DELAY_MS : CLOSE_DELAY_MS,
     );
   };
+  const [fetched, setFetched] = createSignal<
+    DocHoverPreviewLinkProps["previewDoc"] | undefined
+  >();
+  let requested = false;
+  const loadPreview = () => {
+    if (requested || props.previewDoc || !props.previewId) return;
+    requested = true;
+    fetchDocPreviews([props.previewId])
+      .then((rows) => setFetched(rows[0] ?? null))
+      .catch((err) => {
+        console.warn("[doc-preview] lazy preview failed", err);
+        setFetched(null);
+      });
+  };
+  const previewDoc = () => props.previewDoc ?? fetched();
   const show = () => {
     setArmed(true);
+    loadPreview();
     schedule(true);
   };
   const hide = () => schedule(false);
   onCleanup(() => clearTimeout(timer));
 
   const previewText = () => {
-    const doc = props.previewDoc;
+    const doc = previewDoc();
     if (doc?.previewText && doc.previewText.length > 0) return doc.previewText;
     const snippet = normalizePreviewText(props.snippet || "");
     if (snippet.length > 0) return snippet.slice(0, 240);
+    if (props.previewId && fetched() === undefined) return "Loading preview…";
     return "No preview available.";
   };
 
@@ -123,8 +146,8 @@ export const DocHoverPreviewLink = (props: DocHoverPreviewLinkProps) => {
                     <DocPreviewSummary
                       title={props.title}
                       updatedAt={props.updatedAt}
-                      path={props.previewDoc?.path ?? props.path}
-                      meta={props.previewDoc?.meta ?? props.meta}
+                      path={previewDoc()?.path ?? props.path}
+                      meta={previewDoc()?.meta ?? props.meta}
                       previewText={previewText()}
                     />
                   </Box>
