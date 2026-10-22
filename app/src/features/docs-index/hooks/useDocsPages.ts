@@ -86,7 +86,8 @@ export function useDocsPages(args: {
       const rows = await fetchRange(loaded, DOCS_PAGE_SIZE);
       if (!rows) return;
       setExtra((prev) => [...prev, ...rows]);
-      args.setShown(loaded + rows.length);
+      // Keep a larger target from the URL so the refill below continues.
+      args.setShown(Math.max(untrack(args.shown), loaded + rows.length));
     } catch (err) {
       console.error("[docs-index] load more failed", err);
     } finally {
