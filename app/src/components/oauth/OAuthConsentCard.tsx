@@ -13,6 +13,7 @@ const SCOPE_LABELS: Record<string, string> = {
 type Props = {
   clientName: string | null;
   redirectHost: string;
+  redirectIsLocal: boolean;
   scopes: string[];
   onDecide: (approve: boolean) => Promise<void>;
 };
@@ -51,7 +52,9 @@ export const OAuthConsentCard: VoidComponent<Props> = (props) => {
           <Box as="span" fontFamily="mono" color="fg.default">
             {props.redirectHost}
           </Box>
-          .
+          {props.redirectIsLocal
+            ? ", a program running on this computer. Approve only if you just started this sign-in."
+            : "."}
         </Text>
       </Stack>
       <Stack as="ul" gap="2" m="0" p="0" listStyle="none">

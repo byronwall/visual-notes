@@ -151,6 +151,21 @@ describe("checkAuthorizeRequest", () => {
     expect(check.kind).toBe("fatal");
   });
 
+  it("accepts a registered loopback redirect on a new port", async () => {
+    db.oAuthClient.findUnique.mockResolvedValue({
+      ...client,
+      redirectUris: ["http://localhost:52986/callback"],
+    });
+    const check = await checkAuthorizeRequest(request, {
+      ...base,
+      redirect_uri: "http://localhost:60001/callback",
+    });
+    expect(check).toMatchObject({
+      kind: "ok",
+      request: { redirectUri: "http://localhost:60001/callback" },
+    });
+  });
+
   it("returns protocol errors to the client with state and iss", async () => {
     db.oAuthClient.findUnique.mockResolvedValue(client);
     const check = await checkAuthorizeRequest(request, {

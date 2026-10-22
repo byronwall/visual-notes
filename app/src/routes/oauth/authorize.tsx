@@ -66,6 +66,7 @@ export default function OAuthAuthorizeRoute() {
                 <OAuthConsentCard
                   clientName={current().clientName}
                   redirectHost={current().redirectHost}
+                  redirectIsLocal={current().redirectIsLocal}
                   scopes={current().scopes}
                   onDecide={onDecide}
                 />

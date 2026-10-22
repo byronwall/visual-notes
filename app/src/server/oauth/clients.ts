@@ -10,31 +10,39 @@ function isLoopbackHost(hostname: string): boolean {
   );
 }
 
+function isLoopbackUrl(url: URL): boolean {
+  return url.protocol === "http:" && isLoopbackHost(url.hostname);
+}
+
+function parseUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * HTTPS anywhere, and plain HTTP to loopback for native apps such as Claude
  * Code (RFC 8252 section 7.3): the code never leaves the user's machine.
  */
 export function isAllowedRedirectUri(raw: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  if (url.hash) return false;
-  if (url.protocol === "https:") return true;
-  return url.protocol === "http:" && isLoopbackHost(url.hostname);
+  const url = parseUrl(raw);
+  if (!url || url.hash) return false;
+  return url.protocol === "https:" || isLoopbackUrl(url);
+}
+
+/** True when the code goes to an app on the user's own machine. */
+export function isLoopbackRedirectUri(raw: string): boolean {
+  const url = parseUrl(raw);
+  return url !== null && isLoopbackUrl(url);
 }
 
 function loopbackWithoutPort(raw: string): string | null {
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "http:" || !isLoopbackHost(url.hostname)) return null;
-    url.port = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
+  const url = parseUrl(raw);
+  if (!url || !isLoopbackUrl(url)) return null;
+  url.port = "";
+  return url.toString();
 }
 
 /**
