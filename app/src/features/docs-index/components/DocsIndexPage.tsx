@@ -153,7 +153,7 @@ const DocsIndexPage = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default">
-      <Container px={{ base: "3", md: "6" }} pb="16" maxW="960px">
+      <Container px={{ base: "3", md: "8" }} pb="16" maxW="960px">
         <DocsIndexHeader
           countLabel={countLabel()}
           search={

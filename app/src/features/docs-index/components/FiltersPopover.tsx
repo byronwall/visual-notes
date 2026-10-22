@@ -21,6 +21,20 @@ const textInputProps = {
   spellcheck: false,
 } as const;
 
+export const activityClassItems: SimpleSelectItem[] = [
+  { label: "Any activity", value: "" },
+  { label: "Read-heavy", value: "READ_HEAVY" },
+  { label: "Edit-heavy", value: "EDIT_HEAVY" },
+  { label: "Balanced", value: "BALANCED" },
+  { label: "Cold", value: "COLD" },
+];
+
+export const collectionRowItems: SimpleSelectItem[] = [
+  { label: "Include collection rows", value: "" },
+  { label: "Hide collection rows", value: "hide" },
+  { label: "Only collection rows", value: "only" },
+];
+
 const FilterRow = (props: { label: string; children: JSX.Element }) => (
   <Grid gridTemplateColumns="5.5rem minmax(0, 1fr)" gap="3" alignItems="start">
     <Box fontSize="xs" color="fg.muted" pt="2">
@@ -142,10 +156,35 @@ export const FiltersPopover = (props: {
                 </Stack>
               </FilterRow>
 
+              <FilterRow label="Activity">
+                <SimpleSelect
+                  items={activityClassItems}
+                  value={q.activityClass()}
+                  placeholder="Any activity"
+                  onChange={(value) => q.setActivityClass(value)}
+                  size="xs"
+                  sameWidth
+                  skipPortal
+                />
+              </FilterRow>
+
+              <FilterRow label="Collections">
+                <SimpleSelect
+                  items={collectionRowItems}
+                  value={q.collectionRows()}
+                  placeholder="Include collection rows"
+                  onChange={(value) => q.setCollectionRows(value)}
+                  size="xs"
+                  sameWidth
+                  skipPortal
+                />
+              </FilterRow>
+
               <FilterRow label="Source">
                 <SimpleSelect
                   items={sourceItems()}
                   value={q.source()}
+                  placeholder="Any source"
                   onChange={(value) => q.setSource(value)}
                   size="xs"
                   sameWidth

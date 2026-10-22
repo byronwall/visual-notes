@@ -6,7 +6,6 @@ import { getTopMetaEntries } from "../utils/meta";
 import { stripLeadingTitle } from "../utils/snippet";
 import { DocHoverPreviewLink } from "~/components/docs/DocHoverPreviewLink";
 import * as Checkbox from "~/components/ui/checkbox";
-import { Box } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import { pathToRoute } from "~/utils/path-links";
 
@@ -36,145 +35,162 @@ export type DocRowProps = {
   } | null;
 };
 
-const collectionChipClass = css({
-  display: "inline-flex",
-  alignItems: "center",
-  ml: "1.5",
-  px: "1.5",
-  h: "4.5",
-  borderRadius: "l1",
-  bg: "bg.subtle",
-  borderWidth: "1px",
-  borderColor: "border",
-  color: "fg.muted",
-  fontSize: "2xs",
-  verticalAlign: "1px",
-  textDecoration: "none",
-  _hover: { color: "fg.default", borderColor: "border.emphasized" },
-});
-
-// Fixed columns so paths and times scan as columns; the title column always
-// keeps room. Meta shows only where there is width for it.
-// Phones have no hover to reveal the checkbox, so its column only exists in
-// selection mode there instead of leaving an empty gutter on every row.
-const rowClass = css({
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
-  gridTemplateAreas: `"title title" "path time" "snippet snippet"`,
-  "&[data-selection-mode]": {
-    gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
-    gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
-  },
-  "&:not([data-selection-mode]) > .row-check": { display: "none" },
-  columnGap: "3",
-  rowGap: "0.5",
-  alignItems: "baseline",
-  "& > .row-check": { alignSelf: "start" },
-  px: "2",
-  py: "1.5",
-  borderRadius: "l2",
-  cursor: "pointer",
-  scrollMarginTop: "8rem",
-  scrollMarginBottom: "1rem",
-  transitionProperty: "background-color",
-  transitionDuration: "120ms",
-  _hover: { bg: "gray.a2" },
-  "&[data-active]": { bg: "gray.a3" },
-  "&[data-selected]": { bg: "gray.a4" },
-  "&[data-selected][data-active]": { bg: "gray.a5" },
-  "& .row-check": {
-    opacity: 0,
-    transitionProperty: "opacity",
+/**
+ * Row styles live on the list, keyed by short class names, so each of the
+ * hundreds of rows does not repeat a long atomic class string in the HTML.
+ *
+ * Fixed columns so paths and times scan as columns; the title column always
+ * keeps room, and meta shows only where there is width for it. From `md` up
+ * the checkbox sits in the left gutter, so titles line up with the page
+ * heading. Phones have no hover, so there it only appears in selection mode.
+ */
+export const docRowListClass = css({
+  "& > li": {
+    position: "relative",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    gridTemplateAreas: `"title title" "path time" "snippet snippet"`,
+    columnGap: "3",
+    rowGap: "0.5",
+    alignItems: "baseline",
+    px: "2",
+    py: "1.5",
+    borderRadius: "l2",
+    cursor: "pointer",
+    scrollMarginTop: "8rem",
+    scrollMarginBottom: "1rem",
+    transitionProperty: "background-color",
     transitionDuration: "120ms",
+    _hover: { bg: "gray.a2" },
+    "&[data-active], &[data-active]:hover": { bg: "gray.a3" },
+    "&[data-selected], &[data-selected]:hover": { bg: "gray.a4" },
+    "&[data-selected][data-active], &[data-selected][data-active]:hover": {
+      bg: "gray.a5",
+    },
+    sm: {
+      gridTemplateColumns: "minmax(0, 1fr) 9rem 3.5rem",
+      gridTemplateAreas: `"title path time" "snippet snippet ."`,
+    },
+    lg: { gridTemplateColumns: "minmax(0, 1fr) 12rem 3.5rem" },
+    xl: {
+      gridTemplateColumns: "minmax(12rem, 1fr) auto 14rem 3.5rem",
+      gridTemplateAreas: `"title meta path time" "snippet snippet . ."`,
+    },
   },
-  "&:hover .row-check, &[data-selected] .row-check, &[data-selection-mode] .row-check, & .row-check:focus-within":
-    { opacity: 1 },
-  "& .row-meta": { display: "none" },
-  sm: {
-    "&, &[data-selection-mode]": {
+  "& > li[data-selection-mode]": {
+    smDown: {
+      gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
+      gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
+    },
+    smToMd: {
       gridTemplateColumns: "1.5rem minmax(0, 1fr) 9rem 3.5rem",
       gridTemplateAreas: `"check title path time" ". snippet snippet ."`,
     },
-    "&:not([data-selection-mode]) > .row-check": { display: "flex" },
   },
-  lg: {
-    "&, &[data-selection-mode]": {
-      gridTemplateColumns: "1.5rem minmax(0, 1fr) 12rem 3.5rem",
+  "& .dr-check": {
+    gridArea: "check",
+    alignSelf: "center",
+    display: "none",
+    opacity: 0,
+    transitionProperty: "opacity",
+    transitionDuration: "120ms",
+    // Grow the 18px box to a 26px hit target without moving it.
+    "& label": { p: "1", m: "-1", cursor: "pointer" },
+    md: {
+      display: "flex",
+      position: "absolute",
+      // Ends 6px before the title text, which sits at the row's 8px padding.
+      left: "-4",
+      top: "1.5",
     },
   },
-  xl: {
-    "&, &[data-selection-mode]": {
-      gridTemplateColumns: "1.5rem minmax(12rem, 1fr) auto 14rem 3.5rem",
-      gridTemplateAreas: `"check title meta path time" ". snippet snippet . ."`,
-    },
-    "& .row-meta": { display: "flex" },
+  "& > li[data-selection-mode] .dr-check": { display: "flex" },
+  "& > li:hover .dr-check, & > li[data-selected] .dr-check, & > li[data-selection-mode] .dr-check, & .dr-check:focus-within":
+    { opacity: 1 },
+  "& .dr-title": { gridArea: "title", minW: "0" },
+  "& .dr-title-link": {
+    display: "inline",
+    color: "fg.default",
+    fontSize: "sm",
+    fontWeight: "medium",
+    lineHeight: "1.35",
+    textDecoration: "none",
+    overflowWrap: "break-word",
+    _hover: { textDecoration: "underline", textUnderlineOffset: "2px" },
   },
-});
-
-const checkCellClass = css({
-  gridArea: "check",
-  alignSelf: "center",
-  display: "flex",
-  // Grow the 18px box to a 26px hit target without moving it.
-  "& label": { p: "1", m: "-1", cursor: "pointer" },
-});
-
-const titleLinkClass = css({
-  display: "inline",
-  color: "fg.default",
-  fontSize: "sm",
-  fontWeight: "medium",
-  lineHeight: "1.35",
-  textDecoration: "none",
-  overflowWrap: "break-word",
-  _hover: { textDecoration: "underline", textUnderlineOffset: "2px" },
-});
-
-const cellTextClass = css({
-  minW: "0",
-  fontSize: "xs",
-  color: "fg.muted",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-});
-
-const metaCellClass = css({
-  gridArea: "meta",
-  justifyContent: "flex-end",
-  gap: "3",
-  minW: "0",
-  maxW: "16rem",
-  overflow: "hidden",
-});
-
-const pathLinkClass = css({
-  gridArea: "path",
-  justifySelf: "start",
-  maxW: "full",
-  fontFamily: "mono",
-  textDecoration: "none",
-  _hover: { color: "fg.default", textDecoration: "underline" },
-});
-
-const metaButtonClass = css({
-  flexShrink: "1",
-  maxW: "10rem",
-  cursor: "pointer",
-  bg: "transparent",
-  borderRadius: "l1",
-  px: "1",
-  mx: "-1",
-  transitionProperty: "color, background-color",
-  transitionDuration: "120ms",
-  _hover: { color: "fg.default", bg: "gray.a3" },
-  "& .meta-key": { color: "fg.subtle" },
-});
-
-const timeClass = css({
-  gridArea: "time",
-  textAlign: "right",
-  fontVariantNumeric: "tabular-nums",
+  "& .dr-shared": {
+    display: "inline-flex",
+    verticalAlign: "-2px",
+    ml: "1.5",
+    color: "green.11",
+  },
+  "& .dr-collection": {
+    display: "inline-flex",
+    alignItems: "center",
+    ml: "1.5",
+    px: "1.5",
+    h: "4.5",
+    borderRadius: "l1",
+    bg: "bg.subtle",
+    borderWidth: "1px",
+    borderColor: "border",
+    color: "fg.muted",
+    fontSize: "2xs",
+    verticalAlign: "1px",
+    textDecoration: "none",
+    _hover: { color: "fg.default", borderColor: "border.emphasized" },
+  },
+  "& .dr-cell": {
+    minW: "0",
+    fontSize: "xs",
+    color: "fg.muted",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  "& .dr-meta": {
+    gridArea: "meta",
+    display: "none",
+    justifyContent: "flex-end",
+    gap: "3",
+    minW: "0",
+    maxW: "16rem",
+    overflow: "hidden",
+    xl: { display: "flex" },
+  },
+  "& .dr-meta-button": {
+    flexShrink: "1",
+    maxW: "10rem",
+    cursor: "pointer",
+    bg: "transparent",
+    borderRadius: "l1",
+    px: "1",
+    mx: "-1",
+    transitionProperty: "color, background-color",
+    transitionDuration: "120ms",
+    _hover: { color: "fg.default", bg: "gray.a3" },
+  },
+  "& .dr-meta-key": { color: "fg.subtle" },
+  "& .dr-path": {
+    gridArea: "path",
+    justifySelf: "start",
+    maxW: "full",
+    fontFamily: "mono",
+    textDecoration: "none",
+    _hover: { color: "fg.default", textDecoration: "underline" },
+  },
+  "& .dr-time": {
+    gridArea: "time",
+    textAlign: "right",
+    fontVariantNumeric: "tabular-nums",
+  },
+  "& .dr-snippet": {
+    gridArea: "snippet",
+    fontSize: "xs",
+    color: "fg.muted",
+    lineClamp: "2",
+    minW: "0",
+  },
 });
 
 export const DocRow = (props: DocRowProps) => {
@@ -185,12 +201,15 @@ export const DocRow = (props: DocRowProps) => {
 
   return (
     <li
-      class={rowClass}
       data-doc-id={props.id}
       data-active={props.active ? "" : undefined}
       data-selected={props.selected ? "" : undefined}
       data-selection-mode={props.selectionMode ? "" : undefined}
       aria-selected={props.active ? "true" : undefined}
+      // Shift-click extends the selection; keep it from selecting page text.
+      onMouseDown={(e) => {
+        if (e.shiftKey) e.preventDefault();
+      }}
       onClick={(e) => {
         if (isInteractive(e.target)) return;
         if (props.selectionMode) {
@@ -200,7 +219,7 @@ export const DocRow = (props: DocRowProps) => {
         props.onActivate?.(props.id);
       }}
     >
-      <div class={`row-check ${checkCellClass}`} data-row-control>
+      <div class="dr-check" data-row-control>
         <Checkbox.Root
           size="sm"
           checked={!!props.selected}
@@ -219,7 +238,7 @@ export const DocRow = (props: DocRowProps) => {
         </Checkbox.Root>
       </div>
 
-      <Box gridArea="title" minW="0">
+      <div class="dr-title">
         <DocHoverPreviewLink
           href={`/docs/${props.id}`}
           title={props.title}
@@ -229,7 +248,7 @@ export const DocRow = (props: DocRowProps) => {
           snippet={props.snippet}
           previewDoc={props.previewDoc}
           previewId={props.id}
-          triggerClass={titleLinkClass}
+          triggerClass="dr-title-link"
           onNavigate={() => props.onResultOpen?.(props.id)}
         >
           <Show when={props.query} fallback={props.title || "Untitled"}>
@@ -238,24 +257,20 @@ export const DocRow = (props: DocRowProps) => {
         </DocHoverPreviewLink>
         <Show when={props.share}>
           {(share) => (
-            <Box
-              as="span"
-              display="inline-flex"
-              verticalAlign="-2px"
-              ml="1.5"
-              color="green.11"
+            <span
+              class="dr-shared"
               title={`Shared at ${share().shareUrl}`}
               aria-label="Shared"
             >
               <GlobeIcon size={13} />
-            </Box>
+            </span>
           )}
         </Show>
         <Show when={props.collection}>
           {(collection) => (
             <a
               href={`/collections/${collection().id}`}
-              class={collectionChipClass}
+              class="dr-collection"
               title={`Row in ${collection().name}`}
             >
               {collection().icon ? `${collection().icon} ` : ""}
@@ -263,18 +278,18 @@ export const DocRow = (props: DocRowProps) => {
             </a>
           )}
         </Show>
-      </Box>
+      </div>
 
-      <div class={`row-meta ${metaCellClass}`}>
+      <div class="dr-meta">
         <For each={getTopMetaEntries(props.meta as never)}>
           {([k, v]) => (
             <button
               type="button"
-              class={`${cellTextClass} ${metaButtonClass}`}
+              class="dr-cell dr-meta-button"
               title={`Filter by ${k}: ${v}`}
               onClick={() => props.onFilterMeta?.(k, v)}
             >
-              <span class="meta-key">{k}:</span> {v}
+              <span class="dr-meta-key">{k}:</span> {v}
             </button>
           )}
         </For>
@@ -284,7 +299,7 @@ export const DocRow = (props: DocRowProps) => {
         {(path) => (
           <a
             href={pathToRoute(path())}
-            class={`${cellTextClass} ${pathLinkClass}`}
+            class="dr-cell dr-path"
             title={path()}
           >
             <Show when={props.query} fallback={path()}>
@@ -295,7 +310,7 @@ export const DocRow = (props: DocRowProps) => {
       </Show>
 
       <span
-        class={`${cellTextClass} ${timeClass}`}
+        class="dr-cell dr-time"
         title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
       >
         {formatRelativeTime(props.updatedAt, props.nowMs)}
@@ -303,17 +318,11 @@ export const DocRow = (props: DocRowProps) => {
 
       <Show when={snippet()}>
         {(text) => (
-          <Box
-            gridArea="snippet"
-            fontSize="xs"
-            color="fg.muted"
-            lineClamp="2"
-            minW="0"
-          >
+          <div class="dr-snippet">
             <Show when={props.query} fallback={text()}>
               {(query) => renderHighlighted(text(), query())}
             </Show>
-          </Box>
+          </div>
         )}
       </Show>
     </li>

@@ -2,6 +2,10 @@ import { For, createMemo } from "solid-js";
 import { XIcon } from "lucide-solid";
 import { css } from "styled-system/css";
 import type { DocsQueryStore } from "../state/docsQuery";
+import { activityClassItems } from "./FiltersPopover";
+
+const itemLabel = (items: { label: string; value: string }[], v: string) =>
+  items.find((i) => i.value === v)?.label ?? v;
 
 type Token = {
   key: string;
@@ -67,6 +71,20 @@ export const useActiveFilterTokens = (q: DocsQueryStore) =>
         label: q.metaKey().trim() || "meta",
         value: q.metaValue().trim() || "any",
         clear: () => q.resetMeta(),
+      });
+    if (q.activityClass())
+      out.push({
+        key: "activity",
+        label: "activity",
+        value: itemLabel(activityClassItems, q.activityClass()),
+        clear: () => q.setActivityClass(""),
+      });
+    if (q.collectionRows())
+      out.push({
+        key: "collections",
+        label: "collection rows",
+        value: q.collectionRows() === "hide" ? "hidden" : "only",
+        clear: () => q.setCollectionRows(""),
       });
     if (q.source().trim())
       out.push({

@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createEffect, createMemo } from "solid-js";
 import { groupByUpdatedAt } from "../utils/grouping";
-import { DocRow } from "./DocRow";
+import { DocRow, docRowListClass } from "./DocRow";
 import { LoadMoreButton } from "./LoadMoreButton";
 import { ListEmptyState } from "./ListEmptyState";
 import { type createDocsQueryStore } from "../state/docsQuery";
@@ -34,7 +34,7 @@ const groupLabelClass = css({
   "&:first-child": { pt: "1" },
 });
 
-// Rows bleed into the gutter so checkboxes line up with the page's left edge.
+// Rows bleed 8px into the gutter so titles line up with the page heading.
 const listClass = css({
   mx: "-2",
   display: "flex",
@@ -178,7 +178,7 @@ export const ResultsSection = (props: {
                   </h2>
                 </Show>
                 <ul
-                  class={listClass}
+                  class={`${listClass} ${docRowListClass}`}
                   data-stale={
                     isSearching() && props.serverStale ? "" : undefined
                   }
