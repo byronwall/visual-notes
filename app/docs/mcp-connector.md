@@ -195,13 +195,13 @@ When `OPENAI_API_KEY` is set and at least one embedding run exists (`/embeddings
 
 ChatGPT connects with OAuth 2.1, served by the app itself for its single user:
 
-| Endpoint                                      | Purpose                                                                                                                           |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `/.well-known/oauth-protected-resource[/mcp]` | RFC 9728 metadata. Served from middleware, because the file router skips dot-folders.                                             |
-| `/.well-known/oauth-authorization-server`     | RFC 8414 metadata: S256 PKCE, dynamic registration, `iss` on responses                                                            |
-| `/oauth/register`                             | RFC 7591 dynamic client registration. Public clients only. Redirects must be HTTPS (loopback HTTP is allowed outside production). |
-| `/oauth/authorize`                            | Requires the normal login (via `/login?next=…`), then shows a consent page                                                        |
-| `/oauth/token`                                | `authorization_code` with PKCE, and rotating `refresh_token`                                                                      |
+| Endpoint                                      | Purpose                                                                                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/.well-known/oauth-protected-resource[/mcp]` | RFC 9728 metadata. Served from middleware, because the file router skips dot-folders.                                                                |
+| `/.well-known/oauth-authorization-server`     | RFC 8414 metadata: S256 PKCE, dynamic registration, `iss` on responses                                                                               |
+| `/oauth/register`                             | RFC 7591 dynamic client registration. Public clients only. Redirects must be HTTPS, or loopback HTTP for native apps such as Claude Code (RFC 8252). |
+| `/oauth/authorize`                            | Requires the normal login (via `/login?next=…`), then shows a consent page                                                                           |
+| `/oauth/token`                                | `authorization_code` with PKCE, and rotating `refresh_token`                                                                                         |
 
 - Access tokens are HS256 JWTs. They live for one hour, have `aud` set to `<origin>/mcp`, and carry the grant id. `/mcp` checks the signature, `iss`, `aud`, `exp`, and that the grant is not revoked, on every call.
 - Codes and refresh tokens are stored only as SHA-256 hashes. Codes are single use. A refresh token that has already been rotated is refused.
@@ -227,7 +227,7 @@ ChatGPT connects with OAuth 2.1, served by the app itself for its single user:
 - **Browser specs** drive `/mcp` while a page is open and check that it refreshes: `research-editing`, `task-agent-sync`, `time-blocks-agent-sync`, `archive-agent-sync`, and `live-note-updates` in `tests/e2e/`. They need `MCP_DEV_TOKEN`, so they skip in CI's production build. Run them against the [audit harness](audit-harness.md) with `PLAYWRIGHT_BASE_URL`, `MCP_DEV_TOKEN`, `RESEARCH_AGENT_TOKEN`, and `PLAYWRIGHT_MAGIC_PASSWORD_FILE` set. `archive-agent-sync` also needs `ARCHIVE_INGEST_TOKEN` for its page fixture.
 - **Interactively:** `pnpm dlx @modelcontextprotocol/inspector`, connected to the same URL with the bearer header.
 
-## Deploying and connecting ChatGPT
+## Deploying and connecting ChatGPT or Claude
 
 1. Set these on the production app, then deploy. The migrations run at container start.
    - `MCP_CONNECTOR_ENABLED=true`
@@ -236,12 +236,13 @@ ChatGPT connects with OAuth 2.1, served by the app itself for its single user:
 2. Check from outside:
    - `curl https://<origin>/.well-known/oauth-protected-resource/mcp` returns `resource: https://<origin>/mcp`.
    - `curl -i -X POST https://<origin>/mcp` returns `401` with a `WWW-Authenticate` header that has `resource_metadata`.
-3. In ChatGPT, turn on developer mode (Settings → Apps & Connectors → Advanced). Create a connector with the URL `https://<origin>/mcp` and OAuth authentication. ChatGPT registers itself, then opens the Visual Notes login and consent page. Approve it.
-4. Smoke test in a chat:
+3. In Claude Code, add the server once for every project with `claude mcp add --scope user --transport http visual-notes https://<origin>/mcp`, then choose Authenticate under `/mcp`. Claude Code registers a loopback callback such as `http://localhost:52986/callback`; later sign-ins may use another port, which `/oauth/authorize` accepts for loopback redirects only.
+4. In ChatGPT, turn on developer mode (Settings → Apps & Connectors → Advanced). Create a connector with the URL `https://<origin>/mcp` and OAuth authentication. ChatGPT registers itself, then opens the Visual Notes login and consent page. Approve it.
+5. Smoke test in a chat:
    - "Save a short plan about X to my notes." Expect a title, a path (possibly new), and a link that opens in the app.
    - In a new chat: "Find what we saved about X and add a next step." Expect `search` → `notes_get` → `notes_edit_blocks`/`notes_append`, and a version row for the edit.
    - "Rename my note <title of a note you wrote>." Expect a refusal and an offer to create a linked note.
    - "What's open on my task list this week?" Expect `tasks_query`.
-5. Watch the `[mcp]` and `[oauth]` log lines during the run.
+6. Watch the `[mcp]` and `[oauth]` log lines during the run.
 
 Rollback: set `MCP_CONNECTOR_ENABLED=false`. `/mcp`, `/oauth/*`, and the metadata routes then return 404, and ChatGPT reports the connector unavailable. Everything already saved stays as normal app data.

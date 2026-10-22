@@ -23,7 +23,7 @@ vi.mock("~/server/db", () => ({ prisma: db }));
 
 import { verifyBearerAccessToken } from "./access";
 import { checkAuthorizeRequest } from "./authorize";
-import { isAllowedRedirectUri } from "./clients";
+import { isAllowedRedirectUri, isRegisteredRedirectUri } from "./clients";
 import {
   base64Url,
   decodeAccessToken,
@@ -87,16 +87,35 @@ describe("crypto", () => {
 });
 
 describe("redirect URIs", () => {
-  it("allows https and loopback http outside production", () => {
+  it("allows https and loopback http, including in production", () => {
+    env.serverEnv.NODE_ENV = "production";
     expect(isAllowedRedirectUri(client.redirectUris[0])).toBe(true);
-    expect(isAllowedRedirectUri("http://localhost:6274/oauth/callback")).toBe(
+    expect(isAllowedRedirectUri("http://localhost:52986/callback")).toBe(true);
+    expect(isAllowedRedirectUri("http://127.0.0.1:6274/cb")).toBe(true);
+    expect(isAllowedRedirectUri("http://evil.test/cb")).toBe(false);
+    expect(isAllowedRedirectUri("http://localhost.evil.test/cb")).toBe(false);
+  });
+
+  it("matches loopback redirects on any port, others exactly", () => {
+    const registered = [
+      "http://localhost:52986/callback",
+      "https://chatgpt.com/cb",
+    ];
+    expect(
+      isRegisteredRedirectUri(registered, "http://localhost:60001/callback"),
+    ).toBe(true);
+    expect(
+      isRegisteredRedirectUri(registered, "http://localhost:60001/other"),
+    ).toBe(false);
+    expect(
+      isRegisteredRedirectUri(registered, "http://127.0.0.1:52986/callback"),
+    ).toBe(false);
+    expect(isRegisteredRedirectUri(registered, "https://chatgpt.com/cb")).toBe(
       true,
     );
-    expect(isAllowedRedirectUri("http://evil.test/cb")).toBe(false);
-    env.serverEnv.NODE_ENV = "production";
-    expect(isAllowedRedirectUri("http://localhost:6274/oauth/callback")).toBe(
-      false,
-    );
+    expect(
+      isRegisteredRedirectUri(registered, "https://chatgpt.com:8443/cb"),
+    ).toBe(false);
   });
 });
 

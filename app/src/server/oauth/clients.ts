@@ -1,4 +1,3 @@
-import { serverEnv } from "~/env/server";
 import { prisma } from "~/server/db";
 import { randomToken } from "./crypto";
 import { jsonResponse, oauthError } from "./metadata";
@@ -11,7 +10,10 @@ function isLoopbackHost(hostname: string): boolean {
   );
 }
 
-/** HTTPS anywhere; plain HTTP only to loopback outside production. */
+/**
+ * HTTPS anywhere, and plain HTTP to loopback for native apps such as Claude
+ * Code (RFC 8252 section 7.3): the code never leaves the user's machine.
+ */
 export function isAllowedRedirectUri(raw: string): boolean {
   let url: URL;
   try {
@@ -21,10 +23,33 @@ export function isAllowedRedirectUri(raw: string): boolean {
   }
   if (url.hash) return false;
   if (url.protocol === "https:") return true;
+  return url.protocol === "http:" && isLoopbackHost(url.hostname);
+}
+
+function loopbackWithoutPort(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" || !isLoopbackHost(url.hostname)) return null;
+    url.port = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Exact match, except a loopback redirect may use any port, since native apps
+ * pick a free one each time they sign in (RFC 8252 section 7.3).
+ */
+export function isRegisteredRedirectUri(
+  registered: string[],
+  requested: string,
+): boolean {
+  if (registered.includes(requested)) return true;
+  const loose = loopbackWithoutPort(requested);
   return (
-    url.protocol === "http:" &&
-    isLoopbackHost(url.hostname) &&
-    serverEnv.NODE_ENV !== "production"
+    loose !== null &&
+    registered.some((uri) => loopbackWithoutPort(uri) === loose)
   );
 }
 
