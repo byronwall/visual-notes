@@ -6,6 +6,7 @@ import {
   FileTextIcon,
   FlaskConicalIcon,
   ListChecksIcon,
+  PlugIcon,
   TableIcon,
   SearchIcon,
   SparklesIcon,
@@ -28,6 +29,7 @@ const domainIcon: Record<ActivityDomain, typeof ActivityIcon> = {
   search: SearchIcon,
   ai: SparklesIcon,
   admin: WrenchIcon,
+  mcp: PlugIcon,
   other: ActivityIcon,
 };
 
@@ -77,7 +79,14 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
       >
         <Dynamic component={domainIcon[description().domain]} size={14} />
       </Box>
-      <Box flex="1" minW="0" fontSize="sm" lineHeight="1.5" color="fg.default">
+      <Box
+        flex="1"
+        minW="0"
+        fontSize="sm"
+        lineHeight="1.5"
+        color="fg.default"
+        overflowWrap="anywhere"
+      >
         <styled.span color={isDanger() ? "red.11" : "fg.muted"}>
           {description().verb}
         </styled.span>

@@ -13,6 +13,7 @@ import {
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { ActivityTimeline } from "~/components/activity/ActivityTimeline";
 import { ActivityToolbar } from "~/components/activity/ActivityToolbar";
+import { McpActivityPanel } from "~/components/activity/McpActivityPanel";
 import { useActivityFilters } from "~/components/activity/useActivityFilters";
 import { Button } from "~/components/ui/button";
 import { Heading } from "~/components/ui/heading";
@@ -42,10 +43,14 @@ const ActivityRoute = () => {
   });
 
   createEffect(
-    on(filters.filter, () => {
-      setOlderPages([]);
-      setReachedEnd(false);
-    }, { defer: true }),
+    on(
+      filters.filter,
+      () => {
+        setOlderPages([]);
+        setReachedEnd(false);
+      },
+      { defer: true },
+    ),
   );
 
   // Keep showing the previous list while a filter change refetches.
@@ -75,7 +80,14 @@ const ActivityRoute = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
-      <Stack gap="4" maxW="960px" mx="auto" px={{ base: "3", md: "6" }} pt="5" pb="24">
+      <Stack
+        gap="4"
+        maxW="960px"
+        mx="auto"
+        px={{ base: "3", md: "6" }}
+        pt="5"
+        pb="24"
+      >
         <HStack gap="3" alignItems="baseline" flexWrap="wrap" px="3">
           <Heading as="h1" fontSize="2xl">
             Activity
@@ -91,6 +103,14 @@ const ActivityRoute = () => {
         <Box px="3">
           <ActivityToolbar filters={filters} />
         </Box>
+
+        <Show when={filters.domain() === "mcp"}>
+          <ErrorBoundary fallback={null}>
+            <Suspense>
+              <McpActivityPanel nowMs={nowMs()} />
+            </Suspense>
+          </ErrorBoundary>
+        </Show>
 
         <ErrorBoundary
           fallback={(error, reset) => (
@@ -119,22 +139,34 @@ const ActivityRoute = () => {
               fallback={
                 <Stack gap="2" px="3" py="10" alignItems="flex-start">
                   <Text fontWeight="medium">
-                    {filters.hasAnyFilter() ? "No events match these filters" : "No activity yet"}
+                    {filters.hasAnyFilter()
+                      ? "No events match these filters"
+                      : "No activity yet"}
                   </Text>
                   <Text fontSize="sm" color="fg.muted" maxW="52ch">
                     {filters.hasAnyFilter()
                       ? "Try a different event family or a shorter path prefix."
-                      : "Views, edits, searches, and AI runs show up here as you use Visual Notes."}
+                      : filters.domain() === "mcp"
+                        ? "Every tool call a connected agent makes shows up here, including refusals."
+                        : "Views, edits, searches, and AI runs show up here as you use Visual Notes."}
                   </Text>
                   <Show when={filters.hasAnyFilter()}>
-                    <Button size="xs" variant="outline" onClick={() => filters.clearAll()}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => filters.clearAll()}
+                    >
                       Clear filters
                     </Button>
                   </Show>
                 </Stack>
               }
             >
-              <ActivityTimeline events={events()} timeZone={timeZone()} nowMs={nowMs()} />
+              <ActivityTimeline
+                events={events()}
+                timeZone={timeZone()}
+                nowMs={nowMs()}
+              />
               <Show when={canLoadOlder()}>
                 <Box px="3" pt="4">
                   <Button

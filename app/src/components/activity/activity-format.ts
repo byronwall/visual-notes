@@ -11,6 +11,7 @@ export type ActivityDomain =
   | "search"
   | "ai"
   | "admin"
+  | "mcp"
   | "other";
 
 export const ACTIVITY_DOMAINS: {
@@ -28,6 +29,7 @@ export const ACTIVITY_DOMAINS: {
   { value: "search", label: "Search" },
   { value: "ai", label: "AI" },
   { value: "admin", label: "Admin" },
+  { value: "mcp", label: "MCP" },
 ];
 
 export type ActivityDescription = {
@@ -68,6 +70,7 @@ export const activityDomainOf = (eventType: string): ActivityDomain => {
     return "time_block";
   if (domain === "archive") return "archive";
   if (domain === "event") return "event";
+  if (domain === "mcp") return "mcp";
   if (
     domain === "doc" ||
     domain === "research" ||
@@ -318,6 +321,51 @@ const describeResearch = (
   }
 };
 
+const MCP_VERBS: Record<string, string> = {
+  "mcp.call.ok": "Called",
+  "mcp.call.refused": "Refused",
+  "mcp.call.failed": "Failed",
+  "mcp.call.denied": "Needed more access for",
+};
+
+/** Timeline link for one connector tool's calls. */
+export const mcpToolHref = (tool: string) =>
+  `/activity?type=mcp&tool=${encodeURIComponent(tool)}`;
+
+/** Timeline link for everything one connector call changed. */
+export const mcpCallHref = (requestId: string) =>
+  `/activity?call=${encodeURIComponent(requestId)}`;
+
+const describeMcpCall = (
+  event: ActionEventItem,
+  base: ActivityDescription,
+): ActivityDescription => {
+  const payload = event.payload;
+  const tool = str(payload, "tool") ?? event.entityId ?? null;
+  const ms = num(payload, "durationMs");
+  const changes = num(payload, "changes");
+  const problem = str(payload, "code")
+    ? [str(payload, "code"), str(payload, "message")].filter(Boolean).join(": ")
+    : str(payload, "message");
+  const ok = event.eventType === "mcp.call.ok";
+  return {
+    ...base,
+    verb: MCP_VERBS[event.eventType] ?? base.verb,
+    docTitle: tool,
+    docHref: tool ? mcpToolHref(tool) : null,
+    detail:
+      [
+        ok ? str(payload, "args") : problem,
+        changes ? plural(changes, "change") : null,
+        ms === null ? null : `${ms}ms`,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null,
+    href: changes && event.requestId ? mcpCallHref(event.requestId) : null,
+    tone: ok ? "default" : "danger",
+  };
+};
+
 export const describeActivityEvent = (
   event: ActionEventItem,
 ): ActivityDescription => {
@@ -343,6 +391,7 @@ export const describeActivityEvent = (
   if (domain === "time_block") return describeTimeBlock(event, base);
   if (domain === "archive") return describeArchive(event, base);
   if (domain === "event") return describeEvent(event, base);
+  if (domain === "mcp") return describeMcpCall(event, base);
 
   switch (event.eventType) {
     case "doc.view":

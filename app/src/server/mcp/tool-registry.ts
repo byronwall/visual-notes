@@ -4,9 +4,16 @@ import type {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { type z, ZodError } from "zod";
 import { ResearchIngestError } from "~/services/research/research.ingest";
+import { runInEventScope } from "~/server/events/event-scope";
 import { TimeBlockInputError } from "~/server/time-blocks/time-block-store";
+import {
+  type McpCallOutcome,
+  type McpCallRecord,
+  recordMcpCall,
+} from "./call-log";
 import {
   ConnectorError,
   nothingWritten,
@@ -15,7 +22,8 @@ import {
 
 // One way to declare a connector tool. Every family registers through
 // `tools.read` / `tools.write`, which set the scope, the annotations, the
-// logging, and how failures become refusals, so no tool repeats them.
+// logging, the activity record (call-log.ts), and how failures become
+// refusals, so no tool repeats them.
 
 const LOG_PREFIX = "[mcp]";
 
@@ -94,37 +102,63 @@ export function toRefusal(error: unknown): ConnectorError | null {
   return null;
 }
 
-export async function runTool(
+type ToolRun = {
+  result: CallToolResult;
+  outcome: Exclude<McpCallOutcome, "denied">;
+  code?: string;
+  message?: string;
+};
+
+async function runToolWithOutcome(
   tool: string,
   fn: () => Promise<Record<string, unknown>>,
-): Promise<CallToolResult> {
+): Promise<ToolRun> {
   const startedAt = Date.now();
   try {
     const result = await fn();
     console.info(`${LOG_PREFIX} ${tool} ok in ${Date.now() - startedAt}ms`);
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      structuredContent: result,
+      outcome: "ok",
+      result: {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        structuredContent: result,
+      },
     };
   } catch (error) {
     const refusal = toRefusal(error);
     if (refusal) {
       console.info(`${LOG_PREFIX} ${tool} refused: ${refusal.code}`);
       return {
-        isError: true,
-        content: [
-          { type: "text", text: `${refusal.code}: ${refusal.message}` },
-        ],
+        outcome: "refused",
+        code: refusal.code,
+        message: refusal.message,
+        result: {
+          isError: true,
+          content: [
+            { type: "text", text: `${refusal.code}: ${refusal.message}` },
+          ],
+        },
       };
     }
     console.error(`${LOG_PREFIX} ${tool} failed`, error);
     return {
-      isError: true,
-      content: [
-        { type: "text", text: "Internal error while handling the request." },
-      ],
+      outcome: "failed",
+      message: error instanceof Error ? error.message : String(error),
+      result: {
+        isError: true,
+        content: [
+          { type: "text", text: "Internal error while handling the request." },
+        ],
+      },
     };
   }
+}
+
+export async function runTool(
+  tool: string,
+  fn: () => Promise<Record<string, unknown>>,
+): Promise<CallToolResult> {
+  return (await runToolWithOutcome(tool, fn)).result;
 }
 
 /** ChatGPT shows its account-linking UI only for this result shape. */
@@ -156,12 +190,32 @@ export function createToolRegistrar(
       handler: Handler<S>,
     ) => {
       const scope = readOnly ? READ_SCOPE : WRITE_SCOPE;
-      const callback = (args: z.objectOutputType<S, z.ZodTypeAny>) => {
+      const callback = async (args: z.objectOutputType<S, z.ZodTypeAny>) => {
+        const callId = randomUUID();
+        const startedAt = Date.now();
+        const record = (
+          run: Pick<McpCallRecord, "outcome" | "code" | "message">,
+        ) =>
+          recordMcpCall({
+            ctx,
+            callId,
+            tool: name,
+            kind: readOnly ? "read" : "write",
+            durationMs: Date.now() - startedAt,
+            args,
+            ...run,
+          });
         if (!ctx.scopes.includes(scope)) {
           console.info(`${LOG_PREFIX} ${name} refused: missing ${scope}`);
+          await record({ outcome: "denied", code: scope });
           return insufficientScope(ctx, scope);
         }
-        return runTool(name, () => handler(args));
+        const { result, ...run } = await runInEventScope(
+          { requestId: callId, agent: ctx.clientName },
+          () => runToolWithOutcome(name, () => handler(args)),
+        );
+        await record(run);
+        return result;
       };
       server.registerTool(
         name,

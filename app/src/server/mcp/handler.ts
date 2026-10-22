@@ -15,7 +15,7 @@ import {
 import { scopeForAnnotations } from "./tool-registry";
 import { createNotesMcpServer } from "./tools";
 
-type Caller = { actorId: string; scopes: string[] };
+type Caller = { actorId: string; scopes: string[]; clientName: string | null };
 type AuthResult =
   | { ok: true; caller: Caller }
   | { ok: false; response: Response };
@@ -39,7 +39,11 @@ async function authenticate(request: Request): Promise<AuthResult> {
   if (token && devToken && safeEqual(token, devToken)) {
     return {
       ok: true,
-      caller: { actorId: "chatgpt:dev-token", scopes: [...SCOPES] },
+      caller: {
+        actorId: "chatgpt:dev-token",
+        scopes: [...SCOPES],
+        clientName: "Dev token",
+      },
     };
   }
   const check = await verifyBearerAccessToken(request, token);
@@ -52,7 +56,11 @@ async function authenticate(request: Request): Promise<AuthResult> {
   }
   return {
     ok: true,
-    caller: { actorId: check.grant.actorId, scopes: check.grant.scopes },
+    caller: {
+      actorId: check.grant.actorId,
+      scopes: check.grant.scopes,
+      clientName: check.grant.clientName,
+    },
   };
 }
 
@@ -109,6 +117,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     origin: resolvePublicOrigin(request),
     actorId: auth.caller.actorId,
     scopes: auth.caller.scopes,
+    clientName: auth.caller.clientName,
     scopeChallenge: wwwAuthenticateHeader(
       request,
       "insufficient_scope",

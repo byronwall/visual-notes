@@ -20,6 +20,7 @@ const DOMAINS = [
   "search",
   "ai",
   "admin",
+  "mcp",
 ] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -32,7 +33,7 @@ export function registerActivityTools(tools: ToolRegistrar): void {
     {
       title: "Query activity",
       description:
-        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = time blocks, event = events and places) or by noteId for one note's history.",
+        "Activity events, newest first, as one-line summaries. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = time blocks, event = events and places, mcp = connector tool calls, left out unless asked for) or by noteId for one note's history.",
       input: {
         since: z.string().optional().describe("ISO date or date-time"),
         domain: z.enum(DOMAINS).optional(),
@@ -47,6 +48,7 @@ export function registerActivityTools(tools: ToolRegistrar): void {
       const events = await listTimelineEvents({
         from: from.toISOString(),
         eventDomain: domain,
+        excludeDomains: ["mcp"],
         relatedDocId: noteId,
         take: limit ?? 50,
       });
