@@ -137,6 +137,25 @@ export const useDocsIndexUrlSync = (args: {
     });
   };
 
+  // Apply the URL once during setup, not only in an effect, so SSR renders
+  // the filtered list the URL asks for and hydration matches it.
+  {
+    const initialParams = buildManagedSearch();
+    const initialSearch = initialParams.toString()
+      ? `?${initialParams.toString()}`
+      : "";
+    syncingFromUrl = true;
+    try {
+      parseParamsIntoStore(initialParams);
+    } finally {
+      syncingFromUrl = false;
+    }
+    lastSearchSnapshot = initialSearch;
+    lastStoreSearchSnapshot = initialSearch;
+    isFirstUrlSync = false;
+    initializedFromUrl = true;
+  }
+
   createEffect(() => {
     if (syncingToUrl) {
       syncingToUrl = false;

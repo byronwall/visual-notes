@@ -20,6 +20,8 @@ export type DocRowProps = {
   collection?: { id: string; name: string; icon: string | null } | null;
   snippet?: string | null;
   query?: string;
+  /** Server clock, so relative times render the same on server and client. */
+  nowMs?: number;
   active?: boolean;
   selected?: boolean;
   selectionMode?: boolean;
@@ -226,6 +228,7 @@ export const DocRow = (props: DocRowProps) => {
           meta={props.meta}
           snippet={props.snippet}
           previewDoc={props.previewDoc}
+          previewId={props.id}
           triggerClass={titleLinkClass}
           onNavigate={() => props.onResultOpen?.(props.id)}
         >
@@ -295,7 +298,7 @@ export const DocRow = (props: DocRowProps) => {
         class={`${cellTextClass} ${timeClass}`}
         title={`Updated ${formatAbsoluteTime(props.updatedAt)}`}
       >
-        {formatRelativeTime(props.updatedAt)}
+        {formatRelativeTime(props.updatedAt, props.nowMs)}
       </span>
 
       <Show when={snippet()}>

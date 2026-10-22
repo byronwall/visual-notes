@@ -15,6 +15,14 @@ export type DocListItem = {
   collection?: { id: string; name: string; icon: string | null } | null;
 };
 
+export type DocsSummary = {
+  total: number;
+  /** Matches per `updatedBucket` key. */
+  bucketCounts: Record<string, number>;
+  /** Server clock, so relative times and headings match across hydration. */
+  nowMs: number;
+};
+
 export type ServerSearchItem = DocListItem & { snippet?: string | null };
 
 export type SourcesResponse = {
