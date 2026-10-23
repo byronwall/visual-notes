@@ -109,7 +109,7 @@ export const ControlPanel: VoidComponent<ControlPanelProps> = (props) => {
                 focusVisibleRing="outside"
                 transitionProperty="background-color, color"
                 transitionDuration="fast"
-                _hover={{ bg: "gray.a3", color: "fg.default" }}
+                _hover={{ bg: "bg.hover", color: "fg.default" }}
                 onClick={() => props.setSearchQuery("")}
               >
                 <XIcon size={14} />

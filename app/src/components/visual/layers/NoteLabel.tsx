@@ -34,10 +34,10 @@ export const NoteLabel: VoidComponent<NoteLabelProps> = (props) => {
     colorFor(props.doc()?.path || props.doc()?.title || layout().docId),
   );
   const bubbleStroke = createMemo(() =>
-    props.isHovered() ? "rgba(37, 99, 235, 0.3)" : "rgba(148, 163, 184, 0.28)",
+    props.isHovered() ? "var(--colors-blue-a6)" : "rgba(148, 163, 184, 0.28)",
   );
   const leaderStroke = createMemo(() =>
-    props.isHovered() ? "rgba(37, 99, 235, 0.5)" : "rgba(100, 116, 139, 0.42)",
+    props.isHovered() ? "var(--colors-blue-a8)" : "rgba(100, 116, 139, 0.42)",
   );
   const originX = () => layout().minX;
   const originY = () => layout().minY;

@@ -39,10 +39,10 @@ export const select = defineSlotRecipe({
       justifyContent: "space-between",
       userSelect: "none",
       _hover: {
-        background: "gray.surface.bg.hover",
+        background: "bg.hover",
       },
       _highlighted: {
-        background: "gray.surface.bg.hover",
+        background: "bg.hover",
       },
       _selected: {},
       _disabled: {

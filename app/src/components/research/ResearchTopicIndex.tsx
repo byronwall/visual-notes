@@ -18,7 +18,7 @@ const rowClass = css({
   borderColor: "border",
   transitionProperty: "background-color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a2" },
+  _hover: { bg: "bg.hover" },
 });
 
 const titleLinkClass = css({
@@ -88,7 +88,7 @@ export const ResearchTopicIndex = () => {
               borderColor: "border",
               borderRadius: "l2",
               bg: "bg.default",
-              _focusVisible: { outline: "2px solid token(colors.blue.a8)", outlineOffset: "-1px" },
+              _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-1px" },
             })}
           />
           <Button type="submit" size="sm" variant="outline" disabled={!title().trim()} loading={creating()}>

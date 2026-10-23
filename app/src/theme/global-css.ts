@@ -3,7 +3,7 @@ export const globalCss = {
     '*': {
       '--global-color-border': 'colors.border',
       '--global-color-placeholder': 'colors.fg.subtle',
-      '--global-color-selection': 'colors.colorPalette.subtle.bg',
+      '--global-color-selection': 'colors.blue.a4',
       '--global-color-focus-ring': 'colors.border.focus',
     },
     html: {

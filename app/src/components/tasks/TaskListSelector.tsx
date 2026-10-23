@@ -30,7 +30,7 @@ const noteTasksLinkClass = css({
   color: "fg.link",
   textDecorationLine: "none",
   borderRadius: "l2",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
 });
 
 const itemsClass = css({
@@ -61,14 +61,14 @@ const itemClass = css({
   userSelect: "none",
   transitionProperty: "background-color, color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3", color: "fg.default" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
   "&[data-selected=true]": {
-    bg: "gray.a4",
-    color: "fg.default",
+    bg: "bg.selected",
+    color: "fg.selected",
     fontWeight: "medium",
   },
   _focusVisible: {
-    outline: "2px solid token(colors.gray.a8)",
+    outline: "2px solid token(colors.border.focus)",
     outlineOffset: "-2px",
   },
   "& [data-reveal]": {

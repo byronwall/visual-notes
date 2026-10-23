@@ -49,7 +49,7 @@ const tileLinkClass = css({
   outline: "none",
   // Stretch the link so the whole tile opens the subpath.
   _after: { content: '""', position: "absolute", inset: "0", borderRadius: "l2" },
-  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.gray.8)" } },
+  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.border.focus)" } },
 });
 
 const metaClass = css({

@@ -1,6 +1,7 @@
 import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { UmapDetailData } from "~/features/umap/detail-types";
+import { readCssColor } from "~/utils/css-color";
 
 type UseUmapCanvasProps = {
   detail: Accessor<UmapDetailData | null | undefined>;
@@ -53,7 +54,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     ctx.clearRect(0, 0, width, height);
 
     if (points.length === 0) {
-      ctx.fillStyle = "#6b7280";
+      ctx.fillStyle = readCssColor("--colors-fg-muted", "#5e656d");
       ctx.font = "12px ui-sans-serif, system-ui, -apple-system";
       ctx.fillText("No points to display", 12, 20);
       return;
@@ -66,6 +67,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     let minZ = Infinity;
     let maxZ = -Infinity;
 
+    const pointColor = readCssColor("--colors-blue-9", "#4169a5");
     for (const point of points) {
       if (point.x < minX) minX = point.x;
       if (point.x > maxX) maxX = point.x;
@@ -88,7 +90,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
     const sx = (width - pad * 2) / rangeX;
     const sy = (height - pad * 2) / rangeY;
 
-    ctx.strokeStyle = "#e5e7eb";
+    ctx.strokeStyle = readCssColor("--colors-border", "#e6e9ec");
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
 
@@ -104,14 +106,14 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
           8,
           Math.max(region.radius * sx, region.radius * sy)
         );
-        ctx.fillStyle = "rgba(37, 99, 235, 0.06)";
-        ctx.strokeStyle = "rgba(37, 99, 235, 0.25)";
+        ctx.fillStyle = readCssColor("--colors-blue-a2", "#0055ff09");
+        ctx.strokeStyle = readCssColor("--colors-blue-a7", "#004ab853");
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(px, py, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "#1e3a8a";
+        ctx.fillStyle = readCssColor("--colors-blue-11", "#33578b");
         ctx.fillText(region.title, px, py - radius - 6);
       }
       ctx.restore();
@@ -121,7 +123,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
       const px = pad + (point.x - minX) * sx;
       const py = height - pad - (point.y - minY) * sy;
 
-      let color = "#2563eb";
+      let color = pointColor;
       if (dims === 3 && point.z != null && Number.isFinite(point.z)) {
         const t = (point.z - minZ) / (maxZ - minZ || 1);
         const light = 40 + Math.floor(t * 40);

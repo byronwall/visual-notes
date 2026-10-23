@@ -39,7 +39,7 @@ export const segmentGroup = defineSlotRecipe({
         opacity: '0.5',
       },
       '&[data-state=unchecked]:hover': {
-        bg: 'gray.surface.bg.hover',
+        bg: 'bg.hover',
       },
       '&[data-state=checked]:hover': {
         bg: 'transparent',

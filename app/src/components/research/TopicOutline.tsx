@@ -22,7 +22,7 @@ const rowClass = css({
   borderRadius: "l2",
   transitionProperty: "background-color, opacity",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a2" },
+  _hover: { bg: "bg.hover" },
   "&[data-faded=true]": { opacity: 0.55 },
   "&[data-selected=true]": { bg: "bg.selected" },
 });

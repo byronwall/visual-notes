@@ -15,7 +15,7 @@ const iconButtonClass = css({
   cursor: "pointer",
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3", color: "fg.default" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
   "@media (pointer: coarse)": { w: "9", h: "9" },
 });
 
@@ -117,7 +117,7 @@ export const TopicTitle = (props: {
               borderColor: "border",
               borderRadius: "l1",
               bg: "bg.default",
-              _focusVisible: { outline: "2px solid token(colors.blue.a8)", outlineOffset: "-1px" },
+              _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-1px" },
             })}
           />
         </form>

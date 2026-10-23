@@ -53,7 +53,7 @@ const iconButtonClass = css({
   borderRadius: "l1",
   color: "fg.subtle",
   cursor: "pointer",
-  _hover: { color: "fg.default", bg: "gray.a3" },
+  _hover: { color: "fg.default", bg: "bg.hover" },
 });
 
 const segmentClass = css({
@@ -79,7 +79,7 @@ const segmentButtonClass = css({
     fontWeight: "medium",
     boxShadow: "xs",
   },
-  _focusVisible: { outline: "2px solid", outlineColor: "gray.8" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 const countClass = css({

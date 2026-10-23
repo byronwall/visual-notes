@@ -79,7 +79,7 @@ function renderSuggestionList(
     row.style.padding = "6px 10px";
     row.style.border = "0";
     row.style.background =
-      idx === selected ? "rgba(59, 130, 246, 0.12)" : "transparent";
+      idx === selected ? "var(--colors-bg-hover)" : "transparent";
     row.style.cursor = "pointer";
 
     const emoji = document.createElement("span");

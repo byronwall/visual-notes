@@ -53,7 +53,7 @@ const openButton = css({
   color: "fg.subtle",
   transitionProperty: "color, background-color",
   transitionDuration: "140ms",
-  _hover: { color: "fg.default", bg: "gray.a3" },
+  _hover: { color: "fg.default", bg: "bg.hover" },
 });
 const progressTrack = css({
   flex: "1",

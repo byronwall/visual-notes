@@ -37,8 +37,8 @@ const headerIconButtonClass = css({
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
   transitionTimingFunction: "ease-out",
-  _hover: { bg: "gray.a3", color: "fg.default" },
-  _active: { bg: "gray.a4" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
+  _active: { bg: "bg.active" },
   _focusVisible: {
     outline: "2px solid",
     outlineColor: "border.focus",
@@ -60,7 +60,7 @@ const brandLinkClass = css({
   fontSize: "sm",
   letterSpacing: "tight",
   textDecorationLine: "none",
-  _hover: { bg: "gray.a3", textDecorationLine: "none" },
+  _hover: { bg: "bg.hover", textDecorationLine: "none" },
   _focusVisible: {
     outline: "2px solid",
     outlineColor: "border.focus",

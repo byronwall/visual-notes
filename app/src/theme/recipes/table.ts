@@ -79,7 +79,7 @@ export const table = defineSlotRecipe({
     },
     interactive: {
       true: {
-        body: { '& tr': { _hover: { bg: 'gray.surface.bg.hover' } } },
+        body: { '& tr': { _hover: { bg: 'bg.hover' } } },
       },
     },
     columnBorder: {

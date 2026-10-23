@@ -72,7 +72,7 @@ const clearButtonClass = css({
   borderRadius: "l1",
   color: "fg.subtle",
   cursor: "pointer",
-  _hover: { color: "fg.default", bg: "gray.a3" },
+  _hover: { color: "fg.default", bg: "bg.hover" },
 });
 
 export const PathTreeRail = (props: {

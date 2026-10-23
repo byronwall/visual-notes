@@ -50,7 +50,7 @@ const titleLinkClass = css({
   wordBreak: "break-word",
   // Stretch the title link so the whole row opens the note.
   _after: { content: '""', position: "absolute", inset: "0", borderRadius: "l2" },
-  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.gray.8)" } },
+  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.border.focus)" } },
 });
 
 const snippetClass = css({

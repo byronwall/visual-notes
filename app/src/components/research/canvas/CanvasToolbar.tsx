@@ -26,7 +26,7 @@ const segmentClass = css({
   cursor: "pointer",
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3", color: "fg.default" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
   "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
   "@media (pointer: coarse)": { h: "8" },
 });

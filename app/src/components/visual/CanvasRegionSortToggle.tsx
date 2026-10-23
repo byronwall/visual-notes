@@ -46,7 +46,7 @@ export const CanvasRegionSortToggle: VoidComponent<{
               color: "fg.default",
               bg: active() ? "bg.default" : "gray.a3",
             }}
-            _active={{ bg: "gray.a4" }}
+            _active={{ bg: "bg.active" }}
             onClick={() => props.onChange(option.value)}
           >
             {option.label}

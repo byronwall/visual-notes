@@ -24,7 +24,7 @@ const groupTabClass = css({
   whiteSpace: "nowrap",
   transitionProperty: "background-color, color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3", color: "fg.default" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
   _focusVisible: { outline: "2px solid", outlineColor: "colorPalette.default", outlineOffset: "1px" },
   "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
 });

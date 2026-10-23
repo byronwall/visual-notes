@@ -61,8 +61,8 @@ export const docRowListClass = css({
     scrollMarginBottom: "1rem",
     transitionProperty: "background-color",
     transitionDuration: "120ms",
-    _hover: { bg: "gray.a2" },
-    "&[data-active], &[data-active]:hover": { bg: "gray.a3" },
+    _hover: { bg: "bg.hover" },
+    "&[data-active], &[data-active]:hover": { bg: "bg.hover" },
     "&[data-selected], &[data-selected]:hover": { bg: "bg.selected" },
     "&[data-selected][data-active], &[data-selected][data-active]:hover": {
       bg: "bg.selectedHover",
@@ -116,7 +116,6 @@ export const docRowListClass = css({
     lineHeight: "1.35",
     textDecoration: "none",
     overflowWrap: "break-word",
-    _hover: { textDecoration: "underline", textUnderlineOffset: "2px" },
   },
   "& .dr-shared": {
     display: "inline-flex",
@@ -168,7 +167,7 @@ export const docRowListClass = css({
     mx: "-1",
     transitionProperty: "color, background-color",
     transitionDuration: "120ms",
-    _hover: { color: "fg.default", bg: "gray.a3" },
+    _hover: { color: "fg.default", bg: "bg.hover" },
   },
   "& .dr-meta-key": { color: "fg.subtle" },
   "& .dr-path": {

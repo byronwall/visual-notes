@@ -23,7 +23,7 @@ export const cardLinkClass = css({
   borderRadius: "l1",
   transitionProperty: "color, background-color",
   transitionDuration: "140ms",
-  _hover: { color: "fg.linkHover", bg: "gray.a2" },
+  _hover: { color: "fg.linkHover" },
 });
 
 export const textButtonClass = css({
@@ -35,7 +35,7 @@ export const textButtonClass = css({
   borderRadius: "l1",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   _disabled: { color: "fg.subtle", cursor: "default" },
   "&[data-tone=danger]": { color: "red.11" },
   "@media (pointer: coarse)": { h: "9" },

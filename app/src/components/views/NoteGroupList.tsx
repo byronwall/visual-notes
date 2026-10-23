@@ -22,7 +22,7 @@ const headerClass = css({
   borderColor: "gray.outline.border",
   color: "fg.default",
   textDecorationLine: "none",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
 });
 export const rowLinkClass = css({
   display: "flex",
@@ -33,7 +33,7 @@ export const rowLinkClass = css({
   color: "fg.default",
   textDecorationLine: "none",
   fontSize: "sm",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   "&:not(:last-child)": { borderBottomWidth: "1px", borderColor: "gray.a3" },
 });
 

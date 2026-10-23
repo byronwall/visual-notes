@@ -56,7 +56,7 @@ export const CanvasRegionRow: VoidComponent<CanvasRegionRowProps> = (props) => {
             transitionProperty="background-color"
             transitionDuration="fast"
             bg={props.highlighted ? "gray.a3" : "transparent"}
-            _hover={{ bg: "gray.a3" }}
+            _hover={{ bg: "bg.hover" }}
             _active={{ bg: "gray.a5" }}
             onMouseEnter={() => props.onHover(props.region.id)}
             onMouseLeave={() => props.onHover(undefined)}
@@ -159,7 +159,7 @@ export const CanvasRegionRow: VoidComponent<CanvasRegionRowProps> = (props) => {
                         focusVisibleRing="inside"
                         transitionProperty="background-color"
                         transitionDuration="fast"
-                        _hover={{ bg: "gray.a3" }}
+                        _hover={{ bg: "bg.hover" }}
                         _active={{ bg: "gray.a5" }}
                         onClick={() => props.onOpenDoc(doc.docId)}
                       >

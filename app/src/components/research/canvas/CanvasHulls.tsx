@@ -37,7 +37,7 @@ const labelButtonClass = css({
   borderRadius: "l1",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
 });
 
 /** Unfolded summary groups: a tinted region with the summary title and draft review actions. */

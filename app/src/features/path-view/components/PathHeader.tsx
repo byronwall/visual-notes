@@ -33,7 +33,7 @@ const crumbLinkClass = css({
   transitionProperty: "color",
   transitionDuration: "fast",
   _hover: { color: "fg.default" },
-  _focusVisible: { outline: "2px solid", outlineColor: "gray.8", outlineOffset: "2px" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus", outlineOffset: "2px" },
 });
 
 const sepClass = css({ color: "fg.subtle" });

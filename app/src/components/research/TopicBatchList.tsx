@@ -14,7 +14,7 @@ const actionClass = css({
   borderRadius: "l1",
   transitionProperty: "background-color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   _disabled: { color: "fg.subtle", cursor: "default" },
   "@media (pointer: coarse)": { minH: "8", px: "2" },
 });

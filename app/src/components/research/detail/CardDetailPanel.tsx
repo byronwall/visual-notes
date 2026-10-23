@@ -28,7 +28,7 @@ const stateButtonClass = css({
   cursor: "pointer",
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3", color: "fg.default" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
   "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
   "@media (pointer: coarse)": { h: "9" },
 });
@@ -106,7 +106,7 @@ export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; on
         <button
           type="button"
           aria-label="Close details"
-          class={css({ display: "inline-flex", p: "1", borderRadius: "l1", color: "fg.muted", cursor: "pointer", _hover: { bg: "gray.a3", color: "fg.default" } })}
+          class={css({ display: "inline-flex", p: "1", borderRadius: "l1", color: "fg.muted", cursor: "pointer", _hover: { bg: "bg.hover", color: "fg.default" } })}
           onClick={() => props.onSelect(null)}
         >
           <XIcon size={14} />

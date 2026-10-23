@@ -36,7 +36,7 @@ const interactiveBlock = css({
       "0 0 0 1px var(--colors-bg-default), 0 4px 12px var(--colors-black-a4)",
   },
   _focusVisible: {
-    outline: "2px solid var(--colors-fg-default)",
+    outline: "2px solid var(--colors-border-focus)",
     outlineOffset: "1px",
   },
   "&[data-selected]": {

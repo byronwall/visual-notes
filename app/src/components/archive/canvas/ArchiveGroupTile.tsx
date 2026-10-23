@@ -19,7 +19,7 @@ const tileClass = css({
   textDecoration: "none",
   transitionProperty: "background-color, box-shadow",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   _focusVisible: { outline: "2px solid", outlineColor: "colorPalette.default", outlineOffset: "2px" },
 });
 
