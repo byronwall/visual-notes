@@ -535,7 +535,7 @@ const EmbeddingDetail: VoidComponent = () => {
                                     >
                                       <Box
                                         h="full"
-                                        bg={job().stage === "failed" ? "red.500" : "green.500"}
+                                        bg={job().stage === "failed" ? "red.9" : "green.9"}
                                         style={{
                                           width: `${Math.max(0, Math.min(100, job().progress))}%`,
                                           transition: "width 180ms ease",

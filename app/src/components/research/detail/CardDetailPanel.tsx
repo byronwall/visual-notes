@@ -29,7 +29,7 @@ const stateButtonClass = css({
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
   _hover: { bg: "gray.a3", color: "fg.default" },
-  "&[data-active=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
+  "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
   "@media (pointer: coarse)": { h: "9" },
 });
 
@@ -197,7 +197,7 @@ export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; on
           <For each={pedigree()}>
             {(card, index) => (
               <span class={css({ display: "inline-flex", gap: "1.5" })}>
-                <button type="button" class={css({ color: "blue.11", cursor: "pointer", textAlign: "left", _hover: { color: "blue.12" } })} onClick={() => props.onSelect(card.id)}>
+                <button type="button" class={css({ color: "fg.link", cursor: "pointer", textAlign: "left", _hover: { color: "fg.linkHover" } })} onClick={() => props.onSelect(card.id)}>
                   {card.title}
                 </button>
                 <Show when={index() < pedigree().length - 1}>

@@ -27,7 +27,7 @@ const linkClass = css({
   transitionProperty: "color",
   transitionDuration: "140ms",
   whiteSpace: "nowrap",
-  _hover: { color: "blue.11" },
+  _hover: { color: "fg.link" },
 });
 
 const ColumnHeading = (props: { children: string }) => (
@@ -69,7 +69,7 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
             )}
           </Show>
         </Text>
-        <styled.a href="/admin/connections" fontSize="sm" color="fg.muted" transitionProperty="color" transitionDuration="140ms" _hover={{ color: "blue.11" }}>
+        <styled.a href="/admin/connections" fontSize="sm" color="fg.muted" transitionProperty="color" transitionDuration="140ms" _hover={{ color: "fg.link" }}>
           Manage connections
         </styled.a>
       </HStack>

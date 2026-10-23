@@ -242,7 +242,7 @@ export const TaskListsWorkspace = () => {
                       transitionProperty: "background-color, color",
                       transitionDuration: "fast",
                       "&[data-active=true]": {
-                        bg: "gray.a3",
+                        bg: "bg.selected",
                         color: "fg.default",
                       },
                     })}

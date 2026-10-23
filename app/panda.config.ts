@@ -80,12 +80,25 @@ export default defineConfig({
                 _dark: "{colors.gray.subtle.bg}",
               },
             },
+            // Interaction roles: hover is neutral; "you are here" / selected uses the
+            // accent tint so the two never look alike.
+            hover: { value: "{colors.gray.a3}" },
+            active: { value: "{colors.gray.a4}" },
+            selected: { value: "{colors.blue.a3}" },
+            selectedHover: { value: "{colors.blue.a4}" },
+            highlight: { value: "{colors.amber.a4}" },
           },
 
           fg: {
             error: { value: "{colors.red.11}" },
             danger: { value: "{colors.red.11}" },
             success: { value: "{colors.green.11}" },
+            warning: { value: "{colors.amber.11}" },
+            info: { value: "{colors.blue.11}" },
+            // Links are colored text only; every link type shares this hover.
+            link: { value: "{colors.blue.11}" },
+            linkHover: { value: "{colors.blue.12}" },
+            selected: { value: "{colors.blue.12}" },
             default: {
               value: {
                 _light: "{colors.gray.12}",
@@ -121,6 +134,8 @@ export default defineConfig({
             muted: { value: "{colors.gray.4}" },
             emphasized: { value: "{colors.gray.6}" },
             accent: { value: "{colors.blue.8}" },
+            focus: { value: "{colors.blue.9}" },
+            selected: { value: "{colors.blue.a7}" },
           },
 
           error: {

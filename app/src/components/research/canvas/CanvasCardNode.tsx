@@ -53,7 +53,7 @@ const cardClass = css({
   transitionDuration: "140ms",
   _hover: { borderColor: "gray.a8" },
   "&[data-kind=summary]": { bg: "gray.2", borderColor: "gray.a6" },
-  "&[data-selected=true]": { borderColor: "blue.9", boxShadow: "0 0 0 1px token(colors.blue.9)" },
+  "&[data-selected=true]": { borderColor: "border.selected", boxShadow: "0 0 0 1px token(colors.border.selected)" },
   "&[data-open=true]": { borderColor: "amber.a7" },
 });
 
@@ -133,7 +133,7 @@ export const CanvasCardNode = (props: {
         </Show>
         <Show when={card().url}>
           {(url) => (
-            <span class={css({ fontSize: "12px", color: "blue.11", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" })}>
+            <span class={css({ fontSize: "12px", color: "fg.link", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" })}>
               {hostOf(url())}
             </span>
           )}

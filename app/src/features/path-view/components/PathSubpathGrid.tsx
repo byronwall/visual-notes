@@ -56,7 +56,7 @@ const metaClass = css({
   fontSize: "xs",
   color: "fg.muted",
   fontVariantNumeric: "tabular-nums",
-  "& [data-fresh]": { color: "green.11" },
+  "& [data-fresh]": { color: "fg.default" },
 });
 
 const nestedClass = css({

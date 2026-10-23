@@ -108,7 +108,7 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
                     borderRadius="l1"
                     transitionProperty="color"
                     transitionDuration="140ms"
-                    _hover={{ color: "blue.11" }}
+                    _hover={{ color: "fg.link" }}
                   >
                     {title()}
                   </styled.a>
@@ -128,7 +128,7 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
                     color="fg.muted"
                     transitionProperty="color"
                     transitionDuration="140ms"
-                    _hover={{ color: "blue.11" }}
+                    _hover={{ color: "fg.link" }}
                   >
                     {detail()}
                   </styled.a>
@@ -144,7 +144,7 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
               <styled.a
                 href={href()}
                 color="fg.muted"
-                _hover={{ color: "blue.11" }}
+                _hover={{ color: "fg.link" }}
               >
                 View
               </styled.a>

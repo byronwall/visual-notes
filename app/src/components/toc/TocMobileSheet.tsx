@@ -30,8 +30,8 @@ const itemClass = css({
   _active: { bg: "gray.a4" },
   "&[data-depth='0']": { color: "fg.default", fontWeight: "medium" },
   "&[data-active=true]": {
-    bg: "gray.a3",
-    color: "fg.default",
+    bg: "bg.selected",
+    color: "fg.selected",
     fontWeight: "semibold",
   },
   _motionReduce: { transition: "none" },

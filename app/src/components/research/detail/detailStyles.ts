@@ -17,18 +17,18 @@ export const cardLinkClass = css({
   w: "full",
   textAlign: "left",
   fontSize: "sm",
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   py: "0.5",
   borderRadius: "l1",
   transitionProperty: "color, background-color",
   transitionDuration: "140ms",
-  _hover: { color: "blue.12", bg: "gray.a2" },
+  _hover: { color: "fg.linkHover", bg: "gray.a2" },
 });
 
 export const textButtonClass = css({
   fontSize: "sm",
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   px: "1.5",
   h: "7",

@@ -27,7 +27,7 @@ const noteTasksLinkClass = css({
   px: "2.5",
   py: "1",
   fontSize: "xs",
-  color: "blue.11",
+  color: "fg.link",
   textDecorationLine: "none",
   borderRadius: "l2",
   _hover: { bg: "gray.a3" },

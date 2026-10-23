@@ -20,7 +20,7 @@ const sourceLinkClass = css({
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
   fontSize: "xs",
-  color: "blue.11",
+  color: "fg.link",
   textDecorationLine: "none",
   _hover: { textDecorationLine: "underline" },
 });
@@ -47,7 +47,7 @@ export const rowClass = css({
   transitionProperty: "background-color, opacity",
   transitionDuration: "fast",
   _hover: { bg: "gray.a3" },
-  "&[data-selected=true]": { bg: "gray.a4" },
+  "&[data-selected=true]": { bg: "bg.selected" },
   _focusVisible: { boxShadow: "inset 0 0 0 1px token(colors.gray.a8)" },
   "&[data-dragging=true]": { opacity: 0.4 },
   "&[data-drop=inside]": {

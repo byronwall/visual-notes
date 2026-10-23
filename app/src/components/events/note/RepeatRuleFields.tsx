@@ -29,7 +29,7 @@ const dayToggle = css({
     borderColor: "colorPalette.solid.bg",
     color: "colorPalette.solid.fg",
   },
-  _focusVisible: { outline: "2px solid", outlineColor: "blue.a8" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 const modeItems = (date: string) => {

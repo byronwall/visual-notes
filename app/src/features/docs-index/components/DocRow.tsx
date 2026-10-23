@@ -63,9 +63,9 @@ export const docRowListClass = css({
     transitionDuration: "120ms",
     _hover: { bg: "gray.a2" },
     "&[data-active], &[data-active]:hover": { bg: "gray.a3" },
-    "&[data-selected], &[data-selected]:hover": { bg: "gray.a4" },
+    "&[data-selected], &[data-selected]:hover": { bg: "bg.selected" },
     "&[data-selected][data-active], &[data-selected][data-active]:hover": {
-      bg: "gray.a5",
+      bg: "bg.selectedHover",
     },
     sm: {
       gridTemplateColumns: "minmax(0, 1fr) 9rem 3.5rem",

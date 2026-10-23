@@ -41,7 +41,7 @@ const headerIconButtonClass = css({
   _active: { bg: "gray.a4" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "-2px",
   },
 });
@@ -63,7 +63,7 @@ const brandLinkClass = css({
   _hover: { bg: "gray.a3", textDecorationLine: "none" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "-2px",
   },
 });

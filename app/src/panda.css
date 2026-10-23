@@ -492,19 +492,13 @@
   }
 
   .prose a {
-    color: var(--colors-blue-11);
-    text-decoration: underline;
-    text-decoration-color: var(--colors-blue-a6);
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.18em;
+    color: var(--colors-fg-link);
+    text-decoration: none;
     cursor: pointer;
-    transition:
-      color 120ms ease,
-      text-decoration-color 120ms ease;
+    transition: color 140ms ease;
   }
   .prose a:hover {
-    color: var(--colors-blue-12);
-    text-decoration-color: var(--colors-blue-a9);
+    color: var(--colors-fg-link-hover);
   }
   .prose a:focus-visible {
     outline: 2px solid var(--colors-blue-a8);
@@ -551,9 +545,8 @@
   .prose blockquote {
     margin: 0.8rem 0;
     padding: 0.4rem 0.8rem;
-    border-left: 3px solid var(--accent);
-    background: var(--colors-blue-a2);
-    color: var(--colors-fg-default);
+    border-left: 2px solid var(--colors-gray-a6);
+    color: var(--colors-fg-muted);
   }
 
   .prose mark {
@@ -622,18 +615,12 @@
 
   /* Make AI HTML blocks inherit link styling */
   .ai-html a {
-    color: var(--colors-blue-11);
-    text-decoration: underline;
-    text-decoration-color: var(--colors-blue-a6);
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.18em;
+    color: var(--colors-fg-link);
+    text-decoration: none;
     cursor: pointer;
-    transition:
-      color 120ms ease,
-      text-decoration-color 120ms ease;
+    transition: color 140ms ease;
   }
   .ai-html a:hover {
-    color: var(--colors-blue-12);
-    text-decoration-color: var(--colors-blue-a9);
+    color: var(--colors-fg-link-hover);
   }
 }

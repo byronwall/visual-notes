@@ -12,10 +12,10 @@ const hostOf = (url: string) => {
 };
 
 export const sourceLinkClass = css({
-  color: "blue.11",
+  color: "fg.link",
   textDecoration: "none",
   whiteSpace: "nowrap",
-  _hover: { color: "blue.12" },
+  _hover: { color: "fg.linkHover" },
 });
 
 /** Body, snippet, URL, and image for a card; renders nothing for bare titles. */
@@ -55,7 +55,7 @@ export const CardBody = (props: { card: ResearchCard; compact?: boolean }) => {
             maxW: "prose",
             "& p + p": { mt: "1.5" },
             "& ul": { listStyle: "disc", pl: "5" },
-            "& a": { color: "blue.11" },
+            "& a": { color: "fg.link" },
           })}`}
           innerHTML={html()}
         />

@@ -39,7 +39,7 @@ const btn = css({
   fontSize: "sm",
   cursor: "pointer",
   _hover: { bg: "bg.muted", color: "fg.default" },
-  "&[data-active]": { color: "blue.11", bg: "blue.a3" },
+  "&[data-active]": { color: "fg.selected", bg: "bg.selected" },
 });
 const searchBox = css({
   display: "inline-flex",

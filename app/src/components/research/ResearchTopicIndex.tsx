@@ -22,11 +22,11 @@ const rowClass = css({
 });
 
 const titleLinkClass = css({
-  color: "blue.11",
+  color: "fg.link",
   fontWeight: "medium",
   textDecoration: "none",
   whiteSpace: "nowrap",
-  _hover: { color: "blue.12" },
+  _hover: { color: "fg.linkHover" },
 });
 
 const metaClass = css({

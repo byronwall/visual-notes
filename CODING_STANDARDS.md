@@ -8,6 +8,7 @@ implementation rules live in [AGENTS.md](AGENTS.md).
 - Render document/file/path-like strings in a monospace font so paths scan distinctly from titles/body copy.
 - In UI surfaces, prefer relative timestamps (for example, `5m ago`, `2d ago`) over absolute datetimes. Use absolute timestamps only when precision/auditability is required.
 - Prefer subtle background/surface differences (`bg.subtle`, `bg.muted`, spacing) over heavy border stacks to separate sections; use borders sparingly for true emphasis or interactive affordance.
+- Pick colors by role, not by palette step. The neutral is a blue-slate `gray`; `blue` is the one accent. Use `fg.link`/`fg.linkHover` for links (colored text only: no underline, no fill), `bg.hover` for hover, `bg.selected`/`fg.selected` for the current page or selected item (it must never look like hover), `border.focus` for focus rings, and `bg.highlight` for search matches and flashes. Keep `amber`, `green`, and `red` for status. Lint rejects raw hex colors and steps that don't exist.
 - For simple single-field edits (for example names/titles), prefer inline edit-in-place interactions over opening a dedicated modal.
 - Avoid generic instructional helper copy in polished UI surfaces (for example, “hover/click to…” lines) unless user enablement truly depends on it.
 - Popovers/menus/dialog-like floating content should default to content-driven sizing (`fit-content` semantics) rather than fixed widths. Prefer letting child content define practical width constraints.

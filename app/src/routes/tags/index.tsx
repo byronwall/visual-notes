@@ -40,7 +40,7 @@ export default function TagsIndexRoute() {
           <For each={list()}>
             {(t) => (
               <A href={`/tags/${encodeURIComponent(t.tag)}`} class={chipClass}>
-                <span class={css({ color: "blue.11", fontWeight: "medium" })}>#{t.tag}</span>
+                <span class={css({ color: "fg.link" })}>#{t.tag}</span>
                 <span class={css({ color: "fg.subtle", fontSize: "xs" })}>
                   {t.blocks} in {t.notes} {t.notes === 1 ? "note" : "notes"}
                 </span>

@@ -33,7 +33,7 @@ const rowClass = css({
   transitionProperty: "background-color",
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
-  "&[data-active]": { bg: "gray.a3" },
+  "&[data-active]": { bg: "bg.selected", color: "fg.selected" },
   // Long lists ("Show more" up to thousands): skip layout/paint for rows off screen.
   contentVisibility: "auto",
   containIntrinsicSize: "auto 61px",

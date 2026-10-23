@@ -8,7 +8,7 @@ import type { TopicData } from "./createTopicData";
 
 const actionClass = css({
   fontSize: "xs",
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   px: "1",
   borderRadius: "l1",

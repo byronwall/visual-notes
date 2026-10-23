@@ -26,7 +26,7 @@ const groupTabClass = css({
   transitionDuration: "fast",
   _hover: { bg: "gray.a3", color: "fg.default" },
   _focusVisible: { outline: "2px solid", outlineColor: "colorPalette.default", outlineOffset: "1px" },
-  "&[aria-current=page]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
+  "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
 });
 
 const countClass = css({ fontSize: "xs", color: "fg.subtle", fontVariantNumeric: "tabular-nums" });

@@ -10,7 +10,8 @@ export const slate = defineSemanticTokens.colors({
   '7': { value: { _light: '#cbcfd5', _dark: '#44484c' } },
   '8': { value: { _light: '#b7bcc4', _dark: '#5c6167' } },
   '9': { value: { _light: '#878e98', _dark: '#686e77' } },
-  '10': { value: { _light: '#7d848d', _dark: '#757c85' } },
+  // Step 10 is tuned for text (fg.subtle): >= 4.6:1 on bg.default, >= 4.1:1 on bg.subtle.
+  '10': { value: { _light: '#6e757e', _dark: '#7c828a' } },
   '11': { value: { _light: '#5e656d', _dark: '#adb4be' } },
   '12': { value: { _light: '#1c2025', _dark: '#eceef1' } },
   a1: { value: { _light: '#0040bf04', _dark: '#00000000' } },
@@ -22,7 +23,7 @@ export const slate = defineSemanticTokens.colors({
   a7: { value: { _light: '#00143134', _dark: '#dff0fd3f' } },
   a8: { value: { _light: '#00122e48', _dark: '#e1effe5c' } },
   a9: { value: { _light: '#000f2478', _dark: '#ddebfe6d' } },
-  a10: { value: { _light: '#000e1f82', _dark: '#dfedfe7c' } },
+  a10: { value: { _light: '#000c1c91', _dark: '#e3effd82' } },
   a11: { value: { _light: '#000b18a1', _dark: '#e7f0feba' } },
   a12: { value: { _light: '#00040ae3', _dark: '#fafcfff0' } },
   solid: {

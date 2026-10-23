@@ -37,8 +37,8 @@ const bar = css({
   h: "9",
   px: "2",
   borderRadius: "l2",
-  bg: "blue.3",
-  color: "blue.12",
+  bg: "bg.selected",
+  color: "fg.selected",
   fontSize: "sm",
 });
 const btn = css({
@@ -49,7 +49,7 @@ const btn = css({
   px: "2",
   borderRadius: "l1",
   cursor: "pointer",
-  _hover: { bg: "blue.a4" },
+  _hover: { bg: "bg.selectedHover" },
   "&[data-danger]": { color: "fg.error" },
 });
 const count = css({ fontWeight: "semibold", mr: "2" });

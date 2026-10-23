@@ -12,7 +12,7 @@ export function renderHighlighted(text: string, query: string) {
   const pattern = new RegExp(`(${escapeRegExp(q)})`, "ig");
   const parts = text.split(pattern);
   const markClass = css({
-    bg: "amber.3",
+    bg: "bg.highlight",
     color: "fg.default",
   });
   return (

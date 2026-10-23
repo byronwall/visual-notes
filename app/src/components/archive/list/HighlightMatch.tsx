@@ -3,7 +3,7 @@ import { css } from "styled-system/css";
 import { splitByTokens } from "./highlight-tokens";
 
 const markClass = css({
-  bg: "amber.a4",
+  bg: "bg.highlight",
   color: "inherit",
   borderRadius: "l1",
   px: "0.5",

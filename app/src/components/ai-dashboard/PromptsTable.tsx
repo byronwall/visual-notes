@@ -56,7 +56,7 @@ export const PromptsTable = (props: PromptsTableProps) => {
                       fontWeight="medium"
                       color="fg.default"
                       w="fit-content"
-                      _hover={{ color: "blue.11" }}
+                      _hover={{ color: "fg.link" }}
                     >
                       {prompt.task}
                     </styled.a>

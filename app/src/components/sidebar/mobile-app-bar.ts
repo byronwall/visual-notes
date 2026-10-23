@@ -36,7 +36,7 @@ export const mobileBarButtonClass = css({
   _active: { bg: "gray.a4" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "-2px",
   },
   _motionReduce: { transition: "none" },

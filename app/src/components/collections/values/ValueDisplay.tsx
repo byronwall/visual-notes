@@ -36,13 +36,13 @@ const chipsWrap = css({
 });
 // Colored text only, matching links in the note body.
 const link = css({
-  color: "blue.11",
+  color: "fg.link",
   textDecoration: "none",
   transitionProperty: "color",
   transitionDuration: "140ms",
-  _hover: { color: "blue.12" },
+  _hover: { color: "fg.linkHover" },
 });
-const linkText = css({ color: "blue.11" });
+const linkText = css({ color: "fg.link" });
 const openButton = css({
   display: "inline-flex",
   alignItems: "center",

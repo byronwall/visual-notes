@@ -185,12 +185,12 @@ const RegionScopeChip: VoidComponent<{
       focusVisibleRing="outside"
       transitionProperty="background-color, border-color, color"
       transitionDuration="fast"
-      borderColor={props.active ? "blue.a7" : "border"}
-      bg={props.active ? "blue.a3" : "transparent"}
-      color={props.active ? "blue.11" : "fg.muted"}
+      borderColor={props.active ? "border.selected" : "border"}
+      bg={props.active ? "bg.selected" : "transparent"}
+      color={props.active ? "fg.selected" : "fg.muted"}
       _hover={
         props.active
-          ? { bg: "blue.a4" }
+          ? { bg: "bg.selectedHover" }
           : { bg: "gray.a3", color: "fg.default" }
       }
       onClick={() => props.onToggle()}

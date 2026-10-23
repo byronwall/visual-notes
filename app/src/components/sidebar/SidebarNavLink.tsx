@@ -34,12 +34,13 @@ export const sidebarRowClass = css({
   _active: { bg: "gray.a4" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "-2px",
   },
   "&[aria-current=page]": {
-    bg: "gray.a3",
-    color: "fg.default",
+    bg: "bg.selected",
+    color: "fg.selected",
+    _hover: { bg: "bg.selectedHover" },
     fontWeight: "medium",
   },
   "&[data-density=compact]": { h: "7", px: "2", gap: "2" },

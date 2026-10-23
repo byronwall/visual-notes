@@ -108,56 +108,36 @@ export const documentContentStyles = {
   "& .ProseMirror blockquote p, & .vn-doc-content blockquote p": {
     marginBottom: "2",
   },
-  // Links read as colored text only; the global `.prose a` highlight is
-  // reset so long notes with many links stay calm.
+  // Links read as colored text only (no underline, no fill); web links, note
+  // links, and tags share one hover. The global `.prose a` highlight is reset.
   "& .ProseMirror a, & .vn-doc-content a": {
-    color: "blue.11",
-    textDecorationLine: "underline",
-    textDecorationColor: "blue.a6",
-    textDecorationThickness: "1px",
-    textUnderlineOffset: "0.18em",
+    color: "fg.link",
+    textDecorationLine: "none",
     borderBottomWidth: "0",
     bg: "transparent",
     boxShadow: "none",
-    borderRadius: "l1",
-    transitionProperty: "color, background-color",
+    transitionProperty: "color",
     transitionDuration: "140ms",
   },
   "& .ProseMirror a:hover, & .vn-doc-content a:hover": {
-    color: "blue.12",
-    textDecorationColor: "blue.a9",
-    boxShadow: "none",
+    color: "fg.linkHover",
   },
-  // Links to other notes read as internal references, distinct from web links.
-  "& a.note-link": {
-    color: "blue.11",
-    bg: "blue.a2",
-    textDecorationLine: "none",
-    paddingInline: "1",
-    cursor: "pointer",
-  },
-  "& a.note-link:hover": { color: "blue.12", bg: "blue.a4" },
+  "& a.note-link": { cursor: "pointer" },
   "& a.note-link[data-missing]": {
     color: "fg.muted",
-    bg: "transparent",
     textDecorationLine: "line-through",
   },
   "& .ProseMirror a.note-link.ProseMirror-selectednode": {
     outline: "2px solid",
-    outlineColor: "blue.a7",
+    outlineColor: "border.selected",
+    borderRadius: "l1",
   },
   "& a.note-tag": {
-    color: "gray.11",
-    bg: "gray.a3",
-    textDecorationLine: "none",
-    paddingInline: "1",
-    borderRadius: "l1",
-    fontSize: "0.92em",
+    color: "fg.muted",
     cursor: "pointer",
   },
-  "& a.note-tag:hover": { color: "fg.default", bg: "gray.a4" },
   "& .block-flash": {
-    bg: "amber.a4",
+    bg: "bg.highlight",
     borderRadius: "l1",
     transition: "background-color 600ms ease-out",
   },
@@ -194,7 +174,7 @@ export const documentContentStyles = {
   "& .ProseMirror img.ProseMirror-selectednode": {
     outlineWidth: "2px",
     outlineStyle: "solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "2px",
     borderRadius: "l2",
   },
@@ -202,7 +182,7 @@ export const documentContentStyles = {
     {
       outlineWidth: "2px",
       outlineStyle: "solid",
-      outlineColor: "blue.9",
+      outlineColor: "border.focus",
       outlineOffset: "2px",
       borderRadius: "l2",
     },

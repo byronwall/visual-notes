@@ -38,16 +38,11 @@ export const shareReadingClass = css({
     marginBottom: "2",
   },
   "& .vn-share-content.vn-doc-content a": {
-    color: "blue.11",
+    color: "fg.link",
     textDecorationLine: "none",
-    transitionProperty: "color, text-decoration-color",
+    transitionProperty: "color",
     transitionDuration: "140ms",
-    _hover: {
-      color: "blue.12",
-      textDecorationLine: "underline",
-      textDecorationThickness: "1px",
-      textUnderlineOffset: "0.18em",
-    },
+    _hover: { color: "fg.linkHover" },
   },
   "& .vn-share-content.vn-doc-content ul, & .vn-share-content.vn-doc-content ol":
     {
@@ -101,8 +96,8 @@ export const shareReadingClass = css({
       backgroundSize: "100%",
     },
   "& .vn-share-content.vn-doc-content blockquote": {
-    borderLeftWidth: "3px",
-    borderLeftColor: "blue.7",
+    borderLeftWidth: "2px",
+    borderLeftColor: "gray.a6",
     paddingLeft: "5",
     paddingY: "1",
     marginY: "6",

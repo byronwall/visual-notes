@@ -31,7 +31,7 @@ const labelClass = css({
 });
 
 const labelButtonClass = css({
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   px: "1",
   borderRadius: "l1",
@@ -77,7 +77,7 @@ export const CanvasHulls = (props: {
               cursor: "pointer",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              _hover: { color: "blue.11" },
+              _hover: { color: "fg.link" },
             })}
             onClick={() => props.onSelect(entry.hull.summaryCard.id)}
           >

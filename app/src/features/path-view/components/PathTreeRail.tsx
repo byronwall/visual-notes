@@ -34,7 +34,7 @@ const rootLinkClass = css({
   transitionProperty: "background-color",
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
-  "&[aria-current=page]": { bg: "gray.a3" },
+  "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected" },
 });
 
 const filterWrapClass = css({
