@@ -17,7 +17,6 @@ import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { PathPillLink } from "~/components/path/PathPillLink";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Spinner } from "~/components/ui/spinner";
 import { Text } from "~/components/ui/text";
@@ -37,7 +36,9 @@ import {
   PaletteGroupLabel,
   PaletteNavRow,
 } from "~/components/command-palette/PaletteRows";
-import { ActivityIcon, ArrowUpDownIcon, DatabaseIcon, RouteIcon } from "lucide-solid";
+import { PalettePathChips } from "~/components/command-palette/PalettePathChips";
+import * as Dialog from "~/components/ui/dialog";
+import { ActivityIcon, ArrowUpDownIcon, DatabaseIcon, XIcon } from "lucide-solid";
 import { fetchCollections } from "~/services/collections/collections.queries";
 import {
   matchActions,
@@ -425,19 +426,38 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       .map(({ path, count }) => ({ path, count }));
     return scored;
   });
-  const pathMatchesRowClass = css({
-    display: "flex",
+  // The close button takes its own column so it can't sit over the selects;
+  // below sm the selects drop to a second row and the input keeps its width.
+  const headerClass = css({
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto auto",
+    gridTemplateAreas: '"input controls close"',
     alignItems: "center",
-    gap: "1.5",
-    flexWrap: "nowrap",
-    overflowX: "auto",
-    overflowY: "hidden",
-    h: "2.25rem",
+    columnGap: "2",
+    rowGap: "2",
     w: "full",
     minW: "0",
-    pr: "0.5",
+    smDown: {
+      gridTemplateColumns: "minmax(0, 1fr) auto",
+      gridTemplateAreas: '"input close" "controls controls"',
+    },
   });
-  const pathMatchLinkClass = css({ flexShrink: "0", whiteSpace: "nowrap" });
+  const closeClass = css({
+    gridArea: "close",
+    position: "static",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    w: "8",
+    h: "8",
+    borderRadius: "l2",
+    color: "fg.muted",
+    cursor: "pointer",
+    transitionProperty: "background-color, color",
+    transitionDuration: "140ms",
+    _hover: { bg: "gray.a2", color: "fg.default" },
+    _focusVisible: { outline: "2px solid", outlineColor: "gray.a8" },
+  });
 
   const resultsPanelHeight = "55vh";
   const hitsLatest = () => currentResults()?.items ?? [];
@@ -470,13 +490,14 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
       open={props.open}
       onOpenChange={props.onOpenChange}
       maxW="720px"
+      showClose={false}
     >
       <Stack gap="0.5rem" w="full" minW="0">
-        <HStack gap="2" alignItems="center" w="full" minW="0">
+        <Box class={headerClass}>
           <Input
             ref={inputEl}
             size="sm"
-            flex="1"
+            gridArea="input"
             minW="0"
             placeholder="Search notes, sections, and actions…"
             aria-label="Search"
@@ -489,7 +510,7 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
             spellcheck={false}
           />
 
-          <HStack gap="2" alignItems="center" flexShrink="0" ml="auto">
+          <HStack gap="2" alignItems="center" minW="0" gridArea="controls">
             <Show when={isSearching()}>
               <Spinner size="xs" color="fg.muted" />
             </Show>
@@ -557,45 +578,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
               </HStack>
             </Show>
           </HStack>
-        </HStack>
+          <Dialog.CloseTrigger aria-label="Close command palette" class={closeClass}>
+            <XIcon size={16} />
+          </Dialog.CloseTrigger>
+        </Box>
 
-        <HStack gap="2" alignItems="center" minW="0" h="2.25rem">
-          <RouteIcon size={14} class={css({ color: "fg.muted", flexShrink: "0" })} />
-          <Box class={pathMatchesRowClass}>
-            <Show
-              when={matchingPaths().length > 0}
-              fallback={
-                <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
-                  No matching paths
-                </Text>
-              }
-            >
-              <For each={matchingPaths()}>
-                {(item) => (
-                  <PathPillLink
-                    href={pathToRoute(item.path)}
-                    variant="subtle"
-                    class={pathMatchLinkClass}
-                    onClick={(e) =>
-                      handlePathLinkClick(
-                        e as unknown as MouseEvent,
-                        item.path,
-                      )
-                    }
-                  >
-                    <span>
-                      {renderHighlighted(item.path, qTrim())}
-                      {" "}
-                      <Text as="span" color="fg.muted">
-                        ({item.count})
-                      </Text>
-                    </span>
-                  </PathPillLink>
-                )}
-              </For>
-            </Show>
-          </Box>
-        </HStack>
+        <PalettePathChips
+          paths={matchingPaths()}
+          query={qTrim()}
+          onPick={handlePathLinkClick}
+        />
 
         <Suspense
           fallback={
