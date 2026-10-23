@@ -22,7 +22,7 @@ const rowClass = css({
   transitionProperty: "background-color",
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
-  _focusVisible: { outline: "2px solid", outlineColor: "gray.8" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 const pathClass = css({

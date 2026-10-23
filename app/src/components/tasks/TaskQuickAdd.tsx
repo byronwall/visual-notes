@@ -24,7 +24,7 @@ const wrapClass = css({
   color: "fg.subtle",
   transitionProperty: "background-color, box-shadow",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   _focusWithin: {
     bg: "bg.default",
     boxShadow: "inset 0 0 0 1px token(colors.gray.a7)",

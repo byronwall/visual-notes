@@ -67,7 +67,7 @@ const buttonClass = css({
   borderRadius: "l1",
   cursor: "pointer",
   color: "fg.default",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
 });
 
 function button(label: string, onClick: () => void) {

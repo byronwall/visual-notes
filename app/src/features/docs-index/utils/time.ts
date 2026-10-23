@@ -10,9 +10,10 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
   if (day < 7) return `${day}d ago`;
   const week = Math.floor(day / 7);
   if (week < 4) return `${week}w ago`;
-  const month = Math.floor(day / 30);
+  // Days 28-29 are past four weeks but short of a 30-day month.
+  const month = Math.max(1, Math.floor(day / 30));
   if (month < 12) return `${month}mo ago`;
-  const year = Math.floor(day / 365);
+  const year = Math.max(1, Math.floor(day / 365));
   return `${year}y ago`;
 }
 

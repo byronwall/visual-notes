@@ -36,14 +36,14 @@ const footerIconClass = css({
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
   transitionTimingFunction: "ease-out",
-  _hover: { bg: "gray.a3", color: "fg.default" },
-  _active: { bg: "gray.a4" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
+  _active: { bg: "bg.active" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "-2px",
   },
-  "&[aria-current=page]": { bg: "gray.a3", color: "fg.default" },
+  "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected" },
   "&[data-danger]:hover": { bg: "red.a3", color: "red.11" },
 });
 

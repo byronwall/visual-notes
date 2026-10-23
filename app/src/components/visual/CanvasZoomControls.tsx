@@ -73,7 +73,7 @@ export const CanvasZoomControls: VoidComponent<CanvasZoomControlsProps> = (
           cursor="pointer"
           transitionProperty="background-color, color"
           transitionDuration="fast"
-          _hover={{ bg: "gray.a3", color: "fg.default" }}
+          _hover={{ bg: "bg.hover", color: "fg.default" }}
           _active={{ bg: "gray.a5" }}
           onClick={props.onResetZoom}
         >

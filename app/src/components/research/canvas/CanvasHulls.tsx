@@ -6,9 +6,9 @@ import { HULL_LABEL_H, type Rect } from "../layout/tree-layout";
 const hullClass = css({
   position: "absolute",
   borderWidth: "1px",
-  borderColor: "olive.a6",
+  borderColor: "gray.a6",
   borderRadius: "l3",
-  bg: "olive.a2",
+  bg: "gray.a2",
   pointerEvents: "none",
   transitionProperty: "left, top, width, height",
   transitionDuration: "200ms",
@@ -31,13 +31,13 @@ const labelClass = css({
 });
 
 const labelButtonClass = css({
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   px: "1",
   borderRadius: "l1",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
 });
 
 /** Unfolded summary groups: a tinted region with the summary title and draft review actions. */
@@ -73,11 +73,11 @@ export const CanvasHulls = (props: {
             type="button"
             class={css({
               fontWeight: "medium",
-              color: "olive.12",
+              color: "gray.12",
               cursor: "pointer",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              _hover: { color: "blue.11" },
+              _hover: { color: "fg.link" },
             })}
             onClick={() => props.onSelect(entry.hull.summaryCard.id)}
           >

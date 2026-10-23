@@ -23,13 +23,13 @@ const dayToggle = css({
   fontWeight: "medium",
   color: "fg.muted",
   cursor: "pointer",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   "&[aria-pressed=true], &[aria-pressed=true]:hover": {
     bg: "colorPalette.solid.bg",
     borderColor: "colorPalette.solid.bg",
     color: "colorPalette.solid.fg",
   },
-  _focusVisible: { outline: "2px solid", outlineColor: "blue.a8" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 const modeItems = (date: string) => {

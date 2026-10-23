@@ -42,7 +42,7 @@ const cell = css({
     bg: "bg.subtle",
     "& [data-day-num]": { color: "fg.subtle" },
   },
-  "&[data-selected]": { bg: "bg.muted" },
+  "&[data-selected]": { bg: "bg.selected" },
   cursor: "pointer",
 });
 const dayNum = css({

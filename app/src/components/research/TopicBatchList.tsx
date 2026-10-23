@@ -8,13 +8,13 @@ import type { TopicData } from "./createTopicData";
 
 const actionClass = css({
   fontSize: "xs",
-  color: "blue.11",
+  color: "fg.link",
   cursor: "pointer",
   px: "1",
   borderRadius: "l1",
   transitionProperty: "background-color",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3" },
+  _hover: { bg: "bg.hover" },
   _disabled: { color: "fg.subtle", cursor: "default" },
   "@media (pointer: coarse)": { minH: "8", px: "2" },
 });

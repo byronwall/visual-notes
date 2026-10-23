@@ -11,6 +11,7 @@ import { seededPositionFor } from "~/layout/seeded";
 import type { DocItem } from "~/types/notes";
 import { colorFor } from "~/utils/colors";
 import { mixHslColors } from "./regions/region-colors";
+import { readCssColor } from "~/utils/css-color";
 
 type Point = { x: number; y: number; approximate?: true };
 
@@ -45,13 +46,6 @@ export type CanvasDotLayerProps = {
   /** 0 draws each note's own color, 1 its region's tint. */
   tintAmount?: Accessor<number>;
 };
-
-function readCssColor(name: string, fallback: string) {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return value || fallback;
-}
 
 /**
  * Note dots for the canvas map, painted on a 2D canvas instead of one SVG

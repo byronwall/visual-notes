@@ -26,9 +26,9 @@ export const CanvasBrushRect: VoidComponent<CanvasBrushRectProps> = (props) => {
               top: `${top}px`,
               width: `${width}px`,
               height: `${height}px`,
-              border: "1px solid #2563EB",
-              background: "rgba(37, 99, 235, 0.08)",
-              "box-shadow": "inset 0 0 0 1px rgba(37,99,235,0.15)",
+              border: "1px solid var(--colors-blue-9)",
+              background: "var(--colors-blue-a3)",
+              "box-shadow": "inset 0 0 0 1px var(--colors-blue-a5)",
             }}
           />
         );

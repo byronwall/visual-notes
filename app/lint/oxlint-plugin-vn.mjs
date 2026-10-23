@@ -21,5 +21,13 @@ export default {
       "Property[key.name='select'] Property[key.name='select'] > ObjectExpression > SpreadElement",
       "List nested Prisma select fields explicitly. Spreading a shared object into a nested select made tsc take minutes.",
     ),
+    "color-tokens": selectorRule(
+      ":matches(Property[key.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/], JSXAttribute[name.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/]) > Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
+      "Use a color token (fg.*, bg.*, border.*, or a palette step) instead of a raw hex color, so light and dark mode and the palette stay in step.",
+    ),
+    "known-color-steps": selectorRule(
+      "Literal[value=/^(olive|grass|slate)\\.|^(gray|blue|red|green|amber)\\.a?(0|1[3-9]|[2-9][0-9]|[0-9]{3,})$/]",
+      "This color does not exist: palettes are gray, blue, red, green, and amber with steps 1-12 and a1-a12.",
+    ),
   },
 };

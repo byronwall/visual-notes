@@ -19,9 +19,9 @@ type Icon = (props: { size?: number; strokeWidth?: number; class?: string }) => 
 export const CARD_TYPE_META: Record<ResearchCardType, { label: string; icon: Icon; colorClass: string }> = {
   task: { label: "Task", icon: SquareCheckIcon, colorClass: css({ color: "blue.11" }) },
   question: { label: "Question", icon: CircleHelpIcon, colorClass: css({ color: "amber.11" }) },
-  finding: { label: "Finding", icon: LightbulbIcon, colorClass: css({ color: "grass.11" }) },
+  finding: { label: "Finding", icon: LightbulbIcon, colorClass: css({ color: "green.11" }) },
   source: { label: "Source", icon: LinkIcon, colorClass: css({ color: "fg.muted" }) },
-  summary: { label: "Summary", icon: LayersIcon, colorClass: css({ color: "olive.11" }) },
+  summary: { label: "Summary", icon: LayersIcon, colorClass: css({ color: "gray.11" }) },
   option: { label: "Option", icon: GitForkIcon, colorClass: css({ color: "green.11" }) },
   criterion: { label: "Criterion", icon: ScaleIcon, colorClass: css({ color: "fg.muted" }) },
 };

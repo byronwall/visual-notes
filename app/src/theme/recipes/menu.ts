@@ -40,7 +40,7 @@ export const menu = defineSlotRecipe({
       userSelect: 'none',
       width: '100%',
       _highlighted: {
-        bg: 'gray.surface.bg.hover',
+        bg: 'bg.hover',
       },
       _disabled: {
         layerStyle: 'disabled',
@@ -57,14 +57,7 @@ export const menu = defineSlotRecipe({
       display: 'flex',
       flexDirection: 'column',
       fontWeight: 'medium',
-      gap: '1px',
       justifyContent: 'center',
-      _after: {
-        content: '""',
-        width: '100%',
-        height: '1px',
-        bg: 'border',
-      },
     },
     itemIndicator: {
       justifyContent: 'flex-end',

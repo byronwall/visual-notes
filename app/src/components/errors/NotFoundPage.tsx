@@ -25,7 +25,7 @@ const destinationLinkClass = css({
   _hover: { bg: "gray.a4", textDecorationLine: "none" },
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "blue.9",
+    outlineColor: "border.focus",
     outlineOffset: "2px",
   },
   "& svg": { color: "fg.muted" },

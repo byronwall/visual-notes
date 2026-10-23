@@ -9,7 +9,7 @@ import { TopicBatchList } from "./TopicBatchList";
 import { TopicOutline } from "./TopicOutline";
 import { TopicTitle } from "./TopicTitle";
 
-const crumbLinkClass = css({ color: "blue.11", textDecoration: "none", _hover: { color: "blue.12" } });
+const crumbLinkClass = css({ color: "fg.link", textDecoration: "none", _hover: { color: "fg.linkHover" } });
 
 const tabClass = css({
   px: "2",
@@ -20,8 +20,8 @@ const tabClass = css({
   cursor: "pointer",
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
-  _hover: { bg: "gray.a3", color: "fg.default" },
-  "&[data-active=true]": { bg: "gray.a4", color: "fg.default", fontWeight: "medium" },
+  _hover: { bg: "bg.hover", color: "fg.default" },
+  "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
 });
 
 const VIEWS = [

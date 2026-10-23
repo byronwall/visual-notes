@@ -59,7 +59,7 @@ export const RunsTable = (props: RunsTableProps) => {
                     fontSize="sm"
                     fontWeight="medium"
                     color="fg.default"
-                    _hover={{ color: "grass.11" }}
+                    _hover={{ color: "fg.link" }}
                   >
                     {run.promptTask || "Untitled prompt"}
                   </styled.a>

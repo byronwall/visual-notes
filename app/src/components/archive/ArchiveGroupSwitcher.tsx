@@ -67,8 +67,8 @@ export const ArchiveGroupSwitcher = (props: {
           cursor="pointer"
           transitionProperty="background-color, color"
           transitionDuration="fast"
-          _hover={{ bg: "gray.a3", color: "fg.default" }}
-          _expanded={{ bg: "gray.a3", color: "fg.default" }}
+          _hover={{ bg: "bg.hover", color: "fg.default" }}
+          _expanded={{ bg: "bg.active", color: "fg.default" }}
           class="group"
         >
           <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">

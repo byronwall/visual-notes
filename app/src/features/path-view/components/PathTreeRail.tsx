@@ -34,7 +34,7 @@ const rootLinkClass = css({
   transitionProperty: "background-color",
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
-  "&[aria-current=page]": { bg: "gray.a3" },
+  "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected" },
 });
 
 const filterWrapClass = css({
@@ -72,7 +72,7 @@ const clearButtonClass = css({
   borderRadius: "l1",
   color: "fg.subtle",
   cursor: "pointer",
-  _hover: { color: "fg.default", bg: "gray.a3" },
+  _hover: { color: "fg.default", bg: "bg.hover" },
 });
 
 export const PathTreeRail = (props: {

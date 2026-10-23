@@ -26,8 +26,8 @@ const optionClass = css({
   borderRadius: "l1",
   textAlign: "left",
   cursor: "pointer",
-  _hover: { bg: "gray.a3" },
-  _focusVisible: { outline: "2px solid", outlineColor: "blue.a8" },
+  _hover: { bg: "bg.hover" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 /**

@@ -54,10 +54,10 @@ export const combobox = defineSlotRecipe({
       display: 'flex',
       justifyContent: 'space-between',
       _hover: {
-        background: 'gray.surface.bg.hover',
+        background: 'bg.hover',
       },
       _highlighted: {
-        background: 'gray.surface.bg.hover',
+        background: 'bg.hover',
       },
       _selected: {},
       _disabled: {

@@ -23,7 +23,7 @@ const item = css({
   borderRadius: "l2",
   cursor: "pointer",
   _hover: { bg: "bg.subtle" },
-  "&[aria-current=true]": { bg: "bg.muted" },
+  "&[aria-current=true]": { bg: "bg.selected" },
 });
 const dot = css({
   w: "2.5",

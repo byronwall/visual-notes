@@ -12,8 +12,8 @@ const rowLink = css({
   borderRadius: "l2",
   color: "fg.default",
   textDecorationLine: "none",
-  _hover: { bg: "gray.a3" },
-  _focusVisible: { outline: "2px solid", outlineColor: "blue.a8" },
+  _hover: { bg: "bg.hover" },
+  _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
 /** "Linked from" list under a note: every note that links here, with context. */

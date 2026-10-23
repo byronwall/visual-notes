@@ -14,7 +14,7 @@ const fieldClass = css({
   borderColor: "border",
   borderRadius: "l2",
   bg: "bg.default",
-  _focusVisible: { outline: "2px solid token(colors.blue.a8)", outlineOffset: "-1px" },
+  _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-1px" },
 });
 
 const autosize = (element: HTMLTextAreaElement) => {

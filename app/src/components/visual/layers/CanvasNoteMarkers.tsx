@@ -47,7 +47,7 @@ export const CanvasNoteMarkers: VoidComponent<CanvasNoteMarkersProps> = (
           cy={pos().y}
           r={Math.max(9 / props.zoomScale(), props.circleRadius() * 2.1)}
           fill="none"
-          stroke="#1D4ED8"
+          stroke="var(--colors-blue-10)"
           stroke-width="2"
           vector-effect="non-scaling-stroke"
           style={{ "pointer-events": "none" }}
@@ -90,7 +90,7 @@ const HoveredNoteDot: VoidComponent<
         cy={pos().y}
         r={hoverRadius()}
         fill="var(--colors-bg-default)"
-        stroke="rgba(37, 99, 235, 0.28)"
+        stroke="var(--colors-blue-a6)"
         stroke-width="2"
         vector-effect="non-scaling-stroke"
         filter="url(#canvas-hover-note-shadow)"
@@ -102,7 +102,7 @@ const HoveredNoteDot: VoidComponent<
         cy={pos().y}
         r={hoverRadius() * 0.68}
         fill={fill()}
-        stroke="#1D4ED8"
+        stroke="var(--colors-blue-10)"
         stroke-width="2.5"
         vector-effect="non-scaling-stroke"
         style={{ cursor: "pointer", "pointer-events": pointerEvents() }}

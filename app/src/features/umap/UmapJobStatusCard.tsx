@@ -33,7 +33,7 @@ export function UmapJobStatusCard(props: UmapJobStatusCardProps) {
                 <Box h="2" w="full" bg="bg.muted" borderRadius="full" overflow="hidden">
                   <Box
                     h="full"
-                    bg={job().stage === "failed" ? "red.500" : "green.500"}
+                    bg={job().stage === "failed" ? "red.9" : "green.9"}
                     style={{
                       width: `${Math.max(0, Math.min(100, job().progress))}%`,
                       transition: "width 180ms ease",
@@ -41,7 +41,7 @@ export function UmapJobStatusCard(props: UmapJobStatusCardProps) {
                   />
                 </Box>
                 <Show when={job().error}>
-                  <Box fontSize="xs" color="red.600">
+                  <Box fontSize="xs" color="fg.error">
                     {job().error}
                   </Box>
                 </Show>

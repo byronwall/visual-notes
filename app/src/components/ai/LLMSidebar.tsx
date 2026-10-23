@@ -597,7 +597,7 @@ function LLMSidebarView(props: {
                                   <Link
                                     href={`/docs/${t.noteId}`}
                                     fontSize="xs"
-                                    color="blue.11"
+                                    color="fg.link"
                                     truncate
                                     onClick={(e) => e.stopPropagation()}
                                   >

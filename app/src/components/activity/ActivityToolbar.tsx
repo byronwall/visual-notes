@@ -160,7 +160,7 @@ export const ActivityToolbar = (props: ActivityToolbarProps) => {
               <Box
                 as="span"
                 fontSize="xs"
-                color="grass.11"
+                color="fg.link"
                 fontWeight="semibold"
               >
                 {filters().advancedCount()}

@@ -61,8 +61,8 @@ export const ArchiveCanvasBreadcrumb = (props: {
           cursor="pointer"
           transitionProperty="background-color"
           transitionDuration="fast"
-          _hover={{ bg: "gray.a3" }}
-          _expanded={{ bg: "gray.a3" }}
+          _hover={{ bg: "bg.hover" }}
+          _expanded={{ bg: "bg.active" }}
         >
           <Box as="span" minW="0" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
             {props.groupName}

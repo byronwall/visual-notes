@@ -38,16 +38,11 @@ export const shareReadingClass = css({
     marginBottom: "2",
   },
   "& .vn-share-content.vn-doc-content a": {
-    color: "grass.11",
+    color: "fg.link",
     textDecorationLine: "none",
-    transitionProperty: "color, text-decoration-color",
+    transitionProperty: "color",
     transitionDuration: "140ms",
-    _hover: {
-      color: "grass.12",
-      textDecorationLine: "underline",
-      textDecorationThickness: "1px",
-      textUnderlineOffset: "0.18em",
-    },
+    _hover: { color: "fg.linkHover" },
   },
   "& .vn-share-content.vn-doc-content ul, & .vn-share-content.vn-doc-content ol":
     {
@@ -94,15 +89,15 @@ export const shareReadingClass = css({
     },
   "& .vn-share-content.vn-doc-content li[data-type=\"taskItem\"][data-checked=\"true\"]::before":
     {
-      borderColor: "grass.9",
-      bg: "grass.9",
+      borderColor: "blue.9",
+      bg: "blue.9",
       backgroundImage:
         "url(\"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3.5 8.5l3 3 6-7%27/%3E%3C/svg%3E\")",
       backgroundSize: "100%",
     },
   "& .vn-share-content.vn-doc-content blockquote": {
-    borderLeftWidth: "3px",
-    borderLeftColor: "grass.7",
+    borderLeftWidth: "2px",
+    borderLeftColor: "gray.a6",
     paddingLeft: "5",
     paddingY: "1",
     marginY: "6",

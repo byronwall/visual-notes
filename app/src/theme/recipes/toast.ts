@@ -45,8 +45,8 @@ export const toast = defineSlotRecipe({
       textStyle: 'sm',
     },
     actionTrigger: {
-      color: 'blue.11',
-      _hover: { color: 'blue.12' },
+      color: 'fg.link',
+      _hover: { color: 'fg.linkHover' },
       cursor: 'pointer',
       fontWeight: 'semibold',
       textStyle: 'sm',

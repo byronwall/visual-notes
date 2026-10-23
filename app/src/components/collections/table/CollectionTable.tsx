@@ -68,7 +68,8 @@ const row = css({
     bg: "bg.default",
     height: `${ROW_HEIGHT}px`,
   },
-  "&:hover > *, &[data-selected] > *": { bg: "bg.subtle" },
+  "&:hover > *": { bg: "bg.subtle" },
+  "&[data-selected] > *, &[data-selected]:hover > *": { bg: "bg.selected" },
   "& [data-select-box]": { opacity: "0" },
   "&:hover [data-select-box], &[data-selected] [data-select-box]": {
     opacity: "1",

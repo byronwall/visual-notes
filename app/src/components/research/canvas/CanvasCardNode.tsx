@@ -52,8 +52,8 @@ const cardClass = css({
   transitionProperty: "border-color, box-shadow",
   transitionDuration: "140ms",
   _hover: { borderColor: "gray.a8" },
-  "&[data-kind=summary]": { bg: "olive.2", borderColor: "olive.a6" },
-  "&[data-selected=true]": { borderColor: "blue.9", boxShadow: "0 0 0 1px token(colors.blue.9)" },
+  "&[data-kind=summary]": { bg: "gray.2", borderColor: "gray.a6" },
+  "&[data-selected=true]": { borderColor: "border.selected", boxShadow: "0 0 0 1px token(colors.border.selected)" },
   "&[data-open=true]": { borderColor: "amber.a7" },
 });
 
@@ -107,7 +107,7 @@ export const CanvasCardNode = (props: {
             <Show when={card().state} fallback={<CardTypeIcon type={card().type} />}>
               {(state) => (
                 <span
-                  class={css({ display: "inline-flex", color: state() === "open" ? "amber.11" : state() === "done" ? "grass.11" : "fg.muted" })}
+                  class={css({ display: "inline-flex", color: state() === "open" ? "amber.11" : state() === "done" ? "green.11" : "fg.muted" })}
                   aria-label={CARD_STATE_META[state()].label}
                 >
                   {CARD_STATE_META[state()].icon({ size: 14, strokeWidth: 2 })}
@@ -133,7 +133,7 @@ export const CanvasCardNode = (props: {
         </Show>
         <Show when={card().url}>
           {(url) => (
-            <span class={css({ fontSize: "12px", color: "blue.11", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" })}>
+            <span class={css({ fontSize: "12px", color: "fg.link", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" })}>
               {hostOf(url())}
             </span>
           )}

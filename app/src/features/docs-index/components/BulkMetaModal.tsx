@@ -238,7 +238,6 @@ export const BulkMetaModal: VoidComponent<{
             <Button
               width="100%"
               size="sm"
-              colorPalette="grass"
               disabled={!canAdd() || busy()}
               onClick={handleAddAction}
             >

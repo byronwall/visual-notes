@@ -22,7 +22,7 @@ const tabClass = css({
   color: "fg.muted",
   textDecoration: "none",
   _hover: { bg: "bg.muted", color: "fg.default" },
-  "&[aria-current=page]": { bg: "bg.emphasized", color: "fg.default" },
+  "&[aria-current=page]": { bg: "bg.selected", color: "fg.selected" },
 });
 
 /** Section tabs shared by every /events page; `actions` sits at the right. */

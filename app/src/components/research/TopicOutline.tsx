@@ -22,9 +22,9 @@ const rowClass = css({
   borderRadius: "l2",
   transitionProperty: "background-color, opacity",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a2" },
+  _hover: { bg: "bg.hover" },
   "&[data-faded=true]": { opacity: 0.55 },
-  "&[data-selected=true]": { bg: "gray.a4" },
+  "&[data-selected=true]": { bg: "bg.selected" },
 });
 
 const stateButtonClass = css({
@@ -41,7 +41,7 @@ const stateButtonClass = css({
   transitionDuration: "fast",
   _hover: { bg: "gray.a4", color: "fg.default" },
   "&[data-state=open]": { color: "amber.11" },
-  "&[data-state=done]": { color: "grass.11" },
+  "&[data-state=done]": { color: "green.11" },
   "@media (pointer: coarse)": { w: "8", h: "8" },
 });
 
@@ -105,7 +105,7 @@ const OutlineNode = (props: NodeProps) => {
                 textAlign: "left",
                 cursor: "pointer",
                 textDecoration: props.card.state === "dropped" ? "line-through" : undefined,
-                _hover: { color: "blue.11" },
+                _hover: { color: "fg.link" },
               })}
               onClick={() => props.onSelect(props.card.id)}
             >

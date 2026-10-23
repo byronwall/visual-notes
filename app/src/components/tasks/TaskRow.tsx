@@ -20,7 +20,7 @@ const sourceLinkClass = css({
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
   fontSize: "xs",
-  color: "blue.11",
+  color: "fg.link",
   textDecorationLine: "none",
   _hover: { textDecorationLine: "underline" },
 });
@@ -46,9 +46,9 @@ export const rowClass = css({
   outline: "none",
   transitionProperty: "background-color, opacity",
   transitionDuration: "fast",
-  _hover: { bg: "gray.a3" },
-  "&[data-selected=true]": { bg: "gray.a4" },
-  _focusVisible: { boxShadow: "inset 0 0 0 1px token(colors.gray.a8)" },
+  _hover: { bg: "bg.hover" },
+  "&[data-selected=true]": { bg: "bg.selected" },
+  _focusVisible: { boxShadow: "inset 0 0 0 2px token(colors.border.focus)" },
   "&[data-dragging=true]": { opacity: 0.4 },
   "&[data-drop=inside]": {
     bg: "gray.a4",
@@ -86,7 +86,7 @@ const iconButtonClass = css({
   _active: { transform: "scale(0.9)" },
   _disabled: { cursor: "default", bg: "transparent", transform: "none" },
   _focusVisible: {
-    outline: "2px solid token(colors.gray.a8)",
+    outline: "2px solid token(colors.border.focus)",
     outlineOffset: "-2px",
   },
   "@media (prefers-reduced-motion: reduce)": { _active: { transform: "none" } },

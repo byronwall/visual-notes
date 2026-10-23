@@ -1,23 +1,24 @@
 import { defineRecipe } from '@pandacss/dev'
 
+// Links are colored text only: body weight, no underline, no fill, and one
+// shared hover. `underline` stays as a variant name for existing call sites.
 export const link = defineRecipe({
   className: 'link',
   base: {
     alignItems: 'center',
-    backgroundColor: 'gray.a3',
     borderRadius: 'l1',
-    color: 'gray.11',
+    color: 'fg.link',
     cursor: 'pointer',
     display: 'inline-flex',
     focusVisibleRing: 'outside',
-    fontWeight: 'medium',
     gap: '1.5',
     outline: 'none',
-    textDecorationLine: 'underline',
-    textDecorationThickness: '0.1em',
-    textUnderlineOffset: '0.125em',
+    textDecorationLine: 'none',
     transitionDuration: 'normal',
-    transitionProperty: 'text-decoration-color, background-color, color',
+    transitionProperty: 'color',
+    _hover: {
+      color: 'fg.linkHover',
+    },
     _icon: {
       boxSize: '1em',
     },
@@ -27,22 +28,8 @@ export const link = defineRecipe({
   },
   variants: {
     variant: {
-      underline: {
-        textDecorationColor: 'colorPalette.surface.fg/60',
-        _hover: {
-          backgroundColor: 'amber.4',
-          color: 'gray.12',
-          textDecorationColor: 'colorPalette.surface.fg',
-        },
-      },
-      plain: {
-        textDecorationColor: 'transparent',
-        _hover: {
-          backgroundColor: 'amber.4',
-          color: 'gray.12',
-          textDecorationColor: 'colorPalette.surface.fg',
-        },
-      },
+      underline: {},
+      plain: {},
     },
   },
 })

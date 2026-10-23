@@ -25,7 +25,7 @@ const field = css({
   fontSize: "sm",
   _focusVisible: {
     outline: "2px solid",
-    outlineColor: "border.accent",
+    outlineColor: "border.focus",
     outlineOffset: "-1px",
   },
 });

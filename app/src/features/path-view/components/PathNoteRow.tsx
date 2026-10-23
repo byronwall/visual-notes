@@ -33,7 +33,7 @@ const rowClass = css({
   transitionProperty: "background-color",
   transitionDuration: "fast",
   _hover: { bg: "bg.muted" },
-  "&[data-active]": { bg: "gray.a3" },
+  "&[data-active]": { bg: "bg.selected", color: "fg.selected" },
   // Long lists ("Show more" up to thousands): skip layout/paint for rows off screen.
   contentVisibility: "auto",
   containIntrinsicSize: "auto 61px",
@@ -50,7 +50,7 @@ const titleLinkClass = css({
   wordBreak: "break-word",
   // Stretch the title link so the whole row opens the note.
   _after: { content: '""', position: "absolute", inset: "0", borderRadius: "l2" },
-  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.gray.8)" } },
+  _focusVisible: { _after: { boxShadow: "0 0 0 2px token(colors.border.focus)" } },
 });
 
 const snippetClass = css({

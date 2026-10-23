@@ -523,7 +523,7 @@ function CustomCodeBlockNodeView() {
                   minW="0"
                   borderWidth="1px"
                   borderRadius="l2"
-                  bg="#edeff1"
+                  bg="gray.3"
                   overflow="auto"
                   maxH="min(72vh, 900px)"
                   fontFamily="mono"

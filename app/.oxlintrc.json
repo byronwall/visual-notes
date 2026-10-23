@@ -75,7 +75,9 @@
     "solid/style-prop": "warn",
 
     "vn/note-body-writes": "error",
-    "vn/no-nested-select-spread": "error"
+    "vn/no-nested-select-spread": "error",
+    "vn/color-tokens": "error",
+    "vn/known-color-steps": "error"
   },
   "overrides": [
     {
@@ -85,6 +87,10 @@
         "src/server/notes/block-migration.ts"
       ],
       "rules": { "vn/note-body-writes": "off" }
+    },
+    {
+      "files": ["src/lib/collections/colors.ts"],
+      "rules": { "vn/color-tokens": "off" }
     }
   ]
 }
