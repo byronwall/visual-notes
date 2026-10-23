@@ -34,12 +34,12 @@ export default createHandler(() => (
           <meta
             name="theme-color"
             media="(prefers-color-scheme: light)"
-            content="#f8faf8"
+            content="#f8f9fb"
           />
           <meta
             name="theme-color"
             media="(prefers-color-scheme: dark)"
-            content="#181917"
+            content="#18191a"
           />
           {/* Must run before CSS paints so dark mode never flashes light. */}
           <script innerHTML={THEME_BOOT_SCRIPT} />

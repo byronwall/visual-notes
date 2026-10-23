@@ -111,8 +111,11 @@ export const documentContentStyles = {
   // Links read as colored text only; the global `.prose a` highlight is
   // reset so long notes with many links stay calm.
   "& .ProseMirror a, & .vn-doc-content a": {
-    color: "amber.11",
-    textDecorationLine: "none",
+    color: "blue.11",
+    textDecorationLine: "underline",
+    textDecorationColor: "blue.a6",
+    textDecorationThickness: "1px",
+    textUnderlineOffset: "0.18em",
     borderBottomWidth: "0",
     bg: "transparent",
     boxShadow: "none",
@@ -121,14 +124,15 @@ export const documentContentStyles = {
     transitionDuration: "140ms",
   },
   "& .ProseMirror a:hover, & .vn-doc-content a:hover": {
-    color: "amber.12",
-    bg: "amber.a3",
+    color: "blue.12",
+    textDecorationColor: "blue.a9",
     boxShadow: "none",
   },
   // Links to other notes read as internal references, distinct from web links.
   "& a.note-link": {
     color: "blue.11",
     bg: "blue.a2",
+    textDecorationLine: "none",
     paddingInline: "1",
     cursor: "pointer",
   },
@@ -143,14 +147,15 @@ export const documentContentStyles = {
     outlineColor: "blue.a7",
   },
   "& a.note-tag": {
-    color: "grass.11",
-    bg: "grass.a2",
+    color: "gray.11",
+    bg: "gray.a3",
+    textDecorationLine: "none",
     paddingInline: "1",
     borderRadius: "l1",
     fontSize: "0.92em",
     cursor: "pointer",
   },
-  "& a.note-tag:hover": { color: "grass.12", bg: "grass.a4" },
+  "& a.note-tag:hover": { color: "fg.default", bg: "gray.a4" },
   "& .block-flash": {
     bg: "amber.a4",
     borderRadius: "l1",
@@ -189,7 +194,7 @@ export const documentContentStyles = {
   "& .ProseMirror img.ProseMirror-selectednode": {
     outlineWidth: "2px",
     outlineStyle: "solid",
-    outlineColor: "amber.9",
+    outlineColor: "blue.9",
     outlineOffset: "2px",
     borderRadius: "l2",
   },
@@ -197,7 +202,7 @@ export const documentContentStyles = {
     {
       outlineWidth: "2px",
       outlineStyle: "solid",
-      outlineColor: "amber.9",
+      outlineColor: "blue.9",
       outlineOffset: "2px",
       borderRadius: "l2",
     },

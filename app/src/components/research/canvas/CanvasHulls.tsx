@@ -6,9 +6,9 @@ import { HULL_LABEL_H, type Rect } from "../layout/tree-layout";
 const hullClass = css({
   position: "absolute",
   borderWidth: "1px",
-  borderColor: "olive.a6",
+  borderColor: "gray.a6",
   borderRadius: "l3",
-  bg: "olive.a2",
+  bg: "gray.a2",
   pointerEvents: "none",
   transitionProperty: "left, top, width, height",
   transitionDuration: "200ms",
@@ -73,7 +73,7 @@ export const CanvasHulls = (props: {
             type="button"
             class={css({
               fontWeight: "medium",
-              color: "olive.12",
+              color: "gray.12",
               cursor: "pointer",
               overflow: "hidden",
               textOverflow: "ellipsis",

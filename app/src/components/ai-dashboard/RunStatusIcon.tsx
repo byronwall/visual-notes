@@ -16,7 +16,7 @@ export const RunStatusIcon = (props: { status: RunStatus }) => (
     flexShrink="0"
     color={
       props.status === "SUCCESS"
-        ? "grass.10"
+        ? "green.10"
         : props.status === "ERROR"
           ? "red.10"
           : "amber.10"

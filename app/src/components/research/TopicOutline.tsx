@@ -41,7 +41,7 @@ const stateButtonClass = css({
   transitionDuration: "fast",
   _hover: { bg: "gray.a4", color: "fg.default" },
   "&[data-state=open]": { color: "amber.11" },
-  "&[data-state=done]": { color: "grass.11" },
+  "&[data-state=done]": { color: "green.11" },
   "@media (pointer: coarse)": { w: "8", h: "8" },
 });
 

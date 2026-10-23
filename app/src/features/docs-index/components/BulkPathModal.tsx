@@ -67,7 +67,6 @@ export const BulkPathModal: VoidComponent<{
                 </Button>
                 <Button
                   size="sm"
-                  colorPalette="grass"
                   disabled={busy()}
                   onClick={handleApply}
                 >

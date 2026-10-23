@@ -1,8 +1,7 @@
 import { amber } from "~/theme/colors/amber";
 import { green } from "~/theme/colors/green";
 import { red } from "~/theme/colors/red";
-import { olive } from "~/theme/colors/olive";
-import { grass } from "~/theme/colors/grass";
+import { slate } from "~/theme/colors/slate";
 import { blue } from "~/theme/colors/blue";
 import { animationStyles } from "~/theme/animation-styles";
 import { zIndex } from "~/theme/tokens/z-index";
@@ -131,8 +130,7 @@ export default defineConfig({
             },
           },
 
-          grass: grass,
-          gray: olive,
+          gray: slate,
           red: red,
           green: green,
           blue: blue,

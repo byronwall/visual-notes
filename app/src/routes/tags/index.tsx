@@ -17,7 +17,7 @@ const chipClass = css({
   color: "fg.default",
   textDecorationLine: "none",
   fontSize: "sm",
-  _hover: { bg: "grass.a3", borderColor: "grass.a7" },
+  _hover: { bg: "blue.a3", borderColor: "blue.a7" },
 });
 
 export default function TagsIndexRoute() {
@@ -40,7 +40,7 @@ export default function TagsIndexRoute() {
           <For each={list()}>
             {(t) => (
               <A href={`/tags/${encodeURIComponent(t.tag)}`} class={chipClass}>
-                <span class={css({ color: "grass.11", fontWeight: "medium" })}>#{t.tag}</span>
+                <span class={css({ color: "blue.11", fontWeight: "medium" })}>#{t.tag}</span>
                 <span class={css({ color: "fg.subtle", fontSize: "xs" })}>
                   {t.blocks} in {t.notes} {t.notes === 1 ? "note" : "notes"}
                 </span>

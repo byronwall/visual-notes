@@ -27,7 +27,7 @@ const linkClass = css({
   transitionProperty: "color",
   transitionDuration: "140ms",
   whiteSpace: "nowrap",
-  _hover: { color: "grass.11" },
+  _hover: { color: "blue.11" },
 });
 
 const ColumnHeading = (props: { children: string }) => (
@@ -69,7 +69,7 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
             )}
           </Show>
         </Text>
-        <styled.a href="/admin/connections" fontSize="sm" color="fg.muted" transitionProperty="color" transitionDuration="140ms" _hover={{ color: "grass.11" }}>
+        <styled.a href="/admin/connections" fontSize="sm" color="fg.muted" transitionProperty="color" transitionDuration="140ms" _hover={{ color: "blue.11" }}>
           Manage connections
         </styled.a>
       </HStack>
@@ -129,7 +129,7 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
                             {tool.tool}
                           </styled.a>
                           <Box h="1.5" borderRadius="full" bg="bg.muted" overflow="hidden">
-                            <Box h="full" bg="grass.9" style={{ width: `${(tool.calls / maxCalls()) * 100}%` }} />
+                            <Box h="full" bg="blue.9" style={{ width: `${(tool.calls / maxCalls()) * 100}%` }} />
                           </Box>
                           <HStack gap="2" justifyContent="flex-end">
                             <Problems count={tool.problems} />

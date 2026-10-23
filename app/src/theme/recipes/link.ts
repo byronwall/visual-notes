@@ -30,7 +30,7 @@ export const link = defineRecipe({
       underline: {
         textDecorationColor: 'colorPalette.surface.fg/60',
         _hover: {
-          backgroundColor: 'amber.4',
+          backgroundColor: 'blue.a3',
           color: 'gray.12',
           textDecorationColor: 'colorPalette.surface.fg',
         },
@@ -38,7 +38,7 @@ export const link = defineRecipe({
       plain: {
         textDecorationColor: 'transparent',
         _hover: {
-          backgroundColor: 'amber.4',
+          backgroundColor: 'blue.a3',
           color: 'gray.12',
           textDecorationColor: 'colorPalette.surface.fg',
         },

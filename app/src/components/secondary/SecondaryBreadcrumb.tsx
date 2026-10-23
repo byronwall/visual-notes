@@ -29,7 +29,7 @@ export const SecondaryBreadcrumb = (props: { items: CrumbItem[] }) => (
                 fontFamily={item.mono ? "mono" : undefined}
                 transitionProperty="color"
                 transitionDuration="140ms"
-                _hover={{ color: "grass.11" }}
+                _hover={{ color: "blue.11" }}
               >
                 {item.label}
               </styled.a>
