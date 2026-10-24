@@ -311,7 +311,7 @@ export const TopicCanvas = (props: {
           onSelect={(id) => props.onSelect(id)}
           onAccept={accept}
         />
-        <CanvasLanes lanes={model.layout().lanes} factor={model.factor()} />
+        <CanvasLanes lanes={model.layout().lanes} factor={model.factor()} matched={matchedNodes()} />
         <CanvasEdges
           view={model.view()}
           rects={edgeRects()}
@@ -319,6 +319,7 @@ export const TopicCanvas = (props: {
           laned={model.layout().laned}
           factor={model.factor()}
           selectedId={props.selectedId}
+          searching={!!props.matches}
         />
         {/* Keyed by id so cards keep their DOM across folds and slide to new spots. */}
         <For each={nodeIds()}>
@@ -333,6 +334,7 @@ export const TopicCanvas = (props: {
                   dimmed={!!matchedNodes() && !matchedNodes()!.has(id)}
                   dragging={drag()?.id === id && !!drag()?.moved}
                   onPointerDown={(event) => onCardPointerDown(id, event)}
+                  onActivate={() => props.onSelect(id)}
                 />
               )}
             </Show>

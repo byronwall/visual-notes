@@ -1,6 +1,7 @@
 import { SearchIcon, XIcon } from "lucide-solid";
 import { For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { css } from "styled-system/css";
+import { Kbd } from "~/components/ui/kbd";
 import type { ResearchCard } from "~/services/research/research.types";
 import type { TopicData } from "../createTopicData";
 import { CardDetailPanel } from "../detail/CardDetailPanel";
@@ -101,7 +102,7 @@ export const TopicInspector = (props: {
             <input
               ref={input}
               type="search"
-              placeholder="Search cards  /"
+              placeholder="Search cards"
               aria-label="Search cards"
               value={props.query}
               onInput={(event) => props.onQuery(event.currentTarget.value)}
@@ -110,8 +111,18 @@ export const TopicInspector = (props: {
                   props.onQuery("");
                   event.currentTarget.blur();
                 }
+                // ↓ from the field moves into the list.
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  document.querySelector<HTMLElement>("[data-testid=research-contents-row]")?.focus();
+                }
               }}
             />
+            <Show when={!props.query}>
+              <Kbd size="sm" aria-hidden="true" class={css({ color: "fg.subtle" })}>
+                /
+              </Kbd>
+            </Show>
             <Show when={props.query}>
               <button
                 type="button"

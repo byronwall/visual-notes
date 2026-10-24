@@ -68,7 +68,14 @@ export const TopicBatchList = (props: { data: TopicData; nowMs: number }) => {
                 </button>
               </div>
               <div class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
-                {agentLabel(batch.agent)} · {batch.cardCount} cards · {formatRelativeShort(props.nowMs, batch.createdAt)}
+                {agentLabel(batch.agent)} · {batch.cardCount} cards ·{" "}
+                <time
+                  datetime={batch.createdAt}
+                  // Set on hover: the viewer's time zone is only known in the browser.
+                  onPointerEnter={(event) => (event.currentTarget.title = new Date(batch.createdAt).toLocaleString())}
+                >
+                  {formatRelativeShort(props.nowMs, batch.createdAt)}
+                </time>
               </div>
             </li>
           )}

@@ -6,7 +6,7 @@ import { setResearchCardState } from "~/services/research/research.actions";
 import type { ResearchCard, ResearchCardState } from "~/services/research/research.types";
 import { HighlightMatch } from "~/components/archive/list/HighlightMatch";
 import { CardBody } from "./CardBody";
-import { CARD_STATE_META, CardTypeIcon } from "./cardTypeMeta";
+import { CARD_STATE_META, CardGlyph } from "./cardTypeMeta";
 import type { TopicData } from "./createTopicData";
 import { SECTION_MIN, sectionByType, TYPE_PLURAL } from "./layout/sections";
 
@@ -40,8 +40,6 @@ const stateButtonClass = css({
   transitionProperty: "background-color, color",
   transitionDuration: "fast",
   _hover: { bg: "gray.a4", color: "fg.default" },
-  "&[data-state=open]": { color: "amber.11" },
-  "&[data-state=done]": { color: "green.11" },
   "@media (pointer: coarse)": { w: "8", h: "8" },
 });
 
@@ -167,28 +165,22 @@ const OutlineNode = (props: NodeProps) => {
           </button>
         </Show>
         <span class={css({ display: "inline-flex", w: "5", h: "5", alignItems: "center", justifyContent: "center" })}>
-          <Show when={props.card.state} fallback={<CardTypeIcon type={props.card.type} />}>
+          <Show when={props.card.state} fallback={<CardGlyph card={props.card} />}>
             {(state) => (
               <button
                 type="button"
                 class={stateButtonClass}
-                data-state={state()}
                 title={`${CARD_STATE_META[state()].label} — click for ${CARD_STATE_META[NEXT_STATE[state()]].label.toLowerCase()}`}
-                aria-label={`${props.card.type} ${CARD_STATE_META[state()].label}`}
+                aria-label={`${props.card.type} ${CARD_STATE_META[state()].label}, mark ${CARD_STATE_META[NEXT_STATE[state()]].label.toLowerCase()}`}
                 onClick={cycleState}
               >
-                {CARD_STATE_META[state()].icon({ size: 14, strokeWidth: 2 })}
+                <CardGlyph card={props.card} />
               </button>
             )}
           </Show>
         </span>
         <div class={css({ minW: 0, flex: 1, display: "flex", flexDirection: "column", gap: "0.5" })}>
           <div class={css({ display: "flex", alignItems: "baseline", gap: "1.5" })}>
-            <Show when={props.card.state}>
-              <span class={css({ alignSelf: "center", display: "inline-flex" })}>
-                <CardTypeIcon type={props.card.type} size={12} />
-              </span>
-            </Show>
             <button
               type="button"
               class={css({
@@ -196,7 +188,9 @@ const OutlineNode = (props: NodeProps) => {
                 textAlign: "left",
                 cursor: "pointer",
                 textDecoration: props.card.state === "dropped" ? "line-through" : undefined,
+                borderRadius: "l1",
                 _hover: { color: "fg.link" },
+                _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "1px" },
               })}
               onClick={() => props.state.onSelect(props.card.id)}
             >

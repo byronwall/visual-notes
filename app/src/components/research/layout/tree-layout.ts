@@ -17,6 +17,8 @@ const ROW_GAP = 14;
 const ROOT_GAP = 40;
 const LINE_H = 18;
 const CHARS_PER_LINE = 32;
+/** 12px preview text across a card. */
+const PREVIEW_CHARS = 38;
 export const HULL_LABEL_H = 24;
 const HULL_GAP = HULL_LABEL_H + 16;
 
@@ -28,11 +30,15 @@ export const estimateSize = (node: Pick<FoldNode, "card" | "kind">): { w: number
   const perLine = summary ? CHARS_PER_LINE + 5 : CHARS_PER_LINE;
   const titleLines = Math.min(3, Math.max(1, Math.ceil(card.title.length / perLine)));
   let h = 16 + titleLines * LINE_H;
-  if (summary) h += card.body ? 4 * 16 + 6 : 0;
-  else if (card.body || card.snippet) h += 2 * 16 + 4;
+  // Previews clamp at 4 lines (summaries) or 2; short ones take only what they need.
+  const preview = (card.body || card.snippet || "").replace(/\s+/g, " ").trim();
+  if (preview) {
+    const lines = Math.min(summary ? 4 : 2, Math.ceil(preview.length / (summary ? PREVIEW_CHARS + 6 : PREVIEW_CHARS)));
+    h += lines * 16 + (summary ? 6 : 4);
+  }
   if (card.url) h += 18;
   if (card.imageUrl && !summary) h += 72;
-  if (summary) h += 20; // covers / open meta row
+  if (summary) h += 16; // "N cards inside" meta row
   return { w, h };
 };
 

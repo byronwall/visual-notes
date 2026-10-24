@@ -3,7 +3,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { HighlightMatch } from "~/components/archive/list/HighlightMatch";
 import type { ResearchCard } from "~/services/research/research.types";
-import { CARD_STATE_META, CardTypeIcon } from "../cardTypeMeta";
+import { CardGlyph } from "../cardTypeMeta";
 import type { TopicData } from "../createTopicData";
 import { TYPE_PLURAL } from "../layout/sections";
 import { bodyExcerpt, cardMatches, contentsSections, treeOrder, type ContentsSection } from "./contents";
@@ -49,7 +49,26 @@ const rowClass = css({
   _hover: { bg: "bg.hover" },
   "&[data-selected=true]": { bg: "bg.selected", color: "fg.selected" },
   "&[data-faded=true]": { color: "fg.muted" },
+  _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-2px" },
 });
+
+/** ↑/↓ (and Home/End) walk the visible rows, like a list box. */
+const moveFocus = (event: KeyboardEvent) => {
+  const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+  if (!keys.includes(event.key)) return;
+  const nav = event.currentTarget as HTMLElement;
+  const rows = [...nav.querySelectorAll<HTMLElement>("[data-testid=research-contents-row]")];
+  if (!rows.length) return;
+  event.preventDefault();
+  const at = rows.indexOf(document.activeElement as HTMLElement);
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? rows.length - 1
+        : Math.max(0, Math.min(rows.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
+  rows[next].focus();
+};
 
 const SECTION_LABEL: Record<"open" | "closed", string> = { open: "Open", closed: "Done and dropped" };
 
@@ -58,19 +77,7 @@ const sectionLabel = (key: ContentsSection["key"]) =>
 
 const RowIcon = (props: { card: ResearchCard }) => (
   <span class={css({ display: "inline-flex", pt: "0.5", flexShrink: 0 })}>
-    <Show when={props.card.state} fallback={<CardTypeIcon type={props.card.type} size={13} />}>
-      {(state) => (
-        <span
-          class={css({
-            display: "inline-flex",
-            color: state() === "open" ? "amber.11" : state() === "done" ? "green.11" : "fg.muted",
-          })}
-          title={`${CARD_STATE_META[state()].label} ${props.card.type}`}
-        >
-          {CARD_STATE_META[state()].icon({ size: 13, strokeWidth: 2 })}
-        </span>
-      )}
-    </Show>
+    <CardGlyph card={props.card} size={13} />
   </span>
 );
 
@@ -107,7 +114,7 @@ export const TopicContents = (props: {
     });
 
   return (
-    <nav aria-label="Topic contents" data-testid="research-contents">
+    <nav aria-label="Topic contents" data-testid="research-contents" onKeyDown={moveFocus}>
       <For each={sections()}>
         {(section) => (
           <section class={css({ mb: "1.5" })}>
@@ -142,7 +149,10 @@ export const TopicContents = (props: {
                             <HighlightMatch text={card.title} query={props.query} />
                           </span>
                           <Show when={drafts().has(card.id)}>
-                            <span class={css({ ml: "1.5", fontSize: "xs", color: "amber.11" })}>Draft</span>
+                            {/* The no-break space keeps "Draft" with the title's last word. */}
+                            <span class={css({ fontSize: "xs", color: "amber.11", whiteSpace: "nowrap" })}>
+                              {"\u00a0\u00a0Draft"}
+                            </span>
                           </Show>
                           <Show when={searching() && bodyExcerpt(card, props.query)}>
                             {(excerpt) => (
@@ -163,7 +173,7 @@ export const TopicContents = (props: {
       </For>
       <Show when={!sections().length}>
         <p class={css({ fontSize: "sm", color: "fg.muted", px: "1", py: "2" })}>
-          No cards match “{props.query.trim()}”.
+          {searching() ? `No cards match “${props.query.trim()}”.` : "No cards yet."}
         </p>
       </Show>
     </nav>

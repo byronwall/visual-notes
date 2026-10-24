@@ -33,6 +33,10 @@ const labelClass = css({
   fontSize: "12px",
   whiteSpace: "nowrap",
   pointerEvents: "auto",
+  maxWidth: "var(--label-max)",
+  borderRadius: "l1",
+  // A long summary title is cut to the hull's width; hovering shows all of it.
+  _hover: { maxWidth: "none", zIndex: 4, bg: "bg.default", boxShadow: "0 0 0 1px token(colors.border)" },
 });
 
 const labelButtonClass = css({
@@ -71,7 +75,7 @@ export const CanvasHulls = (props: {
           class={labelClass}
           style={{
             height: `${HULL_LABEL_H}px`,
-            "max-width": `${entry.rect.w / props.factor}px`,
+            "--label-max": `${entry.rect.w / props.factor}px`,
             transform: props.factor === 1 ? undefined : `scale(${props.factor})`,
           }}
           onPointerDown={(event) => event.stopPropagation()}

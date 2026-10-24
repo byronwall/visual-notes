@@ -139,6 +139,30 @@ test.describe("research topic canvas", () => {
     await expect(page.getByRole("tab", { name: "Card" })).toHaveAttribute("aria-selected", "true");
     await page.getByRole("tab", { name: "Contents" }).click();
     await expect(page.getByLabel("Search cards")).toHaveValue("northwind");
+
+    // Keyboard: ↓ from search walks the rows, Enter on a canvas card selects it, Esc clears.
+    await page.getByLabel("Search cards").focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByTestId("research-contents-row").first()).toBeFocused();
+    await page.getByLabel("Search cards").fill("");
+    await cardByTitle(page, "Harbor Auto: $332").focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/card=/);
+    await page.keyboard.press("Escape");
+    await expect(page).not.toHaveURL(/card=/);
+  });
+
+  test("an empty topic says how cards arrive", async ({ page, request }) => {
+    const topic = await createResearchTopicFixture(
+      request,
+      resolve(process.cwd(), "tests/fixtures/research/empty.json"),
+      `Empty e2e ${uniqueSuffix()}`,
+    );
+    await page.goto(`/research/${topic.slug}`);
+    await waitForAppReady(page);
+    await expect(page.getByTestId("research-empty")).toContainText("No cards yet");
+    await expect(page.getByTestId("research-contents")).toContainText("No cards yet.");
+    await expect(page.getByText(/0 open/)).toBeVisible();
   });
 
   test("outline view lists the same cards and opens details", async ({ page, request }) => {

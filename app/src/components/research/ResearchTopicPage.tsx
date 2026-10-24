@@ -1,6 +1,6 @@
 import { A, useSearchParams } from "@solidjs/router";
-import { PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-solid";
-import { createEffect, createMemo, createSignal, For, on, onMount, Show } from "solid-js";
+import { LayersIcon, PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-solid";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { countOpen } from "~/services/research/research.graph";
 import { TopicCanvas } from "./canvas/TopicCanvas";
@@ -28,6 +28,31 @@ const tabClass = css({
 });
 
 const INSPECTOR_KEY = "research-inspector";
+
+/** A topic with no cards yet: say how cards arrive, since nothing here adds them by hand. */
+const EmptyTopic = (props: { title: string }) => (
+  <div
+    class={css({
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "2",
+      h: "full",
+      minH: "60",
+      px: "6",
+      textAlign: "center",
+    })}
+    data-testid="research-empty"
+  >
+    <LayersIcon size={28} class={css({ color: "fg.subtle" })} />
+    <h2 class={css({ fontSize: "md", fontWeight: "semibold" })}>No cards yet</h2>
+    <p class={css({ maxW: "26rem", fontSize: "sm", color: "fg.muted" })}>
+      Ask an agent with the Visual Notes connector to research “{props.title}”. Its questions, findings, and sources
+      land here as cards, and each batch can be undone.
+    </p>
+  </div>
+);
 
 const VIEWS = [
   { id: "canvas", label: "Canvas" },
@@ -60,6 +85,17 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     ),
   );
   // Rendered open on the server; a saved "closed" applies after mount.
+  // Esc clears the selection unless a field, dialog, or menu has focus.
+  onMount(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !params.card) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable=true], [role=dialog], [role=menu]")) return;
+      select(null);
+    };
+    window.addEventListener("keydown", onKey);
+    onCleanup(() => window.removeEventListener("keydown", onKey));
+  });
   onMount(() => {
     try {
       if (localStorage.getItem(INSPECTOR_KEY) === "closed" && !params.card) setInspectorOpen(false);
@@ -116,8 +152,19 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               <span class={css({ color: "fg.subtle" })}>/</span>
               <TopicTitle topic={graph().topic} onChanged={data.reload} />
             </nav>
-            <span class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums", flex: 1 })}>
-              <span class={css({ color: "amber.11" })}>{countOpen(data.cards())} open</span> · {plainCount()} cards
+            <span
+              class={css({
+                fontSize: "xs",
+                color: "fg.muted",
+                fontVariantNumeric: "tabular-nums",
+                whiteSpace: "nowrap",
+                flex: 1,
+              })}
+            >
+              <span class={css({ color: countOpen(data.cards()) ? "amber.11" : undefined })}>
+                {countOpen(data.cards())} open
+              </span>{" "}
+              · {plainCount()} {plainCount() === 1 ? "card" : "cards"}
             </span>
             <div role="tablist" aria-label="Topic view" class={css({ display: "flex", gap: "0.5" })}>
               <For each={VIEWS}>
@@ -161,14 +208,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
             data-inspector={inspectorOpen() ? "open" : "closed"}
           >
             <main class={css({ minH: 0, overflow: view() === "canvas" ? "hidden" : "auto" })}>
-              <Show
-                when={data.cards().length}
-                fallback={
-                  <p class={css({ color: "fg.muted", fontSize: "sm", p: "4" })}>
-                    Empty topic. Point an agent at it to start.
-                  </p>
-                }
-              >
+              <Show when={data.cards().length} fallback={<EmptyTopic title={graph().topic.title} />}>
                 <Show
                   when={view() === "canvas"}
                   fallback={

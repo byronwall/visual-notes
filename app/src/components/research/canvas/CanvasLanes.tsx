@@ -18,18 +18,20 @@ const labelClass = css({
   color: "fg.muted",
   whiteSpace: "nowrap",
   pointerEvents: "none",
-  transitionProperty: "left, top",
+  transitionProperty: "left, top, opacity",
+  "&[data-dimmed=true]": { opacity: 0.3 },
   transitionDuration: "200ms",
   "@media (prefers-reduced-motion: reduce)": { transitionProperty: "none" },
 });
 
-/** Section headings over a busy branch's children: "Options 9". */
-export const CanvasLanes = (props: { lanes: LaneLabel[]; factor: number }) => (
+/** Section headings over a busy branch's children: "Options 9". They dim with their cards during a search. */
+export const CanvasLanes = (props: { lanes: LaneLabel[]; factor: number; matched: Set<string> | null }) => (
   <For each={props.lanes}>
     {(lane) => (
       <div
         class={labelClass}
         data-testid="research-canvas-lane"
+        data-dimmed={!!props.matched && !lane.memberIds.some((id) => props.matched!.has(id))}
         style={{
           left: `${lane.rect.x}px`,
           top: `${lane.rect.y}px`,

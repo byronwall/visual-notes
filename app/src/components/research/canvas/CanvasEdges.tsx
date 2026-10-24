@@ -11,6 +11,8 @@ const svgClass = css({
   height: "1px",
   overflow: "visible",
   pointerEvents: "none",
+  transitionProperty: "opacity",
+  transitionDuration: "200ms",
   "& path": { fill: "none", transitionProperty: "d", transitionDuration: "200ms" },
   "@media (prefers-reduced-motion: reduce)": { "& path": { transitionProperty: "none" } },
 });
@@ -26,6 +28,8 @@ export const CanvasEdges = (props: {
   laned: Set<string>;
   factor: number;
   selectedId: string | null;
+  /** A search is active: edges step back so matching cards stand out. */
+  searching: boolean;
 }) => {
   const tree = () =>
     [...props.view.parent.entries()]
@@ -37,7 +41,7 @@ export const CanvasEdges = (props: {
   const extra = () => props.view.edges.filter((edge) => edge.from === props.selectedId || edge.to === props.selectedId);
 
   return (
-    <svg class={svgClass} aria-hidden="true">
+    <svg class={svgClass} aria-hidden="true" style={{ opacity: props.searching ? 0.35 : 1 }}>
       <For each={tree()}>
         {(edge) => (
           <Show when={props.rects.get(edge.parent) && props.rects.get(edge.child)}>
