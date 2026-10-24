@@ -179,7 +179,7 @@ Capturing, retitling, regrouping, editing or deleting pages and notes, and the a
 
 | Tool             | Kind | Notes                                                                                                                                                                                                                                                                      |
 | ---------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `activity_query` | read | The Activity page's timeline since a time (24 hours by default), optionally for one domain (`doc`, `task`, `research`, `collection`, `time_block`, `event`, `archive`, …) or one `noteId`. Each event is the page's one-line summary, with `via` set when an agent did it. |
+| `activity_query` | read | The Activity page's timeline since a time (24 hours by default), optionally for one domain (`doc`, `task`, `research`, `collection`, `time_block`, `event`, `archive`, …) or one `noteId`. Each event is the page's one-line summary with its `id`, `via` when an agent did it, and `callId` shared by a tool call and the changes it made; with `domain: "mcp"` each call also has `tool`, `outcome`, `durationMs`, `code`, and the records it `changed`. `until` bounds the window, `truncated` + `nextCursor` page back, and `pollSince` (just past the newest event) is the `since` for the next poll, so overlapping polls never repeat an event. |
 
 ## Markdown dialect
 

@@ -8,6 +8,8 @@ import { mcpToolHref } from "./activity-format";
 
 type McpActivityPanelProps = {
   nowMs: number;
+  /** The timeline's zone, so the server and client render the same day. */
+  timeZone: string;
 };
 
 const WINDOW_DAYS = 7;
@@ -21,6 +23,13 @@ const agoLabel = (iso: string | null, nowMs: number) => {
   return `${Math.floor(minutes / (60 * 24))}d ago`;
 };
 
+const dayLabel = (iso: string, timeZone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone,
+  }).format(new Date(iso));
+
 const linkClass = css({
   color: "fg.default",
   fontWeight: "medium",
@@ -31,7 +40,13 @@ const linkClass = css({
 });
 
 const ColumnHeading = (props: { children: string }) => (
-  <Text fontSize="xs" fontWeight="semibold" color="fg.subtle" textTransform="uppercase" letterSpacing="wide">
+  <Text
+    fontSize="xs"
+    fontWeight="semibold"
+    color="fg.subtle"
+    textTransform="uppercase"
+    letterSpacing="wide"
+  >
     {props.children}
   </Text>
 );
@@ -47,18 +62,36 @@ const Problems = (props: { count: number }) => (
 /** Who is connected over MCP and what they use, above the MCP call timeline. */
 export const McpActivityPanel = (props: McpActivityPanelProps) => {
   const summary = createAsync(() => fetchMcpActivitySummary(WINDOW_DAYS));
-  const maxCalls = () => Math.max(1, ...(summary()?.tools.map((t) => t.calls) ?? []));
+  const maxCalls = () =>
+    Math.max(1, ...(summary()?.tools.map((t) => t.calls) ?? []));
 
   return (
-    <Stack gap="3" px="3" pb="2" minH="40" borderBottomWidth="1px" borderColor="border.subtle">
+    <Stack
+      gap="3"
+      px="3"
+      pb="2"
+      minH="40"
+      borderBottomWidth="1px"
+      borderColor="border.subtle"
+    >
       <HStack gap="3" justifyContent="space-between" flexWrap="wrap">
         <Text fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums">
-          Last {WINDOW_DAYS} days
+          <Show
+            when={summary() && !summary()!.loggedSinceWindowStart}
+            fallback={<>Last {WINDOW_DAYS} days</>}
+          >
+            <span
+              title={`Tool calls are logged only since then, so this covers less than ${WINDOW_DAYS} days.`}
+            >
+              Since {dayLabel(summary()!.from, props.timeZone)}, when call
+              logging began
+            </span>
+          </Show>
           <Show when={summary()}>
             {(s) => (
               <>
                 {" · "}
-                {s().calls} calls · {s().toolCount} tools
+                {s().calls} tool calls · {s().toolCount} tools
                 <Show when={s().problems > 0}>
                   {" · "}
                   <styled.span color="red.11">
@@ -69,7 +102,14 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
             )}
           </Show>
         </Text>
-        <styled.a href="/admin/connections" fontSize="sm" color="fg.muted" transitionProperty="color" transitionDuration="140ms" _hover={{ color: "fg.link" }}>
+        <styled.a
+          href="/admin/connections"
+          fontSize="sm"
+          color="fg.muted"
+          transitionProperty="color"
+          transitionDuration="140ms"
+          _hover={{ color: "fg.link" }}
+        >
           Manage connections
         </styled.a>
       </HStack>
@@ -87,11 +127,19 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
             when={s().clients.length > 0}
             fallback={
               <Text fontSize="sm" color="fg.muted" maxW="60ch">
-                No agent has connected yet. Add Visual Notes as a connector in Claude or ChatGPT; every tool call it makes will show up here.
+                No agent has connected yet. Add Visual Notes as a connector in
+                Claude or ChatGPT; every tool call it makes will show up here.
               </Text>
             }
           >
-            <Grid gridTemplateColumns={{ base: "1fr", md: "minmax(0, 2fr) minmax(0, 3fr)" }} columnGap="8" rowGap="4">
+            <Grid
+              gridTemplateColumns={{
+                base: "1fr",
+                md: "minmax(0, 2fr) minmax(0, 3fr)",
+              }}
+              columnGap="8"
+              rowGap="4"
+            >
               <Stack gap="1.5">
                 <ColumnHeading>Clients</ColumnHeading>
                 <For each={s().clients}>
@@ -104,8 +152,13 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
                       >
                         {client.name}
                       </styled.a>
-                      <styled.span color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
-                        {client.calls} calls · {agoLabel(client.lastCallAt, props.nowMs)}
+                      <styled.span
+                        color="fg.muted"
+                        fontVariantNumeric="tabular-nums"
+                        whiteSpace="nowrap"
+                      >
+                        {client.calls} calls ·{" "}
+                        {agoLabel(client.lastCallAt, props.nowMs)}
                       </styled.span>
                       <Problems count={client.problems} />
                       <Show when={!client.connected}>
@@ -120,20 +173,52 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
 
               <Stack gap="1.5">
                 <ColumnHeading>Top tools</ColumnHeading>
-                <Show when={s().tools.length > 0} fallback={<Text fontSize="sm" color="fg.muted">No calls in this window.</Text>}>
-                  <Grid gridTemplateColumns="minmax(0, max-content) minmax(3rem, 1fr) auto" columnGap="3" rowGap="1" alignItems="center">
+                <Show
+                  when={s().tools.length > 0}
+                  fallback={
+                    <Text fontSize="sm" color="fg.muted">
+                      No calls in this window.
+                    </Text>
+                  }
+                >
+                  <Grid
+                    gridTemplateColumns="minmax(0, max-content) minmax(3rem, 1fr) auto"
+                    columnGap="3"
+                    rowGap="1"
+                    alignItems="center"
+                  >
                     <For each={s().tools}>
                       {(tool) => (
                         <>
-                          <styled.a href={mcpToolHref(tool.tool)} fontFamily="mono" fontSize="xs" class={linkClass}>
+                          <styled.a
+                            href={mcpToolHref(tool.tool)}
+                            fontFamily="mono"
+                            fontSize="xs"
+                            class={linkClass}
+                          >
                             {tool.tool}
                           </styled.a>
-                          <Box h="1.5" borderRadius="full" bg="bg.muted" overflow="hidden">
-                            <Box h="full" bg="blue.9" style={{ width: `${(tool.calls / maxCalls()) * 100}%` }} />
+                          <Box
+                            h="1.5"
+                            borderRadius="full"
+                            bg="bg.muted"
+                            overflow="hidden"
+                          >
+                            <Box
+                              h="full"
+                              bg="blue.9"
+                              style={{
+                                width: `${(tool.calls / maxCalls()) * 100}%`,
+                              }}
+                            />
                           </Box>
                           <HStack gap="2" justifyContent="flex-end">
                             <Problems count={tool.problems} />
-                            <styled.span fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums">
+                            <styled.span
+                              fontSize="xs"
+                              color="fg.muted"
+                              fontVariantNumeric="tabular-nums"
+                            >
                               {tool.calls}
                             </styled.span>
                           </HStack>

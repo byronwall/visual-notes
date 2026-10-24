@@ -107,7 +107,7 @@ const ActivityRoute = () => {
         <Show when={filters.domain() === "mcp"}>
           <ErrorBoundary fallback={null}>
             <Suspense>
-              <McpActivityPanel nowMs={nowMs()} />
+              <McpActivityPanel nowMs={nowMs()} timeZone={timeZone()} />
             </Suspense>
           </ErrorBoundary>
         </Show>
