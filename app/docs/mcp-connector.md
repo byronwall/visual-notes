@@ -6,7 +6,7 @@ The server is built per request in `server/mcp/tools.ts`, which makes one regist
 
 ## Rules
 
-- **Ownership.** A note belongs to the agent when `Doc.originalSource = "chatgpt"`; user edits don't change that. Agents change the body, title, or path only of their own notes. For a note the user wrote, they create a new note that links to it. `notes_get` reports `editable`.
+- **Ownership.** A note belongs to the agent when `Doc.originalSource = "chatgpt"`; user edits don't change that. Agents change the body, title, or path only of their own notes. For a note the user wrote, they create a new note that links to it. `notes_get` reports `editable`. One exception: `notes_attach_file` may add attachment blocks to any note, because it only adds blocks and keeps a revision like every agent edit.
 - **Metadata is open.** Task status, dates, and tags, collection values, event decisions, and note `meta` can change on any record, including the user's.
 - **Deleting stays with the user**, and so do reviewing research summaries and layout choices (canvas positions, column widths, manual order, calendar settings). Agents cancel a task or a show, hide research cards (undoably), or remove a note from a collection instead.
 - **Every write is visible.** It logs an `ActionEvent` with `actorType = "chatgpt"` (shown "via <client name>" in the activity timeline), and publishes a live update so open tabs refresh (see [Live updates](#live-updates)).
@@ -45,7 +45,8 @@ Agents get the same answer shapes from every family:
 | `notes_append`      | write | Add markdown at the end. Agent notes only.                                                                                                                                                                                                                                                |
 | `notes_edit_blocks` | write | `replace`, `insert_after`, or `delete` blocks by id; other blocks stay byte-identical. Agent notes only.                                                                                                                                                                                  |
 
-| `notes_upload_image` | write | Store an image from `data` (base64 or a data URL) or `url` (downloaded by the server); returns `{ url, src, markdown, mime, bytes }` to embed with a note write. Changes no note. |
+| `notes_upload_image` | write | Store an image from `file` (a ChatGPT file), `data` (base64 or a data URL), or `url` (downloaded by the server); returns `{ url, src, markdown, mime, bytes }` to embed with a note write. Changes no note. |
+| `notes_attach_file` | write | Store any file from `files` (ChatGPT files), `data` + `name`, or `url`, and with `noteId` add it to that note (any note) as an attachment card, at the end or after `afterBlockId`. Returns `attached` (`name`, `display`, `mime`, `bytes`, `src`, `url`, `markdown`, `blockId`) and `note`. |
 
 Each note write snapshots a `DocRevision` first and logs `doc.create` or `doc.update`.
 
@@ -57,6 +58,16 @@ Agent images are stored like the app's own: content-addressed files in `DOC_IMAG
 - **Accepted**: PNG, JPEG, GIF, WebP, AVIF, HEIC (also stored as JPEG), and BMP, up to 10 MB, sniffed from the bytes. SVG is refused, because a file served from the app's origin can run script.
 - **`url` uploads** go through `fetchPublicFile` (`server/lib/public-fetch.ts`): http(s) only, at most 3 redirects, 15 s, and every address is checked when the socket connects, so loopback, private, link-local, and metadata addresses are refused even after a redirect or a DNS change.
 - **Inline `data:image/…` sources** in any note write's markdown are stored the same way before parsing, so a note body never holds base64. Other image urls stay as links to that site; agents that want a lasting copy upload them first.
+
+### Files
+
+Attachments are content-addressed files in `DOC_FILE_STORAGE_DIR` (default `app/data/doc-files`), served from `/api/doc-files/<sha256>/<file name>`. See [note-files.md](note-files.md) for storage, serving, and the editor side.
+
+- **ChatGPT hands files over by reference.** `notes_attach_file` lists `files` in `_meta["openai/fileParams"]` (and `notes_upload_image` lists `file`), so ChatGPT fills them with `{ download_url, file_id, mime_type?, file_name? }` for files the user uploaded or shared, instead of the model copying bytes into base64. The schema has exactly those four properties with the first two required; ChatGPT's tool scan rejects any other shape (`note-files-tools.test.ts` checks it). The server downloads the url through `fetchPublicFile`.
+- **Other clients** pass `data` (base64 or a data URL) with `name`, or a public `url`. A name without an extension gets one from the bytes or `mimeType`.
+- **Pictures** (PNG, JPEG, GIF, WebP, AVIF, HEIC, BMP up to 10 MB) go to `/api/doc-images` and show inline unless `display: "file"`; everything else becomes a card. Up to 10 files per call, 50 MB each.
+- **Attaching to a note** (`noteId`) goes through `attachToNote` in `notes-write.ts`: one transaction, a `chatgpt.attach` revision, and `doc.update`. A file whose `src` is already a block in the note is not added again; its `blockId` comes back with `alreadyAttached: true`, so a retried call is safe.
+- **In markdown** an attachment is `[name](/api/doc-files/<hash>/<name>)` alone on its line. Every note write checks that a new one points at a stored file (else nothing is written) and fills in its type and size. `notes_get` lists them under `attachments` with a full `url`.
 
 ### Note context
 
@@ -173,14 +184,15 @@ Capturing, retitling, regrouping, editing or deleting pages and notes, and the a
 
 `notes_get` and every note write use one markdown dialect, parsed by `fromNoteMarkdown` in `lib/note-content/note-markdown.ts` (the inverse of `toMarkdown`). Imports and legacy rows still go through plain `fromMarkdown`.
 
-| Markdown                                         | Becomes                                                                                                                                                         |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ` ^a1B2c3D4e5` at the end of a block (read only) | The block id for `notes_edit_blocks`. Code blocks and tables have it on the next line. Agents never send these.                                                 |
-| `- [ ] text` / `- [x] text` (top level)          | A task line backed by a `TaskItem` in the Inbox list. Rewriting a line keeps its task (same block id, else same text), and the checkbox sets the task's status. |
-| `[[Label\|noteId]]`, `[[Label\|noteId#blockId]]` | A note link (and a `DocLink` backlink). New links to missing notes are refused.                                                                                 |
-| `#tag` (starting with a letter)                  | A tag on that block. `#42` stays text.                                                                                                                          |
-| `{{collection-view:viewId}}` on its own line     | An embedded collection view. `notes_get` names each one under `embeds`.                                                                                         |
-| `\#`, `\[`, `\]`                                 | The literal character. `toMarkdown` escapes these itself.                                                                                                       |
+| Markdown                                               | Becomes                                                                                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ` ^a1B2c3D4e5` at the end of a block (read only)       | The block id for `notes_edit_blocks`. Code blocks and tables have it on the next line. Agents never send these.                                                 |
+| `- [ ] text` / `- [x] text` (top level)                | A task line backed by a `TaskItem` in the Inbox list. Rewriting a line keeps its task (same block id, else same text), and the checkbox sets the task's status. |
+| `[[Label\|noteId]]`, `[[Label\|noteId#blockId]]`       | A note link (and a `DocLink` backlink). New links to missing notes are refused.                                                                                 |
+| `#tag` (starting with a letter)                        | A tag on that block. `#42` stays text.                                                                                                                          |
+| `{{collection-view:viewId}}` on its own line           | An embedded collection view. `notes_get` names each one under `embeds`.                                                                                         |
+| `[name](/api/doc-files/<hash>/<name>)` on its own line | A file attachment card. The file must already be stored (`notes_attach_file`). `notes_get` lists each one under `attachments`.                                  |
+| `\#`, `\[`, `\]`                                       | The literal character. `toMarkdown` escapes these itself.                                                                                                       |
 
 ## Live updates
 

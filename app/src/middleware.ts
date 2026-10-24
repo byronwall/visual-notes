@@ -50,6 +50,14 @@ function isAssetPath(pathname: string): boolean {
   return /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|map)$/.test(pathname);
 }
 
+const DOC_FILE_PATH = /^\/api\/doc-files\/[a-f0-9]{64}\/[^/]+$/;
+
+function isDocFileRead(method: string, pathname: string): boolean {
+  return (
+    (method === "GET" || method === "HEAD") && DOC_FILE_PATH.test(pathname)
+  );
+}
+
 export function isAllowedUnauthed(request: Request): boolean {
   const url = new URL(request.url);
   const pathname = url.pathname;
@@ -57,6 +65,9 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
+  // Attachments are addressed by content hash, like /api/doc-images, so a
+  // shared note's files download for its readers. Uploading needs sign-in.
+  if (isDocFileRead(request.method, pathname)) return true;
   // iCal subscriptions; the route checks the secret token itself.
   if (pathname.startsWith("/cal/")) return true;
   // The MCP connector and its OAuth endpoints authenticate on their own.

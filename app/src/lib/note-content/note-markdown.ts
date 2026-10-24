@@ -3,6 +3,7 @@ import { sanitizeHtmlContent } from "~/server/lib/markdown";
 import { fromHtml } from "./convert";
 import { stripIdTags } from "./markdown";
 import type { NoteDoc, NoteNode } from "./types";
+import { parseDocFileSrc } from "~/services/doc-files/doc-files.shared";
 
 // The inverse of `toMarkdown`: reads the markdown an AI client gets from
 // notes_get back into the same node types. Unlike `fromMarkdown` (used for
@@ -11,10 +12,12 @@ import type { NoteDoc, NoteNode } from "./types";
 //   [[Label|docId]] / [[Label|docId#blockId]]          -> noteLink
 //   #tag (starting with a letter)                      -> tag
 //   {{collection-view:viewId}} on its own line         -> collectionView
+//   [name](/api/doc-files/…) on its own line           -> fileAttachment
 // Write `\#`, `\[` to keep a literal character.
 
 const TASK_LINE = /^[-*+] \[( |x|X)\] (.*)$/;
 const VIEW_LINE = /^\{\{collection-view:([A-Za-z0-9_-]{1,64})\}\}\s*$/;
+const LINK_LINE = /^\[((?:\\.|[^\]\\])+)\]\((\S+?)\)\s*$/;
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const NOTE_LINK =
   /\[\[([^\]|\n]+)\|([A-Za-z0-9_-]{1,64})(?:#([A-Za-z0-9_-]{1,64}))?\]\]/g;
@@ -45,6 +48,17 @@ function protectEscapes(line: string): string {
     .join("");
 }
 
+/** A stored-file link alone on its line becomes an attachment block. */
+function fileAttachmentHtml(line: string): string | null {
+  const link = line.match(LINK_LINE);
+  if (!link) return null;
+  const stored = parseDocFileSrc(link[2]!);
+  if (!stored) return null;
+  const name = link[1]!.replace(/\\(.)/g, "$1").trim() || stored.name;
+  const src = new URL(link[2]!, "http://x").pathname;
+  return `<div data-file-attachment="" data-src="${escapeAttr(src)}" data-name="${escapeAttr(name)}"></div>`;
+}
+
 function preprocess(markdown: string): string {
   const out: string[] = [];
   let fence: string | null = null;
@@ -68,6 +82,11 @@ function preprocess(markdown: string): string {
         `<div data-collection-view="${escapeAttr(view[1])}"></div>`,
         "",
       );
+      continue;
+    }
+    const file = fileAttachmentHtml(line);
+    if (file) {
+      out.push("", file, "");
       continue;
     }
     const task = line.match(TASK_LINE);
@@ -136,7 +155,14 @@ const NODE_ATTRIBUTES: Record<string, string[]> = {
     "data-doc-id",
     "data-block-id",
   ],
-  div: ["data-collection-view", "data-task-ref", "data-status"],
+  div: [
+    "data-collection-view",
+    "data-task-ref",
+    "data-status",
+    "data-file-attachment",
+    "data-src",
+    "data-name",
+  ],
   span: ["class", "style", "data-task-text", "data-tag"],
 };
 
@@ -167,6 +193,17 @@ export function noteLinkTargets(nodes: NoteNode[]): string[] {
     });
   }
   return [...ids];
+}
+
+/** File attachment blocks in these blocks, in document order. */
+export function fileAttachmentNodes(nodes: NoteNode[]): NoteNode[] {
+  const found: NoteNode[] = [];
+  for (const node of nodes) {
+    walk(node, (n) => {
+      if (n.type === "fileAttachment" && n.attrs?.src) found.push(n);
+    });
+  }
+  return found;
 }
 
 /** Collection view ids embedded in these blocks. */

@@ -14,6 +14,7 @@ export const BLOCK_ID_TYPES = [
   "horizontalRule",
   "taskRef",
   "collectionView",
+  "fileAttachment",
 ] as const;
 
 const ID_ALPHABET =

@@ -17,6 +17,7 @@ focused skills listed under [Skills](#skills).
 | Live note updates (`/ws/notes`, open-note refresh, kill switch) | [app/docs/live-note-updates.md](app/docs/live-note-updates.md) |
 | Note audio recordings (recorder, chunked upload, iOS caveats) | [app/docs/note-audio.md](app/docs/note-audio.md) |
 | Note images (paste/drop/upload pipeline, `/api/doc-images`, import from other sites) | [app/docs/note-images.md](app/docs/note-images.md) |
+| Note files (attachment cards, `/api/doc-files`, drop/paste/`/file`, safe serving) | [app/docs/note-files.md](app/docs/note-files.md) |
 | MCP connector (`/mcp` tools, ownership rules, smoke script) and what each app action maps to | [app/docs/mcp-connector.md](app/docs/mcp-connector.md), [app/docs/mcp-parity.md](app/docs/mcp-parity.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 

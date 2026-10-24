@@ -104,6 +104,15 @@ export const SLASH_ITEMS: SlashItem[] = [
     },
   },
   {
+    title: "File",
+    glyph: "📎",
+    keywords: ["attach", "attachment", "upload", "pdf", "document", "file"],
+    run: (e, r) => {
+      chainFor(e, r).run();
+      e.storage.filePaste?.pickFiles();
+    },
+  },
+  {
     title: "Task",
     glyph: "☐",
     keywords: ["todo", "checkbox", "check", "task", "action"],

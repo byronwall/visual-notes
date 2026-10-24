@@ -24,6 +24,7 @@ import {
 import type { NoteNode } from "~/lib/note-content/types";
 import { appendBlocks, contentFromMarkdown } from "./note-content";
 import { storeInlineImages } from "./note-images";
+import { describeFileAttachments } from "./note-files";
 import {
   agentContext,
   CHATGPT_SOURCE,
@@ -150,6 +151,7 @@ export async function createNote(
   const pathIsNew = path ? !(await isExistingPath(path)) : false;
   const parsed = contentFromMarkdown(await storeInlineImages(input.markdown));
   await assertReferencesExist(parsed.content ?? []);
+  await describeFileAttachments(parsed.content ?? []);
   const created = await prisma.$transaction(async (tx) => {
     // Task lines become Inbox tasks; the index rebuild points them at the note.
     const content = await materializeTaskRefs(tx, {
@@ -201,12 +203,17 @@ const ownedDocSelect = {
   originalSource: true,
 } as const;
 
-async function loadOwnedNote(id: string) {
+async function loadNote(id: string) {
   const doc = await prisma.doc.findUnique({
     where: { id },
     select: ownedDocSelect,
   });
   if (!doc) throw new ConnectorError("not_found", `No note with id ${id}`);
+  return doc;
+}
+
+async function loadOwnedNote(id: string) {
+  const doc = await loadNote(id);
   if (!isAgentNote(doc)) {
     throw new ConnectorError(
       "not_owner",
@@ -216,13 +223,17 @@ async function loadOwnedNote(id: string) {
   return doc;
 }
 
-type OwnedNote = Awaited<ReturnType<typeof loadOwnedNote>>;
+type OwnedNote = Awaited<ReturnType<typeof loadNote>>;
 
 /** Snapshots the current note, then applies the change, in one transaction. */
 async function applyOwnedEdit(
   ctx: ConnectorContext,
   doc: OwnedNote,
-  reason: "chatgpt.update" | "chatgpt.append" | "chatgpt.edit",
+  reason:
+    | "chatgpt.update"
+    | "chatgpt.append"
+    | "chatgpt.edit"
+    | "chatgpt.attach",
   changes: {
     title?: string;
     path?: string | null;
@@ -267,6 +278,10 @@ async function applyOwnedEdit(
     const current = readNoteContent(locked);
     const proposed = changes.content(current);
     await assertReferencesExist(proposed.content ?? [], current.content ?? []);
+    await describeFileAttachments(
+      proposed.content ?? [],
+      current.content ?? [],
+    );
     const next = await materializeTaskRefs(tx, {
       previous: current,
       next: proposed,
@@ -409,4 +424,73 @@ export async function editNote(
       }
     },
   });
+}
+
+export type AttachResult = WriteResult & {
+  /** Block id of each attachment, in the order given; reused when already there. */
+  blockIds: string[];
+  /** Srcs that were already in the note, so no second block was added. */
+  alreadyAttached: string[];
+};
+
+const srcOf = (node: NoteNode) => String(node.attrs?.src ?? "");
+
+/**
+ * Adds attachment blocks to any note, the user's included: it only adds
+ * blocks, never changes what is there, and keeps a revision like every
+ * agent edit. A file already in the note is not added twice.
+ */
+export async function attachToNote(
+  ctx: ConnectorContext,
+  input: { id: string; markdown: string[]; afterBlockId?: string },
+): Promise<AttachResult> {
+  const doc = await loadNote(input.id);
+  const blocks = input.markdown.map(
+    (markdown) => contentFromMarkdown(markdown).content?.[0],
+  );
+  const blockIds: string[] = [];
+  const alreadyAttached: string[] = [];
+  const result = await applyOwnedEdit(ctx, doc, "chatgpt.attach", {
+    content: (current) => {
+      const existing = new Map<string, string>();
+      for (const node of current.content ?? []) {
+        const src = srcOf(node);
+        if (src && node.attrs?.id) existing.set(src, String(node.attrs.id));
+      }
+      const added: NoteNode[] = [];
+      blockIds.length = 0;
+      alreadyAttached.length = 0;
+      for (const block of blocks) {
+        if (!block) continue;
+        const src = srcOf(block);
+        const found = existing.get(src);
+        if (found) {
+          blockIds.push(found);
+          alreadyAttached.push(src);
+          continue;
+        }
+        existing.set(src, String(block.attrs?.id));
+        blockIds.push(String(block.attrs?.id));
+        added.push(block);
+      }
+      if (!added.length) return current;
+      if (!input.afterBlockId) {
+        return { ...current, content: [...(current.content ?? []), ...added] };
+      }
+      try {
+        return applyBlockOps(current, [
+          { op: "insert_after", blockId: input.afterBlockId, blocks: added },
+        ]);
+      } catch (e) {
+        if (e instanceof UnknownBlockError) {
+          throw new ConnectorError(
+            "invalid",
+            `Unknown block id ${e.blockId}. Call notes_get for current ids, or leave afterBlockId out to add at the end.`,
+          );
+        }
+        throw e;
+      }
+    },
+  });
+  return { ...result, blockIds, alreadyAttached };
 }

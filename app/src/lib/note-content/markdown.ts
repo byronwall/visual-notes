@@ -14,12 +14,17 @@ const idTag = (node: NoteNode, ctx: Ctx) =>
 
 function escapeText(text: string): string {
   // `#word` would read back as a tag (see note-markdown.ts).
-  return text
-    .replace(/([\\`*_[\]])/g, "\\$1")
-    .replace(/(^|[\s(])#(?=[A-Za-z])/g, "$1\\#")
-    // A paragraph that reads like an embed placeholder stays text.
-    .replace(/^\{\{collection-view:/, "\\{{collection-view:");
+  return (
+    text
+      .replace(/([\\`*_[\]])/g, "\\$1")
+      .replace(/(^|[\s(])#(?=[A-Za-z])/g, "$1\\#")
+      // A paragraph that reads like an embed placeholder stays text.
+      .replace(/^\{\{collection-view:/, "\\{{collection-view:")
+  );
 }
+
+const escapeLinkLabel = (label: string) =>
+  label.replace(/\n/g, " ").replace(/([\\[\]])/g, "\\$1");
 
 function applyMarks(text: string, marks: NoteNode["marks"]): string {
   if (!marks?.length) return text;
@@ -97,9 +102,7 @@ function listToMarkdown(node: NoteNode, ctx: Ctx): string {
       const body = `${head}${idTag(item, ctx)}${tail ? "\n" + tail : ""}`;
       const pad = " ".repeat(marker.length);
       const [line0, ...more] = body.split("\n");
-      return [marker + line0, ...more.map((l) => (l ? pad + l : l))].join(
-        "\n",
-      );
+      return [marker + line0, ...more.map((l) => (l ? pad + l : l))].join("\n");
     })
     .join("\n");
 }
@@ -166,8 +169,14 @@ function blockToMarkdown(node: NoteNode, ctx: Ctx, topLevel: boolean): string {
       return node.attrs?.viewId
         ? `{{collection-view:${node.attrs.viewId}}}${tag}`
         : "";
+    case "fileAttachment":
+      // A link alone on its line; note-markdown.ts reads it back as a file.
+      return node.attrs?.src
+        ? `[${escapeLinkLabel(String(node.attrs.name || "file"))}](${node.attrs.src})${tag}`
+        : "";
     case "taskRef": {
-      const done = node.attrs?.status === "complete" || node.attrs?.status === "cancelled";
+      const done =
+        node.attrs?.status === "complete" || node.attrs?.status === "cancelled";
       return `- [${done ? "x" : " "}] ${inlineToMarkdown(node.content)}${tag}`;
     }
     default: {
@@ -195,10 +204,12 @@ export function toMarkdown(doc: NoteDoc, opts: ToMarkdownOptions = {}): string {
 export function nodeText(node: NoteNode): string {
   if (node.type === "text") return node.text ?? "";
   if (node.type === "hardBreak") return "\n";
-  if (node.type === "emoji") return node.attrs?.name ? `:${node.attrs.name}:` : "";
+  if (node.type === "emoji")
+    return node.attrs?.name ? `:${node.attrs.name}:` : "";
   if (node.type === "noteLink") return node.attrs?.label ?? "";
   if (node.type === "tag") return node.attrs?.name ? `#${node.attrs.name}` : "";
   if (node.type === "image") return node.attrs?.alt ?? "";
+  if (node.type === "fileAttachment") return node.attrs?.name ?? "";
   const children = node.content ?? [];
   if (children.length === 0) return "";
   const inline = children.every(

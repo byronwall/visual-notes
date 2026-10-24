@@ -67,14 +67,22 @@ const publicOnlyLookup: LookupFunction = (hostname, options, callback) => {
 export type FetchedFile = {
   buffer: Buffer;
   contentType: string;
+  /** The Content-Disposition header, which may name the file. */
+  contentDisposition: string;
   finalUrl: string;
 };
 
-type FetchOptions = { maxBytes: number; timeoutMs?: number; maxRedirects?: number };
+type FetchOptions = {
+  maxBytes: number;
+  timeoutMs?: number;
+  maxRedirects?: number;
+  /** Accept header; images unless the caller wants any file. */
+  accept?: string;
+};
 
 function getOnce(
   url: URL,
-  { maxBytes, timeoutMs }: Required<Omit<FetchOptions, "maxRedirects">>,
+  { maxBytes, timeoutMs, accept }: Required<Omit<FetchOptions, "maxRedirects">>,
 ): Promise<{ redirect?: string } & Partial<FetchedFile>> {
   const client = url.protocol === "https:" ? https : http;
   return new Promise((resolve, reject) => {
@@ -83,7 +91,7 @@ function getOnce(
       {
         lookup: publicOnlyLookup,
         timeout: timeoutMs,
-        headers: { accept: "image/*", "user-agent": "VisualNotes/1.0" },
+        headers: { accept, "user-agent": "VisualNotes/1.0" },
       },
       (res) => {
         const status = res.statusCode ?? 0;
@@ -115,6 +123,9 @@ function getOnce(
           resolve({
             buffer: Buffer.concat(chunks),
             contentType: String(res.headers["content-type"] ?? ""),
+            contentDisposition: String(
+              res.headers["content-disposition"] ?? "",
+            ),
           }),
         );
         res.on("error", reject);
@@ -127,19 +138,28 @@ function getOnce(
       reject(
         error instanceof PublicFetchError
           ? error
-          : new PublicFetchError(`Could not fetch ${url.host}: ${error.message}`),
+          : new PublicFetchError(
+              `Could not fetch ${url.host}: ${error.message}`,
+            ),
       ),
     );
   });
 }
 
 const tooLarge = (maxBytes: number) =>
-  new PublicFetchError(`The file is larger than ${Math.round(maxBytes / 1e6)} MB`);
+  new PublicFetchError(
+    `The file is larger than ${Math.round(maxBytes / 1e6)} MB`,
+  );
 
 /** GET a public http(s) url, following up to `maxRedirects` redirects. */
 export async function fetchPublicFile(
   rawUrl: string,
-  { maxBytes, timeoutMs = 15_000, maxRedirects = 3 }: FetchOptions,
+  {
+    maxBytes,
+    timeoutMs = 15_000,
+    maxRedirects = 3,
+    accept = "image/*",
+  }: FetchOptions,
 ): Promise<FetchedFile> {
   let url: URL;
   try {
@@ -155,11 +175,12 @@ export async function fetchPublicFile(
     if (isIP(host) && !isPublicAddress(host)) {
       throw new PublicFetchError(`${host} is not a public address`);
     }
-    const result = await getOnce(url, { maxBytes, timeoutMs });
+    const result = await getOnce(url, { maxBytes, timeoutMs, accept });
     if (result.redirect === undefined) {
       return {
         buffer: result.buffer!,
         contentType: result.contentType!,
+        contentDisposition: result.contentDisposition!,
         finalUrl: url.toString(),
       };
     }

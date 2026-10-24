@@ -15,6 +15,7 @@ import { NoteLink } from "./note-link";
 import { TaskRef } from "./task-ref";
 import { Tag } from "./tag";
 import { CollectionView } from "./collection-view";
+import { FileAttachment } from "./file-attachment";
 
 /**
  * The note document schema, with no UI imports. The editor layers its Solid
@@ -30,7 +31,8 @@ export const DEFAULT_IMAGE_WIDTH_PERCENT = 100;
 export function parseWidthPercent(value: unknown): number {
   const parsed =
     typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
-  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_IMAGE_WIDTH_PERCENT;
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    return DEFAULT_IMAGE_WIDTH_PERCENT;
   return Math.min(100, Math.max(15, Math.round(parsed)));
 }
 
@@ -97,6 +99,7 @@ export type NoteExtensionOverrides = {
   noteLink?: AnyExtension;
   taskRef?: AnyExtension;
   collectionView?: AnyExtension;
+  fileAttachment?: AnyExtension;
 };
 
 export function buildNoteExtensions(
@@ -117,6 +120,7 @@ export function buildNoteExtensions(
     overrides.noteLink ?? NoteLink,
     overrides.taskRef ?? TaskRef,
     overrides.collectionView ?? CollectionView,
+    overrides.fileAttachment ?? FileAttachment,
     Tag,
     BlockIds,
   ];

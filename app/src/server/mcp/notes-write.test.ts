@@ -33,7 +33,14 @@ vi.mock("~/server/events/action-events", () => ({
   logActionEvent: db.logActionEvent,
 }));
 
-import { appendToNote, createNote, editNote, updateNote } from "./notes-write";
+import {
+  appendToNote,
+  attachToNote,
+  createNote,
+  editNote,
+  updateNote,
+} from "./notes-write";
+import { storeFileBytes } from "~/server/lib/doc-file-store";
 import { ConnectorError } from "./shared";
 
 const ctx = {
@@ -266,5 +273,138 @@ describe("editNote", () => {
       code: "invalid",
       message: expect.stringContaining("keep0001"),
     });
+  });
+});
+
+describe("attachToNote", () => {
+  const userNote = {
+    id: "u1",
+    title: "Trip",
+    path: "personal.trip",
+    originalSource: null,
+    html: "",
+    markdown: "",
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "first001" },
+          content: [{ type: "text", text: "Itinerary" }],
+        },
+        {
+          type: "paragraph",
+          attrs: { id: "last0001" },
+          content: [{ type: "text", text: "Packing" }],
+        },
+      ],
+    },
+  };
+
+  const withStoredFile = async <T>(run: (src: string) => Promise<T>) => {
+    const dir = await mkdtemp(path.join(tmpdir(), "vn-attach-"));
+    const previousDir = process.env.DOC_FILE_STORAGE_DIR;
+    process.env.DOC_FILE_STORAGE_DIR = dir;
+    try {
+      const stored = await storeFileBytes(Buffer.from("%PDF-1.7\n%%EOF"), {
+        name: "tickets.pdf",
+      });
+      return await run(stored.src);
+    } finally {
+      process.env.DOC_FILE_STORAGE_DIR = previousDir;
+      await rm(dir, { recursive: true, force: true });
+    }
+  };
+
+  beforeEach(() => {
+    db.doc.findUnique.mockResolvedValue(userNote);
+    db.$queryRaw.mockResolvedValue([{ ...userNote, contentVersion: 2 }]);
+  });
+
+  it("adds a card to the user's own note after the chosen block", async () => {
+    await withStoredFile(async (src) => {
+      const result = await attachToNote(ctx, {
+        id: "u1",
+        markdown: [`[tickets.pdf](${src})`],
+        afterBlockId: "first001",
+      });
+      const blocks = db.doc.update.mock.calls[0][0].data.content.content;
+      expect(blocks.map((b: { type: string }) => b.type)).toEqual([
+        "paragraph",
+        "fileAttachment",
+        "paragraph",
+      ]);
+      expect(blocks[1].attrs).toMatchObject({
+        src,
+        name: "tickets.pdf",
+        mime: "application/pdf",
+        size: 14,
+      });
+      expect(result.blockIds).toEqual([blocks[1].attrs.id]);
+      expect(result.alreadyAttached).toEqual([]);
+      expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
+        "chatgpt.attach",
+      );
+    });
+  });
+
+  it("does not attach the same file twice", async () => {
+    await withStoredFile(async (src) => {
+      const attached = {
+        ...userNote,
+        content: {
+          type: "doc",
+          content: [
+            ...userNote.content.content,
+            {
+              type: "fileAttachment",
+              attrs: { id: "file0001", src, name: "tickets.pdf" },
+            },
+          ],
+        },
+      };
+      db.doc.findUnique.mockResolvedValue(attached);
+      db.$queryRaw.mockResolvedValue([{ ...attached, contentVersion: 2 }]);
+      const result = await attachToNote(ctx, {
+        id: "u1",
+        markdown: [`[tickets.pdf](${src})`],
+      });
+      expect(result.blockIds).toEqual(["file0001"]);
+      expect(result.alreadyAttached).toEqual([src]);
+      const blocks = db.doc.update.mock.calls[0]?.[0].data.content.content;
+      expect(blocks ?? attached.content.content).toHaveLength(3);
+    });
+  });
+
+  it("refuses an unknown afterBlockId", async () => {
+    await withStoredFile(async (src) => {
+      await expect(
+        attachToNote(ctx, {
+          id: "u1",
+          markdown: [`[tickets.pdf](${src})`],
+          afterBlockId: "ghost",
+        }),
+      ).rejects.toMatchObject({
+        code: "invalid",
+        message: expect.stringContaining("ghost"),
+      });
+    });
+  });
+});
+
+describe("file links in agent markdown", () => {
+  it("refuses an attachment line for a file that was never stored", async () => {
+    db.doc.findUnique.mockResolvedValue(null);
+    db.doc.findFirst.mockResolvedValue(null);
+    await expect(
+      createNote(ctx, {
+        title: "Refs",
+        markdown: `[ghost.pdf](/api/doc-files/${"0".repeat(64)}/ghost.pdf)`,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid",
+      message: expect.stringContaining("not a stored file"),
+    });
+    expect(db.doc.create).not.toHaveBeenCalled();
   });
 });
