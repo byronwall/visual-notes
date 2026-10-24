@@ -49,7 +49,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Search",
       description:
-        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; use notes_get for full content. include adds research cards, tasks, and/or archived pages matched by the same words, each under its own key.",
+        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; semantic says whether meaning-based matches were used (loading: retry shortly for them), and truncated says more notes matched than limit. Use notes_get for full content. include adds research cards, tasks, and/or archived pages matched by the same words, each under its own key.",
       input: {
         query: z.string().min(1).describe("Keywords to look for"),
         path: z
@@ -76,7 +76,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
             })
           : {},
       ]);
-      return { notes, ...others };
+      return { ...notes, ...others };
     },
   );
 
