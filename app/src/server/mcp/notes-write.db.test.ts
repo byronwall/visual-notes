@@ -52,6 +52,10 @@ describe.skipIf(!enabled)("connector note writes (database)", () => {
       ["Book the room", "complete", "Inbox"],
     ]);
     expect(tasks.every((t) => t.sourceBlockId)).toBe(true);
+    expect(note.tasks?.map((t) => [t.id, t.status, t.created])).toEqual(
+      tasks.map((t) => [t.id, t.status, true]),
+    );
+    expect(note.notice).toBeUndefined();
     const markdown = (await read(note.id)).markdown;
     expect(markdown).toMatch(/- \[ \] Draft the brief \^\w+/);
     expect(markdown).toMatch(/- \[x\] Book the room \^\w+/);
@@ -72,6 +76,20 @@ describe.skipIf(!enabled)("connector note writes (database)", () => {
     const reopened = await prisma().taskItem.findUniqueOrThrow({ where: { id: task.id } });
     expect(reopened).toMatchObject({ status: "waiting", sourceDocId: note.id });
     expect(await prisma().taskItem.count({ where: { sourceDocId: note.id } })).toBe(1);
+  });
+
+  it("warns when one write files a procedure as many Inbox tasks", async () => {
+    const steps = Array.from({ length: 9 }, (_, i) => `- [ ] Step ${i + 1}`).join("\n");
+    const note = await create(`Replace the fan motor tonight.\n\n${steps}`);
+    expect(note.tasks).toHaveLength(9);
+    expect(note.notice).toMatch(/added 9 tasks/);
+    const blockId = (await read(note.id)).markdown.match(/Step 1 \^(\w+)/)![1];
+    const edited = await editNote(ctx, {
+      id: note.id,
+      edits: [{ op: "insert_after", blockId, markdown: "1. Turn off the breaker" }],
+    });
+    expect(edited.tasks?.every((t) => !t.created)).toBe(true);
+    expect(edited.notice).toBeUndefined();
   });
 
   it("writes [[links]] and #tags as real links and tags", async () => {

@@ -25,7 +25,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // mark work cancelled instead.
 
 export const TASK_INSTRUCTIONS =
-  "Tasks live in lists; Inbox also holds the task lines written in notes. tasks_query finds work (open tasks by default; inNotes for note task lines), tasks_create adds it, tasks_update changes status, dates, and tags (cancel instead of deleting), and tasks_move re-parents or files a task in another list.";
+  "Tasks live in lists; Inbox also holds the task lines written in notes. tasks_query finds work (open tasks by default; inNotes for note task lines), tasks_create adds it, tasks_update changes status, dates, and tags (cancel instead of deleting), and tasks_move re-parents or files a task in another list. dueDate is a day with no time and no reminder: tell the user 'due October 23', never a time of day.";
 
 const statusArg = z.enum(TASK_STATUSES);
 const listArg = z
@@ -163,7 +163,7 @@ export function registerTaskTools(tools: ToolRegistrar): void {
         list: listArg.optional(),
         parentTaskId: z.string().optional(),
         status: statusArg.optional(),
-        dueDate: dayArg.optional(),
+        dueDate: dayArg.optional().describe("Day it is due; tasks store no time"),
         durationMinutes: durationArg.optional(),
         tags: z.array(z.string().max(80)).optional(),
         meta: metaArg.optional(),
@@ -193,7 +193,10 @@ export function registerTaskTools(tools: ToolRegistrar): void {
               id: z.string().min(1),
               status: statusArg.optional(),
               description: z.string().min(1).max(4000).optional(),
-              dueDate: dayArg.nullable().optional(),
+              dueDate: dayArg
+                .nullable()
+                .optional()
+                .describe("Day it is due; tasks store no time"),
               durationMinutes: durationArg.nullable().optional(),
               tags: z.array(z.string().max(80)).optional(),
               meta: metaArg.nullable().optional(),

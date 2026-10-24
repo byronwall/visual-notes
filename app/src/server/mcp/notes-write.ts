@@ -35,6 +35,7 @@ import {
   type ConnectorContext,
 } from "./shared";
 import { normalizeNotePath } from "./paths";
+import { reportNoteTasks, type NoteTaskReport } from "./note-write-tasks";
 import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 import { publishAppChange } from "~/server/note-events";
 
@@ -46,7 +47,7 @@ export type WriteResult = {
   path: string | null;
   appUrl: string;
   version: number;
-};
+} & NoteTaskReport;
 
 export type CreateResult = WriteResult & {
   pathIsNew: boolean;
@@ -152,12 +153,14 @@ export async function createNote(
   const parsed = contentFromMarkdown(await storeInlineImages(input.markdown));
   await assertReferencesExist(parsed.content ?? []);
   await describeFileAttachments(parsed.content ?? []);
+  let written = parsed as NoteDoc;
   const created = await prisma.$transaction(async (tx) => {
     // Task lines become Inbox tasks; the index rebuild points them at the note.
     const content = await materializeTaskRefs(tx, {
       previous: null,
       next: parsed,
     });
+    written = content;
     const columns = contentColumns(content);
     const row = await tx.doc.create({
       data: {
@@ -190,6 +193,7 @@ export async function createNote(
     version: 1,
     pathIsNew,
     deduplicated: false,
+    ...(await reportNoteTasks(null, written)),
   };
 }
 
@@ -246,6 +250,8 @@ async function applyOwnedEdit(
     ...(changes.path !== undefined ? { path: changes.path } : {}),
   };
   let touchesTasks = false;
+  // Set inside the transaction; `as` keeps TS from narrowing it to null.
+  let taskDocs = null as { previous: NoteDoc; next: NoteDoc } | null;
   const updated = await prisma.$transaction(async (tx) => {
     // Lock and re-read inside the transaction so edits apply to the latest
     // blocks, not a copy read before a concurrent save.
@@ -290,6 +296,7 @@ async function applyOwnedEdit(
     touchesTasks = [current, next].some((d) =>
       JSON.stringify(d).includes('"taskRef"'),
     );
+    taskDocs = { previous: current, next };
     await writeNoteContent(tx, {
       docId: doc.id,
       doc: next,
@@ -321,6 +328,7 @@ async function applyOwnedEdit(
     ...updated,
     appUrl: noteAppUrl(ctx, doc.id),
     version: await countVersions(doc.id),
+    ...(taskDocs ? await reportNoteTasks(taskDocs.previous, taskDocs.next) : {}),
   };
 }
 
