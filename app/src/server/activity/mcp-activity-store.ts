@@ -19,7 +19,7 @@ export async function summarizeMcpActivity(
     eventType: { startsWith: MCP_CALL_EVENT_PREFIX },
     createdAt: { gte: since },
   };
-  const [byActor, byTool, grants] = await Promise.all([
+  const [byActor, byTool, grants, first] = await Promise.all([
     prisma.actionEvent.groupBy({
       by: ["actorId", "eventType"],
       where,
@@ -34,6 +34,11 @@ export async function summarizeMcpActivity(
     prisma.oAuthGrant.findMany({
       where: { revokedAt: null },
       select: { clientId: true, client: { select: { clientName: true } } },
+    }),
+    prisma.actionEvent.findFirst({
+      where: { eventType: { startsWith: MCP_CALL_EVENT_PREFIX } },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
     }),
   ]);
 
@@ -109,8 +114,14 @@ export async function summarizeMcpActivity(
       b.calls - a.calls || Number(b.connected) - Number(a.connected),
   );
   const tools = [...toolRows.values()].sort((a, b) => b.calls - a.calls);
+  const firstLoggedAt = first?.createdAt ?? null;
   return {
     days,
+    from: (firstLoggedAt && firstLoggedAt > since
+      ? firstLoggedAt
+      : since
+    ).toISOString(),
+    loggedSinceWindowStart: !firstLoggedAt || firstLoggedAt <= since,
     calls: allClients.reduce((sum, row) => sum + row.calls, 0),
     problems: allClients.reduce((sum, row) => sum + row.problems, 0),
     toolCount: tools.length,
