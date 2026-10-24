@@ -22,7 +22,7 @@ import {
 } from "./shared";
 import { buildPathTree, normalizeNotePath, type PathCount } from "./paths";
 import { fuseRankings, type FusedHit } from "./rank-fusion";
-import { semanticSearch } from "./semantic";
+import { semanticSearch, type SemanticResult } from "./semantic";
 import {
   collectionTextForNotes,
   type CollectionText,
@@ -38,22 +38,28 @@ export type SearchResult = NoteSummary & {
 export async function searchNotes(
   ctx: ConnectorContext,
   input: { query: string; path?: string; limit?: number },
-): Promise<SearchResult[]> {
+): Promise<{
+  notes: SearchResult[];
+  semantic: SemanticResult["status"];
+  truncated: boolean;
+}> {
   const limit = clampLimit(input.limit, 10, 25);
   const path = normalizeNotePath(input.path);
-  const [keywordHits, semanticHits] = await Promise.all([
+  const [keywordHits, meaning] = await Promise.all([
     searchDocs({ q: input.query, pathPrefix: path ?? undefined, take: limit }),
     semanticSearch(input.query, limit * 3),
   ]);
+  const semantic = meaning?.status ?? "off";
+  const semanticHits = meaning?.hits ?? [];
   const snippetById = new Map(
     keywordHits.map((hit) => [hit.id, hit.snippet ?? null]),
   );
   const candidates = fuseRankings(
     keywordHits.map((hit) => hit.id),
-    (semanticHits ?? []).map((hit) => hit.id),
+    semanticHits.map((hit) => hit.id),
     limit * 3,
   );
-  if (!candidates.length) return [];
+  if (!candidates.length) return { notes: [], semantic, truncated: false };
   const rows = await prisma.doc.findMany({
     where: {
       id: { in: candidates.map((hit) => hit.id) },
@@ -62,19 +68,22 @@ export async function searchNotes(
     select: summarySelect,
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
-  return candidates
-    .flatMap((hit) => {
-      const row = rowById.get(hit.id);
-      if (!row) return [];
-      return [
-        {
-          ...toSummary(ctx, row),
-          snippet: snippetById.get(hit.id) ?? null,
-          match: hit.match,
-        },
-      ];
-    })
-    .slice(0, limit);
+  const notes = candidates.flatMap((hit) => {
+    const row = rowById.get(hit.id);
+    if (!row) return [];
+    return [
+      {
+        ...toSummary(ctx, row),
+        snippet: snippetById.get(hit.id) ?? null,
+        match: hit.match,
+      },
+    ];
+  });
+  return {
+    notes: notes.slice(0, limit),
+    semantic,
+    truncated: notes.length > limit,
+  };
 }
 
 export async function listRecentNotes(
