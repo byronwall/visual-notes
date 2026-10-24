@@ -19,11 +19,11 @@ import type { ToolRegistrar } from "./tool-registry";
 
 export const NOTE_INSTRUCTIONS = [
   "Find: `search` with a few keywords (retry with synonyms; add include for research, tasks, or archive), notes_query for time-based questions, then notes_get for full content.",
-  "Save: call notes_list_paths, pick the best existing path or a sensible new sub-path, then notes_create. Tell the user the title, path, and appUrl.",
+  "Save: reuse a path you already know (from search, notes_get, or earlier in the chat); call notes_list_paths only when unsure, then notes_create with the best existing path or a sensible new sub-path. Tell the user the title, path, and appUrl.",
   "Edit: notes_get ends each block with a ` ^blockId` tag (on the next line for code blocks and tables). Use notes_edit_blocks with those ids to change only those blocks. Never send ^id tags back.",
   "Files: to put a file the user gave you (PDF, spreadsheet, document, zip, image, ...) on a note, call notes_attach_file with it in files and the note's id; it works on any note, the user's included, and only adds a block. Without a note id it returns markdown like [report.pdf](/api/doc-files/…) to place on its own line in notes_create, notes_append, or notes_edit_blocks. notes_get lists a note's attachments with a url that downloads each one.",
   "Images: notes_upload_image stores an image (a file the user gave you, base64 data, or a public url the server downloads) and returns markdown like ![alt](/api/doc-images/…). Inline data:image urls in note markdown are stored the same way. Other image urls stay as links to that site.",
-  "Markdown, both ways: [[Label|noteId]] or [[Label|noteId#blockId]] links a note (it must exist); #tag (starting with a letter) tags a block; a top-level `- [ ] task` / `- [x] task` line is a real task in the Inbox whose checkbox sets its status; `{{collection-view:viewId}}` on its own line is an embedded table, so keep it in place. Write \\# or \\[ for a literal character.",
+  "Markdown, both ways: [[Label|noteId]] or [[Label|noteId#blockId]] links a note (it must exist); #tag (starting with a letter) tags a block; a top-level `- [ ] task` / `- [x] task` line is a real task in the Inbox whose checkbox sets its status, so write one per commitment and put a procedure's steps in a numbered list under it (each write returns the note's tasks with ids; set a due day with tasks_update); `{{collection-view:viewId}}` on its own line is an embedded table, so keep it in place. Write \\# or \\[ for a literal character.",
 ].join("\n");
 
 const markdownArg = z

@@ -48,7 +48,7 @@ Agents get the same answer shapes from every family:
 | `notes_upload_image` | write | Store an image from `file` (a ChatGPT file), `data` (base64 or a data URL), or `url` (downloaded by the server); returns `{ url, src, markdown, mime, bytes }` to embed with a note write. Changes no note. |
 | `notes_attach_file` | write | Store any file from `files` (ChatGPT files), `data` + `name`, or `url`, and with `noteId` add it to that note (any note) as an attachment card, at the end or after `afterBlockId`. Returns `attached` (`name`, `display`, `mime`, `bytes`, `src`, `url`, `markdown`, `blockId`) and `note`. |
 
-Each note write snapshots a `DocRevision` first and logs `doc.create` or `doc.update`.
+Each note write snapshots a `DocRevision` first and logs `doc.create` or `doc.update`. When the note has task lines, the write's answer lists them under `tasks` (`id`, `description`, `status`, `dueDate` as a day, `created`), and a write that adds more than three new Inbox tasks gets a `notice` suggesting one task line plus a numbered procedure (`server/mcp/note-write-tasks.ts`).
 
 ### Images
 
