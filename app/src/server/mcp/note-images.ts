@@ -2,12 +2,12 @@ import {
   extractDataImageUrls,
   parseDataUrl,
   replaceDataUrls,
-  type PersistedImage,
 } from "~/server/lib/inline-image-migration";
 import {
   importImageFromUrl,
   ImageRejectedError,
   storeImageBytes as storeRasterBytes,
+  type StoredImage,
 } from "~/server/lib/doc-image-store";
 import { appLink, ConnectorError, type ConnectorContext } from "./shared";
 
@@ -25,6 +25,9 @@ export type UploadedImage = {
   markdown: string;
   mime: string;
   bytes: number;
+  /** Pixel size from the file's header, to check against what was intended. */
+  width: number | null;
+  height: number | null;
 };
 
 const asConnectorError = (error: unknown): never => {
@@ -33,11 +36,11 @@ const asConnectorError = (error: unknown): never => {
   throw error;
 };
 
-/** Checks the bytes are a raster image and stores them. */
+/** Checks the bytes are a whole raster image and stores them. */
 async function storeImageBytes(
   buffer: Buffer,
   label: string,
-): Promise<PersistedImage> {
+): Promise<StoredImage> {
   return storeRasterBytes(buffer, label).catch(asConnectorError);
 }
 
@@ -65,7 +68,7 @@ export async function uploadImage(
   if (!input.data === !input.url) {
     throw new ConnectorError("invalid", "Pass exactly one of data or url.");
   }
-  let stored: PersistedImage;
+  let stored: StoredImage;
   let bytes: number;
   if (input.data) {
     const buffer = decodeData(input.data);
@@ -82,6 +85,8 @@ export async function uploadImage(
     markdown: `![${escapeAlt(input.alt ?? "")}](${stored.publicUrl})`,
     mime: stored.mime,
     bytes,
+    width: stored.width,
+    height: stored.height,
   };
 }
 
