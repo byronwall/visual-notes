@@ -29,6 +29,7 @@ const shellClass = css({
   transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)",
   "&[data-dragging=true]": { transitionProperty: "none", zIndex: 2 },
   "&[data-faded=true]": { opacity: 0.5 },
+  "&[data-dimmed=true]": { opacity: 0.18 },
   "@media (prefers-reduced-motion: reduce)": { transitionProperty: "none" },
 });
 
@@ -66,6 +67,7 @@ export const CanvasCardNode = (props: {
   rect: Rect;
   factor: number;
   selected: boolean;
+  dimmed: boolean;
   dragging: boolean;
   onPointerDown: (event: PointerEvent) => void;
 }) => {
@@ -83,6 +85,7 @@ export const CanvasCardNode = (props: {
         height: `${props.rect.h}px`,
       }}
       data-faded={props.node.faded}
+      data-dimmed={props.dimmed}
       data-dragging={props.dragging}
     >
       <div

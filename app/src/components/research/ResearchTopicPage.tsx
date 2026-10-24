@@ -1,11 +1,12 @@
 import { A, useSearchParams } from "@solidjs/router";
-import { For, Show } from "solid-js";
+import { PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-solid";
+import { createEffect, createMemo, createSignal, For, on, onMount, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { countOpen } from "~/services/research/research.graph";
 import { TopicCanvas } from "./canvas/TopicCanvas";
 import { createTopicData } from "./createTopicData";
-import { CardDetailPanel } from "./detail/CardDetailPanel";
-import { TopicBatchList } from "./TopicBatchList";
+import { matchingIds } from "./inspector/contents";
+import { TopicInspector, type InspectorTab } from "./inspector/TopicInspector";
 import { TopicOutline } from "./TopicOutline";
 import { TopicTitle } from "./TopicTitle";
 
@@ -20,9 +21,13 @@ const tabClass = css({
   cursor: "pointer",
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
+  display: "inline-flex",
+  alignItems: "center",
   _hover: { bg: "bg.hover", color: "fg.default" },
   "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
 });
+
+const INSPECTOR_KEY = "research-inspector";
 
 const VIEWS = [
   { id: "canvas", label: "Canvas" },
@@ -37,6 +42,40 @@ export const ResearchTopicPage = (props: { slug: string }) => {
   const selected = () => (params.card ? (data.cardsById().get(params.card) ?? null) : null);
   const select = (id: string | null) => setParams({ card: id ?? undefined }, { replace: true });
   const plainCount = () => data.cards().filter((card) => card.type !== "summary").length;
+  const [query, setQuery] = createSignal("");
+  const matches = createMemo(() => matchingIds(data.cards(), query()));
+  // Picking a card opens it in the inspector; clearing the pick goes back to Contents.
+  const [tab, setTab] = createSignal<InspectorTab>(params.card ? "card" : "contents");
+  const [inspectorOpen, setInspectorOpen] = createSignal(true);
+  createEffect(
+    on(
+      () => params.card,
+      (card) => {
+        if (card) {
+          setTab("card");
+          setInspectorOpen(true);
+        } else if (tab() === "card") setTab("contents");
+      },
+      { defer: true },
+    ),
+  );
+  // Rendered open on the server; a saved "closed" applies after mount.
+  onMount(() => {
+    try {
+      if (localStorage.getItem(INSPECTOR_KEY) === "closed" && !params.card) setInspectorOpen(false);
+    } catch {
+      // Storage can be blocked; stay open.
+    }
+  });
+  const toggleInspector = () => {
+    const next = !inspectorOpen();
+    setInspectorOpen(next);
+    try {
+      localStorage.setItem(INSPECTOR_KEY, next ? "open" : "closed");
+    } catch {
+      // Not saved; the toggle still works for this visit.
+    }
+  };
 
   return (
     <Show
@@ -44,7 +83,10 @@ export const ResearchTopicPage = (props: { slug: string }) => {
       fallback={
         <Show when={data.graph.state === "ready"}>
           <p class={css({ p: "6", color: "fg.muted" })}>
-            Topic not found. <A href="/research" class={crumbLinkClass}>Back to Research</A>
+            Topic not found.{" "}
+            <A href="/research" class={crumbLinkClass}>
+              Back to Research
+            </A>
           </p>
         </Show>
       }
@@ -64,8 +106,13 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               borderColor: "border",
             })}
           >
-            <nav aria-label="Breadcrumb" class={css({ fontSize: "sm", display: "flex", alignItems: "center", gap: "1.5", minW: 0 })}>
-              <A href="/research" class={crumbLinkClass}>Research</A>
+            <nav
+              aria-label="Breadcrumb"
+              class={css({ fontSize: "sm", display: "flex", alignItems: "center", gap: "1.5", minW: 0 })}
+            >
+              <A href="/research" class={crumbLinkClass}>
+                Research
+              </A>
               <span class={css({ color: "fg.subtle" })}>/</span>
               <TopicTitle topic={graph().topic} onChanged={data.reload} />
             </nav>
@@ -88,23 +135,55 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 )}
               </For>
             </div>
+            <button
+              type="button"
+              class={tabClass}
+              aria-pressed={inspectorOpen()}
+              aria-label={inspectorOpen() ? "Hide inspector" : "Show inspector"}
+              title={inspectorOpen() ? "Hide inspector" : "Show inspector"}
+              onClick={toggleInspector}
+            >
+              <Show when={inspectorOpen()} fallback={<PanelRightOpenIcon size={16} />}>
+                <PanelRightCloseIcon size={16} />
+              </Show>
+            </button>
           </header>
           <div
             class={css({
               flex: 1,
               minH: 0,
               display: "grid",
-              gridTemplateColumns: { base: "1fr", lg: "minmax(0, 1fr) 20rem" },
+              gridTemplateColumns: { base: "1fr", lg: "minmax(0, 1fr) 22rem", "2xl": "minmax(0, 1fr) 26rem" },
               gridTemplateRows: { base: "minmax(0, 1fr) auto", lg: "minmax(0, 1fr)" },
+              "&[data-inspector=closed]": { gridTemplateColumns: "1fr", gridTemplateRows: "minmax(0, 1fr)" },
+              "&[data-inspector=closed] > aside": { display: "none" },
             })}
+            data-inspector={inspectorOpen() ? "open" : "closed"}
           >
             <main class={css({ minH: 0, overflow: view() === "canvas" ? "hidden" : "auto" })}>
               <Show
                 when={data.cards().length}
-                fallback={<p class={css({ color: "fg.muted", fontSize: "sm", p: "4" })}>Empty topic. Point an agent at it to start.</p>}
+                fallback={
+                  <p class={css({ color: "fg.muted", fontSize: "sm", p: "4" })}>
+                    Empty topic. Point an agent at it to start.
+                  </p>
+                }
               >
-                <Show when={view() === "canvas"} fallback={<div class={css({ px: "3", py: "2" })}><TopicOutline data={data} selectedId={selected()?.id ?? null} onSelect={select} /></div>}>
-                  <TopicCanvas data={data} selectedId={selected()?.id ?? null} onSelect={select} />
+                <Show
+                  when={view() === "canvas"}
+                  fallback={
+                    <div class={css({ px: "3", py: "2" })}>
+                      <TopicOutline
+                        data={data}
+                        selectedId={selected()?.id ?? null}
+                        matches={matches()}
+                        query={query()}
+                        onSelect={select}
+                      />
+                    </div>
+                  }
+                >
+                  <TopicCanvas data={data} selectedId={selected()?.id ?? null} matches={matches()} onSelect={select} />
                 </Show>
               </Show>
             </main>
@@ -113,15 +192,20 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 borderLeftWidth: { lg: "1px" },
                 borderTopWidth: { base: "1px", lg: "0" },
                 borderColor: "border",
-                overflowY: "auto",
-                maxH: { base: "45dvh", lg: "none" },
-                px: "3",
-                py: "2",
+                minH: 0,
+                h: { base: "45dvh", lg: "auto" },
               })}
             >
-              <Show when={selected()} fallback={<TopicBatchList data={data} nowMs={nowMs()} />}>
-                {(card) => <CardDetailPanel data={data} card={card()} onSelect={select} />}
-              </Show>
+              <TopicInspector
+                data={data}
+                tab={tab()}
+                onTab={setTab}
+                selected={selected()}
+                onSelect={select}
+                query={query()}
+                onQuery={setQuery}
+                nowMs={nowMs()}
+              />
             </aside>
           </div>
         </div>

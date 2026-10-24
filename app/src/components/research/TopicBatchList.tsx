@@ -49,9 +49,6 @@ export const TopicBatchList = (props: { data: TopicData; nowMs: number }) => {
 
   return (
     <section aria-label="Batch history">
-      <h2 class={css({ fontSize: "xs", fontWeight: "medium", color: "fg.subtle", textTransform: "uppercase", letterSpacing: "wider", mb: "1" })}>
-        History
-      </h2>
       <p class={css({ fontSize: "xs", color: "red.11", minH: "4", mb: "1" })} role="status">
         {error() ?? ""}
       </p>

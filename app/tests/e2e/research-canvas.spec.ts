@@ -127,6 +127,18 @@ test.describe("research topic canvas", () => {
     const questions = (await lanes.nth(3).boundingBox())!;
     expect(questions.x).toBeGreaterThan(options.x + 100);
     await shoot(page, "canvas-lanes");
+
+    // Searching the contents dims the canvas and highlights the match.
+    await page.getByLabel("Search cards").fill("northwind");
+    await expect(page.getByTestId("research-contents-row")).toHaveCount(5);
+    await expect(page.locator("[data-dimmed=true]").first()).toBeAttached();
+    await expect(page.getByTestId("research-contents").locator("mark").first()).toHaveText(/northwind/i);
+    await page.getByTestId("research-contents-row").filter({ hasText: "Northwind lower deductibles" }).click();
+    const detail = page.getByTestId("research-card-detail");
+    await expect(detail.getByRole("heading", { name: "Northwind lower deductibles" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Card" })).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "Contents" }).click();
+    await expect(page.getByLabel("Search cards")).toHaveValue("northwind");
   });
 
   test("outline view lists the same cards and opens details", async ({ page, request }) => {
@@ -136,5 +148,11 @@ test.describe("research topic canvas", () => {
     await expect(page.getByTestId("research-outline-row")).toHaveCount(38);
     await page.getByTestId("research-outline-row").filter({ hasText: "Why does Pin exist?" }).getByText("Why does Pin exist?").click();
     await expect(page.getByTestId("research-card-detail").getByRole("heading", { name: "Led to" })).toBeVisible();
+
+    // Collapsing a branch hides its rows and says how many are below.
+    await page.getByRole("button", { name: "Collapse all" }).click();
+    await expect(page.getByTestId("research-outline-row")).toHaveCount(1);
+    await page.getByRole("button", { name: "Expand all" }).click();
+    await expect(page.getByTestId("research-outline-row")).toHaveCount(38);
   });
 });

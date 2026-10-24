@@ -42,6 +42,8 @@ type Drag = {
 export const TopicCanvas = (props: {
   data: TopicData;
   selectedId: string | null;
+  /** Search matches; null shows everything at full strength. */
+  matches: Set<string> | null;
   onSelect: (cardId: string | null) => void;
 }) => {
   const store = createCanvasStore();
@@ -63,6 +65,39 @@ export const TopicCanvas = (props: {
 
   const [drag, setDrag] = createSignal<Drag | null>(null);
 
+  // A visible node matches when its card or any card folded into it matches.
+  const matchedNodes = createMemo(() => {
+    const ids = props.matches;
+    if (!ids) return null;
+    const rep = model.view().rep;
+    return new Set([...ids].map((id) => rep.get(id)).filter((id): id is string => !!id));
+  });
+
+  // Selection from the inspector or outline: bring the card (or the summary
+  // folding it) into view when it is off screen. Clicks on the canvas never move it.
+  createEffect(
+    on(
+      () => props.selectedId,
+      (id) => {
+        if (!id || !viewport) return;
+        const nodeId = model.view().rep.get(id) ?? id;
+        const rect = model.layout().rects.get(nodeId);
+        if (!rect) return;
+        const s = store.scale();
+        const t = store.offset();
+        const { w, h } = viewportSize();
+        const left = t.x + rect.x * s;
+        const top = t.y + rect.y * s;
+        const inView = left >= 0 && top >= 0 && left + rect.w * s <= w && top + rect.h * s <= h;
+        if (inView) return;
+        store.animateToView({
+          scale: s,
+          offset: { x: w / 2 - (rect.x + rect.w / 2) * s, y: h / 2 - (rect.y + rect.h / 2) * s },
+        });
+      },
+      { defer: true },
+    ),
+  );
   const nodeById = createMemo(() => new Map(model.view().nodes.map((node) => [node.id, node])));
   const nodeIds = createMemo(() => model.view().nodes.map((node) => node.id));
 
@@ -295,6 +330,7 @@ export const TopicCanvas = (props: {
                   rect={rectFor(id) ?? { x: 0, y: 0, w: 0, h: 0 }}
                   factor={model.factor()}
                   selected={props.selectedId === id}
+                  dimmed={!!matchedNodes() && !matchedNodes()!.has(id)}
                   dragging={drag()?.id === id && !!drag()?.moved}
                   onPointerDown={(event) => onCardPointerDown(id, event)}
                 />
