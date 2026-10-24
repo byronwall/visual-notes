@@ -181,6 +181,13 @@ export async function refreshLatestRun(options?: {
     if (latest) runIds.add(latest.id);
     if (map) runIds.add(map.embeddingRunId);
     for (const runId of runIds) await drainRun(deps, runId);
+    // Bring search's in-memory vectors up to date now, off the search path.
+    // The boot sweep lands here too, so the first search after a deploy is warm.
+    void import("~/server/mcp/semantic")
+      .then((semantic) => semantic.warmSemanticIndex())
+      .catch((error: unknown) =>
+        console.warn(`${LOG_PREFIX} search index warm-up failed`, error),
+      );
     if (options?.sweep && map) {
       await projectUnplaced(deps, map);
       // Retraining takes minutes, so it runs on its own and never blocks

@@ -406,7 +406,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     pageIds.push(page.id);
 
     const plain = await call(client, "search", { query: word });
-    expect(plain.json).toEqual({ notes: [] });
+    expect(plain.json).toEqual({ notes: [], semantic: "off", truncated: false });
     const grouped = await call(client, "search", {
       query: word,
       include: ["research", "tasks", "archive"],

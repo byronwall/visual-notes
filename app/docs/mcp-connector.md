@@ -202,7 +202,8 @@ Every agent write reaches open tabs over the `/ws/notes` socket ([live-note-upda
 
 When `OPENAI_API_KEY` is set and at least one embedding run exists (`/embeddings`), `search` also embeds the query with the newest run's model. It then ranks notes by cosine similarity against that run's doc vectors and merges the two lists with reciprocal rank fusion. Hits below a 0.25 similarity are dropped.
 
-- Doc vectors are loaded into memory once and reloaded only when the run's embedding count or newest row changes.
+- Doc vectors are loaded into memory once. When the run's embedding count or newest row changes, only rows the cache has not seen are decoded; a refresh deletes and recreates the rows it re-embeds, and decoding all 6,000 vectors took 10–12 s (the 20 s searches in the October 2026 MCP review). Each embedding refresh, including the boot sweep, then warms the index off the search path.
+- `search` waits at most 3 s (`SEMANTIC_BUDGET_MS`) for meaning-based matches. Past that it answers with keyword matches and `semantic: "loading"`, and the load continues. Every result says `semantic` (`used`, `off`, `loading`, or `failed`) and `truncated`.
 - After any connector write, the app waits 10 seconds and then embeds up to 25 missing and 25 changed notes into the newest run, using the same pipeline as a manual run. A note the agent just saved therefore becomes findable by meaning shortly after the save.
 - Without a key or a run, or if the provider call fails, `search` falls back to keyword-only results.
 
