@@ -153,6 +153,43 @@ describe.skipIf(!enabled)("collection tools (database)", () => {
     });
   });
 
+  it("adds rows in one call, reports a refused row, and flags copied bodies", async () => {
+    const client = await connect();
+    const name = `MCP batch ${Date.now()}`;
+    const created = await call(client, "collections_create", { name });
+    collectionIds.push(created.json.id);
+    const shared =
+      "**Auto-Owners:** Central Insurance Associates sent a draft quote; Liberty Mutual is pending.";
+
+    const bad = await call(client, "collections_add_rows", {
+      collection: name,
+      rows: [
+        { title: "A", values: { Status: "Done" } },
+        { title: "B", values: { Nope: "x" } },
+      ],
+    });
+    expect(bad.error).toBe(true);
+    expect(await prisma().doc.count({ where: { collectionId: created.json.id } })).toBe(0);
+
+    const result = await call(client, "collections_add_rows", {
+      collection: name,
+      rows: [
+        { title: "Auto-Owners", markdown: shared, values: { Status: "In progress" } },
+        { title: "State Farm", markdown: `${shared}\n\nState Farm route not done.` },
+        { title: "Ghost", markdown: "See [[Missing|no_such_note]]" },
+      ],
+    });
+    docIds.push(...result.json.rows.map((r: Json) => r.id));
+    expect(result.json.rows.map((r: Json) => [r.index, r.title])).toEqual([
+      [0, "Auto-Owners"],
+      [1, "State Farm"],
+    ]);
+    expect(result.json.failed).toMatchObject([
+      { index: 2, title: "Ghost", error: expect.stringMatching(/does not exist/) },
+    ]);
+    expect(result.json.notice).toMatch(/2 rows open with the same text/);
+  });
+
   it("moves notes in and out, and embeds a view in a note it owns", async () => {
     const client = await connect();
     const userNote = await prisma().doc.create({

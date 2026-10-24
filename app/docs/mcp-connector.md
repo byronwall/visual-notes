@@ -15,7 +15,7 @@ The server is built per request in `server/mcp/tools.ts`, which makes one regist
 
 ## Tools
 
-64 tools. Reads need the `notes:read` scope and writes need `notes:write`.
+65 tools. Reads need the `notes:read` scope and writes need `notes:write`.
 
 Every family registers through `tools.read` / `tools.write` in `server/mcp/tool-registry.ts`. That registrar sets the scope from read vs. write, the annotations, the `[mcp]` log line, and how store errors become refusals. ZodError, `ResearchIngestError`, `TimeBlockInputError`, and plain "not found" / "invalid" errors become `invalid` or `not_found`. Each family file exports one `register*Tools(tools)` and a line for the server instructions. `handler.ts` derives the per-tool `securitySchemes` from the same read/write annotation, so there is no scope table to keep in sync.
 
@@ -127,6 +127,7 @@ Rows are notes, so a new row is a note the agent owns. Agents name properties an
 | `collections_create` / `collections_update`                | write | New collection (Status, Tags, plus any properties); rename or describe                                                                                          |
 | `collections_add_property` / `collections_update_property` | write | Add a property; rename one or add options                                                                                                                       |
 | `collections_add_row`                                      | write | A new note in the collection with values; the body is optional                                                                                                  |
+| `collections_add_rows`                                     | write | Up to 50 new rows in one call. All values are checked first; a row whose body is refused is listed under `failed` with its `index`. Rows whose first paragraph repeats get a `notice`. |
 | `collections_set_values`                                   | write | Up to 200 rows, each with its own values; validated before anything is written                                                                                  |
 | `collections_add_notes` / `collections_remove_notes`       | write | Membership. Moving carries values by name; removing keeps them stored.                                                                                          |
 | `collections_create_view`                                  | write | Table, board, gallery, or calendar with filters and sorts. With `hostNoteId` (an agent note), it returns the `{{collection-view:id}}` line to put in that note. |
