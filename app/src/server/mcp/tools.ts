@@ -11,6 +11,7 @@ import {
   registerNoteContextTools,
 } from "./notes-context-tools";
 import { NOTE_INSTRUCTIONS, registerNoteTools } from "./notes-tools";
+import { registerNoteFileTools } from "./note-files-tools";
 import { registerResearchTools, RESEARCH_INSTRUCTIONS } from "./research-tools";
 import type { ConnectorContext } from "./shared";
 import { registerTaskTools, TASK_INSTRUCTIONS } from "./tasks-tools";
@@ -45,6 +46,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   );
   const tools = createToolRegistrar(server, ctx);
   registerNoteTools(tools);
+  registerNoteFileTools(tools);
   registerNoteContextTools(tools);
   registerResearchTools(tools);
   registerTaskTools(tools);

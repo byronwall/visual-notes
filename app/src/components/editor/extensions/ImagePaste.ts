@@ -12,6 +12,7 @@ import {
   type UploadSpec,
 } from "../images/imagePasteState";
 import { imageDimensions } from "../images/prepareImage";
+import { blockAnchor } from "../core/blockAnchor";
 import {
   currentOrigin,
   imageSourceHost,
@@ -168,32 +169,6 @@ export const ImagePaste = Extension.create<object, ImagePasteStorage>({
           });
         }
       });
-    };
-
-    /**
-     * Images are blocks, so uploads wait between blocks: before an empty or
-     * not-yet-typed line, after a finished one, or in a split of the line.
-     * Inside a paragraph, the first insert would swallow the others' spot.
-     * A drop's position is only roughly aimed, so it snaps to the nearer
-     * edge of the line instead of splitting a word.
-     */
-    const blockAnchor = (
-      view: EditorView,
-      pos: number,
-      mode: "split" | "nearest",
-    ): number => {
-      const $pos = view.state.doc.resolve(pos);
-      const parent = $pos.parent;
-      if (!parent.isTextblock || $pos.depth === 0) return pos;
-      const offset = $pos.parentOffset;
-      const size = parent.content.size;
-      if (size === 0 || offset === 0) return $pos.before();
-      if (offset === size) return $pos.after();
-      if (mode === "nearest") {
-        return offset < size / 2 ? $pos.before() : $pos.after();
-      }
-      view.dispatch(view.state.tr.split(pos));
-      return pos + 1;
     };
 
     const insertFiles = (

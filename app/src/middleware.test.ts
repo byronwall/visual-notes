@@ -125,6 +125,29 @@ describe("MCP connector boundary", () => {
   });
 });
 
+describe("note file attachments", () => {
+  const file = `/api/doc-files/${"a".repeat(64)}/report.pdf`;
+
+  it("serves stored files by hash so shared notes can download them", () => {
+    expect(isAllowedUnauthed(serverRequest(file))).toBe(true);
+    expect(isAllowedUnauthed(serverRequest(file, { method: "HEAD" }))).toBe(
+      true,
+    );
+  });
+
+  it("keeps uploads and other paths behind login", () => {
+    expect(
+      isAllowedUnauthed(serverRequest("/api/doc-files", { method: "POST" })),
+    ).toBe(false);
+    expect(isAllowedUnauthed(serverRequest(file, { method: "DELETE" }))).toBe(
+      false,
+    );
+    expect(
+      isAllowedUnauthed(serverRequest("/api/doc-files/nothex/report.pdf")),
+    ).toBe(false);
+  });
+});
+
 describe("calendar feed boundary", () => {
   it("lets /cal/<token>.ics through so the route can check its token", () => {
     expect(isAllowedUnauthed(serverRequest("/cal/abc123.ics"))).toBe(true);

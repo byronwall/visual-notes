@@ -613,6 +613,28 @@
     border-radius: 10px;
   }
 
+  /* File attachments in read-only note HTML (the editor uses its own card). */
+  .prose div[data-file-attachment][data-src] > a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radii-l2);
+    background: var(--colors-bg-subtle);
+    color: var(--colors-fg-default);
+    font-family: var(--fonts-mono);
+    font-size: var(--font-sizes-sm);
+    text-decoration: none;
+    transition: background 120ms ease-out;
+  }
+  .prose div[data-file-attachment][data-src] > a::before {
+    content: "📎";
+    font-family: initial;
+  }
+  .prose div[data-file-attachment][data-src] > a:hover {
+    background: var(--colors-bg-hover);
+  }
+
   /* Make AI HTML blocks inherit link styling */
   .ai-html a {
     color: var(--colors-fg-link);

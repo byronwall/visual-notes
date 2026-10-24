@@ -41,7 +41,7 @@ async function storeImageBytes(
   return storeRasterBytes(buffer, label).catch(asConnectorError);
 }
 
-function decodeData(data: string): Buffer {
+export function decodeData(data: string): Buffer {
   const trimmed = data.trim();
   if (trimmed.startsWith("data:")) {
     try {

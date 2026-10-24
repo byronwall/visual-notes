@@ -64,7 +64,7 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 64;
+const EXPECTED_TOOL_COUNT = 65;
 const FAMILIES = [
   "notes_",
   "research_",
@@ -201,6 +201,57 @@ const svgRefused = await call("notes_upload_image", {
 });
 check(svgRefused.isError, "notes_upload_image refuses SVG");
 
+// File attachments: any file type, attached straight to a note.
+const attachTool = tools.tools.find((t) => t.name === "notes_attach_file");
+check(
+  JSON.stringify(attachTool?._meta) ===
+    JSON.stringify({ "openai/fileParams": ["files"] }),
+  "notes_attach_file declares ChatGPT file params",
+);
+const pdfBytes = Buffer.from(`%PDF-1.4\n% ${fixture}\n%%EOF\n`);
+const attachedPdf = await call("notes_attach_file", {
+  data: pdfBytes.toString("base64"),
+  name: `smoke ${runId}.pdf`,
+  noteId: note.id,
+});
+const pdf = attachedPdf.structuredContent?.attached?.[0];
+check(
+  !attachedPdf.isError &&
+    pdf?.display === "file" &&
+    /^\/api\/doc-files\/[a-f0-9]{64}\//.test(pdf?.src ?? ""),
+  "notes_attach_file stores a PDF and attaches it",
+);
+const servedPdf = await fetch(new URL(pdf?.src ?? "/", url));
+check(
+  servedPdf.ok &&
+    servedPdf.headers.get("content-type") === "application/pdf" &&
+    Buffer.from(await servedPdf.arrayBuffer()).equals(pdfBytes),
+  "the attached file is served back byte for byte",
+);
+const again = await call("notes_attach_file", {
+  data: pdfBytes.toString("base64"),
+  name: `smoke ${runId}.pdf`,
+  noteId: note.id,
+});
+check(
+  again.structuredContent?.attached?.[0]?.alreadyAttached === true &&
+    again.structuredContent?.attached?.[0]?.blockId === pdf?.blockId,
+  "attaching the same file again reuses its block",
+);
+const withFile = await call("notes_get", { ids: [note.id] });
+const attachments = withFile.structuredContent?.notes?.[0]?.attachments ?? [];
+check(
+  attachments.length === 1 &&
+    attachments[0].bytes === pdfBytes.length &&
+    attachments[0].mime === "application/pdf",
+  "notes_get lists the attachment with its size and type",
+);
+const ghost = await call("notes_append", {
+  id: note.id,
+  markdown: `[ghost.pdf](/api/doc-files/${"0".repeat(64)}/ghost.pdf)`,
+});
+check(ghost.isError, "an attachment line for an unstored file is refused");
+
 const found = await call("search", { query: "MCP smoke plan" });
 check(
   found.structuredContent?.notes?.some((r: { id: string }) => r.id === note.id),
@@ -229,6 +280,16 @@ if (humanNoteId) {
   check(
     refused.isError && refused.content[0]?.text?.startsWith("not_owner"),
     "update of a user note is refused",
+  );
+  const attachedToUser = await call("notes_attach_file", {
+    data: Buffer.from(`${fixture} attachment\n`).toString("base64"),
+    name: `${fixture}.txt`,
+    noteId: humanNoteId,
+  });
+  check(
+    !attachedToUser.isError &&
+      attachedToUser.structuredContent?.attached?.[0]?.blockId,
+    "a file can be attached to a user note",
   );
 }
 

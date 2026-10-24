@@ -8,6 +8,8 @@ import { CustomTableHeader } from "./CustomTableHeader";
 import { CustomTableCell } from "./CustomTableCell";
 import { CsvPaste } from "./CsvPaste";
 import { ImagePaste } from "./ImagePaste";
+import { FilePaste } from "./FilePaste";
+import { FileAttachmentNode } from "./FileAttachmentNode";
 import { MarkdownPaste } from "./MarkdownPaste";
 import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { SelectionMarkShortcuts } from "./SelectionMarkShortcuts";
@@ -52,6 +54,7 @@ export function buildExtensions(
       tableHeader: CustomTableHeader,
       tableCell: CustomTableCell,
       taskRef: TaskRefEditor,
+      fileAttachment: FileAttachmentNode,
       collectionView: CollectionViewNode.configure({
         owner: embed?.owner ?? null,
         noteId: embed?.noteId,
@@ -62,6 +65,7 @@ export function buildExtensions(
     SlashCommands,
     NoteLinkSuggestion,
     TagSuggestion,
+    FilePaste,
     ImagePaste,
     CsvPaste.configure({ onPrompt: csvPrompt }),
     // MarkdownPaste will read prompt from registry; no need to pass here

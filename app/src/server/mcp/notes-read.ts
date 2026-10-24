@@ -1,11 +1,16 @@
 import { searchDocs } from "~/features/docs-index/data/docs.queries.search";
 import { prisma } from "~/server/db";
 import { toMarkdown } from "~/lib/note-content/convert";
+import type { NoteNode } from "~/lib/note-content/types";
 import { resolveNoteReferences } from "~/server/notes/note-links";
 import { readMeta } from "~/server/notes/note-meta";
 import { readNoteContent } from "~/server/notes/note-store";
-import { collectionViewIds } from "~/lib/note-content/note-markdown";
 import {
+  collectionViewIds,
+  fileAttachmentNodes,
+} from "~/lib/note-content/note-markdown";
+import {
+  appLink,
   CHATGPT_SOURCE,
   isAgentNote,
   parseSince,
@@ -131,7 +136,29 @@ export type FullNote = NoteSummary & {
   collection?: CollectionText;
   /** Collection views embedded in the note as `{{collection-view:id}}` lines. */
   embeds?: EmbeddedView[];
+  /** Files attached to the note (`[name](/api/doc-files/…)` lines). */
+  attachments?: NoteAttachment[];
 };
+
+export type NoteAttachment = {
+  blockId: string;
+  name: string;
+  mime: string | null;
+  bytes: number | null;
+  /** Full web address that opens or downloads the file. */
+  url: string;
+};
+
+function attachmentsField(ctx: ConnectorContext, content: NoteNode[]) {
+  const attachments = fileAttachmentNodes(content).map((node) => ({
+    blockId: String(node.attrs?.id ?? ""),
+    name: String(node.attrs?.name ?? "file"),
+    mime: (node.attrs?.mime as string | null) ?? null,
+    bytes: (node.attrs?.size as number | null) ?? null,
+    url: appLink(ctx, String(node.attrs?.src)),
+  }));
+  return attachments.length ? { attachments } : {};
+}
 
 export type EmbeddedView = {
   viewId: string;
@@ -217,6 +244,7 @@ export async function getNotes(
       meta: readMeta(row.meta),
       ...(collectionText[id] ? { collection: collectionText[id] } : {}),
       ...embedsField(viewIdsById.get(id) ?? [], views),
+      ...attachmentsField(ctx, contentById.get(id)!.content ?? []),
     });
   }
   return { notes, missing };

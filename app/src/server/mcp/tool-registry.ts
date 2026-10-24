@@ -45,6 +45,8 @@ type ToolSpec<S extends z.ZodRawShape> = {
   idempotent?: boolean;
   /** Reaches a service outside the app. */
   openWorld?: boolean;
+  /** Top-level inputs ChatGPT fills with files the user gave it. */
+  fileParams?: string[];
 };
 
 /** Every tool answers with a JSON object; lists sit under a named key. */
@@ -223,6 +225,9 @@ export function createToolRegistrar(
           title: spec.title,
           description: spec.description,
           inputSchema: spec.input ?? ({} as S),
+          ...(spec.fileParams
+            ? { _meta: { "openai/fileParams": spec.fileParams } }
+            : {}),
           annotations: {
             readOnlyHint: readOnly,
             destructiveHint: spec.destructive ?? false,
