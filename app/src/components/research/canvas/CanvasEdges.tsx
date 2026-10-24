@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import type { FoldView } from "../layout/fold";
-import { edgePath, type Rect } from "../layout/tree-layout";
+import { edgePath, type LaneLabel, type Rect } from "../layout/tree-layout";
 
 const svgClass = css({
   position: "absolute",
@@ -15,24 +15,26 @@ const svgClass = css({
   "@media (prefers-reduced-motion: reduce)": { "& path": { transitionProperty: "none" } },
 });
 
-/** Came-from edges (solid), relates-to links (dashed blue), extra came-from edges for the selection. */
+/**
+ * Came-from edges (solid; one per laned block), plus relates-to links (dashed
+ * blue) and extra came-from edges, which only show for the selected card.
+ */
 export const CanvasEdges = (props: {
   view: FoldView;
   rects: Map<string, Rect>;
+  lanes: LaneLabel[];
+  laned: Set<string>;
   factor: number;
   selectedId: string | null;
 }) => {
   const tree = () =>
     [...props.view.parent.entries()]
-      .filter((entry): entry is [string, string] => entry[1] !== null)
+      .filter((entry): entry is [string, string] => entry[1] !== null && !props.laned.has(entry[0]))
       .map(([child, parent]) => ({ child, parent }));
+  const blocks = () => props.lanes.filter((lane) => lane.first);
   const stroke = () => Math.max(1, props.factor) * 1.25;
-  // Extra came-from edges into a summary only show for the selected card; drawn
-  // all at once they cut across the columns.
-  const extra = () =>
-    props.view.edges.filter(
-      (edge) => edge.kind === "relates" || edge.from === props.selectedId || edge.to === props.selectedId,
-    );
+  // Drawn all at once these cut across the columns, so only the selection's show.
+  const extra = () => props.view.edges.filter((edge) => edge.from === props.selectedId || edge.to === props.selectedId);
 
   return (
     <svg class={svgClass} aria-hidden="true">
@@ -44,6 +46,15 @@ export const CanvasEdges = (props: {
               stroke="var(--colors-gray-a7)"
               stroke-width={stroke()}
             />
+          </Show>
+        )}
+      </For>
+      <For each={blocks()}>
+        {(lane) => (
+          <Show when={props.rects.get(lane.parentId)}>
+            {(parent) => (
+              <path d={edgePath(parent(), lane.rect)} stroke="var(--colors-gray-a7)" stroke-width={stroke()} />
+            )}
           </Show>
         )}
       </For>

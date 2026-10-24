@@ -6,7 +6,7 @@ import type {
   ResearchSummaryGroup,
 } from "~/services/research/research.types";
 import { foldView, levelForScale } from "./fold";
-import { layoutTree } from "./tree-layout";
+import { hullRect, layoutForAspect, layoutTree } from "./tree-layout";
 
 let order = 0;
 const card = (
@@ -58,9 +58,7 @@ describe("foldView", () => {
   it("shows every plain card at level 0 and draws groups as hulls", () => {
     const view = foldView({ cards: base(), groups: [group("gA", "sA", ["a", "a1", "a2"])], level: 0 });
     expect(visibleIds(view)).toEqual(["a", "a1", "a2", "b", "b1", "root"]);
-    expect(view.hulls.map((hull) => [hull.groupId, hull.memberNodeIds.sort()])).toEqual([
-      ["gA", ["a", "a1", "a2"]],
-    ]);
+    expect(view.hulls.map((hull) => [hull.groupId, hull.memberNodeIds.sort()])).toEqual([["gA", ["a", "a1", "a2"]]]);
     expect(view.maxLevel).toBe(1);
   });
 
@@ -93,11 +91,7 @@ describe("foldView", () => {
       card("sX", null, "summary"),
       card("sY", null, "summary"),
     ];
-    const view = foldView({
-      cards,
-      groups: [group("gX", "sX", ["x"]), group("gY", "sY", ["y"])],
-      level: 1,
-    });
+    const view = foldView({ cards, groups: [group("gX", "sX", ["x"]), group("gY", "sY", ["y"])], level: 1 });
     expect(visibleIds(view)).toEqual(["q", "sX", "sY", "z"]);
     expect(view.nodes.find((node) => node.id === "sX")).toMatchObject({ coveredCount: 2, openInside: 1 });
     expect(view.parent.get("z")).toBe("q");
@@ -105,11 +99,7 @@ describe("foldView", () => {
   });
 
   it("never folds a draft group", () => {
-    const view = foldView({
-      cards: base(),
-      groups: [group("gA", "sA", ["a", "a1", "a2"], "draft")],
-      level: 3,
-    });
+    const view = foldView({ cards: base(), groups: [group("gA", "sA", ["a", "a1", "a2"], "draft")], level: 3 });
     expect(visibleIds(view)).toEqual(["a", "a1", "a2", "b", "b1", "root"]);
     expect(view.hulls[0]).toMatchObject({ groupId: "gA", status: "draft" });
   });
@@ -203,5 +193,77 @@ describe("layoutTree", () => {
     const plain = layoutTree(view).rects.get("b1")!;
     const nudged = layoutTree(view, new Map([["b1", { x: 30, y: -10 }]])).rects.get("b1")!;
     expect([nudged.x - plain.x, nudged.y - plain.y]).toEqual([30, -10]);
+  });
+});
+
+describe("layoutTree lanes", () => {
+  // A star like a product comparison: one question with many direct children.
+  const star = () => [
+    card("q", null, "question", "open"),
+    card("crit", "q", "criterion"),
+    ...Array.from({ length: 9 }, (_, i) => card(`o${i}`, "q", "option")),
+    card("f", "q", "finding"),
+    ...Array.from({ length: 6 }, (_, i) => card(`q${i}`, "q", "question", "open")),
+    card("s", "q", "source"),
+  ];
+  const overlaps = (rects: Map<string, { x: number; y: number; w: number; h: number }>) => {
+    const all = [...rects.entries()];
+    const hits: string[] = [];
+    for (const [idA, a] of all) {
+      for (const [idB, b] of all) {
+        if (idA >= idB) continue;
+        if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) hits.push(`${idA}/${idB}`);
+      }
+    }
+    return hits;
+  };
+
+  it("splits a busy branch into type sections in a fixed order", () => {
+    const view = foldView({ cards: star(), groups: [], level: 0 });
+    const layout = layoutTree(view);
+    expect(layout.lanes.map((lane) => [lane.type, lane.count])).toEqual([
+      ["criterion", 1],
+      ["option", 9],
+      ["finding", 1],
+      ["question", 6],
+      ["source", 1],
+    ]);
+    expect(layout.lanes.filter((lane) => lane.first)).toHaveLength(1);
+    expect(layout.laned.size).toBe(18);
+    expect(overlaps(layout.rects)).toEqual([]);
+  });
+
+  it("wraps sections into columns no taller than the wrap height", () => {
+    const view = foldView({ cards: star(), groups: [], level: 0 });
+    const tall = layoutTree(view, new Map(), { wrapHeight: Number.POSITIVE_INFINITY });
+    const wrapped = layoutTree(view, new Map(), { wrapHeight: 400 });
+    expect(wrapped.bounds.h).toBeLessThan(tall.bounds.h);
+    expect(new Set([...wrapped.rects.values()].map((rect) => rect.x)).size).toBeGreaterThan(3);
+    expect(overlaps(wrapped.rects)).toEqual([]);
+    for (const lane of wrapped.lanes) {
+      for (const id of lane.memberIds) expect(wrapped.rects.get(id)!.x).toBeGreaterThan(wrapped.rects.get("q")!.x);
+    }
+  });
+
+  it("picks the wrap height that matches the viewport shape", () => {
+    const view = foldView({ cards: star(), groups: [], level: 0 });
+    const wide = layoutForAspect(view, new Map(), 2).bounds;
+    const narrow = layoutForAspect(view, new Map(), 0.5).bounds;
+    expect(wide.w / wide.h).toBeGreaterThan(narrow.w / narrow.h);
+    expect(Math.abs(Math.log(wide.w / wide.h / 2))).toBeLessThan(0.7);
+  });
+
+  it("keeps a hull cluster in its own columns so its box covers only members", () => {
+    const cards = [...star(), card("sum", null, "summary")];
+    const members = ["crit", ...Array.from({ length: 9 }, (_, i) => `o${i}`), "f"];
+    const view = foldView({ cards, groups: [group("g", "sum", members, "draft")], level: 0 });
+    const layout = layoutTree(view, new Map(), { wrapHeight: 600 });
+    const hull = hullRect(view.hulls[0], layout.rects, layout.lanes)!;
+    for (const [id, rect] of layout.rects) {
+      if (members.includes(id)) continue;
+      const inside =
+        rect.x < hull.x + hull.w && hull.x < rect.x + rect.w && rect.y < hull.y + hull.h && hull.y < rect.y + rect.h;
+      expect(inside, `${id} inside the hull`).toBe(false);
+    }
   });
 });

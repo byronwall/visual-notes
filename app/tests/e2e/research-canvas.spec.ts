@@ -33,19 +33,22 @@ test.describe("research topic canvas", () => {
     await expect(page.getByTestId("research-canvas-hull")).toHaveCount(4);
     await shoot(page, "canvas-detail-drafts");
 
-    // Drafts never fold: zooming out before accepting keeps every card.
-    await page.getByRole("button", { name: "Summaries", exact: true }).click();
-    await expect(canvas(page)).toHaveAttribute("data-band", "1");
-    await expect(canvas(page)).toHaveAttribute("data-level", "0");
-    await expect(page.getByText("Accept draft summaries to fold")).toBeVisible();
+    // Drafts never fold, so there are no zoom levels yet; the toolbar offers review instead.
+    await expect(page.getByRole("button", { name: "Summaries", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "4 summaries to review" }).click();
+    const detail = page.getByTestId("research-card-detail");
+    await expect(detail.getByText("Draft summary.")).toBeVisible();
+    await expect(page.getByTestId("research-canvas-hull").and(page.locator("[data-selected=true]"))).toHaveCount(1);
     await expect(page.getByTestId("research-canvas-card")).toHaveCount(38);
 
     // Fit shows every hull label; accepting a leaf summary may fold it right away.
     await page.getByRole("button", { name: "Fit", exact: true }).click();
+    const hullAccept = page.getByTestId("research-canvas-hull").getByRole("button", { name: "Accept", exact: true });
     for (let i = 0; i < 4; i++) {
-      await page.getByTestId("research-canvas-hull").getByRole("button", { name: "Accept", exact: true }).first().click();
-      await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(3 - i);
+      await hullAccept.first().click();
+      await expect(hullAccept).toHaveCount(3 - i);
     }
+    await expect(page.getByRole("button", { name: /to review/ })).toHaveCount(0);
     await shoot(page, "canvas-detail-accepted");
 
     await page.getByRole("button", { name: "Summaries", exact: true }).click();
@@ -65,7 +68,6 @@ test.describe("research topic canvas", () => {
 
     // Selecting a folded summary shows what it covers; selection lives in the URL.
     await cardByTitle(page, "Async Rust: poll-driven state machines").click();
-    const detail = page.getByTestId("research-card-detail");
     await expect(detail.getByRole("heading", { name: "Covers" })).toBeVisible();
     await expect(page).toHaveURL(/card=/);
     await shoot(page, "canvas-overview-selected");
@@ -79,8 +81,8 @@ test.describe("research topic canvas", () => {
     await waitForAppReady(page);
     // Fit picks a new scale after a nudge grows the bounds, so measure at 100%.
     const atDetail = async () => {
-      await page.getByRole("button", { name: "Detail", exact: true }).click();
-      await expect(page.getByRole("toolbar").getByText("100%")).toBeVisible();
+      await page.getByRole("button", { name: /reset to 100%/ }).click();
+      await expect(page.getByRole("toolbar", { name: "Canvas view" }).getByText("100%")).toBeVisible();
     };
     await atDetail();
     const card = cardByTitle(page, "Try the pin! macro in a small example");
@@ -109,6 +111,22 @@ test.describe("research topic canvas", () => {
     const after = await relative();
     expect(Math.abs(after.y - moved.y)).toBeLessThan(2);
     expect(Math.abs(after.x - moved.x)).toBeLessThan(2);
+  });
+
+  test("a busy branch wraps into labeled type lanes that fit the viewport", async ({ page, request }) => {
+    const wide = resolve(process.cwd(), "tests/fixtures/research/wide-comparison.json");
+    const topic = await createResearchTopicFixture(request, wide, `Lanes e2e ${uniqueSuffix()}`);
+    await page.goto(`/research/${topic.slug}`);
+    await waitForAppReady(page);
+    const lanes = page.getByTestId("research-canvas-lane");
+    await expect(lanes).toHaveText([/Criteria\s*1/, /Options\s*9/, /Findings\s*1/, /Questions\s*6/, /Sources\s*1/]);
+    // Opens at a readable zoom with the lanes side by side, not one tall column.
+    const zoom = Number((await page.getByRole("button", { name: /reset to 100%/ }).innerText()).replace("%", ""));
+    expect(zoom).toBeGreaterThanOrEqual(60);
+    const options = (await lanes.nth(1).boundingBox())!;
+    const questions = (await lanes.nth(3).boundingBox())!;
+    expect(questions.x).toBeGreaterThan(options.x + 100);
+    await shoot(page, "canvas-lanes");
   });
 
   test("outline view lists the same cards and opens details", async ({ page, request }) => {

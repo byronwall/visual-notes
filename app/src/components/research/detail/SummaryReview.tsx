@@ -37,6 +37,7 @@ export const SummaryReview = (props: {
   const runUpdate = useAction(updateResearchSummary);
   const runDiscard = useAction(discardResearchSummary);
   const [editing, setEditing] = createSignal(false);
+  const cardCount = () => props.group.memberIds.length;
   const [title, setTitle] = createSignal("");
   const [body, setBody] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -81,10 +82,15 @@ export const SummaryReview = (props: {
 
   return (
     <div class={css({ mt: "2" })}>
-      <p class={css({ fontSize: "sm", color: props.group.status === "draft" ? "amber.11" : "fg.muted" })}>
-        {props.group.status === "draft"
-          ? "Draft: review it, then accept so it folds on the canvas."
-          : "Accepted: folds its cards when you zoom out."}
+      <p class={css({ fontSize: "sm", color: "fg.muted" })}>
+        <Show
+          when={props.group.status === "draft"}
+          fallback={<>Accepted. Its {cardCount()} cards collapse into this one when you zoom out to Summaries.</>}
+        >
+          <span class={css({ color: "amber.11", fontWeight: "medium" })}>Draft summary.</span> An agent wrote this
+          roll-up of {cardCount()} cards. Accept it if it reads right, and those cards collapse into this one when you
+          zoom out.
+        </Show>
       </p>
       <Show
         when={editing()}
@@ -105,23 +111,19 @@ export const SummaryReview = (props: {
             <button type="button" class={textButtonClass} disabled={busy()} onClick={startEdit}>
               Edit
             </button>
-            <button
-              type="button"
-              class={textButtonClass}
-              data-tone="danger"
-              disabled={busy()}
-              onClick={discard}
-            >
+            <button type="button" class={textButtonClass} data-tone="danger" disabled={busy()} onClick={discard}>
               Discard
             </button>
           </div>
         }
       >
-        <form
-          class={css({ display: "flex", flexDirection: "column", gap: "1.5", mt: "1.5" })}
-          onSubmit={save}
-        >
-          <input aria-label="Summary title" class={fieldClass} value={title()} onInput={(e) => setTitle(e.currentTarget.value)} />
+        <form class={css({ display: "flex", flexDirection: "column", gap: "1.5", mt: "1.5" })} onSubmit={save}>
+          <input
+            aria-label="Summary title"
+            class={fieldClass}
+            value={title()}
+            onInput={(e) => setTitle(e.currentTarget.value)}
+          />
           <textarea
             aria-label="Summary body"
             class={`${fieldClass} ${css({ resize: "none", minH: "20" })}`}

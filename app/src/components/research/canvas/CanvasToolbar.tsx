@@ -1,4 +1,5 @@
-import { For } from "solid-js";
+import { LayersIcon } from "lucide-solid";
+import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { scaleForLevel } from "../layout/fold";
 
@@ -27,29 +28,37 @@ const segmentClass = css({
   transitionProperty: "background-color, color",
   transitionDuration: "140ms",
   _hover: { bg: "bg.hover", color: "fg.default" },
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "1.5",
   "&[data-active=true]": { bg: "bg.selected", color: "fg.selected", fontWeight: "medium" },
+  "&[data-tone=draft]": { color: "amber.11" },
   "@media (pointer: coarse)": { h: "8" },
 });
 
-/** Level buttons zoom into that level's band; the active one follows the zoom. */
+/**
+ * Level buttons zoom into that level's band; the active one follows the zoom.
+ * They only appear once a summary is accepted, since nothing folds before that.
+ */
 export const CanvasToolbar = (props: {
-  band: number;
   level: number;
-  draftCount: number;
   maxLevel: number;
+  draftCount: number;
   scale: number;
   onLevel: (scale: number) => void;
   onFit: () => void;
+  onReviewDrafts: () => void;
 }) => {
   const levels = () => {
-    const out = [{ label: "Detail", level: 0 }];
-    if (props.maxLevel >= 1) out.push({ label: "Summaries", level: 1 });
+    if (props.maxLevel < 1) return [];
+    const out = [
+      { label: "Detail", level: 0 },
+      { label: "Summaries", level: 1 },
+    ];
     if (props.maxLevel >= 2) out.push({ label: "Overview", level: props.maxLevel });
     return out;
   };
-  const activeLabel = () =>
-    [...levels()].reverse().find((entry) => props.band >= entry.level)?.label ?? "Detail";
-  const blocked = () => props.band > props.level;
+  const activeLabel = () => [...levels()].reverse().find((entry) => props.level >= entry.level)?.label;
 
   return (
     <div class={barClass} onPointerDown={(event) => event.stopPropagation()} role="toolbar" aria-label="Canvas view">
@@ -65,34 +74,36 @@ export const CanvasToolbar = (props: {
           </button>
         )}
       </For>
-      <span class={css({ w: "1px", h: "4", bg: "border", mx: "1" })} />
+      <Show when={levels().length}>
+        <span class={css({ w: "1px", h: "4", bg: "border", mx: "1" })} />
+      </Show>
       <button type="button" class={segmentClass} onClick={() => props.onFit()}>
         Fit
       </button>
-      <span
-        class={css({ w: "10", textAlign: "right", color: "fg.subtle", fontVariantNumeric: "tabular-nums", pr: "1" })}
+      <button
+        type="button"
+        class={segmentClass}
+        title="Zoom to 100%"
+        aria-label={`Zoom ${Math.round(props.scale * 100)}%, reset to 100%`}
+        onClick={() => props.onLevel(1)}
       >
-        {Math.round(props.scale * 100)}%
-      </span>
-      {/* Floats under the bar so showing it never moves anything. */}
-      <span
-        class={css({
-          position: "absolute",
-          top: "calc(100% + 4px)",
-          left: 0,
-          px: "2",
-          py: "0.5",
-          fontSize: "xs",
-          color: "amber.11",
-          bg: "bg.default",
-          borderRadius: "l1",
-          whiteSpace: "nowrap",
-        })}
-        style={{ visibility: blocked() ? "visible" : "hidden" }}
-        aria-hidden={!blocked()}
-      >
-        Accept {props.draftCount === 1 ? "the draft summary" : "draft summaries"} to fold
-      </span>
+        <span class={css({ minW: "8", textAlign: "right", fontVariantNumeric: "tabular-nums" })}>
+          {Math.round(props.scale * 100)}%
+        </span>
+      </button>
+      <Show when={props.draftCount > 0}>
+        <span class={css({ w: "1px", h: "4", bg: "border", mx: "1" })} />
+        <button
+          type="button"
+          class={segmentClass}
+          data-tone="draft"
+          title="Agents drafted these summaries. Accept one to let its cards collapse into it when you zoom out."
+          onClick={() => props.onReviewDrafts()}
+        >
+          <LayersIcon size={13} />
+          {props.draftCount === 1 ? "1 summary to review" : `${props.draftCount} summaries to review`}
+        </button>
+      </Show>
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { formatRelativeShort } from "~/components/doc-header/relative-time";
 import { redoResearchBatch, undoResearchBatch } from "~/services/research/research.actions";
+import { agentLabel } from "~/services/research/research.graph";
 import type { ResearchBatch } from "~/services/research/research.types";
 import type { TopicData } from "./createTopicData";
 
@@ -70,7 +71,7 @@ export const TopicBatchList = (props: { data: TopicData; nowMs: number }) => {
                 </button>
               </div>
               <div class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
-                {batch.agent} · {batch.cardCount} cards · {formatRelativeShort(props.nowMs, batch.createdAt)}
+                {agentLabel(batch.agent)} · {batch.cardCount} cards · {formatRelativeShort(props.nowMs, batch.createdAt)}
               </div>
             </li>
           )}

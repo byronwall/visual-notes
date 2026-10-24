@@ -9,6 +9,7 @@ import type { Rect } from "../layout/tree-layout";
 import { CanvasCardNode } from "./CanvasCardNode";
 import { CanvasEdges } from "./CanvasEdges";
 import { CanvasHulls } from "./CanvasHulls";
+import { CanvasLanes } from "./CanvasLanes";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { createCanvasModel } from "./createCanvasModel";
 
@@ -24,6 +25,8 @@ const viewportClass = css({
 });
 
 const DRAG_THRESHOLD = 4;
+/** Below this, 13px card titles drop under ~8px on screen. */
+const READABLE_SCALE = 0.62;
 
 type Drag = {
   id: string;
@@ -46,23 +49,20 @@ export const TopicCanvas = (props: {
   const runSummaryStatus = useAction(setResearchSummaryStatus);
   let viewport: HTMLDivElement | undefined;
 
-  // The zoom band can go as deep as every summary layer (drafts included);
-  // the applied fold level stops at the deepest accepted layer.
-  const potentialMax = createMemo(() => {
-    const groups = (props.data.current()?.groups ?? []).map((g) => ({ ...g, status: "accepted" as const }));
-    return foldView({ cards: props.data.cards(), groups, level: 0 }).maxLevel;
-  });
+  // Zoom bands only cover accepted summary layers: drafts never fold.
   const acceptedMax = createMemo(
     () => foldView({ cards: props.data.cards(), groups: props.data.current()?.groups ?? [], level: 0 }).maxLevel,
   );
-  const band = createMemo(() => levelForScale(store.scale(), potentialMax()));
-  const level = createMemo(() => Math.min(band(), acceptedMax()));
-  // Both are read lazily inside the model's memos; data is a stable object.
+  const level = createMemo(() => levelForScale(store.scale(), acceptedMax()));
+  // Layout matches the viewport's shape; stepped so small resizes do not reflow it.
+  const [aspect, setAspect] = createSignal(1.4);
+  // All three are read lazily inside the model's memos; data is a stable object.
   // eslint-disable-next-line solid/reactivity
-  const model = createCanvasModel(props.data, level);
-  const draftCount = createMemo(() => (props.data.current()?.groups ?? []).filter((g) => g.status === "draft").length);
+  const model = createCanvasModel(props.data, level, aspect);
+  const drafts = createMemo(() => (props.data.current()?.groups ?? []).filter((g) => g.status === "draft"));
 
   const [drag, setDrag] = createSignal<Drag | null>(null);
+
   const nodeById = createMemo(() => new Map(model.view().nodes.map((node) => [node.id, node])));
   const nodeIds = createMemo(() => model.view().nodes.map((node) => node.id));
 
@@ -82,22 +82,28 @@ export const TopicCanvas = (props: {
   const viewportSize = () => ({ w: viewport?.clientWidth ?? 1200, h: viewport?.clientHeight ?? 800 });
 
   // Fit to the shallowest fold level whose own layout fits at a scale inside
-  // that level's zoom band, so a big topic opens on readable summaries.
-  const fit = (animate = true) => {
+  // that level's zoom band, so a big topic opens on readable summaries. The
+  // first view never opens below a readable scale; it starts at the top left
+  // and the rest is a pan (or Fit) away.
+  const fit = (animate = true, minScale = 0) => {
     const { w, h } = viewportSize();
-    const fitScale = (bounds: Rect) =>
-      Math.max(0.2, Math.min(1, Math.min((w - 80) / bounds.w, (h - 96) / bounds.h)));
+    const fitScale = (bounds: Rect) => Math.max(0.2, Math.min(1, Math.min((w - 80) / bounds.w, (h - 96) / bounds.h)));
     let chosen: { bounds: Rect; scale: number } | null = null;
     for (let candidate = 0; candidate <= acceptedMax(); candidate++) {
       const bounds = candidate === level() ? model.layout().bounds : model.boundsAtLevel(candidate);
       if (!bounds.w || !bounds.h) continue;
       const scale = fitScale(bounds);
       chosen = { bounds, scale };
-      if (Math.min(levelForScale(scale, potentialMax()), acceptedMax()) <= candidate) break;
+      if (levelForScale(scale, acceptedMax()) <= candidate) break;
     }
     if (!chosen) return;
-    const { bounds, scale } = chosen;
-    const offset = { x: (w - bounds.w * scale) / 2 - bounds.x * scale, y: 64 - bounds.y * scale };
+    const { bounds } = chosen;
+    const scale = Math.max(chosen.scale, minScale);
+    const fitsWide = bounds.w * scale <= w - 80;
+    const offset = {
+      x: fitsWide ? (w - bounds.w * scale) / 2 - bounds.x * scale : 24 - bounds.x * scale,
+      y: 64 - bounds.y * scale,
+    };
     if (animate) store.animateToView({ scale, offset });
     else store.setView({ scale, offset });
   };
@@ -155,7 +161,15 @@ export const TopicCanvas = (props: {
   };
 
   onMount(() => {
-    fit(false);
+    const measure = () => {
+      const { w, h } = viewportSize();
+      if (w && h) setAspect(Math.round((w / h) * 4) / 4 || 0.25);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport!);
+    onCleanup(() => observer.disconnect());
+    fit(false, READABLE_SCALE);
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const intensity = event.ctrlKey ? 0.01 : 0.0015;
@@ -246,7 +260,6 @@ export const TopicCanvas = (props: {
       data-panning={store.isPanning()}
       data-testid="research-canvas"
       data-level={level()}
-      data-band={band()}
       onPointerDown={onViewportPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -254,17 +267,24 @@ export const TopicCanvas = (props: {
     >
       <div
         class={css({ position: "absolute", left: 0, top: 0, transformOrigin: "0 0" })}
-        style={{
-          transform: `translate(${store.offset().x}px, ${store.offset().y}px) scale(${store.scale()})`,
-        }}
+        style={{ transform: `translate(${store.offset().x}px, ${store.offset().y}px) scale(${store.scale()})` }}
       >
         <CanvasHulls
           hulls={model.layout().hulls}
           factor={model.factor()}
+          selectedId={props.selectedId}
           onSelect={(id) => props.onSelect(id)}
           onAccept={accept}
         />
-        <CanvasEdges view={model.view()} rects={edgeRects()} factor={model.factor()} selectedId={props.selectedId} />
+        <CanvasLanes lanes={model.layout().lanes} factor={model.factor()} />
+        <CanvasEdges
+          view={model.view()}
+          rects={edgeRects()}
+          lanes={model.layout().lanes}
+          laned={model.layout().laned}
+          factor={model.factor()}
+          selectedId={props.selectedId}
+        />
         {/* Keyed by id so cards keep their DOM across folds and slide to new spots. */}
         <For each={nodeIds()}>
           {(id) => (
@@ -284,10 +304,15 @@ export const TopicCanvas = (props: {
         </For>
       </div>
       <CanvasToolbar
-        band={band()}
         level={level()}
-        maxLevel={potentialMax()}
-        draftCount={draftCount()}
+        maxLevel={acceptedMax()}
+        draftCount={drafts().length}
+        onReviewDrafts={() => {
+          // Step through drafts: the one after the selected draft, else the first.
+          const list = drafts();
+          const at = list.findIndex((group) => group.summaryCardId === props.selectedId);
+          props.onSelect(list[(at + 1) % list.length].summaryCardId);
+        }}
         scale={store.scale()}
         onLevel={(scale) => store.animateZoomAt(center(), scale / store.scale())}
         onFit={() => fit()}
