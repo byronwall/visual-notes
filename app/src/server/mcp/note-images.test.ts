@@ -53,7 +53,12 @@ describe("uploadImage", () => {
     expect(first.src).toMatch(SRC);
     expect(first.url).toBe(`https://notes.test${first.src}`);
     expect(first.markdown).toBe(`![a \\[dot\\]](${first.src})`);
-    expect(first).toMatchObject({ mime: "image/png", bytes: 70 });
+    expect(first).toMatchObject({
+      mime: "image/png",
+      bytes: 70,
+      width: 1,
+      height: 1,
+    });
 
     const fileName = path.basename(first.src);
     const stored = await readFile(path.join(storageDir, fileName));
@@ -64,6 +69,13 @@ describe("uploadImage", () => {
     });
     expect(again.src).toBe(first.src);
     expect(await readdir(storageDir)).toEqual([fileName]);
+  });
+
+  it("refuses a cut-off image and stores nothing", async () => {
+    const before = await readdir(storageDir).catch(() => []);
+    const cut = PNG_BASE64.slice(0, 60);
+    expect(await refusal(uploadImage(ctx, { data: cut }))).toMatch(/cut off/);
+    expect(await readdir(storageDir).catch(() => [])).toEqual(before);
   });
 
   it("refuses anything that is not a raster image", async () => {
