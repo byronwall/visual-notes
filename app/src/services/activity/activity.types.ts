@@ -58,6 +58,10 @@ export type DocActivityHistory = {
 /** Connector use over a window, for the Activity page's MCP section. */
 export type McpActivitySummary = {
   days: number;
+  /** Start of the counted window: the window start, or the first logged call if later. */
+  from: string;
+  /** False when call logging began inside the window, so it covers fewer days. */
+  loggedSinceWindowStart: boolean;
   calls: number;
   /** Refused, failed, or denied calls. */
   problems: number;
