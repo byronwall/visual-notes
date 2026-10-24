@@ -101,7 +101,7 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `fetchNoteSummaries`, `searchNotesForCollection`                  | `search`, `collections_query`                             |                                                   |
 | `createCollection`, `updateCollection`                            | `collections_create`, `collections_update`                |                                                   |
 | `createProperty`, `updateProperty`, `createSelectOption`          | `collections_add_property`, `collections_update_property` | Missing options are also created on write         |
-| `createRow`                                                       | `collections_add_row`                                     | A new note the agent owns                         |
+| `createRow`                                                       | `collections_add_row`, `collections_add_rows` (batch)     | A new note the agent owns                         |
 | `setRowProperties`                                                | `collections_set_values`                                  |                                                   |
 | `setRowTitle`                                                     | `notes_update`                                            | Row title is the note title, so ownership applies |
 | `addNotesToCollection`, `moveNoteToCollection`, `previewMoveNote` | `collections_add_notes`                                   | Moving carries values by name                     |

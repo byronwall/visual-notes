@@ -52,7 +52,7 @@ import { createNote } from "./notes-write";
 // as do column widths, row order, and other layout.
 
 export const COLLECTION_INSTRUCTIONS =
-  'Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note you created, call collections_create_view with hostNoteId and put the returned embed line in the note.';
+  'Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_add_rows / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note you created, call collections_create_view with hostNoteId and put the returned embed line in the note. Each row body is about that row; shared context goes in one note the rows link to.';
 
 const collectionArg = z.string().min(1).describe("Collection id or exact name");
 const valuesArg = z
@@ -74,6 +74,41 @@ const filterArg = z
     }),
   )
   .describe("All must match");
+const MAX_NEW_ROWS = 50;
+const newRowArg = z.object({
+  title: z.string().min(1).max(200),
+  markdown: z
+    .string()
+    .optional()
+    .describe("Note body about this row only; the notes_get markdown dialect"),
+  path: z.string().max(512).optional(),
+  values: valuesArg.optional(),
+  idempotencyKey: z.string().max(200).optional(),
+});
+
+/** Rows whose bodies open with the same text, as when shared context is pasted into each. */
+const OPENING_CHARS = 160;
+export function sharedOpeningNotice(
+  rows: { title: string; markdown?: string }[],
+): string | null {
+  const byOpening = new Map<string, string[]>();
+  for (const row of rows) {
+    // The first paragraph, which is also what the row's snippet shows.
+    const opening = (row.markdown ?? "")
+      .trim()
+      .split(/\n\s*\n/)[0]!
+      .slice(0, OPENING_CHARS);
+    if (opening.length < 40) continue;
+    byOpening.set(opening, [...(byOpening.get(opening) ?? []), row.title]);
+  }
+  const repeated = [...byOpening.values()].filter(
+    (titles) => titles.length > 1,
+  );
+  if (!repeated.length) return null;
+  const titles = repeated.flat();
+  return `${titles.length} rows open with the same text (${titles.map((t) => `"${t}"`).join(", ")}), so their snippets all point at the same thing. Rewrite each body to start with that row's own status, evidence, and next step (notes_update), and keep the shared context in one note the rows link to.`;
+}
+
 const sortArg = z.array(
   z.object({
     property: z.string(),
@@ -106,6 +141,36 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     });
   const changed = (collectionId: string) =>
     publishAppChange("collections", [collectionId]);
+
+  /** One new row: a note the agent owns, placed with its values. */
+  const addRow = async (
+    found: { id: string; name: string },
+    input: z.infer<typeof newRowArg>,
+  ) => {
+    const { title, markdown, path, values, idempotencyKey } = input;
+    const note = await createNote(
+      ctx,
+      { title, markdown: markdown ?? "", path, idempotencyKey },
+      { allowEmptyBody: true },
+    );
+    // A retry after a failure between create and attach finishes the job.
+    const placed = await prisma.doc.findUnique({
+      where: { id: note.id },
+      select: { collectionId: true },
+    });
+    if (!note.deduplicated || placed?.collectionId !== found.id) {
+      await attachNotes(found.id, [note.id]);
+      if (values && Object.keys(values).length)
+        await setRowValues(found.id, [note.id], values);
+      await log("collection.row_added", found, { rowTitle: title });
+      changed(found.id);
+    }
+    const [row] = await prisma.doc.findMany({
+      where: { id: note.id },
+      select: ROW_SELECT,
+    });
+    return rowView(ctx, mapRow(row), await loadLiveProperties(found.id));
+  };
 
   const addOptionNames = async (
     property: CollectionProperty,
@@ -180,14 +245,12 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         description: found.description,
         rowCount,
         properties: properties.map(describeProperty),
-        views: views
-          .map(mapView)
-          .map((v) => ({
-            id: v.id,
-            name: v.name,
-            type: v.type,
-            hostNoteId: v.hostDocId,
-          })),
+        views: views.map(mapView).map((v) => ({
+          id: v.id,
+          name: v.name,
+          type: v.type,
+          hostNoteId: v.hostDocId,
+        })),
         appUrl: collectionAppUrl(ctx, found.id),
       };
     },
@@ -411,44 +474,45 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
       title: "Add collection row",
       description:
         "Add a row: a new note you own (so you can edit its body later), placed in the collection with these values. Missing option names are created.",
-      input: {
-        collection: collectionArg,
-        title: z.string().min(1).max(200),
-        markdown: z
-          .string()
-          .optional()
-          .describe("Note body; the notes_get markdown dialect"),
-        path: z.string().max(512).optional(),
-        values: valuesArg.optional(),
-        idempotencyKey: z.string().max(200).optional(),
-      },
+      input: { collection: collectionArg, ...newRowArg.shape },
     },
-    async ({ collection, title, markdown, path, values, idempotencyKey }) => {
+    async ({ collection, ...row }) => {
       const found = await resolveCollection(collection);
       // Check the values before anything is written.
-      await checkRowValues(found.id, [values ?? {}]);
-      const note = await createNote(
-        ctx,
-        { title, markdown: markdown ?? "", path, idempotencyKey },
-        { allowEmptyBody: true },
+      await checkRowValues(found.id, [row.values ?? {}]);
+      return addRow(found, row);
+    },
+  );
+
+  tools.write(
+    "collections_add_rows",
+    {
+      title: "Add collection rows",
+      description: `Add up to ${MAX_NEW_ROWS} rows in one call, each a new note you own with its own title, body, and values. Every row's values are checked before anything is written; a row whose body is refused (say, a link to a missing note) is listed under failed while the others are added. Give each row a body about that row only, and put shared context in one note the rows link to.`,
+      input: {
+        collection: collectionArg,
+        rows: z.array(newRowArg).min(1).max(MAX_NEW_ROWS),
+      },
+    },
+    async ({ collection, rows }) => {
+      const found = await resolveCollection(collection);
+      await checkRowValues(
+        found.id,
+        rows.map((row) => row.values ?? {}),
       );
-      // A retry after a failure between create and attach finishes the job.
-      const placed = await prisma.doc.findUnique({
-        where: { id: note.id },
-        select: { collectionId: true },
-      });
-      if (!note.deduplicated || placed?.collectionId !== found.id) {
-        await attachNotes(found.id, [note.id]);
-        if (values && Object.keys(values).length)
-          await setRowValues(found.id, [note.id], values);
-        await log("collection.row_added", found, { rowTitle: title });
-        changed(found.id);
+      const added: (Awaited<ReturnType<typeof addRow>> & { index: number })[] =
+        [];
+      const failed: { index: number; title: string; error: string }[] = [];
+      for (const [index, row] of rows.entries()) {
+        try {
+          added.push({ index, ...(await addRow(found, row)) });
+        } catch (error) {
+          if (!(error instanceof ConnectorError)) throw error;
+          failed.push({ index, title: row.title, error: error.message });
+        }
       }
-      const [row] = await prisma.doc.findMany({
-        where: { id: note.id },
-        select: ROW_SELECT,
-      });
-      return rowView(ctx, mapRow(row), await loadLiveProperties(found.id));
+      const notice = sharedOpeningNotice(rows);
+      return { rows: added, failed, ...(notice ? { notice } : {}) };
     },
   );
 
