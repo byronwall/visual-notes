@@ -4,6 +4,7 @@ import {
   resolveDocImageStorageDir,
   type PersistedImage,
 } from "~/server/lib/inline-image-migration";
+import { checkImageIntegrity } from "~/server/lib/image-integrity";
 import { fetchPublicFile, PublicFetchError } from "~/server/lib/public-fetch";
 
 // Shared by the editor's paste/drop upload route and the MCP connector: bytes
@@ -17,11 +18,17 @@ const STORABLE = new Set(["png", "jpg", "gif", "webp", "avif", "heic", "bmp"]);
 /** The caller sent something that cannot be stored as an image. */
 export class ImageRejectedError extends Error {}
 
-/** Checks the bytes are a raster image and stores them. */
+export type StoredImage = PersistedImage & {
+  /** From the file's header; null when the format does not say. */
+  width: number | null;
+  height: number | null;
+};
+
+/** Checks the bytes are a whole raster image and stores them. */
 export async function storeImageBytes(
   buffer: Buffer,
   label: string,
-): Promise<PersistedImage> {
+): Promise<StoredImage> {
   if (!buffer.length) throw new ImageRejectedError(`${label} is empty`);
   if (buffer.length > MAX_IMAGE_BYTES) {
     throw new ImageRejectedError(
@@ -35,12 +42,20 @@ export async function storeImageBytes(
       `${label} is not a PNG, JPEG, GIF, WebP, AVIF, HEIC, or BMP image`,
     );
   }
-  return persistImageBuffer(buffer, kind, resolveDocImageStorageDir());
+  // A cut-off image is refused, so it never replaces a good one in a note.
+  const check = checkImageIntegrity(buffer, kind.ext);
+  if (!check.ok) throw new ImageRejectedError(`${label} ${check.problem}`);
+  const stored = await persistImageBuffer(
+    buffer,
+    kind,
+    resolveDocImageStorageDir(),
+  );
+  return { ...stored, width: check.width, height: check.height };
 }
 
 /** Downloads a public image and stores it; private networks are refused. */
 export async function importImageFromUrl(url: string): Promise<{
-  stored: PersistedImage;
+  stored: StoredImage;
   bytes: number;
 }> {
   let buffer: Buffer;
