@@ -28,7 +28,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // logged, and undoable from the topic's history.
 
 export const RESEARCH_INSTRUCTIONS =
-  "Research topics are canvases of tasks, questions, findings, sources, options, and criteria. Start with research_get_topic (summaries plus the open frontier), work an open card, record each round with one research_add_cards under that card, and mark finished work with research_set_card_states. Every write is a batch the user can undo.";
+  "Research topics are canvases of tasks, questions, findings, sources, options, and criteria. Start with research_get_topic (summaries plus the open frontier), work an open card, record each round with one research_add_cards under that card, and mark finished work with research_set_card_states. Every write is a batch the user can undo. Before broad research, put the decision in one criteria card (the job, e.g. match the current policy or redesign it, and the limits that change the answer); when the user changes that premise, update the card or mark it as the earlier baseline.";
 
 const cardTypes = RESEARCH_CARD_TYPES.filter((type) => type !== "summary") as [
   string,

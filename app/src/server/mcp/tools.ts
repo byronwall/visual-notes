@@ -29,6 +29,7 @@ const SERVER_INSTRUCTIONS = [
   "Tools are named <area>_<verb>: notes_, research_, tasks_, collections_, time_blocks_, events_, places_, archive_, activity_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
   NOTE_INSTRUCTIONS,
   "Rules: change the body, title, or path only of notes you created (notes_get says editable). For the user's notes, create a new note that links to the original. Metadata (note meta, task status and dates, collection values, event decisions) can change on any record. Deleting is the user's: cancel tasks and shows, hide research cards, or remove notes from a collection instead.",
+  "Saving well: before you report a save, check it against what the user asked for. Keep product, source, and buying links, evidence dates, and what is still unverified. Name the one record that holds the current decision; label other copies 'snapshot as of <date>' with a link to it, and when the user changes a premise, update or relabel the records you made. Record confirmed inputs and channel preferences (such as 'online forms, not email') where later turns will read them. Say exactly what happened: request submitted, price shown, quote saved, verified, or waiting on the user.",
   NOTE_CONTEXT_INSTRUCTIONS,
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
