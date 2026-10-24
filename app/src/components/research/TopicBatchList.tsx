@@ -3,6 +3,7 @@ import { createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { formatRelativeShort } from "~/components/doc-header/relative-time";
 import { redoResearchBatch, undoResearchBatch } from "~/services/research/research.actions";
+import { agentLabel } from "~/services/research/research.graph";
 import type { ResearchBatch } from "~/services/research/research.types";
 import type { TopicData } from "./createTopicData";
 
@@ -48,9 +49,6 @@ export const TopicBatchList = (props: { data: TopicData; nowMs: number }) => {
 
   return (
     <section aria-label="Batch history">
-      <h2 class={css({ fontSize: "xs", fontWeight: "medium", color: "fg.subtle", textTransform: "uppercase", letterSpacing: "wider", mb: "1" })}>
-        History
-      </h2>
       <p class={css({ fontSize: "xs", color: "red.11", minH: "4", mb: "1" })} role="status">
         {error() ?? ""}
       </p>
@@ -70,7 +68,14 @@ export const TopicBatchList = (props: { data: TopicData; nowMs: number }) => {
                 </button>
               </div>
               <div class={css({ fontSize: "xs", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
-                {batch.agent} · {batch.cardCount} cards · {formatRelativeShort(props.nowMs, batch.createdAt)}
+                {agentLabel(batch.agent)} · {batch.cardCount} cards ·{" "}
+                <time
+                  datetime={batch.createdAt}
+                  // Set on hover: the viewer's time zone is only known in the browser.
+                  onPointerEnter={(event) => (event.currentTarget.title = new Date(batch.createdAt).toLocaleString())}
+                >
+                  {formatRelativeShort(props.nowMs, batch.createdAt)}
+                </time>
               </div>
             </li>
           )}

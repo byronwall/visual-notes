@@ -1,8 +1,8 @@
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { css } from "styled-system/css";
 import type { FoldNode } from "../layout/fold";
 import type { Rect } from "../layout/tree-layout";
-import { CARD_STATE_META, CardTypeIcon } from "../cardTypeMeta";
+import { CardGlyph } from "../cardTypeMeta";
 
 const hostOf = (url: string) => {
   try {
@@ -29,6 +29,7 @@ const shellClass = css({
   transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)",
   "&[data-dragging=true]": { transitionProperty: "none", zIndex: 2 },
   "&[data-faded=true]": { opacity: 0.5 },
+  "&[data-dimmed=true]": { opacity: 0.18 },
   "@media (prefers-reduced-motion: reduce)": { transitionProperty: "none" },
 });
 
@@ -54,6 +55,7 @@ const cardClass = css({
   _hover: { borderColor: "gray.a8" },
   "&[data-kind=summary]": { bg: "gray.2", borderColor: "gray.a6" },
   "&[data-selected=true]": { borderColor: "border.selected", boxShadow: "0 0 0 1px token(colors.border.selected)" },
+  _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "2px" },
   "&[data-open=true]": { borderColor: "amber.a7" },
 });
 
@@ -66,11 +68,15 @@ export const CanvasCardNode = (props: {
   rect: Rect;
   factor: number;
   selected: boolean;
+  dimmed: boolean;
   dragging: boolean;
   onPointerDown: (event: PointerEvent) => void;
+  /** Enter or Space on the focused card. */
+  onActivate: () => void;
 }) => {
   const card = () => props.node.card;
   const summary = () => props.node.kind === "summary";
+  const [imageFailed, setImageFailed] = createSignal(false);
   const preview = () => plainPreview(card().body || card().snippet || "");
 
   return (
@@ -83,6 +89,7 @@ export const CanvasCardNode = (props: {
         height: `${props.rect.h}px`,
       }}
       data-faded={props.node.faded}
+      data-dimmed={props.dimmed}
       data-dragging={props.dragging}
     >
       <div
@@ -101,19 +108,15 @@ export const CanvasCardNode = (props: {
         tabIndex={0}
         aria-label={`${card().type}: ${card().title}`}
         onPointerDown={(event) => props.onPointerDown(event)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          props.onActivate();
+        }}
       >
         <div class={css({ display: "flex", gap: "1.5", alignItems: "flex-start" })}>
           <span class={css({ display: "inline-flex", pt: "0.5" })}>
-            <Show when={card().state} fallback={<CardTypeIcon type={card().type} />}>
-              {(state) => (
-                <span
-                  class={css({ display: "inline-flex", color: state() === "open" ? "amber.11" : state() === "done" ? "green.11" : "fg.muted" })}
-                  aria-label={CARD_STATE_META[state()].label}
-                >
-                  {CARD_STATE_META[state()].icon({ size: 14, strokeWidth: 2 })}
-                </span>
-              )}
-            </Show>
+            <CardGlyph card={card()} />
           </span>
           <span
             class={`${clamp3} ${css({
@@ -140,21 +143,44 @@ export const CanvasCardNode = (props: {
         </Show>
         <Show when={!summary() && card().imageUrl}>
           {(src) => (
-            <img
-              src={src()}
-              alt=""
-              loading="lazy"
-              draggable={false}
-              class={css({ h: "16", w: "full", objectFit: "cover", borderRadius: "l1" })}
-            />
+            <Show
+              when={!imageFailed()}
+              fallback={
+                // Same height as the image, so a dead link never leaves a blank hole or moves cards.
+                <span
+                  class={css({
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    h: "16",
+                    flexShrink: 0,
+                    fontSize: "12px",
+                    color: "fg.subtle",
+                    bg: "gray.2",
+                    borderRadius: "l1",
+                  })}
+                >
+                  Image unavailable
+                </span>
+              }
+            >
+              <img
+                src={src()}
+                alt=""
+                loading="lazy"
+                draggable={false}
+                onError={() => setImageFailed(true)}
+                class={css({ h: "16", w: "full", flexShrink: 0, objectFit: "cover", borderRadius: "l1", bg: "gray.2" })}
+              />
+            </Show>
           )}
         </Show>
         <Show when={summary()}>
           <span class={css({ mt: "auto", fontSize: "11px", color: "fg.muted", fontVariantNumeric: "tabular-nums" })}>
-            {props.node.coveredCount} cards folded
+            {props.node.coveredCount} cards inside
             <Show when={props.node.openInside > 0}>
               {" · "}
-              <span class={css({ color: "amber.11" })}>{props.node.openInside} open shown</span>
+              <span class={css({ color: "amber.11" })}>{props.node.openInside} open shown outside</span>
             </Show>
           </span>
         </Show>

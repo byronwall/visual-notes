@@ -1,8 +1,4 @@
-import type {
-  ResearchCard,
-  ResearchSummaryGroup,
-  ResearchTopicGraph,
-} from "./research.types";
+import type { ResearchCard, ResearchSummaryGroup, ResearchTopicGraph } from "./research.types";
 
 export const isOpenCard = (card: Pick<ResearchCard, "state">) => card.state === "open";
 
@@ -67,3 +63,17 @@ export const slugify = (value: string) =>
     .replace(/[\s_]+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 80) || "topic";
+
+const AGENT_NAMES: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  "claude-code": "Claude Code",
+  claude: "Claude",
+  codex: "Codex",
+  you: "you",
+};
+
+/** A batch author as people know it: "chatgpt:vn_h5y…" (connector actor id) reads "ChatGPT". */
+export const agentLabel = (agent: string) => {
+  const name = agent.split(":")[0].trim() || agent;
+  return AGENT_NAMES[name.toLowerCase()] ?? name;
+};

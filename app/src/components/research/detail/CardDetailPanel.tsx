@@ -7,6 +7,7 @@ import {
   setResearchCardNudge,
   setResearchCardState,
 } from "~/services/research/research.actions";
+import { agentLabel } from "~/services/research/research.graph";
 import { RESEARCH_CARD_STATES, type ResearchCard } from "~/services/research/research.types";
 import { CardBody } from "../CardBody";
 import { CARD_STATE_META, CARD_TYPE_META, CardTypeIcon } from "../cardTypeMeta";
@@ -214,7 +215,7 @@ export const CardDetailPanel = (props: { data: TopicData; card: ResearchCard; on
       <CardLinkList label="In summaries" cards={inSummaries()} onSelect={props.onSelect} />
 
       <div class={css({ mt: "4", fontSize: "xs", color: "fg.muted", display: "flex", alignItems: "center", gap: "2" })}>
-        <span class={css({ flex: 1 })}>{batch() ? `Added by ${batch()!.agent} · ${batch()!.summary || batch()!.batchKey}` : "Added in the app"}</span>
+        <span class={css({ flex: 1 })}>{batch() ? `Added by ${agentLabel(batch()!.agent)} · ${batch()!.summary || batch()!.batchKey}` : "Added in the app"}</span>
         <Show when={props.card.nudgeX !== null || props.card.nudgeY !== null}>
           <button
             type="button"

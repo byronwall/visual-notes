@@ -10,9 +10,14 @@ const hullClass = css({
   borderRadius: "l3",
   bg: "gray.a2",
   pointerEvents: "none",
-  transitionProperty: "left, top, width, height",
+  transitionProperty: "left, top, width, height, border-color, box-shadow",
   transitionDuration: "200ms",
   "&[data-status=draft]": { borderStyle: "dashed", borderColor: "amber.a7", bg: "amber.a2" },
+  "&[data-selected=true]": {
+    borderStyle: "solid",
+    borderColor: "border.selected",
+    boxShadow: "0 0 0 1px token(colors.border.selected)",
+  },
   "@media (prefers-reduced-motion: reduce)": { transitionProperty: "none" },
 });
 
@@ -28,6 +33,10 @@ const labelClass = css({
   fontSize: "12px",
   whiteSpace: "nowrap",
   pointerEvents: "auto",
+  maxWidth: "var(--label-max)",
+  borderRadius: "l1",
+  // A long summary title is cut to the hull's width; hovering shows all of it.
+  _hover: { maxWidth: "none", zIndex: 4, bg: "bg.default", boxShadow: "0 0 0 1px token(colors.border)" },
 });
 
 const labelButtonClass = css({
@@ -44,6 +53,7 @@ const labelButtonClass = css({
 export const CanvasHulls = (props: {
   hulls: { hull: FoldHull; rect: Rect }[];
   factor: number;
+  selectedId: string | null;
   onSelect: (cardId: string) => void;
   onAccept: (groupId: string) => void;
 }) => (
@@ -52,6 +62,7 @@ export const CanvasHulls = (props: {
       <div
         class={hullClass}
         data-status={entry.hull.status}
+        data-selected={props.selectedId === entry.hull.summaryCard.id}
         data-testid="research-canvas-hull"
         style={{
           left: `${entry.rect.x}px`,
@@ -64,7 +75,7 @@ export const CanvasHulls = (props: {
           class={labelClass}
           style={{
             height: `${HULL_LABEL_H}px`,
-            "max-width": `${entry.rect.w / props.factor}px`,
+            "--label-max": `${entry.rect.w / props.factor}px`,
             transform: props.factor === 1 ? undefined : `scale(${props.factor})`,
           }}
           onPointerDown={(event) => event.stopPropagation()}
@@ -83,11 +94,8 @@ export const CanvasHulls = (props: {
           >
             {entry.hull.summaryCard.title}
           </button>
-          <Show
-            when={entry.hull.status === "draft"}
-            fallback={<span class={css({ color: "fg.subtle" })}>folds when zoomed out</span>}
-          >
-            <span class={css({ color: "amber.11" })}>Draft</span>
+          <Show when={entry.hull.status === "draft"}>
+            <span class={css({ color: "amber.11" })}>Draft summary</span>
             <button type="button" class={labelButtonClass} onClick={() => props.onAccept(entry.hull.groupId)}>
               Accept
             </button>

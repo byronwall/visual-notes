@@ -1,0 +1,70 @@
+{
+  "title": "Car insurance renewal comparison",
+  "rounds": [
+    {
+      "batchKey": "wide-r1",
+      "agent": "chatgpt",
+      "summary": "Coverage baseline, seven carrier quotes, gap findings, and open questions",
+      "cards": [
+        {
+          "type": "question",
+          "title": "Which replacement offer keeps the current coverage at a verified final price?",
+          "ref": "root",
+          "state": "open",
+          "body": "Compare against the current carrier's six-month renewal at $513. No policy is bought or cancelled until a quote is verified like-for-like.",
+          "children": [
+            {
+              "type": "criterion",
+              "title": "Match the renewal coverage, not just the headline price",
+              "ref": "crit",
+              "body": "Liability 100/300/100, UM/UIM matched, $500 comprehensive and collision deductibles, loan payoff protection on the newer car."
+            },
+            { "type": "option", "title": "Harbor Auto: $332 / six months", "ref": "o-harbor", "body": "Last saved quote showed **$332 for six months**. License verification step was not finished, so the final price may move." },
+            { "type": "option", "title": "Keystone Mutual: $1,031 annual, paid in full", "ref": "o-keystone", "body": "Proposal PDF quotes **$1,031 a year**. Coverage matches the renewal line for line, including payoff protection." },
+            { "type": "option", "title": "Northwind baseline deductibles: $323.25 / six months", "ref": "o-north-a", "body": "Two proposals: $323.25 with $1,000 deductibles, or $360.22 with $0 comprehensive. Both assume a telematics discount." },
+            { "type": "option", "title": "Northwind lower deductibles: $360.22 / six months", "ref": "o-north-b", "body": "Same proposal as the baseline with $0 comprehensive. Telematics discount still applied." },
+            { "type": "option", "title": "Pinecrest: $516 displayed, collision contradiction", "ref": "o-pine", "body": "Shows $516 paid in full, but the second car's collision line reads **No Coverage** while a $101 premium remains." },
+            { "type": "option", "title": "Lakeside / local agency: awaiting price", "ref": "o-lake", "body": "Credit disclosure acknowledged through the agency form. No priced offer yet." },
+            { "type": "option", "title": "Summit Mutual / local agent: awaiting price", "ref": "o-summit", "body": "Request sent through the agent's web form. No priced offer yet." },
+            { "type": "option", "title": "Prairie Farm Bureau: deferred", "ref": "o-prairie", "body": "Deferred by choice. Do not restart as an automatic next step." },
+            { "type": "option", "title": "Redwood: route not completed", "ref": "o-redwood", "body": "The online path required marketing consent, so it was stopped. Not a quote." },
+            { "type": "finding", "title": "No alternative is yet a verified like-for-like replacement", "ref": "f-gap", "body": "1. **Payoff protection:** get the actual payoff and decide whether to keep it.\n2. **Telematics:** Northwind prices assume a discount that is not guaranteed.\n3. **Pinecrest:** the collision contradiction blocks its price." },
+            { "type": "source", "title": "Document inventory and evidence limits", "ref": "s-docs", "url": "https://example.com/insurance/documents", "body": "Original PDFs are referenced, not attached. Prices come from saved quote pages and proposal PDFs." },
+            { "type": "question", "title": "Does the newer car still need loan payoff protection?", "ref": "q-payoff", "state": "open", "body": "Get the actual payoff balance before deciding. Do not assume positive equity." },
+            { "type": "question", "title": "What is Harbor Auto's final verified price and payment basis?", "ref": "q-harbor", "state": "open", "body": "The $332 quote is unverified until license verification finishes." },
+            { "type": "question", "title": "What would Northwind cost without telematics and with matched coverage?", "ref": "q-north", "state": "open", "body": "Ask for a standalone, no-telematics premium with matched UM/UIM and deductibles." },
+            { "type": "question", "title": "Can Pinecrest issue an unambiguous collision document?", "ref": "q-pine", "state": "open", "body": "Do not infer coverage from the premium or use the $516 price until it is corrected." },
+            { "type": "question", "title": "Will Lakeside and Summit return priced offers?", "ref": "q-pending", "state": "open", "body": "No price in any inbox as of this morning." },
+            { "type": "question", "title": "What is the current homeowners baseline for a bundle?", "ref": "q-home", "state": "open", "body": "Bundle discounts are not comparable until the current home declarations are checked." }
+          ]
+        },
+        { "type": "source", "title": "Sortable comparison table: 11 detailed records", "ref": "s-table", "url": "https://example.com/insurance/table", "body": "Current and renewal baselines, five priced proposals, four pending or deferred routes." },
+        { "type": "source", "title": "Detailed coverage tables and offer review", "ref": "s-review", "url": "https://example.com/insurance/review", "body": "Reference note with current and renewal tables and per-carrier analysis." }
+      ],
+      "links": [
+        { "from": "root", "to": "s-review" },
+        { "from": "o-harbor", "to": "q-harbor" },
+        { "from": "o-harbor", "to": "q-payoff" },
+        { "from": "o-keystone", "to": "q-payoff" },
+        { "from": "o-north-a", "to": "q-north" },
+        { "from": "o-north-b", "to": "q-north" },
+        { "from": "o-pine", "to": "q-pine" },
+        { "from": "o-lake", "to": "q-pending" },
+        { "from": "o-summit", "to": "q-pending" },
+        { "from": "o-harbor", "to": "crit" },
+        { "from": "o-keystone", "to": "crit" },
+        { "from": "o-north-a", "to": "crit" },
+        { "from": "o-north-b", "to": "crit" },
+        { "from": "o-pine", "to": "crit" },
+        { "from": "s-table", "to": "s-review" }
+      ],
+      "summaries": [
+        {
+          "title": "Price leaders still need correction or verification; Keystone is the closest documented match",
+          "body": "Harbor and Northwind are cheapest but unverified. Pinecrest's price is blocked by a collision contradiction. Keystone matches coverage line for line at a higher annual price. Two quotes are still pending.",
+          "covers": ["crit", "o-harbor", "o-keystone", "o-north-a", "o-north-b", "o-pine", "o-lake", "o-summit", "o-prairie", "o-redwood", "f-gap"]
+        }
+      ]
+    }
+  ]
+}

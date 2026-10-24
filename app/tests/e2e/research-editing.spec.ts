@@ -40,6 +40,7 @@ test.describe("research editing", () => {
 
     // The edit is a batch by "you"; undo it from history.
     await detail.getByRole("button", { name: "Close details" }).click();
+    await page.getByRole("tab", { name: "History" }).click();
     const editRow = page.getByTestId("research-batch-row").filter({ hasText: "Edited" }).first();
     await expect(editRow).toContainText("you");
     await editRow.getByRole("button", { name: "Undo" }).click();
