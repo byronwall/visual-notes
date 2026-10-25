@@ -49,12 +49,12 @@ const event = (
 });
 
 describe("activity_query", () => {
-  it("gives a pollSince just past the newest event, and pages when truncated", async () => {
+  it("gives a pollSince just past the newest event, and pages back when truncated", async () => {
     mocks.listTimelineEvents.mockResolvedValue([
       event("e2", "2026-10-23T18:30:00.000Z"),
       event("e1", "2026-10-23T18:00:00.000Z"),
     ]);
-    const result = await query({ since: "2026-10-23T17:00:00Z", limit: 2 });
+    const result = await query({ limit: 2 });
     expect(result).toMatchObject({
       truncated: true,
       nextCursor: "e1",
@@ -73,6 +73,36 @@ describe("activity_query", () => {
     expect(mocks.listTimelineEvents).toHaveBeenLastCalledWith(
       expect.objectContaining({ cursor: "e1", to: "2026-10-23T19:00:00.000Z" }),
     );
+  });
+
+  it("reads a truncated poll forward, so its pollSince skips nothing", async () => {
+    mocks.listTimelineEvents.mockReset();
+    mocks.listTimelineEvents
+      .mockResolvedValueOnce([
+        event("e1", "2026-10-23T18:00:00.000Z"),
+        event("e2", "2026-10-23T18:10:00.000Z"),
+        event("e3", "2026-10-23T18:10:00.000Z"),
+      ])
+      .mockResolvedValueOnce([
+        event("e2", "2026-10-23T18:10:00.000Z"),
+        event("e3", "2026-10-23T18:10:00.000Z"),
+      ]);
+    const result = await query({ since: "2026-10-23T17:00:00Z", limit: 2 });
+    expect(mocks.listTimelineEvents).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ take: 3, oldestFirst: true }),
+    );
+    // e2 and e3 share a timestamp, so both come back rather than splitting it.
+    expect(result.events.map((e: { id: string }) => e.id)).toEqual([
+      "e3",
+      "e2",
+      "e1",
+    ]);
+    expect(result).toMatchObject({
+      truncated: true,
+      nextCursor: null,
+      pollSince: "2026-10-23T18:10:00.001Z",
+    });
   });
 
   it("reports each MCP call's outcome, duration, and the records it changed", async () => {
