@@ -26,11 +26,16 @@ vi.mock("./semantic", () => ({
   scheduleEmbeddingRefresh: vi.fn(),
   semanticSearch: vi.fn(),
 }));
+vi.mock("~/server/note-events", () => ({
+  publishAppChange: vi.fn(),
+  publishNoteChanges: vi.fn(),
+}));
 
 const { createNotesMcpServer } = await import("./tools");
 const { contentColumns, prepareContent } = await import(
   "~/server/notes/note-store"
 );
+const { publishAppChange } = await import("~/server/note-events");
 
 const ctx = {
   origin: "https://notes.test",
@@ -188,6 +193,34 @@ describe.skipIf(!enabled)("collection tools (database)", () => {
       { index: 2, title: "Ghost", error: expect.stringMatching(/does not exist/) },
     ]);
     expect(result.json.notice).toMatch(/2 rows open with the same text/);
+  });
+
+  it("announces a batch once and carries new options from row to row", async () => {
+    const client = await connect();
+    const name = `MCP options ${Date.now()}`;
+    const created = await call(client, "collections_create", { name });
+    collectionIds.push(created.json.id);
+    vi.mocked(publishAppChange).mockClear();
+    const result = await call(client, "collections_add_rows", {
+      collection: name,
+      rows: [
+        { title: "One", values: { Tags: ["fresh"] } },
+        { title: "Two", values: { Tags: ["fresh", "newer"] } },
+        { title: "Three" },
+      ],
+    });
+    docIds.push(...result.json.rows.map((r: Json) => r.id));
+    expect(
+      vi.mocked(publishAppChange).mock.calls.filter(([kind]) => kind === "collections"),
+    ).toEqual([["collections", [created.json.id]]]);
+    expect(result.json.rows.map((r: Json) => r.properties.Tags ?? null)).toEqual([
+      "fresh",
+      "fresh, newer",
+      null,
+    ]);
+    const schema = await call(client, "collections_get", { collection: name });
+    const tags = schema.json.properties.find((p: Json) => p.name === "Tags");
+    expect(tags.options.map((o: Json) => o.name ?? o)).toEqual(["fresh", "newer"]);
   });
 
   it("moves notes in and out, and embeds a view in a note it owns", async () => {

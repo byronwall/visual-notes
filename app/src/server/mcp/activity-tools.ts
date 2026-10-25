@@ -2,7 +2,10 @@ import { z } from "zod";
 import { describeActivityEvent } from "~/components/activity/activity-format";
 import { listTimelineEvents } from "~/server/activity/activity-store";
 import { prisma } from "~/server/db";
-import type { ActionEventItem } from "~/services/activity/activity.types";
+import type {
+  ActionEventItem,
+  ActivityTimelineFilter,
+} from "~/services/activity/activity.types";
 import { MCP_CALL_EVENT_PREFIX } from "./call-log";
 import { appLink, limitArg, noteIdArg, parseSince } from "./shared";
 import type { ToolRegistrar } from "./tool-registry";
@@ -10,7 +13,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // The Activity page's timeline, read-only: what changed recently, by whom.
 
 export const ACTIVITY_INSTRUCTIONS =
-  "activity_query answers 'what changed lately' across the app or for one note, including who did it (via is set for agents). To poll, pass the previous answer's pollSince as since, so no event comes back twice; when truncated, pass nextCursor for the next older page. Stay quiet when a poll returns nothing new.";
+  "activity_query answers 'what changed lately' across the app or for one note, including who did it (via is set for agents). To poll, pass the previous answer's pollSince as since, so no event comes back twice or is missed: a truncated poll holds the oldest new events, so poll again with its pollSince for the rest. Without since, a truncated answer holds the newest events; pass nextCursor for the next older page. Stay quiet when a poll returns nothing new.";
 
 const DOMAINS = [
   "doc",
@@ -36,7 +39,7 @@ export function registerActivityTools(tools: ToolRegistrar): void {
     {
       title: "Query activity",
       description:
-        "Activity events, newest first, as one-line summaries with ids. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = time blocks, event = events and places, mcp = connector tool calls with outcome, duration, and the records each changed; left out unless asked for) or by noteId for one note's history. callId groups a tool call with the changes it made. truncated + nextCursor page back; pollSince is the since for the next poll.",
+        "Activity events, newest first, as one-line summaries with ids. Defaults to the last 24 hours; filter by domain (doc = notes, time_block = time blocks, event = events and places, mcp = connector tool calls with outcome, duration, and the records each changed; left out unless asked for) or by noteId for one note's history. callId groups a tool call with the changes it made. pollSince is the since for the next poll; with since, a truncated answer holds the oldest events after it and pollSince continues from there, otherwise nextCursor pages back.",
       input: {
         since: z.string().optional().describe("ISO date or date-time"),
         until: z
@@ -59,17 +62,23 @@ export function registerActivityTools(tools: ToolRegistrar): void {
       const from = parseSince(since, "since") ?? new Date(Date.now() - DAY_MS);
       const to = parseSince(until, "until");
       const take = limit ?? 50;
-      const events = await listTimelineEvents({
+      const filter = {
         from: from.toISOString(),
         to: to?.toISOString(),
-        cursor,
         eventDomain: domain,
         excludeDomains: ["mcp"],
         relatedDocId: noteId,
-        take,
-      });
+      };
+      // A poll reads forward from since, so pollSince never passes events
+      // that did not fit; a browse reads back from now.
+      const polling = since !== undefined && !cursor && !until;
+      const { events, truncated } = polling
+        ? await pollForward(filter, take)
+        : await (async () => {
+            const page = await listTimelineEvents({ ...filter, cursor, take });
+            return { events: page, truncated: page.length === take };
+          })();
       const changed = domain === "mcp" ? await changesByCall(events) : null;
-      const truncated = events.length === take;
       const newest = events[0]?.createdAt;
       return {
         events: events.map((event) => {
@@ -94,7 +103,8 @@ export function registerActivityTools(tools: ToolRegistrar): void {
         from: from.toISOString(),
         until: to?.toISOString() ?? null,
         truncated,
-        nextCursor: truncated ? events[events.length - 1]!.id : null,
+        nextCursor:
+          truncated && !polling ? events[events.length - 1]!.id : null,
         // Strictly after the newest event, so the next poll starts fresh.
         pollSince: newest
           ? new Date(new Date(newest).getTime() + 1).toISOString()
@@ -103,6 +113,37 @@ export function registerActivityTools(tools: ToolRegistrar): void {
     },
   );
 }
+
+/**
+ * The oldest events after since, newest first. The page never ends part way
+ * through one timestamp, so the next poll's since loses nothing.
+ */
+async function pollForward(
+  filter: ActivityTimelineFilter,
+  take: number,
+): Promise<{ events: ActionEventItem[]; truncated: boolean }> {
+  const rows = await listTimelineEvents({
+    ...filter,
+    take: take + 1,
+    oldestFirst: true,
+  });
+  if (rows.length <= take) return { events: rows.reverse(), truncated: false };
+  let page = rows.slice(0, take);
+  const boundary = page[page.length - 1]!.createdAt;
+  if (rows[take]!.createdAt === boundary) {
+    const tied = await listTimelineEvents({
+      ...filter,
+      from: boundary,
+      to: boundary,
+      take: MAX_TIED,
+      oldestFirst: true,
+    });
+    page = [...page.filter((e) => e.createdAt !== boundary), ...tied];
+  }
+  return { events: page.reverse(), truncated: true };
+}
+
+const MAX_TIED = 200;
 
 type Change = { type: string; entityId: string | null; noteId: string | null };
 

@@ -31,6 +31,8 @@ export type ActivityTimelineFilter = {
   excludeDomains?: string[];
   from?: string;
   to?: string;
+  /** Oldest first, for reading forward from `from`. */
+  oldestFirst?: boolean;
 };
 
 export type DocActivitySummary = {

@@ -142,10 +142,14 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
   const changed = (collectionId: string) =>
     publishAppChange("collections", [collectionId]);
 
-  /** One new row: a note the agent owns, placed with its values. */
-  const addRow = async (
+  /**
+   * One new row: a note the agent owns, placed with its values. Says whether
+   * anything changed, so a batch announces the collection once.
+   */
+  const placeRow = async (
     found: { id: string; name: string },
     input: z.infer<typeof newRowArg>,
+    schema: { properties: CollectionProperty[] },
   ) => {
     const { title, markdown, path, values, idempotencyKey } = input;
     const note = await createNote(
@@ -161,15 +165,29 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     if (!note.deduplicated || placed?.collectionId !== found.id) {
       await attachNotes(found.id, [note.id]);
       if (values && Object.keys(values).length)
-        await setRowValues(found.id, [note.id], values);
+        schema.properties = await setRowValues(
+          found.id,
+          [note.id],
+          values,
+          schema.properties,
+        );
       await log("collection.row_added", found, { rowTitle: title });
-      changed(found.id);
+      return { noteId: note.id, placed: true };
     }
-    const [row] = await prisma.doc.findMany({
-      where: { id: note.id },
+    return { noteId: note.id, placed: false };
+  };
+
+  /** Row views for these notes, read in one query. */
+  const rowViews = async (
+    noteIds: string[],
+    properties: CollectionProperty[],
+  ) => {
+    const rows = await prisma.doc.findMany({
+      where: { id: { in: noteIds } },
       select: ROW_SELECT,
     });
-    return rowView(ctx, mapRow(row), await loadLiveProperties(found.id));
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return noteIds.map((id) => rowView(ctx, mapRow(byId.get(id)!), properties));
   };
 
   const addOptionNames = async (
@@ -480,7 +498,11 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
       const found = await resolveCollection(collection);
       // Check the values before anything is written.
       await checkRowValues(found.id, [row.values ?? {}]);
-      return addRow(found, row);
+      const schema = { properties: await loadLiveProperties(found.id) };
+      const { noteId, placed } = await placeRow(found, row, schema);
+      if (placed) changed(found.id);
+      const [view] = await rowViews([noteId], schema.properties);
+      return view!;
     },
   );
 
@@ -500,19 +522,36 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         found.id,
         rows.map((row) => row.values ?? {}),
       );
-      const added: (Awaited<ReturnType<typeof addRow>> & { index: number })[] =
-        [];
+      const added: { index: number; noteId: string }[] = [];
       const failed: { index: number; title: string; error: string }[] = [];
-      for (const [index, row] of rows.entries()) {
-        try {
-          added.push({ index, ...(await addRow(found, row)) });
-        } catch (error) {
-          if (!(error instanceof ConnectorError)) throw error;
-          failed.push({ index, title: row.title, error: error.message });
+      let anyPlaced = false;
+      // Loaded once; new option names update it as rows are placed.
+      const schema = { properties: await loadLiveProperties(found.id) };
+      try {
+        for (const [index, row] of rows.entries()) {
+          try {
+            const { noteId, placed } = await placeRow(found, row, schema);
+            added.push({ index, noteId });
+            anyPlaced ||= placed;
+          } catch (error) {
+            if (!(error instanceof ConnectorError)) throw error;
+            failed.push({ index, title: row.title, error: error.message });
+          }
         }
+      } finally {
+        // One notice for the batch, even when a later row throws.
+        if (anyPlaced) changed(found.id);
       }
+      const views = await rowViews(
+        added.map((row) => row.noteId),
+        schema.properties,
+      );
       const notice = sharedOpeningNotice(rows);
-      return { rows: added, failed, ...(notice ? { notice } : {}) };
+      return {
+        rows: added.map(({ index }, i) => ({ index, ...views[i]! })),
+        failed,
+        ...(notice ? { notice } : {}),
+      };
     },
   );
 
