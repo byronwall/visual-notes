@@ -932,6 +932,7 @@ model ResearchComment {
   stream ResearchStream? @relation(fields: [streamId], references: [id], onDelete: Cascade)
 
   @@index([topicId, resolvedAt])
+  @@index([cardId])
 }
 
 model ResearchBatch {
@@ -996,6 +997,7 @@ model ResearchCard {
   @@index([topicId, hiddenAt])
   @@index([parentId])
   @@index([batchId])
+  @@index([streamId])
 }
 
 model ResearchLink {

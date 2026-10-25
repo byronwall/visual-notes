@@ -188,6 +188,66 @@ describe.skipIf(!enabled)("research topic setup (database)", () => {
     });
   });
 
+  it("restores a removed stream by key, rejects duplicate keys, and moves cards after their new siblings", async () => {
+    const topic = await freshTopic();
+    await setupTopic(topic.id, {
+      batchKey: "f",
+      agent: "test",
+      streams: [{ key: "a", title: "A" }],
+    });
+    await setupTopic(topic.id, {
+      batchKey: "rm",
+      agent: "test",
+      removeStreams: ["a"],
+    });
+    await setupTopic(topic.id, {
+      batchKey: "back",
+      agent: "test",
+      streams: [{ key: "a" }],
+    });
+    expect(
+      (await loadTopicGraph(topic.id))!.streams.map((stream) => stream.title),
+    ).toEqual(["A"]);
+    await expect(
+      setupTopic(topic.id, {
+        batchKey: "dup",
+        agent: "test",
+        streams: [
+          { key: "b", title: "B" },
+          { key: "b", title: "B2" },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ResearchIngestError);
+
+    const added = await ingestTree(topic.id, {
+      batchKey: "c",
+      agent: "test",
+      cards: [
+        {
+          type: "finding",
+          title: "F",
+          ref: "f",
+          children: [{ type: "source", title: "S0" }],
+        },
+        { type: "source", title: "S1", ref: "s1" },
+        { type: "source", title: "S2", ref: "s2" },
+      ],
+    });
+    await editCards(topic.id, {
+      batchKey: "mv",
+      agent: "test",
+      edits: [
+        { id: added.refs.s1, parentId: added.refs.f },
+        { id: added.refs.s2, parentId: added.refs.f },
+      ],
+    });
+    const children = (await loadTopicGraph(topic.id))!.cards
+      .filter((card) => card.parentId === added.refs.f)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((card) => card.title);
+    expect(children).toEqual(["S0", "S1", "S2"]);
+  });
+
   it("keeps comments outside batches and records how the agent resolved them", async () => {
     const topic = await freshTopic();
     const added = await ingestTree(topic.id, {
