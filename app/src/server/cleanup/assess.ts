@@ -11,6 +11,7 @@ import {
 } from "./decide";
 import { heuristicDecider } from "./heuristic";
 import { buildNoteState } from "./note-state";
+import { assessPlacement, assessStalePairs } from "./regroup";
 import {
   NOTE_QUESTIONS,
   OWNER_PROFILE,
@@ -132,6 +133,15 @@ export async function assessDoc(
     create: { docId: doc.id, ...data },
     update: data,
   });
+  // Regroup: an unfiled note may belong in an existing path or collection.
+  if (!doc.path) await assessPlacement(doc.id, state.note, decide);
+}
+
+/** The pair pass for regroup, with the configured provider. */
+export async function assessStalePairsNow(limit: number) {
+  const provider = resolveProvider();
+  if (!provider) return { checked: 0, asked: 0 };
+  return assessStalePairs(limit, deciderFor(provider));
 }
 
 /** Assesses up to `limit` stale notes; returns how many were assessed. */

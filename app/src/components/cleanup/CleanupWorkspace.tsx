@@ -37,7 +37,7 @@ export const CleanupWorkspace: VoidComponent = () => {
   };
   const item = createAsync(() => {
     const id = selectedId();
-    return id ? fetchCleanupItem(id) : Promise.resolve(null);
+    return id ? fetchCleanupItem(id, bucket()) : Promise.resolve(null);
   });
   const keep = useAction(keepNoteAction);
 

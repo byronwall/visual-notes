@@ -71,15 +71,100 @@ function noteAnswers(facts: NoteFacts, title: string, body: string): Answers {
   };
 }
 
-export const heuristicDecider: Decider = async ({ state }) => {
-  const started = Date.now();
-  const { facts, note } = state as {
-    facts: NoteFacts;
-    note: { title: string; body: string };
+const STOP = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "notes",
+  "note",
+  "from",
+  "that",
+  "this",
+  "how",
+]);
+
+/** Lowercase title words worth comparing (3+ letters, not stop words). */
+export const titleWords = (title: string) =>
+  new Set(
+    title
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !STOP.has(w)),
+  );
+
+const overlap = (a: Set<string>, b: Set<string>) => {
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared += 1;
+  return shared / Math.max(1, Math.min(a.size, b.size));
+};
+
+type PairNote = { title: string; body: string };
+
+function pairAnswers(a: PairNote, b: PairNote): Answers {
+  const shared = overlap(titleWords(a.title), titleWords(b.title));
+  const level =
+    shared >= 0.6
+      ? "same_problem"
+      : shared >= 0.3
+        ? "same_area"
+        : "shares_words_only";
+  const covers = (x: PairNote, y: PairNote) =>
+    clamp(x.body.length > y.body.length * 2 ? 0.6 : 0.2);
+  return {
+    relation: {
+      label: level,
+      probs: {
+        shares_words_only: level === "shares_words_only" ? 0.7 : 0.1,
+        same_area: level === "same_area" ? 0.7 : 0.15,
+        same_problem: level === "same_problem" ? 0.7 : 0.1,
+        same_content: 0.05,
+      },
+    },
+    a_covers_b: { p: covers(a, b) },
+    b_covers_a: { p: covers(b, a) },
+    better_together: { p: clamp(0.15 + shared * 0.8) },
   };
+}
+
+function placementAnswer(note: PairNote, options: string[]): Answers {
+  const words = titleWords(`${note.title} ${note.body.slice(0, 2000)}`);
+  const scored = options
+    .filter((key) => key !== "other")
+    .map((key) => {
+      const name = key.split(":").slice(1).join(":");
+      const hits = [...titleWords(name.replace(/\./g, " "))].filter((w) =>
+        words.has(w),
+      ).length;
+      return { key, hits };
+    })
+    .sort((x, y) => y.hits - x.hits);
+  const best = scored[0]?.hits ? scored[0].key : "other";
+  const probs = Object.fromEntries(
+    options.map((k) => [k, k === best ? 0.7 : 0.3 / options.length]),
+  );
+  return { placement: { choice: best, probs } };
+}
+
+export const heuristicDecider: Decider = async ({ state, questions }) => {
+  const started = Date.now();
+  const ids = new Set(questions.map((q) => q.id));
+  let answers: Answers;
+  if (ids.has("better_together")) {
+    const { a, b } = state as { a: PairNote; b: PairNote };
+    answers = pairAnswers(a, b);
+  } else if (ids.has("placement")) {
+    const question = questions.find((q) => q.id === "placement");
+    const options =
+      question?.type === "choice" ? question.options.map(([k]) => k) : [];
+    answers = placementAnswer((state as { note: PairNote }).note, options);
+  } else {
+    const { facts, note } = state as { facts: NoteFacts; note: PairNote };
+    answers = noteAnswers(facts, note.title, note.body);
+  }
   return {
     model: HEURISTIC_MODEL,
-    answers: noteAnswers(facts, note.title, note.body),
+    answers,
     inputTokens: null,
     latencyMs: Date.now() - started,
   };

@@ -4,6 +4,7 @@ import { noteMarkdown } from "~/server/notes/note-store";
 import type { CleanupBucket } from "./buckets";
 import type { Answers } from "./decide";
 import type { NoteFacts } from "./note-state";
+import type { RegroupDetail } from "./regroup-queue";
 import { signalsFor, type Signal } from "./signals";
 
 /** Reads for the triage page: bucket counts, a bucket's queue, one item. */
@@ -34,6 +35,8 @@ export type QueueItem = {
   words: number;
   model: string;
   signals: Signal[];
+  /** Regroup items: the cluster to combine or the place to file the note. */
+  regroup?: RegroupDetail;
 };
 
 export async function bucketCounts(): Promise<Record<string, number>> {
@@ -136,7 +139,22 @@ async function destinationsFor(
 
 export async function cleanupItem(
   docId: string,
+  bucket?: string,
 ): Promise<CleanupItemDetail | null> {
+  if (bucket === "regroup") {
+    const { regroupQueue } = await import("./regroup-queue");
+    const item = (await regroupQueue()).find((i) => i.docId === docId);
+    if (!item) return null;
+    const doc = await prisma.doc.findUnique({
+      where: { id: docId },
+      select: { markdown: true, html: true, content: true },
+    });
+    return {
+      ...item,
+      markdown: doc ? noteMarkdown(doc) : "",
+      destinations: [],
+    };
+  }
   const row = await prisma.noteAssessment.findUnique({
     where: { docId },
     select: {

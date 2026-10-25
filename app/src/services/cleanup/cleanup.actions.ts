@@ -2,6 +2,7 @@ import { action, json } from "@solidjs/router";
 import { z } from "zod";
 import { prisma } from "~/server/db";
 import { applyCleanupResult } from "~/server/cleanup/apply";
+import { applyMove, draftCombine } from "~/server/cleanup/combine";
 import { draftDistill, type DistillDraft } from "~/server/cleanup/distill";
 import { keepNote, snoozeNote } from "~/server/cleanup/queue";
 import { noteMarkdown } from "~/server/notes/note-store";
@@ -77,3 +78,66 @@ export const snoozeNoteAction = action(async (id: string) => {
   await snoozeNote(docId.parse(id));
   return json({ ok: true }, { revalidate: queueKeys() });
 }, "cleanup-snooze");
+
+export async function draftCombineForCluster(input: {
+  keepId: string | null;
+  otherIds: string[];
+}): Promise<DistillDraft> {
+  "use server";
+  const parsed = z
+    .object({
+      keepId: docId.nullable(),
+      otherIds: z.array(docId).min(1).max(10),
+    })
+    .parse(input);
+  return draftCombine(parsed);
+}
+
+const combineInput = z.object({
+  memberIds: z.array(docId).min(2).max(10),
+  markdown: z.string().min(1).max(200_000),
+  destination,
+});
+
+export const applyCombineAction = action(
+  async (input: z.input<typeof combineInput>) => {
+    "use server";
+    const parsed = combineInput.parse(input);
+    const keepId =
+      parsed.destination.kind === "existing" ? parsed.destination.docId : null;
+    const result = await applyCleanupResult({
+      sourceIds: parsed.memberIds.filter((id) => id !== keepId),
+      markdown: parsed.markdown,
+      destination: parsed.destination,
+      reason: "combine",
+    });
+    if (keepId) {
+      await prisma.noteAssessment.updateMany({
+        where: { docId: keepId },
+        data: { decision: "done", decidedAt: new Date() },
+      });
+    }
+    return json(result, { revalidate: queueKeys() });
+  },
+  "cleanup-apply-combine",
+);
+
+const moveInput = z.object({
+  docId,
+  placement: z.object({
+    kind: z.enum(["path", "collection"]),
+    value: z.string().min(1).max(512),
+    label: z.string(),
+    p: z.number(),
+  }),
+});
+
+export const applyMoveAction = action(
+  async (input: z.input<typeof moveInput>) => {
+    "use server";
+    const parsed = moveInput.parse(input);
+    await applyMove(parsed.docId, parsed.placement);
+    return json({ ok: true }, { revalidate: queueKeys() });
+  },
+  "cleanup-apply-move",
+);

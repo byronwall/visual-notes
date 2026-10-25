@@ -106,3 +106,66 @@ export const NOTE_QUESTIONS: Question[] = [
       "Does `note.title` tell a reader what `note.body` is about, without opening it?",
   },
 ];
+
+/**
+ * Two related notes in state as `a` and `b`. "Only shares vocabulary" is its
+ * own bottom tier so look-alike notes don't read as merge candidates.
+ */
+export const PAIR_QUESTIONS: Question[] = [
+  {
+    id: "relation",
+    type: "score",
+    instructions: "How do the notes `a` and `b` relate?",
+    levels: [
+      [
+        "shares_words_only",
+        "They are about different problems that happen to share some vocabulary.",
+      ],
+      ["same_area", "Same general area, but different problems or questions."],
+      [
+        "same_problem",
+        "Same problem or question, approached from different angles.",
+      ],
+      ["same_content", "Mostly the same content repeated."],
+    ],
+  },
+  {
+    id: "a_covers_b",
+    type: "noul",
+    instructions: "Is everything useful in `b.body` also present in `a.body`?",
+  },
+  {
+    id: "b_covers_a",
+    type: "noul",
+    instructions: "Is everything useful in `a.body` also present in `b.body`?",
+  },
+  {
+    id: "better_together",
+    type: "noul",
+    instructions:
+      "Would `owner` be better served by one note combining `a` and `b` than by two separate notes?",
+  },
+];
+
+export type PlacementTarget = {
+  /** Option key: `path:<dot.path>` or `collection:<id>`. */
+  key: string;
+  kind: "path" | "collection";
+  value: string;
+  label: string;
+  description: string;
+};
+
+/** "Where does this unfiled note belong?" over existing paths and collections. */
+export function placementQuestion(targets: PlacementTarget[]): Question {
+  return {
+    id: "placement",
+    type: "choice",
+    instructions:
+      "`note` is not filed anywhere yet. Which existing place in `owner`'s notes does it belong in?",
+    options: [
+      ...targets.map((t) => [t.key, t.description] as const),
+      ["other", "None of these fits; it belongs somewhere else or on its own."],
+    ],
+  };
+}

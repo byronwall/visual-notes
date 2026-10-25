@@ -231,6 +231,8 @@ model Doc {
   inlineTasks          TaskItem[]
   audioRecordings      DocAudio[]
   cleanupAssessment    NoteAssessment?
+  cleanupPairsA        NotePairAssessment[] @relation("CleanupPairA")
+  cleanupPairsB        NotePairAssessment[] @relation("CleanupPairB")
 
   // Collections: a note can be a row in at most one collection. Values are
   // keyed by CollectionProperty id; they are kept if the note leaves the
@@ -1231,6 +1233,10 @@ model NoteAssessment {
   decision           String?
   decidedAt          DateTime?
   snoozedUntil       DateTime?
+  // Regroup: where an unfiled note belongs ({kind, value, label, p}), and
+  // the contentVersion its related-note pairs were last checked at.
+  placement          Json?
+  pairsVersion       Int?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1253,4 +1259,30 @@ model DocTombstone {
   deletedAt      DateTime @default(now())
 
   @@index([redirectDocId])
+}
+
+// Regroup: a decision model's answers about two related notes (embedding
+// neighbors or same-path title matches). aId < bId. Clusters of pairs that
+// read better together become combine suggestions.
+model NotePairAssessment {
+  id             String   @id @default(cuid())
+  aId            String
+  bId            String
+  aVersion       Int
+  bVersion       Int
+  model          String
+  similarity     Float?
+  answers        Json
+  relation       String
+  betterTogether Float
+  aCoversB       Float
+  bCoversA       Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  a Doc @relation("CleanupPairA", fields: [aId], references: [id], onDelete: Cascade)
+  b Doc @relation("CleanupPairB", fields: [bId], references: [id], onDelete: Cascade)
+
+  @@unique([aId, bId])
+  @@index([betterTogether])
 }

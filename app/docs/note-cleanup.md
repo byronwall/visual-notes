@@ -56,3 +56,10 @@ To seed an audit database with cleanup archetypes, assessments (heuristic), and 
 ## Note chip
 
 A flagged note shows a quiet **Cleanup: <bucket>** chip in its header (`components/cleanup/CleanupChip.tsx`, inside `DocHeaderBar`). Only buckets the triage page can act on get a chip. The popover lists the signals, plus **Review** (`/cleanup?bucket=…&doc=…`) and **Not now**, which snoozes the suggestion for 30 days (`snoozeNote`).
+
+## Regroup
+
+The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `regroup-queue.ts`):
+
+- **Combine.** After the note pass, the sweep checks each note's embedding neighbors (cosine ≥ 0.8 from the stored vectors, `docNeighbors` in `server/mcp/semantic.ts`). Without vectors it falls back to same-path notes that share a title word. For each pair it asks the pair questions: `relation` (bottom tier "shares words only"), `a_covers_b`, `b_covers_a`, and `better_together`. Results go in `NotePairAssessment`. Pairs at `better_together` ≥ 0.6 are joined with union-find into clusters of 2–6 notes. The default note to keep is the member that covers the most others. The panel lets you untick members, pick the note to keep (or a new note), and review the LLM-written content the others add (or a local merge without a key). Approving appends that content and archives the rest into the kept note.
+- **Move.** For an unfiled note, a choice question over existing paths (2+ notes) and collections suggests where it belongs (`NoteAssessment.placement`). When `p` ≥ 0.5, **Move to …** sets the path or adds the note to the collection. Nothing is archived.

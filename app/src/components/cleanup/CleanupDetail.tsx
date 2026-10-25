@@ -5,7 +5,11 @@ import { Badge } from "~/components/ui/badge";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import type { CleanupItemDetail } from "~/server/cleanup/queue";
+import type { Placement } from "~/server/cleanup/regroup";
+import type { RegroupMember } from "~/server/cleanup/regroup-queue";
+import { CombinePanel } from "./CombinePanel";
 import { DistillPanel } from "./DistillPanel";
+import { MovePanel } from "./MovePanel";
 import { PanelSection } from "./PanelSection";
 
 export type DetailHandlers = {
@@ -64,6 +68,31 @@ export const CleanupDetail: VoidComponent<
           onKeep={props.onKeep}
           onSkip={props.onSkip}
         />
+      </Match>
+      <Match
+        when={props.item.regroup?.kind === "combine" && props.item.regroup}
+      >
+        {(regroup) => (
+          <CombinePanel
+            item={props.item}
+            members={(regroup() as { members: RegroupMember[] }).members}
+            keeperId={(regroup() as { keeperId: string }).keeperId}
+            onDone={props.onDone}
+            onKeep={props.onKeep}
+            onSkip={props.onSkip}
+          />
+        )}
+      </Match>
+      <Match when={props.item.regroup?.kind === "move" && props.item.regroup}>
+        {(regroup) => (
+          <MovePanel
+            docId={props.item.docId}
+            placement={(regroup() as { placement: Placement }).placement}
+            onDone={props.onDone}
+            onKeep={props.onKeep}
+            onSkip={props.onSkip}
+          />
+        )}
       </Match>
     </Switch>
   </Stack>

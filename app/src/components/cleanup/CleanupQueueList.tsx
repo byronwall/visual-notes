@@ -3,7 +3,7 @@ import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import type { QueueItem } from "~/server/cleanup/queue";
-import { sourceLabel, monthYear } from "./cleanup-format";
+import { queueMeta } from "./cleanup-format";
 
 const row = css({
   display: "block",
@@ -54,13 +54,7 @@ export const CleanupQueueList: VoidComponent<{
                 {item.title || "Untitled note"}
               </Text>
               <Text fontSize="xs" color="fg.muted" truncate>
-                {[
-                  sourceLabel(item.source),
-                  monthYear(item.created),
-                  `${item.words.toLocaleString()} words`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {queueMeta(item)}
               </Text>
               <HStack gap="2">
                 <Box

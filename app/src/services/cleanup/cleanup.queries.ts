@@ -11,6 +11,7 @@ import {
   type QueueItem,
 } from "~/server/cleanup/queue";
 import { resolveProvider } from "~/server/cleanup/assess";
+import { regroupQueue } from "~/server/cleanup/regroup-queue";
 
 export type CleanupOverview = {
   counts: Record<string, number>;
@@ -22,12 +23,18 @@ export type CleanupOverview = {
 export const fetchCleanupOverview = query(
   async (): Promise<CleanupOverview> => {
     "use server";
-    const [counts, archived, assessed] = await Promise.all([
+    const [counts, archived, assessed, regroup] = await Promise.all([
       bucketCounts(),
       prisma.doc.count({ where: { archivedAt: { not: null } } }),
       prisma.noteAssessment.count(),
+      regroupQueue(),
     ]);
-    return { counts, archived, assessed, provider: resolveProvider() };
+    return {
+      counts: { ...counts, regroup: regroup.length },
+      archived,
+      assessed,
+      provider: resolveProvider(),
+    };
   },
   "cleanup-overview",
 );
@@ -35,6 +42,7 @@ export const fetchCleanupOverview = query(
 export const fetchCleanupQueue = query(
   async (bucket: string): Promise<QueueItem[]> => {
     "use server";
+    if (bucket === "regroup") return regroupQueue();
     if (!CLEANUP_BUCKETS.includes(bucket as CleanupBucket)) return [];
     return queueFor(bucket as CleanupBucket);
   },
@@ -42,9 +50,9 @@ export const fetchCleanupQueue = query(
 );
 
 export const fetchCleanupItem = query(
-  async (docId: string): Promise<CleanupItemDetail | null> => {
+  async (docId: string, bucket?: string): Promise<CleanupItemDetail | null> => {
     "use server";
-    return docId ? cleanupItem(docId) : null;
+    return docId ? cleanupItem(docId, bucket) : null;
   },
   "cleanup-item",
 );

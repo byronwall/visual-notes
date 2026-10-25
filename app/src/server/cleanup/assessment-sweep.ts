@@ -39,12 +39,17 @@ async function runPass() {
   if (running) return;
   running = true;
   try {
-    const { assessStaleNotes } = await import("./assess");
+    const { assessStaleNotes, assessStalePairsNow } = await import("./assess");
     for (let pass = 0; pass <= MAX_FOLLOW_UPS; pass += 1) {
       const result = await assessStaleNotes(BATCH);
       if (!result.provider || result.assessed + result.failed < BATCH) break;
       // A pass of only failures means the vendor is down; wait for the next sweep.
       if (!result.assessed) break;
+    }
+    // Regroup pairs need the notes assessed first.
+    for (let pass = 0; pass <= MAX_FOLLOW_UPS; pass += 1) {
+      const { checked } = await assessStalePairsNow(BATCH);
+      if (checked < BATCH) break;
     }
   } catch (error) {
     console.warn(`${LOG_PREFIX} pass failed`, error);

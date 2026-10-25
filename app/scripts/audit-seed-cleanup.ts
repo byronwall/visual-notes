@@ -12,6 +12,7 @@ import { prisma } from "~/server/db";
 import { createNoteRecord } from "~/server/notes/create-note";
 import { assessDoc } from "~/server/cleanup/assess";
 import { heuristicDecider } from "~/server/cleanup/heuristic";
+import { assessPairsFor } from "~/server/cleanup/regroup";
 
 const databaseName = new URL(process.env.DATABASE_URL ?? "").pathname.slice(1);
 if (!databaseName.startsWith("visual_notes_audit_")) {
@@ -189,6 +190,37 @@ const NOTES: SeedNote[] = [
       "slide",
     ),
   },
+  {
+    key: "slide-anim",
+    title: "CSS slide animation",
+    path: "css",
+    ageDays: 300,
+    markdown:
+      "Slide-in drawer I built for the settings page.\n\n- I used `transform: translateX(100%)` as the closed state\n- 220ms felt right on my laptop; 180ms on the phone\n- Remember `will-change: transform` only while animating\n",
+  },
+  {
+    key: "slide-panel",
+    title: "Slide in panel CSS",
+    path: "css",
+    ageDays: 260,
+    markdown:
+      "Panel that slides in from the right.\n\n```css\n.panel { transform: translateX(100%); transition: transform 200ms ease-out; }\n.panel.open { transform: none; }\n```\n",
+  },
+  {
+    key: "router-table",
+    title: "Router table setup",
+    path: "woodwork",
+    ageDays: 180,
+    markdown:
+      "I set the fence 1/16in proud of the bit for the edge profile. My featherboard stays on the left side.\n",
+  },
+  {
+    key: "finishing",
+    title: "Woodwork finishing schedule",
+    ageDays: 30,
+    markdown:
+      "My finishing schedule for the cabinet doors: sand to 180, one coat of shellac, then two coats of wipe-on poly. I wait 24 hours between poly coats.\n",
+  },
 ];
 
 /** Archived seed notes: [key, days ago archived, reason, into key]. */
@@ -251,6 +283,13 @@ for (const [key, title, ago, reason, into] of ARCHIVED) {
 for (const note of NOTES) {
   await assessDoc(ids.get(note.key)!, heuristicDecider);
 }
+for (const note of NOTES) {
+  await assessPairsFor(ids.get(note.key)!, heuristicDecider);
+}
+const pairs = await prisma.notePairAssessment.count({
+  where: { betterTogether: { gte: 0.6 } },
+});
+console.info(`[audit-seed] ${pairs} pairs read better together`);
 const buckets = await prisma.noteAssessment.groupBy({
   by: ["bucket"],
   _count: { _all: true },
