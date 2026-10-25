@@ -431,6 +431,7 @@ describe("research MCP tools", () => {
       "[o1] printer (option): A1 · price: $259 · blocked by [q2]",
     );
     expect(markdown).toContain("### Unsorted — 1 card");
+    expect(markdown).toContain("- [loose] finding: Loose");
     expect(markdown).toContain("[c1] on [o1] “A1”: Price looks stale");
     expect(markdown).toContain("in no stream");
   });
@@ -443,7 +444,7 @@ describe("research MCP tools", () => {
       arguments: { topic: "learn-rust", id: "o1" },
     });
     const { markdown } = JSON.parse(textOf(result));
-    expect(markdown).toContain("Stream: Choose [choose]");
+    expect(markdown).toContain("Stream: Choose [stream choose]");
     expect(markdown).toContain("Fields: price: $259");
     expect(markdown).toContain("- blocks: [q2] question (open): When Unpin?");
     expect(markdown).toContain("- [c1] you: Price looks stale (open)");
