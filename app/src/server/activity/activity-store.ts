@@ -59,7 +59,8 @@ export async function listTimelineEvents(
 
   const items = await prisma.actionEvent.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    // id breaks createdAt ties so a cursor page never skips or repeats one.
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     take,
     include: {

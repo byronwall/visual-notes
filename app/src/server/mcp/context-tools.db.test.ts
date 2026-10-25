@@ -475,4 +475,38 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       (await call(client, "activity_query", { since: "not a date" })).text,
     ).toContain("invalid");
   });
+
+  it("pages through events that share a timestamp without skips or repeats", async () => {
+    const client = await connect();
+    const note = await userNote(`Ties ${suffix}`);
+    const createdAt = new Date();
+    for (let i = 0; i < 5; i += 1) {
+      const event = await prisma().actionEvent.create({
+        data: {
+          createdAt,
+          eventType: "doc.update",
+          entityType: "doc",
+          entityId: note,
+          relatedDocId: note,
+          actorType: "chatgpt",
+          actorId: "chatgpt:test",
+        },
+        select: { id: true },
+      });
+      eventIds.push(event.id);
+    }
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 6; page += 1) {
+      const answer = await call(client, "activity_query", {
+        noteId: note,
+        limit: 2,
+        ...(cursor ? { cursor } : {}),
+      });
+      seen.push(...answer.json.events.map((e: Json) => e.id));
+      cursor = answer.json.nextCursor ?? undefined;
+      if (!cursor) break;
+    }
+    expect([...seen].sort()).toEqual(eventIds.slice(-5).sort());
+  });
 });
