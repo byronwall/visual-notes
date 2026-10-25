@@ -874,13 +874,65 @@ model ResearchTopic {
   slug       String    @unique
   title      String
   archivedAt DateTime?
+  /// The topic's current answer (markdown), kept up to date by agents.
+  answer     String    @default("")
+  /// Declared card kinds: [{ key, label, role, fields: [{ key, label }] }].
+  kinds      Json      @default("[]")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  cards   ResearchCard[]
-  links   ResearchLink[]
-  groups  ResearchSummaryGroup[]
-  batches ResearchBatch[]
+  cards    ResearchCard[]
+  links    ResearchLink[]
+  groups   ResearchSummaryGroup[]
+  batches  ResearchBatch[]
+  streams  ResearchStream[]
+  comments ResearchComment[]
+}
+
+/// A parallel thread inside a topic. Cards join one explicitly or through
+/// their came-from ancestor; the board draws one column per stream.
+model ResearchStream {
+  id        String    @id @default(cuid())
+  topicId   String
+  key       String
+  title     String
+  goal      String    @default("")
+  /// The stream's current answer (markdown).
+  answer    String    @default("")
+  sortOrder Int       @default(0)
+  batchId   String?
+  hiddenAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  topic    ResearchTopic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  batch    ResearchBatch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  cards    ResearchCard[]
+  comments ResearchComment[]
+
+  @@unique([topicId, key])
+  @@index([topicId])
+}
+
+/// A note left on a card or stream for the next agent pass to read and resolve.
+model ResearchComment {
+  id         String    @id @default(cuid())
+  topicId    String
+  cardId     String?
+  streamId   String?
+  body       String
+  author     String    @default("you")
+  resolvedAt DateTime?
+  /// What the agent did about it, shown under the comment.
+  resolution String?
+  createdAt  DateTime  @default(now())
+
+  topic  ResearchTopic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  card   ResearchCard?   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  stream ResearchStream? @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, resolvedAt])
+  @@index([cardId])
 }
 
 model ResearchBatch {
@@ -894,10 +946,11 @@ model ResearchBatch {
   createdAt DateTime  @default(now())
   undoneAt  DateTime?
 
-  topic  ResearchTopic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  cards  ResearchCard[]
-  links  ResearchLink[]
-  groups ResearchSummaryGroup[]
+  topic   ResearchTopic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  cards   ResearchCard[]
+  links   ResearchLink[]
+  groups  ResearchSummaryGroup[]
+  streams ResearchStream[]
 
   @@unique([topicId, batchKey])
   @@index([topicId, createdAt])
@@ -908,7 +961,15 @@ model ResearchCard {
   topicId   String
   type      ResearchCardType
   title     String
+  /// One or two sentences shown on the board; body holds the long form.
+  gist      String             @default("")
   body      String             @default("")
+  /// A kind declared on the topic (its role is `type`).
+  kind      String?
+  /// Values for the kind's fields, { key: text }.
+  fields    Json?
+  /// Explicit stream; null inherits from the came-from ancestor.
+  streamId  String?
   state     ResearchCardState?
   url       String?
   snippet   String?
@@ -930,10 +991,13 @@ model ResearchCard {
   linksTo     ResearchLink[]          @relation("ResearchLinkTo")
   summaryOf   ResearchSummaryGroup?
   memberships ResearchSummaryMember[]
+  stream      ResearchStream?         @relation(fields: [streamId], references: [id], onDelete: SetNull)
+  comments    ResearchComment[]
 
   @@index([topicId, hiddenAt])
   @@index([parentId])
   @@index([batchId])
+  @@index([streamId])
 }
 
 model ResearchLink {

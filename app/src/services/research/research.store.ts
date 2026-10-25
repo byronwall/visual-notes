@@ -1,5 +1,6 @@
 import { prisma } from "~/server/db";
 import { countOpen, pickTopSummary, slugify } from "./research.graph";
+import { parseFields, parseKinds } from "./research.kinds";
 import type {
   ResearchCard,
   ResearchTopicGraph,
@@ -14,16 +15,30 @@ export const createTopic = async (input: { title: string; slug?: string }) => {
   const title = input.title.trim();
   const base = slugify(input.slug?.trim() || title);
   let slug = base;
-  for (let attempt = 2; await prisma.researchTopic.findUnique({ where: { slug } }); attempt++) {
+  for (
+    let attempt = 2;
+    await prisma.researchTopic.findUnique({ where: { slug } });
+    attempt++
+  ) {
     slug = `${base}-${attempt}`;
   }
-  return prisma.researchTopic.create({ data: { title, slug }, select: { id: true, slug: true, title: true } });
+  return prisma.researchTopic.create({
+    data: { title, slug },
+    select: { id: true, slug: true, title: true },
+  });
 };
 
 export const resolveTopic = async (idOrSlug: string) =>
   prisma.researchTopic.findFirst({
     where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    select: { id: true, slug: true, title: true, archivedAt: true },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      archivedAt: true,
+      answer: true,
+      kinds: true,
+    },
   });
 
 /** A topic's batch by id or batchKey, however old. */
@@ -33,10 +48,12 @@ export const findBatch = (topicId: string, idOrKey: string) =>
     select: { id: true },
   });
 
-export const loadTopicGraph = async (idOrSlug: string): Promise<ResearchTopicGraph | null> => {
+export const loadTopicGraph = async (
+  idOrSlug: string,
+): Promise<ResearchTopicGraph | null> => {
   const topic = await resolveTopic(idOrSlug);
   if (!topic) return null;
-  const [cards, links, groups, batches] = await Promise.all([
+  const [cards, links, groups, batches, streams, comments] = await Promise.all([
     prisma.researchCard.findMany({
       where: { topicId: topic.id, hiddenAt: null },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -51,7 +68,10 @@ export const loadTopicGraph = async (idOrSlug: string): Promise<ResearchTopicGra
         id: true,
         summaryCardId: true,
         status: true,
-        members: { where: { card: { hiddenAt: null } }, select: { cardId: true } },
+        members: {
+          where: { card: { hiddenAt: null } },
+          select: { cardId: true },
+        },
       },
     }),
     prisma.researchBatch.findMany({
@@ -60,16 +80,56 @@ export const loadTopicGraph = async (idOrSlug: string): Promise<ResearchTopicGra
       take: 50,
       include: { _count: { select: { cards: true } } },
     }),
+    prisma.researchStream.findMany({
+      where: { topicId: topic.id, hiddenAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.researchComment.findMany({
+      where: { topicId: topic.id },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   return {
-    topic: { id: topic.id, slug: topic.slug, title: topic.title, archivedAt: iso(topic.archivedAt) },
+    topic: {
+      id: topic.id,
+      slug: topic.slug,
+      title: topic.title,
+      archivedAt: iso(topic.archivedAt),
+      answer: topic.answer,
+      kinds: parseKinds(topic.kinds),
+    },
+    streams: streams.map((stream) => ({
+      id: stream.id,
+      key: stream.key,
+      title: stream.title,
+      goal: stream.goal,
+      answer: stream.answer,
+      sortOrder: stream.sortOrder,
+      batchId: stream.batchId,
+      createdAt: stream.createdAt.toISOString(),
+      updatedAt: stream.updatedAt.toISOString(),
+    })),
+    comments: comments.map((comment) => ({
+      id: comment.id,
+      cardId: comment.cardId,
+      streamId: comment.streamId,
+      body: comment.body,
+      author: comment.author,
+      resolvedAt: iso(comment.resolvedAt),
+      resolution: comment.resolution,
+      createdAt: comment.createdAt.toISOString(),
+    })),
     cards: cards.map(
       (card): ResearchCard => ({
         id: card.id,
         type: card.type,
         title: card.title,
+        gist: card.gist,
         body: card.body,
+        kind: card.kind,
+        fields: parseFields(card.fields),
+        streamId: card.streamId,
         state: card.state,
         url: card.url,
         snippet: card.snippet,
@@ -103,7 +163,9 @@ export const loadTopicGraph = async (idOrSlug: string): Promise<ResearchTopicGra
   };
 };
 
-export const listTopics = async (opts: { includeArchived?: boolean } = {}): Promise<ResearchTopicListItem[]> => {
+export const listTopics = async (
+  opts: { includeArchived?: boolean } = {},
+): Promise<ResearchTopicListItem[]> => {
   const topics = await prisma.researchTopic.findMany({
     where: opts.includeArchived ? {} : { archivedAt: null },
     orderBy: { updatedAt: "desc" },
@@ -113,9 +175,17 @@ export const listTopics = async (opts: { includeArchived?: boolean } = {}): Prom
       title: true,
       archivedAt: true,
       updatedAt: true,
+      answer: true,
       cards: {
         where: { hiddenAt: null },
-        select: { id: true, type: true, title: true, body: true, state: true, updatedAt: true },
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          body: true,
+          state: true,
+          updatedAt: true,
+        },
       },
       groups: {
         where: { status: "accepted", summaryCard: { hiddenAt: null } },
@@ -123,7 +193,10 @@ export const listTopics = async (opts: { includeArchived?: boolean } = {}): Prom
           id: true,
           summaryCardId: true,
           status: true,
-          members: { where: { card: { hiddenAt: null } }, select: { cardId: true } },
+          members: {
+            where: { card: { hiddenAt: null } },
+            select: { cardId: true },
+          },
         },
       },
     },
@@ -136,13 +209,16 @@ export const listTopics = async (opts: { includeArchived?: boolean } = {}): Prom
     );
     const top = pickTopSummary(
       topic.cards,
-      topic.groups.map((group) => ({ ...group, memberIds: group.members.map((m) => m.cardId) })),
+      topic.groups.map((group) => ({
+        ...group,
+        memberIds: group.members.map((m) => m.cardId),
+      })),
     );
     return {
       id: topic.id,
       slug: topic.slug,
       title: topic.title,
-      topSummary: top ? top.body || top.title : null,
+      topSummary: topic.answer.trim() || (top ? top.body || top.title : null),
       cardCount: topic.cards.filter((card) => card.type !== "summary").length,
       openCount: countOpen(topic.cards),
       lastActivityAt: lastCard.toISOString(),

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { RESEARCH_CARD_STATES, RESEARCH_CARD_TYPES } from "./research.types";
+import {
+  RESEARCH_CARD_STATES,
+  RESEARCH_CARD_TYPES,
+  RESEARCH_LINK_KINDS,
+} from "./research.types";
 
 export const MAX_INGEST_CARDS = 500;
 
@@ -10,10 +14,28 @@ export const MAX_INGEST_CARDS = 500;
  */
 const refString = z.string().trim().min(1).max(200);
 
+export const GIST_MAX = 600;
+
+/** Field values arrive as text, numbers, or booleans and are stored as text. */
+export const fieldsSchema = z
+  .record(
+    z.string().trim().min(1).max(40),
+    z.union([z.string().max(500), z.number(), z.boolean(), z.null()]),
+  )
+  .refine((value) => Object.keys(value).length <= 12, {
+    message: "at most 12 fields",
+  });
+
 export type IngestCardInput = {
-  type: Exclude<(typeof RESEARCH_CARD_TYPES)[number], "summary">;
+  /** The role; may be left out when `kind` names a declared kind. */
+  type?: Exclude<(typeof RESEARCH_CARD_TYPES)[number], "summary">;
   title: string;
+  gist?: string;
   body?: string;
+  kind?: string;
+  fields?: Record<string, string | number | boolean | null>;
+  /** Stream key declared on the topic. */
+  stream?: string;
   state?: (typeof RESEARCH_CARD_STATES)[number];
   url?: string;
   snippet?: string;
@@ -24,21 +46,25 @@ export type IngestCardInput = {
 
 const cardTypeWithoutSummary = z.enum(
   RESEARCH_CARD_TYPES.filter((t) => t !== "summary") as [
-    IngestCardInput["type"],
-    ...IngestCardInput["type"][],
+    NonNullable<IngestCardInput["type"]>,
+    ...NonNullable<IngestCardInput["type"]>[],
   ],
   {
     errorMap: () => ({
-      message: `type must be one of ${RESEARCH_CARD_TYPES.filter((t) => t !== "summary").join(", ")} (put summaries in "summaries")`,
+      message: `type must be one of ${RESEARCH_CARD_TYPES.filter((t) => t !== "summary").join(", ")} (or name a declared kind; put summaries in "summaries")`,
     }),
   },
 );
 
 export const ingestCardSchema: z.ZodType<IngestCardInput> = z.lazy(() =>
   z.object({
-    type: cardTypeWithoutSummary,
+    type: cardTypeWithoutSummary.optional(),
     title: z.string().trim().min(1).max(300),
+    gist: z.string().trim().max(GIST_MAX).optional(),
     body: z.string().max(20_000).optional(),
+    kind: z.string().trim().min(1).max(40).optional(),
+    fields: fieldsSchema.optional(),
+    stream: z.string().trim().min(1).max(40).optional(),
     state: z.enum(RESEARCH_CARD_STATES).optional(),
     url: z.string().trim().max(2_000).optional(),
     snippet: z.string().max(4_000).optional(),
@@ -55,6 +81,7 @@ export const ingestCardSchema: z.ZodType<IngestCardInput> = z.lazy(() =>
 export const ingestLinkSchema = z.object({
   from: refString,
   to: refString,
+  kind: z.enum(RESEARCH_LINK_KINDS).optional(),
 });
 
 export const ingestSummarySchema = z.object({
