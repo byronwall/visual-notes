@@ -31,7 +31,7 @@ describe("Responses sampling parameters", () => {
         temperature: 0.2,
         top_p: 0.9,
       });
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+      const body = JSON.parse(fetchMock.mock.calls[0][1]!.body as string);
       expect(body).not.toHaveProperty("temperature");
       expect(body).not.toHaveProperty("top_p");
       expect(result.output).toBe("Draft");
@@ -44,7 +44,7 @@ describe("Responses sampling parameters", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     await callLLM({ model: "gpt-4o-mini", user: "Summarize", top_p: 0.9 });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = JSON.parse(fetchMock.mock.calls[0][1]!.body as string);
     expect(body.temperature).toBe(0.2);
     expect(body.top_p).toBe(0.9);
   });

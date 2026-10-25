@@ -19,8 +19,7 @@ export async function callLLM(opts: {
       model: opts.model,
       system: opts.system ?? null,
       userPrompt: opts.user,
-      temperature:
-        temperature ?? null,
+      temperature: temperature ?? null,
       topP: topP ?? null,
       status: "PARTIAL",
       noteId: opts.noteId ?? null,
