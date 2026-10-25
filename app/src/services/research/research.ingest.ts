@@ -7,8 +7,15 @@ import {
   type IngestPayloadInput,
 } from "./research.payload";
 import { publishAppChange } from "~/server/note-events";
-import { reapplyEffects, revertEffects, type EditEffects } from "./research.edits";
+import {
+  reapplyEffects,
+  revertEffects,
+  type EditEffects,
+} from "./research.edits";
+import { parseKinds } from "./research.kinds";
 import { planIngest } from "./research.plan";
+import { loadTopicGraph } from "./research.store";
+import { lintTopic } from "./research.streams";
 import type { ResearchCardState } from "./research.types";
 
 export class ResearchIngestError extends Error {
@@ -27,18 +34,31 @@ export type IngestResult = {
   cardCount: number;
   linkCount: number;
   summaryCount: number;
+  /** Guidance about this write (never a rejection); empty when it reads well. */
+  warnings?: string[];
 };
 
-type StoredResult = Omit<IngestResult, "replayed" | "batchId" | "batchKey"> &
+type StoredResult = Omit<
+  IngestResult,
+  "replayed" | "batchId" | "batchKey" | "warnings"
+> &
   EditEffects & {
     stateChanges?: StateChange[];
   };
 
-type StateChange = { id: string; from: ResearchCardState | null; to: ResearchCardState };
+type StateChange = {
+  id: string;
+  from: ResearchCardState | null;
+  to: ResearchCardState;
+};
 
 const newId = () => randomUUID();
 
-const replay = (batch: { id: string; batchKey: string; result: Prisma.JsonValue }): IngestResult => {
+const replay = (batch: {
+  id: string;
+  batchKey: string;
+  result: Prisma.JsonValue;
+}): IngestResult => {
   const stored = (batch.result ?? {}) as Partial<StoredResult>;
   return {
     batchId: batch.id,
@@ -52,35 +72,60 @@ const replay = (batch: { id: string; batchKey: string; result: Prisma.JsonValue 
 };
 
 const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2002";
 
 /**
  * Apply one ingest payload as a single batch: all cards, links, and summary
  * drafts land together or not at all. Retrying a batchKey is a no-op.
  */
-export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<IngestResult> => {
+export const ingestTree = async (
+  topicId: string,
+  rawPayload: unknown,
+): Promise<IngestResult> => {
   const parsed = ingestPayloadSchema.safeParse(rawPayload);
-  if (!parsed.success) throw new ResearchIngestError(formatPayloadError(parsed.error));
+  if (!parsed.success)
+    throw new ResearchIngestError(formatPayloadError(parsed.error));
   const payload = parsed.data;
   const started = Date.now();
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const topic = await tx.researchTopic.findUnique({ where: { id: topicId }, select: { id: true } });
-      if (!topic) throw new ResearchIngestError([`topic "${topicId}" not found`]);
+      const topic = await tx.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true, kinds: true },
+      });
+      if (!topic)
+        throw new ResearchIngestError([`topic "${topicId}" not found`]);
 
       const existingBatch = await tx.researchBatch.findUnique({
         where: { topicId_batchKey: { topicId, batchKey: payload.batchKey } },
       });
       if (existingBatch) return replay(existingBatch);
 
-      const visible = await tx.researchCard.findMany({
-        where: { topicId, hiddenAt: null },
-        select: { id: true },
-      });
+      const [visible, streams] = await Promise.all([
+        tx.researchCard.findMany({
+          where: { topicId, hiddenAt: null },
+          select: { id: true, parentId: true, sortOrder: true },
+        }),
+        tx.researchStream.findMany({
+          where: { topicId, hiddenAt: null },
+          select: { id: true, key: true },
+        }),
+      ]);
       const planned = planIngest(payload, {
         existingIds: new Set(visible.map((card) => card.id)),
         newId,
+        streams: new Map(streams.map((stream) => [stream.key, stream.id])),
+        kinds: parseKinds(topic.kinds),
+        nextSortOrder: (parentId) =>
+          visible.reduce(
+            (max, card) =>
+              card.parentId === parentId
+                ? Math.max(max, card.sortOrder + 1)
+                : max,
+            0,
+          ),
       });
       if (!planned.ok) throw new ResearchIngestError(planned.errors);
       const { plan } = planned;
@@ -103,10 +148,18 @@ export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<
         },
       });
 
-      const allCards = [...plan.cards, ...plan.summaries.map((summary) => summary.card)];
+      const allCards = [
+        ...plan.cards,
+        ...plan.summaries.map((summary) => summary.card),
+      ];
       if (allCards.length) {
         await tx.researchCard.createMany({
-          data: allCards.map((card) => ({ ...card, topicId, batchId })),
+          data: allCards.map((card) => ({
+            ...card,
+            fields: card.fields ?? Prisma.DbNull,
+            topicId,
+            batchId,
+          })),
         });
       }
       if (plan.links.length) {
@@ -122,19 +175,41 @@ export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<
             summaryCardId: summary.card.id,
             status: "draft",
             batchId,
-            members: { createMany: { data: summary.memberIds.map((cardId) => ({ cardId })) } },
+            members: {
+              createMany: {
+                data: summary.memberIds.map((cardId) => ({ cardId })),
+              },
+            },
           },
         });
       }
-      await tx.researchTopic.update({ where: { id: topicId }, data: { updatedAt: new Date() } });
+      await tx.researchTopic.update({
+        where: { id: topicId },
+        data: { updatedAt: new Date() },
+      });
 
-      return { batchId, batchKey: payload.batchKey, replayed: false, ...stored };
+      return {
+        batchId,
+        batchKey: payload.batchKey,
+        replayed: false,
+        ...stored,
+        warnings: plan.warnings,
+        newIds: plan.cards.map((card) => card.id),
+      };
     });
+    const { newIds, ...ingested } = result as typeof result & {
+      newIds?: string[];
+    };
+    if (!ingested.replayed && newIds?.length)
+      ingested.warnings = [
+        ...(ingested.warnings ?? []),
+        ...(await lintWrite(topicId, newIds)),
+      ];
     console.info(
       `[research-ingest] topic=${topicId} batch=${result.batchKey} cards=${result.cardCount} links=${result.linkCount} summaries=${result.summaryCount} replayed=${result.replayed} ms=${Date.now() - started}`,
     );
     if (!result.replayed) publishAppChange("research", [topicId]);
-    return result;
+    return ingested;
   } catch (error) {
     // Two concurrent retries of one batchKey: the loser returns the winner's result.
     if (isUniqueViolation(error)) {
@@ -144,22 +219,42 @@ export const ingestTree = async (topicId: string, rawPayload: unknown): Promise<
       if (batch) return replay(batch);
     }
     if (error instanceof ResearchIngestError) {
-      console.warn(`[research-ingest] rejected topic=${topicId} batch=${payload.batchKey}`, error.issues);
+      console.warn(
+        `[research-ingest] rejected topic=${topicId} batch=${payload.batchKey}`,
+        error.issues,
+      );
     }
     throw error;
   }
 };
 
+/** Lint the cards a write touched against the whole topic, after it lands. */
+export const lintWrite = async (
+  topicId: string,
+  cardIds: string[] | null,
+): Promise<string[]> => {
+  const graph = await loadTopicGraph(topicId);
+  return graph
+    ? lintTopic(graph, cardIds ? { cardIds: new Set(cardIds) } : {})
+    : [];
+};
+
 const describeStateChanges = (changes: StateChange[]) => {
   const states = [...new Set(changes.map((change) => change.to))];
   const what = changes.length === 1 ? "1 card" : `${changes.length} cards`;
-  return states.length === 1 ? `Marked ${what} ${states[0]}` : `Changed state on ${what}`;
+  return states.length === 1
+    ? `Marked ${what} ${states[0]}`
+    : `Changed state on ${what}`;
 };
 
 /** Change task/question states as one undoable batch. */
 export const setCardStates = async (
   topicId: string,
-  input: { batchKey: string; agent: string; changes: { id: string; state: ResearchCardState }[] },
+  input: {
+    batchKey: string;
+    agent: string;
+    changes: { id: string; state: ResearchCardState }[];
+  },
 ): Promise<IngestResult> => {
   const existing = await prisma.researchBatch.findUnique({
     where: { topicId_batchKey: { topicId, batchKey: input.batchKey } },
@@ -168,7 +263,11 @@ export const setCardStates = async (
 
   const result = await prisma.$transaction(async (tx) => {
     const cards = await tx.researchCard.findMany({
-      where: { topicId, hiddenAt: null, id: { in: input.changes.map((change) => change.id) } },
+      where: {
+        topicId,
+        hiddenAt: null,
+        id: { in: input.changes.map((change) => change.id) },
+      },
       select: { id: true, type: true, state: true },
     });
     const byId = new Map(cards.map((card) => [card.id, card]));
@@ -178,13 +277,22 @@ export const setCardStates = async (
       const card = byId.get(change.id);
       if (!card) issues.push(`no card "${change.id}" in this topic`);
       else if (card.type !== "task" && card.type !== "question") {
-        issues.push(`card "${change.id}" is a ${card.type}; only tasks and questions have state`);
-      } else stateChanges.push({ id: card.id, from: card.state, to: change.state });
+        issues.push(
+          `card "${change.id}" is a ${card.type}; only tasks and questions have state`,
+        );
+      } else
+        stateChanges.push({ id: card.id, from: card.state, to: change.state });
     }
     if (issues.length) throw new ResearchIngestError(issues);
 
     const batchId = newId();
-    const stored: StoredResult = { refs: {}, cardCount: 0, linkCount: 0, summaryCount: 0, stateChanges };
+    const stored: StoredResult = {
+      refs: {},
+      cardCount: 0,
+      linkCount: 0,
+      summaryCount: 0,
+      stateChanges,
+    };
     await tx.researchBatch.create({
       data: {
         id: batchId,
@@ -196,7 +304,10 @@ export const setCardStates = async (
       },
     });
     for (const change of stateChanges) {
-      await tx.researchCard.update({ where: { id: change.id }, data: { state: change.to } });
+      await tx.researchCard.update({
+        where: { id: change.id },
+        data: { state: change.to },
+      });
     }
     return { batchId, batchKey: input.batchKey, replayed: false, ...stored };
   });
@@ -204,7 +315,9 @@ export const setCardStates = async (
   return result;
 };
 
-export type UndoResult = { ok: true } | { ok: false; reason: string; blockingBatchIds: string[] };
+export type UndoResult =
+  | { ok: true }
+  | { ok: false; reason: string; blockingBatchIds: string[] };
 
 /**
  * Hide everything a batch created (and revert its state changes). Refused when
@@ -213,33 +326,65 @@ export type UndoResult = { ok: true } | { ok: false; reason: string; blockingBat
 export const undoBatch = async (batchId: string): Promise<UndoResult> =>
   withTopicChange(batchId, (tx) => undoInTx(tx, batchId));
 
-const undoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<UndoResult> => {
+const undoInTx = async (
+  tx: Prisma.TransactionClient,
+  batchId: string,
+): Promise<UndoResult> => {
   {
     const batch = await tx.researchBatch.findUnique({ where: { id: batchId } });
-    if (!batch) return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
+    if (!batch)
+      return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
     if (batch.undoneAt) return { ok: true };
 
-    const ownCards = await tx.researchCard.findMany({ where: { batchId }, select: { id: true } });
+    const ownCards = await tx.researchCard.findMany({
+      where: { batchId },
+      select: { id: true },
+    });
     const ownIds = ownCards.map((card) => card.id);
-    const activeOther = { batchId: { not: batchId }, batch: { undoneAt: null } };
+    const activeOther = {
+      batchId: { not: batchId },
+      batch: { undoneAt: null },
+    };
 
-    const [childCards, otherLinks, otherMemberships] = await Promise.all([
-      tx.researchCard.findMany({
-        where: { parentId: { in: ownIds }, hiddenAt: null, ...activeOther },
-        select: { batchId: true },
-      }),
-      tx.researchLink.findMany({
-        where: { hiddenAt: null, ...activeOther, OR: [{ fromId: { in: ownIds } }, { toId: { in: ownIds } }] },
-        select: { batchId: true },
-      }),
-      tx.researchSummaryMember.findMany({
-        where: { cardId: { in: ownIds }, group: { ...activeOther, summaryCard: { hiddenAt: null } } },
-        select: { group: { select: { batchId: true } } },
-      }),
-    ]);
+    const ownStreams = await tx.researchStream.findMany({
+      where: { batchId },
+      select: { id: true },
+    });
+    const [childCards, otherLinks, otherMemberships, streamCards] =
+      await Promise.all([
+        tx.researchCard.findMany({
+          where: { parentId: { in: ownIds }, hiddenAt: null, ...activeOther },
+          select: { batchId: true },
+        }),
+        tx.researchLink.findMany({
+          where: {
+            hiddenAt: null,
+            ...activeOther,
+            OR: [{ fromId: { in: ownIds } }, { toId: { in: ownIds } }],
+          },
+          select: { batchId: true },
+        }),
+        tx.researchSummaryMember.findMany({
+          where: {
+            cardId: { in: ownIds },
+            group: { ...activeOther, summaryCard: { hiddenAt: null } },
+          },
+          select: { group: { select: { batchId: true } } },
+        }),
+        tx.researchCard.findMany({
+          where: {
+            streamId: { in: ownStreams.map((stream) => stream.id) },
+            hiddenAt: null,
+            ...activeOther,
+          },
+          select: { batchId: true },
+        }),
+      ]);
     const blocking = new Set<string>();
-    for (const row of [...childCards, ...otherLinks]) if (row.batchId) blocking.add(row.batchId);
-    for (const row of otherMemberships) if (row.group.batchId) blocking.add(row.group.batchId);
+    for (const row of [...childCards, ...otherLinks, ...streamCards])
+      if (row.batchId) blocking.add(row.batchId);
+    for (const row of otherMemberships)
+      if (row.group.batchId) blocking.add(row.group.batchId);
     if (blocking.size) {
       return {
         ok: false,
@@ -252,12 +397,28 @@ const undoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<
     const stored = (batch.result ?? {}) as Partial<StoredResult>;
     const refused = await revertEffects(tx, stored);
     if (refused) return { ok: false, reason: refused, blockingBatchIds: [] };
-    await tx.researchCard.updateMany({ where: { batchId }, data: { hiddenAt: now } });
-    await tx.researchLink.updateMany({ where: { batchId }, data: { hiddenAt: now } });
+    await tx.researchCard.updateMany({
+      where: { batchId },
+      data: { hiddenAt: now },
+    });
+    await tx.researchLink.updateMany({
+      where: { batchId },
+      data: { hiddenAt: now },
+    });
+    await tx.researchStream.updateMany({
+      where: { batchId },
+      data: { hiddenAt: now },
+    });
     for (const change of stored.stateChanges ?? []) {
-      await tx.researchCard.update({ where: { id: change.id }, data: { state: change.from } });
+      await tx.researchCard.update({
+        where: { id: change.id },
+        data: { state: change.from },
+      });
     }
-    await tx.researchBatch.update({ where: { id: batchId }, data: { undoneAt: now } });
+    await tx.researchBatch.update({
+      where: { id: batchId },
+      data: { undoneAt: now },
+    });
     return { ok: true };
   }
 };
@@ -266,29 +427,60 @@ const undoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<
 export const redoBatch = async (batchId: string): Promise<UndoResult> =>
   withTopicChange(batchId, (tx) => redoInTx(tx, batchId));
 
-const redoInTx = async (tx: Prisma.TransactionClient, batchId: string): Promise<UndoResult> => {
+const redoInTx = async (
+  tx: Prisma.TransactionClient,
+  batchId: string,
+): Promise<UndoResult> => {
   {
     const batch = await tx.researchBatch.findUnique({ where: { id: batchId } });
-    if (!batch) return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
+    if (!batch)
+      return { ok: false, reason: "Batch not found", blockingBatchIds: [] };
     if (!batch.undoneAt) return { ok: true };
 
     const hiddenParents = await tx.researchCard.findMany({
-      where: { batchId, parent: { hiddenAt: { not: null }, batchId: { not: batchId } } },
+      where: {
+        batchId,
+        parent: { hiddenAt: { not: null }, batchId: { not: batchId } },
+      },
       select: { parent: { select: { batchId: true } } },
     });
-    const blocking = [...new Set(hiddenParents.map((row) => row.parent?.batchId).filter(Boolean))] as string[];
+    const blocking = [
+      ...new Set(
+        hiddenParents.map((row) => row.parent?.batchId).filter(Boolean),
+      ),
+    ] as string[];
     if (blocking.length) {
-      return { ok: false, reason: "Redo the batches this one builds on first.", blockingBatchIds: blocking };
+      return {
+        ok: false,
+        reason: "Redo the batches this one builds on first.",
+        blockingBatchIds: blocking,
+      };
     }
 
-    await tx.researchCard.updateMany({ where: { batchId }, data: { hiddenAt: null } });
-    await tx.researchLink.updateMany({ where: { batchId }, data: { hiddenAt: null } });
+    await tx.researchCard.updateMany({
+      where: { batchId },
+      data: { hiddenAt: null },
+    });
+    await tx.researchLink.updateMany({
+      where: { batchId },
+      data: { hiddenAt: null },
+    });
+    await tx.researchStream.updateMany({
+      where: { batchId },
+      data: { hiddenAt: null },
+    });
     const stored = (batch.result ?? {}) as Partial<StoredResult>;
     await reapplyEffects(tx, stored);
     for (const change of stored.stateChanges ?? []) {
-      await tx.researchCard.update({ where: { id: change.id }, data: { state: change.to } });
+      await tx.researchCard.update({
+        where: { id: change.id },
+        data: { state: change.to },
+      });
     }
-    await tx.researchBatch.update({ where: { id: batchId }, data: { undoneAt: null } });
+    await tx.researchBatch.update({
+      where: { id: batchId },
+      data: { undoneAt: null },
+    });
     return { ok: true };
   }
 };
@@ -300,7 +492,10 @@ const withTopicChange = async (
 ): Promise<UndoResult> => {
   const result = await prisma.$transaction(work);
   if (result.ok) {
-    const batch = await prisma.researchBatch.findUnique({ where: { id: batchId }, select: { topicId: true } });
+    const batch = await prisma.researchBatch.findUnique({
+      where: { id: batchId },
+      select: { topicId: true },
+    });
     if (batch) publishAppChange("research", [batch.topicId]);
   }
   return result;

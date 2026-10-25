@@ -1,0 +1,347 @@
+{
+  "title": "Fixture: insurance comparison, restructured",
+  "setup": {
+    "answer": "No carrier chosen. Carrier B is the closest documented match; the cheaper drafts still need verification.",
+    "streams": [
+      {
+        "key": "pick",
+        "title": "Pick a carrier",
+        "goal": "A verified final price for matched coverage before Oct 30.",
+        "answer": "Carrier B is the closest documented core match at $1,031/yr. A and C are cheaper but unverified."
+      },
+      {
+        "key": "design",
+        "title": "Coverage design",
+        "goal": "Decide what coverage to match before comparing prices."
+      },
+      {
+        "key": "home",
+        "title": "Home baseline",
+        "goal": "Know the current homeowners policy for bundle math."
+      }
+    ],
+    "kinds": [
+      {
+        "key": "carrier",
+        "label": "Carrier",
+        "role": "option",
+        "fields": [
+          {
+            "key": "premium",
+            "label": "Premium"
+          },
+          {
+            "key": "term",
+            "label": "Term"
+          },
+          {
+            "key": "status",
+            "label": "Status"
+          }
+        ]
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "batchKey": "ins2-pick",
+      "agent": "chatgpt",
+      "summary": "Carriers and their blockers",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "root",
+          "title": "Which offer matches coverage at a verified price?",
+          "gist": "Compare against the Oct 30 renewal at $513 per six months."
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt0",
+          "title": "Carrier A draft",
+          "gist": "Carrier A draft. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier A draft: $332 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier A draft: $332 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "$332 / six months",
+            "term": "6 mo",
+            "status": "Quoted"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt1",
+          "title": "Carrier B",
+          "gist": "Carrier B. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "$1",
+            "term": "12 mo",
+            "status": "Quoted"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt2",
+          "title": "Carrier C baseline deductibles",
+          "gist": "Carrier C baseline deductibles. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier C baseline deductibles: $323 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier C baseline deductibles: $323 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "$323 / six months",
+            "term": "6 mo",
+            "status": "Quoted"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt3",
+          "title": "Carrier C lower deductibles",
+          "gist": "Carrier C lower deductibles. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier C lower deductibles: $360 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier C lower deductibles: $360 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "$360 / six months",
+            "term": "6 mo",
+            "status": "Quoted"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt4",
+          "title": "Carrier D",
+          "gist": "Carrier D. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier D: $516 displayed, collision contradiction. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier D: $516 displayed, collision contradiction. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "$516 displayed",
+            "term": "6 mo",
+            "status": "Quoted"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt5",
+          "title": "Carrier E / local agent",
+          "gist": "Carrier E / local agent. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier E / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier E / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "awaiting price",
+            "term": "6 mo",
+            "status": "Pending"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt6",
+          "title": "Carrier F / local agent",
+          "gist": "Carrier F / local agent. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier F / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier F / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "awaiting price",
+            "term": "6 mo",
+            "status": "Pending"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt7",
+          "title": "Carrier G",
+          "gist": "Carrier G. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier G: user-deferred. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier G: user-deferred. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "user-deferred",
+            "term": "6 mo",
+            "status": "Pending"
+          }
+        },
+        {
+          "kind": "carrier",
+          "stream": "pick",
+          "ref": "opt8",
+          "title": "Carrier H",
+          "gist": "Carrier H. One or two sentences the board can show.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier H: route not completed. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier H: route not completed. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "fields": {
+            "premium": "route not completed",
+            "term": "6 mo",
+            "status": "Pending"
+          }
+        },
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "q0",
+          "title": "Carrier A's final verified price and payment basis?",
+          "gist": "What is Carrier A's final verified price and payment basis?. One or two sentences the board can show."
+        },
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "q1",
+          "title": "the second car still need loan payoff protection?",
+          "gist": "Does the second car still need loan payoff protection?. One or two sentences the board can show."
+        },
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "q2",
+          "title": "Carrier C cost without telematics or a bundle and with matched coverage?",
+          "gist": "What would Carrier C cost without telematics or a bundle and with matched coverage?. One or two sentences the board can show."
+        },
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "q3",
+          "title": "Carrier D issue an unambiguous collision document?",
+          "gist": "Can Carrier D issue an unambiguous collision document?. One or two sentences the board can show."
+        },
+        {
+          "type": "question",
+          "stream": "pick",
+          "ref": "q4",
+          "title": "Carriers E and F return priced offers?",
+          "gist": "Will Carriers E and F return priced offers?. One or two sentences the board can show."
+        },
+        {
+          "type": "task",
+          "stream": "pick",
+          "ref": "t0",
+          "title": "Request standalone Carrier C quote without telematics",
+          "gist": "Submitted through the online form on Oct 22.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "Form submitted; no price yet",
+              "gist": "Confirmation email received Oct 22."
+            }
+          ]
+        }
+      ],
+      "links": [
+        {
+          "from": "opt0",
+          "to": "q0",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt0",
+          "to": "q1",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt1",
+          "to": "q1",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt2",
+          "to": "q2",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt3",
+          "to": "q2",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt4",
+          "to": "q3",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt5",
+          "to": "q4",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt6",
+          "to": "q4",
+          "kind": "blocks"
+        },
+        {
+          "from": "opt2",
+          "to": "t0",
+          "kind": "blocks"
+        }
+      ]
+    },
+    {
+      "batchKey": "ins2-answers",
+      "agent": "chatgpt",
+      "summary": "Findings that answer the open questions",
+      "cards": [
+        {
+          "type": "finding",
+          "stream": "pick",
+          "title": "Carrier A quote needs license verification",
+          "gist": "The $332 draft is not final until verification finishes.",
+          "ref": "fa",
+          "children": [
+            {
+              "type": "source",
+              "title": "Carrier A saved quote page",
+              "url": "https://example.test/a"
+            }
+          ]
+        }
+      ],
+      "links": [
+        {
+          "from": "fa",
+          "to": "@q0",
+          "kind": "answers"
+        }
+      ]
+    },
+    {
+      "batchKey": "ins2-design",
+      "agent": "chatgpt",
+      "summary": "Coverage design",
+      "cards": [
+        {
+          "type": "criterion",
+          "stream": "design",
+          "title": "Match the renewal's liability and UM limits",
+          "gist": "100/300 BI, 100k PD, 100/300 UM.",
+          "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |"
+        },
+        {
+          "type": "question",
+          "stream": "design",
+          "title": "Is the current policy over-insured?",
+          "gist": "Later analysis questioned whether matching is the right target.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "Higher deductibles save about $90/yr",
+              "gist": "Collision and comprehensive at $1,000 instead of $500."
+            },
+            {
+              "type": "finding",
+              "title": "Loan payoff protection may be unnecessary",
+              "gist": "Depends on the payoff balance."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "batchKey": "ins2-home",
+      "agent": "chatgpt",
+      "summary": "Home baseline",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "home",
+          "title": "What is the current homeowners baseline?",
+          "gist": "Declarations not verified."
+        }
+      ]
+    }
+  ]
+}

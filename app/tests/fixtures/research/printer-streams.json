@@ -1,0 +1,667 @@
+{
+  "title": "Fixture: 3D printer guide, restructured",
+  "setup": {
+    "answer": "Lean A1 Combo at the Oct 27 sale price for controlled color; bare A1 if single-spool effects are enough.",
+    "streams": [
+      {
+        "key": "choose",
+        "title": "Choose a printer",
+        "goal": "Which printer and bundle best fit the projects I actually want to make?",
+        "answer": "Entry printer combo at $359 if the sale holds."
+      },
+      {
+        "key": "effects",
+        "title": "Shiny vs multicolor",
+        "goal": "Do I want shiny single-spool effects or precisely assigned multicolor regions?",
+        "answer": ""
+      },
+      {
+        "key": "setup",
+        "title": "Space and starter kit",
+        "goal": "What space, materials and small starter kit should I choose?",
+        "answer": ""
+      },
+      {
+        "key": "budget",
+        "title": "Budget",
+        "goal": "What total setup budget and ongoing material cost am I comfortable with?",
+        "answer": ""
+      },
+      {
+        "key": "used",
+        "title": "Used or refurbished",
+        "goal": "Would a used or refurbished printer save enough to justify its risks?",
+        "answer": ""
+      }
+    ],
+    "kinds": [
+      {
+        "key": "printer",
+        "label": "Printer",
+        "role": "option",
+        "fields": [
+          {
+            "key": "price",
+            "label": "Price"
+          },
+          {
+            "key": "combo",
+            "label": "Combo"
+          },
+          {
+            "key": "fit",
+            "label": "Best fit"
+          }
+        ]
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "batchKey": "pr2-0",
+      "agent": "chatgpt",
+      "summary": "Stream 1",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "choose",
+          "ref": "pq0",
+          "title": "Which printer and bundle best fit the projects I actually?",
+          "gist": "Which printer and bundle best fit the projects I actually want to make?. One or two sentences the board can show.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "The sale is confirmed but exact prices remain previews",
+              "gist": "The sale is confirmed but exact prices remain previews. One or two sentences the board can show.",
+              "body": "Paragraph 1 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.0.0: vendor page or review",
+                  "url": "https://example.test/s/0/0/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "The entry printer is a balanced open-frame starting point, not the",
+              "gist": "The entry printer is a balanced open-frame starting point. One or two sentences the board can show.",
+              "body": "Paragraph 1 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.1.0: vendor page or review",
+                  "url": "https://example.test/s/0/1/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.1.1: vendor page or review",
+                  "url": "https://example.test/s/0/1/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Choose the multicolor bundle for controlled color and larger machines",
+              "gist": "Choose the multicolor bundle for controlled color and larger machines only for a concrete need. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.2.0: vendor page or review",
+                  "url": "https://example.test/s/0/2/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.2.1: vendor page or review",
+                  "url": "https://example.test/s/0/2/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.2.2: vendor page or review",
+                  "url": "https://example.test/s/0/2/2"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "A reliable first print starts with a model, a correct profile and a",
+              "gist": "A reliable first print starts with a model. One or two sentences the board can show.",
+              "body": "Paragraph 1 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.3.0: vendor page or review",
+                  "url": "https://example.test/s/0/3/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "FDM is a workshop process with layer lines, strength limits and support",
+              "gist": "FDM is a workshop process with layer lines. One or two sentences the board can show.",
+              "body": "Paragraph 1 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.4.0: vendor page or review",
+                  "url": "https://example.test/s/0/4/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.4.1: vendor page or review",
+                  "url": "https://example.test/s/0/4/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "The vendor ecosystem offers convenience but offline and third-party",
+              "gist": "The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. One or two sentences the board can show.",
+              "body": "Paragraph 1 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 0.5.0: vendor page or review",
+                  "url": "https://example.test/s/0/5/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.5.1: vendor page or review",
+                  "url": "https://example.test/s/0/5/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 0.5.2: vendor page or review",
+                  "url": "https://example.test/s/0/5/2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po0",
+          "title": "Mini printer",
+          "gist": "Mini printer: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$199",
+            "combo": "$299",
+            "fit": "Small parts"
+          }
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po1",
+          "title": "Entry printer",
+          "gist": "Entry printer: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$259",
+            "combo": "$359",
+            "fit": "Balanced start"
+          }
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po2",
+          "title": "Enclosed printer",
+          "gist": "Enclosed printer: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$319",
+            "combo": "$419",
+            "fit": "Enclosed"
+          }
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po3",
+          "title": "Enclosed printer, newer",
+          "gist": "Enclosed printer, newer: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$379",
+            "combo": "$479",
+            "fit": "Enclosed, advanced"
+          }
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po4",
+          "title": "Competitor enclosed combo",
+          "gist": "Competitor enclosed combo: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$439",
+            "combo": "$539",
+            "fit": "Enclosed CoreXY"
+          }
+        },
+        {
+          "kind": "printer",
+          "stream": "choose",
+          "ref": "po5",
+          "title": "Competitor four-color",
+          "gist": "Competitor four-color: size versus enclosure tradeoff.",
+          "fields": {
+            "price": "$499",
+            "combo": "$599",
+            "fit": "Budget 4-color"
+          }
+        }
+      ],
+      "links": []
+    },
+    {
+      "batchKey": "pr2-1",
+      "agent": "chatgpt",
+      "summary": "Stream 2",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "effects",
+          "ref": "pq1",
+          "title": "Do I want shiny single-spool effects or precisely assigned?",
+          "gist": "Do I want shiny single-spool effects or precisely assigned multicolor regions?. One or two sentences the board can show.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "Shiny and multicolor describe several different effects with different",
+              "gist": "Shiny and multicolor describe several different effects with different hardware needs. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 1.0.0: vendor page or review",
+                  "url": "https://example.test/s/1/0/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Silk, coextruded and rainbow filaments make effects without a feeder",
+              "gist": "Silk. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 1.1.0: vendor page or review",
+                  "url": "https://example.test/s/1/1/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 1.1.1: vendor page or review",
+                  "url": "https://example.test/s/1/1/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Three visual filament examples show gloss, gradient and angle-changing color",
+              "gist": "Three visual filament examples show gloss. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 1.2.0: vendor page or review",
+                  "url": "https://example.test/s/1/2/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 1.2.1: vendor page or review",
+                  "url": "https://example.test/s/1/2/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 1.2.2: vendor page or review",
+                  "url": "https://example.test/s/1/2/2"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Precise color regions cost additional time and purge material on a single nozzle",
+              "gist": "Precise color regions cost additional time and purge material on a single nozzle. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 1.3.0: vendor page or review",
+                  "url": "https://example.test/s/1/3/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "The open feeder is the simplest starting point, while boxed expansion",
+              "gist": "The open feeder is the simplest starting point. One or two sentences the board can show.",
+              "body": "Paragraph 1 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 1.4.0: vendor page or review",
+                  "url": "https://example.test/s/1/4/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 1.4.1: vendor page or review",
+                  "url": "https://example.test/s/1/4/1"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "links": []
+    },
+    {
+      "batchKey": "pr2-2",
+      "agent": "chatgpt",
+      "summary": "Stream 3",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "setup",
+          "ref": "pq2",
+          "title": "What space, materials and small starter kit should I choose?",
+          "gist": "What space. One or two sentences the board can show.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "A stable ventilated workspace matters more than cosmetic printer upgrades",
+              "gist": "A stable ventilated workspace matters more than cosmetic printer upgrades. One or two sentences the board can show.",
+              "body": "Paragraph 1 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.0.0: vendor page or review",
+                  "url": "https://example.test/s/2/0/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Start with 1.75 mm PLA and choose later materials by printer, feeder",
+              "gist": "Start with 1.75 mm PLA and choose later materials by printer. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.1.0: vendor page or review",
+                  "url": "https://example.test/s/2/1/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.1.1: vendor page or review",
+                  "url": "https://example.test/s/2/1/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures",
+              "gist": "Dry storage. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.2.0: vendor page or review",
+                  "url": "https://example.test/s/2/2/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.2.1: vendor page or review",
+                  "url": "https://example.test/s/2/2/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.2.2: vendor page or review",
+                  "url": "https://example.test/s/2/2/2"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Buy a small starter kit and add hotends or plates only for a specific use",
+              "gist": "Buy a small starter kit and add hotends or plates only for a specific use. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.3.0: vendor page or review",
+                  "url": "https://example.test/s/2/3/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "The warehouse-club bundle needs a current member-price comparison, not",
+              "gist": "The warehouse-club bundle needs a current member-price comparison. One or two sentences the board can show.",
+              "body": "Paragraph 1 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.4.0: vendor page or review",
+                  "url": "https://example.test/s/2/4/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.4.1: vendor page or review",
+                  "url": "https://example.test/s/2/4/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "A small first-month plan helps establish a baseline before buying more upgrades",
+              "gist": "A small first-month plan helps establish a baseline before buying more upgrades. One or two sentences the board can show.",
+              "body": "Paragraph 1 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 2.5.0: vendor page or review",
+                  "url": "https://example.test/s/2/5/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.5.1: vendor page or review",
+                  "url": "https://example.test/s/2/5/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 2.5.2: vendor page or review",
+                  "url": "https://example.test/s/2/5/2"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "links": []
+    },
+    {
+      "batchKey": "pr2-3",
+      "agent": "chatgpt",
+      "summary": "Stream 4",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "budget",
+          "ref": "pq3",
+          "title": "What total setup budget and ongoing material cost am I?",
+          "gist": "What total setup budget and ongoing material cost am I comfortable with?. One or two sentences the board can show.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "Plan roughly $299–329 bare or $434–474 combo before tax, using",
+              "gist": "Plan roughly $299–329 bare or $434–474 combo before tax. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 3.0.0: vendor page or review",
+                  "url": "https://example.test/s/3/0/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Count supports, purge, towers and failed attempts rather than only",
+              "gist": "Count supports. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 3.1.0: vendor page or review",
+                  "url": "https://example.test/s/3/1/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 3.1.1: vendor page or review",
+                  "url": "https://example.test/s/3/1/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "Reducing waste and unnecessary purchases often beats a small filament discount",
+              "gist": "Reducing waste and unnecessary purchases often beats a small filament discount. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 3.2.0: vendor page or review",
+                  "url": "https://example.test/s/3/2/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 3.2.1: vendor page or review",
+                  "url": "https://example.test/s/3/2/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 3.2.2: vendor page or review",
+                  "url": "https://example.test/s/3/2/2"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "links": []
+    },
+    {
+      "batchKey": "pr2-4",
+      "agent": "chatgpt",
+      "summary": "Stream 5",
+      "cards": [
+        {
+          "type": "question",
+          "stream": "used",
+          "ref": "pq4",
+          "title": "Would a used or refurbished printer save enough to justify its risks?",
+          "gist": "Would a used or refurbished printer save enough to justify its risks?. One or two sentences the board can show.",
+          "children": [
+            {
+              "type": "finding",
+              "title": "Used and refurbished offers must be compared with the best legitimate new price",
+              "gist": "Used and refurbished offers must be compared with the best legitimate new price. One or two sentences the board can show.",
+              "body": "Paragraph 1 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 4.0.0: vendor page or review",
+                  "url": "https://example.test/s/4/0/0"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "An older unit needs documented recall history and separate power-board",
+              "gist": "An older unit needs documented recall history and separate power-board consideration. One or two sentences the board can show.",
+              "body": "Paragraph 1 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 4.1.0: vendor page or review",
+                  "url": "https://example.test/s/4/1/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 4.1.1: vendor page or review",
+                  "url": "https://example.test/s/4/1/1"
+                }
+              ]
+            },
+            {
+              "type": "finding",
+              "title": "A used printer should pass a real demonstration and account-transfer",
+              "gist": "A used printer should pass a real demonstration and account-transfer check before payment. One or two sentences the board can show.",
+              "body": "Paragraph 1 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+              "children": [
+                {
+                  "type": "source",
+                  "title": "Source 4.2.0: vendor page or review",
+                  "url": "https://example.test/s/4/2/0"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 4.2.1: vendor page or review",
+                  "url": "https://example.test/s/4/2/1"
+                },
+                {
+                  "type": "source",
+                  "title": "Source 4.2.2: vendor page or review",
+                  "url": "https://example.test/s/4/2/2"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "links": []
+    },
+    {
+      "batchKey": "pr2-links",
+      "agent": "chatgpt",
+      "summary": "Options blocked by open preference questions",
+      "cards": [],
+      "links": [
+        {
+          "from": "@po1",
+          "to": "@pq1",
+          "kind": "blocks"
+        },
+        {
+          "from": "@po5",
+          "to": "@pq1",
+          "kind": "blocks"
+        },
+        {
+          "from": "@po0",
+          "to": "@pq3",
+          "kind": "blocks"
+        }
+      ]
+    },
+    {
+      "batchKey": "pr2-crit",
+      "agent": "chatgpt",
+      "summary": "Topic criteria",
+      "cards": [
+        {
+          "type": "criterion",
+          "title": "Choose for project fit and lifetime cost",
+          "gist": "Not advertised speed or old MSRP."
+        },
+        {
+          "type": "criterion",
+          "title": "Keep dated evidence separate from previews",
+          "gist": "Sale prices are previews until checkout."
+        }
+      ]
+    }
+  ]
+}
