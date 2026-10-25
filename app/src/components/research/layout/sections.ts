@@ -30,7 +30,10 @@ export const SECTION_MIN = 6;
 export type TypeSection<T> = { type: ResearchCardType; items: T[] };
 
 /** Items grouped by card type in `TYPE_ORDER`, keeping their order inside each type. */
-export const sectionByType = <T>(items: readonly T[], typeOf: (item: T) => ResearchCardType): TypeSection<T>[] => {
+export const sectionByType = <T>(
+  items: readonly T[],
+  typeOf: (item: T) => ResearchCardType,
+): TypeSection<T>[] => {
   const byType = new Map<ResearchCardType, T[]>();
   for (const item of items) {
     const type = typeOf(item);
@@ -38,5 +41,8 @@ export const sectionByType = <T>(items: readonly T[], typeOf: (item: T) => Resea
     list.push(item);
     byType.set(type, list);
   }
-  return TYPE_ORDER.filter((type) => byType.has(type)).map((type) => ({ type, items: byType.get(type)! }));
+  return TYPE_ORDER.filter((type) => byType.has(type)).map((type) => ({
+    type,
+    items: byType.get(type)!,
+  }));
 };

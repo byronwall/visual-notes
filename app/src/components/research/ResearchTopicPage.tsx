@@ -11,12 +11,15 @@ import {
   For,
   on,
   onCleanup,
+  Match,
   onMount,
   Show,
+  Switch,
 } from "solid-js";
 import { css } from "styled-system/css";
 import { countOpen } from "~/services/research/research.graph";
-import { TopicCanvas } from "./canvas/TopicCanvas";
+import { OptionsTable } from "./board/OptionsTable";
+import { TopicBoard } from "./board/TopicBoard";
 import { createTopicData } from "./createTopicData";
 import { matchingIds } from "./inspector/contents";
 import { createReaderWidth } from "./inspector/createReaderWidth";
@@ -81,29 +84,42 @@ const EmptyTopic = (props: { title: string }) => (
 );
 
 const VIEWS = [
-  { id: "canvas", label: "Canvas" },
+  { id: "board", label: "Board" },
+  { id: "table", label: "Options" },
   { id: "outline", label: "Outline" },
 ] as const;
+type View = (typeof VIEWS)[number]["id"];
 
 export const ResearchTopicPage = (props: { slug: string }) => {
   const data = createTopicData(() => props.slug);
   const [params, setParams] = useSearchParams<{
     view?: string;
     card?: string;
+    stream?: string;
   }>();
-  const view = () => (params.view === "outline" ? "outline" : "canvas");
+  const view = (): View =>
+    VIEWS.some((entry) => entry.id === params.view)
+      ? (params.view as View)
+      : "board";
   const nowMs = () => Date.parse(data.current()?.generatedAt ?? "") || 0;
   const selected = () =>
     params.card ? data.cardsById().get(params.card) ?? null : null;
+  const selectedStream = () =>
+    params.stream && !params.card
+      ? data.streamsByKey().get(params.stream) ?? null
+      : null;
+  // A card and a stream share the reader; picking one clears the other.
   const select = (id: string | null) =>
-    setParams({ card: id ?? undefined }, { replace: true });
+    setParams({ card: id ?? undefined, stream: undefined }, { replace: true });
+  const selectStream = (key: string | null) =>
+    setParams({ stream: key ?? undefined, card: undefined }, { replace: true });
   const plainCount = () =>
     data.cards().filter((card) => card.type !== "summary").length;
   const [query, setQuery] = createSignal("");
   const matches = createMemo(() => matchingIds(data.cards(), query()));
   // Picking a card opens it in the inspector; clearing the pick goes back to Contents.
   const [tab, setTab] = createSignal<InspectorTab>(
-    params.card ? "card" : "contents",
+    params.card || params.stream ? "card" : "contents",
   );
   const [inspectorOpen, setInspectorOpen] = createSignal(true);
   const [expanded, setExpanded] = createSignal(false);
@@ -113,7 +129,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     reader.width() ?? aside?.getBoundingClientRect().width ?? 352;
   createEffect(
     on(
-      () => params.card,
+      () => params.card || params.stream,
       (card) => {
         if (card) {
           setTab("card");
@@ -127,7 +143,11 @@ export const ResearchTopicPage = (props: { slug: string }) => {
   // Esc clears the selection unless a field, dialog, or menu has focus.
   onMount(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || (!params.card && !expanded())) return;
+      if (
+        event.key !== "Escape" ||
+        (!params.card && !params.stream && !expanded())
+      )
+        return;
       const target = event.target as HTMLElement | null;
       if (
         target?.closest(
@@ -137,6 +157,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
         return;
       // Esc steps back out of the full-width reader before it drops the selection.
       if (expanded()) setExpanded(false);
+      else if (params.stream) selectStream(null);
       else select(null);
     };
     window.addEventListener("keydown", onKey);
@@ -245,7 +266,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                     data-active={view() === entry.id}
                     onClick={() =>
                       setParams(
-                        { view: entry.id === "canvas" ? undefined : entry.id },
+                        { view: entry.id === "board" ? undefined : entry.id },
                         { replace: true },
                       )
                     }
@@ -304,16 +325,32 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               class={css({
                 minH: 0,
                 isolation: "isolate",
-                overflow: view() === "canvas" ? "hidden" : "auto",
+                overflow: view() === "board" ? "hidden" : "auto",
               })}
             >
               <Show
                 when={data.cards().length}
                 fallback={<EmptyTopic title={graph().topic.title} />}
               >
-                <Show
-                  when={view() === "canvas"}
-                  fallback={
+                <Switch>
+                  <Match when={view() === "board"}>
+                    <TopicBoard
+                      data={data}
+                      selectedId={selected()?.id ?? null}
+                      selectedStream={selectedStream()?.key ?? null}
+                      matches={matches()}
+                      onSelect={select}
+                      onSelectStream={selectStream}
+                    />
+                  </Match>
+                  <Match when={view() === "table"}>
+                    <OptionsTable
+                      data={data}
+                      selectedId={selected()?.id ?? null}
+                      onSelect={select}
+                    />
+                  </Match>
+                  <Match when={view() === "outline"}>
                     <div class={css({ px: "3", py: "2" })}>
                       <TopicOutline
                         data={data}
@@ -323,15 +360,8 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                         onSelect={select}
                       />
                     </div>
-                  }
-                >
-                  <TopicCanvas
-                    data={data}
-                    selectedId={selected()?.id ?? null}
-                    matches={matches()}
-                    onSelect={select}
-                  />
-                </Show>
+                  </Match>
+                </Switch>
               </Show>
             </main>
             <aside
@@ -368,7 +398,9 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 tab={tab()}
                 onTab={setTab}
                 selected={selected()}
+                selectedStream={selectedStream()}
                 onSelect={select}
+                onSelectStream={selectStream}
                 query={query()}
                 onQuery={setQuery}
                 nowMs={nowMs()}

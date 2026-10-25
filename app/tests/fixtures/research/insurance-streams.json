@@ -76,7 +76,7 @@
           "gist": "Carrier B. One or two sentences the board can show.",
           "body": "| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
           "fields": {
-            "premium": "$1",
+            "premium": "$1,031 annual paid in full",
             "term": "12 mo",
             "status": "Quoted"
           }
