@@ -181,6 +181,34 @@ test.describe("research topic board", () => {
     await expect(page).not.toHaveURL(/card=/);
   });
 
+  test("comments for the agent and gist/stream edits from the reader", async ({ page, request }) => {
+    const topic = await createResearchTopicFixture(request, fixture("insurance-streams"), `Board comments ${uniqueSuffix()}`);
+    await page.goto(`/research/${topic.slug}`);
+    await waitForAppReady(page);
+    await cardByTitle(page, "Carrier G").click();
+    const detail = page.getByTestId("research-card-detail");
+    const comments = detail.getByTestId("research-comments");
+    await comments.getByLabel("New comment").fill("Price looks stale; re-check before Oct 30");
+    await comments.getByRole("button", { name: "Add comment" }).click();
+    await expect(comments.getByTestId("research-comment")).toHaveCount(1);
+    await expect(comments.getByTestId("research-comment")).toHaveAttribute("data-resolved", "false");
+    // The board shows an open comment on the card.
+    await expect(cardByTitle(page, "Carrier G")).toContainText("1");
+    await comments.getByRole("button", { name: "Resolve" }).click();
+    await expect(comments.getByTestId("research-comment")).toHaveAttribute("data-resolved", "true");
+    await shoot(page, "board-comments");
+
+    // Edit the gist and move the card to another stream; the board follows.
+    await detail.getByRole("button", { name: "Edit", exact: true }).click();
+    await detail.getByLabel("Card gist").fill("Deferred by Byron.");
+    await detail.getByRole("combobox", { name: "Stream" }).click();
+    await page.getByRole("option", { name: "Home baseline" }).click();
+    await detail.getByRole("button", { name: "Save" }).click();
+    await expect(column(page, "home")).toContainText("Carrier G");
+    await expect(column(page, "home")).toContainText("Deferred by Byron.");
+    await expect(column(page, "pick")).not.toContainText("Carrier G");
+  });
+
   test("an empty topic says how cards arrive", async ({ page, request }) => {
     const topic = await createResearchTopicFixture(
       request,
