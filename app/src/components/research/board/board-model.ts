@@ -76,7 +76,8 @@ const blockFor = (card: ResearchCard): BoardBlockKey => {
   }
 };
 
-const MAX_DEPTH = 3;
+// Deep chains still render; cycles stop at the `seen` set.
+const MAX_DEPTH = 12;
 
 export const buildBoard = (graph: Graph): BoardModel => {
   const relations = buildRelations(graph);

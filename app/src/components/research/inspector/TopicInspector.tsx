@@ -232,7 +232,16 @@ export const TopicInspector = (props: {
         <div class={readingClass} data-expanded={props.expanded}>
           {/* Contents stays mounted so its scroll and folded sections survive a trip to Card. */}
           <div
-            style={{ display: props.tab === "contents" ? undefined : "none" }}
+            style={{
+              // A stale ?card or unknown ?stream falls back to Contents instead of a blank rail.
+              display:
+                props.tab === "contents" ||
+                (props.tab === "card" &&
+                  !props.selected &&
+                  !props.selectedStream)
+                  ? undefined
+                  : "none",
+            }}
           >
             <TopicContents
               data={props.data}

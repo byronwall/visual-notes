@@ -123,6 +123,11 @@ export function registerResearchEditTools(tools: ToolRegistrar): void {
       batchKey,
     }) => {
       const found = await requireTopic(topic);
+      // Check the rename before the frame batch commits, so a bad title can't
+      // leave a saved frame behind an error.
+      if (title !== undefined && !title.trim()) {
+        throw new ConnectorError("invalid", "title cannot be empty");
+      }
       const framed =
         streams?.length ||
         removeStreams?.length ||
@@ -198,6 +203,7 @@ export function registerResearchEditTools(tools: ToolRegistrar): void {
               stream: z.string().max(40).nullable().optional(),
               parent: z
                 .string()
+                .min(1)
                 .nullable()
                 .optional()
                 .describe("Card id to move under, or null to make it a root"),

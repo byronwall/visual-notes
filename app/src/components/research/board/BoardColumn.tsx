@@ -27,17 +27,12 @@ const headerClass = css({
   pb: "2",
   borderBottomWidth: "1px",
   borderColor: "border",
-  cursor: "pointer",
   textAlign: "left",
   w: "full",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
-  _hover: { bg: "bg.hover" },
+  "&[data-selectable=true]": { cursor: "pointer", _hover: { bg: "bg.hover" } },
   "&[data-selected=true]": { bg: "bg.selected" },
-  _focusVisible: {
-    outline: "2px solid token(colors.border.focus)",
-    outlineOffset: "-2px",
-  },
 });
 
 export const blockLabelClass = css({
@@ -83,14 +78,11 @@ export const BoardColumn = (props: {
       data-testid="research-board-column"
       data-stream={column().key}
     >
-      <button
-        type="button"
+      <header
         class={headerClass}
         data-selected={props.selectedStream === column().key}
-        disabled={!selectable()}
+        data-selectable={selectable()}
         onClick={() => selectable() && props.onSelectStream(column().key)}
-        title={selectable() ? "Open this stream in the reader" : undefined}
-        style={selectable() ? undefined : { cursor: "default" }}
       >
         <h2
           class={css({
@@ -100,7 +92,23 @@ export const BoardColumn = (props: {
             color: unsorted() ? "fg.muted" : "fg.default",
           })}
         >
-          {column().title}
+          {/* The heading stays a heading; the button inside makes it reachable by keyboard. */}
+          <Show when={selectable()} fallback={column().title}>
+            <button
+              type="button"
+              title="Open this stream in the reader"
+              class={css({
+                textAlign: "left",
+                cursor: "pointer",
+                _focusVisible: {
+                  outline: "2px solid token(colors.border.focus)",
+                  outlineOffset: "2px",
+                },
+              })}
+            >
+              {column().title}
+            </button>
+          </Show>
         </h2>
         <Show when={column().goal}>
           <p
@@ -132,7 +140,7 @@ export const BoardColumn = (props: {
           · {props.model.cardCount}{" "}
           {props.model.cardCount === 1 ? "card" : "cards"}
         </p>
-      </button>
+      </header>
 
       <Show when={answerHtml()}>
         <div>

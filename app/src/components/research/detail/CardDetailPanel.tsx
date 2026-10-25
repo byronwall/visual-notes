@@ -267,55 +267,53 @@ export const CardDetailPanel = (props: {
         >
           <CardBody card={props.card} />
         </div>
-        <Show when={props.card.type !== "summary"}>
-          <div
-            class={css({
-              display: "flex",
-              gap: "1",
-              mt: "1.5",
-              flexWrap: "wrap",
-            })}
+        <div
+          class={css({
+            display: "flex",
+            gap: "1",
+            mt: "1.5",
+            flexWrap: "wrap",
+          })}
+        >
+          <button
+            type="button"
+            class={textButtonClass}
+            onClick={() => setEditing(true)}
           >
-            <button
-              type="button"
-              class={textButtonClass}
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </button>
-            <Show
-              when={confirmRemove()}
-              fallback={
-                <button
-                  type="button"
-                  class={textButtonClass}
-                  data-tone="danger"
-                  onClick={() => setConfirmRemove(true)}
-                >
-                  Remove
-                </button>
-              }
-            >
+            Edit
+          </button>
+          <Show
+            when={confirmRemove()}
+            fallback={
               <button
                 type="button"
                 class={textButtonClass}
                 data-tone="danger"
-                onClick={remove}
+                onClick={() => setConfirmRemove(true)}
               >
-                {subtree().length > 1
-                  ? `Remove with ${subtree().length - 1} below`
-                  : "Confirm remove"}
+                Remove
               </button>
-              <button
-                type="button"
-                class={textButtonClass}
-                onClick={() => setConfirmRemove(false)}
-              >
-                Keep
-              </button>
-            </Show>
-          </div>
-        </Show>
+            }
+          >
+            <button
+              type="button"
+              class={textButtonClass}
+              data-tone="danger"
+              onClick={remove}
+            >
+              {subtree().length > 1
+                ? `Remove with ${subtree().length - 1} below`
+                : "Confirm remove"}
+            </button>
+            <button
+              type="button"
+              class={textButtonClass}
+              onClick={() => setConfirmRemove(false)}
+            >
+              Keep
+            </button>
+          </Show>
+        </div>
       </Show>
 
       <Show when={pedigree().length}>
