@@ -1,6 +1,7 @@
 // Checks that image bytes are whole, without decoding pixels. Each format is
 // walked by its own structure (PNG chunks to IEND, JPEG segments to EOI, the
-// RIFF, BMP, and ISO-BMFF sizes, the GIF trailer), so bytes cut off part way,
+// RIFF, BMP, and ISO-BMFF sizes, GIF blocks to the trailer), so bytes cut off
+// part way,
 // such as base64 an agent stopped copying early, are refused instead of being
 // stored as a half-grey picture. Dimensions come from the headers.
 
@@ -46,8 +47,13 @@ function checkJpeg(b: Buffer): ImageCheck {
   let width: number | null = null;
   let height: number | null = null;
   for (let at = 2; ; ) {
+    if (b[at] !== 0xff) {
+      // Decoders skip stray bytes between segments, so look for the next one.
+      const next = b.indexOf(0xff, at);
+      if (next === -1) return cut("no image data");
+      at = next;
+    }
     if (at + 4 > b.length) return cut("no image data");
-    if (b[at] !== 0xff) return cut("broken segment");
     const marker = b[at + 1]!;
     if (marker === 0xff) {
       at += 1; // fill byte
@@ -79,12 +85,44 @@ function checkJpeg(b: Buffer): ImageCheck {
   }
 }
 
+/** Sub-blocks from at: sizes then data, ending at a zero size. */
+function skipGifSubBlocks(b: Buffer, at: number): number {
+  for (;;) {
+    if (at >= b.length) return -1;
+    const size = b[at]!;
+    at += 1 + size;
+    if (size === 0) return at;
+  }
+}
+
 function checkGif(b: Buffer): ImageCheck {
-  if (b.length < 14) return cut("no header");
-  let last = b.length - 1;
-  while (last > 13 && b[last] === 0) last -= 1;
-  if (b[last] !== 0x3b) return cut("no trailer");
-  return sized(b.readUInt16LE(6), b.readUInt16LE(8));
+  if (b.length < 13) return cut("no header");
+  const colorTable = (flags: number) =>
+    flags & 0x80 ? 3 * 2 ** ((flags & 0x07) + 1) : 0;
+  let at = 13 + colorTable(b[10]!);
+  let frames = 0;
+  for (;;) {
+    // Whole frames are what a browser shows; bytes after them are ignored.
+    if (at >= b.length)
+      return frames
+        ? sized(b.readUInt16LE(6), b.readUInt16LE(8))
+        : cut("no image data");
+    const block = b[at]!;
+    if (block === 0x3b || (block !== 0x21 && block !== 0x2c && frames)) break;
+    if (block === 0x21) {
+      at = skipGifSubBlocks(b, at + 2);
+    } else if (block === 0x2c) {
+      if (at + 11 > b.length) return cut("frame header runs past the end");
+      at = skipGifSubBlocks(b, at + 11 + colorTable(b[at + 9]!));
+      if (at !== -1) frames += 1;
+    } else {
+      return cut("broken block");
+    }
+    if (at === -1) return cut("a frame runs past the end");
+  }
+  return frames
+    ? sized(b.readUInt16LE(6), b.readUInt16LE(8))
+    : cut("no image data");
 }
 
 function checkWebp(b: Buffer): ImageCheck {

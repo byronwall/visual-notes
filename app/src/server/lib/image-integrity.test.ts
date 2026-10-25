@@ -34,6 +34,25 @@ describe("checkImageIntegrity", () => {
     expect(checkImageIntegrity(truncated, "jpg").ok).toBe(false);
   });
 
+  it("accepts a JPEG with stray bytes between segments, as decoders do", () => {
+    const whole = Buffer.from(FIXTURES.jpg!, "base64");
+    const stray = Buffer.concat([whole.subarray(0, 2), Buffer.from([0x00, 0x0a, 0x00]), whole.subarray(2)]);
+    expect(checkImageIntegrity(stray, "jpg")).toEqual({ ok: true, width: 3, height: 2 });
+  });
+
+  it("accepts a GIF with extra data after its trailer or last frame", () => {
+    const whole = Buffer.from(FIXTURES.gif!, "base64");
+    const junk = Buffer.concat([whole, Buffer.from("trailing metadata")]);
+    expect(checkImageIntegrity(junk, "gif")).toEqual({ ok: true, width: 3, height: 2 });
+    const noTrailer = Buffer.concat([whole.subarray(0, whole.length - 1), Buffer.from([0x99, 0x01])]);
+    expect(checkImageIntegrity(noTrailer, "gif").ok).toBe(true);
+  });
+
+  it("refuses a GIF cut off inside its only frame", () => {
+    const whole = Buffer.from(FIXTURES.gif!, "base64");
+    expect(checkImageIntegrity(whole.subarray(0, whole.length - 3), "gif")).toMatchObject({ ok: false });
+  });
+
   it("refuses a WebP shorter than its RIFF size", () => {
     const header = Buffer.alloc(30);
     header.write("RIFF", 0, "ascii");
