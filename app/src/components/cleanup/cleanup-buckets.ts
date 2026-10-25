@@ -48,7 +48,13 @@ export const BUCKET_META: Record<BucketId, BucketMeta> = {
 };
 
 /** Buckets shown in the rail, in order. Each needs an action panel. */
-export const RAIL_BUCKETS: BucketId[] = ["distill", "regroup"];
+export const RAIL_BUCKETS: BucketId[] = [
+  "distill",
+  "regroup",
+  "post_event",
+  "make_task",
+  "delete",
+];
 
 export const dotColor = (color: string) =>
   token.var(`colors.${color}` as Token);

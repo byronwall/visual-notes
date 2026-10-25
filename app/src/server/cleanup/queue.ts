@@ -5,6 +5,8 @@ import type { CleanupBucket } from "./buckets";
 import type { Answers } from "./decide";
 import type { NoteFacts } from "./note-state";
 import type { RegroupDetail } from "./regroup-queue";
+import { p } from "./buckets";
+import { taskPlan, type TaskPlan } from "./make-task";
 import { signalsFor, type Signal } from "./signals";
 
 /** Reads for the triage page: bucket counts, a bucket's queue, one item. */
@@ -97,6 +99,10 @@ export type CleanupItemDetail = QueueItem & {
   markdown: string;
   /** Existing notes that could take the result, best first. */
   destinations: DestinationOption[];
+  /** P(the note has a part worth keeping after its date); post-event. */
+  evergreen: number;
+  /** Make task: tasks already in the note and suggested new ones. */
+  tasks: TaskPlan | null;
 };
 
 /**
@@ -153,6 +159,8 @@ export async function cleanupItem(
       ...item,
       markdown: doc ? noteMarkdown(doc) : "",
       destinations: [],
+      evergreen: 1,
+      tasks: null,
     };
   }
   const row = await prisma.noteAssessment.findUnique({
@@ -171,10 +179,17 @@ export async function cleanupItem(
     },
   });
   if (!row) return null;
+  const markdown = noteMarkdown(row.doc);
+  const answers = row.answers as unknown as Answers;
   return {
     ...toItem(row),
-    markdown: noteMarkdown(row.doc),
+    markdown,
     destinations: await destinationsFor(docId, row.doc.path),
+    evergreen: p(answers, "evergreen_core"),
+    tasks:
+      row.bucket === "make_task"
+        ? await taskPlan(docId, row.doc.title, markdown)
+        : null,
   };
 }
 

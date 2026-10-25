@@ -7,7 +7,9 @@ import { Text } from "~/components/ui/text";
 import type { CleanupItemDetail } from "~/server/cleanup/queue";
 import type { Placement } from "~/server/cleanup/regroup";
 import type { RegroupMember } from "~/server/cleanup/regroup-queue";
+import { ArchiveOnlyPanel } from "./ArchiveOnlyPanel";
 import { CombinePanel } from "./CombinePanel";
+import { MakeTaskPanel } from "./MakeTaskPanel";
 import { DistillPanel } from "./DistillPanel";
 import { MovePanel } from "./MovePanel";
 import { PanelSection } from "./PanelSection";
@@ -63,6 +65,38 @@ export const CleanupDetail: VoidComponent<
     <Switch>
       <Match when={props.item.bucket === "distill"}>
         <DistillPanel
+          item={props.item}
+          onDone={props.onDone}
+          onKeep={props.onKeep}
+          onSkip={props.onSkip}
+        />
+      </Match>
+      <Match
+        when={props.item.bucket === "post_event" && props.item.evergreen >= 0.4}
+      >
+        <DistillPanel
+          mode="post_event"
+          item={props.item}
+          onDone={props.onDone}
+          onKeep={props.onKeep}
+          onSkip={props.onSkip}
+        />
+      </Match>
+      <Match
+        when={
+          props.item.bucket === "post_event" || props.item.bucket === "delete"
+        }
+      >
+        <ArchiveOnlyPanel
+          item={props.item}
+          reason={props.item.bucket === "delete" ? "delete" : "post_event"}
+          onDone={props.onDone}
+          onKeep={props.onKeep}
+          onSkip={props.onSkip}
+        />
+      </Match>
+      <Match when={props.item.bucket === "make_task"}>
+        <MakeTaskPanel
           item={props.item}
           onDone={props.onDone}
           onKeep={props.onKeep}

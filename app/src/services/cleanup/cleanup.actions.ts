@@ -3,7 +3,13 @@ import { z } from "zod";
 import { prisma } from "~/server/db";
 import { applyCleanupResult } from "~/server/cleanup/apply";
 import { applyMove, draftCombine } from "~/server/cleanup/combine";
-import { draftDistill, type DistillDraft } from "~/server/cleanup/distill";
+import {
+  POST_EVENT_FOCUS,
+  draftDistill,
+  type DistillDraft,
+} from "~/server/cleanup/distill";
+import { applyMakeTask } from "~/server/cleanup/make-task";
+import { archiveNotes } from "~/server/notes/note-archive";
 import { keepNote, snoozeNote } from "~/server/cleanup/queue";
 import { noteMarkdown } from "~/server/notes/note-store";
 import {
@@ -16,7 +22,10 @@ import {
 const docId = z.string().min(1);
 
 /** Writes a distill draft for one note. Not cached: each call re-asks. */
-export async function draftDistillForNote(id: string): Promise<DistillDraft> {
+export async function draftDistillForNote(
+  id: string,
+  mode: "distill" | "post_event" = "distill",
+): Promise<DistillDraft> {
   "use server";
   const doc = await prisma.doc.findUnique({
     where: { id: docId.parse(id) },
@@ -27,6 +36,7 @@ export async function draftDistillForNote(id: string): Promise<DistillDraft> {
     docId: id,
     title: doc.title,
     markdown: noteMarkdown(doc),
+    focus: mode === "post_event" ? POST_EVENT_FOCUS : undefined,
   });
 }
 
@@ -43,6 +53,7 @@ const applyInput = z.object({
   docId,
   markdown: z.string().min(1).max(100_000),
   destination,
+  reason: z.enum(["distill", "post_event"]).default("distill"),
 });
 
 const queueKeys = () => [
@@ -60,7 +71,7 @@ export const applyDistillAction = action(
       sourceIds: [parsed.docId],
       markdown: parsed.markdown,
       destination: parsed.destination,
-      reason: "distill",
+      reason: parsed.reason,
     });
     return json(result, { revalidate: queueKeys() });
   },
@@ -140,4 +151,38 @@ export const applyMoveAction = action(
     return json({ ok: true }, { revalidate: queueKeys() });
   },
   "cleanup-apply-move",
+);
+
+const archiveOnlyInput = z.object({
+  docId,
+  reason: z.enum(["post_event", "delete"]),
+});
+
+/** Archive with nothing kept: a passed event with no reusable part, or a delete. */
+export const archiveOnlyAction = action(
+  async (input: z.input<typeof archiveOnlyInput>) => {
+    "use server";
+    const parsed = archiveOnlyInput.parse(input);
+    await archiveNotes({ docIds: [parsed.docId], reason: parsed.reason });
+    await prisma.noteAssessment.updateMany({
+      where: { docId: parsed.docId },
+      data: { decision: "done", decidedAt: new Date() },
+    });
+    return json({ ok: true }, { revalidate: queueKeys() });
+  },
+  "cleanup-archive-only",
+);
+
+const makeTaskInput = z.object({
+  docId,
+  descriptions: z.array(z.string().max(4000)).max(50),
+});
+
+export const makeTaskAction = action(
+  async (input: z.input<typeof makeTaskInput>) => {
+    "use server";
+    const result = await applyMakeTask(makeTaskInput.parse(input));
+    return json(result, { revalidate: queueKeys() });
+  },
+  "cleanup-make-task",
 );

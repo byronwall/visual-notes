@@ -8,6 +8,7 @@
  *
  * Rerunning replaces the previous cleanup seed (notes with meta seed=cleanup).
  */
+import { fromNoteMarkdown } from "~/lib/note-content/note-markdown";
 import { prisma } from "~/server/db";
 import { createNoteRecord } from "~/server/notes/create-note";
 import { assessDoc } from "~/server/cleanup/assess";
@@ -244,9 +245,10 @@ if (previous.length) {
 const ids = new Map<string, string>();
 const now = Date.now();
 for (const note of NOTES) {
+  // Note markdown turns "- [ ]" lines into real inline tasks.
   const { id } = await createNoteRecord({
     title: note.title,
-    markdown: note.markdown,
+    content: fromNoteMarkdown(note.markdown),
     path: note.path,
     meta: SEED_META,
   });

@@ -16,6 +16,7 @@ import { Text } from "~/components/ui/text";
 import type { CleanupItemDetail } from "~/server/cleanup/queue";
 import {
   applyDistillAction,
+  archiveOnlyAction,
   draftDistillForNote,
 } from "~/services/cleanup/cleanup.actions";
 import { CleanupActionBar } from "./CleanupActionBar";
@@ -45,20 +46,27 @@ export const DistillPanel: VoidComponent<{
   onDone: () => void;
   onKeep: () => void;
   onSkip: () => void;
+  /** post_event keeps only the reusable part of a passed event. */
+  mode?: "distill" | "post_event";
 }> = (props) => {
   const apply = useAction(applyDistillAction);
+  const archiveOnly = useAction(archiveOnlyAction);
+  const mode = () => props.mode ?? "distill";
   // Drafting calls an LLM, so it runs only in the browser once the note is
   // selected: never during SSR, and never for a note nobody opened.
   const [mounted, setMounted] = createSignal(false);
   onMount(() => setMounted(true));
   const [draft, { refetch }] = createResource(
-    () => (mounted() ? props.item.docId : false),
-    (id) => draftDistillForNote(id),
+    () => (mounted() ? { id: props.item.docId, mode: mode() } : false),
+    (key) => draftDistillForNote(key.id, key.mode),
   );
+  // A failed draft must not throw out of the page: read the value only when
+  // the resource has not errored.
+  const latestDraft = () => (draft.error ? undefined : draft.latest);
   const [markdown, setMarkdown] = createSignal("");
   // Seeded from the first item; the effect below resets it per note.
   const [destination, setDestination] = createSignal<DestinationChoice>(
-    untrack(() => defaultDestination(props.item, props.item.title)),
+    untrack(() => defaultDestination(props.item, "")),
   );
   const [reviewing, setReviewing] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
@@ -66,7 +74,7 @@ export const DistillPanel: VoidComponent<{
 
   createEffect(
     on(
-      () => draft.latest,
+      () => latestDraft(),
       (next) => {
         if (!next) return;
         setMarkdown(next.markdown);
@@ -81,13 +89,18 @@ export const DistillPanel: VoidComponent<{
     on(
       () => props.item.docId,
       () => {
-        setDestination(defaultDestination(props.item, props.item.title));
+        setDestination(defaultDestination(props.item, ""));
         setReviewing(false);
         setError(null);
       },
       { defer: true },
     ),
   );
+
+  const archiveWithoutKeeping = async () => {
+    await archiveOnly({ docId: props.item.docId, reason: "post_event" });
+    props.onDone();
+  };
 
   const approve = async () => {
     const dest = destination();
@@ -96,11 +109,16 @@ export const DistillPanel: VoidComponent<{
     setError(null);
     try {
       await apply({
+        reason: mode(),
         docId: props.item.docId,
         markdown: markdown(),
         destination:
           dest.kind === "new"
-            ? { kind: "new", title: dest.title, path: dest.path }
+            ? {
+                kind: "new",
+                title: dest.title || props.item.title,
+                path: dest.path,
+              }
             : { kind: "existing", docId: dest.docId },
       });
       props.onDone();
@@ -124,10 +142,10 @@ export const DistillPanel: VoidComponent<{
         }
       >
         <PanelSection
-          title="Proposed"
+          title={mode() === "post_event" ? "Keep for next time" : "Proposed"}
           aside={
             <HStack gap="1">
-              <Show when={draft.latest}>
+              <Show when={latestDraft()}>
                 {(d) => (
                   <Text fontSize="xs" color="fg.subtle">
                     {d().model === "local-extract"
@@ -155,7 +173,7 @@ export const DistillPanel: VoidComponent<{
           }
         >
           <Show
-            when={mounted() && (!draft.loading || draft.latest)}
+            when={mounted() && (!draft.loading || latestDraft())}
             fallback={
               <Stack gap="2" aria-busy="true" aria-label="Writing draft">
                 <Skeleton h="4" w="90%" />
@@ -192,6 +210,17 @@ export const DistillPanel: VoidComponent<{
           </Button>
         </Box>
       </Show>
+      <Show when={mode() === "post_event"}>
+        <Box>
+          <Button
+            size="xs"
+            variant="plain"
+            onClick={() => void archiveWithoutKeeping()}
+          >
+            Archive without keeping anything
+          </Button>
+        </Box>
+      </Show>
       <Show when={error()}>
         {(message) => (
           <Text fontSize="sm" color="fg.error">
@@ -200,7 +229,11 @@ export const DistillPanel: VoidComponent<{
         )}
       </Show>
       <CleanupActionBar
-        primaryLabel="Distill and archive original"
+        primaryLabel={
+          mode() === "post_event"
+            ? "Summarize and archive"
+            : "Distill and archive original"
+        }
         onPrimary={approve}
         busy={busy()}
         disabled={!markdown().trim() || !mounted() || draft.loading}

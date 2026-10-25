@@ -33,9 +33,12 @@ function noteAnswers(facts: NoteFacts, title: string, body: string): Answers {
       ? 0.75
       : 0.25 - ownVoice * 0.2;
   const empty = words < 8 ? 0.95 : words < 25 ? 0.6 : 0.05;
+  // Mostly links to other pages (Notion hubs) or delimiter rows.
   const junk =
-    imported && linkLines / lines > 0.6
-      ? 0.9
+    linkLines / lines > 0.6
+      ? imported
+        ? 0.92
+        : 0.85
       : body.includes("|||")
         ? 0.85
         : 0.05;
@@ -66,7 +69,11 @@ function noteAnswers(facts: NoteFacts, title: string, body: string): Answers {
     empty_or_stub: { p: clamp(empty) },
     import_junk: { p: clamp(junk) },
     is_todo: { p: clamp(todo) },
-    worth_reading: { p: clamp(words < 25 ? 0.15 : 0.55 + ownVoice * 0.35) },
+    worth_reading: {
+      p: clamp(
+        words < 8 ? 0.1 : 0.55 + ownVoice * 0.35 - (words < 25 ? 0.15 : 0),
+      ),
+    },
     title_fits: { p: clamp(/\s/.test(title.trim()) ? 0.8 : 0.4) },
   };
 }

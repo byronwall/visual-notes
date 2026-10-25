@@ -65,9 +65,12 @@ export const CombinePanel: VoidComponent<{
   const [draft, { refetch }] = createResource(draftKey, (key) =>
     draftCombineForCluster(JSON.parse(key)),
   );
+  // A failed draft must not throw out of the page: read the value only when
+  // the resource has not errored.
+  const latestDraft = () => (draft.error ? undefined : draft.latest);
   createEffect(
     on(
-      () => draft.latest,
+      () => latestDraft(),
       (d) => d && setMarkdown(d.markdown),
     ),
   );
@@ -134,7 +137,7 @@ export const CombinePanel: VoidComponent<{
         title={keepId() ? `Added to “${keepTitle()}”` : "New note content"}
         aside={
           <HStack gap="1">
-            <Show when={draft.latest}>
+            <Show when={latestDraft()}>
               {(d) => (
                 <Text fontSize="xs" color="fg.subtle">
                   {d().model === "local-extract"
@@ -162,7 +165,7 @@ export const CombinePanel: VoidComponent<{
         }
       >
         <Show
-          when={mounted() && (!draft.loading || draft.latest)}
+          when={mounted() && (!draft.loading || latestDraft())}
           fallback={
             <Stack gap="2" aria-busy="true" aria-label="Writing combined draft">
               <Skeleton h="4" w="90%" />

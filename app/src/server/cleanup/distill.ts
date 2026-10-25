@@ -86,6 +86,29 @@ export function parseDraftJson(output: string): {
   }
 }
 
+export const POST_EVENT_FOCUS = `This note is about an event or plan whose date has passed. Keep only what would help the owner next time: packing lists, contacts, places, costs, lessons, what to bring or do differently. Drop schedules, RSVPs, carpools, forecasts, and anything tied to that one date. Write bullets as reusable advice, not as a log of the event.`;
+
+const EVERGREEN_HEADING =
+  /^#{1,4}\s+.*\b(packing|checklist|contacts?|lessons?|next time|bring|tips|notes for)\b/i;
+
+/** Sections whose heading says they are reusable; no model call. */
+export function localEvergreen(title: string, markdown: string): DistillDraft {
+  const sections = cleanBody(markdown).split(/\n(?=#{1,4}\s)/);
+  const keep = sections.filter((s) => EVERGREEN_HEADING.test(s.trim()));
+  const bullets = keep.flatMap((s) =>
+    s
+      .split("\n")
+      .slice(1)
+      .map((l) => l.replace(/^\s*[-*]\s+/, "").trim())
+      .filter((l) => l.length > 2),
+  );
+  return {
+    title: `${title}: for next time`,
+    markdown: toMarkdown(bullets.slice(0, 12), null),
+    model: LOCAL_EXTRACT_MODEL,
+  };
+}
+
 export async function draftDistill(input: {
   docId: string;
   title: string;
@@ -93,9 +116,11 @@ export async function draftDistill(input: {
   /** Extra instruction for other cleanup actions (post-event summaries). */
   focus?: string;
 }): Promise<DistillDraft> {
-  if (!serverEnv.OPENAI_API_KEY?.trim()) {
-    return localExtract(input.title, input.markdown);
-  }
+  const local = () =>
+    input.focus === POST_EVENT_FOCUS
+      ? localEvergreen(input.title, input.markdown)
+      : localExtract(input.title, input.markdown);
+  if (!serverEnv.OPENAI_API_KEY?.trim()) return local();
   const body = cleanBody(input.markdown).slice(0, BODY_CAP);
   const { output } = await callLLM({
     model: DISTILL_MODEL,
@@ -106,7 +131,7 @@ export async function draftDistill(input: {
   const parsed = output ? parseDraftJson(output) : null;
   if (!parsed) {
     console.warn("[cleanup-distill] unparseable draft; using local extract");
-    return localExtract(input.title, input.markdown);
+    return local();
   }
   return {
     title: parsed.title || input.title,
