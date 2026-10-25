@@ -509,4 +509,42 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     }
     expect([...seen].sort()).toEqual(eventIds.slice(-5).sort());
   });
+
+  it("polls a busy stretch forward without missing or repeating events", async () => {
+    const client = await connect();
+    const note = await userNote(`Busy ${suffix}`);
+    const start = Date.now() - 60_000;
+    const created: string[] = [];
+    // Seven events over four timestamps, two of them shared.
+    for (const offset of [0, 10, 10, 20, 30, 30, 30]) {
+      const event = await prisma().actionEvent.create({
+        data: {
+          createdAt: new Date(start + offset),
+          eventType: "doc.update",
+          entityType: "doc",
+          entityId: note,
+          relatedDocId: note,
+          actorType: "chatgpt",
+          actorId: "chatgpt:test",
+        },
+        select: { id: true },
+      });
+      eventIds.push(event.id);
+      created.push(event.id);
+    }
+    const seen: string[] = [];
+    let since = new Date(start - 1).toISOString();
+    for (let poll = 0; poll < 6; poll += 1) {
+      const answer = await call(client, "activity_query", {
+        noteId: note,
+        since,
+        limit: 2,
+      });
+      seen.push(...answer.json.events.map((e: Json) => e.id));
+      since = answer.json.pollSince;
+      if (!answer.json.truncated) break;
+    }
+    expect(seen).toHaveLength(created.length);
+    expect([...seen].sort()).toEqual([...created].sort());
+  });
 });
