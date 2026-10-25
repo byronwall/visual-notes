@@ -57,7 +57,7 @@ Takeaways:
 - **The drop score trained on Claude's labels doesn't transfer.** Taste lives in labels, and only the owner's labels count. With 60 labels, a refit with few parameters does no better than the single `copied_or_generated` signal for trim.
 - **"Regroup" is a real action that no per-note question covers.** It needs the pair and group questions: "does this belong with `group`?" and a Choice over existing collections and paths.
 
-**Revised product shape** (supersedes the delete-first framing above):
+**Revised product shape** (supersedes the delete-first framing above; the UI and build order are in [ux-decisions.md](ux-decisions.md) and [Next steps](#next-steps)):
 
 1. **Distill queue:** rank by `copied_or_generated` (plus `src_chatgpt`). An LLM pulls out the durable facts, keeps a link to the original, and Byron approves.
 2. **Regroup suggestions:** use embedding neighbors, `better_together`, and a Choice over existing collections (prompts, journal, tidbits). Byron approves a move.
@@ -170,4 +170,12 @@ OpenAI ranks slightly better on `worth_reading` and the drop score, and it is de
    - Add `not_for` contrasts to `kind` (OpenAI order bias).
    - Drop or reword `length_fit`.
    - Keep `copied_or_generated`.
-3. **Build it:** one `decide()` helper, a `NoteAssessment` table keyed by content hash, a weekly or on-save assessment, and a review queue sorted by drop score. Delete stays a user click.
+3. **Build it** in this order. Each step is reviewable on its own. Every action stays a user click (see [ux-decisions.md](ux-decisions.md)).
+   1. **Plumbing:** a `decide()` helper (Jev first, with an adapter for OpenAI), and a `NoteAssessment` table keyed by content hash. Assess weekly and on save. Exclude collection rows, events, and places. Send every other note.
+   2. **Archive lifecycle:** archived notes are hidden from search, lists, and related notes. Links redirect to the note the content went into. An Archive page shows a countdown and Restore. Notes are deleted automatically after 30 days and leave a tombstone. Distill depends on this, because approving archives the original.
+   3. **Triage page with the Distill bucket:** the 3-pane `/cleanup`, ranked by `copied_or_generated` (plus `src_chatgpt`). The LLM drafts on demand. Send to a new or existing note, then archive the original. Includes the optional side-by-side review for editing.
+   4. **Inline chip:** a **Cleanup** chip and popover on flagged notes, opening the triage view.
+   5. **Regroup:** suggested clusters from embedding neighbors plus `better_together` and the cover Nouls, which merge into one note and archive the rest. Also a move into an existing collection or path, without a rewrite.
+   6. **Post-event:** an expired date from code plus `time_anchor`. `evergreen_core` chooses between "keep the evergreen part, then archive" and "archive only".
+   7. **Make task** (`is_todo` ≥ 0.8) and **Delete** (rare: `empty_or_stub`, `not_worth_reading`).
+   8. **Daily stack:** card mode with a daily quota and Snooze 30 days. **Keep as is** hides a note for 6–12 months.
