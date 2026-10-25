@@ -169,13 +169,18 @@ export async function checkRowValues(
   for (const row of values) planValues(properties, row);
 }
 
-/** Applies by-name values to rows, creating any missing option names first. */
+/**
+ * Applies by-name values to rows, creating any missing option names first.
+ * Pass the schema a batch already holds to skip reloading it; the schema
+ * after any new options comes back.
+ */
 export async function setRowValues(
   collectionId: string,
   docIds: string[],
   values: Record<string, unknown>,
-) {
-  let properties = await loadLiveProperties(collectionId);
+  loaded?: CollectionProperty[],
+): Promise<CollectionProperty[]> {
+  let properties = loaded ?? (await loadLiveProperties(collectionId));
   const first = planValues(properties, values);
   if (Object.keys(first.newOptions).length) {
     properties = await prisma.$transaction((tx) =>
@@ -186,6 +191,7 @@ export async function setRowValues(
     ? planValues(properties, values)
     : first;
   for (const docId of docIds) await applyRowPatch(collectionId, docId, patch);
+  return properties;
 }
 
 const SELECT_VALUE_OPS = new Set([
