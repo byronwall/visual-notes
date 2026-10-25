@@ -44,6 +44,8 @@ const service = vi.hoisted(() => {
     editCards: vi.fn(),
     removeCards: vi.fn(),
     updateTopic: vi.fn(),
+    setupTopic: vi.fn(),
+    resolveComments: vi.fn(),
     logResearchEvent: vi.fn(),
     logUndoRedo: vi.fn(),
     batchPayload: (result: object, extra: object) => ({ ...result, ...extra }),
@@ -53,6 +55,8 @@ vi.mock("~/services/research/research.ingest", () => service);
 vi.mock("~/services/research/research.store", () => service);
 vi.mock("~/services/research/research.edits", () => service);
 vi.mock("~/services/research/research.activity", () => service);
+vi.mock("~/services/research/research.setup", () => service);
+vi.mock("~/services/research/research.comments", () => service);
 
 const { createNotesMcpServer } = await import("./tools");
 
@@ -315,49 +319,93 @@ describe("research MCP tools", () => {
     expect(read.isError).toBeFalsy();
   });
 
-  it("renders the topic summary with ids and the frontier", async () => {
-    service.loadTopicGraph.mockResolvedValue({
-      topic,
-      cards: [
+  const card = (
+    id: string,
+    type: string,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id,
+    type,
+    title: id,
+    gist: "",
+    body: "",
+    kind: null,
+    fields: {},
+    streamId: null,
+    state: type === "question" || type === "task" ? "open" : null,
+    url: null,
+    snippet: null,
+    imageUrl: null,
+    parentId: null,
+    sortOrder: 0,
+    nudgeX: null,
+    nudgeY: null,
+    batchId: null,
+    createdAt: "",
+    updatedAt: "",
+    ...extra,
+  });
+  const stream = {
+    id: "s1",
+    key: "choose",
+    title: "Choose",
+    goal: "Pick one",
+    answer: "Lean A1.",
+    sortOrder: 0,
+    batchId: null,
+    createdAt: "",
+    updatedAt: "",
+  };
+  const graph = () => ({
+    topic: {
+      ...topic,
+      answer: "Buy the A1 Combo.",
+      kinds: [
         {
-          id: "q1",
-          type: "question",
-          title: "Why Pin?",
-          body: "",
-          state: "open",
-          parentId: null,
-          sortOrder: 0,
-          createdAt: "",
-          updatedAt: "",
-        },
-        {
-          id: "f1",
-          type: "finding",
-          title: "Self refs",
-          body: "",
-          state: null,
-          parentId: "q1",
-          sortOrder: 0,
-          createdAt: "",
-          updatedAt: "",
-        },
-        {
-          id: "q2",
-          type: "question",
-          title: "When Unpin?",
-          body: "",
-          state: "open",
-          parentId: "f1",
-          sortOrder: 0,
-          createdAt: "",
-          updatedAt: "",
+          key: "printer",
+          label: "Printer",
+          role: "option",
+          fields: [{ key: "price", label: "Price" }],
         },
       ],
-      links: [],
-      groups: [],
-      batches: [],
-      generatedAt: "",
-    });
+    },
+    streams: [stream],
+    comments: [
+      {
+        id: "c1",
+        cardId: "o1",
+        streamId: null,
+        body: "Price looks stale",
+        author: "you",
+        resolvedAt: null,
+        resolution: null,
+        createdAt: "",
+      },
+    ],
+    cards: [
+      card("q1", "question", { title: "Why Pin?", streamId: "s1" }),
+      card("f1", "finding", {
+        title: "Self refs",
+        parentId: "q1",
+        gist: "They move.",
+      }),
+      card("q2", "question", { title: "When Unpin?", parentId: "f1" }),
+      card("o1", "option", {
+        title: "A1",
+        kind: "printer",
+        streamId: "s1",
+        fields: { price: "$259" },
+      }),
+      card("loose", "finding", { title: "Loose" }),
+    ],
+    links: [{ id: "l1", fromId: "o1", toId: "q2", kind: "blocks" }],
+    groups: [],
+    batches: [],
+    generatedAt: "",
+  });
+
+  it("renders the topic summary by stream with answers, blockers, comments, and lint", async () => {
+    service.loadTopicGraph.mockResolvedValue(graph());
     const client = await connect();
     const result = await client.callTool({
       name: "research_get_topic",
@@ -365,9 +413,118 @@ describe("research MCP tools", () => {
     });
     const { markdown, appUrl } = JSON.parse(textOf(result));
     expect(appUrl).toBe("https://notes.test/research/learn-rust");
+    expect(markdown).toContain("5 cards, 2 open, 1 open comment for you.");
+    expect(markdown).toContain(
+      "Link a card for the user as https://notes.test/research/learn-rust?card=<card id>.",
+    );
+    expect(markdown).toContain("Buy the A1 Combo.");
+    expect(markdown).toContain(
+      "Kinds: printer = Printer (option; fields price)",
+    );
+    expect(markdown).toContain(
+      "### Choose [stream choose] — 4 cards · goal: Pick one",
+    );
     expect(markdown).toContain(
       "[q2] question (open): When Unpin?  ← Why Pin? › Self refs",
     );
-    expect(markdown).toContain("3 cards, 2 open.");
+    expect(markdown).toContain(
+      "[o1] printer (option): A1 · price: $259 · blocked by [q2]",
+    );
+    expect(markdown).toContain("### Unsorted — 1 card");
+    expect(markdown).toContain("- [loose] finding: Loose");
+    expect(markdown).toContain("[c1] on [o1] “A1”: Price looks stale");
+    expect(markdown).toContain("in no stream");
+  });
+
+  it("renders a card with its stream, gist, blockers, and comments", async () => {
+    service.loadTopicGraph.mockResolvedValue(graph());
+    const client = await connect();
+    const result = await client.callTool({
+      name: "research_get_card",
+      arguments: { topic: "learn-rust", id: "o1" },
+    });
+    const { markdown } = JSON.parse(textOf(result));
+    expect(markdown).toContain("Stream: Choose [stream choose]");
+    expect(markdown).toContain("Fields: price: $259");
+    expect(markdown).toContain("- blocks: [q2] question (open): When Unpin?");
+    expect(markdown).toContain("- [c1] you: Price looks stale (open)");
+  });
+
+  it("sets the topic frame as a batch and passes warnings back", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.setupTopic.mockResolvedValue({
+      batchId: "b5",
+      batchKey: "f1",
+      replayed: false,
+      refs: {},
+      cardCount: 0,
+      linkCount: 0,
+      summaryCount: 0,
+      warnings: ["2 cards are in no stream"],
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "research_update_topic",
+      arguments: {
+        topic: "learn-rust",
+        batchKey: "f1",
+        streams: [{ key: "choose", title: "Choose" }],
+        kinds: [{ key: "printer", label: "Printer", role: "option" }],
+        answer: "Lean A1.",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(service.setupTopic).toHaveBeenCalledWith("t1", {
+      agent: "chatgpt:test",
+      batchKey: "f1",
+      streams: [{ key: "choose", title: "Choose" }],
+      removeStreams: undefined,
+      kinds: [{ key: "printer", label: "Printer", role: "option", fields: [] }],
+      answer: "Lean A1.",
+    });
+    expect(service.updateTopic).not.toHaveBeenCalled();
+    expect(JSON.parse(textOf(result)).warnings).toEqual([
+      "2 cards are in no stream",
+    ]);
+  });
+
+  it("moves cards with parent and resolves comments", async () => {
+    service.resolveTopic.mockResolvedValue(topic);
+    service.editCards.mockResolvedValue({
+      batchId: "b6",
+      batchKey: "e",
+      replayed: false,
+      refs: {},
+      cardCount: 0,
+      linkCount: 0,
+      summaryCount: 0,
+    });
+    service.resolveComments.mockResolvedValue({ resolved: 1, reopened: 0 });
+    const client = await connect();
+    await client.callTool({
+      name: "research_update_cards",
+      arguments: {
+        topic: "learn-rust",
+        batchKey: "e",
+        edits: [{ id: "s1", parent: "f1", stream: null, gist: "Short." }],
+      },
+    });
+    expect(service.editCards).toHaveBeenCalledWith("t1", {
+      agent: "chatgpt:test",
+      batchKey: "e",
+      edits: [{ id: "s1", parentId: "f1", stream: null, gist: "Short." }],
+    });
+    const resolved = await client.callTool({
+      name: "research_resolve_comments",
+      arguments: {
+        topic: "learn-rust",
+        resolutions: [{ id: "c1", note: "Re-checked" }],
+      },
+    });
+    expect(JSON.parse(textOf(resolved))).toMatchObject({ resolved: 1 });
+    expect(service.resolveComments).toHaveBeenCalledWith("t1", {
+      resolutions: [{ id: "c1", note: "Re-checked" }],
+      resolved: undefined,
+    });
   });
 });
