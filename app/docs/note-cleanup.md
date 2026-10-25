@@ -52,3 +52,7 @@ To seed an audit database with cleanup archetypes, assessments (heuristic), and 
 - **Keep as is** hides the note for six months (`NoteAssessment.snoozedUntil`). **Skip** just moves on.
 - Keys: J/K or arrows move, Enter approves, E keeps, S skips. The keys click the visible buttons (`data-cleanup-action`), so the keys and the mouse do the same thing.
 - Each bucket gets an action panel in `CleanupDetail.tsx` and a place in `RAIL_BUCKETS`.
+
+## Note chip
+
+A flagged note shows a quiet **Cleanup: <bucket>** chip in its header (`components/cleanup/CleanupChip.tsx`, inside `DocHeaderBar`). Only buckets the triage page can act on get a chip. The popover lists the signals, plus **Review** (`/cleanup?bucket=…&doc=…`) and **Not now**, which snoozes the suggestion for 30 days (`snoozeNote`).

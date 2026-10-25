@@ -169,3 +169,37 @@ export async function keepNote(docId: string, now = new Date()) {
     data: { decision: "keep", decidedAt: now, snoozedUntil: until },
   });
 }
+
+const SNOOZE_DAYS = 30;
+
+/** Not now: out of the queues and the note chip for 30 days. */
+export async function snoozeNote(docId: string, now = new Date()) {
+  const until = new Date(now.getTime() + SNOOZE_DAYS * 24 * 60 * 60_000);
+  await prisma.noteAssessment.update({
+    where: { docId },
+    data: { decision: "snooze", decidedAt: now, snoozedUntil: until },
+  });
+}
+
+export type NoteCleanupHint = {
+  bucket: string;
+  confidence: number;
+  signals: Signal[];
+};
+
+/** The open suggestion for one note, if cleanup has one for it. */
+export async function noteCleanupHint(
+  docId: string,
+): Promise<NoteCleanupHint | null> {
+  const row = await prisma.noteAssessment.findFirst({
+    where: { ...openAssessmentWhere(), docId, bucket: { not: "keep" } },
+    select: itemSelect,
+  });
+  if (!row) return null;
+  const item = toItem(row);
+  return {
+    bucket: item.bucket,
+    confidence: item.confidence,
+    signals: item.signals,
+  };
+}

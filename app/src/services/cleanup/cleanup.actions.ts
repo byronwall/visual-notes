@@ -3,12 +3,13 @@ import { z } from "zod";
 import { prisma } from "~/server/db";
 import { applyCleanupResult } from "~/server/cleanup/apply";
 import { draftDistill, type DistillDraft } from "~/server/cleanup/distill";
-import { keepNote } from "~/server/cleanup/queue";
+import { keepNote, snoozeNote } from "~/server/cleanup/queue";
 import { noteMarkdown } from "~/server/notes/note-store";
 import {
   fetchCleanupItem,
   fetchCleanupOverview,
   fetchCleanupQueue,
+  fetchNoteCleanupHint,
 } from "./cleanup.queries";
 
 const docId = z.string().min(1);
@@ -47,6 +48,7 @@ const queueKeys = () => [
   fetchCleanupOverview.key,
   fetchCleanupQueue.key,
   fetchCleanupItem.key,
+  fetchNoteCleanupHint.key,
 ];
 
 export const applyDistillAction = action(
@@ -69,3 +71,9 @@ export const keepNoteAction = action(async (id: string) => {
   await keepNote(docId.parse(id));
   return json({ ok: true }, { revalidate: queueKeys() });
 }, "cleanup-keep");
+
+export const snoozeNoteAction = action(async (id: string) => {
+  "use server";
+  await snoozeNote(docId.parse(id));
+  return json({ ok: true }, { revalidate: queueKeys() });
+}, "cleanup-snooze");

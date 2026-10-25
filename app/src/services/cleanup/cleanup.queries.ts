@@ -5,7 +5,9 @@ import {
   bucketCounts,
   cleanupItem,
   queueFor,
+  noteCleanupHint,
   type CleanupItemDetail,
+  type NoteCleanupHint,
   type QueueItem,
 } from "~/server/cleanup/queue";
 import { resolveProvider } from "~/server/cleanup/assess";
@@ -45,4 +47,12 @@ export const fetchCleanupItem = query(
     return docId ? cleanupItem(docId) : null;
   },
   "cleanup-item",
+);
+
+export const fetchNoteCleanupHint = query(
+  async (docId: string): Promise<NoteCleanupHint | null> => {
+    "use server";
+    return docId ? noteCleanupHint(docId) : null;
+  },
+  "cleanup-note-hint",
 );

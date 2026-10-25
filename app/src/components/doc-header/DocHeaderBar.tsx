@@ -1,4 +1,5 @@
 import { Show, type JSX, type VoidComponent } from "solid-js";
+import { CleanupChip } from "~/components/cleanup/CleanupChip";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { DocActivitySummaryPopover } from "../DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "../DocPropertiesCompactEditors";
@@ -61,6 +62,7 @@ export const DocHeaderBar: VoidComponent<{
       order={props.stacked ? undefined : "1"}
       ml="auto"
     >
+      <CleanupChip docId={props.doc.id} />
       <RecordAudioButton docId={props.doc.id} />
       <DocVersionsPopover
         docId={props.doc.id}
