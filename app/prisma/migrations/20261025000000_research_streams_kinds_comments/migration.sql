@@ -49,6 +49,12 @@ CREATE UNIQUE INDEX "ResearchStream_topicId_key_key" ON "ResearchStream"("topicI
 -- CreateIndex
 CREATE INDEX "ResearchComment_topicId_resolvedAt_idx" ON "ResearchComment"("topicId", "resolvedAt");
 
+-- CreateIndex
+CREATE INDEX "ResearchComment_cardId_idx" ON "ResearchComment"("cardId");
+
+-- CreateIndex
+CREATE INDEX "ResearchCard_streamId_idx" ON "ResearchCard"("streamId");
+
 -- AddForeignKey
 ALTER TABLE "ResearchStream" ADD CONSTRAINT "ResearchStream_topicId_fkey" FOREIGN KEY ("topicId") REFERENCES "ResearchTopic"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
