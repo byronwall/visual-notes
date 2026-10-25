@@ -33,6 +33,7 @@ describe("docs date filters", () => {
 describe("docs path filters", () => {
   it("matches the selected path and its dot-separated descendants", () => {
     expect(buildDocsWhere({ pathPrefix: "work" })).toEqual({
+      archivedAt: null,
       AND: [
         {
           OR: [{ path: "work" }, { path: { startsWith: "work." } }],

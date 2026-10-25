@@ -63,6 +63,7 @@ export async function searchNotes(
   const rows = await prisma.doc.findMany({
     where: {
       id: { in: candidates.map((hit) => hit.id) },
+      archivedAt: null,
       ...(path ? { OR: [{ path }, { path: { startsWith: `${path}.` } }] } : {}),
     },
     select: summarySelect,
@@ -100,6 +101,7 @@ export async function listRecentNotes(
   const rows = await prisma.doc.findMany({
     where: {
       AND: [
+        { archivedAt: null },
         since ? { updatedAt: { gte: since } } : {},
         path ? { OR: [{ path }, { path: { startsWith: `${path}.` } }] } : {},
         input.createdBy === "agent" ? { originalSource: CHATGPT_SOURCE } : {},
@@ -125,7 +127,7 @@ export async function listNotePaths(input: {
 }): Promise<PathCount[]> {
   const groups = await prisma.doc.groupBy({
     by: ["path"],
-    where: { path: { not: null } },
+    where: { path: { not: null }, archivedAt: null },
     _count: { _all: true },
   });
   const rows = groups.flatMap((group) => {

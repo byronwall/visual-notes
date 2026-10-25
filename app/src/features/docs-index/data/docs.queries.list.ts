@@ -97,7 +97,7 @@ export const fetchDocs = query(
       take,
       skip: q.skip ?? 0,
       sortMode,
-      hasFilters: Object.keys(where).length > 0,
+      hasFilters: Object.keys(where).length > 1,
     });
     return items.map((item) => ({
       id: item.id,
@@ -122,7 +122,7 @@ export const fetchDocs = query(
           : null,
     }));
   },
-  "docs-index-list"
+  "docs-index-list",
 );
 
 type SummaryFilters = Omit<

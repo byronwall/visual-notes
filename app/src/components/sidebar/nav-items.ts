@@ -1,5 +1,6 @@
 import {
   ActivityIcon,
+  ArchiveIcon,
   CalendarClockIcon,
   CalendarHeartIcon,
   CompassIcon,
@@ -107,8 +108,7 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     icon: ListTodoIcon,
     keywords: "todo open tasks in notes",
     isActive: (pathname) =>
-      isSectionActive("/tasks", pathname) ||
-      pathname === "/views/note-tasks",
+      isSectionActive("/tasks", pathname) || pathname === "/views/note-tasks",
   },
   {
     label: "Time Blocks",
@@ -155,6 +155,13 @@ export const UTILITY_DESTINATIONS: AppDestination[] = [
     icon: ActivityIcon,
     keywords: "history log",
     isActive: (pathname) => isSectionActive("/activity", pathname),
+  },
+  {
+    label: "Archived notes",
+    href: "/docs/archived",
+    icon: ArchiveIcon,
+    keywords: "cleanup trash restore deleted",
+    isActive: (pathname) => isSectionActive("/docs/archived", pathname),
   },
   {
     label: "Admin",

@@ -5,6 +5,7 @@ import {
   type VoidComponent,
   type Accessor,
   Match,
+  Show,
   Switch,
   Suspense,
   createResource,
@@ -20,6 +21,9 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { useMobileBarTitleOnScroll } from "~/components/sidebar/useMobileBarTitleOnScroll";
 
 import type { NoteDoc } from "~/lib/note-content/types";
+import type { DocArchiveInfo } from "~/services/docs.queries";
+import { ArchivedNoteBanner } from "~/components/note-archive/ArchivedNoteBanner";
+import { NoteTombstoneNotice } from "~/components/note-archive/NoteTombstoneNotice";
 
 type DocDetail = {
   id: string;
@@ -38,6 +42,7 @@ type DocDetail = {
     createdAt: string;
     updatedAt: string;
   } | null;
+  archive?: DocArchiveInfo | null;
 };
 
 const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
@@ -160,6 +165,9 @@ const DocView: VoidComponent = () => {
                             : "Something went wrong on our side. Try again in a moment."}
                         </Text>
                       </Stack>
+                      <Show when={notFound && params.id}>
+                        {(id) => <NoteTombstoneNotice id={id()} />}
+                      </Show>
                       <Button
                         size="sm"
                         variant="outline"
@@ -193,6 +201,14 @@ const DocView: VoidComponent = () => {
                       mx="auto"
                       maxW={NOTE_MEASURE}
                     >
+                      <Show when={d().archive}>
+                        {(archive) => (
+                          <ArchivedNoteBanner
+                            docId={d().id}
+                            archive={archive()}
+                          />
+                        )}
+                      </Show>
                       <DocumentViewer doc={d()} onDeleted={handleDeleted} />
                     </Box>
                   </>

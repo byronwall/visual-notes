@@ -2,12 +2,10 @@ import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import type { DocItem } from "~/types/notes";
 import type { NoteDoc } from "~/lib/note-content/types";
-import {
-  noteText,
-  readNoteContent,
-} from "~/server/notes/note-store";
+import { noteText, readNoteContent } from "~/server/notes/note-store";
 import { resolveNoteReferences } from "~/server/notes/note-links";
 import { listMetaKeys, listMetaValues } from "~/server/notes/note-meta";
+import { deletesAt } from "~/server/notes/archive-window";
 
 export type DocDetail = {
   id: string;
@@ -30,6 +28,15 @@ export type DocDetail = {
     createdAt: string;
     updatedAt: string;
   } | null;
+  /** Set while the note sits in the cleanup archive. */
+  archive?: DocArchiveInfo | null;
+};
+
+export type DocArchiveInfo = {
+  archivedAt: string;
+  deletesAt: string;
+  reason: string | null;
+  into: { id: string; title: string } | null;
 };
 
 export type DocPreview = {
@@ -88,8 +95,18 @@ async function loadDocDetail(id: string): Promise<DocDetail> {
         where: { originalContentId: getIdFromNotionId(docId) },
         include: { share: true },
       })
-    : await prisma.doc.findUnique({ where: { id: docId }, include: { share: true } });
+    : await prisma.doc.findUnique({
+        where: { id: docId },
+        include: {
+          share: true,
+          archivedInto: { select: { id: true, title: true } },
+        },
+      });
   if (!resolvedDoc) throw new Error("Not found");
+  const archivedInto =
+    "archivedInto" in resolvedDoc
+      ? (resolvedDoc.archivedInto as { id: string; title: string } | null)
+      : null;
   return {
     id: resolvedDoc.id,
     title: resolvedDoc.title,
@@ -112,6 +129,14 @@ async function loadDocDetail(id: string): Promise<DocDetail> {
           updatedAt: resolvedDoc.share.updatedAt.toISOString(),
         }
       : null,
+    archive: resolvedDoc.archivedAt
+      ? {
+          archivedAt: resolvedDoc.archivedAt.toISOString(),
+          deletesAt: deletesAt(resolvedDoc.archivedAt).toISOString(),
+          reason: resolvedDoc.archiveReason,
+          into: archivedInto ?? null,
+        }
+      : null,
   };
 }
 
@@ -132,6 +157,7 @@ export const fetchDocs = query(
     const startedAt = Date.now();
     const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
     const items = await prisma.doc.findMany({
+      where: { archivedAt: null },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -167,14 +193,16 @@ export const fetchDocs = query(
         : null,
     }));
   },
-  "docs-list"
+  "docs-list",
 );
 
 const PREVIEW_INPUT_LIMIT = 20000;
 const DOC_PREVIEW_BATCH_SIZE = 120;
 
 const limitPreviewInput = (value: string) =>
-  value.length > PREVIEW_INPUT_LIMIT ? value.slice(0, PREVIEW_INPUT_LIMIT) : value;
+  value.length > PREVIEW_INPUT_LIMIT
+    ? value.slice(0, PREVIEW_INPUT_LIMIT)
+    : value;
 
 const normalizePreviewText = (value: string) =>
   limitPreviewInput(value).replace(/\s+/g, " ").trim();
@@ -188,7 +216,7 @@ const stripFencedCodeBlocks = (value: string) => {
 export const buildDocPreviewText = (
   markdown?: string | null,
   html?: string | null,
-  maxLen = 240
+  maxLen = 240,
 ) => {
   const markdownText = limitPreviewInput(String(markdown || ""));
   const htmlText = limitPreviewInput(String(html || ""));
@@ -199,7 +227,7 @@ export const buildDocPreviewText = (
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
+        .replace(/&gt;/g, ">"),
     );
     return plain.length > 0 ? plain.slice(0, maxLen) : "No preview available.";
   }
@@ -210,7 +238,7 @@ export const buildDocPreviewText = (
       .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/^#{1,6}\s+/gm, "")
-      .replace(/[*_~>-]/g, " ")
+      .replace(/[*_~>-]/g, " "),
   );
   if (md.length > 0) return md.slice(0, maxLen);
   return "No preview available.";
@@ -230,7 +258,7 @@ export const fetchDocPreviews = query(
     "use server";
     const startedAt = Date.now();
     const unique = Array.from(
-      new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))
+      new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
     ).slice(0, DOC_PREVIEW_BATCH_SIZE);
     if (unique.length === 0) return [];
 
@@ -239,8 +267,8 @@ export const fetchDocPreviews = query(
       select: {
         id: true,
         content: true,
-          html: true,
-          markdown: true,
+        html: true,
+        markdown: true,
         path: true,
         meta: true,
       },
@@ -249,9 +277,7 @@ export const fetchDocPreviews = query(
     const byId = new Map(rows.map((row) => [row.id, row]));
     const ordered = unique
       .map((id) => byId.get(id))
-      .filter(
-        (row): row is NonNullable<typeof row> => row !== undefined
-      )
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
       .map((row) => ({
         id: row.id,
         path: row.path,
@@ -267,7 +293,7 @@ export const fetchDocPreviews = query(
     });
     return ordered;
   },
-  "docs-preview-bulk"
+  "docs-preview-bulk",
 );
 
 // Hydrate the combined result while keeping each inner query cached per chunk.
@@ -286,7 +312,7 @@ export const fetchDocPreviewsBatched = (
   ids: string[],
 ): Promise<DocPreview[]> => {
   const unique = Array.from(
-    new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))
+    new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
   );
   return fetchDocPreviewsBatchedQuery(unique);
 };
@@ -297,7 +323,7 @@ export const fetchPathSuggestions = query(
     const groups = await prisma.doc.groupBy({
       by: ["path"],
       _count: { _all: true },
-      where: { path: { not: null } },
+      where: { path: { not: null }, archivedAt: null },
     });
     const items = groups
       .filter((g) => typeof g.path === "string")
@@ -309,7 +335,7 @@ export const fetchPathSuggestions = query(
     console.log(`[services] fetchPathSuggestions: count=${items.length}`);
     return items;
   },
-  "docs-paths"
+  "docs-paths",
 );
 
 export type PathStat = {
@@ -320,31 +346,28 @@ export type PathStat = {
 
 // Per-path note counts plus the newest update, so the path browser can show
 // recency rollups for every subtree without loading the notes themselves.
-export const fetchPathStats = query(
-  async (): Promise<PathStat[]> => {
-    "use server";
-    const groups = await prisma.doc.groupBy({
-      by: ["path"],
-      _count: { _all: true },
-      _max: { updatedAt: true },
-      where: { path: { not: null } },
-    });
-    const items = groups
-      .filter((g) => typeof g.path === "string" && g.path.trim().length > 0)
-      .map((g) => ({
-        path: g.path as string,
-        count: g._count._all,
-        lastUpdatedAt: g._max.updatedAt?.toISOString() ?? null,
-      }));
-    console.log(`[services] fetchPathStats: count=${items.length}`);
-    return items;
-  },
-  "docs-path-stats"
-);
+export const fetchPathStats = query(async (): Promise<PathStat[]> => {
+  "use server";
+  const groups = await prisma.doc.groupBy({
+    by: ["path"],
+    _count: { _all: true },
+    _max: { updatedAt: true },
+    where: { path: { not: null }, archivedAt: null },
+  });
+  const items = groups
+    .filter((g) => typeof g.path === "string" && g.path.trim().length > 0)
+    .map((g) => ({
+      path: g.path as string,
+      count: g._count._all,
+      lastUpdatedAt: g._max.updatedAt?.toISOString() ?? null,
+    }));
+  console.log(`[services] fetchPathStats: count=${items.length}`);
+  return items;
+}, "docs-path-stats");
 
 export const fetchPathPageData = query(
   async (
-    input: { path: string; take?: number } | undefined
+    input: { path: string; take?: number } | undefined,
   ): Promise<PathPageData> => {
     "use server";
     const rawPath = String(input?.path || "").trim();
@@ -359,6 +382,7 @@ export const fetchPathPageData = query(
 
     const take = Math.max(1, Math.min(8000, input?.take ?? 8000));
     const treeWhere = {
+      archivedAt: null,
       OR: [{ path }, { path: { startsWith: `${path}.` } }],
     };
 
@@ -379,7 +403,7 @@ export const fetchPathPageData = query(
       prisma.doc.groupBy({
         by: ["path"],
         _count: { _all: true },
-        where: { path: { startsWith: `${path}.` } },
+        where: { path: { startsWith: `${path}.` }, archivedAt: null },
       }),
     ]);
 
@@ -412,7 +436,7 @@ export const fetchPathPageData = query(
       childPaths,
     };
   },
-  "docs-path-page-data"
+  "docs-path-page-data",
 );
 
 export const fetchRelatedNotesByPath = query(
@@ -423,7 +447,7 @@ export const fetchRelatedNotesByPath = query(
           currentDocId?: string;
           take?: number;
         }
-      | undefined
+      | undefined,
   ): Promise<RelatedPathNotesData> => {
     "use server";
     const path = String(input?.path || "").trim();
@@ -433,6 +457,7 @@ export const fetchRelatedNotesByPath = query(
     const rows = await prisma.doc.findMany({
       where: {
         path,
+        archivedAt: null,
         ...(currentDocId ? { id: { not: currentDocId } } : {}),
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
@@ -456,7 +481,7 @@ export const fetchRelatedNotesByPath = query(
       })),
     };
   },
-  "docs-related-notes-by-path"
+  "docs-related-notes-by-path",
 );
 
 export const fetchPathDiscovery = query(
@@ -470,11 +495,14 @@ export const fetchPathDiscovery = query(
         path: {
           not: null,
         },
+        archivedAt: null,
       },
     });
 
     const highCount: PathDiscoveryItem[] = groupedPaths
-      .filter((row) => typeof row.path === "string" && row.path.trim().length > 0)
+      .filter(
+        (row) => typeof row.path === "string" && row.path.trim().length > 0,
+      )
       .map((row) => ({
         path: row.path as string,
         count: row._count._all,
@@ -497,7 +525,10 @@ export const fetchPathDiscovery = query(
       take: 500,
     });
 
-    const recentByPath = new Map<string, { count: number; lastViewedAt: string }>();
+    const recentByPath = new Map<
+      string,
+      { count: number; lastViewedAt: string }
+    >();
     for (const event of recentEvents) {
       const path = String(event.relatedDoc?.path || "").trim();
       if (!path) continue;
@@ -522,7 +553,7 @@ export const fetchPathDiscovery = query(
 
     return { recentlyViewed, highCount };
   },
-  "docs-path-discovery"
+  "docs-path-discovery",
 );
 
 export const fetchMetaKeys = query(
@@ -532,7 +563,7 @@ export const fetchMetaKeys = query(
     console.log(`[services] fetchMetaKeys: count=${items.length}`);
     return items;
   },
-  "docs-meta-keys"
+  "docs-meta-keys",
 );
 
 export const fetchMetaValues = query(
@@ -542,7 +573,7 @@ export const fetchMetaValues = query(
     console.log(`[services] fetchMetaValues: key=${key} count=${items.length}`);
     return items;
   },
-  "docs-meta-values"
+  "docs-meta-values",
 );
 
 /** Cheap check for edits made elsewhere (another tab, ChatGPT). */

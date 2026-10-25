@@ -204,6 +204,14 @@ model Doc {
   inlineImageMigrationBackup Json?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+  // Cleanup archive: hidden from lists and search, still openable by id, and
+  // deleted after the retention window (server/notes/note-archive.ts). Links
+  // to an archived note open `archivedInto` (where its content went) instead.
+  archivedAt                 DateTime?
+  archivedIntoId             String?
+  archiveReason              String?
+  archivedInto               Doc?     @relation("DocArchivedInto", fields: [archivedIntoId], references: [id], onDelete: SetNull)
+  archivedSources            Doc[]    @relation("DocArchivedInto")
 
   // Relations
   docEmbeddings        DocEmbedding[]
@@ -240,6 +248,7 @@ model Doc {
   @@unique([originalSource, originalContentId])
   @@index([path])
   @@index([collectionId])
+  @@index([archivedAt])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
@@ -1223,4 +1232,20 @@ model NoteAssessment {
   doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
 
   @@index([bucket, confidence(sort: Desc)])
+}
+
+// What is left of an archived note after the retention window deletes it, so
+// old links still resolve: to where its content went, or to a "deleted" notice.
+model DocTombstone {
+  // The deleted note's id.
+  id             String   @id
+  title          String
+  path           String?
+  archivedAt     DateTime
+  archiveReason  String?
+  // Where the content went when it was archived; followed at read time.
+  redirectDocId  String?
+  deletedAt      DateTime @default(now())
+
+  @@index([redirectDocId])
 }

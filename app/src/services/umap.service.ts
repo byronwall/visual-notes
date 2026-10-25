@@ -28,7 +28,7 @@ export const fetchLatestUmapRun = query(
     if (run) {
       try {
         console.log(
-          `[services] fetchLatestUmapRun: id=${run.id} dims=${run.dims}`
+          `[services] fetchLatestUmapRun: id=${run.id} dims=${run.dims}`,
         );
       } catch {}
     }
@@ -40,7 +40,7 @@ export const fetchLatestUmapRun = query(
         }
       : undefined;
   },
-  "umap-latest-run"
+  "umap-latest-run",
 );
 
 export const fetchUmapPoints = query(
@@ -53,12 +53,12 @@ export const fetchUmapPoints = query(
     });
     if (!run) throw new Error("Run not found");
     const pts = await prisma.umapPoint.findMany({
-      where: { runId },
+      where: { runId, doc: { archivedAt: null } },
       select: { docId: true, x: true, y: true, z: true },
     });
     try {
       console.log(
-        `[services] fetchUmapPoints: runId=${runId} count=${pts.length}`
+        `[services] fetchUmapPoints: runId=${runId} count=${pts.length}`,
       );
     } catch {}
     return pts.map((p) => ({
@@ -68,7 +68,7 @@ export const fetchUmapPoints = query(
       z: p.z,
     }));
   },
-  "umap-points"
+  "umap-points",
 );
 
 export const fetchNearbyUmapDocs = query(
@@ -78,7 +78,7 @@ export const fetchNearbyUmapDocs = query(
           docId: string;
           take?: number;
         }
-      | undefined
+      | undefined,
   ): Promise<NearbyUmapDocsResult> => {
     "use server";
     const docId = String(input?.docId || "").trim();
@@ -103,7 +103,7 @@ export const fetchNearbyUmapDocs = query(
 
     const currentPath = String(current.doc.path || "").trim();
     const rows = await prisma.umapPoint.findMany({
-      where: { runId: latestRun.id },
+      where: { runId: latestRun.id, doc: { archivedAt: null } },
       select: {
         docId: true,
         x: true,
@@ -135,7 +135,9 @@ export const fetchNearbyUmapDocs = query(
 
     const byDistance = withDistance
       .slice()
-      .sort((a, b) => a.distance - b.distance || a.title.localeCompare(b.title));
+      .sort(
+        (a, b) => a.distance - b.distance || a.title.localeCompare(b.title),
+      );
     const nearest = byDistance.slice(0, take);
     const samePathExtra = byDistance
       .filter((item) => item.id !== docId && item.samePath)
@@ -150,10 +152,10 @@ export const fetchNearbyUmapDocs = query(
       (a, b) =>
         a.distance - b.distance ||
         Number(b.samePath) - Number(a.samePath) ||
-        a.title.localeCompare(b.title)
+        a.title.localeCompare(b.title),
     );
 
     return { runId: latestRun.id, points };
   },
-  "umap-nearby-docs"
+  "umap-nearby-docs",
 );

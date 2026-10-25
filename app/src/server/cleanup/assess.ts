@@ -46,7 +46,8 @@ export function deciderFor(provider: DecisionProvider): Decider {
 /**
  * Notes whose assessment is missing or stale: content changed since, or the
  * question set moved on. Collection rows, events, and places are never
- * cleanup candidates; their value is the structured record.
+ * cleanup candidates; their value is the structured record. Archived notes
+ * are already handled.
  */
 export async function staleDocIds(limit: number): Promise<string[]> {
   const rows = await prisma.$queryRaw<Array<{ id: string }>>`
@@ -54,6 +55,7 @@ export async function staleDocIds(limit: number): Promise<string[]> {
     FROM "Doc" d
     LEFT JOIN "NoteAssessment" a ON a."docId" = d.id
     WHERE d."collectionId" IS NULL
+      AND d."archivedAt" IS NULL
       AND NOT EXISTS (SELECT 1 FROM "Event" e WHERE e."docId" = d.id)
       AND NOT EXISTS (SELECT 1 FROM "Place" p WHERE p."docId" = d.id)
       AND (

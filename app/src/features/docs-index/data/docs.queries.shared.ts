@@ -38,7 +38,8 @@ function buildDocsWhere(q: {
   /** Collection rows are notes too; hide them or show only them. */
   collectionRows?: "hide" | "only";
 }) {
-  const where: Record<string, any> = {};
+  // Archived notes only show on the archive page.
+  const where: Record<string, any> = { archivedAt: null };
   const andClauses: Record<string, unknown>[] = [];
   if (q.pathPrefix && !q.pathBlankOnly) {
     andClauses.push({

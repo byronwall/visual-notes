@@ -2,6 +2,7 @@ import { createHandler, StartServer } from "@solidjs/start/server";
 import { THEME_BOOT_SCRIPT } from "~/lib/theme-mode";
 import { startEmbeddingSweep } from "~/server/notes/embedding-refresh";
 import { startCleanupSweep } from "~/server/cleanup/assessment-sweep";
+import { startArchivePurge } from "~/server/notes/note-archive";
 
 // Nitro imports this module at boot in production and on the first request in
 // dev. Nitro server plugins don't fit: dev loads them through a throwaway Vite
@@ -10,6 +11,7 @@ import { startCleanupSweep } from "~/server/cleanup/assessment-sweep";
 // decision provider.
 startEmbeddingSweep();
 startCleanupSweep();
+startArchivePurge();
 
 export default createHandler(() => (
   <StartServer

@@ -32,34 +32,40 @@ export type UmapRegionDetail = {
   docs: UmapRegionDoc[];
 };
 
-export type UmapPoint = { docId: string; x: number; y: number; z?: number | null };
+export type UmapPoint = {
+  docId: string;
+  x: number;
+  y: number;
+  z?: number | null;
+};
 
 export type UmapRunsQuery = {
   embeddingRunId?: string;
   limit?: number;
 };
 
-export const fetchUmapRuns = query(async (input: UmapRunsQuery = {}): Promise<UmapRunSummary[]> => {
-  "use server";
-  const limit = Math.min(200, Math.max(1, Number(input.limit ?? 20)));
-  const embeddingRunId = String(input.embeddingRunId || "").trim();
-  const runs = await prisma.umapRun.findMany({
-    where: embeddingRunId ? { embeddingRunId } : undefined,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      dims: true,
-      params: true,
-      embeddingRunId: true,
-      artifactPath: true,
-      regionsJson: true,
-      createdAt: true,
-    },
-    take: limit,
-  });
-  return runs.map((r) => ({
-    id: r.id,
-    dims: r.dims,
+export const fetchUmapRuns = query(
+  async (input: UmapRunsQuery = {}): Promise<UmapRunSummary[]> => {
+    "use server";
+    const limit = Math.min(200, Math.max(1, Number(input.limit ?? 20)));
+    const embeddingRunId = String(input.embeddingRunId || "").trim();
+    const runs = await prisma.umapRun.findMany({
+      where: embeddingRunId ? { embeddingRunId } : undefined,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        dims: true,
+        params: true,
+        embeddingRunId: true,
+        artifactPath: true,
+        regionsJson: true,
+        createdAt: true,
+      },
+      take: limit,
+    });
+    return runs.map((r) => ({
+      id: r.id,
+      dims: r.dims,
       params: r.params as Record<string, unknown> | null,
       embeddingRunId: r.embeddingRunId,
       hasArtifact: Boolean(r.artifactPath),
@@ -67,7 +73,9 @@ export const fetchUmapRuns = query(async (input: UmapRunsQuery = {}): Promise<Um
       regionCount: parseUmapRegionsSnapshot(r.regionsJson)?.regions.length ?? 0,
       createdAt: r.createdAt.toISOString(),
     }));
-}, "umap-runs");
+  },
+  "umap-runs",
+);
 
 export const fetchUmapRun = query(
   async (id: string): Promise<UmapRunDetail | null> => {
@@ -95,16 +103,19 @@ export const fetchUmapRun = query(
       hasArtifact: Boolean(run.artifactPath),
       artifactPath: run.artifactPath,
       regions: parseUmapRegionsSnapshot(run.regionsJson),
-      regionCount: parseUmapRegionsSnapshot(run.regionsJson)?.regions.length ?? 0,
+      regionCount:
+        parseUmapRegionsSnapshot(run.regionsJson)?.regions.length ?? 0,
       createdAt: run.createdAt.toISOString(),
       count,
     };
   },
-  "umap-run"
+  "umap-run",
 );
 
 export const fetchUmapPointsForRun = query(
-  async (runId: string): Promise<{ runId: string; dims: number; points: UmapPoint[] }> => {
+  async (
+    runId: string,
+  ): Promise<{ runId: string; dims: number; points: UmapPoint[] }> => {
     "use server";
     if (!runId) throw new Error("Missing runId");
     const run = await prisma.umapRun.findUnique({
@@ -114,7 +125,7 @@ export const fetchUmapPointsForRun = query(
     if (!run) throw new Error("Run not found");
 
     const pts = await prisma.umapPoint.findMany({
-      where: { runId },
+      where: { runId, doc: { archivedAt: null } },
       select: { docId: true, x: true, y: true, z: true },
     });
     return {
@@ -128,13 +139,14 @@ export const fetchUmapPointsForRun = query(
       })),
     };
   },
-  "umap-points"
+  "umap-points",
 );
 
 export const fetchUmapRegionDetail = query(
-  async (
-    input: { runId: string; regionId: string }
-  ): Promise<UmapRegionDetail | null> => {
+  async (input: {
+    runId: string;
+    regionId: string;
+  }): Promise<UmapRegionDetail | null> => {
     "use server";
     const runId = String(input.runId || "").trim();
     const regionId = String(input.regionId || "").trim();
@@ -147,10 +159,11 @@ export const fetchUmapRegionDetail = query(
 
     const region = regions.regions.find((item) => item.id === regionId) ?? null;
     if (!region) return null;
-    const island = regions.islands.find((item) => item.id === region.islandId) ?? null;
+    const island =
+      regions.islands.find((item) => item.id === region.islandId) ?? null;
 
     const rows = await prisma.doc.findMany({
-      where: { id: { in: region.docIds } },
+      where: { id: { in: region.docIds }, archivedAt: null },
       select: {
         id: true,
         title: true,
@@ -158,8 +171,8 @@ export const fetchUmapRegionDetail = query(
         path: true,
         meta: true,
         content: true,
-          html: true,
-          markdown: true,
+        html: true,
+        markdown: true,
       },
     });
 
@@ -183,5 +196,5 @@ export const fetchUmapRegionDetail = query(
       docs,
     };
   },
-  "umap-region-detail"
+  "umap-region-detail",
 );
