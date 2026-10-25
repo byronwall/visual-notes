@@ -1,12 +1,15 @@
 import { createHandler, StartServer } from "@solidjs/start/server";
 import { THEME_BOOT_SCRIPT } from "~/lib/theme-mode";
 import { startEmbeddingSweep } from "~/server/notes/embedding-refresh";
+import { startCleanupSweep } from "~/server/cleanup/assessment-sweep";
 
 // Nitro imports this module at boot in production and on the first request in
 // dev. Nitro server plugins don't fit: dev loads them through a throwaway Vite
 // server without `~/` paths. The sweep is idempotent and skips without an
-// OpenAI key.
+// OpenAI key. The cleanup sweep follows the same rules and skips without a
+// decision provider.
 startEmbeddingSweep();
+startCleanupSweep();
 
 export default createHandler(() => (
   <StartServer

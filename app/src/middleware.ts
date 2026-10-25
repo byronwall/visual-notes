@@ -9,10 +9,15 @@ import { handleWellKnown } from "~/server/oauth/route-helpers";
 import { loginPathFor } from "~/utils/safe-next";
 import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 import { setContentWriteHook } from "~/server/notes/note-store";
+import { scheduleCleanupAssessment } from "~/server/cleanup/assessment-sweep";
 
 // Middleware loads for every server router (pages, server functions, API), so
-// content writes from any of them queue the embedding refresh.
-setContentWriteHook(scheduleEmbeddingRefresh);
+// content writes from any of them queue the embedding refresh and the cleanup
+// re-assessment.
+setContentWriteHook(() => {
+  scheduleEmbeddingRefresh();
+  scheduleCleanupAssessment();
+});
 
 // SolidStart's pinned transform builds IDs from the root-relative module path
 // and exported function name. Keep these IDs in sync with those public functions.

@@ -222,6 +222,7 @@ model Doc {
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
   audioRecordings      DocAudio[]
+  cleanupAssessment    NoteAssessment?
 
   // Collections: a note can be a row in at most one collection. Values are
   // keyed by CollectionProperty id; they are kept if the note leaves the
@@ -1195,4 +1196,31 @@ model CalendarFeedEntry {
 
   @@id([feedId, eventId])
   @@index([eventId])
+}
+
+// Cleanup triage answers for one note from a decision model (Jev or OpenAI
+// Decisions). Keyed to the note's contentVersion and the question set version,
+// so the sweep re-asks only when either changes. See server/cleanup/.
+model NoteAssessment {
+  id                 String   @id @default(cuid())
+  docId              String   @unique
+  contentVersion     Int
+  questionSetVersion String
+  model              String
+  // Code-computed facts sent with the questions (source, words, dates, ...).
+  facts              Json
+  // Normalized answers keyed by question id.
+  answers            Json
+  // Derived in code from facts + answers: the suggested cleanup bucket and
+  // the probability that drove it (queue sort order).
+  bucket             String
+  confidence         Float
+  inputTokens        Int?
+  latencyMs          Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([bucket, confidence(sort: Desc)])
 }

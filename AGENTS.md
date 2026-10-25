@@ -19,6 +19,7 @@ focused skills listed under [Skills](#skills).
 | Note images (paste/drop/upload pipeline, `/api/doc-images`, import from other sites) | [app/docs/note-images.md](app/docs/note-images.md) |
 | Note files (attachment cards, `/api/doc-files`, drop/paste/`/file`, safe serving) | [app/docs/note-files.md](app/docs/note-files.md) |
 | MCP connector (`/mcp` tools, ownership rules, smoke script) and what each app action maps to | [app/docs/mcp-connector.md](app/docs/mcp-connector.md), [app/docs/mcp-parity.md](app/docs/mcp-parity.md) |
+| Note cleanup (decision-model triage, `NoteAssessment`, Jev / OpenAI / heuristic providers) | [app/docs/note-cleanup.md](app/docs/note-cleanup.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 
 ## Note storage (blocks)
