@@ -90,6 +90,16 @@ export const setupTopic = async (
     const parts: string[] = [];
 
     const removing = new Set(input.removeStreams ?? []);
+    const seenKeys = new Set<string>();
+    for (const entry of input.streams ?? []) {
+      if (seenKeys.has(entry.key))
+        issues.push(`streams: "${entry.key}" is listed twice`);
+      if (removing.has(entry.key))
+        issues.push(
+          `"${entry.key}" is in both streams and removeStreams; pick one`,
+        );
+      seenKeys.add(entry.key);
+    }
     for (const key of removing) {
       const stream = byKey.get(key);
       if (!stream || stream.hiddenAt)
@@ -107,8 +117,9 @@ export const setupTopic = async (
         `a topic holds at most ${MAX_STREAMS} streams (would have ${remaining + added.length})`,
       );
     }
+    // A removed stream coming back keeps its old title; only brand-new keys need one.
     for (const entry of added)
-      if (!entry.title)
+      if (!entry.title && !byKey.has(entry.key))
         issues.push(`streams: new stream "${entry.key}" needs a title`);
 
     if (input.kinds) {

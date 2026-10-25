@@ -35,10 +35,14 @@ export type CardFields = {
   fields?: Record<string, string> | null;
   streamId?: string | null;
   parentId?: string | null;
+  sortOrder?: number;
 };
 
 /** What callers may send: a stream by key and fields as loose values. */
-export type CardEditInput = Omit<CardFields, "streamId" | "fields"> & {
+export type CardEditInput = Omit<
+  CardFields,
+  "streamId" | "fields" | "sortOrder"
+> & {
   id: string;
   stream?: string | null;
   fields?: Record<string, string | number | boolean | null> | null;
@@ -186,7 +190,7 @@ export const editCards = async (
       }),
       tx.researchCard.findMany({
         where: { topicId, hiddenAt: null },
-        select: { id: true, parentId: true },
+        select: { id: true, parentId: true, sortOrder: true },
       }),
       tx.researchStream.findMany({
         where: { topicId, hiddenAt: null },
@@ -207,6 +211,8 @@ export const editCards = async (
     );
     const issues: string[] = [];
     const edits: CardEdit[] = [];
+    // Several cards moved under one parent in one batch keep their order.
+    const movedTo = new Map<string, number>();
     for (const { id, stream, fields, kind, parentId, ...text } of input.edits) {
       const card = byId.get(id);
       if (!card) {
@@ -253,7 +259,20 @@ export const editCards = async (
             issues.push(
               `edit for "${id}": "${parentId}" is below it; move that card first`,
             );
-          else after.parentId = parentId;
+          else {
+            after.parentId = parentId;
+            // A moved card goes after its new siblings, so nothing already there reorders.
+            const lastOrder = allCards.reduce(
+              (max, other) =>
+                other.parentId === parentId && other.id !== id
+                  ? Math.max(max, other.sortOrder)
+                  : max,
+              -1,
+            );
+            const queued = movedTo.get(parentId ?? "") ?? 0;
+            movedTo.set(parentId ?? "", queued + 1);
+            after.sortOrder = lastOrder + 1 + queued;
+          }
         }
       }
       if (!Object.keys(after).length) {
