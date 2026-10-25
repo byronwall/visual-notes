@@ -1226,6 +1226,11 @@ model NoteAssessment {
   confidence         Float
   inputTokens        Int?
   latencyMs          Int?
+  // The owner's last call on the suggestion: keep, snooze, or done (acted
+  // on). Hidden from the queues until snoozedUntil passes.
+  decision           String?
+  decidedAt          DateTime?
+  snoozedUntil       DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

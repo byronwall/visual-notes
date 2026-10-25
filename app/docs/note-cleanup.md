@@ -41,3 +41,14 @@ Every cleanup action archives the original instead of deleting it (`server/notes
 - `startArchivePurge` (boot plus every six hours) deletes notes archived more than 30 days ago. Each one leaves a `DocTombstone` with the title and redirect, and notes that pointed into it are re-pointed to where its content went. Opening a deleted note's id follows the tombstone.
 
 To seed an audit database with cleanup archetypes, assessments (heuristic), and three archived notes: `pnpm audit:db -- --owner <slug> --seed-cleanup`.
+
+## Triage page
+
+`/cleanup` (`components/cleanup/`) is the deep-pass view: a bucket rail with counts, the selected bucket's queue sorted by confidence, and the selected note.
+
+- **Why it is here** shows signal chips from `server/cleanup/signals.ts`.
+- **Distill**: the draft is written on demand when a note is selected, and only in the browser (never during SSR). `server/cleanup/distill.ts` asks `gpt-5-mini` for JSON bullets plus one snippet. Without `OPENAI_API_KEY` it falls back to a local sentence extract labeled "Local extract". **Review and edit** opens the original beside an editable markdown draft.
+- **Send to**: a new note in the source's path, or an existing note in the same area. Appending adds a heading and keeps a `cleanup-append` revision. Both get a "Distilled from …" line. Approving archives the source into the destination (`server/cleanup/apply.ts`).
+- **Keep as is** hides the note for six months (`NoteAssessment.snoozedUntil`). **Skip** just moves on.
+- Keys: J/K or arrows move, Enter approves, E keeps, S skips. The keys click the visible buttons (`data-cleanup-action`), so the keys and the mouse do the same thing.
+- Each bucket gets an action panel in `CleanupDetail.tsx` and a place in `RAIL_BUCKETS`.

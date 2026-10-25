@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   ArchiveIcon,
+  BrushCleaningIcon,
   CalendarClockIcon,
   CalendarHeartIcon,
   CompassIcon,
@@ -130,6 +131,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     icon: HashIcon,
     keywords: "labels topics hashtags",
     isActive: (pathname) => isSectionActive("/tags", pathname),
+  },
+  {
+    label: "Cleanup",
+    href: "/cleanup",
+    icon: BrushCleaningIcon,
+    keywords: "triage distill tidy declutter archive",
+    isActive: (pathname) => isSectionActive("/cleanup", pathname),
   },
   {
     label: "Explorer",
