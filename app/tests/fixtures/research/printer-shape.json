@@ -1,0 +1,669 @@
+{
+  "title": "Fixture: 3D printer buying guide shape",
+  "rounds": [
+    {
+      "batchKey": "pr-roots",
+      "agent": "chatgpt",
+      "summary": "Organized the buying guide into decision questions and evidence criteria",
+      "cards": [
+        {
+          "type": "question",
+          "ref": "pq0",
+          "title": "Which printer and bundle best fit the projects I actually want to make?",
+          "body": "Paragraph 1 about Which printer and bundle best fit the projects I actually want to make?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "children": [
+            {
+              "type": "finding",
+              "ref": "pf0_0",
+              "title": "The sale is confirmed but exact prices remain previews",
+              "body": "Paragraph 1 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The sale is confirmed but exact prices remain previews. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf0_1",
+              "title": "The entry printer is a balanced open-frame starting point, not the answer to every project",
+              "body": "Paragraph 1 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The entry printer is a balanced open-frame starting point, not the answer to every project. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf0_2",
+              "title": "Choose the multicolor bundle for controlled color and larger machines only for a concrete need",
+              "body": "Paragraph 1 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Choose the multicolor bundle for controlled color and larger machines only for a concrete need. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf0_3",
+              "title": "A reliable first print starts with a model, a correct profile and a sliced preview",
+              "body": "Paragraph 1 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A reliable first print starts with a model, a correct profile and a sliced preview. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf0_4",
+              "title": "FDM is a workshop process with layer lines, strength limits and support tradeoffs",
+              "body": "Paragraph 1 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about FDM is a workshop process with layer lines, strength limits and support tradeoffs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf0_5",
+              "title": "The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits",
+              "body": "Paragraph 1 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The vendor ecosystem offers convenience but offline and third-party workflows have distinct limits. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "option",
+              "ref": "po0",
+              "title": "Mini printer",
+              "body": "**Price status:** Preview $199; Combo $299. **Best fit:** Mini printer use cases. **Main tradeoff:** size versus enclosure."
+            },
+            {
+              "type": "option",
+              "ref": "po1",
+              "title": "Entry printer",
+              "body": "**Price status:** Preview $259; Combo $359. **Best fit:** Entry printer use cases. **Main tradeoff:** size versus enclosure."
+            },
+            {
+              "type": "option",
+              "ref": "po2",
+              "title": "Enclosed printer",
+              "body": "**Price status:** Preview $319; Combo $419. **Best fit:** Enclosed printer use cases. **Main tradeoff:** size versus enclosure."
+            },
+            {
+              "type": "option",
+              "ref": "po3",
+              "title": "Enclosed printer, newer",
+              "body": "**Price status:** Preview $379; Combo $479. **Best fit:** Enclosed printer, newer use cases. **Main tradeoff:** size versus enclosure."
+            },
+            {
+              "type": "option",
+              "ref": "po4",
+              "title": "Competitor enclosed combo",
+              "body": "**Price status:** Preview $439; Combo $539. **Best fit:** Competitor enclosed combo use cases. **Main tradeoff:** size versus enclosure."
+            },
+            {
+              "type": "option",
+              "ref": "po5",
+              "title": "Competitor four-color",
+              "body": "**Price status:** Preview $499; Combo $599. **Best fit:** Competitor four-color use cases. **Main tradeoff:** size versus enclosure."
+            }
+          ]
+        },
+        {
+          "type": "question",
+          "ref": "pq1",
+          "title": "Do I want shiny single-spool effects or precisely assigned multicolor regions?",
+          "body": "Paragraph 1 about Do I want shiny single-spool effects or precisely assigned multicolor regions?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "children": [
+            {
+              "type": "finding",
+              "ref": "pf1_0",
+              "title": "Shiny and multicolor describe several different effects with different hardware needs",
+              "body": "Paragraph 1 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Shiny and multicolor describe several different effects with different hardware needs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf1_1",
+              "title": "Silk, coextruded and rainbow filaments make effects without a feeder",
+              "body": "Paragraph 1 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Silk, coextruded and rainbow filaments make effects without a feeder. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf1_2",
+              "title": "Three visual filament examples show gloss, gradient and angle-changing color",
+              "body": "Paragraph 1 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Three visual filament examples show gloss, gradient and angle-changing color. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf1_3",
+              "title": "Precise color regions cost additional time and purge material on a single nozzle",
+              "body": "Paragraph 1 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Precise color regions cost additional time and purge material on a single nozzle. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf1_4",
+              "title": "The open feeder is the simplest starting point, while boxed expansion needs extra hardware",
+              "body": "Paragraph 1 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The open feeder is the simplest starting point, while boxed expansion needs extra hardware. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            }
+          ]
+        },
+        {
+          "type": "question",
+          "ref": "pq2",
+          "title": "What space, materials and small starter kit should I choose?",
+          "body": "Paragraph 1 about What space, materials and small starter kit should I choose?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "children": [
+            {
+              "type": "finding",
+              "ref": "pf2_0",
+              "title": "A stable ventilated workspace matters more than cosmetic printer upgrades",
+              "body": "Paragraph 1 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A stable ventilated workspace matters more than cosmetic printer upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf2_1",
+              "title": "Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility",
+              "body": "Paragraph 1 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Start with 1.75 mm PLA and choose later materials by printer, feeder and nozzle compatibility. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf2_2",
+              "title": "Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures",
+              "body": "Paragraph 1 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Dry storage, spool fit and deliberate troubleshooting prevent avoidable failures. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf2_3",
+              "title": "Buy a small starter kit and add hotends or plates only for a specific use",
+              "body": "Paragraph 1 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Buy a small starter kit and add hotends or plates only for a specific use. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf2_4",
+              "title": "The warehouse-club bundle needs a current member-price comparison, not an assumed bargain",
+              "body": "Paragraph 1 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about The warehouse-club bundle needs a current member-price comparison, not an assumed bargain. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf2_5",
+              "title": "A small first-month plan helps establish a baseline before buying more upgrades",
+              "body": "Paragraph 1 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A small first-month plan helps establish a baseline before buying more upgrades. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            }
+          ]
+        },
+        {
+          "type": "question",
+          "ref": "pq3",
+          "title": "What total setup budget and ongoing material cost am I comfortable with?",
+          "body": "Paragraph 1 about What total setup budget and ongoing material cost am I comfortable with?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "children": [
+            {
+              "type": "finding",
+              "ref": "pf3_0",
+              "title": "Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing",
+              "body": "Paragraph 1 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Plan roughly $299–329 bare or $434–474 combo before tax, using conditional sale pricing. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf3_1",
+              "title": "Count supports, purge, towers and failed attempts rather than only finished-object weight",
+              "body": "Paragraph 1 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Count supports, purge, towers and failed attempts rather than only finished-object weight. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf3_2",
+              "title": "Reducing waste and unnecessary purchases often beats a small filament discount",
+              "body": "Paragraph 1 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Reducing waste and unnecessary purchases often beats a small filament discount. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            }
+          ]
+        },
+        {
+          "type": "question",
+          "ref": "pq4",
+          "title": "Would a used or refurbished printer save enough to justify its risks?",
+          "body": "Paragraph 1 about Would a used or refurbished printer save enough to justify its risks?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "children": [
+            {
+              "type": "finding",
+              "ref": "pf4_0",
+              "title": "Used and refurbished offers must be compared with the best legitimate new price",
+              "body": "Paragraph 1 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about Used and refurbished offers must be compared with the best legitimate new price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf4_1",
+              "title": "An older unit needs documented recall history and separate power-board consideration",
+              "body": "Paragraph 1 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about An older unit needs documented recall history and separate power-board consideration. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            },
+            {
+              "type": "finding",
+              "ref": "pf4_2",
+              "title": "A used printer should pass a real demonstration and account-transfer check before payment",
+              "body": "Paragraph 1 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 3 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 4 about A used printer should pass a real demonstration and account-transfer check before payment. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+            }
+          ]
+        },
+        {
+          "type": "criterion",
+          "ref": "pcrit",
+          "title": "Keep dated evidence separate from sale previews and unverified claims",
+          "body": "Paragraph 1 about evidence hygiene. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "criterion",
+          "title": "Choose for project fit and lifetime cost rather than advertised speed or old MSRP",
+          "body": "Paragraph 1 about fit. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        }
+      ]
+    },
+    {
+      "batchKey": "pr-sources",
+      "agent": "chatgpt",
+      "under": "@pcrit",
+      "summary": "Preserved all 31 source links as individual evidence cards",
+      "cards": [
+        {
+          "type": "source",
+          "ref": "ps0",
+          "title": "Source 1: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/1",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps1",
+          "title": "Source 2: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/2",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps2",
+          "title": "Source 3: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/3",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps3",
+          "title": "Source 4: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/4",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps4",
+          "title": "Source 5: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/5",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps5",
+          "title": "Source 6: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/6",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps6",
+          "title": "Source 7: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/7",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps7",
+          "title": "Source 8: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/8",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps8",
+          "title": "Source 9: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/9",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps9",
+          "title": "Source 10: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/10",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps10",
+          "title": "Source 11: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/11",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps11",
+          "title": "Source 12: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/12",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps12",
+          "title": "Source 13: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/13",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps13",
+          "title": "Source 14: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/14",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps14",
+          "title": "Source 15: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/15",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps15",
+          "title": "Source 16: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/16",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps16",
+          "title": "Source 17: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/17",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps17",
+          "title": "Source 18: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/18",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps18",
+          "title": "Source 19: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/19",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps19",
+          "title": "Source 20: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/20",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps20",
+          "title": "Source 21: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/21",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps21",
+          "title": "Source 22: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/22",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps22",
+          "title": "Source 23: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/23",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps23",
+          "title": "Source 24: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/24",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps24",
+          "title": "Source 25: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/25",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps25",
+          "title": "Source 26: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/26",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps26",
+          "title": "Source 27: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/27",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps27",
+          "title": "Source 28: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/28",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps28",
+          "title": "Source 29: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/29",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps29",
+          "title": "Source 30: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/30",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        },
+        {
+          "type": "source",
+          "ref": "ps30",
+          "title": "Source 31: vendor page, review, or announcement about printers",
+          "url": "https://example.test/source/31",
+          "body": "Supporting source from the buying guide. Captured in the research snapshot. Linked as evidence, not a guarantee of current stock or price."
+        }
+      ],
+      "links": [
+        {
+          "from": "@pf0_0",
+          "to": "ps0"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps1"
+        },
+        {
+          "from": "@pf2_2",
+          "to": "ps2"
+        },
+        {
+          "from": "@pf3_0",
+          "to": "ps3"
+        },
+        {
+          "from": "@pf4_1",
+          "to": "ps4"
+        },
+        {
+          "from": "@pf0_5",
+          "to": "ps5"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps6"
+        },
+        {
+          "from": "@pf2_1",
+          "to": "ps7"
+        },
+        {
+          "from": "@pf3_2",
+          "to": "ps8"
+        },
+        {
+          "from": "@pf4_0",
+          "to": "ps9"
+        },
+        {
+          "from": "@pf0_4",
+          "to": "ps10"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps11"
+        },
+        {
+          "from": "@pf2_0",
+          "to": "ps12"
+        },
+        {
+          "from": "@pf3_1",
+          "to": "ps13"
+        },
+        {
+          "from": "@pf4_2",
+          "to": "ps14"
+        },
+        {
+          "from": "@pf0_3",
+          "to": "ps15"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps16"
+        },
+        {
+          "from": "@pf2_5",
+          "to": "ps17"
+        },
+        {
+          "from": "@pf3_0",
+          "to": "ps18"
+        },
+        {
+          "from": "@pf4_1",
+          "to": "ps19"
+        },
+        {
+          "from": "@pf0_2",
+          "to": "ps20"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps21"
+        },
+        {
+          "from": "@pf2_4",
+          "to": "ps22"
+        },
+        {
+          "from": "@pf3_2",
+          "to": "ps23"
+        },
+        {
+          "from": "@pf4_0",
+          "to": "ps24"
+        },
+        {
+          "from": "@pf0_1",
+          "to": "ps25"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps26"
+        },
+        {
+          "from": "@pf2_3",
+          "to": "ps27"
+        },
+        {
+          "from": "@pf3_1",
+          "to": "ps28"
+        },
+        {
+          "from": "@pf4_2",
+          "to": "ps29"
+        },
+        {
+          "from": "@pf0_0",
+          "to": "ps30"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps0"
+        },
+        {
+          "from": "@pf2_2",
+          "to": "ps1"
+        },
+        {
+          "from": "@pf3_0",
+          "to": "ps2"
+        },
+        {
+          "from": "@pf4_1",
+          "to": "ps3"
+        },
+        {
+          "from": "@pf0_5",
+          "to": "ps4"
+        },
+        {
+          "from": "@pf1_1",
+          "to": "ps5"
+        },
+        {
+          "from": "@pf2_1",
+          "to": "ps6"
+        },
+        {
+          "from": "@pf3_2",
+          "to": "ps7"
+        },
+        {
+          "from": "@pf4_0",
+          "to": "ps8"
+        }
+      ]
+    },
+    {
+      "batchKey": "pr-summaries",
+      "agent": "chatgpt",
+      "summary": "Added three draft syntheses for review",
+      "cards": [],
+      "summaries": [
+        {
+          "title": "Provisional buying recommendation",
+          "body": "Paragraph 1 about the recommendation. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "covers": [
+            "@pq0",
+            "@pf0_0",
+            "@pf0_1",
+            "@pf0_2",
+            "@pf0_3",
+            "@pf0_4",
+            "@pf0_5"
+          ]
+        },
+        {
+          "title": "A restrained starter setup and cost plan",
+          "body": "Paragraph 1 about setup. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "covers": [
+            "@pq2",
+            "@pq3",
+            "@pf2_0",
+            "@pf2_1",
+            "@pf2_2",
+            "@pf2_3",
+            "@pf2_4",
+            "@pf2_5"
+          ]
+        },
+        {
+          "title": "Used printers need a meaningful discount and documented safety history",
+          "body": "Paragraph 1 about used. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "covers": [
+            "@pq4",
+            "@pf4_0",
+            "@pf4_1",
+            "@pf4_2"
+          ]
+        }
+      ]
+    }
+  ]
+}
