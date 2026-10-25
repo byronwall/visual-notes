@@ -98,11 +98,12 @@ export const TopicContents = (props: {
   onSelect: (id: string) => void;
 }) => {
   const [collapsed, setCollapsed] = createSignal(new Set<string>());
-  const sections = createMemo(() =>
-    contentsSections(props.data.board(), props.data.cards(), (card) =>
-      cardMatches(card, props.query),
-    ),
-  );
+  const sections = createMemo(() => {
+    const query = props.query;
+    return contentsSections(props.data.board(), props.data.cards(), (card) =>
+      cardMatches(card, query),
+    );
+  });
   const searching = () => props.query.trim().length > 0;
   const isOpen = (key: string) => searching() || !collapsed().has(key);
   const toggle = (key: string) =>

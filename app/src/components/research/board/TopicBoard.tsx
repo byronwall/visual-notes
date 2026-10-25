@@ -73,9 +73,11 @@ export const TopicBoard = (props: {
   return (
     <BoardContext.Provider
       value={{
-        data: props.data,
+        get data() {
+          return props.data;
+        },
         selectedId: () => props.selectedId,
-        onSelect: props.onSelect,
+        onSelect: (id) => props.onSelect(id),
         density,
         setHovered,
         isRelated: (id) => related().has(id),

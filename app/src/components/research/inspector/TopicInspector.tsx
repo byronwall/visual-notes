@@ -8,6 +8,7 @@ import type {
 } from "~/services/research/research.types";
 import type { TopicData } from "../createTopicData";
 import { CardDetailPanel } from "../detail/CardDetailPanel";
+import { CommentThread } from "../detail/CommentThread";
 import { StreamDetailPanel } from "../detail/StreamDetailPanel";
 import { ReaderNav } from "./ReaderNav";
 import { TopicBatchList } from "../TopicBatchList";
@@ -264,7 +265,9 @@ export const TopicInspector = (props: {
                   stream={stream()}
                   onSelect={props.onSelect}
                   onClose={() => props.onSelectStream(null)}
-                />
+                >
+                  <CommentThread data={props.data} streamId={stream().id} />
+                </StreamDetailPanel>
               )}
             </Match>
             <Match when={props.tab === "history"}>

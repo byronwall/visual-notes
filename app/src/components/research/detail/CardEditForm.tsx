@@ -2,7 +2,12 @@ import { useAction } from "@solidjs/router";
 import { createSignal, Show, untrack } from "solid-js";
 import { css } from "styled-system/css";
 import { editResearchCard } from "~/services/research/research.actions";
-import type { ResearchCard } from "~/services/research/research.types";
+import { SimpleSelect } from "~/components/ui/simple-select";
+import type {
+  ResearchCard,
+  ResearchKind,
+  ResearchStream,
+} from "~/services/research/research.types";
 import { textButtonClass } from "./detailStyles";
 
 const fieldClass = css({
@@ -14,7 +19,10 @@ const fieldClass = css({
   borderColor: "border",
   borderRadius: "l2",
   bg: "bg.default",
-  _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-1px" },
+  _focusVisible: {
+    outline: "2px solid token(colors.border.focus)",
+    outlineOffset: "-1px",
+  },
 });
 
 const autosize = (element: HTMLTextAreaElement) => {
@@ -22,23 +30,52 @@ const autosize = (element: HTMLTextAreaElement) => {
   element.style.height = `${element.scrollHeight + 2}px`;
 };
 
-/** Edits a card's title, body, and (for sources) link as an undoable batch. */
+const INHERIT = "__inherit";
+const NO_KIND = "__none";
+
+/** Edits a card's title, gist, body, kind, stream, and (for sources) link as an undoable batch. */
 export const CardEditForm = (props: {
   topicId: string;
   card: ResearchCard;
+  kinds: ResearchKind[];
+  streams: ResearchStream[];
   onDone: (changed: boolean) => void;
 }) => {
   const runEdit = useAction(editResearchCard);
   // Drafts start from the card as it was when editing began.
   const [title, setTitle] = createSignal(untrack(() => props.card.title));
+  const [gist, setGist] = createSignal(untrack(() => props.card.gist));
   const [body, setBody] = createSignal(untrack(() => props.card.body));
+  const streamKeyOf = (id: string | null) =>
+    props.streams.find((stream) => stream.id === id)?.key ?? INHERIT;
+  const [stream, setStream] = createSignal(
+    untrack(() => streamKeyOf(props.card.streamId)),
+  );
+  const [kind, setKind] = createSignal(
+    untrack(() => props.card.kind ?? NO_KIND),
+  );
+  const kindItems = () => [
+    { value: NO_KIND, label: "No kind" },
+    ...props.kinds
+      .filter((entry) => entry.role === props.card.type)
+      .map((entry) => ({ value: entry.key, label: entry.label })),
+  ];
+  const streamItems = () => [
+    { value: INHERIT, label: "Inherit from the card above" },
+    ...props.streams.map((entry) => ({ value: entry.key, label: entry.title })),
+  ];
+  const streamChanged = () => stream() !== streamKeyOf(props.card.streamId);
+  const kindChanged = () => kind() !== (props.card.kind ?? NO_KIND);
   const [url, setUrl] = createSignal(untrack(() => props.card.url ?? ""));
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const isSource = () => props.card.type === "source";
   const unchanged = () =>
     title().trim() === props.card.title &&
+    gist().trim() === props.card.gist &&
     body() === props.card.body &&
+    !streamChanged() &&
+    !kindChanged() &&
     (!isSource() || url().trim() === (props.card.url ?? ""));
 
   const save = async (event: SubmitEvent) => {
@@ -51,7 +88,12 @@ export const CardEditForm = (props: {
         topicId: props.topicId,
         id: props.card.id,
         title: title(),
+        gist: gist().trim(),
         body: body(),
+        ...(streamChanged()
+          ? { stream: stream() === INHERIT ? null : stream() }
+          : {}),
+        ...(kindChanged() ? { kind: kind() === NO_KIND ? null : kind() } : {}),
         ...(isSource() ? { url: url().trim() || null } : {}),
       });
       props.onDone(true);
@@ -64,13 +106,60 @@ export const CardEditForm = (props: {
   };
 
   return (
-    <form class={css({ display: "flex", flexDirection: "column", gap: "1.5", mb: "2" })} onSubmit={save}>
+    <form
+      class={css({
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5",
+        mb: "2",
+      })}
+      onSubmit={save}
+    >
       <input
         aria-label="Card title"
         class={fieldClass}
         value={title()}
         onInput={(event) => setTitle(event.currentTarget.value)}
       />
+      <textarea
+        aria-label="Card gist"
+        placeholder="Gist: one or two sentences shown on the board"
+        class={`${fieldClass} ${css({ resize: "none" })}`}
+        rows={2}
+        value={gist()}
+        onInput={(event) => {
+          setGist(event.currentTarget.value);
+          autosize(event.currentTarget);
+        }}
+      />
+      <div class={css({ display: "flex", gap: "1.5", flexWrap: "wrap" })}>
+        <Show when={props.streams.length}>
+          <div class={css({ flex: 1, minW: "10rem" })}>
+            <SimpleSelect
+              size="sm"
+              label="Stream"
+              labelPlacement="stacked"
+              items={streamItems()}
+              value={stream()}
+              onChange={setStream}
+              sameWidth
+            />
+          </div>
+        </Show>
+        <Show when={kindItems().length > 1}>
+          <div class={css({ flex: 1, minW: "8rem" })}>
+            <SimpleSelect
+              size="sm"
+              label="Kind"
+              labelPlacement="stacked"
+              items={kindItems()}
+              value={kind()}
+              onChange={setKind}
+              sameWidth
+            />
+          </div>
+        </Show>
+      </div>
       <Show when={isSource()}>
         <input
           aria-label="Source link"
@@ -92,13 +181,23 @@ export const CardEditForm = (props: {
         }}
       />
       <Show when={error()}>
-        {(message) => <p class={css({ fontSize: "sm", color: "red.11" })}>{message()}</p>}
+        {(message) => (
+          <p class={css({ fontSize: "sm", color: "red.11" })}>{message()}</p>
+        )}
       </Show>
       <div class={css({ display: "flex", justifyContent: "space-between" })}>
-        <button type="button" class={textButtonClass} onClick={() => props.onDone(false)}>
+        <button
+          type="button"
+          class={textButtonClass}
+          onClick={() => props.onDone(false)}
+        >
           Cancel
         </button>
-        <button type="submit" class={textButtonClass} disabled={busy() || !title().trim()}>
+        <button
+          type="submit"
+          class={textButtonClass}
+          disabled={busy() || !title().trim()}
+        >
           Save
         </button>
       </div>

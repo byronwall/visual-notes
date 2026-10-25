@@ -23,6 +23,7 @@ import { CARD_STATE_META, CARD_TYPE_META, CardTypeIcon } from "../cardTypeMeta";
 import type { TopicData } from "../createTopicData";
 import { CardEditForm } from "./CardEditForm";
 import { CardLinkList } from "./CardLinkList";
+import { CommentThread } from "./CommentThread";
 import { sectionLabelClass, textButtonClass } from "./detailStyles";
 import { kindLabel, orderedFields } from "~/services/research/research.kinds";
 
@@ -197,6 +198,8 @@ export const CardDetailPanel = (props: {
       >
         <CardEditForm
           topicId={topicId()}
+          kinds={kinds()}
+          streams={props.data.current()?.streams ?? []}
           card={props.card}
           onDone={(changed) => {
             setEditing(false);
@@ -390,6 +393,8 @@ export const CardDetailPanel = (props: {
         cards={related().filter((card) => !shown().has(card.id))}
         onSelect={props.onSelect}
       />
+
+      <CommentThread data={props.data} cardId={props.card.id} />
 
       <div
         class={css({
