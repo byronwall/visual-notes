@@ -89,7 +89,9 @@ const commentsSection = (graph: ResearchTopicGraph) => {
       ? `on [${card.id}] “${card.title}”`
       : stream
         ? `on stream ${stream.key}`
-        : "on the topic";
+        : comment.cardId || comment.streamId
+          ? "on a removed card or stream"
+          : "on the topic";
     out.push(`- [${comment.id}] ${where}: ${comment.body}`);
   }
   return out;
@@ -172,14 +174,32 @@ export const formatTopicSummary = (
     for (const option of cards
       .filter((card) => card.type === "option")
       .sort(byCardOrder)) {
-      const blockers = (relations.blockers.get(option.id) ?? []).filter(
+      const open = (relations.blockers.get(option.id) ?? []).filter(
         (entry) => entry.card.state === "open",
       );
+      const ids = (kind: "blocks" | "relates_to") =>
+        open
+          .filter((entry) => entry.kind === kind)
+          .map((entry) => `[${entry.card.id}]`)
+          .join(", ");
       const fields = fieldsText(graph.topic.kinds, option);
-      const blocked = blockers.length
-        ? ` · blocked by ${blockers.map((entry) => `[${entry.card.id}]`).join(", ")}`
+      const blocked = ids("blocks") ? ` · blocked by ${ids("blocks")}` : "";
+      const related = ids("relates_to")
+        ? ` · open related ${ids("relates_to")}`
         : "";
-      out.push(`- ${line(option)}${fields ? ` · ${fields}` : ""}${blocked}`);
+      out.push(
+        `- ${line(option)}${fields ? ` · ${fields}` : ""}${blocked}${related}`,
+      );
+    }
+    // Unsorted lists every card so the agent can see what to file.
+    if (column.id === UNSORTED_ID) {
+      const listed = new Set([...open.map((entry) => entry.card.id)]);
+      for (const card of cards.filter(
+        (c) =>
+          c.type !== "option" && c.type !== "criterion" && !listed.has(c.id),
+      )) {
+        out.push(`- ${line(card)}`);
+      }
     }
   }
 
@@ -287,7 +307,7 @@ export const formatCard = (
   const columnId = assignment.streamOf.get(card.id);
   const column = assignment.columns.find((entry) => entry.id === columnId);
   out.push(
-    `Stream: ${column ? (column.virtual ? column.title : `${column.title} [${column.key}]`) : "Unsorted"}${card.streamId ? "" : column ? " (inherited)" : ""}`,
+    `Stream: ${column ? (column.virtual ? column.title : `${column.title} [stream ${column.key}]`) : "Unsorted"}${column && !column.virtual && card.streamId !== column.id ? " (inherited)" : ""}`,
   );
   if (card.gist) out.push(`Gist: ${card.gist}`);
   const fields = fieldsText(graph.topic.kinds, card);
@@ -336,9 +356,18 @@ export const formatCard = (
     .map(([id]) => byId.get(id))
     .filter((entry): entry is ResearchCard => !!entry);
   list("Backs", cites);
+  const shown = new Set(
+    [
+      ...(relations.answers.get(card.id) ?? []),
+      ...(relations.results.get(card.id) ?? []),
+      ...(relations.citations.get(card.id) ?? []),
+    ].map((entry) => entry.id),
+  );
   list(
     "Led to",
-    graph.cards.filter((c) => c.parentId === card.id).sort(byCardOrder),
+    graph.cards
+      .filter((c) => c.parentId === card.id && !shown.has(c.id))
+      .sort(byCardOrder),
   );
 
   const comments = graph.comments.filter(
