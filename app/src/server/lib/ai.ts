@@ -8,17 +8,10 @@ export async function callLLM(opts: {
   top_p?: number;
   noteId?: string;
 }) {
-  // Model based settings — centralized overrides for specific models
-  const effectiveTemperature =
-    opts.model === "gpt-5"
-      ? 1
-      : typeof opts.temperature === "number"
-      ? opts.temperature
-      : undefined;
-
-  if (opts.model === "gpt-5" && opts.temperature !== 1) {
-    console.log("[llm] Forcing temperature=1 for model gpt-5");
-  }
+  // GPT-5 reasoning models reject sampling parameters.
+  const supportsSampling = !opts.model.startsWith("gpt-5");
+  const temperature = supportsSampling ? opts.temperature ?? 0.2 : undefined;
+  const topP = supportsSampling ? opts.top_p : undefined;
 
   // Create a centralized LLM request log record first (status PARTIAL)
   const req = await prisma.llmRequest.create({
@@ -26,9 +19,8 @@ export async function callLLM(opts: {
       model: opts.model,
       system: opts.system ?? null,
       userPrompt: opts.user,
-      temperature:
-        typeof effectiveTemperature === "number" ? effectiveTemperature : null,
-      topP: typeof opts.top_p === "number" ? opts.top_p : null,
+      temperature: temperature ?? null,
+      topP: topP ?? null,
       status: "PARTIAL",
       noteId: opts.noteId ?? null,
     },
@@ -48,8 +40,8 @@ export async function callLLM(opts: {
         model: opts.model,
         // Provide plain string input for maximal compatibility with Responses API
         input: opts.system ? `${opts.system}\n\n${opts.user}` : opts.user,
-        temperature: effectiveTemperature ?? 0.2,
-        top_p: opts.top_p,
+        temperature,
+        top_p: topP,
       }),
     });
 
