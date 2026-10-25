@@ -102,7 +102,9 @@ export const BoardCardRow = (props: { node: BoardNode; depth?: number }) => {
         class={rowClass}
         style={
           depth()
-            ? { "padding-left": `calc(${depth()} * 1.5rem + 0.5rem)` }
+            ? {
+                "padding-left": `calc(${Math.min(depth(), 3)} * 1.5rem + 0.5rem)`,
+              }
             : undefined
         }
         data-testid="research-board-card"

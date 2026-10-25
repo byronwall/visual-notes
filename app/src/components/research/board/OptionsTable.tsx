@@ -67,7 +67,7 @@ export const OptionsTable = (props: {
         byKind.set(key, {
           key,
           label: kindLabel(kinds(), card.kind) ?? "Options",
-          fields: kind?.fields ?? [],
+          fields: [...(kind?.fields ?? [])],
           cards: [],
         });
       }
@@ -150,8 +150,15 @@ export const OptionsTable = (props: {
                           ).filter((entry) => entry.card.state === "open");
                         return (
                           <tr
+                            tabIndex={0}
                             data-selected={props.selectedId === card.id}
                             onClick={() => props.onSelect(card.id)}
+                            onKeyDown={(event) => {
+                              if (event.key !== "Enter" && event.key !== " ")
+                                return;
+                              event.preventDefault();
+                              props.onSelect(card.id);
+                            }}
                           >
                             <td class={css({ minW: "14rem", maxW: "26rem" })}>
                               <div
