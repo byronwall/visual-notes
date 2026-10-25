@@ -12,6 +12,7 @@ import {
 } from "~/server/cleanup/queue";
 import { resolveProvider } from "~/server/cleanup/assess";
 import { regroupQueue } from "~/server/cleanup/regroup-queue";
+import { dailyStack, type DailyStack } from "~/server/cleanup/daily";
 
 export type CleanupOverview = {
   counts: Record<string, number>;
@@ -64,3 +65,8 @@ export const fetchNoteCleanupHint = query(
   },
   "cleanup-note-hint",
 );
+
+export const fetchCleanupDaily = query(async (): Promise<DailyStack> => {
+  "use server";
+  return dailyStack();
+}, "cleanup-daily");

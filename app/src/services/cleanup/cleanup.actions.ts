@@ -16,6 +16,7 @@ import {
   fetchCleanupItem,
   fetchCleanupOverview,
   fetchCleanupQueue,
+  fetchCleanupDaily,
   fetchNoteCleanupHint,
 } from "./cleanup.queries";
 
@@ -61,6 +62,7 @@ const queueKeys = () => [
   fetchCleanupQueue.key,
   fetchCleanupItem.key,
   fetchNoteCleanupHint.key,
+  fetchCleanupDaily.key,
 ];
 
 export const applyDistillAction = action(

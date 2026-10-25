@@ -69,3 +69,7 @@ The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `
 - **Post-event.** Code finds a date in the body that has passed, and `time_anchor` says the note is a one-time event or plan. When `evergreen_core` ≥ 0.4, the panel drafts "Keep for next time" with the post-event prompt (`POST_EVENT_FOCUS`). Without a key, a local fallback keeps sections headed like _Packing list_, _Contacts_, or _Next time_. The draft goes to a new or existing note and the original is archived. **Archive without keeping anything** is one click away. Below 0.4 the panel only offers Archive.
 - **Make task** (`is_todo` ≥ 0.8, `server/cleanup/make-task.ts`). The panel lists unchecked lines, or short bullets, or the title, as editable Inbox tasks. Checkboxes that are already inline tasks show as "Already tasks" and are detached from the note so they outlive it. Approving creates the new tasks and archives the note.
 - **Delete.** Shows what the note holds, or "This note is empty", and archives it. It is deleted after 30 days.
+
+## Daily stack
+
+`/cleanup?mode=daily` (`components/cleanup/DailyStack.tsx`, `server/cleanup/daily.ts`) is the maintenance view: one card at a time from a quota of 8 a day across every bucket. Buckets are interleaved round-robin, strongest first, so one bucket can't fill the day. Progress counts the assessments decided today (approved, kept, or snoozed). Each card is the bucket's normal panel plus **Snooze 30 days** (Z). **Skip** (S or →) moves a card to the back for this visit. The **Daily / Deep pass** toggle switches modes.

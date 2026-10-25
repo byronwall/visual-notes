@@ -16,7 +16,7 @@ export const PanelSection: ParentComponent<{
     py="3"
     bg="bg.default"
   >
-    <HStack justify="space-between" gap="2" minH="6">
+    <HStack justify="space-between" gap="2" rowGap="1" minH="6" flexWrap="wrap">
       <Text fontSize="sm" fontWeight="semibold">
         {props.title}
       </Text>

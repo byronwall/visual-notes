@@ -16,7 +16,8 @@ const click = (action: string) =>
     ?.click();
 
 /**
- * Triage keys: J/K or arrows move, Enter approves, E keeps, S skips.
+ * Triage keys: J/K or arrows move, Enter approves, E keeps, S (or →) skips,
+ * Z snoozes (daily stack).
  * Approve, keep, and skip click the visible action buttons so the keys and
  * the mouse always do the same thing.
  */
@@ -45,7 +46,8 @@ export function useCleanupKeys(move: (delta: number) => void) {
     else if (key === "k" || key === "arrowup") move(-1);
     else if (key === "enter") click("primary");
     else if (key === "e") click("keep");
-    else if (key === "s") click("skip");
+    else if (key === "s" || key === "arrowright") click("skip");
+    else if (key === "z") click("snooze");
     else return;
     event.preventDefault();
   };

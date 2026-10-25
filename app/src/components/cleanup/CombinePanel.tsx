@@ -139,7 +139,11 @@ export const CombinePanel: VoidComponent<{
           <HStack gap="1">
             <Show when={latestDraft()}>
               {(d) => (
-                <Text fontSize="xs" color="fg.subtle">
+                <Text
+                  fontSize="xs"
+                  color="fg.subtle"
+                  display={{ base: "none", sm: "block" }}
+                >
                   {d().model === "local-extract"
                     ? "Local merge (no LLM key)"
                     : d().model}

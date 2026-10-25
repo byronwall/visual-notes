@@ -10,6 +10,8 @@ import {
   fetchCleanupQueue,
 } from "~/services/cleanup/cleanup.queries";
 import { CleanupDetail } from "./CleanupDetail";
+import { CleanupModeToggle } from "./CleanupModeToggle";
+import { DailyStack } from "./DailyStack";
 import { CleanupQueueList } from "./CleanupQueueList";
 import { CleanupRail } from "./CleanupRail";
 import { BUCKET_META, RAIL_BUCKETS, type BucketId } from "./cleanup-buckets";
@@ -18,7 +20,17 @@ import { useCleanupKeys } from "./useCleanupKeys";
 const pane = { minH: "0", overflowY: "auto" } as const;
 
 /** Deep-pass triage: buckets, the selected bucket's queue, and one note. */
+/** Daily stack or deep-pass triage, by `?mode=`. */
 export const CleanupWorkspace: VoidComponent = () => {
+  const [params] = useSearchParams();
+  return (
+    <Show when={params.mode === "daily"} fallback={<DeepPass />}>
+      <DailyStack />
+    </Show>
+  );
+};
+
+const DeepPass: VoidComponent = () => {
   const [params, setParams] = useSearchParams();
   const overview = createAsync(() => fetchCleanupOverview());
   const bucket = createMemo<BucketId>(() => {
@@ -81,6 +93,7 @@ export const CleanupWorkspace: VoidComponent = () => {
         <Heading as="h1" fontSize="lg">
           Cleanup
         </Heading>
+        <CleanupModeToggle mode="deep" />
         <CleanupRail
           counts={overview()?.counts ?? {}}
           archived={overview()?.archived ?? 0}
