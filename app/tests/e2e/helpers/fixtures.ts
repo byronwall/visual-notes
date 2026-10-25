@@ -156,11 +156,15 @@ export const createArchivedPageFixture = async (
 
 type ResearchFixture = {
   title: string;
-  rounds: Array<Record<string, unknown> & {
-    under?: string;
-    links?: Array<{ from: string; to: string }>;
-    summaries?: Array<Record<string, unknown> & { covers: string[] }>;
-  }>;
+  /** Streams, kinds, and answer, sent to PATCH /api/research/topics/:id first. */
+  setup?: Record<string, unknown>;
+  rounds: Array<
+    Record<string, unknown> & {
+      under?: string;
+      links?: Array<{ from: string; to: string; kind?: string }>;
+      summaries?: Array<Record<string, unknown> & { covers: string[] }>;
+    }
+  >;
 };
 
 /**
@@ -174,16 +178,25 @@ export const createResearchTopicFixture = async (
 ) => {
   const token =
     process.env.RESEARCH_AGENT_TOKEN ??
-    (process.env.AUDIT_RUN_MANIFEST ? "audit-harness-research-token" : undefined);
+    (process.env.AUDIT_RUN_MANIFEST
+      ? "audit-harness-research-token"
+      : undefined);
   if (!token) {
     throw new Error(
       "[e2e-fixtures] set RESEARCH_AGENT_TOKEN (the audit harness uses audit-harness-research-token).",
     );
   }
   const headers = { authorization: `Bearer ${token}` };
-  const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as ResearchFixture;
-  const created = await request.post("/api/research/topics", { headers, data: { title } });
-  expect(created.status(), "research topic fixture should be created").toBe(201);
+  const fixture = JSON.parse(
+    readFileSync(fixturePath, "utf8"),
+  ) as ResearchFixture;
+  const created = await request.post("/api/research/topics", {
+    headers,
+    data: { title },
+  });
+  expect(created.status(), "research topic fixture should be created").toBe(
+    201,
+  );
   const topic = (await created.json()) as { id: string; slug: string };
   recordAuditFixture({
     entityKind: "ResearchTopic",
@@ -195,19 +208,38 @@ export const createResearchTopicFixture = async (
 
   const known: Record<string, string> = {};
   const at = (ref: string) => (ref.startsWith("@") ? known[ref.slice(1)] : ref);
-  for (const round of fixture.rounds) {
-    const response = await request.post(`/api/research/topics/${topic.id}/ingest`, {
+  // Streams and kinds go first so cards can name them.
+  if (fixture.setup) {
+    const setup = await request.patch(`/api/research/topics/${topic.id}`, {
       headers,
-      data: {
-        ...round,
-        under: round.under === undefined ? undefined : at(round.under),
-        links: round.links?.map((link) => ({ from: at(link.from), to: at(link.to) })),
-        summaries: round.summaries?.map((summary) => ({ ...summary, covers: summary.covers.map(at) })),
-      },
+      data: { batchKey: "fixture-setup", agent: "fixture", ...fixture.setup },
     });
+    expect(setup.status(), "research topic setup").toBe(200);
+  }
+  for (const round of fixture.rounds) {
+    const response = await request.post(
+      `/api/research/topics/${topic.id}/ingest`,
+      {
+        headers,
+        data: {
+          ...round,
+          under: round.under === undefined ? undefined : at(round.under),
+          links: round.links?.map((link) => ({
+            ...link,
+            from: at(link.from),
+            to: at(link.to),
+          })),
+          summaries: round.summaries?.map((summary) => ({
+            ...summary,
+            covers: summary.covers.map(at),
+          })),
+        },
+      },
+    );
     expect(response.status(), `ingest ${String(round.batchKey)}`).toBe(200);
     const result = (await response.json()) as { refs: Record<string, string> };
-    for (const [ref, id] of Object.entries(result.refs)) if (!ref.startsWith("$")) known[ref] = id;
+    for (const [ref, id] of Object.entries(result.refs))
+      if (!ref.startsWith("$")) known[ref] = id;
   }
   return topic;
 };

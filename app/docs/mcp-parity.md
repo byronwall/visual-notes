@@ -76,8 +76,6 @@ Keep this file current when adding an action or a tool. A new action is either c
 | (agent-only)                                                                  | `research_update_topic` (`streams`, `kinds`, `answer`)             | The topic frame, as an undoable batch           |
 | `addResearchComment`                                                          | (user-only)                                                        | Agents read comments and resolve them           |
 | `setResearchCommentResolved`                                                  | `research_resolve_comments`                                        |                                                 |
-| `setResearchSummaryStatus`, `updateResearchSummary`, `discardResearchSummary` | human-only                                                         | Reviewing an agent's summary is the user's call |
-| `setResearchCardNudge`                                                        | human-only                                                         | The user's steering signal to the agent         |
 
 ## Tasks
 

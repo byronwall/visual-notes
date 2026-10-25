@@ -2,9 +2,14 @@ import { Maximize2Icon, Minimize2Icon, SearchIcon, XIcon } from "lucide-solid";
 import { For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { css } from "styled-system/css";
 import { Kbd } from "~/components/ui/kbd";
-import type { ResearchCard } from "~/services/research/research.types";
+import type {
+  ResearchCard,
+  ResearchStream,
+} from "~/services/research/research.types";
 import type { TopicData } from "../createTopicData";
 import { CardDetailPanel } from "../detail/CardDetailPanel";
+import { StreamDetailPanel } from "../detail/StreamDetailPanel";
+import { ReaderNav } from "./ReaderNav";
 import { TopicBatchList } from "../TopicBatchList";
 import { TopicContents } from "./TopicContents";
 
@@ -75,7 +80,9 @@ export const TopicInspector = (props: {
   tab: InspectorTab;
   onTab: (tab: InspectorTab) => void;
   selected: ResearchCard | null;
+  selectedStream: ResearchStream | null;
   onSelect: (id: string | null) => void;
+  onSelectStream: (key: string | null) => void;
   query: string;
   onQuery: (query: string) => void;
   nowMs: number;
@@ -86,7 +93,11 @@ export const TopicInspector = (props: {
   let input: HTMLInputElement | undefined;
   const tabs = () => [
     { id: "contents" as const, label: "Contents", disabled: false },
-    { id: "card" as const, label: "Card", disabled: !props.selected },
+    {
+      id: "card" as const,
+      label: props.selectedStream ? "Stream" : "Card",
+      disabled: !props.selected && !props.selectedStream,
+    },
     { id: "history" as const, label: "History", disabled: false },
   ];
 
@@ -220,7 +231,16 @@ export const TopicInspector = (props: {
         <div class={readingClass} data-expanded={props.expanded}>
           {/* Contents stays mounted so its scroll and folded sections survive a trip to Card. */}
           <div
-            style={{ display: props.tab === "contents" ? undefined : "none" }}
+            style={{
+              // A stale ?card or unknown ?stream falls back to Contents instead of a blank rail.
+              display:
+                props.tab === "contents" ||
+                (props.tab === "card" &&
+                  !props.selected &&
+                  !props.selectedStream)
+                  ? undefined
+                  : "none",
+            }}
           >
             <TopicContents
               data={props.data}
@@ -232,10 +252,27 @@ export const TopicInspector = (props: {
           <Switch>
             <Match when={props.tab === "card" && props.selected}>
               {(card) => (
-                <CardDetailPanel
+                <>
+                  <ReaderNav
+                    data={props.data}
+                    card={card()}
+                    onSelect={props.onSelect}
+                  />
+                  <CardDetailPanel
+                    data={props.data}
+                    card={card()}
+                    onSelect={props.onSelect}
+                  />
+                </>
+              )}
+            </Match>
+            <Match when={props.tab === "card" && props.selectedStream}>
+              {(stream) => (
+                <StreamDetailPanel
                   data={props.data}
-                  card={card()}
+                  stream={stream()}
                   onSelect={props.onSelect}
+                  onClose={() => props.onSelectStream(null)}
                 />
               )}
             </Match>
