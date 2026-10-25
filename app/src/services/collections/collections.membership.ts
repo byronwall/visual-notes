@@ -42,6 +42,7 @@ export const searchNotesForCollection = query(
       .parse(input);
     const docs = await prisma.doc.findMany({
       where: {
+        archivedAt: null,
         OR: [{ collectionId: null }, { collectionId: { not: collectionId } }],
         ...(q?.trim()
           ? { title: { contains: q.trim(), mode: "insensitive" } }

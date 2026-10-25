@@ -13,6 +13,11 @@ export const serverScheme = z.object({
   // Bearer token for the research REST ingest routes (agents, seed scripts). Unset = disabled.
   RESEARCH_AGENT_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  // Jev (TypeSafe) decision model for note cleanup triage. Unset = no Jev.
+  TYPESAFE_API_KEY: z.string().optional(),
+  // Cleanup assessment provider: jev (default when TYPESAFE_API_KEY is set),
+  // openai, heuristic (local rules, no vendor), or off.
+  CLEANUP_DECIDER: z.string().optional(),
   EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   UMAP_PYTHON_BIN: z.string().optional(),
   UMAP_MODEL_DIR: z.string().optional(),

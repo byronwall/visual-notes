@@ -20,6 +20,7 @@ type Options = {
   envFile: string;
   drop: boolean;
   seedScale: number | null;
+  seedCleanup: boolean;
 };
 
 function git(args: string[], cwd = appDir) {
@@ -45,13 +46,14 @@ function parseOptions(argv: string[]): Options {
       "env-file": { type: "string" },
       drop: { type: "boolean" },
       "seed-scale": { type: "string" },
+      "seed-cleanup": { type: "boolean" },
     },
     strict: true,
   });
   const owner = values.owner ?? "";
   if (!/^[a-z0-9_]{1,40}$/.test(owner)) {
     throw new Error(
-      "Use --owner <slug> (lowercase letters, digits, underscores). Optional: --env-file <path>, --seed-scale <notes>, --drop.",
+      "Use --owner <slug> (lowercase letters, digits, underscores). Optional: --env-file <path>, --seed-scale <notes>, --seed-cleanup, --drop.",
     );
   }
   const seedText = values["seed-scale"];
@@ -63,6 +65,7 @@ function parseOptions(argv: string[]): Options {
     envFile: resolve(values["env-file"] ?? defaultEnvFile()),
     drop: values.drop ?? false,
     seedScale: seedText === undefined ? null : Number(seedText),
+    seedCleanup: values["seed-cleanup"] ?? false,
   };
 }
 
@@ -119,22 +122,18 @@ function prisma(args: string[], databaseUrl: string, stdin?: string) {
   return result.stdout;
 }
 
-/** Runs the vite-node seeder; it needs the app's server env to import. */
-function seedScale(notes: number, env: Record<string, string>) {
-  const result = spawnSync(
-    "corepack",
-    ["pnpm", "--silent", "audit:seed-scale", "--notes", String(notes)],
-    {
-      cwd: appDir,
-      env: { ...process.env, ...env },
-      stdio: ["ignore", "pipe", "inherit"],
-      encoding: "utf8",
-    },
-  );
+/** Runs a vite-node seeder; it needs the app's server env to import. */
+function runSeeder(args: string[], env: Record<string, string>) {
+  const result = spawnSync("corepack", ["pnpm", "--silent", ...args], {
+    cwd: appDir,
+    env: { ...process.env, ...env },
+    stdio: ["ignore", "pipe", "inherit"],
+    encoding: "utf8",
+  });
   process.stdout.write(result.stdout);
   // vite-node exits 0 when a module throws, so require the final line too.
   if (result.status !== 0 || !result.stdout.includes("[audit-seed] seeded")) {
-    throw new Error("[audit-db] scale seed failed; see the output above.");
+    throw new Error(`[audit-db] ${args[0]} failed; see the output above.`);
   }
 }
 
@@ -173,14 +172,19 @@ async function main() {
   if (!existsSync(credential)) {
     writeFileSync(credential, randomBytes(16).toString("hex"), { mode: 0o600 });
   }
+  const seedEnv = () => ({
+    DATABASE_URL: target.toString(),
+    AUTH_SECRET: source.AUTH_SECRET ?? "",
+    MAGIC_PASSWORD: readFileSync(credential, "utf8").trim(),
+    OPENAI_API_KEY: "",
+  });
   if (options.seedScale !== null) {
-    seedScale(options.seedScale, {
-      DATABASE_URL: target.toString(),
-      AUTH_SECRET: source.AUTH_SECRET ?? "",
-      MAGIC_PASSWORD: readFileSync(credential, "utf8").trim(),
-      OPENAI_API_KEY: "",
-    });
+    runSeeder(
+      ["audit:seed-scale", "--notes", String(options.seedScale)],
+      seedEnv(),
+    );
   }
+  if (options.seedCleanup) runSeeder(["audit:seed-cleanup"], seedEnv());
 
   const port = await freePort(options.owner);
   const worktree = git(["rev-parse", "--show-toplevel"]);

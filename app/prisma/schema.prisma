@@ -204,6 +204,14 @@ model Doc {
   inlineImageMigrationBackup Json?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+  // Cleanup archive: hidden from lists and search, still openable by id, and
+  // deleted after the retention window (server/notes/note-archive.ts). Links
+  // to an archived note open `archivedInto` (where its content went) instead.
+  archivedAt                 DateTime?
+  archivedIntoId             String?
+  archiveReason              String?
+  archivedInto               Doc?     @relation("DocArchivedInto", fields: [archivedIntoId], references: [id], onDelete: SetNull)
+  archivedSources            Doc[]    @relation("DocArchivedInto")
 
   // Relations
   docEmbeddings        DocEmbedding[]
@@ -222,6 +230,9 @@ model Doc {
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
   audioRecordings      DocAudio[]
+  cleanupAssessment    NoteAssessment?
+  cleanupPairsA        NotePairAssessment[] @relation("CleanupPairA")
+  cleanupPairsB        NotePairAssessment[] @relation("CleanupPairB")
 
   // Collections: a note can be a row in at most one collection. Values are
   // keyed by CollectionProperty id; they are kept if the note leaves the
@@ -239,6 +250,7 @@ model Doc {
   @@unique([originalSource, originalContentId])
   @@index([path])
   @@index([collectionId])
+  @@index([archivedAt])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
@@ -1195,4 +1207,82 @@ model CalendarFeedEntry {
 
   @@id([feedId, eventId])
   @@index([eventId])
+}
+
+// Cleanup triage answers for one note from a decision model (Jev or OpenAI
+// Decisions). Keyed to the note's contentVersion and the question set version,
+// so the sweep re-asks only when either changes. See server/cleanup/.
+model NoteAssessment {
+  id                 String   @id @default(cuid())
+  docId              String   @unique
+  contentVersion     Int
+  questionSetVersion String
+  model              String
+  // Code-computed facts sent with the questions (source, words, dates, ...).
+  facts              Json
+  // Normalized answers keyed by question id.
+  answers            Json
+  // Derived in code from facts + answers: the suggested cleanup bucket and
+  // the probability that drove it (queue sort order).
+  bucket             String
+  confidence         Float
+  inputTokens        Int?
+  latencyMs          Int?
+  // The owner's last call on the suggestion: keep, snooze, or done (acted
+  // on). Hidden from the queues until snoozedUntil passes.
+  decision           String?
+  decidedAt          DateTime?
+  snoozedUntil       DateTime?
+  // Regroup: where an unfiled note belongs ({kind, value, label, p}), and
+  // the contentVersion its related-note pairs were last checked at.
+  placement          Json?
+  pairsVersion       Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([bucket, confidence(sort: Desc)])
+}
+
+// What is left of an archived note after the retention window deletes it, so
+// old links still resolve: to where its content went, or to a "deleted" notice.
+model DocTombstone {
+  // The deleted note's id.
+  id             String   @id
+  title          String
+  path           String?
+  archivedAt     DateTime
+  archiveReason  String?
+  // Where the content went when it was archived; followed at read time.
+  redirectDocId  String?
+  deletedAt      DateTime @default(now())
+
+  @@index([redirectDocId])
+}
+
+// Regroup: a decision model's answers about two related notes (embedding
+// neighbors or same-path title matches). aId < bId. Clusters of pairs that
+// read better together become combine suggestions.
+model NotePairAssessment {
+  id             String   @id @default(cuid())
+  aId            String
+  bId            String
+  aVersion       Int
+  bVersion       Int
+  model          String
+  similarity     Float?
+  answers        Json
+  relation       String
+  betterTogether Float
+  aCoversB       Float
+  bCoversA       Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  a Doc @relation("CleanupPairA", fields: [aId], references: [id], onDelete: Cascade)
+  b Doc @relation("CleanupPairB", fields: [bId], references: [id], onDelete: Cascade)
+
+  @@unique([aId, bId])
+  @@index([betterTogether])
 }

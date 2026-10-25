@@ -6,11 +6,11 @@ export const fetchSources = query(async (): Promise<SourcesResponse> => {
   "use server";
   const startedAt = Date.now();
   const [total, groups] = await Promise.all([
-    prisma.doc.count({}),
+    prisma.doc.count({ where: { archivedAt: null } }),
     prisma.doc.groupBy({
       by: ["originalSource"],
       _count: { _all: true },
-      where: { originalSource: { not: null } },
+      where: { originalSource: { not: null }, archivedAt: null },
     }),
   ]);
 

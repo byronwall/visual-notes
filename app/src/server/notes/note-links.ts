@@ -1,5 +1,6 @@
 import type { NoteDoc, NoteNode } from "~/lib/note-content/types";
 import { prisma } from "~/server/db";
+import { resolveArchiveRedirect } from "~/server/notes/archive-window";
 
 const LABEL_MAX = 80;
 
@@ -16,7 +17,9 @@ function collectLinks(node: NoteNode, out: NoteNode[]) {
 /**
  * Refreshes every note link's label from its target's current title (or the
  * linked block's text) and flags links whose target is gone. A block that
- * moved to another note is followed there. Returns a new document.
+ * moved to another note is followed there, and a link to an archived or
+ * deleted note follows the archive to where its content went. Returns a new
+ * document.
  */
 export async function resolveNoteLinks(doc: NoteDoc): Promise<NoteDoc> {
   const links: NoteNode[] = [];
@@ -25,14 +28,12 @@ export async function resolveNoteLinks(doc: NoteDoc): Promise<NoteDoc> {
 
   const docIds = [...new Set(links.map((l) => String(l.attrs?.docId ?? "")))];
   const blockIds = [
-    ...new Set(
-      links.map((l) => l.attrs?.blockId).filter(Boolean) as string[],
-    ),
+    ...new Set(links.map((l) => l.attrs?.blockId).filter(Boolean) as string[]),
   ];
   const [docs, blocks] = await Promise.all([
     prisma.doc.findMany({
       where: { id: { in: docIds } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, archivedAt: true },
     }),
     blockIds.length
       ? prisma.docBlock.findMany({
@@ -42,10 +43,21 @@ export async function resolveNoteLinks(doc: NoteDoc): Promise<NoteDoc> {
       : Promise.resolve([]),
   ]);
   const titles = new Map(docs.map((d) => [d.id, d.title]));
+  // Whole-note links to archived (or purged) notes open where the content went.
+  const archived = docs.filter((d) => d.archivedAt).map((d) => d.id);
+  const gone = docIds.filter((id) => id && !titles.has(id));
+  const redirects = new Map<string, { id: string; title: string }>();
+  for (const id of [...archived, ...gone]) {
+    const target = await resolveArchiveRedirect(id);
+    if (target) redirects.set(id, target);
+  }
   const blockKey = (docId: string, id: string) => `${docId}:${id}`;
-  const blockText = new Map(blocks.map((b) => [blockKey(b.docId, b.id), b.text]));
+  const blockText = new Map(
+    blocks.map((b) => [blockKey(b.docId, b.id), b.text]),
+  );
   const blockHome = new Map<string, string>();
-  for (const b of blocks) if (!blockHome.has(b.id)) blockHome.set(b.id, b.docId);
+  for (const b of blocks)
+    if (!blockHome.has(b.id)) blockHome.set(b.id, b.docId);
   const movedTitles = new Map<string, string>();
   const movedDocIds = [...new Set(blocks.map((b) => b.docId))].filter(
     (id) => !titles.has(id),
@@ -62,6 +74,15 @@ export async function resolveNoteLinks(doc: NoteDoc): Promise<NoteDoc> {
     let docId = String(attrs.docId ?? "");
     const blockId = attrs.blockId ? String(attrs.blockId) : null;
     if (!blockId) {
+      const redirect = redirects.get(docId);
+      if (redirect) {
+        return {
+          ...attrs,
+          docId: redirect.id,
+          label: clip(redirect.title),
+          missing: false,
+        };
+      }
       const title = titles.get(docId);
       return title === undefined
         ? { ...attrs, missing: true }
@@ -80,7 +101,8 @@ export async function resolveNoteLinks(doc: NoteDoc): Promise<NoteDoc> {
   };
 
   const visit = (node: NoteNode): NoteNode => {
-    if (node.type === "noteLink") return { ...node, attrs: resolve(node.attrs ?? {}) };
+    if (node.type === "noteLink")
+      return { ...node, attrs: resolve(node.attrs ?? {}) };
     if (!node.content) return node;
     return { ...node, content: node.content.map(visit) };
   };
@@ -98,7 +120,11 @@ export type Backlink = {
 /** Notes that link to `docId` (or to a block in it), with the linking text. */
 export async function listBacklinks(docId: string): Promise<Backlink[]> {
   const links = await prisma.docLink.findMany({
-    where: { targetDocId: docId, NOT: { sourceDocId: docId } },
+    where: {
+      targetDocId: docId,
+      NOT: { sourceDocId: docId },
+      sourceDoc: { archivedAt: null },
+    },
     select: {
       sourceDocId: true,
       sourceBlockId: true,
@@ -157,6 +183,7 @@ export async function searchLinkTargets(
   const query = rawQuery.trim();
   const notes = await prisma.doc.findMany({
     where: {
+      archivedAt: null,
       ...(query ? { title: { contains: query, mode: "insensitive" } } : {}),
       ...(excludeDocId ? { NOT: { id: excludeDocId } } : {}),
     },
@@ -169,9 +196,15 @@ export async function searchLinkTargets(
         where: {
           type: "heading",
           text: { contains: query, mode: "insensitive" },
+          doc: { archivedAt: null },
         },
         take: 6,
-        select: { docId: true, id: true, text: true, doc: { select: { title: true } } },
+        select: {
+          docId: true,
+          id: true,
+          text: true,
+          doc: { select: { title: true } },
+        },
       })
     : [];
   return [

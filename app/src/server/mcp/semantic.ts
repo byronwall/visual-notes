@@ -215,3 +215,22 @@ export async function semanticSearch(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Notes whose stored embedding sits closest to `docId`'s, from the cached
+ * index. No provider call: it only reads vectors already in the database.
+ */
+export async function docNeighbors(
+  docId: string,
+  limit: number,
+  minScore: number,
+): Promise<{ id: string; score: number }[]> {
+  const run = await latestRun();
+  if (!run) return [];
+  const index = await loadIndex(run);
+  const at = index.docIds.indexOf(docId);
+  if (at < 0) return [];
+  return rankBySimilarity(Array.from(index.vectors[at]), index, limit + 1)
+    .filter((hit) => hit.id !== docId && hit.score >= minScore)
+    .slice(0, limit);
+}

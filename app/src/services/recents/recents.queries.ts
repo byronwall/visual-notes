@@ -14,12 +14,22 @@ export const fetchRecentItems = query(
   async (requested = 30): Promise<RecentItem[]> => {
     "use server";
     // Server functions take client input; never let it size the queries.
-    const take = Math.min(Math.max(Math.floor(Number(requested) || 30), 1), MAX_TAKE);
+    const take = Math.min(
+      Math.max(Math.floor(Number(requested) || 30), 1),
+      MAX_TAKE,
+    );
     const startedAt = Date.now();
     const [docs, collections, topics] = await Promise.all([
       prisma.doc.findMany({
+        where: { archivedAt: null },
         orderBy: { updatedAt: "desc" },
-        select: { id: true, title: true, path: true, meta: true, updatedAt: true },
+        select: {
+          id: true,
+          title: true,
+          path: true,
+          meta: true,
+          updatedAt: true,
+        },
         take,
       }),
       prisma.collection.findMany({
