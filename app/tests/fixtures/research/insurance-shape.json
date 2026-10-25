@@ -1,0 +1,224 @@
+{
+  "title": "Fixture: insurance comparison shape",
+  "rounds": [
+    {
+      "batchKey": "ins-root",
+      "agent": "chatgpt",
+      "summary": "Established the comparison question and dated source note.",
+      "cards": [
+        {
+          "type": "question",
+          "ref": "root",
+          "title": "Which replacement offer preserves the desired coverage at a verified final price?",
+          "body": "Paragraph 1 about the comparison snapshot. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about the comparison snapshot. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "source",
+          "title": "Detailed coverage tables, offer review and source inventory",
+          "url": "https://example.test/notes/insurance",
+          "body": "Paragraph 1 about the reference note. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        }
+      ]
+    },
+    {
+      "batchKey": "ins-evidence",
+      "agent": "chatgpt",
+      "under": "@root",
+      "summary": "Added coverage baseline, nine provider records, gap findings, source inventory and six unresolved questions.",
+      "cards": [
+        {
+          "type": "criterion",
+          "ref": "crit",
+          "title": "Preserve the current renewal coverage, not only the headline price",
+          "body": "Paragraph 1 about the baseline. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |"
+        },
+        {
+          "type": "option",
+          "ref": "opt0",
+          "title": "Carrier A draft: $332 / six months",
+          "body": "**Status:** Quoted\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier A draft: $332 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier A draft: $332 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt1",
+          "title": "Carrier B: $1,031 annual paid in full",
+          "body": "**Status:** Quoted\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier B: $1,031 annual paid in full. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt2",
+          "title": "Carrier C baseline deductibles: $323 / six months",
+          "body": "**Status:** Quoted\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier C baseline deductibles: $323 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier C baseline deductibles: $323 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt3",
+          "title": "Carrier C lower deductibles: $360 / six months",
+          "body": "**Status:** Quoted\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier C lower deductibles: $360 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier C lower deductibles: $360 / six months. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt4",
+          "title": "Carrier D: $516 displayed, collision contradiction",
+          "body": "**Status:** Quoted\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier D: $516 displayed, collision contradiction. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier D: $516 displayed, collision contradiction. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt5",
+          "title": "Carrier E / local agent: awaiting price",
+          "body": "**Status:** Pending\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier E / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier E / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt6",
+          "title": "Carrier F / local agent: awaiting price",
+          "body": "**Status:** Pending\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier F / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier F / local agent: awaiting price. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt7",
+          "title": "Carrier G: user-deferred",
+          "body": "**Status:** Pending\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier G: user-deferred. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier G: user-deferred. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "option",
+          "ref": "opt8",
+          "title": "Carrier H: route not completed",
+          "body": "**Status:** Pending\n\n| Coverage | Current | Offer |\n| --- | --- | --- |\n| Bodily injury | 100/300 | 100/300 |\n| Property damage | 100k | 50k |\n| Uninsured motorist | 100/300 | none |\n| Comprehensive deductible | 500 | 1,000 |\n| Collision deductible | 500 | 1,000 |\n\nParagraph 1 about Carrier H: route not completed. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.\n\nParagraph 2 about Carrier H: route not completed. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "finding",
+          "title": "No alternative is yet a fully verified like-for-like replacement",
+          "body": "1. **Loan protection:** obtain the payoff.\n2. **Uninsured motorist:** confirm limits.\n\nParagraph 1 about the gaps. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "source",
+          "title": "Document inventory and evidence limitations",
+          "url": "https://example.test/notes/insurance",
+          "body": "Paragraph 1 about missing PDFs. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q0",
+          "title": "What is Carrier A's final verified price and payment basis?",
+          "body": "Paragraph 1 about What is Carrier A's final verified price and payment basis?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q1",
+          "title": "Does the second car still need loan payoff protection?",
+          "body": "Paragraph 1 about Does the second car still need loan payoff protection?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q2",
+          "title": "What would Carrier C cost without telematics or a bundle and with matched coverage?",
+          "body": "Paragraph 1 about What would Carrier C cost without telematics or a bundle and with matched coverage?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q3",
+          "title": "Can Carrier D issue an unambiguous collision document?",
+          "body": "Paragraph 1 about Can Carrier D issue an unambiguous collision document?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q4",
+          "title": "Will Carriers E and F return priced offers?",
+          "body": "Paragraph 1 about Will Carriers E and F return priced offers?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        },
+        {
+          "type": "question",
+          "ref": "q5",
+          "title": "What is the current homeowners baseline?",
+          "body": "Paragraph 1 about What is the current homeowners baseline?. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card."
+        }
+      ],
+      "links": [
+        {
+          "from": "opt0",
+          "to": "q0"
+        },
+        {
+          "from": "opt0",
+          "to": "q1"
+        },
+        {
+          "from": "opt1",
+          "to": "q1"
+        },
+        {
+          "from": "opt2",
+          "to": "q2"
+        },
+        {
+          "from": "opt3",
+          "to": "q2"
+        },
+        {
+          "from": "opt4",
+          "to": "q3"
+        },
+        {
+          "from": "opt5",
+          "to": "q4"
+        },
+        {
+          "from": "opt6",
+          "to": "q4"
+        },
+        {
+          "from": "opt0",
+          "to": "crit"
+        },
+        {
+          "from": "opt1",
+          "to": "crit"
+        },
+        {
+          "from": "opt2",
+          "to": "crit"
+        },
+        {
+          "from": "opt3",
+          "to": "crit"
+        },
+        {
+          "from": "opt4",
+          "to": "crit"
+        }
+      ],
+      "summaries": [
+        {
+          "title": "Price leaders still need correction or verification; Carrier B is the closest documented core match",
+          "body": "Paragraph 1 about the summary. It keeps going with dated evidence, caveats, and the reasons this matters for the decision, so the body reads like a section of a longer report rather than a short card.",
+          "covers": [
+            "crit",
+            "opt0",
+            "opt1",
+            "opt2",
+            "opt3",
+            "opt4",
+            "opt5",
+            "opt6",
+            "opt7",
+            "opt8"
+          ]
+        }
+      ]
+    },
+    {
+      "batchKey": "ins-collection",
+      "agent": "chatgpt",
+      "summary": "Cross-linked the collection view.",
+      "cards": [
+        {
+          "type": "source",
+          "ref": "coll",
+          "title": "Sortable insurance comparison collection: 11 detailed records",
+          "url": "https://example.test/collections/insurance"
+        }
+      ]
+    }
+  ]
+}

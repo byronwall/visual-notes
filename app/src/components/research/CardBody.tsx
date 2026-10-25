@@ -56,6 +56,29 @@ export const CardBody = (props: { card: ResearchCard; compact?: boolean }) => {
             "& p + p": { mt: "1.5" },
             "& ul": { listStyle: "disc", pl: "5" },
             "& a": { color: "fg.link" },
+            "& ol": { listStyle: "decimal", pl: "5" },
+            "& li + li": { mt: "0.5" },
+            "& h1, & h2, & h3, & h4": { color: "fg.default", fontWeight: "semibold", mt: "3", mb: "1" },
+            "& strong": { color: "fg.default" },
+            // Tables scroll sideways inside the rail instead of squashing or overflowing it.
+            "& table": {
+              display: "block",
+              maxW: "full",
+              overflowX: "auto",
+              borderCollapse: "collapse",
+              my: "2",
+              fontVariantNumeric: "tabular-nums",
+            },
+            "& th, & td": {
+              borderWidth: "1px",
+              borderColor: "border",
+              px: "2",
+              py: "1",
+              textAlign: "left",
+              verticalAlign: "top",
+              minW: "6rem",
+            },
+            "& th": { bg: "bg.subtle", color: "fg.default", fontWeight: "medium", whiteSpace: "nowrap" },
           })}`}
           innerHTML={html()}
         />
