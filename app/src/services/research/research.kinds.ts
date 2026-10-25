@@ -73,3 +73,28 @@ export const parseFields = (value: unknown): Record<string, string> => {
 /** The label a card shows: its declared kind's label, else the role. */
 export const kindLabel = (kinds: ResearchKind[], kind: string | null) =>
   (kind ? kinds.find((entry) => entry.key === kind)?.label : undefined) ?? null;
+
+/**
+ * A card's field values in its kind's declared order (Postgres JSONB does not
+ * keep key order), then any undeclared keys, labeled for display.
+ */
+export const orderedFields = (
+  kinds: ResearchKind[],
+  card: { kind: string | null; fields: Record<string, string> },
+): { key: string; label: string; value: string }[] => {
+  const declared =
+    (card.kind
+      ? kinds.find((kind) => kind.key === card.kind)?.fields
+      : undefined) ?? [];
+  const out = declared
+    .filter((field) => card.fields[field.key] !== undefined)
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      value: card.fields[field.key],
+    }));
+  const seen = new Set(out.map((field) => field.key));
+  for (const [key, value] of Object.entries(card.fields))
+    if (!seen.has(key)) out.push({ key, label: key, value });
+  return out;
+};

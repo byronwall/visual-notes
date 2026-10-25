@@ -7,7 +7,7 @@ The rules that decide human-only:
 - **Ownership.** Agents change the body, title, or path only of notes they created (`originalSource = "chatgpt"`).
 - **Metadata is open.** Task status and dates, collection values, event decisions, and note `meta` can change on any record.
 - **Deleting stays with the user**, everywhere. Agents cancel (tasks, shows), hide (undoably), or remove from a collection instead.
-- **Review and layout stay with the user**: accepting research summaries, canvas and card positions, column widths, manual ordering, and calendar settings.
+- **Comments and layout stay with the user**: leaving research comments, column widths, manual ordering, and calendar settings. Agents resolve comments with `research_resolve_comments`.
 - **Not the agent's business**: login, OAuth consent, the in-app AI chat and prompts (they spend the user's model keys), embedding and UMAP runs, and admin migrations.
 
 Keep this file current when adding an action or a tool. A new action is either covered, or listed here as human-only with its reason.
@@ -62,19 +62,22 @@ Keep this file current when adding an action or a tool. A new action is either c
 
 ## Research
 
-| Action / query                                                                | MCP                                                                | Notes                                             |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------- |
-| `fetchResearchTopics`                                                         | `research_list_topics`                                             | `includeArchived`                                 |
-| `fetchResearchTopicGraph`                                                     | `research_get_topic`, `research_get_card`, `research_list_batches` |                                                   |
-| `createResearchTopic`                                                         | `research_create_topic`                                            |                                                   |
-| `renameResearchTopic`, `setResearchTopicArchived`                             | `research_update_topic`                                            |                                                   |
-| `editResearchCard`                                                            | `research_update_cards`                                            | Undoable batch                                    |
-| `removeResearchCards`                                                         | `research_remove_cards`                                            | Hides cards as an undoable batch                  |
-| `setResearchCardState`                                                        | `research_set_card_states`                                         |                                                   |
-| `undoResearchBatch`, `redoResearchBatch`                                      | `research_undo_batch`, `research_redo_batch`                       |                                                   |
-| (agent-only)                                                                  | `research_add_cards`                                               | Cards, links, and draft summaries arrive this way |
-| `setResearchSummaryStatus`, `updateResearchSummary`, `discardResearchSummary` | human-only                                                         | Reviewing an agent's summary is the user's call   |
-| `setResearchCardNudge`                                                        | human-only                                                         | The user's steering signal to the agent           |
+| Action / query                                                                | MCP                                                                | Notes                                           |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| `fetchResearchTopics`                                                         | `research_list_topics`                                             | `includeArchived`                               |
+| `fetchResearchTopicGraph`                                                     | `research_get_topic`, `research_get_card`, `research_list_batches` |                                                 |
+| `createResearchTopic`                                                         | `research_create_topic`                                            |                                                 |
+| `renameResearchTopic`, `setResearchTopicArchived`                             | `research_update_topic`                                            |                                                 |
+| `editResearchCard`                                                            | `research_update_cards`                                            | Undoable batch                                  |
+| `removeResearchCards`                                                         | `research_remove_cards`                                            | Hides cards as an undoable batch                |
+| `setResearchCardState`                                                        | `research_set_card_states`                                         |                                                 |
+| `undoResearchBatch`, `redoResearchBatch`                                      | `research_undo_batch`, `research_redo_batch`                       |                                                 |
+| (agent-only)                                                                  | `research_add_cards`                                               | Cards and typed links arrive this way           |
+| (agent-only)                                                                  | `research_update_topic` (`streams`, `kinds`, `answer`)             | The topic frame, as an undoable batch           |
+| `addResearchComment`                                                          | (user-only)                                                        | Agents read comments and resolve them           |
+| `setResearchCommentResolved`                                                  | `research_resolve_comments`                                        |                                                 |
+| `setResearchSummaryStatus`, `updateResearchSummary`, `discardResearchSummary` | human-only                                                         | Reviewing an agent's summary is the user's call |
+| `setResearchCardNudge`                                                        | human-only                                                         | The user's steering signal to the agent         |
 
 ## Tasks
 

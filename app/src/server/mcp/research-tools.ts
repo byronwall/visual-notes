@@ -5,6 +5,7 @@ import { createTopic, listTopics } from "~/services/research/research.store";
 import {
   RESEARCH_CARD_STATES,
   RESEARCH_CARD_TYPES,
+  RESEARCH_LINK_KINDS,
 } from "~/services/research/research.types";
 import {
   formatCard,
@@ -28,7 +29,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // logged, and undoable from the topic's history.
 
 export const RESEARCH_INSTRUCTIONS =
-  "Research topics are canvases of tasks, questions, findings, sources, options, and criteria. Start with research_get_topic (summaries plus the open frontier), work an open card, record each round with one research_add_cards under that card, and mark finished work with research_set_card_states. Every write is a batch the user can undo. Before broad research, put the decision in one criteria card (the job, e.g. match the current policy or redesign it, and the limits that change the answer); when the user changes that premise, update the card or mark it as the earlier baseline.";
+  "Research topics are boards of questions, findings, options, tasks, criteria, and sources, laid out in streams (1-10 parallel threads, one column each). Start with research_get_topic. On a new topic, first call research_update_topic with streams (and kinds for the topic's own things, e.g. Carrier or Printer model, with fields like price), then add cards with research_add_cards, giving each root card a stream. Keep titles short (under 80 characters), put one or two sentences in gist, and the long form in body. Put findings under the question they answer, results under their task, and sources under the finding they back; link an option to the open question that blocks it (kind blocks). Keep each stream's answer current with research_update_topic. Writes return warnings: fix them when you can. Read open comments in research_get_topic and resolve them with research_resolve_comments after acting. Every write is a batch the user can undo.";
 
 const cardTypes = RESEARCH_CARD_TYPES.filter((type) => type !== "summary") as [
   string,
@@ -37,9 +38,35 @@ const cardTypes = RESEARCH_CARD_TYPES.filter((type) => type !== "summary") as [
 const cardShape = {
   type: z
     .enum(cardTypes)
-    .describe("task | question | finding | source | option | criterion"),
-  title: z.string().describe("One line. Full-sentence findings read best."),
-  body: z.string().optional().describe("Markdown details."),
+    .optional()
+    .describe(
+      "Role: question | finding | option | task | criterion | source. Optional when kind is set.",
+    ),
+  kind: z
+    .string()
+    .optional()
+    .describe("A kind declared on the topic, e.g. carrier. Sets the role."),
+  title: z
+    .string()
+    .describe("Short label, under 80 characters. Shown everywhere."),
+  gist: z
+    .string()
+    .optional()
+    .describe(
+      "One or two sentences (under 280 characters) shown on the board.",
+    ),
+  body: z
+    .string()
+    .optional()
+    .describe("Long-form markdown (tables welcome), read in the card reader."),
+  fields: z
+    .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional()
+    .describe('Values for the kind\'s fields, e.g. {"price": "$332"}.'),
+  stream: z
+    .string()
+    .optional()
+    .describe("Stream key. Set it on root cards; cards under them inherit it."),
   state: z
     .enum(RESEARCH_CARD_STATES)
     .optional()
@@ -50,22 +77,25 @@ const cardShape = {
   ref: z
     .string()
     .optional()
-    .describe("Your label so links/summaries in this call can point at it."),
+    .describe("Your label so links in this call can point at it."),
   children: z
     .array(z.any())
     .optional()
     .describe(
-      "Cards that came from this one, same shape; nest as deep as needed.",
+      "Cards that came from this one, same shape: answers under a question, results under a task, sources under a finding.",
     ),
 };
 
-const ADD_CARDS_DESCRIPTION = `Add research cards, links, and draft summaries to a topic as one undoable batch; one card or only links is fine too.
-Cards nest via "children" (came-from). Put new cards "under" an existing card id, usually the question or task you worked on.
-In links and summaries.covers, point at cards by your "ref", a positional path ("$0" = first card, "$0.1" = its second child), or an existing card id.
-Summaries land as drafts the user reviews; accepted summaries fold their cards on the canvas. Example:
-{"topic":"learn-rust","under":"<question id>","batchKey":"rust-pin-1","summary":"Looked into Pin",
- "cards":[{"type":"finding","title":"Pin stops self-referential futures from moving","children":[{"type":"source","title":"std::pin docs","url":"https://doc.rust-lang.org/std/pin/"},{"type":"question","title":"When is Unpin implied?"}]}],
- "summaries":[{"title":"Pinning basics","covers":["$0","$0.0"]}]}`;
+const ADD_CARDS_DESCRIPTION = `Add cards and links to a topic as one undoable batch; one card or only links is fine too.
+Cards nest via "children" (came-from). Put new cards "under" an existing card id, usually the question or task you worked on, or set "stream" on new root cards.
+Keep about 8 or fewer cards under any one card: split a long list into sub-questions or streams.
+Links point at cards by your "ref", a positional path ("$0" = first card, "$0.1" = its second child), or an existing card id. kind: blocks (option ← open question/task), answers (finding → question elsewhere), supports (source → finding), relates_to (default).
+The result lists warnings about this write (long titles, missing gists, cards in no stream, loose sources). Example:
+{"topic":"printers","batchKey":"choose-1","summary":"Compared entry printers",
+ "cards":[{"type":"question","stream":"choose","title":"Which printer fits my projects?","gist":"Small parts, some multicolor.","children":[
+   {"type":"finding","title":"A1 Combo covers four-color prints","gist":"AMS lite feeds four spools.","body":"…","children":[{"type":"source","title":"A1 specs","url":"https://example.com/a1"}]}]},
+  {"kind":"printer","stream":"choose","ref":"a1","title":"Bambu A1","gist":"Balanced starter.","fields":{"price":"$259"}}],
+ "links":[{"from":"a1","to":"<open question id>","kind":"blocks"}]}`;
 
 export function registerResearchTools(tools: ToolRegistrar): void {
   const { ctx } = tools;
@@ -91,7 +121,7 @@ export function registerResearchTools(tools: ToolRegistrar): void {
     {
       title: "Create research topic",
       description:
-        "Create a research topic (one canvas). Returns its id, slug, and link.",
+        "Create a research topic (one board). Returns its id, slug, and link. Next, declare its streams (and kinds) with research_update_topic.",
       input: { title: z.string().min(1).max(200) },
     },
     async ({ title }) => {
@@ -111,7 +141,7 @@ export function registerResearchTools(tools: ToolRegistrar): void {
     {
       title: "Get research topic",
       description:
-        'A topic as markdown with card ids. "summary" (default): summaries, the open frontier (tasks and questions) with the chain each came from, and recent batches. "full": every card as an outline.',
+        'A topic as markdown with card ids. "summary" (default): the topic answer, kinds, topic-wide criteria, each stream with its answer, open questions and tasks, and options (fields and open blockers), open comments for you, what is worth fixing, and recent batches. "full": every card by stream as an outline, with gists, fields, and links.',
       input: {
         topic: topicArg,
         depth: z.enum(["summary", "full"]).optional(),
@@ -125,8 +155,8 @@ export function registerResearchTools(tools: ToolRegistrar): void {
         appUrl: topicAppUrl(ctx, graph.topic.slug),
         markdown:
           depth === "full"
-            ? formatTopicOutline(graph)
-            : formatTopicSummary(graph),
+            ? formatTopicOutline(graph, topicAppUrl(ctx, graph.topic.slug))
+            : formatTopicSummary(graph, topicAppUrl(ctx, graph.topic.slug)),
       };
     },
   );
@@ -136,7 +166,7 @@ export function registerResearchTools(tools: ToolRegistrar): void {
     {
       title: "Get research card",
       description:
-        "One card in full: body, the chain it came from, what it led to, and what a summary covers.",
+        "One card in full: stream, gist, fields, body, the chain it came from, its answers, results, sources, blockers, what it led to, and its comments.",
       input: { topic: topicArg, id: z.string().min(1).describe("Card id") },
     },
     async ({ topic, id }) => {
@@ -168,22 +198,18 @@ export function registerResearchTools(tools: ToolRegistrar): void {
           .describe("One line describing this round of work."),
         cards: z.array(z.object(cardShape)).optional(),
         links: z
-          .array(z.object({ from: z.string(), to: z.string() }))
-          .optional()
-          .describe("Relates-to links between cards (refs, $paths, or ids)."),
-        summaries: z
           .array(
             z.object({
-              title: z.string(),
-              body: z.string().optional(),
-              covers: z
-                .array(z.string())
-                .describe("Cards this summary condenses."),
-              ref: z.string().optional(),
+              from: z.string(),
+              to: z.string(),
+              kind: z
+                .enum(RESEARCH_LINK_KINDS)
+                .optional()
+                .describe("blocks | answers | supports | relates_to (default)"),
             }),
           )
           .optional()
-          .describe("Draft summaries for the user to review."),
+          .describe("Links between cards (refs, $paths, or ids)."),
       },
     },
     ({ topic, agent, batchKey, ...payload }) =>
