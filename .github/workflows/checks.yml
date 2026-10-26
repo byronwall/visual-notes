@@ -55,6 +55,11 @@ jobs:
       - name: Build
         run: pnpm exec vite build
 
+      # A server module reached from client code at top level drags Prisma into
+      # the browser bundle, which only fails once that page runs.
+      - name: No Prisma in client bundles
+        run: "! grep -rlE 'prisma:get-platform|PrismaClient' .output/public/_build"
+
       - name: Audit harness self-check
         run: pnpm audit:harness:check
 

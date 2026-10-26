@@ -2,6 +2,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { storageStatePath } from "./global-setup";
 import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 // Live note updates: a write made somewhere other than this tab must reach it
 // without a reload and must never drop typing. The "elsewhere" writer is a
@@ -40,9 +41,7 @@ const nextAutosave = (page: Page) =>
     (response) =>
       response.url().includes("/_server") &&
       response.request().method() === "POST" &&
-      (response.request().headers()["x-server-id"] ?? "").includes(
-        "saveDocContent",
-      ),
+      isServerFn(response.request().headers()["x-server-id"], "saveDocContent"),
     { timeout: 8_000 },
   );
 

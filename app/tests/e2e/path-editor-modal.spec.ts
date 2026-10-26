@@ -3,6 +3,7 @@ import { ensureAuthed } from "./helpers/auth";
 import { uniqueSuffix } from "./helpers/fixtures";
 import { expectNotePath, setPathButton } from "./helpers/note-path";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 test("sidebar new-note modal keeps a sequential path draft and saves it", async ({
   page,
@@ -54,7 +55,7 @@ test("sidebar new-note modal keeps a sequential path draft and saves it", async 
 
   const createResponse = page.waitForResponse((response) => {
     const serverId = response.request().headers()["x-server-id"] || "";
-    return serverId.includes("--createDoc_action#");
+    return isServerFn(serverId, "createDoc");
   });
   await page
     .getByRole("dialog")

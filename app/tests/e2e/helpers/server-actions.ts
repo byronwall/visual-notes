@@ -1,4 +1,5 @@
 import type { Page, Request, Route } from "@playwright/test";
+import { isServerFn } from "./server-fn-id";
 
 // Holds one real server-action request in flight so a spec can change the UI
 // (switch notes, close a panel) before the old request completes. The held
@@ -22,20 +23,18 @@ export type HeldServerAction = {
 
 const holdsByPage = new WeakMap<Page, Hold[]>();
 
-const serverActionName = (request: Request) =>
-  request.headers()["x-server-id"]?.match(/--(\w+)_action#/)?.[1];
+const serverId = (request: Request) => request.headers()["x-server-id"];
 
 const installInterceptor = async (page: Page) => {
   const holds: Hold[] = [];
   holdsByPage.set(page, holds);
   await page.route("**/_server*", async (route: Route) => {
     const request = route.request();
-    const action = serverActionName(request);
     const postData = request.postData() ?? "";
     const index = holds.findIndex(
       (hold) =>
         request.method() === "POST" &&
-        hold.action === action &&
+        isServerFn(serverId(request), hold.action) &&
         hold.match(postData),
     );
     if (index === -1) return route.continue();
@@ -81,7 +80,7 @@ export const countServerActionPosts = (page: Page) => {
   const seen: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().includes("/_server")) {
-      seen.push(serverActionName(request) ?? "unknown");
+      seen.push(serverId(request) ?? "unknown");
     }
   });
   return seen;
