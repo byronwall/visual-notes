@@ -5,7 +5,7 @@
     "dev": "panda codegen && vinxi dev",
     "build": "panda codegen && vinxi build && pnpm build:search-text",
     "start": "vinxi start",
-    "start-prod": "pnpm prisma migrate deploy && node .output/backfill-search-text.mjs && pnpm start",
+    "start-prod": "pnpm prisma migrate deploy && node .output/server/backfill-search-text.mjs && pnpm start",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fix:unstaged": "sh -c 'app_files=$(git diff --name-only --diff-filter=ACMR | grep \"^app/\" | sed \"s#^app/##\"); if [ -z \"$app_files\" ]; then echo \"No unstaged files under app/.\"; exit 0; fi; lint_files=$(printf \"%s\\n\" \"$app_files\" | grep -E \"\\\\.(ts|tsx|js|jsx)$\" || true); if [ -n \"$lint_files\" ]; then printf \"%s\\n\" \"$lint_files\" | xargs pnpm exec oxlint --fix; fi; printf \"%s\\n\" \"$app_files\" | xargs pnpm exec prettier --write --ignore-unknown'",
@@ -36,7 +36,7 @@
     "knip": "pnpm dlx knip",
     "type-check": "node node_modules/typescript7/bin/tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/type-check.tsbuildinfo && echo 'Type check passed'",
     "migrate:blocks": "vite-node --config vitest.config.ts scripts/migrate-block-content.ts --",
-    "build:search-text": "esbuild scripts/backfill-search-text.ts --bundle --platform=node --format=esm --packages=external --outfile=.output/backfill-search-text.mjs"
+    "build:search-text": "esbuild scripts/backfill-search-text.ts --bundle --platform=node --format=esm --external:@prisma/client --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --outfile=.output/server/backfill-search-text.mjs"
   },
   "type": "module",
   "devDependencies": {

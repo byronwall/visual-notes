@@ -9,3 +9,15 @@ Dockerfile
 dist
 .cache
 **/.DS_Store
+.output
+.venv
+data
+tmp
+styled-system
+styled-system-studio
+test-results
+playwright-report
+blob-report
+playwright/.cache
+playwright/.auth
+app.config.timestamp_*
