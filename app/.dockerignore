@@ -6,6 +6,8 @@ node_modules
 .env
 .env.*
 Dockerfile
+# Coolify rewrites the compose file on every deploy; keep it out of COPY . .
+docker-compose*.yml
 dist
 .cache
 **/.DS_Store
