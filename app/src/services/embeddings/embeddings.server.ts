@@ -605,6 +605,7 @@ export async function processEmbeddingRun(
     docRows.length ||
     (mode === "changed" && emptyChunkDocIds.size > 0)
   ) {
+    // Vector batches can exceed Prisma's five-second transaction default.
     await prisma.$transaction(async (tx) => {
       if (mode === "changed") {
         const docIds = [
@@ -631,7 +632,7 @@ export async function processEmbeddingRun(
           skipDuplicates: true,
         });
       }
-    });
+    }, { timeout: 60_000 });
   }
 
   let umapProjectionSummary:
