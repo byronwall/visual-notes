@@ -28,11 +28,11 @@ vi.mock("~/server/db", () => ({
     docEmbedding: { count: mocks.docEmbeddingCount },
   },
 }));
-vi.mock("~/services/embeddings/embeddings.actions", () => ({
+vi.mock("~/services/embeddings/embeddings.server", () => ({
   processEmbeddingRun: mocks.process,
   createEmbeddingRun: mocks.createEmbeddingRun,
 }));
-vi.mock("~/services/umap/umap.actions", () => ({
+vi.mock("~/services/umap/umap.server", () => ({
   createUmapRun: mocks.createUmapRun,
 }));
 vi.mock("~/services/umap/umap.retrain", () => ({

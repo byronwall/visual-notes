@@ -1,6 +1,6 @@
 // Type-only: the runtime modules load lazily so writes stay cheap.
 import type { prisma } from "~/server/db";
-import type { processEmbeddingRun } from "~/services/embeddings/embeddings.actions";
+import type { processEmbeddingRun } from "~/services/embeddings/embeddings.server";
 
 const LOG_PREFIX = "[embedding-refresh]";
 const REFRESH_DEBOUNCE_MS = 10_000;
@@ -105,7 +105,7 @@ async function bootstrapRuns(deps: Deps): Promise<boolean> {
   if (embeddingRuns > 0 && umapRuns > 0) return false;
   if (embeddingRuns === 0) {
     const { createEmbeddingRun } = await import(
-      "~/services/embeddings/embeddings.actions"
+      "~/services/embeddings/embeddings.server"
     );
     console.info(`${LOG_PREFIX} bootstrapping the first embedding run`);
     await createEmbeddingRun({});
@@ -116,7 +116,7 @@ async function bootstrapRuns(deps: Deps): Promise<boolean> {
       select: { id: true, _count: { select: { docEmbeddings: true } } },
     });
     if (!run?._count.docEmbeddings) return true;
-    const { createUmapRun } = await import("~/services/umap/umap.actions");
+    const { createUmapRun } = await import("~/services/umap/umap.server");
     console.info(`${LOG_PREFIX} bootstrapping the first map run=${run.id}`);
     await createUmapRun({ embeddingRunId: run.id, dims: 2 });
   }
@@ -153,7 +153,7 @@ export async function refreshLatestRun(options?: {
     const [{ serverEnv }, db, embeddings] = await Promise.all([
       import("~/env/server"),
       import("~/server/db"),
-      import("~/services/embeddings/embeddings.actions"),
+      import("~/services/embeddings/embeddings.server"),
     ]);
     if (!serverEnv.OPENAI_API_KEY?.trim()) return;
     const deps: Deps = {

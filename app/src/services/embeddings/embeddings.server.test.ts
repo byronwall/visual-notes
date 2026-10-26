@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@solidjs/router", () => ({ action: (fn: unknown) => fn }));
 vi.mock("~/server/db", () => ({ prisma: mocks.prisma }));
 vi.mock("~/env/server", () => ({
   serverEnv: { OPENAI_API_KEY: "mock-key", EMBEDDING_MODEL: "mock-model" },
@@ -37,7 +36,7 @@ vi.mock("~/services/umap/umap.projection", () => ({
   projectVectorsIntoUmapRun: vi.fn(),
 }));
 
-import { processEmbeddingRun } from "./embeddings.actions";
+import { processEmbeddingRun } from "./embeddings.server";
 
 type EmbeddingRow = { runId: string; docId: string; vector: number[] };
 
