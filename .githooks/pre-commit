@@ -1,0 +1,20 @@
+#!/bin/sh
+# Lint staged app files and type-check app/ before each commit.
+# Installed by `pnpm install` (app/package.json#prepare). Skip once with
+# `git commit --no-verify`. Tests stay in CI and in AGENTS.md's check list.
+set -e
+
+root=$(git rev-parse --show-toplevel)
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- app/)
+[ -z "$staged" ] && exit 0
+
+lint_files=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|jsx|mjs)$' | sed 's#^app/##' || true)
+
+cd "$root/app"
+if [ -n "$lint_files" ]; then
+  echo "[pre-commit] oxlint on staged files"
+  # shellcheck disable=SC2086
+  corepack pnpm exec oxlint $lint_files
+fi
+echo "[pre-commit] type-check"
+corepack pnpm type-check
