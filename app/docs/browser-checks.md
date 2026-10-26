@@ -27,21 +27,22 @@ await run(async (app) => {
 
 ## What the kit does for you
 
-| Need                              | Use                                                                                               | Instead of                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Server URL                        | `--base`, else `PLAYWRIGHT_BASE_URL`, else `127.0.0.1:$PORT` (3100)                               | A port hard-coded in the script            |
-| Signed-in session                 | Automatic. Signs in once per server and caches it in `tmp/browser/auth-<host>-<port>.json` (0600) | Sign-in code copied into each script       |
-| Page ready                        | `app.visit(page, route)` waits for `html[data-app-hydrated="true"]`                               | `waitForTimeout(3000)` or `networkidle`    |
-| After a hover, click, or keypress | `await app.settle(page)` waits for fonts, finite animations, and two frames                       | `waitForTimeout(700)`                      |
-| An element to appear              | `await locator.waitFor()` or `expect(locator).toBeVisible()`                                      | A sleep, then a check                      |
-| Several widths                    | `app.eachWidth([1440, 800, 390], async (page, width) => …)`                                       | A hand-written loop over contexts          |
-| Phone emulation                   | `app.page({ width: 390 })`. Below 600px it also sets `isMobile` and `hasTouch`                    | —                                          |
-| Dark mode                         | `app.page({ dark: true })`                                                                        | —                                          |
-| Geometry                          | `await app.box(locator)` returns a rounded rect, or `null` when hidden                            | `boundingBox()` plus rounding              |
-| Layout problems                   | `await app.layout(page)`: overflow, clipped text, overlaps, small targets                         | Copying the `audit:shoot` measure function |
-| Screenshot                        | `await app.shot(page, "name")` writes `tmp/browser/<script>/name.png`                             | —                                          |
-| Script arguments                  | `app.args` (positional arguments after the flags)                                                 | Parsing `process.argv`                     |
-| Known noisy errors                | `run(fn, { ignoreErrors: [/ResizeObserver loop/] })`                                              | Filtering by hand                          |
+| Need                              | Use                                                                                                        | Instead of                                 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Server URL                        | `--base`, else `PLAYWRIGHT_BASE_URL`, else `127.0.0.1:$PORT` (3100)                                        | A port hard-coded in the script            |
+| Signed-in session                 | Automatic. Signs in once per server and caches it in `tmp/browser/auth-<host>-<port>.json` (0600)          | Sign-in code copied into each script       |
+| Page ready                        | `app.visit(page, route)` waits for `html[data-app-hydrated="true"]`                                        | `waitForTimeout(3000)` or `networkidle`    |
+| After a hover, click, or keypress | `await app.settle(page)` waits for fonts, finite animations, and two frames                                | `waitForTimeout(700)`                      |
+| An element to appear              | `await locator.waitFor()` or `expect(locator).toBeVisible()`                                               | A sleep, then a check                      |
+| Several widths                    | `app.eachWidth([1440, 800, 390], async (page, width) => …)`                                                | A hand-written loop over contexts          |
+| Phone emulation                   | `app.page({ width: 390 })`. Below 600px it also sets `isMobile` and `hasTouch`                             | —                                          |
+| Dark mode                         | `app.page({ dark: true })`                                                                                 | —                                          |
+| Geometry                          | `await app.box(locator)` returns a rounded rect, or `null` when hidden                                     | `boundingBox()` plus rounding              |
+| Layout problems                   | `await app.layout(page)`: overflow, clipped text, overlaps, small targets                                  | Copying the `audit:shoot` measure function |
+| Screenshot                        | `await app.shot(page, "name")` writes `tmp/browser/<script>/name.png`                                      | —                                          |
+| Before/after image                | `await app.compare("name", [{ label: "Before", path }, { label: "After", path }])` writes one labelled PNG | ImageMagick (`magick` isn't installed)     |
+| Script arguments                  | `app.args` (positional arguments after the flags)                                                          | Parsing `process.argv`                     |
+| Known noisy errors                | `run(fn, { ignoreErrors: [/ResizeObserver loop/] })`                                                       | Filtering by hand                          |
 
 ## Extend the kit
 

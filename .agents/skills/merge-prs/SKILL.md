@@ -37,7 +37,7 @@ A PR labelled `visuals-unverified` needs someone to look at its screenshots firs
 
 ## 4. Merge
 
-Wait for CI to pass (`gh pr checks <n>`). Then merge bottom-up with `gh stack merge <top> --yes` when the stack is tracked by `gh stack`, or `gh pr merge <n> --merge` one PR at a time, retargeting the next PR to `main` after each.
+Wait for CI to pass with one background command, `gh pr checks <n> --watch --fail-fast`; you are notified when it exits. Don't poll with `sleep` loops or `gh pr view` in a `for` loop (a `sleep` before a command is blocked, and one loop held a session for 7 minutes). Then merge bottom-up with `gh stack merge <top> --yes` when the stack is tracked by `gh stack`, or `gh pr merge <n> --merge` one PR at a time, retargeting the next PR to `main` after each.
 
 ## 5. Prove it landed
 
