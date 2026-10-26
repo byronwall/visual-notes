@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
+import { connect, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs, parseEnv } from "node:util";
@@ -137,6 +137,106 @@ function runSeeder(args: string[], env: Record<string, string>) {
   }
 }
 
+export const devPostgres = {
+  container: "vn-dev-pg",
+  volume: "vn-dev-pg-data",
+  image: "postgres:16",
+};
+
+function canConnect(host: string, port: number) {
+  return new Promise<boolean>((resolvePromise) => {
+    const socket = connect({ host, port, timeout: 1500 });
+    const done = (ok: boolean) => {
+      socket.destroy();
+      resolvePromise(ok);
+    };
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
+
+function serverAddress(target: URL) {
+  return {
+    host: target.hostname.replace(/^\[|\]$/g, ""),
+    port: Number(target.port || 5432),
+  };
+}
+
+/** `docker run` for the one supported dev server; secrets pass by env name. */
+export function devPostgresRunArgs(target: URL) {
+  const { port } = serverAddress(target);
+  return [
+    "run",
+    "-d",
+    "--name",
+    devPostgres.container,
+    "-p",
+    `127.0.0.1:${port}:5432`,
+    "-v",
+    `${devPostgres.volume}:/var/lib/postgresql/data`,
+    "-e",
+    "POSTGRES_USER",
+    "-e",
+    "POSTGRES_PASSWORD",
+    devPostgres.image,
+  ];
+}
+
+function docker(args: string[], env?: Record<string, string>) {
+  return spawnSync("docker", args, {
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
+}
+
+/**
+ * Makes sure the env file's loopback Postgres answers. When nothing listens,
+ * starts (or creates) the vn-dev-pg container on that port, so agents stop
+ * improvising with Homebrew servers or other projects' containers.
+ */
+async function ensureDatabaseServer(target: URL) {
+  const { host, port } = serverAddress(target);
+  if (await canConnect(host, port)) return;
+  if (docker(["info"]).status !== 0) {
+    throw new Error(
+      `[audit-db] Nothing listens on ${host}:${port}, and Docker isn't running. Start Docker Desktop (open -a Docker), wait until \`docker info\` succeeds, and rerun. Don't start another Postgres by hand.`,
+    );
+  }
+  const exists =
+    docker(["container", "inspect", devPostgres.container]).status === 0;
+  const result = exists
+    ? docker(["start", devPostgres.container])
+    : docker(devPostgresRunArgs(target), {
+        POSTGRES_USER: decodeURIComponent(target.username || "postgres"),
+        POSTGRES_PASSWORD: decodeURIComponent(target.password),
+      });
+  if (result.status !== 0) {
+    throw new Error(
+      `[audit-db] Could not start ${devPostgres.container} on ${host}:${port}:\n${result.stderr}`,
+    );
+  }
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const ready = docker([
+      "exec",
+      devPostgres.container,
+      "pg_isready",
+      "-h",
+      "127.0.0.1",
+    ]);
+    if (ready.status === 0 && (await canConnect(host, port))) {
+      console.info(
+        `[audit-db] ${exists ? "started" : "created"} ${devPostgres.container} on ${host}:${port}.`,
+      );
+      return;
+    }
+    await new Promise((wake) => setTimeout(wake, 1000));
+  }
+  throw new Error(
+    `[audit-db] ${devPostgres.container} did not accept connections within 60s; see \`docker logs ${devPostgres.container}\`.`,
+  );
+}
+
 function maintenanceUrl(target: URL) {
   const url = new URL(target);
   url.pathname = "/postgres";
@@ -153,6 +253,7 @@ async function main() {
   const database = databaseName(options.owner);
   const target = auditDatabaseUrl(source.DATABASE_URL, source, database);
   const credential = passwordFile(options.owner);
+  await ensureDatabaseServer(target);
 
   if (options.drop) {
     // The name is prefix-checked by auditDatabaseUrl, so this can only ever
