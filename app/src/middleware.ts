@@ -70,6 +70,8 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (pathname.startsWith("/share/")) return true;
   if (pathname.startsWith("/share-og/")) return true;
   if (pathname === "/api/archive/extension-package") return true;
+  // Deployed commit and start time only, for deploy checks.
+  if (pathname === "/api/version") return true;
   // Attachments are addressed by content hash, like /api/doc-images, so a
   // shared note's files download for its readers. Uploading needs sign-in.
   if (isDocFileRead(request.method, pathname)) return true;

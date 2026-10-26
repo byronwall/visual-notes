@@ -49,3 +49,14 @@ git merge-base --is-ancestor "$(gh pr view <n> --json headRefOid --jq .headRefOi
 ```
 
 A PR that shows as merged but is not an ancestor of `origin/main` merged into a dead branch. Re-land it from its commits on a new branch against `main`, and tell the user.
+
+## 6. Check the deploy
+
+Nothing deploys automatically. Before you act on production (an MCP write, a live check), or when the user says the site looks unchanged, compare production's commit with the merge:
+
+```sh
+curl -s https://notes.apps.byroni.us/api/version   # {"commit":"<sha>","startedAt":"…"}
+git merge-base --is-ancestor <merged-head-sha> <prod-commit> && echo deployed
+```
+
+If it isn't deployed, or the commit is `unknown`, ask the user to deploy and stop there rather than guessing from output shapes. A redeploy doesn't refresh an MCP client's tool list; the user has to reconnect the connector.

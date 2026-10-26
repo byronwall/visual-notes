@@ -23,6 +23,9 @@ services:
     build:
       context: .
       target: runtime
+      args:
+        # /api/version reports it: SOURCE_COMMIT=$(git rev-parse HEAD) docker compose up -d --build app
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
     restart: unless-stopped
     depends_on:
       db:

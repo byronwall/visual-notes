@@ -46,5 +46,9 @@ COPY --from=build /app/scripts ./scripts
 RUN python3 -m venv /app/.venv \
   && /app/.venv/bin/python -m pip install --no-cache-dir -r ./scripts/requirements-umap.txt
 
+# Last, so a new commit only rebuilds this layer. /api/version reports it.
+ARG SOURCE_COMMIT=unknown
+ENV APP_COMMIT=$SOURCE_COMMIT
+
 EXPOSE 3000
 CMD ["sh","-c","pnpm start-prod"]

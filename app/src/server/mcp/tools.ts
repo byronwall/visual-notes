@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { buildCommit } from "~/server/build-info";
 import { ACTIVITY_INSTRUCTIONS, registerActivityTools } from "./activity-tools";
 import { ARCHIVE_INSTRUCTIONS, registerArchiveTools } from "./archive-tools";
 import {
@@ -42,7 +43,7 @@ const SERVER_INSTRUCTIONS = [
 
 export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   const server = new McpServer(
-    { name: "visual-notes", version: "2.0.0" },
+    { name: "visual-notes", version: `2.0.0+${buildCommit.slice(0, 12)}` },
     { instructions: SERVER_INSTRUCTIONS },
   );
   const tools = createToolRegistrar(server, ctx);
