@@ -1,5 +1,5 @@
-// The commit this server runs. Coolify sets SOURCE_COMMIT at runtime; docker
-// compose reads it from the shell. Agents compare it with a merge SHA to tell
+// The commit this server runs. Coolify sets SOURCE_COMMIT at runtime through
+// the .env it gives each compose service. Agents compare it with a merge SHA to tell
 // whether production has deployed a change.
 export const buildCommit = process.env.SOURCE_COMMIT?.trim() || "unknown";
 

@@ -29,9 +29,9 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      # /api/version reports it. Coolify sets it at runtime ("Runtime only"
-      # source commit keeps the build cache); by hand: SOURCE_COMMIT=$(git rev-parse HEAD)
-      SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+      # No SOURCE_COMMIT here: Coolify writes the real commit to the .env it
+      # adds to every service, but skips it when the compose file references
+      # ${SOURCE_COMMIT}, because that reference creates an empty app env var.
       # Auth config
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
