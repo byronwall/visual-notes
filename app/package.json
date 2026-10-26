@@ -5,7 +5,6 @@
     "dev": "panda codegen && vinxi dev",
     "build": "panda codegen && vinxi build && pnpm build:search-text",
     "start": "vinxi start",
-    "start-prod": "pnpm prisma migrate deploy && node .output/server/backfill-search-text.mjs && pnpm start",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fix:unstaged": "sh -c 'app_files=$(git diff --name-only --diff-filter=ACMR | grep \"^app/\" | sed \"s#^app/##\"); if [ -z \"$app_files\" ]; then echo \"No unstaged files under app/.\"; exit 0; fi; lint_files=$(printf \"%s\\n\" \"$app_files\" | grep -E \"\\\\.(ts|tsx|js|jsx)$\" || true); if [ -n \"$lint_files\" ]; then printf \"%s\\n\" \"$lint_files\" | xargs pnpm exec oxlint --fix; fi; printf \"%s\\n\" \"$app_files\" | xargs pnpm exec prettier --write --ignore-unknown'",

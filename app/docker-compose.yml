@@ -64,8 +64,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
-      # Migrations and the search-text backfill run before the server listens.
-      start_period: 120s
+      # Migrations and the search-text backfill run before the server listens;
+      # failed checks in this window do not count against the container.
+      start_period: 10m
     ports:
       - "${APP_PORT:-3000}"
     volumes:
