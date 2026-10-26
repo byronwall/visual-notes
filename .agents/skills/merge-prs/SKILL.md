@@ -37,7 +37,7 @@ A PR labelled `visuals-unverified` needs someone to look at its screenshots firs
 
 ## 4. Merge
 
-Wait for CI to pass (`gh pr checks <n>`). Then merge bottom-up with `gh stack merge <top> --yes` when the stack is tracked by `gh stack`, or `gh pr merge <n> --merge` one PR at a time, retargeting the next PR to `main` after each.
+Wait for CI to pass with one background command, `gh pr checks <n> --watch --fail-fast`; you are notified when it exits. Don't poll with `sleep` loops or `gh pr view` in a `for` loop (a `sleep` before a command is blocked, and one loop held a session for 7 minutes). Then merge bottom-up with `gh stack merge <top> --yes` when the stack is tracked by `gh stack`, or `gh pr merge <n> --merge` one PR at a time, retargeting the next PR to `main` after each.
 
 ## 5. Prove it landed
 
@@ -49,3 +49,14 @@ git merge-base --is-ancestor "$(gh pr view <n> --json headRefOid --jq .headRefOi
 ```
 
 A PR that shows as merged but is not an ancestor of `origin/main` merged into a dead branch. Re-land it from its commits on a new branch against `main`, and tell the user.
+
+## 6. Check the deploy
+
+Nothing deploys automatically. Before you act on production (an MCP write, a live check), or when the user says the site looks unchanged, compare production's commit with the merge:
+
+```sh
+curl -s https://notes.apps.byroni.us/api/version   # {"commit":"<sha>","startedAt":"…"}
+git merge-base --is-ancestor <merged-head-sha> <prod-commit> && echo deployed
+```
+
+If it isn't deployed, or the commit is `unknown`, ask the user to deploy and stop there rather than guessing from output shapes. A redeploy doesn't refresh an MCP client's tool list; the user has to reconnect the connector.

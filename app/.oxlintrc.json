@@ -89,6 +89,14 @@
       "rules": { "vn/note-body-writes": "off" }
     },
     {
+      "files": ["src/server/**", "src/middleware.ts", "src/**/*.server.ts"],
+      "rules": { "vn/no-router-actions-in-server": "error" }
+    },
+    {
+      "files": ["**/*.test.ts"],
+      "rules": { "vn/no-router-actions-in-server": "off" }
+    },
+    {
       "files": ["src/lib/collections/colors.ts"],
       "rules": { "vn/color-tokens": "off" }
     }

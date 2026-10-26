@@ -14,7 +14,7 @@
 // and exits non-zero when a check fails or the page logged an error.
 // See docs/browser-checks.md.
 import { chromium } from "@playwright/test";
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
 import { readTestCredential } from "./credential.mjs";
@@ -193,6 +193,45 @@ export const openApp = async (options = {}) => {
       const path = `${out}/${name}.png`;
       await page.screenshot({ path, fullPage });
       console.log(`[browser] shot ${path}`);
+      return path;
+    },
+
+    /**
+     * Lays saved PNGs side by side under their labels and saves
+     * `<out>/<name>.png`, such as a before/after for a PR. No ImageMagick needed.
+     * @param {string} name
+     * @param {{ label: string, path: string }[]} shots
+     */
+    async compare(name, shots) {
+      const page = await browser.newPage();
+      const figures = shots
+        .map(({ label, path }) => {
+          const src = `data:image/png;base64,${readFileSync(path).toString("base64")}`;
+          return `<figure><figcaption></figcaption><img src="${src}"></figure>`;
+        })
+        .join("");
+      await page.setContent(
+        `<style>body{margin:0;background:white;font:600 14px system-ui}main{display:inline-flex;gap:16px;align-items:flex-start;padding:16px}figure{margin:0}figcaption{margin-bottom:8px}img{display:block;outline:1px solid silver}</style><main>${figures}</main>`,
+      );
+      const width = await page.evaluate(
+        async (labels) => {
+          document.querySelectorAll("figcaption").forEach((caption, index) => {
+            caption.textContent = labels[index];
+          });
+          await Promise.all(
+            [...document.images].map((image) => image.decode()),
+          );
+          return Math.ceil(
+            document.querySelector("main").getBoundingClientRect().width,
+          );
+        },
+        shots.map((shot) => shot.label),
+      );
+      await page.setViewportSize({ width, height: 200 });
+      const path = `${out}/${name}.png`;
+      await page.screenshot({ path, fullPage: true });
+      await page.close();
+      console.log(`[browser] compare ${path}`);
       return path;
     },
 

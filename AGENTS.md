@@ -8,7 +8,7 @@ focused skills listed under [Skills](#skills).
 | Need | Where |
 | --- | --- |
 | Setup (Node 22.6+, pinned pnpm 9.15.9 via Corepack) | [README Getting Started](README.md#getting-started) |
-| Checks | `cd app && pnpm lint && pnpm type-check && pnpm test` (oxlint ~2s, TypeScript 7 ~5s cold / <1s warm); CI runs the same in [checks.yml](.github/workflows/checks.yml) |
+| Checks | `cd app && pnpm lint && pnpm type-check && pnpm test` (oxlint ~2s, TypeScript 7 ~5s cold / <1s warm); CI runs the same in [checks.yml](.github/workflows/checks.yml); the [pre-commit hook](.githooks/pre-commit) (installed by `pnpm install`) runs lint on staged files plus type-check |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
 | Test database (`pnpm audit:db -- --owner <slug>`), isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
 | One-off Playwright checks (sign-in, hydration wait, widths, layout report, exit codes) | [app/docs/browser-checks.md](app/docs/browser-checks.md) |

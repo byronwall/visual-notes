@@ -21,6 +21,10 @@ export default {
       "Property[key.name='select'] Property[key.name='select'] > ObjectExpression > SpreadElement",
       "List nested Prisma select fields explicitly. Spreading a shared object into a nested select made tsc take minutes.",
     ),
+    "no-router-actions-in-server": selectorRule(
+      ":matches(ImportDeclaration[importKind!='type'], ImportExpression)[source.value=/\\.actions(\\.[\\w-]+)?$/]",
+      "Server-only code runs without a request, so router actions fail there (router.singleFlight). Call a plain function from a *.server.ts module and keep the action as a thin wrapper.",
+    ),
     "color-tokens": selectorRule(
       ":matches(Property[key.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/], JSXAttribute[name.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/]) > Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
       "Use a color token (fg.*, bg.*, border.*, or a palette step) instead of a raw hex color, so light and dark mode and the palette stay in step.",

@@ -49,6 +49,12 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # Client bundles reach some src/server modules (note-store.ts). A Node-only
+      # import there breaks only the build, which e2e otherwise hides inside
+      # its Playwright step. No .env needed.
+      - name: Build
+        run: pnpm exec vinxi build
+
       - name: Audit harness self-check
         run: pnpm audit:harness:check
 

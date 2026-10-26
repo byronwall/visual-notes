@@ -22,7 +22,7 @@ Provision your own synthetic database with one command. Pick a short owner slug 
 corepack pnpm audit:db -- --owner <owner>
 ```
 
-It reads the main checkout's `app/.env` itself (pass `--env-file <path>` to use another), creates `visual_notes_audit_<owner>` on the loopback PostgreSQL server, applies every migration, writes a fresh 0600 sign-in credential to `$TMPDIR/vn-audit-<owner>.password`, picks a free port from 3200–3399, and prints the exact `export` and `audit:harness` lines to run next. Rerunning it is safe: it reuses the database, credential, and (when free) the same port. Never open or grep the env file yourself; the scripts read it.
+It reads the main checkout's `app/.env` itself (pass `--env-file <path>` to use another), creates `visual_notes_audit_<owner>` on the loopback PostgreSQL server, applies every migration, writes a fresh 0600 sign-in credential to `$TMPDIR/vn-audit-<owner>.password`, picks a free port from 3200–3399, and prints the exact `export` and `audit:harness` lines to run next. Rerunning it is safe: it reuses the database, credential, and (when free) the same port. Never open or grep the env file yourself; the scripts read it. If nothing answers on the env file's Postgres port, `audit:db` starts the `vn-dev-pg` container (Postgres 16, volume `vn-dev-pg-data`) on that port, or tells you to start Docker Desktop. Don't start Homebrew Postgres or borrow another project's container.
 
 Paste the printed commands. They look like:
 

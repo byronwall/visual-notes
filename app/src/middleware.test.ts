@@ -161,6 +161,13 @@ describe("calendar feed boundary", () => {
   });
 });
 
+describe("version endpoint", () => {
+  it("lets /api/version through so deploy checks need no sign-in", () => {
+    expect(isAllowedUnauthed(serverRequest("/api/version"))).toBe(true);
+    expect(isAllowedUnauthed(serverRequest("/api/version/x"))).toBe(false);
+  });
+});
+
 describe("OAuth endpoints", () => {
   it("leaves metadata, registration, and token public but keeps consent behind login", () => {
     expect(
