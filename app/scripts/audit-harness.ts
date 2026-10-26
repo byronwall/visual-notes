@@ -18,7 +18,7 @@ type Options = {
   database: string;
   worktree: string;
   branch: string;
-  /** Build once and serve the production bundle instead of `vinxi dev`. */
+  /** Build once and serve the production bundle instead of `vite dev`. */
   production: boolean;
   run?: {
     owner: string;
@@ -425,16 +425,17 @@ async function start(options: Options) {
   if (options.production) {
     const build = spawnSync(
       process.execPath,
-      [pnpmPath, "exec", "vinxi", "build"],
+      [pnpmPath, "exec", "vite", "build"],
       { cwd: dirname(packageJsonPath), env: childEnv, stdio: "inherit" },
     );
     if (build.status !== 0) throw new Error("Production build failed.");
   }
 
-  const vinxiCommand = options.production ? "start" : "dev";
   const child = spawn(
     process.execPath,
-    [pnpmPath, "exec", "vinxi", vinxiCommand],
+    options.production
+      ? [pnpmPath, "start"]
+      : [pnpmPath, "exec", "vite", "dev"],
     {
       cwd: dirname(packageJsonPath),
       env: childEnv,

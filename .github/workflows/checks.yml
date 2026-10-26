@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: app/pnpm-lock.yaml
 
@@ -53,7 +53,12 @@ jobs:
       # import there breaks only the build, which e2e otherwise hides inside
       # its Playwright step. No .env needed.
       - name: Build
-        run: pnpm exec vinxi build
+        run: pnpm exec vite build
+
+      # A server module reached from client code at top level drags Prisma into
+      # the browser bundle, which only fails once that page runs.
+      - name: No Prisma in client bundles
+        run: "! grep -rlE 'prisma:get-platform|PrismaClient' .output/public/_build"
 
       - name: Audit harness self-check
         run: pnpm audit:harness:check
@@ -97,7 +102,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: app/pnpm-lock.yaml
 
@@ -137,7 +142,7 @@ jobs:
         run: pnpm exec playwright test
 
       # Dev builds hydrate differently: #125 and the open-tasks page crash
-      # only showed under `vinxi dev`, so smoke every route there too.
+      # only showed under the dev server, so smoke every route there too.
       - name: Route hydration smoke (dev server)
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100

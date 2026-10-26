@@ -9,7 +9,7 @@ type BusEntry = {
 
 const REGISTRY_KEY = Symbol.for("visual-notes.broadcast-bus");
 
-// Vinxi routers can load the same module more than once, so each named bus
+// The Nitro WebSocket routes and the app bundle can load the same module more than once, so each named bus
 // keeps one listener set and one channel per thread on globalThis.
 const registry = (): Map<string, BusEntry> => {
   const holder = globalThis as typeof globalThis & {

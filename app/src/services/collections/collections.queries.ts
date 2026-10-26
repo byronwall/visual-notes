@@ -14,7 +14,7 @@ import {
 } from "./collections.server";
 import { summarizeCollectionNotes, type NoteSummary } from "./note-summary";
 
-export type { NoteSummary };
+export type { NoteSummary } from "./note-summary";
 
 export type CollectionListItem = CollectionSummary & {
   rowCount: number;

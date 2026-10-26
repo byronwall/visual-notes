@@ -4,7 +4,7 @@ Use one app worktree, one assigned port, and a synthetic PostgreSQL database for
 
 ## Prepare a worktree
 
-Use Node 22.6 or newer. From that worktree's `app/` directory, install dependencies with the pinned pnpm version and verify Panda generated its import files:
+Use Node 24 or newer. From that worktree's `app/` directory, install dependencies with the pinned pnpm version and verify Panda generated its import files:
 
 ```sh
 corepack pnpm install --frozen-lockfile

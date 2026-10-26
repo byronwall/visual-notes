@@ -18,7 +18,7 @@ This repo includes a minimal end-to-end slice to ingest a single Markdown docume
 
 ### Prerequisites
 
-- Node.js 22.6+ and pnpm 9.15.9 (pinned in `app/package.json`; run `corepack enable` or prefix commands with `corepack`)
+- Node.js 24+ and pnpm 9.15.9 (pinned in `app/package.json`; run `corepack enable` or prefix commands with `corepack`)
 - Postgres if you want to run against a real DB locally (Compose file available)
 
 ### Install deps and generate Prisma
@@ -105,7 +105,7 @@ This repo keeps Playwright on `--isolated` there so Codex sessions do not reuse 
 - Starts Postgres (`db`) with default credentials and database `visual_notes`.
 - Builds the app image, then runs it on port 3000.
 - On container start, the app runs `prisma migrate deploy` automatically.
-- `GET /api/version` (no sign-in) returns the deployed `commit` and server `startedAt`. Pass `SOURCE_COMMIT=$(git rev-parse HEAD)` to `docker compose up --build`, or turn on Coolify's "Include Source Commit in Build", or it reports `unknown`.
+- `GET /api/version` (no sign-in) returns the deployed `commit` and server `startedAt`. The server reads `SOURCE_COMMIT` at runtime. Coolify sets it with its default "Runtime only" source-commit setting, which keeps the build cache. For docker compose by hand, run `SOURCE_COMMIT=$(git rev-parse HEAD) docker compose up -d`. Without it, the commit is `unknown`.
 - Before serving requests, it fills missing `Doc.searchText` values in batches. This preserves note edit dates.
 - Content writes keep plain search text current. PostgreSQL uses a `pg_trgm` index for substring matches.
 

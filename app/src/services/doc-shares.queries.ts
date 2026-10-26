@@ -51,55 +51,60 @@ export const fetchDocShare = query(
   "doc-share-by-doc-id",
 );
 
-export const fetchPublicSharedDoc = query(
-  async (slug: string): Promise<PublicSharedDoc | null> => {
-    "use server";
-    const normalizedSlug = String(slug || "").trim();
-    if (!normalizedSlug) return null;
+// Public: the middleware lets this run without a session (public-server-fns.ts).
+export const getPublicSharedDoc = async (
+  slug: string,
+): Promise<PublicSharedDoc | null> => {
+  "use server";
+  const normalizedSlug = String(slug || "").trim();
+  if (!normalizedSlug) return null;
 
-    const share = await prisma.docShare.findUnique({
-      where: { slug: normalizedSlug },
-      select: {
-        id: true,
-        slug: true,
-        shareUrl: true,
-        createdAt: true,
-        updatedAt: true,
-        doc: {
-          select: {
-            id: true,
-            title: true,
-            content: true,
+  const share = await prisma.docShare.findUnique({
+    where: { slug: normalizedSlug },
+    select: {
+      id: true,
+      slug: true,
+      shareUrl: true,
+      createdAt: true,
+      updatedAt: true,
+      doc: {
+        select: {
+          id: true,
+          title: true,
+          content: true,
           html: true,
           markdown: true,
-            path: true,
-            updatedAt: true,
-          },
+          path: true,
+          updatedAt: true,
         },
       },
-    });
+    },
+  });
 
-    if (!share?.doc) return null;
+  if (!share?.doc) return null;
 
-    const content = await resolveNoteReferences(readNoteContent(share.doc));
-    const html = toHtml(content);
+  const content = await resolveNoteReferences(readNoteContent(share.doc));
+  const html = toHtml(content);
 
-    return {
-      id: share.doc.id,
-      title: share.doc.title,
-      html,
-      markdown: toMarkdown(content),
-      path: share.doc.path,
-      updatedAt: share.doc.updatedAt.toISOString(),
-      share: {
-        id: share.id,
-        slug: share.slug,
-        shareUrl: share.shareUrl,
-        createdAt: share.createdAt.toISOString(),
-        updatedAt: share.updatedAt.toISOString(),
-      },
-      previewText: buildNotePreviewText(share.doc, 220),
-    };
-  },
+  return {
+    id: share.doc.id,
+    title: share.doc.title,
+    html,
+    markdown: toMarkdown(content),
+    path: share.doc.path,
+    updatedAt: share.doc.updatedAt.toISOString(),
+    share: {
+      id: share.id,
+      slug: share.slug,
+      shareUrl: share.shareUrl,
+      createdAt: share.createdAt.toISOString(),
+      updatedAt: share.updatedAt.toISOString(),
+    },
+    previewText: buildNotePreviewText(share.doc, 220),
+  };
+};
+
+export const fetchPublicSharedDoc = query(
+  getPublicSharedDoc,
   "doc-share-public",
 );

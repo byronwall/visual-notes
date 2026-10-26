@@ -13,6 +13,7 @@ import {
   setPathButton,
 } from "./helpers/note-path";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 const pathInput = (page: Page) =>
   page.getByPlaceholder("e.g. work.projects.alpha");
@@ -36,7 +37,7 @@ const createNote = async (page: Page, title: string, path: string) => {
   await expect(input).toHaveValue(path);
   const createResponse = page.waitForResponse((response) => {
     const serverId = response.request().headers()["x-server-id"] || "";
-    return serverId.includes("--createDoc_action#");
+    return isServerFn(serverId, "createDoc");
   });
   await page.getByRole("button", { name: "Create note", exact: true }).click();
   const responseBody = await (await createResponse).text();
@@ -85,7 +86,7 @@ test("late path saves do not replace a switched note or a newer draft", async ({
     const postData = request.postData() || "";
     if (
       request.method() === "POST" &&
-      serverId.includes("--updateDoc_action#") &&
+      isServerFn(serverId, "updateDoc") &&
       nextUpdate &&
       postData.includes(nextUpdate.expectedId)
     ) {
@@ -187,7 +188,7 @@ test("path save actions remain reachable and new paths keep typed segments", asy
     const serverId = request.headers()["x-server-id"] || "";
     return (
       request.method() === "POST" &&
-      serverId.includes("--updateDoc_action#") &&
+      isServerFn(serverId, "updateDoc") &&
       (request.postData() || "").includes(docId)
     );
   });
@@ -242,7 +243,7 @@ test("path save actions remain reachable and new paths keep typed segments", asy
     const serverId = request.headers()["x-server-id"] || "";
     return (
       request.method() === "POST" &&
-      serverId.includes("--updateDoc_action#") &&
+      isServerFn(serverId, "updateDoc") &&
       (request.postData() || "").includes(docId)
     );
   });
@@ -272,7 +273,7 @@ test("path save actions remain reachable and new paths keep typed segments", asy
     const serverId = request.headers()["x-server-id"] || "";
     return (
       request.method() === "POST" &&
-      serverId.includes("--updateDoc_action#") &&
+      isServerFn(serverId, "updateDoc") &&
       (request.postData() || "").includes(docId)
     );
   });

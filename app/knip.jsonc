@@ -4,9 +4,9 @@
     "src/entry-client.tsx",
     "src/entry-server.tsx",
     "src/app.tsx",
-    "app.config.ts",
-    "src/middleware.ts"
+    "vite.config.ts",
+    "src/middleware.ts",
   ],
   "project": ["**/*.{ts,tsx}"],
-  "ignore": ["src/middleware.ts"]
+  "ignore": ["src/middleware.ts"],
 }

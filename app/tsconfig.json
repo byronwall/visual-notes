@@ -12,7 +12,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "types": ["vite/client", "@solidjs/start/env", "vinxi/types/client"],
+    "types": ["vite/client", "@solidjs/start/env"],
     "paths": {
       "styled-system/*": ["./styled-system/*"],
       "~/*": ["./src/*"]

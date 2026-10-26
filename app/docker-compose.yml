@@ -23,15 +23,15 @@ services:
     build:
       context: .
       target: runtime
-      args:
-        # /api/version reports it: SOURCE_COMMIT=$(git rev-parse HEAD) docker compose up -d --build app
-        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      # /api/version reports it. Coolify sets it at runtime ("Runtime only"
+      # source commit keeps the build cache); by hand: SOURCE_COMMIT=$(git rev-parse HEAD)
+      SOURCE_COMMIT: ${SOURCE_COMMIT:-}
       # Auth config
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
@@ -59,6 +59,14 @@ services:
       DB_NAME: ${DB_NAME:-visual_notes}
       # Constructed connection string for Prisma/Auth
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-db}:${DB_PORT:-5432}/${DB_NAME:-visual_notes}?schema=public
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/version').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Migrations and the search-text backfill run before the server listens;
+      # failed checks in this window do not count against the container.
+      start_period: 10m
     ports:
       - "${APP_PORT:-3000}"
     volumes:

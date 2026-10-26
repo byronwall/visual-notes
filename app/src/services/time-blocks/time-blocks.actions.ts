@@ -1,12 +1,23 @@
 import { action } from "@solidjs/router";
 import { z } from "zod";
 import { prisma } from "~/server/db";
-import * as store from "~/server/time-blocks/time-block-store";
+import {
+  createTimeBlock as createTimeBlockInStore,
+  type createTimeBlockInput,
+  normalizeRange,
+  parseIsoDate,
+  setDayMeta,
+  type setDayMetaInput,
+  timeBlocksChanged,
+  updateDayMeta,
+  type updateDayMetaInput,
+  updateTimeBlock as updateTimeBlockInStore,
+  type updateTimeBlockInput,
+} from "~/server/time-blocks/time-block-store";
 
 // Calendar writes. Create/update and day metadata go through the shared
 // store (also used over MCP); every write tells open tabs.
 
-const { normalizeRange, parseIsoDate, timeBlocksChanged } = store;
 const isoString = z.string().min(1);
 
 const deleteInput = z.object({ id: z.string().min(1) });
@@ -33,17 +44,17 @@ const deleteByRangeInput = z.object({
 const deleteMetaInput = z.object({ id: z.string().min(1) });
 
 export const createTimeBlock = action(
-  async (payload: z.input<typeof store.createTimeBlockInput>) => {
+  async (payload: z.input<typeof createTimeBlockInput>) => {
     "use server";
-    return store.createTimeBlock(payload);
+    return createTimeBlockInStore(payload);
   },
   "time-block-create",
 );
 
 export const updateTimeBlock = action(
-  async (payload: z.input<typeof store.updateTimeBlockInput>) => {
+  async (payload: z.input<typeof updateTimeBlockInput>) => {
     "use server";
-    return store.updateTimeBlock(payload);
+    return updateTimeBlockInStore(payload);
   },
   "time-block-update",
 );
@@ -146,17 +157,17 @@ export const deleteTimeBlocksByDateRange = action(
 );
 
 export const createTimeBlockDayMeta = action(
-  async (payload: z.input<typeof store.setDayMetaInput>) => {
+  async (payload: z.input<typeof setDayMetaInput>) => {
     "use server";
-    return store.setDayMeta(payload);
+    return setDayMeta(payload);
   },
   "time-block-day-meta-create",
 );
 
 export const updateTimeBlockDayMeta = action(
-  async (payload: z.input<typeof store.updateDayMetaInput>) => {
+  async (payload: z.input<typeof updateDayMetaInput>) => {
     "use server";
-    return store.updateDayMeta(payload);
+    return updateDayMeta(payload);
   },
   "time-block-day-meta-update",
 );

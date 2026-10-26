@@ -7,7 +7,13 @@ import {
   Suspense,
   createSignal,
 } from "solid-js";
-import { createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
+import {
+  createAsync,
+  revalidate,
+  useAction,
+  useNavigate,
+  useParams,
+} from "@solidjs/router";
 import { createStore } from "solid-js/store";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -17,8 +23,14 @@ import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { Tooltip } from "~/components/ui/tooltip";
 import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
-import { fetchDocSections, fetchEmbeddingRun } from "~/services/embeddings/embeddings.queries";
-import { deleteEmbeddingRun, processEmbeddingRun } from "~/services/embeddings/embeddings.actions";
+import {
+  fetchDocSections,
+  fetchEmbeddingRun,
+} from "~/services/embeddings/embeddings.queries";
+import {
+  deleteEmbeddingRun,
+  processEmbeddingRun,
+} from "~/services/embeddings/embeddings.actions";
 import { createUmapRun } from "~/services/umap/umap.actions";
 import { fetchUmapRuns } from "~/services/umap/umap.queries";
 import { fetchJobStatus, type JobStatus } from "~/services/jobs/jobs.queries";
@@ -42,7 +54,6 @@ type EmbeddingRun = {
 };
 
 const DOCS_LIMIT = 10;
-
 
 type SectionItem = {
   id: string;
@@ -81,12 +92,14 @@ function formatParamValue(value: unknown): string {
   }
 }
 
-function getParamEntries(params?: Record<string, unknown> | null): [string, unknown][] {
+function getParamEntries(
+  params?: Record<string, unknown> | null,
+): [string, unknown][] {
   return Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
 }
 
 const EmbeddingDetail: VoidComponent = () => {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [docsOffset, setDocsOffset] = createSignal(0);
   const [titleQuery, setTitleQuery] = createSignal("");
@@ -115,7 +128,9 @@ const EmbeddingDetail: VoidComponent = () => {
   });
   const umapRunsForEmbedding = createAsync((): Promise<UmapRunSummary[]> => {
     if (!params.id) return Promise.resolve([]);
-    return fetchUmapRuns({ embeddingRunId: params.id, limit: 200 }) as Promise<UmapRunSummary[]>;
+    return fetchUmapRuns({ embeddingRunId: params.id, limit: 200 }) as Promise<
+      UmapRunSummary[]
+    >;
   });
   const activeJob = createAsync((): Promise<JobStatus | null> => {
     if (!state.activeJobId) return Promise.resolve(null);
@@ -206,7 +221,9 @@ const EmbeddingDetail: VoidComponent = () => {
         jobId,
         dims: state.dims,
       });
-      await revalidate(fetchUmapRuns.keyFor({ embeddingRunId: params.id, limit: 200 }));
+      await revalidate(
+        fetchUmapRuns.keyFor({ embeddingRunId: params.id, limit: 200 }),
+      );
       navigate(`/umap/${r.runId}`);
     } catch (e) {
       console.error(e);
@@ -236,7 +253,7 @@ const EmbeddingDetail: VoidComponent = () => {
           limit: DOCS_LIMIT,
           offset: docsOffset(),
           titleQuery: titleQuery(),
-        })
+        }),
       );
     } catch (e) {
       console.error(e);
@@ -266,7 +283,7 @@ const EmbeddingDetail: VoidComponent = () => {
           limit: DOCS_LIMIT,
           offset: docsOffset(),
           titleQuery: titleQuery(),
-        })
+        }),
       );
     } catch (e) {
       console.error(e);
@@ -298,7 +315,10 @@ const EmbeddingDetail: VoidComponent = () => {
       setState("selectedDocId", null);
       setState("sections", []);
       setState("sectionsLoading", false);
-      console.info("[EmbeddingDetail] collapseSections", { docId, runId: params.id });
+      console.info("[EmbeddingDetail] collapseSections", {
+        docId,
+        runId: params.id,
+      });
       return;
     }
 
@@ -306,7 +326,10 @@ const EmbeddingDetail: VoidComponent = () => {
     setState("sections", []);
     setState("sectionsLoading", true);
     try {
-      console.log("[EmbeddingDetail] loadSections", { docId, runId: params.id });
+      console.log("[EmbeddingDetail] loadSections", {
+        docId,
+        runId: params.id,
+      });
       const items = await fetchDocSections({ docId, runId: params.id });
       setState("sections", items || []);
       console.info("[EmbeddingDetail] sectionsLoaded", {
@@ -339,8 +362,8 @@ const EmbeddingDetail: VoidComponent = () => {
           }
         >
           <Show
-          when={run()}
-          fallback={
+            when={run()}
+            fallback={
               <Box bg="bg.subtle" borderRadius="l3" p="4">
                 <Text textStyle="sm" color="fg.muted">
                   This embedding run could not be loaded.
@@ -364,18 +387,27 @@ const EmbeddingDetail: VoidComponent = () => {
                 >
                   <Stack gap="3">
                     <Box bg="bg.subtle" borderRadius="l3" p="4">
-                      <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
+                      <Flex
+                        align="center"
+                        justify="space-between"
+                        gap="3"
+                        flexWrap="wrap"
+                      >
                         <Stack gap="1">
                           <Heading as="h1" fontSize="2xl">
                             Embedding Run
                           </Heading>
                           <Text textStyle="sm" color="fg.muted">
-                            Process new or changed notes, then train or reuse UMAP models.
+                            Process new or changed notes, then train or reuse
+                            UMAP models.
                           </Text>
                         </Stack>
                         <HStack gap="2" flexWrap="wrap">
                           <Link href="/embeddings">Back to Embeddings</Link>
-                          <Tooltip content="Delete this embedding run and its vectors" showArrow>
+                          <Tooltip
+                            content="Delete this embedding run and its vectors"
+                            showArrow
+                          >
                             <Button
                               size="sm"
                               variant="solid"
@@ -409,7 +441,13 @@ const EmbeddingDetail: VoidComponent = () => {
                             onInput={(e) =>
                               setState(
                                 "batchSize",
-                                Math.max(1, Math.min(500, Number(e.currentTarget.value) || 0))
+                                Math.max(
+                                  1,
+                                  Math.min(
+                                    500,
+                                    Number(e.currentTarget.value) || 0,
+                                  ),
+                                ),
                               )
                             }
                           />
@@ -419,7 +457,10 @@ const EmbeddingDetail: VoidComponent = () => {
                         </HStack>
 
                         <Grid
-                          gridTemplateColumns={{ base: "1fr", md: "repeat(2, minmax(0, 1fr))" }}
+                          gridTemplateColumns={{
+                            base: "1fr",
+                            md: "repeat(2, minmax(0, 1fr))",
+                          }}
                           gap="3"
                         >
                           <Box bg="bg.default" borderRadius="l2" p="3">
@@ -428,7 +469,8 @@ const EmbeddingDetail: VoidComponent = () => {
                                 Embed New Notes
                               </Text>
                               <Text textStyle="xs" color="fg.muted">
-                                Remaining: {r().remaining ?? Math.max(0, r().count || 0)}
+                                Remaining:{" "}
+                                {r().remaining ?? Math.max(0, r().count || 0)}
                               </Text>
                               <Tooltip
                                 content="Embed the next batch of notes missing vectors for this run"
@@ -473,12 +515,20 @@ const EmbeddingDetail: VoidComponent = () => {
                           </Box>
                         </Grid>
 
-                        <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
+                        <Flex
+                          align="center"
+                          justify="space-between"
+                          gap="3"
+                          flexWrap="wrap"
+                        >
                           <HStack gap="2">
                             <Text textStyle="sm" fontWeight="medium">
                               UMAP dims
                             </Text>
-                            <Tooltip content="Train or project into a 2D UMAP layout" showArrow>
+                            <Tooltip
+                              content="Train or project into a 2D UMAP layout"
+                              showArrow
+                            >
                               <Button
                                 size="sm"
                                 variant={state.dims === 2 ? "solid" : "outline"}
@@ -488,7 +538,10 @@ const EmbeddingDetail: VoidComponent = () => {
                                 2D
                               </Button>
                             </Tooltip>
-                            <Tooltip content="Train or project into a 3D UMAP layout" showArrow>
+                            <Tooltip
+                              content="Train or project into a 3D UMAP layout"
+                              showArrow
+                            >
                               <Button
                                 size="sm"
                                 variant={state.dims === 3 ? "solid" : "outline"}
@@ -499,7 +552,10 @@ const EmbeddingDetail: VoidComponent = () => {
                               </Button>
                             </Tooltip>
                           </HStack>
-                          <Tooltip content="Train a new UMAP model from this embedding run" showArrow>
+                          <Tooltip
+                            content="Train a new UMAP model from this embedding run"
+                            showArrow
+                          >
                             <Button
                               size="sm"
                               variant="solid"
@@ -518,7 +574,11 @@ const EmbeddingDetail: VoidComponent = () => {
                               {(job) => (
                                 <Box bg="bg.default" borderRadius="l2" p="3">
                                   <Stack gap="2">
-                                    <Flex align="center" justify="space-between" gap="3">
+                                    <Flex
+                                      align="center"
+                                      justify="space-between"
+                                      gap="3"
+                                    >
                                       <Text textStyle="sm" fontWeight="medium">
                                         {job().typeLabel}
                                       </Text>
@@ -535,7 +595,11 @@ const EmbeddingDetail: VoidComponent = () => {
                                     >
                                       <Box
                                         h="full"
-                                        bg={job().stage === "failed" ? "red.9" : "green.9"}
+                                        bg={
+                                          job().stage === "failed"
+                                            ? "red.9"
+                                            : "green.9"
+                                        }
                                         style={{
                                           width: `${Math.max(0, Math.min(100, job().progress))}%`,
                                           transition: "width 180ms ease",
@@ -552,9 +616,12 @@ const EmbeddingDetail: VoidComponent = () => {
                         <Show when={state.lastProjectionSummary}>
                           {(summary) => (
                             <Text textStyle="xs" color="fg.muted">
-                              Auto-projected: {summary().pointsProjected} points across{" "}
-                              {summary().runsUpdated} UMAP runs
-                              {summary().failedRuns > 0 ? ` (${summary().failedRuns} failed)` : ""}.
+                              Auto-projected: {summary().pointsProjected} points
+                              across {summary().runsUpdated} UMAP runs
+                              {summary().failedRuns > 0
+                                ? ` (${summary().failedRuns} failed)`
+                                : ""}
+                              .
                             </Text>
                           )}
                         </Show>
@@ -563,7 +630,12 @@ const EmbeddingDetail: VoidComponent = () => {
 
                     <Box bg="bg.subtle" borderRadius="l3" p="3">
                       <Stack gap="3">
-                        <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
+                        <Flex
+                          align="center"
+                          justify="space-between"
+                          gap="3"
+                          flexWrap="wrap"
+                        >
                           <Heading as="h2" fontSize="sm">
                             Included Notes
                           </Heading>
@@ -578,7 +650,9 @@ const EmbeddingDetail: VoidComponent = () => {
                             placeholder="Search note title…"
                             value={titleQuery()}
                             maxW="360px"
-                            onInput={(e) => handleTitleQueryInput(e.currentTarget.value)}
+                            onInput={(e) =>
+                              handleTitleQueryInput(e.currentTarget.value)
+                            }
                           />
                           <Show when={titleQuery().trim().length > 0}>
                             <Text textStyle="xs" color="fg.muted">
@@ -587,11 +661,7 @@ const EmbeddingDetail: VoidComponent = () => {
                           </Show>
                         </HStack>
 
-                        <Box
-                          bg="bg.muted"
-                          borderRadius="l2"
-                          p="2"
-                        >
+                        <Box bg="bg.muted" borderRadius="l2" p="2">
                           <Show
                             when={(r().docs?.items?.length || 0) > 0}
                             fallback={
@@ -605,8 +675,17 @@ const EmbeddingDetail: VoidComponent = () => {
                             <Stack gap="2">
                               <For each={r().docs?.items ?? []}>
                                 {(d) => (
-                                  <Stack gap="2" bg="bg.default" borderRadius="l2" p="3">
-                                    <Flex align="center" justify="space-between" gap="3">
+                                  <Stack
+                                    gap="2"
+                                    bg="bg.default"
+                                    borderRadius="l2"
+                                    p="3"
+                                  >
+                                    <Flex
+                                      align="center"
+                                      justify="space-between"
+                                      gap="3"
+                                    >
                                       <Box minW="0">
                                         <Link
                                           href={`/docs/${d.id}`}
@@ -618,20 +697,32 @@ const EmbeddingDetail: VoidComponent = () => {
                                           {d.title}
                                         </Link>
                                         <Text textStyle="xs" color="fg.muted">
-                                          {new Date(d.embeddedAt).toLocaleString()}
+                                          {new Date(
+                                            d.embeddedAt,
+                                          ).toLocaleString()}
                                         </Text>
                                       </Box>
                                       <HStack gap="2">
-                                        <Tooltip content="Expand embedded sections for this note" showArrow>
+                                        <Tooltip
+                                          content="Expand embedded sections for this note"
+                                          showArrow
+                                        >
                                           <Button
                                             size="xs"
                                             variant="outline"
-                                            onClick={() => handleLoadSections(d.id)}
+                                            onClick={() =>
+                                              handleLoadSections(d.id)
+                                            }
                                           >
-                                            {state.selectedDocId === d.id ? "Hide Sections" : "Sections"}
+                                            {state.selectedDocId === d.id
+                                              ? "Hide Sections"
+                                              : "Sections"}
                                           </Button>
                                         </Tooltip>
-                                        <Tooltip content="Open this note document" showArrow>
+                                        <Tooltip
+                                          content="Open this note document"
+                                          showArrow
+                                        >
                                           <Button
                                             size="xs"
                                             variant="outline"
@@ -644,31 +735,59 @@ const EmbeddingDetail: VoidComponent = () => {
                                     </Flex>
 
                                     <Show when={state.selectedDocId === d.id}>
-                                      <Box bg="bg.subtle" borderRadius="l2" p="2">
+                                      <Box
+                                        bg="bg.subtle"
+                                        borderRadius="l2"
+                                        p="2"
+                                      >
                                         <Show
                                           when={state.sectionsLoading}
                                           fallback={
                                             <Show
                                               when={state.sections.length > 0}
                                               fallback={
-                                                <Text textStyle="xs" color="fg.muted">
-                                                  No embedded sections found for this note.
+                                                <Text
+                                                  textStyle="xs"
+                                                  color="fg.muted"
+                                                >
+                                                  No embedded sections found for
+                                                  this note.
                                                 </Text>
                                               }
                                             >
                                               <Stack gap="2">
                                                 <For each={state.sections}>
                                                   {(s) => (
-                                                    <Box bg="bg.default" borderRadius="l1" p="2">
-                                                      <HStack gap="2" flexWrap="wrap">
-                                                        <Text textStyle="xs" color="fg.muted">
-                                                          {(s.headingPath || []).join(" → ") || "(no heading)"}
+                                                    <Box
+                                                      bg="bg.default"
+                                                      borderRadius="l1"
+                                                      p="2"
+                                                    >
+                                                      <HStack
+                                                        gap="2"
+                                                        flexWrap="wrap"
+                                                      >
+                                                        <Text
+                                                          textStyle="xs"
+                                                          color="fg.muted"
+                                                        >
+                                                          {(
+                                                            s.headingPath || []
+                                                          ).join(" → ") ||
+                                                            "(no heading)"}
                                                         </Text>
-                                                        <Text textStyle="xs" color="fg.muted">
+                                                        <Text
+                                                          textStyle="xs"
+                                                          color="fg.muted"
+                                                        >
                                                           #{s.orderIndex}
                                                         </Text>
                                                         <Show when={s.embedded}>
-                                                          <Badge size="sm" variant="solid" colorPalette="green">
+                                                          <Badge
+                                                            size="sm"
+                                                            variant="solid"
+                                                            colorPalette="green"
+                                                          >
                                                             embedded
                                                           </Badge>
                                                         </Show>
@@ -703,7 +822,10 @@ const EmbeddingDetail: VoidComponent = () => {
                         </Box>
 
                         <Flex align="center" justify="space-between" gap="3">
-                          <Tooltip content="Go to previous page of included notes" showArrow>
+                          <Tooltip
+                            content="Go to previous page of included notes"
+                            showArrow
+                          >
                             <Button
                               size="sm"
                               variant="outline"
@@ -713,7 +835,10 @@ const EmbeddingDetail: VoidComponent = () => {
                               Previous
                             </Button>
                           </Tooltip>
-                          <Tooltip content="Go to next page of included notes" showArrow>
+                          <Tooltip
+                            content="Go to next page of included notes"
+                            showArrow
+                          >
                             <Button
                               size="sm"
                               variant="outline"
@@ -743,7 +868,11 @@ const EmbeddingDetail: VoidComponent = () => {
                           <Text textStyle="xs" color="fg.subtle">
                             ID
                           </Text>
-                          <Text textStyle="xs" fontFamily="mono" lineBreak="anywhere">
+                          <Text
+                            textStyle="xs"
+                            fontFamily="mono"
+                            lineBreak="anywhere"
+                          >
                             {r().id}
                           </Text>
                           <Text textStyle="xs" color="fg.subtle">
@@ -757,7 +886,9 @@ const EmbeddingDetail: VoidComponent = () => {
                           <Text textStyle="xs" color="fg.subtle">
                             Embeddings
                           </Text>
-                          <Text textStyle="sm">{r().count.toLocaleString()}</Text>
+                          <Text textStyle="sm">
+                            {r().count.toLocaleString()}
+                          </Text>
                           <Show when={r().sectionCount !== undefined}>
                             <Text textStyle="xs" color="fg.subtle">
                               Sections
@@ -782,7 +913,9 @@ const EmbeddingDetail: VoidComponent = () => {
                           <Heading as="h2" fontSize="sm">
                             Run Params
                           </Heading>
-                          <Badge colorPalette="gray">{paramEntries.length}</Badge>
+                          <Badge colorPalette="gray">
+                            {paramEntries.length}
+                          </Badge>
                         </Flex>
                         <Show
                           when={paramEntries.length > 0}
@@ -792,7 +925,10 @@ const EmbeddingDetail: VoidComponent = () => {
                             </Text>
                           }
                         >
-                          <Box maxH={{ base: "none", xl: "260px" }} overflowY="auto">
+                          <Box
+                            maxH={{ base: "none", xl: "260px" }}
+                            overflowY="auto"
+                          >
                             <Stack gap="1">
                               <For each={paramEntries}>
                                 {([key, value]) => (
@@ -827,7 +963,12 @@ const EmbeddingDetail: VoidComponent = () => {
 
                     <Box bg="bg.subtle" borderRadius="l3" p="3">
                       <Stack gap="3">
-                        <Flex align="center" justify="space-between" gap="3" flexWrap="wrap">
+                        <Flex
+                          align="center"
+                          justify="space-between"
+                          gap="3"
+                          flexWrap="wrap"
+                        >
                           <Heading as="h2" fontSize="sm">
                             Trained UMAP Models
                           </Heading>
@@ -844,7 +985,8 @@ const EmbeddingDetail: VoidComponent = () => {
                             when={(umapRunsForEmbedding()?.length || 0) > 0}
                             fallback={
                               <Text textStyle="sm" color="fg.muted">
-                                No trained UMAP model yet for this embedding run.
+                                No trained UMAP model yet for this embedding
+                                run.
                               </Text>
                             }
                           >
@@ -859,9 +1001,14 @@ const EmbeddingDetail: VoidComponent = () => {
                                     p="2"
                                   >
                                     <HStack gap="2">
-                                      <Text textStyle="sm">{ur.id.slice(0, 8)}</Text>
+                                      <Text textStyle="sm">
+                                        {ur.id.slice(0, 8)}
+                                      </Text>
                                       <Text textStyle="xs" color="fg.muted">
-                                        {ur.dims}D • {ur.hasArtifact ? "trained" : "missing model"}
+                                        {ur.dims}D •{" "}
+                                        {ur.hasArtifact
+                                          ? "trained"
+                                          : "missing model"}
                                       </Text>
                                     </HStack>
                                     <Link href={`/umap/${ur.id}`}>View</Link>
@@ -873,7 +1020,6 @@ const EmbeddingDetail: VoidComponent = () => {
                         </Suspense>
                       </Stack>
                     </Box>
-
                   </Stack>
                 </Grid>
               );

@@ -20,7 +20,7 @@ import { parseArgs } from "node:util";
 import { readTestCredential } from "./credential.mjs";
 import { layoutProblems, layoutReport } from "./layout.mjs";
 
-const NAV_TIMEOUT_MS = 120_000; // A cold `vinxi dev` compiles a route on first visit.
+const NAV_TIMEOUT_MS = 120_000; // A cold `vite dev` compiles a route on first visit.
 const READY_TIMEOUT_MS = 60_000;
 
 /**
