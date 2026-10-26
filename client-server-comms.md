@@ -29,7 +29,6 @@ None. All app callers now use query()/action().
 Notes
 
 - HTTP route still kept for signed-in clients (e2e fixtures): POST /api/docs. Bulk ingest and /api/docs/inventory were removed.
-- /api/auth/[...solidauth] and /api/auth/register remain as HTTP routes.
 
 ## Completed conversions (app callers)
 

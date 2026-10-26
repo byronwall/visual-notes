@@ -80,8 +80,6 @@ export function isAllowedUnauthed(request: Request): boolean {
   if (isServerFunctionPath(pathname)) {
     return isPublicServerFunctionRequest(request);
   }
-  // Keep legacy auth endpoints reachable (not used by the app now)
-  if (pathname.startsWith("/api/auth")) return true;
   return isAssetPath(pathname);
 }
 

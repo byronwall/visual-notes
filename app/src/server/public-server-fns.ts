@@ -17,3 +17,18 @@ export const publicServerFunctionIds = new Set(
     return id ? [id] : [];
   }),
 );
+
+// A function that stopped being a server reference drops out silently, and
+// the middleware then rejects it: login fails with a bare 401.
+if (
+  !import.meta.env?.VITEST &&
+  publicServerFunctionIds.size !== publicServerFunctions.length
+) {
+  console.error(
+    "[public-server-fns] missing server function ids; public calls will 401",
+    {
+      expected: publicServerFunctions.length,
+      found: publicServerFunctionIds.size,
+    },
+  );
+}
