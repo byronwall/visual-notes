@@ -10,6 +10,7 @@ import { loginPathFor } from "~/utils/safe-next";
 import { scheduleEmbeddingRefresh } from "~/server/notes/embedding-refresh";
 import { setContentWriteHook } from "~/server/notes/note-store";
 import { scheduleCleanupAssessment } from "~/server/cleanup/assessment-sweep";
+import { publicServerFunctionIds } from "~/server/public-server-fns";
 
 // Middleware loads for every server router (pages, server functions, API), so
 // content writes from any of them queue the embedding refresh and the cleanup
@@ -18,14 +19,6 @@ setContentWriteHook(() => {
   scheduleEmbeddingRefresh();
   scheduleCleanupAssessment();
 });
-
-// SolidStart's pinned transform builds IDs from the root-relative module path
-// and exported function name. Keep these IDs in sync with those public functions.
-const publicServerFunctionIds = new Set([
-  "src_services_auth_magic-auth_actions_ts--magicLogin_action",
-  "src_services_auth_magic-auth_queries_ts--fetchMagicSession_query",
-  "src_services_doc-shares_queries_ts--fetchPublicSharedDoc_query",
-]);
 
 function getServerFunctionId(request: Request): string | null {
   const url = new URL(request.url);

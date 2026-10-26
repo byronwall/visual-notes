@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # -------- OS packages shared by every stage --------
-FROM node:22-bookworm-slim AS os
+FROM node:24-bookworm-slim AS os
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-venv \
   && rm -rf /var/lib/apt/lists/*
@@ -18,7 +18,6 @@ WORKDIR /app
 # -------- deps install (cached on the lockfile) --------
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-COPY patches ./patches
 ENV PRISMA_SKIP_POSTINSTALL=1
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --ignore-scripts \

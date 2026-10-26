@@ -6,7 +6,7 @@ import {
   type LinkTarget,
 } from "~/server/notes/note-links";
 
-export type { Backlink, LinkTarget };
+export type { Backlink, LinkTarget } from "~/server/notes/note-links";
 
 export const fetchBacklinks = query(async (docId: string) => {
   "use server";
@@ -34,14 +34,21 @@ export const fetchLinkLabel = query(
           content: [
             {
               type: "noteLink",
-              attrs: { docId: input.docId, blockId: input.blockId ?? null, label: "" },
+              attrs: {
+                docId: input.docId,
+                blockId: input.blockId ?? null,
+                label: "",
+              },
             },
           ],
         },
       ],
     });
     const attrs = resolved.content?.[0]?.content?.[0]?.attrs ?? {};
-    return { label: String(attrs.label ?? ""), missing: Boolean(attrs.missing) };
+    return {
+      label: String(attrs.label ?? ""),
+      missing: Boolean(attrs.missing),
+    };
   },
   "note-link-label",
 );

@@ -5,7 +5,7 @@ import {
   type BlockMigrationBatch,
 } from "~/server/notes/block-migration";
 
-export type { BlockMigrationBatch };
+export type { BlockMigrationBatch } from "~/server/notes/block-migration";
 
 export const fetchBlockMigrationCounts = query(async () => {
   "use server";

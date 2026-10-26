@@ -1,5 +1,11 @@
 import { type VoidComponent, Show, createSignal, Suspense } from "solid-js";
-import { createAsync, revalidate, useAction, useNavigate, useParams } from "@solidjs/router";
+import {
+  createAsync,
+  revalidate,
+  useAction,
+  useNavigate,
+  useParams,
+} from "@solidjs/router";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { Box, Container, Grid, Stack } from "styled-system/jsx";
@@ -24,7 +30,7 @@ import { UmapRunParamsCard } from "~/features/umap/UmapRunParamsCard";
 import { UmapRunRegionsCard } from "~/features/umap/UmapRunRegionsCard";
 
 const UmapDetail: VoidComponent = () => {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const runDelete = useAction(deleteUmapRun);
   const runRegenerateRegions = useAction(regenerateUmapRegionsAction);
@@ -37,9 +43,9 @@ const UmapDetail: VoidComponent = () => {
     const run = (await fetchUmapRun(params.id)) as UmapRunMeta | null;
     if (!run) return null;
 
-    const pointsData = (await fetchUmapPointsForRun(params.id).catch(() => null)) as
-      | UmapRunPointsData
-      | null;
+    const pointsData = (await fetchUmapPointsForRun(params.id).catch(
+      () => null,
+    )) as UmapRunPointsData | null;
 
     return {
       meta: run,
@@ -103,7 +109,12 @@ const UmapDetail: VoidComponent = () => {
           <Show
             when={detail()}
             fallback={
-              <Box borderWidth="1px" borderColor="border" borderRadius="l3" p="4">
+              <Box
+                borderWidth="1px"
+                borderColor="border"
+                borderRadius="l3"
+                p="4"
+              >
                 <Text textStyle="sm" color="fg.muted">
                   This UMAP run could not be loaded.
                 </Text>
@@ -137,7 +148,9 @@ const UmapDetail: VoidComponent = () => {
 
                     <Stack gap="3">
                       <UmapRunMetadataCard meta={meta} />
-                      <UmapRunParamsCard paramEntries={getParamEntries(meta.params)} />
+                      <UmapRunParamsCard
+                        paramEntries={getParamEntries(meta.params)}
+                      />
                     </Stack>
                   </Grid>
 

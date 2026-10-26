@@ -5,18 +5,23 @@ vi.stubEnv("AUTH_SECRET", "middleware-test-secret");
 vi.stubEnv("MAGIC_PASSWORD", "middleware-test-password");
 vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/test");
 
+const functionIds = {
+  login: "login-fn-id",
+  session: "session-fn-id",
+  sharedDoc: "shared-doc-fn-id",
+} as const;
+
+// Outside the SolidStart build, server functions carry no ids.
+vi.mock("./server/public-server-fns", () => ({
+  publicServerFunctionIds: new Set(Object.values(functionIds)),
+}));
+
 const { isAllowedUnauthed } = await import("./middleware");
 const { isRequestAuthenticated, issueMagicToken } = await import(
   "./server/magic-auth"
 );
 
 afterAll(() => vi.unstubAllEnvs());
-
-const functionIds = {
-  login: "src_services_auth_magic-auth_actions_ts--magicLogin_action",
-  session: "src_services_auth_magic-auth_queries_ts--fetchMagicSession_query",
-  sharedDoc: "src_services_doc-shares_queries_ts--fetchPublicSharedDoc_query",
-} as const;
 
 function serverRequest(path: string, options: RequestInit = {}): Request {
   return new Request(`http://notes.test${path}`, options);

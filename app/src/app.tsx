@@ -17,8 +17,6 @@ import {
   type JSX,
 } from "solid-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
-import { SessionProvider } from "@solid-mediakit/auth/client";
-import { clientEnv } from "~/env/client";
 import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
 import { useLocation, useNavigate } from "@solidjs/router";
@@ -77,51 +75,49 @@ export default function App() {
       root={(props) => (
         <MetaProvider>
           <DefaultMetadata />
-          <SessionProvider basePath={clientEnv.VITE_AUTH_PATH || "/api/auth"}>
-            <QueryClientProvider client={queryClient}>
-              <MagicAuthProvider>
-                <ErrorBoundary
-                  fallback={(error, reset) => (
-                    <GlobalErrorOverlay
-                      title="Something went wrong"
-                      message="An unexpected error interrupted the app. You can retry or reload the page."
-                      error={error}
-                      secondaryActionLabel="Reload page"
-                      onSecondaryAction={() => {
-                        window.location.reload();
-                      }}
-                      primaryActionLabel="Try again"
-                      onPrimaryAction={() => {
-                        setClientException(null);
-                        reset();
-                      }}
-                    />
-                  )}
-                >
-                  <Suspense fallback={null}>
-                    <AuthGate>
-                      <Suspense>{props.children}</Suspense>
-                    </AuthGate>
-                  </Suspense>
-                </ErrorBoundary>
-                <Toaster />
-                <GlobalErrorOverlay
-                  title="Client exception"
-                  message="The page resumed with a stale connection and hit an uncaught client error."
-                  error={clientException()?.error}
-                  open={() => clientException() !== null}
-                  secondaryActionLabel="Dismiss"
-                  onSecondaryAction={() => {
-                    setClientException(null);
-                  }}
-                  primaryActionLabel="Reload page"
-                  onPrimaryAction={() => {
-                    window.location.reload();
-                  }}
-                />
-              </MagicAuthProvider>
-            </QueryClientProvider>
-          </SessionProvider>
+          <QueryClientProvider client={queryClient}>
+            <MagicAuthProvider>
+              <ErrorBoundary
+                fallback={(error, reset) => (
+                  <GlobalErrorOverlay
+                    title="Something went wrong"
+                    message="An unexpected error interrupted the app. You can retry or reload the page."
+                    error={error}
+                    secondaryActionLabel="Reload page"
+                    onSecondaryAction={() => {
+                      window.location.reload();
+                    }}
+                    primaryActionLabel="Try again"
+                    onPrimaryAction={() => {
+                      setClientException(null);
+                      reset();
+                    }}
+                  />
+                )}
+              >
+                <Suspense fallback={null}>
+                  <AuthGate>
+                    <Suspense>{props.children}</Suspense>
+                  </AuthGate>
+                </Suspense>
+              </ErrorBoundary>
+              <Toaster />
+              <GlobalErrorOverlay
+                title="Client exception"
+                message="The page resumed with a stale connection and hit an uncaught client error."
+                error={clientException()?.error}
+                open={() => clientException() !== null}
+                secondaryActionLabel="Dismiss"
+                onSecondaryAction={() => {
+                  setClientException(null);
+                }}
+                primaryActionLabel="Reload page"
+                onPrimaryAction={() => {
+                  window.location.reload();
+                }}
+              />
+            </MagicAuthProvider>
+          </QueryClientProvider>
         </MetaProvider>
       )}
     >

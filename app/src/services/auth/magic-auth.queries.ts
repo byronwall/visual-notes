@@ -4,9 +4,12 @@ import { isRequestAuthenticated } from "~/server/magic-auth";
 
 export type MagicSession = { authed: boolean };
 
-export const fetchMagicSession = query(async (): Promise<MagicSession> => {
+// Public: the middleware lets this run without a session (public-server-fns.ts).
+export const getMagicSession = async (): Promise<MagicSession> => {
   "use server";
   const event = getRequestEvent();
   const authed = event ? isRequestAuthenticated(event.request) : false;
   return { authed };
-}, "magic-session");
+};
+
+export const fetchMagicSession = query(getMagicSession, "magic-session");

@@ -81,7 +81,10 @@ export const createCollection = action(
       })
       .parse(payload);
     const created = await createCollectionRecord(input);
-    return json({ id: created.id }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
+    return json(
+      { id: created.id },
+      { revalidate: [fetchCollections.key, fetchRecentItems.key] },
+    );
   },
   "collections-create",
 );
@@ -105,7 +108,10 @@ export const updateCollection = action(
     await requireCollection(input.id);
     const { id: collectionId, ...data } = input;
     await prisma.collection.update({ where: { id: collectionId }, data });
-    return json({ ok: true }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
+    return json(
+      { ok: true },
+      { revalidate: [fetchCollections.key, fetchRecentItems.key] },
+    );
   },
   "collections-update",
 );
@@ -125,7 +131,10 @@ export const deleteCollection = action(async (collectionId: string) => {
     }),
   ]);
   console.info("[collections] deleted %s", collectionId);
-  return json({ ok: true }, { revalidate: [fetchCollections.key, fetchRecentItems.key] });
+  return json(
+    { ok: true },
+    { revalidate: [fetchCollections.key, fetchRecentItems.key] },
+  );
 }, "collections-delete");
 
 // ---------- Properties ----------
@@ -547,7 +556,7 @@ export const reorderViews = action(
   "collections-view-reorder",
 );
 
-export type { CollectionProperty };
+export type { CollectionProperty } from "~/lib/collections/types";
 
 // ---------- Type change ----------
 
