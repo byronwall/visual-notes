@@ -69,7 +69,7 @@ const allTranscriptBlocks = (audios: DocAudioSummary[]): JSONContent[] =>
             attrs: { level: 2 },
             content: text(a.label ?? defaultRecordingLabel(a)),
           },
-          ...transcriptBlocks(a.transcriptAnalysis),
+          ...transcriptBlocks(a.transcriptAnalysis, a, "summary"),
         ]
       : [],
   );
