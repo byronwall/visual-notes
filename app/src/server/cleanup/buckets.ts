@@ -14,6 +14,7 @@ export const CLEANUP_BUCKETS = [
   "regroup",
   "post_event",
   "make_task",
+  "revisit_link",
   "delete",
   "keep",
 ] as const;
@@ -44,7 +45,27 @@ const prob = (answers: Answers, id: string, key: string): number => {
   return a && "probs" in a ? a.probs[key] ?? 0 : 0;
 };
 
+/** Queue order for breadcrumbs: links that load first, then unsure ones. */
+const LINK_CONFIDENCE = { ok: 0.8, blocked: 0.6, unchecked: 0.5 } as const;
+
 export function bucketFor(facts: NoteFacts, answers: Answers): BucketResult {
+  // A saved link is a breadcrumb, not a stub: delete it only when the link
+  // is gone. Otherwise it waits in revisit_link to be expanded or checked.
+  if (facts.linkUrl) {
+    if (facts.link?.status === "dead") {
+      return { bucket: "delete", confidence: 0.95 };
+    }
+    // A short to-do or plan that happens to hold a link is still a to-do.
+    const todo = p(answers, "is_todo");
+    if (todo >= THRESHOLDS.todo) {
+      return { bucket: "make_task", confidence: todo };
+    }
+    return {
+      bucket: "revisit_link",
+      confidence: LINK_CONFIDENCE[facts.link?.status ?? "unchecked"],
+    };
+  }
+
   // "Wrong" flags combine with max, not average.
   const problem = Math.max(
     p(answers, "empty_or_stub"),

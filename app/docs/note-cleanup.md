@@ -1,20 +1,28 @@
 # Note cleanup
 
-Cleanup suggests what to do with notes that have stopped earning their place: distill a copied answer, regroup related notes, summarize an event that has passed, turn a note into a task, or delete it. Every action waits for a click. The design and experiment behind it are in [docs/intent/notes-cleanup-decisions](../../docs/intent/notes-cleanup-decisions/ux-decisions.md).
+Cleanup suggests what to do with notes that have stopped earning their place: distill a copied answer, regroup related notes, summarize an event that has passed, turn a note into a task, revisit a saved link, or delete it. Every action waits for a click. The design and experiment behind it are in [docs/intent/notes-cleanup-decisions](../../docs/intent/notes-cleanup-decisions/ux-decisions.md).
 
 ## Assessment
 
 `server/cleanup/` asks a decision model a fixed set of yes/no and choice questions about each note, then picks a bucket in code.
 
-| File                  | Role                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `questions.ts`        | The question set, the owner profile, and `QUESTION_SET_VERSION`                                                                                   |
-| `note-state.ts`       | Facts code knows for sure: source (ChatGPT transcript, Notion import, agent, user), word count, latest date in the body and whether it has passed |
-| `decide.ts`           | `decide()` adapters for Jev and OpenAI Decisions, normalized to `{p}` / `{choice, probs}` / `{label, probs}`                                      |
-| `heuristic.ts`        | Rule-based answers for runs without a vendor key (local, audit databases). Results carry the `heuristic-v1` model name                            |
-| `buckets.ts`          | Combines answers into `distill`, `post_event`, `make_task`, `delete`, or `keep`, with the probability the queue sorts on                          |
-| `assess.ts`           | Finds stale notes, asks the questions, and upserts `NoteAssessment`                                                                               |
-| `assessment-sweep.ts` | One pass after boot, every six hours, and a minute after any content write                                                                        |
+| File                  | Role                                                                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `questions.ts`        | The question set, the owner profile, and `QUESTION_SET_VERSION`                                                                                                                              |
+| `note-state.ts`       | Facts code knows for sure: source (ChatGPT transcript, Notion import, agent, user), word count, latest date in the body and whether it has passed, and the link when the note is only a link |
+| `link-check.ts`       | Finds link-only notes (1–3 links, at most 15 other words) and checks whether the link loads                                                                                                  |
+| `decide.ts`           | `decide()` adapters for Jev and OpenAI Decisions, normalized to `{p}` / `{choice, probs}` / `{label, probs}`                                                                                 |
+| `heuristic.ts`        | Rule-based answers for runs without a vendor key (local, audit databases). Results carry the `heuristic-v1` model name                                                                       |
+| `buckets.ts`          | Combines answers into `distill`, `post_event`, `make_task`, `revisit_link`, `delete`, or `keep`, with the probability the queue sorts on                                                     |
+| `assess.ts`           | Finds stale notes, asks the questions, and upserts `NoteAssessment`                                                                                                                          |
+| `assessment-sweep.ts` | One pass after boot, every six hours, and a minute after any content write                                                                                                                   |
+
+### Saved links
+
+A note that is only a link is usually a breadcrumb: something to come back to, summarize, or try. It is never a stub.
+
+- Before the questions, the sweep fetches the link once per content version and stores `facts.link`: `ok`, `dead` (404, 410, or a host that does not exist), or `blocked` (401, 403, 429, 5xx, a timeout, or any other network error). The decision model sees it as a fact.
+- `dead` goes to `delete` with a "Link is dead" signal, and the sweep checks it again each day until you decide, so a site that comes back leaves Delete. A short to-do with a link still goes to `make_task`. Every other link goes to `revisit_link`, links that load first. A `blocked` link never goes to delete, because sites often refuse bots.
 
 A note is stale when it has no assessment, its `contentVersion` changed, or `QUESTION_SET_VERSION` changed. Collection rows, events, and places are never assessed.
 
@@ -69,6 +77,16 @@ The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `
 - **Post-event.** Code finds a date in the body that has passed, and `time_anchor` says the note is a one-time event or plan. When `evergreen_core` ≥ 0.4, the panel drafts "Keep for next time" with the post-event prompt (`POST_EVENT_FOCUS`). Without a key, a local fallback keeps sections headed like _Packing list_, _Contacts_, or _Next time_. The draft goes to a new or existing note and the original is archived. **Archive without keeping anything** is one click away. Below 0.4 the panel only offers Archive.
 - **Make task** (`is_todo` ≥ 0.8, `server/cleanup/make-task.ts`). The panel lists unchecked lines, or short bullets, or the title, as editable Inbox tasks. Checkboxes that are already inline tasks show as "Already tasks" and are detached from the note so they outlive it. Approving creates the new tasks and archives the note.
 - **Delete.** Shows what the note holds, or "This note is empty", and archives it. It is deleted after 30 days.
+
+## Revisit link
+
+`RevisitLinkPanel.tsx` and `server/cleanup/link-expand.ts`. When the card opens, the browser asks the server to load the page again. The server reads its text and writes a summary with the distill path and `LINK_FOCUS`. The decision model answers `page_worth_keeping` on the page text (`LINK_QUESTIONS`, not part of the sweep). The panel then offers:
+
+- **Add summary to note**: appends a "Summary" section under the link (with a `cleanup-append` revision). The note stays.
+- **Remind me to check it**: adds an Inbox task "Check out <title>: <url>" and snoozes the card for 30 days.
+- **Archive**: the primary action when the link is dead or `page_worth_keeping` < 0.3.
+
+A page that refuses the fetch or has little readable text gets no summary, so the reminder is the primary action. **Check again** loads the page again.
 
 ## Daily stack
 

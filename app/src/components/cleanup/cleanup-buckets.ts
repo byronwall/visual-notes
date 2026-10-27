@@ -7,6 +7,7 @@ export type BucketId =
   | "regroup"
   | "post_event"
   | "make_task"
+  | "revisit_link"
   | "delete";
 
 export type BucketMeta = {
@@ -39,6 +40,12 @@ export const BUCKET_META: Record<BucketId, BucketMeta> = {
     dot: "blue.9",
     blurb: "Really a to-do. Turn it into a task and archive the note.",
   },
+  revisit_link: {
+    label: "Revisit link",
+    dot: "blue.6",
+    blurb:
+      "A saved link you meant to come back to. Summarize it, set a reminder, or archive it if nothing is there.",
+  },
   delete: {
     label: "Delete",
     dot: "red.9",
@@ -53,6 +60,7 @@ export const RAIL_BUCKETS: BucketId[] = [
   "regroup",
   "post_event",
   "make_task",
+  "revisit_link",
   "delete",
 ];
 

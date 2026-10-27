@@ -16,7 +16,7 @@ export type Destination =
   | { kind: "new"; title: string; path: string | null }
   | { kind: "existing"; docId: string };
 
-const MONTH_DAY_YEAR: Intl.DateTimeFormatOptions = {
+export const MONTH_DAY_YEAR: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
   year: "numeric",

@@ -7,7 +7,7 @@
  * change: bump QUESTION_SET_VERSION so the sweep re-asks every note.
  */
 
-export const QUESTION_SET_VERSION = "v1";
+export const QUESTION_SET_VERSION = "v2";
 
 export type Option = readonly [key: string, description: string];
 
@@ -79,7 +79,7 @@ export const NOTE_QUESTIONS: Question[] = [
     id: "empty_or_stub",
     type: "noul",
     instructions:
-      "Is `note.body` empty, a title with no content, or a single link or line with no explanation?",
+      "Is `note.body` empty, a title with no content, or a single line with no explanation? A note that is only a saved link does not count: `owner` keeps those to come back to.",
   },
   {
     id: "import_junk",
@@ -104,6 +104,19 @@ export const NOTE_QUESTIONS: Question[] = [
     type: "noul",
     instructions:
       "Does `note.title` tell a reader what `note.body` is about, without opening it?",
+  },
+];
+
+/**
+ * Asked when the owner opens a saved link: `page` is the page as it loads
+ * today. Not part of the sweep, so it needs no version bump.
+ */
+export const LINK_QUESTIONS: Question[] = [
+  {
+    id: "page_worth_keeping",
+    type: "noul",
+    instructions:
+      "`owner` saved a link to `page` to come back to it. Does `page.text` hold something he would want to keep or try, given his interests? A login wall, an error page, a parked domain, or a generic page does not count.",
   },
 ];
 
