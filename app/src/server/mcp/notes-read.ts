@@ -20,6 +20,7 @@ import {
   type CreatedBy,
   type NoteSummary,
 } from "./shared";
+import { recordingsByNote, type NoteRecording } from "./note-recordings";
 import { buildPathTree, normalizeNotePath, type PathCount } from "./paths";
 import { fuseRankings, type FusedHit } from "./rank-fusion";
 import { semanticSearch, type SemanticResult } from "./semantic";
@@ -149,6 +150,8 @@ export type FullNote = NoteSummary & {
   embeds?: EmbeddedView[];
   /** Files attached to the note (`[name](/api/doc-files/…)` lines). */
   attachments?: NoteAttachment[];
+  /** Audio recordings with their transcript analysis, oldest first. */
+  recordings?: NoteRecording[];
 };
 
 export type NoteAttachment = {
@@ -237,6 +240,10 @@ export async function getNotes(
   const views = await embeddedViews([
     ...new Set([...viewIdsById.values()].flat()),
   ]);
+  const recordings = await recordingsByNote(
+    ctx,
+    rows.map((r) => r.id),
+  );
   const notes: FullNote[] = [];
   const missing: string[] = [];
   for (const id of ids) {
@@ -256,6 +263,7 @@ export async function getNotes(
       ...(collectionText[id] ? { collection: collectionText[id] } : {}),
       ...embedsField(viewIdsById.get(id) ?? [], views),
       ...attachmentsField(ctx, contentById.get(id)!.content ?? []),
+      ...(recordings.has(id) ? { recordings: recordings.get(id) } : {}),
     });
   }
   return { notes, missing };
