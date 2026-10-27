@@ -150,7 +150,16 @@ export const moveDocAudio = action(
         `Voice note · ${row.createdAt.toISOString().slice(0, 10)}`;
       const created = await createNoteRecord({
         title,
-        markdown: `# ${title}\n`,
+        content: {
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: title }],
+            },
+          ],
+        },
         path: row.doc.path ?? undefined,
       });
       toDocId = created.id;
@@ -160,8 +169,10 @@ export const moveDocAudio = action(
       where: { id: row.id },
       data: { docId: toDocId },
     });
-    await refreshDocAudioText(row.docId);
-    await refreshDocAudioText(toDocId);
+    await Promise.all([
+      refreshDocAudioText(row.docId),
+      refreshDocAudioText(toDocId),
+    ]);
     console.info("[doc-audio] moved", row.id, "from", row.docId, "to", toDocId);
     return json(
       { docId: toDocId },
