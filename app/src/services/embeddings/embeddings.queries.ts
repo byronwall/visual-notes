@@ -75,7 +75,7 @@ export const fetchEmbeddingRuns = query(
         })
         .catch(() => [] as any[]);
       idToCount = Object.fromEntries(
-        (grouped as any[]).map((g: any) => [g.runId, g._count?._all ?? 0])
+        (grouped as any[]).map((g: any) => [g.runId, g._count?._all ?? 0]),
       );
     }
     return runs.map((r) => ({
@@ -87,7 +87,7 @@ export const fetchEmbeddingRuns = query(
       count: idToCount[r.id] ?? 0,
     }));
   },
-  "embedding-runs"
+  "embedding-runs",
 );
 
 export const fetchEmbeddingRun = query(
@@ -117,7 +117,9 @@ export const fetchEmbeddingRun = query(
       },
     });
     if (!run) {
-      console.info("[embeddings.query] fetchEmbeddingRun:notFound", { id: input.id });
+      console.info("[embeddings.query] fetchEmbeddingRun:notFound", {
+        id: input.id,
+      });
       return null;
     }
 
@@ -139,11 +141,15 @@ export const fetchEmbeddingRun = query(
           AND (
             COALESCE(TRIM(d."markdown"), '') <> ''
             OR COALESCE(TRIM(d."html"), '') <> ''
+            OR COALESCE(TRIM(d."audioText"), '') <> ''
           );
       `) as any[];
       remaining = Number(rows?.[0]?.c || 0);
     } catch (e) {
-      console.warn("[embeddings.query] failed to count remaining eligible docs", e);
+      console.warn(
+        "[embeddings.query] failed to count remaining eligible docs",
+        e,
+      );
       remaining = 0;
     }
 
@@ -211,7 +217,10 @@ export const fetchEmbeddingRun = query(
         })
       : [];
     const byId = new Map(
-      docs.map((d) => [String(d.id), { id: String(d.id), title: String(d.title) }])
+      docs.map((d) => [
+        String(d.id),
+        { id: String(d.id), title: String(d.title) },
+      ]),
     );
     const items = rows.map((r) => ({
       id: r.docId,
@@ -241,7 +250,7 @@ export const fetchEmbeddingRun = query(
       docs: { items, limit, offset, total: filteredTotal },
     };
   },
-  "embedding-run"
+  "embedding-run",
 );
 
 export const fetchDocSections = query(
@@ -286,5 +295,5 @@ export const fetchDocSections = query(
       embedded: embeddedIds.has(s.id),
     }));
   },
-  "embedding-doc-sections"
+  "embedding-doc-sections",
 );
