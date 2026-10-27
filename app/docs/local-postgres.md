@@ -1,12 +1,13 @@
 # Local Postgres without Docker
 
-Dev and test work uses one Homebrew Postgres server (`postgresql@15`) on `localhost:5432`. Every worktree, audit owner, and project gets its own database on that server. Docker is only for production deploys (`app/docker-compose.yml`).
+Dev and test work uses one Homebrew Postgres server (`postgresql@18`) on `localhost:5432`. Every worktree, audit owner, and project gets its own database on that server. Docker is only for production deploys (`app/docker-compose.yml`).
 
 ## One server, many databases
 
-Many Postgres servers on this Mac default to port 5432: Homebrew `postgresql@14` and `postgresql@15`, the old `vn-db2` and `vn-dev-pg` containers, and bible-daily's container. When two of them bind 5432, `localhost` can reach either one. To stop them from fighting:
+Many Postgres servers on this Mac default to port 5432: older Homebrew versions (`postgresql@14`, `postgresql@15`), the old `vn-db2` and `vn-dev-pg` containers, and bible-daily's container. When two of them bind 5432, `localhost` can reach either one. To stop them from fighting:
 
-- Run only `postgresql@15` as a Homebrew service. Leave other versions stopped (`brew services list`).
+- Run only `postgresql@18` as a Homebrew service. Leave other versions stopped (`brew services list`).
+- Link 18 so plain `psql`, `pg_dump`, and `createdb` match the server: `brew unlink postgresql@15; brew link --force postgresql@18`. Older tools cannot read dumps from newer servers.
 - Do not start Postgres containers for dev. Make a new database on the shared server instead.
 - `audit:db` checks that the server on the port is Homebrew's. If another server answers, it names it and stops.
 
@@ -22,7 +23,7 @@ corepack pnpm audit:db -- --owner <slug>
 
 This command:
 
-1. Starts `postgresql@15` with `brew services` if nothing listens on the env file's port (it installs the formula first if it is missing).
+1. Starts `postgresql@18` with `brew services` if nothing listens on the env file's port (it installs the formula first if it is missing).
 2. Creates the env file's role (`postgres`/`postgres`) if it is missing.
 3. Creates `visual_notes_audit_<slug>` and applies every migration.
 4. Prints the commands that start the app (`pnpm dev` through `audit:harness`) and run Playwright against it.
@@ -43,32 +44,33 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/visual_notes_aud
 Server commands, if you need them:
 
 ```sh
-brew services start postgresql@15
-brew services stop postgresql@15
+brew services start postgresql@18
+brew services stop postgresql@18
 psql -h localhost -U postgres -l
 ```
 
 ## The main checkout's database
 
-The main checkout's `app/.env` names a database `visual-notes`. Before this change it lived in the `vn-db2` container. To give `pnpm dev` in the main checkout an empty database:
+The main checkout's `app/.env` names a database `visual-notes`. It holds a copy of the old `vn-db2` container's `visual_notes` database (22 synthetic notes, no users; real notes live in production). To start it again empty:
 
 ```sh
 cd app
+dropdb -h localhost -U postgres --force visual-notes
 createdb -h localhost -U postgres visual-notes
 pnpm prisma migrate deploy
 ```
 
-To copy the data from `vn-db2` instead, start Docker Desktop one last time, then:
+To copy a database out of an old container, start Docker Desktop, then:
 
 ```sh
-docker exec vn-db2 pg_dump -U postgres -Fc visual-notes > tmp/vn-db2.dump
-docker update --restart=no vn-db2 bible-daily-db-1
-docker stop vn-db2 bible-daily-db-1
+docker start vn-db2
+docker exec vn-db2 pg_dump -U postgres -Fc visual_notes > tmp/vn-db2.dump
+docker stop vn-db2
 createdb -h localhost -U postgres visual-notes
 pg_restore -h localhost -U postgres -d visual-notes --no-owner tmp/vn-db2.dump
 ```
 
-`docker update --restart=no` keeps the containers from taking port 5432 again the next time Docker starts. The Docker volume stays intact until you remove it.
+The Postgres containers now have `--restart=no`, so they do not take port 5432 when Docker starts. Their volumes are intact. bible-daily's container also holds the `bible` database and 26 old `visual_notes_audit_*` databases from earlier agents.
 
 ## Options we did not choose
 

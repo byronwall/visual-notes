@@ -139,7 +139,7 @@ function runSeeder(args: string[], env: Record<string, string>) {
 
 // Dev Postgres is Homebrew's, shared by every worktree; each worktree or
 // owner gets its own database on it. Idle, the server uses about 30 MB.
-export const devPostgres = { formula: "postgresql@15" };
+export const devPostgres = { formula: "postgresql@18" };
 
 function canConnect(host: string, port: number) {
   return new Promise<boolean>((resolvePromise) => {
@@ -178,7 +178,7 @@ function run(command: string, args: string[], input?: string) {
 
 /**
  * Makes sure the env file's loopback Postgres answers and knows the env
- * file's role. When nothing listens, starts Homebrew's postgresql@15 service
+ * file's role. When nothing listens, starts Homebrew's postgresql@18 service
  * (installing it first if needed), so no worktree needs Docker.
  */
 async function ensureDatabaseServer(target: URL) {
