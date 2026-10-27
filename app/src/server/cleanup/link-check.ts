@@ -33,7 +33,10 @@ export const USER_AGENT =
  * The first link when the note is only links (1–3) plus a few words, such
  * as a title line or "check this out". Null for anything with real content.
  */
-export function linkOnlyUrl(body: string): string | null {
+export function linkOnlyUrl(markdown: string): string | null {
+  // Markdown escapes `_` and friends in link labels (`Mortise\_and`), and an
+  // escaped URL is a different page.
+  const body = markdown.replace(/\\([\\`*_{}[\]()#+.!-])/g, "$1");
   const urls = body.match(URL_RE) ?? [];
   const first = urls[0];
   if (!first || urls.length > MAX_LINKS) return null;

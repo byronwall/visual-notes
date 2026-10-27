@@ -17,6 +17,12 @@ describe("linkOnlyUrl", () => {
     expect(linkOnlyUrl("- [Cool tool](https://tool.dev/x)")).toBe(
       "https://tool.dev/x",
     );
+    // The editor writes autolinks with escaped labels.
+    expect(
+      linkOnlyUrl(
+        "[https://en.wikipedia.org/wiki/Mortise\\_and\\_tenon](https://en.wikipedia.org/wiki/Mortise_and_tenon)",
+      ),
+    ).toBe("https://en.wikipedia.org/wiki/Mortise_and_tenon");
   });
 
   it("ignores notes with real writing or many links", () => {
