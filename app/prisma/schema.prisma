@@ -255,6 +255,9 @@ model Doc {
   @@index([collectionId])
   @@index([archivedAt])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+  // Keyword search ORs this with searchText; without its own index the
+  // OR falls back to a sequential scan.
+  @@index([audioText(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 // An audio recording attached to a note. The audio lives on disk (see

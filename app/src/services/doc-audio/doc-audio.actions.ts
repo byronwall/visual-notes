@@ -71,6 +71,9 @@ export const finishDocAudio = action(
         status: "ready",
         sizeBytes,
         durationMs: Math.max(existing.durationMs, input.durationMs),
+        // Set here, not in the job, so the returned row already reads
+        // pending and the strip starts polling for the transcript.
+        ...(canTranscribe() ? { transcriptStatus: "pending" as const } : {}),
       },
     });
     console.info("[doc-audio] finished", row.id, `${sizeBytes} bytes`);

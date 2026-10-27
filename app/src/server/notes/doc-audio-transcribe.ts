@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { openAsBlob } from "node:fs";
 import path from "node:path";
-import type { DocAudio } from "@prisma/client";
+import { Prisma, type DocAudio } from "@prisma/client";
 import { prisma } from "~/server/db";
 import { callLLM } from "~/server/lib/ai";
 import type {
@@ -8,7 +8,7 @@ import type {
   TranscriptSegment,
 } from "~/services/doc-audio/doc-audio.shared";
 import { transcriptMarkdown } from "~/services/doc-audio/doc-audio.shared";
-import { resolveDocAudioStorageDir } from "./doc-audio-storage";
+import { audioFileSize, resolveDocAudioStorageDir } from "./doc-audio-storage";
 import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
 const LOG = "[doc-audio-transcribe]";
@@ -50,21 +50,21 @@ export const canTranscribe = () => pickProvider() !== null;
 async function transcribeFile(row: DocAudio) {
   const provider = pickProvider();
   if (!provider) throw new Error("Set GROQ_API_KEY or OPENAI_API_KEY");
-  const bytes = await readFile(
-    path.join(resolveDocAudioStorageDir(), row.fileName),
-  );
-  if (bytes.length > provider.maxBytes) {
-    const mb = Math.round(bytes.length / 1024 / 1024);
+  const size = await audioFileSize(row.fileName);
+  if (size > provider.maxBytes) {
+    const mb = Math.round(size / 1024 / 1024);
     throw new Error(
       `Recording is ${mb} MB; ${provider.model} accepts at most ${provider.maxBytes / 1024 / 1024} MB`,
     );
   }
   const form = new FormData();
-  form.append(
-    "file",
-    new Blob([new Uint8Array(bytes)], { type: row.mimeType }),
-    row.fileName,
+  // openAsBlob reads the file as it uploads, so a long memo is never held
+  // in memory whole on the VPS.
+  const file = await openAsBlob(
+    path.join(resolveDocAudioStorageDir(), row.fileName),
+    { type: row.mimeType },
   );
+  form.append("file", file, row.fileName);
   form.append("model", provider.model);
   form.append("response_format", "verbose_json");
   form.append("timestamp_granularities[]", "segment");
@@ -231,16 +231,15 @@ async function transcribe(id: string) {
   const started = Date.now();
   try {
     const result = await transcribeFile(row);
-    const analysis = result.segments.length
-      ? await analyzeTranscript(row.docId, result.segments)
-      : null;
+    if (!result.segments.length) throw new Error("No speech found");
+    const analysis = await analyzeTranscript(row.docId, result.segments);
     await prisma.docAudio.update({
       where: { id },
       data: {
         transcriptStatus: "done",
         transcriptRaw: result.text,
         transcriptSegments: result.segments,
-        transcriptAnalysis: analysis ?? undefined,
+        transcriptAnalysis: analysis,
         transcriptModel: `${result.model} + ${ANALYSIS_MODEL} (${PROMPT_VERSION})`,
         transcribedAt: new Date(),
       },
@@ -259,7 +258,11 @@ async function transcribe(id: string) {
     console.error(`${LOG} failed %s: %s`, id, message);
     await prisma.docAudio.update({
       where: { id },
-      data: { transcriptStatus: "failed", transcriptError: message },
+      data: {
+        transcriptStatus: "failed",
+        transcriptError: message,
+        transcriptAnalysis: Prisma.JsonNull,
+      },
     });
   }
 }
