@@ -8,12 +8,14 @@ import {
   createAudioFile,
   normalizeAudioMimeType,
 } from "~/server/notes/doc-audio-storage";
+import { createNoteRecord } from "~/server/notes/create-note";
 import {
   canTranscribe,
   queueTranscription,
+  refreshDocAudioText,
 } from "~/server/notes/doc-audio-transcribe";
 import { fetchDocAudios, toDocAudioSummary } from "./doc-audio.queries";
-import { DOC_AUDIO_LABEL_MAX } from "./doc-audio.shared";
+import { DOC_AUDIO_LABEL_MAX, type TranscriptAnalysis } from "./doc-audio.shared";
 
 const startInput = z.object({
   docId: z.string().min(1),
@@ -115,4 +117,61 @@ export const renameDocAudio = action(
     });
   },
   "doc-audio-rename",
+);
+
+const moveInput = z.object({
+  id: z.string().min(1),
+  /** Target note; omit to create a new note for the recording. */
+  toDocId: z.string().min(1).optional(),
+});
+
+/** Moves a recording and its transcript to another note, or to a new one. */
+export const moveDocAudio = action(
+  async (payload: z.infer<typeof moveInput>) => {
+    "use server";
+    const input = moveInput.parse(payload);
+    const row = await prisma.docAudio.findUnique({
+      where: { id: input.id },
+      include: { doc: { select: { path: true } } },
+    });
+    if (!row) throw new Error("Recording not found");
+    let toDocId = input.toDocId;
+    if (toDocId) {
+      const target = await prisma.doc.findUnique({
+        where: { id: toDocId },
+        select: { id: true },
+      });
+      if (!target) throw new Error("Note not found");
+    } else {
+      const analysis = row.transcriptAnalysis as TranscriptAnalysis | null;
+      const title =
+        row.label ??
+        analysis?.title ??
+        `Voice note · ${row.createdAt.toISOString().slice(0, 10)}`;
+      const created = await createNoteRecord({
+        title,
+        markdown: `# ${title}\n`,
+        path: row.doc.path ?? undefined,
+      });
+      toDocId = created.id;
+    }
+    if (toDocId === row.docId) return json({ docId: toDocId });
+    await prisma.docAudio.update({
+      where: { id: row.id },
+      data: { docId: toDocId },
+    });
+    await refreshDocAudioText(row.docId);
+    await refreshDocAudioText(toDocId);
+    console.info("[doc-audio] moved", row.id, "from", row.docId, "to", toDocId);
+    return json(
+      { docId: toDocId },
+      {
+        revalidate: [
+          fetchDocAudios.keyFor(row.docId),
+          fetchDocAudios.keyFor(toDocId),
+        ],
+      },
+    );
+  },
+  "doc-audio-move",
 );

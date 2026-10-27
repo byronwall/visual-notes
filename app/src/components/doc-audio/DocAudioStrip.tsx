@@ -1,4 +1,4 @@
-import { useAction } from "@solidjs/router";
+import { useAction, useNavigate } from "@solidjs/router";
 import type { JSONContent } from "@tiptap/core";
 import {
   For,
@@ -10,8 +10,10 @@ import {
 } from "solid-js";
 import { HStack, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
+import { useToasts } from "~/components/Toast";
 import { useAudioRecorder } from "~/features/audio-recorder/useAudioRecorder";
 import {
+  moveDocAudio,
   renameDocAudio,
   transcribeDocAudio,
 } from "~/services/doc-audio/doc-audio.actions";
@@ -97,6 +99,9 @@ export const DocAudioStrip = (props: {
   const recorder = useAudioRecorder();
   const rename = useAction(renameDocAudio);
   const transcribe = useAction(transcribeDocAudio);
+  const move = useAction(moveDocAudio);
+  const navigate = useNavigate();
+  const { show: showToast } = useToasts();
   const [audios, { mutate, refetch }] = createResource(
     () => ({ docId: props.docId, version: recorder.listVersion() }),
     ({ docId }) => fetchDocAudios(docId),
@@ -134,6 +139,17 @@ export const DocAudioStrip = (props: {
   const handleRename = async (id: string, label: string) => {
     const updated = await rename({ id, label });
     mutate((prev) => prev?.map((a) => (a.id === id ? updated : a)));
+  };
+
+  const handleMove = async (id: string, toDocId: string | null) => {
+    const result = await move({ id, toDocId: toDocId ?? undefined });
+    mutate((prev) => prev?.filter((a) => a.id !== id));
+    showToast({
+      type: "success",
+      message: toDocId ? "Recording moved" : "Recording moved to a new note",
+      actionLabel: "Open note",
+      onClick: () => navigate(`/docs/${result.docId}`),
+    });
   };
 
   createEffect(() =>
@@ -200,6 +216,7 @@ export const DocAudioStrip = (props: {
               audio={audio}
               onRename={(label) => handleRename(audio.id, label)}
               onTranscribe={() => void handleTranscribe(audio.id)}
+              onMove={(toDocId) => handleMove(audio.id, toDocId)}
               onInsert={
                 props.onInsertBlocks && audio.transcriptAnalysis
                   ? (mode) =>
