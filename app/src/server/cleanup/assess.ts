@@ -64,11 +64,15 @@ export async function staleDocIds(limit: number): Promise<string[]> {
         a.id IS NULL
         OR a."contentVersion" <> d."contentVersion"
         OR a."questionSetVersion" <> ${QUESTION_SET_VERSION}
-        -- A transcript finished (or the recording count is unknown) since.
+        -- A recording was added or transcribed since, or the count is unknown.
         OR EXISTS (
           SELECT 1 FROM "DocAudio" x
           WHERE x."docId" = d.id
-            AND (a.facts->'recordings' IS NULL OR x."transcribedAt" > a."updatedAt")
+            AND (
+              a.facts->'recordings' IS NULL
+              OR x."createdAt" > a."updatedAt"
+              OR x."transcribedAt" > a."updatedAt"
+            )
         )
         -- A dead link may come back: check it again each day until decided.
         OR (
