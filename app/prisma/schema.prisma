@@ -189,6 +189,9 @@ model Doc {
   contentVersion             Int      @default(0)
   // Plain text for indexed keyword search; derived on every content write.
   searchText                 String?
+  // Summaries and cleaned transcripts of the note's recordings; derived after
+  // each transcription. Keyword search and embeddings read it with the body.
+  audioText                  String?
   // Legacy string bodies, derived from `content` until the cutover is confirmed.
   markdown                   String // @db.Text
   html                       String // @db.Text
@@ -252,6 +255,9 @@ model Doc {
   @@index([collectionId])
   @@index([archivedAt])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+  // Keyword search ORs this with searchText; without its own index the
+  // OR falls back to a sequential scan.
+  @@index([audioText(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 // An audio recording attached to a note. The audio lives on disk (see
@@ -273,6 +279,19 @@ model DocAudio {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
+  // Speech-to-text output. Raw text and timed segments come from the
+  // transcription API; the analysis (title, summary, cleaned sections,
+  // tasks) comes from one LLM plan pass over them.
+  transcriptStatus   DocAudioTranscriptStatus @default(none)
+  transcriptError    String?
+  transcriptRaw      String?
+  /// [{ start, end, text }] in seconds.
+  transcriptSegments Json?
+  /// TranscriptAnalysis (see doc-audio.shared.ts).
+  transcriptAnalysis Json?
+  transcriptModel    String?
+  transcribedAt      DateTime?
+
   doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
 
   @@index([docId, createdAt])
@@ -281,6 +300,13 @@ model DocAudio {
 enum DocAudioStatus {
   recording
   ready
+}
+
+enum DocAudioTranscriptStatus {
+  none
+  pending
+  done
+  failed
 }
 
 /// Prior content captured before an automated edit (e.g. ChatGPT via MCP)

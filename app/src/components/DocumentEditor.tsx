@@ -43,6 +43,8 @@ type DocData = {
 
 export type DocumentEditorApi = {
   save: () => Promise<void>;
+  /** Appends blocks at the end of the note; autosave persists them. */
+  appendBlocks: (blocks: JSONContent[]) => void;
   canSave: () => boolean;
   saving: () => boolean;
   dirty: () => boolean;
@@ -648,6 +650,11 @@ const DocumentEditor: VoidComponent<{
   if (props.apiRef) {
     props.apiRef({
       save: onSave,
+      appendBlocks: (blocks) => {
+        const ed = editor();
+        if (!ed) return;
+        ed.chain().insertContentAt(ed.state.doc.content.size, blocks).run();
+      },
       canSave,
       saving,
       dirty,

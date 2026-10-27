@@ -7,6 +7,8 @@ export async function callLLM(opts: {
   temperature?: number;
   top_p?: number;
   noteId?: string;
+  /** JSON schema for Structured Outputs; the output is then that JSON text. */
+  schema?: { name: string; schema: Record<string, unknown> };
 }) {
   // GPT-5 reasoning models reject sampling parameters.
   const supportsSampling = !opts.model.startsWith("gpt-5");
@@ -42,6 +44,13 @@ export async function callLLM(opts: {
         input: opts.system ? `${opts.system}\n\n${opts.user}` : opts.user,
         temperature,
         top_p: topP,
+        ...(opts.schema
+          ? {
+              text: {
+                format: { type: "json_schema", strict: true, ...opts.schema },
+              },
+            }
+          : {}),
       }),
     });
 
@@ -131,7 +140,7 @@ export async function callLLM(opts: {
   if (!output) {
     console.error(
       "[llm] empty output. raw=",
-      JSON.stringify(json).slice(0, 800)
+      JSON.stringify(json).slice(0, 800),
     );
   }
   return { output, raw: json };

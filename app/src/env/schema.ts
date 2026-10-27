@@ -13,6 +13,10 @@ export const serverScheme = z.object({
   // Bearer token for the research REST ingest routes (agents, seed scripts). Unset = disabled.
   RESEARCH_AGENT_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  // Speech-to-text for note recordings (Groq Whisper). Unset = OpenAI whisper-1.
+  GROQ_API_KEY: z.string().optional(),
+  // Model for the transcript plan pass (title, summary, sections, tasks).
+  TRANSCRIPT_LLM_MODEL: z.string().optional(),
   // Jev (TypeSafe) decision model for note cleanup triage. Unset = no Jev.
   TYPESAFE_API_KEY: z.string().optional(),
   // Cleanup assessment provider: jev (default when TYPESAFE_API_KEY is set),

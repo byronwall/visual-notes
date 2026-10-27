@@ -59,8 +59,18 @@ export const searchDocs = query(
     const titlePathTokenAndClause = hasMultiTermQuery
       ? terms.map((token) => ({
           OR: [
-            { title: { contains: escapeContains(token), mode: "insensitive" as const } },
-            { path: { contains: escapeContains(token), mode: "insensitive" as const } },
+            {
+              title: {
+                contains: escapeContains(token),
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              path: {
+                contains: escapeContains(token),
+                mode: "insensitive" as const,
+              },
+            },
           ],
         }))
       : [];
@@ -74,10 +84,16 @@ export const searchDocs = query(
             ? [{ AND: titlePathTokenAndClause }]
             : [
                 ...terms.map((token) => ({
-                  title: { contains: escapeContains(token), mode: "insensitive" as const },
+                  title: {
+                    contains: escapeContains(token),
+                    mode: "insensitive" as const,
+                  },
                 })),
                 ...terms.map((token) => ({
-                  path: { contains: escapeContains(token), mode: "insensitive" as const },
+                  path: {
+                    contains: escapeContains(token),
+                    mode: "insensitive" as const,
+                  },
                 })),
               ]),
         ],
@@ -144,13 +160,15 @@ export const searchDocs = query(
     let bodyPages = 0;
     let cursorId: string | undefined;
     const bodyTerms = [...new Set([termLower, ...terms])];
+    // Recording transcripts (`audioText`) count as body text.
     const bodyMatch = {
-      OR: bodyTerms.map((value) => ({
-        searchText: {
+      OR: bodyTerms.flatMap((value) => {
+        const contains = {
           contains: escapeContains(value),
           mode: "insensitive" as const,
-        },
-      })),
+        };
+        return [{ searchText: contains }, { audioText: contains }];
+      }),
     };
 
     while (true) {
@@ -165,6 +183,7 @@ export const searchDocs = query(
           updatedAt: true,
           path: true,
           searchText: true,
+          audioText: true,
           share: {
             select: {
               slug: true,
@@ -180,7 +199,7 @@ export const searchDocs = query(
 
       for (const d of docs) {
         bodyMatchesLoaded += 1;
-        const text = d.searchText ?? "";
+        const text = [d.searchText, d.audioText].filter(Boolean).join("\n\n");
         bodyBytesLoaded += Buffer.byteLength(text, "utf8");
         if (!text) continue;
 
@@ -191,7 +210,8 @@ export const searchDocs = query(
         const titlePath = `${d.title ?? ""} ${d.path ?? ""}`;
         const existing = hitsMap.get(d.id);
         if (existing) {
-          if (snippet && !existing.item.snippet) existing.item.snippet = snippet;
+          if (snippet && !existing.item.snippet)
+            existing.item.snippet = snippet;
           existing.score += bodyScore;
           mergeTokenHits(existing.tokenHits, collectTokenHits(text, terms));
           if (!existing.hasExactTerm && includesNormalized(text, termLower)) {
@@ -263,16 +283,26 @@ export const searchDocs = query(
       })
       .map((entry) => {
         const snapshot = snapshotByDocId.get(entry.item.id);
-        const viewsBoost = Math.min(140, Math.log1p(snapshot?.views30d ?? 0) * 28);
-        const editsBoost = Math.min(150, Math.log1p(snapshot?.edits30d ?? 0) * 35);
+        const viewsBoost = Math.min(
+          140,
+          Math.log1p(snapshot?.views30d ?? 0) * 28,
+        );
+        const editsBoost = Math.min(
+          150,
+          Math.log1p(snapshot?.edits30d ?? 0) * 35,
+        );
         const intentBoost = Math.min(
           90,
-          Math.log1p(snapshot?.searchClicks30d ?? 0) * 24
+          Math.log1p(snapshot?.searchClicks30d ?? 0) * 24,
         );
         const recencyBoost = snapshot?.lastInteractedAt
           ? Math.max(
               0,
-              120 - Math.floor((nowMs - snapshot.lastInteractedAt.getTime()) / (12 * 60 * 60 * 1000))
+              120 -
+                Math.floor(
+                  (nowMs - snapshot.lastInteractedAt.getTime()) /
+                    (12 * 60 * 60 * 1000),
+                ),
             )
           : 0;
         const blendedScore =
@@ -352,7 +382,7 @@ export const searchDocs = query(
     });
     return items;
   },
-  "docs-index-search"
+  "docs-index-search",
 );
 
 function escapeContains(value: string): string {
@@ -413,7 +443,7 @@ function scoreTitleAndPath(input: {
 function scoreBodyText(
   text: string,
   termLower: string,
-  terms: string[]
+  terms: string[],
 ): number {
   const lower = text.toLowerCase();
   let score = 0;
@@ -438,7 +468,7 @@ function scoreBodyText(
 function buildSnippet(
   text: string,
   qLower: string,
-  terms: string[]
+  terms: string[],
 ): string | undefined {
   const lower = text.toLowerCase();
   let idx = lower.indexOf(qLower);
@@ -477,7 +507,6 @@ function normalizeForContains(value: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
-
 
 function collectTokenHits(text: string, terms: string[]): Set<string> {
   const normalized = normalizeForContains(text);
