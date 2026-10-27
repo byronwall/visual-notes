@@ -154,7 +154,14 @@ export const DocAudioStrip = (props: {
     <Show
       when={live() || stored().length > 0 || uploads().length > 0 || error()}
     >
-      <Stack gap="2" mb="4" data-testid="doc-audio-strip">
+      <Stack
+        gap="2"
+        mb="4"
+        // The strip sits inside the note's prose styles; its rows set
+        // their own rhythm.
+        css={{ "& p": { m: "0" } }}
+        data-testid="doc-audio-strip"
+      >
         <HStack justifyContent="space-between" gap="2">
           <Text
             fontSize="xs"

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type TranscriptAnalysis,
   excerptSeconds,
+  readableTranscriptError,
   segmentsBySection,
 } from "./doc-audio.shared";
 
@@ -41,5 +42,16 @@ describe("excerptSeconds", () => {
 
   it("returns null for a paraphrase", () => {
     expect(excerptSeconds("report layout conflicts", segments)).toBeNull();
+  });
+});
+
+describe("readableTranscriptError", () => {
+  it("replaces a provider's JSON body with its message", () => {
+    expect(
+      readableTranscriptError(
+        'whisper-1 413: {"error":{"message":"File too \\"big\\"","type":"x"}}',
+      ),
+    ).toBe('File too "big" (whisper-1 413)');
+    expect(readableTranscriptError("No speech found")).toBe("No speech found");
   });
 });

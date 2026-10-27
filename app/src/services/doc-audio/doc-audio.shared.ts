@@ -129,7 +129,22 @@ export const verbatimMarkdown = (
     )
     .join("\n\n");
 
-export const docAudioUrl =(id: string) => `/api/doc-audio/${id}`;
+/**
+ * A transcription error for people: the provider's `error.message` in place
+ * of its raw JSON body (`whisper-1 413: {"error":{"message":…}}`).
+ */
+export const readableTranscriptError = (error: string) => {
+  const json = error.indexOf("{");
+  if (json < 0) return error;
+  const message = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(
+    error.slice(json),
+  );
+  if (!message) return error;
+  const prefix = error.slice(0, json).replace(/[:\s]+$/, "");
+  return `${message[1]!.replace(/\\"/g, '"')}${prefix ? ` (${prefix})` : ""}`;
+};
+
+export const docAudioUrl = (id: string) => `/api/doc-audio/${id}`;
 export const docAudioChunkUrl = (id: string, seq: number, elapsedMs: number) =>
   `/api/doc-audio/${id}/chunks?seq=${seq}&elapsedMs=${Math.round(elapsedMs)}`;
 

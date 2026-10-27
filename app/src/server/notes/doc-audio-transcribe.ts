@@ -7,7 +7,10 @@ import type {
   TranscriptAnalysis,
   TranscriptSegment,
 } from "~/services/doc-audio/doc-audio.shared";
-import { transcriptMarkdown } from "~/services/doc-audio/doc-audio.shared";
+import {
+  readableTranscriptError,
+  transcriptMarkdown,
+} from "~/services/doc-audio/doc-audio.shared";
 import { audioFileSize, resolveDocAudioStorageDir } from "./doc-audio-storage";
 import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
@@ -76,7 +79,11 @@ async function transcribeFile(row: DocAudio) {
   });
   const body = await res.text();
   if (!res.ok) {
-    throw new Error(`${provider.model} ${res.status}: ${body.slice(0, 300)}`);
+    throw new Error(
+      readableTranscriptError(
+        `${provider.model} ${res.status}: ${body.slice(0, 300)}`,
+      ),
+    );
   }
   const json = JSON.parse(body) as {
     text?: string;

@@ -4,7 +4,7 @@ import {
   CopyIcon,
   TextQuoteIcon,
 } from "lucide-solid";
-import { Show, createSignal } from "solid-js";
+import { type JSX, Show, createSignal, onMount } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
@@ -22,6 +22,54 @@ import { type TranscriptMode, TranscriptSections } from "./TranscriptSections";
 const wordCount = (segments: TranscriptSegment[]) =>
   segments.reduce((n, s) => n + s.text.split(/\s+/).filter(Boolean).length, 0);
 
+const plural = (n: number, word: string) =>
+  `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+
+// One choice for every recording, remembered per viewer.
+const MODE_KEY = "vn.transcript-mode";
+const [mode, setMode] = createSignal<TranscriptMode>("summary");
+
+/** Cross-fades between an idle icon and a confirmation, in place. */
+const SwapIcon = (props: { on: boolean; idle: JSX.Element; done: JSX.Element }) => (
+  <Box as="span" position="relative" display="inline-flex" boxSize="3.5">
+    <Box
+      as="span"
+      position="absolute"
+      inset="0"
+      display="inline-flex"
+      transition="opacity 0.14s, transform 0.14s"
+      style={{ opacity: props.on ? 0 : 1, transform: props.on ? "scale(0.6)" : "none" }}
+    >
+      {props.idle}
+    </Box>
+    <Box
+      as="span"
+      position="absolute"
+      inset="0"
+      display="inline-flex"
+      color="green.11"
+      transition="opacity 0.14s, transform 0.14s"
+      style={{ opacity: props.on ? 1 : 0, transform: props.on ? "none" : "scale(0.6)" }}
+    >
+      {props.done}
+    </Box>
+  </Box>
+);
+
+/** A flag that turns itself off after a moment. */
+const flash = () => {
+  const [on, setOn] = createSignal(false);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return [
+    on,
+    () => {
+      setOn(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setOn(false), 1500);
+    },
+  ] as const;
+};
+
 /**
  * A finished transcript under its recording: summary and tasks always, then
  * the sections behind a toggle in summary or raw (verbatim) form. Copy and
@@ -37,23 +85,50 @@ export const DocAudioTranscript = (props: {
   onAddTask?: (text: string) => void;
 }) => {
   const [open, setOpen] = createSignal(false);
-  const [mode, setMode] = createSignal<TranscriptMode>("summary");
-  const [copied, setCopied] = createSignal(false);
+  const [copied, flashCopied] = flash();
+  const [inserted, flashInserted] = flash();
+  const [copyFailed, setCopyFailed] = createSignal(false);
   const hasRaw = () => props.segments.length > 0;
+  // Without raw segments there is only the summary form.
+  const shown = (): TranscriptMode => (hasRaw() ? mode() : "summary");
+  const formName = () => (shown() === "raw" ? "raw transcript" : "transcript");
+
+  onMount(() => {
+    try {
+      if (localStorage.getItem(MODE_KEY) === "raw") setMode("raw");
+    } catch {
+      // Storage can be blocked; the default form is fine.
+    }
+  });
 
   const pickMode = (value: TranscriptMode) => {
     setMode(value);
     setOpen(true);
+    try {
+      localStorage.setItem(MODE_KEY, value);
+    } catch {
+      // Not remembered this time.
+    }
   };
 
   const copy = async () => {
     const text =
-      mode() === "raw"
+      shown() === "raw"
         ? verbatimMarkdown(props.analysis, props.segments)
         : transcriptMarkdown(props.analysis);
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFailed(false);
+      flashCopied();
+    } catch (err) {
+      console.warn("[doc-audio] copy failed", err);
+      setCopyFailed(true);
+    }
+  };
+
+  const insert = () => {
+    props.onInsert?.(shown());
+    flashInserted();
   };
 
   return (
@@ -73,11 +148,20 @@ export const DocAudioTranscript = (props: {
           onAddTask={props.onAddTask}
         />
       </Show>
-      <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
+      <HStack
+        gap="2"
+        rowGap="1"
+        justifyContent="space-between"
+        flexWrap="wrap"
+        minH="6"
+      >
         <Button
-          size="xs"
+          size="2xs"
           variant="plain"
           px="0"
+          ml="-0.5"
+          color="fg.muted"
+          fontWeight="semibold"
           aria-expanded={open()}
           onClick={() => setOpen(!open())}
         >
@@ -89,17 +173,17 @@ export const DocAudioTranscript = (props: {
           >
             <ChevronRightIcon size={14} />
           </Box>
-          Transcript · {props.analysis.sections.length} sections
+          Transcript · {plural(props.analysis.sections.length, "section")}
           <Show when={hasRaw()}>
             {" "}
-            · {wordCount(props.segments).toLocaleString()} words
+            · {plural(wordCount(props.segments), "word")}
           </Show>
         </Button>
-        <HStack gap="1">
+        <HStack gap="1" alignItems="center">
           <Show when={hasRaw()}>
             <SegmentGroup.Root
               size="xs"
-              value={mode()}
+              value={shown()}
               aria-label="Transcript form"
               onValueChange={(d) => pickMode(d.value as TranscriptMode)}
             >
@@ -115,23 +199,35 @@ export const DocAudioTranscript = (props: {
             </SegmentGroup.Root>
           </Show>
           <IconButton
-            size="xs"
+            size="2xs"
             variant="plain"
+            color={copyFailed() ? "red.11" : "fg.muted"}
             aria-label={
-              mode() === "raw" ? "Copy raw transcript" : "Copy transcript"
+              copyFailed()
+                ? `Copy failed; try again to copy the ${formName()}`
+                : `Copy ${formName()}`
             }
-            title={mode() === "raw" ? "Copy raw transcript" : "Copy transcript"}
             onClick={() => void copy()}
           >
-            {copied() ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+            <SwapIcon
+              on={copied()}
+              idle={<CopyIcon size={14} />}
+              done={<CheckIcon size={14} />}
+            />
           </IconButton>
           <Show when={props.onInsert}>
             <Button
-              size="xs"
+              size="2xs"
               variant="plain"
-              onClick={() => props.onInsert?.(mode())}
+              color="fg.muted"
+              aria-label={`Insert the ${formName()} into the note`}
+              onClick={insert}
             >
-              <TextQuoteIcon size={12} />
+              <SwapIcon
+                on={inserted()}
+                idle={<TextQuoteIcon size={14} />}
+                done={<CheckIcon size={14} />}
+              />
               Insert into note
             </Button>
           </Show>
@@ -141,7 +237,7 @@ export const DocAudioTranscript = (props: {
         <TranscriptSections
           analysis={props.analysis}
           segments={props.segments}
-          mode={mode()}
+          mode={shown()}
           time={props.time}
           playing={props.playing}
           onSeek={props.onSeek}

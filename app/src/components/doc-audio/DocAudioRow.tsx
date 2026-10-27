@@ -2,15 +2,16 @@ import { Match, Show, Switch, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { InPlaceEditableText } from "~/components/InPlaceEditableText";
 import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { formatDuration } from "~/features/audio-recorder/useAudioRecorder";
 import {
   type DocAudioSummary,
   docAudioUrl,
+  readableTranscriptError,
 } from "~/services/doc-audio/doc-audio.shared";
 import { DocAudioTranscript } from "./DocAudioTranscript";
 import type { TranscriptMode } from "./TranscriptSections";
+import { TranscriptStatusLine } from "./TranscriptStatusLine";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -56,7 +57,7 @@ export const DocAudioRow = (props: {
       bg="bg.default"
       data-testid="doc-audio-row"
     >
-      <HStack gap="2" alignItems="center" minW="0">
+      <HStack gap="2" alignItems="baseline" minW="0">
         <Box flex="1" minW="0">
           <InPlaceEditableText
             value={props.audio.label ?? ""}
@@ -109,36 +110,22 @@ export const DocAudioRow = (props: {
           )}
         </Match>
         <Match when={props.audio.transcriptStatus === "pending"}>
-          <Text fontSize="xs" color="fg.muted" role="status">
-            Transcribing…
-          </Text>
+          <TranscriptStatusLine busy>Transcribing…</TranscriptStatusLine>
         </Match>
         <Match when={props.audio.transcriptStatus === "failed"}>
-          <HStack gap="2" justifyContent="space-between">
-            <Text
-              fontSize="xs"
-              color="red.11"
-              truncate
-              title={props.audio.transcriptError ?? ""}
-            >
-              Transcript failed: {props.audio.transcriptError}
-            </Text>
-            <Button
-              size="xs"
-              variant="plain"
-              flexShrink="0"
-              onClick={props.onTranscribe}
-            >
-              Retry
-            </Button>
-          </HStack>
+          <TranscriptStatusLine
+            tone="error"
+            action="Retry"
+            onAction={props.onTranscribe}
+          >
+            Transcript failed:{" "}
+            {readableTranscriptError(props.audio.transcriptError ?? "unknown error")}
+          </TranscriptStatusLine>
         </Match>
         <Match when={props.audio.transcriptStatus === "none"}>
-          <HStack justifyContent="flex-end">
-            <Button size="xs" variant="plain" onClick={props.onTranscribe}>
-              Transcribe
-            </Button>
-          </HStack>
+          <TranscriptStatusLine action="Transcribe" onAction={props.onTranscribe}>
+            Not transcribed yet
+          </TranscriptStatusLine>
         </Match>
       </Switch>
     </Stack>
