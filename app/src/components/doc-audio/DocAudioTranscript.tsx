@@ -1,38 +1,59 @@
 import {
   CheckIcon,
   ChevronRightIcon,
-  PlusIcon,
+  CopyIcon,
   TextQuoteIcon,
 } from "lucide-solid";
-import { For, Show, createSignal } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
+import * as SegmentGroup from "~/components/ui/segment-group";
 import { Text } from "~/components/ui/text";
 import {
   type TranscriptAnalysis,
-  formatStamp,
-  stampSeconds,
+  type TranscriptSegment,
+  transcriptMarkdown,
+  verbatimMarkdown,
 } from "~/services/doc-audio/doc-audio.shared";
+import { DocAudioTasks } from "./DocAudioTasks";
+import { type TranscriptMode, TranscriptSections } from "./TranscriptSections";
+
+const wordCount = (segments: TranscriptSegment[]) =>
+  segments.reduce((n, s) => n + s.text.split(/\s+/).filter(Boolean).length, 0);
 
 /**
- * A finished transcript under its recording: summary always, tasks with an
- * add button each, and the cleaned sections behind a toggle. Clicking a
- * section's time seeks the player.
+ * A finished transcript under its recording: summary and tasks always, then
+ * the sections behind a toggle in summary or raw (verbatim) form. Copy and
+ * Insert act on the form that is showing.
  */
 export const DocAudioTranscript = (props: {
   analysis: TranscriptAnalysis;
+  segments: TranscriptSegment[];
+  time: number | null;
+  playing: boolean;
   onSeek: (seconds: number) => void;
-  onInsert?: () => void;
+  onInsert?: (mode: TranscriptMode) => void;
   onAddTask?: (text: string) => void;
 }) => {
   const [open, setOpen] = createSignal(false);
-  // Keyed by text so a redo with a different task list starts clean.
-  const [added, setAdded] = createSignal<Set<string>>(new Set());
+  const [mode, setMode] = createSignal<TranscriptMode>("summary");
+  const [copied, setCopied] = createSignal(false);
+  const hasRaw = () => props.segments.length > 0;
 
-  const addTask = (text: string) => {
-    props.onAddTask?.(text);
-    setAdded((prev) => new Set(prev).add(text));
+  const pickMode = (value: TranscriptMode) => {
+    setMode(value);
+    setOpen(true);
+  };
+
+  const copy = async () => {
+    const text =
+      mode() === "raw"
+        ? verbatimMarkdown(props.analysis, props.segments)
+        : transcriptMarkdown(props.analysis);
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -41,48 +62,18 @@ export const DocAudioTranscript = (props: {
         {props.analysis.summary}
       </Text>
       <Show when={props.analysis.tasks.length > 0}>
-        <Stack gap="1">
-          <Text fontSize="xs" fontWeight="semibold" color="fg.muted">
-            Tasks
-          </Text>
-          <For each={props.analysis.tasks}>
-            {(task) => (
-              <HStack gap="1.5" alignItems="flex-start">
-                <Show when={props.onAddTask}>
-                  <IconButton
-                    size="2xs"
-                    variant="plain"
-                    flexShrink="0"
-                    mt="-0.5"
-                    aria-label={
-                      added().has(task.text)
-                        ? "Added as a task in the note"
-                        : "Add as a task in the note"
-                    }
-                    title={
-                      added().has(task.text)
-                        ? "Added to the note"
-                        : "Add as a task in the note"
-                    }
-                    disabled={added().has(task.text)}
-                    onClick={() => addTask(task.text)}
-                  >
-                    {added().has(task.text) ? (
-                      <CheckIcon size={14} />
-                    ) : (
-                      <PlusIcon size={14} />
-                    )}
-                  </IconButton>
-                </Show>
-                <Text fontSize="sm" flex="1" minW="0" title={task.excerpt}>
-                  {task.text}
-                </Text>
-              </HStack>
-            )}
-          </For>
-        </Stack>
+        <DocAudioTasks
+          tasks={props.analysis.tasks}
+          segments={props.segments}
+          onSeek={(seconds) => {
+            // Show the exact words being played, not just the audio.
+            pickMode("raw");
+            props.onSeek(seconds);
+          }}
+          onAddTask={props.onAddTask}
+        />
       </Show>
-      <HStack gap="2" justifyContent="space-between">
+      <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
         <Button
           size="xs"
           variant="plain"
@@ -99,43 +90,62 @@ export const DocAudioTranscript = (props: {
             <ChevronRightIcon size={14} />
           </Box>
           Transcript · {props.analysis.sections.length} sections
+          <Show when={hasRaw()}>
+            {" "}
+            · {wordCount(props.segments).toLocaleString()} words
+          </Show>
         </Button>
-        <Show when={props.onInsert}>
-          <Button size="xs" variant="plain" onClick={() => props.onInsert?.()}>
-            <TextQuoteIcon size={12} />
-            Insert into note
-          </Button>
-        </Show>
+        <HStack gap="1">
+          <Show when={hasRaw()}>
+            <SegmentGroup.Root
+              size="xs"
+              value={mode()}
+              aria-label="Transcript form"
+              onValueChange={(d) => pickMode(d.value as TranscriptMode)}
+            >
+              <SegmentGroup.Indicator />
+              <SegmentGroup.Item value="summary" h="6" px="2" textStyle="xs">
+                <SegmentGroup.ItemText>Summary</SegmentGroup.ItemText>
+                <SegmentGroup.ItemHiddenInput />
+              </SegmentGroup.Item>
+              <SegmentGroup.Item value="raw" h="6" px="2" textStyle="xs">
+                <SegmentGroup.ItemText>Raw</SegmentGroup.ItemText>
+                <SegmentGroup.ItemHiddenInput />
+              </SegmentGroup.Item>
+            </SegmentGroup.Root>
+          </Show>
+          <IconButton
+            size="xs"
+            variant="plain"
+            aria-label={
+              mode() === "raw" ? "Copy raw transcript" : "Copy transcript"
+            }
+            title={mode() === "raw" ? "Copy raw transcript" : "Copy transcript"}
+            onClick={() => void copy()}
+          >
+            {copied() ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+          </IconButton>
+          <Show when={props.onInsert}>
+            <Button
+              size="xs"
+              variant="plain"
+              onClick={() => props.onInsert?.(mode())}
+            >
+              <TextQuoteIcon size={12} />
+              Insert into note
+            </Button>
+          </Show>
+        </HStack>
       </HStack>
       <Show when={open()}>
-        <Stack gap="3" borderLeftWidth="2px" borderColor="border" pl="3">
-          <For each={props.analysis.sections}>
-            {(section) => (
-              <Stack gap="0.5">
-                <HStack gap="2" alignItems="baseline">
-                  <Button
-                    size="xs"
-                    variant="plain"
-                    px="0"
-                    h="auto"
-                    color="fg.muted"
-                    fontVariantNumeric="tabular-nums"
-                    aria-label={`Play from ${formatStamp(stampSeconds(section.start))}`}
-                    onClick={() => props.onSeek(stampSeconds(section.start))}
-                  >
-                    {formatStamp(stampSeconds(section.start))}
-                  </Button>
-                  <Text fontSize="sm" fontWeight="medium">
-                    {section.title}
-                  </Text>
-                </HStack>
-                <Text fontSize="sm" color="fg.muted" lineHeight="relaxed">
-                  {section.cleanedText}
-                </Text>
-              </Stack>
-            )}
-          </For>
-        </Stack>
+        <TranscriptSections
+          analysis={props.analysis}
+          segments={props.segments}
+          mode={mode()}
+          time={props.time}
+          playing={props.playing}
+          onSeek={props.onSeek}
+        />
       </Show>
     </Stack>
   );

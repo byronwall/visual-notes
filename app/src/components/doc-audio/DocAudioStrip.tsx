@@ -20,6 +20,7 @@ import {
   type DocAudioSummary,
   type TranscriptAnalysis,
   formatStamp,
+  segmentsBySection,
   stampSeconds,
 } from "~/services/doc-audio/doc-audio.shared";
 import { Button } from "~/components/ui/button";
@@ -27,19 +28,36 @@ import { DocAudioRow, defaultRecordingLabel } from "./DocAudioRow";
 import { DocAudioUploadRow } from "./DocAudioUploadRow";
 import type { useDocAudioDrop } from "./useDocAudioDrop";
 import { LiveRecordingRow } from "./LiveRecordingRow";
+import type { TranscriptMode } from "./TranscriptSections";
 
 const text = (value: string) => (value ? [{ type: "text", text: value }] : []);
 
-/** Editor blocks for a transcript: one heading and paragraph per section. */
-const transcriptBlocks = (analysis: TranscriptAnalysis): JSONContent[] =>
-  analysis.sections.flatMap((s) => [
+/**
+ * Editor blocks for a transcript: one heading and paragraph per section,
+ * holding the section summary or the raw words spoken in it.
+ */
+const transcriptBlocks = (
+  analysis: TranscriptAnalysis,
+  audio: DocAudioSummary,
+  mode: TranscriptMode,
+): JSONContent[] => {
+  const raw = segmentsBySection(analysis, audio.transcriptSegments ?? []);
+  return analysis.sections.flatMap((s, i) => [
     {
       type: "heading",
       attrs: { level: 3 },
       content: text(`${formatStamp(stampSeconds(s.start))} · ${s.title}`),
     },
-    { type: "paragraph", content: text(s.cleanedText.trim()) },
+    {
+      type: "paragraph",
+      content: text(
+        mode === "raw"
+          ? raw[i]!.map((seg) => seg.text).join(" ")
+          : s.cleanedText.trim(),
+      ),
+    },
   ]);
+};
 
 /** Every finished transcript, oldest first, each under its recording's name. */
 const allTranscriptBlocks = (audios: DocAudioSummary[]): JSONContent[] =>
@@ -177,7 +195,10 @@ export const DocAudioStrip = (props: {
               onTranscribe={() => void handleTranscribe(audio.id)}
               onInsert={
                 props.onInsertBlocks && audio.transcriptAnalysis
-                  ? () => insert(transcriptBlocks(audio.transcriptAnalysis!))
+                  ? (mode) =>
+                      insert(
+                        transcriptBlocks(audio.transcriptAnalysis!, audio, mode),
+                      )
                   : undefined
               }
               onAddTask={

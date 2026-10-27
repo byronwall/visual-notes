@@ -1,7 +1,11 @@
 import { query } from "@solidjs/router";
 import type { DocAudio } from "@prisma/client";
 import { prisma } from "~/server/db";
-import type { DocAudioSummary, TranscriptAnalysis } from "./doc-audio.shared";
+import type {
+  DocAudioSummary,
+  TranscriptAnalysis,
+  TranscriptSegment,
+} from "./doc-audio.shared";
 
 export const toDocAudioSummary = (row: DocAudio): DocAudioSummary => ({
   id: row.id,
@@ -16,6 +20,7 @@ export const toDocAudioSummary = (row: DocAudio): DocAudioSummary => ({
   transcriptStatus: row.transcriptStatus,
   transcriptError: row.transcriptError,
   transcriptAnalysis: row.transcriptAnalysis as TranscriptAnalysis | null,
+  transcriptSegments: row.transcriptSegments as TranscriptSegment[] | null,
 });
 
 export const fetchDocAudios = query(

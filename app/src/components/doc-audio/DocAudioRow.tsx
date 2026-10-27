@@ -1,4 +1,4 @@
-import { Match, Show, Switch } from "solid-js";
+import { Match, Show, Switch, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { InPlaceEditableText } from "~/components/InPlaceEditableText";
 import { Badge } from "~/components/ui/badge";
@@ -10,6 +10,7 @@ import {
   docAudioUrl,
 } from "~/services/doc-audio/doc-audio.shared";
 import { DocAudioTranscript } from "./DocAudioTranscript";
+import type { TranscriptMode } from "./TranscriptSections";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -31,10 +32,12 @@ export const DocAudioRow = (props: {
   audio: DocAudioSummary;
   onRename: (label: string) => Promise<void>;
   onTranscribe: () => void;
-  onInsert?: () => void;
+  onInsert?: (mode: TranscriptMode) => void;
   onAddTask?: (text: string) => void;
 }) => {
   let player: HTMLAudioElement | undefined;
+  const [time, setTime] = createSignal<number | null>(null);
+  const [playing, setPlaying] = createSignal(false);
   const seek = (seconds: number) => {
     if (!player) return;
     player.currentTime = seconds;
@@ -87,12 +90,18 @@ export const DocAudioRow = (props: {
         preload="metadata"
         src={docAudioUrl(props.audio.id)}
         style={{ width: "100%", height: "36px" }}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
       />
       <Switch>
         <Match when={props.audio.transcriptAnalysis}>
           {(analysis) => (
             <DocAudioTranscript
               analysis={analysis()}
+              segments={props.audio.transcriptSegments ?? []}
+              time={time()}
+              playing={playing()}
               onSeek={seek}
               onInsert={props.onInsert}
               onAddTask={props.onAddTask}

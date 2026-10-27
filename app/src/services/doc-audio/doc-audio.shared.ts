@@ -11,6 +11,8 @@ export type DocAudioSummary = {
   transcriptStatus: "none" | "pending" | "done" | "failed";
   transcriptError: string | null;
   transcriptAnalysis: TranscriptAnalysis | null;
+  /** Speech-to-text output, verbatim, in 2–4 second pieces. */
+  transcriptSegments: TranscriptSegment[] | null;
 };
 
 /** One timed piece of the raw transcript; times in seconds. */
@@ -61,7 +63,73 @@ export const transcriptMarkdown = (analysis: TranscriptAnalysis) =>
     )
     .join("\n\n");
 
-export const docAudioUrl = (id: string) => `/api/doc-audio/${id}`;
+/**
+ * Raw segments split under the analysis sections: each segment goes to the
+ * last section that starts at or before it, so gaps or overlaps in the LLM's
+ * ranges never drop or repeat words.
+ */
+export const segmentsBySection = (
+  analysis: TranscriptAnalysis,
+  segments: TranscriptSegment[],
+): TranscriptSegment[][] => {
+  const starts = analysis.sections.map((s) => stampSeconds(s.start));
+  const groups = starts.map((): TranscriptSegment[] => []);
+  if (!groups.length) return groups;
+  for (const seg of segments) {
+    // Whisper and the LLM round differently; allow a little slack.
+    const index = starts.findLastIndex((start) => start <= seg.start + 0.5);
+    groups[Math.max(0, index)]!.push(seg);
+  }
+  return groups;
+};
+
+const words = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s']/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+/**
+ * Start time of the segment where a task's excerpt was said, or null when
+ * the excerpt is not found word for word (the LLM sometimes paraphrases).
+ * Matches on the first few words so an excerpt can span segments.
+ */
+export const excerptSeconds = (
+  excerpt: string,
+  segments: TranscriptSegment[],
+): number | null => {
+  const needle = words(excerpt).slice(0, 5);
+  if (!needle.length) return null;
+  const all: string[] = [];
+  const owner: number[] = [];
+  segments.forEach((seg, i) => {
+    for (const word of words(seg.text)) {
+      all.push(word);
+      owner.push(i);
+    }
+  });
+  for (let i = 0; i + needle.length <= all.length; i++) {
+    if (needle.every((word, j) => all[i + j] === word)) {
+      return segments[owner[i]!]!.start;
+    }
+  }
+  return null;
+};
+
+/** Markdown for the verbatim transcript, under the same section headings. */
+export const verbatimMarkdown = (
+  analysis: TranscriptAnalysis,
+  segments: TranscriptSegment[],
+) =>
+  segmentsBySection(analysis, segments)
+    .map(
+      (group, i) =>
+        `### [${formatStamp(stampSeconds(analysis.sections[i]!.start))}] ${analysis.sections[i]!.title}\n\n${group.map((s) => s.text).join(" ")}`,
+    )
+    .join("\n\n");
+
+export const docAudioUrl =(id: string) => `/api/doc-audio/${id}`;
 export const docAudioChunkUrl = (id: string, seq: number, elapsedMs: number) =>
   `/api/doc-audio/${id}/chunks?seq=${seq}&elapsedMs=${Math.round(elapsedMs)}`;
 
