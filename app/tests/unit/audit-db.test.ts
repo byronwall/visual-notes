@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   databaseName,
-  devPostgresRunArgs,
+  createRoleSql,
   passwordFile,
   preferredPort,
 } from "../../scripts/audit-db.ts";
@@ -24,12 +24,11 @@ describe("audit-db", () => {
     }
   });
 
-  it("binds vn-dev-pg to the env file's loopback port and passes secrets by name", () => {
-    const args = devPostgresRunArgs(
-      new URL("postgresql://vn:s3cret@localhost:5433/visual_notes_audit_x"),
+  it("creates the env file's role once, with quotes escaped", () => {
+    const sql = createRoleSql(
+      new URL("postgresql://vn:it's@localhost:5433/visual_notes_audit_x"),
     );
-    expect(args).toContain("127.0.0.1:5433:5432");
-    expect(args).toContain("vn-dev-pg");
-    expect(args.join(" ")).not.toContain("s3cret");
+    expect(sql).toContain("rolname = 'vn'");
+    expect(sql).toContain("PASSWORD 'it''s'");
   });
 });

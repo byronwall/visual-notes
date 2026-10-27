@@ -19,7 +19,7 @@ This repo includes a minimal end-to-end slice to ingest a single Markdown docume
 ### Prerequisites
 
 - Node.js 24+ and pnpm 9.15.9 (pinned in `app/package.json`; run `corepack enable` or prefix commands with `corepack`)
-- Postgres if you want to run against a real DB locally (Compose file available)
+- Homebrew. Dev and tests use Homebrew Postgres, not Docker; see [app/docs/local-postgres.md](app/docs/local-postgres.md)
 
 ### Install deps and generate Prisma
 
@@ -29,11 +29,13 @@ pnpm install
 pnpm prisma generate
 ```
 
-### Create database schema (dev)
+### Create a database
 
 ```bash
-pnpm push
+pnpm audit:db -- --owner <slug>
 ```
+
+This starts Homebrew Postgres if it is not running, creates `visual_notes_audit_<slug>`, applies the migrations, and prints the command that starts the app on it. See [app/docs/local-postgres.md](app/docs/local-postgres.md) to reset a database or copy data from the old Docker container.
 
 ### Run the dev server
 
@@ -83,6 +85,8 @@ pnpm test
 ```
 
 ## Docker Quickstart
+
+Compose is for production deploys. Dev work does not need Docker.
 
 A minimal Compose setup lives in `app/docker-compose.yml` and runs Postgres + the app. No external APIs are required for the minimal Markdown ingest flow.
 
