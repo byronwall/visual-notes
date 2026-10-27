@@ -240,7 +240,9 @@ async function transcribe(id: string) {
     const result = await transcribeFile(row);
     if (!result.segments.length) throw new Error("No speech found");
     const analysis = await analyzeTranscript(row.docId, result.segments);
-    await prisma.docAudio.update({
+    // Re-read docId from the update: the recording may have moved to
+    // another note while the job ran.
+    const done = await prisma.docAudio.update({
       where: { id },
       data: {
         transcriptStatus: "done",
@@ -251,7 +253,7 @@ async function transcribe(id: string) {
         transcribedAt: new Date(),
       },
     });
-    await refreshDocAudioText(row.docId);
+    await refreshDocAudioText(done.docId);
     console.info(
       `${LOG} done %s: %d segments, %d sections, %d tasks in %dms`,
       id,

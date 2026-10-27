@@ -74,6 +74,10 @@ export async function staleDocIds(limit: number): Promise<string[]> {
               OR x."transcribedAt" > a."updatedAt"
             )
         )
+        -- A recording was moved in or out (moves keep their timestamps).
+        OR (a.facts->>'recordings')::int <> (
+          SELECT count(*) FROM "DocAudio" x WHERE x."docId" = d.id
+        )
         -- A dead link may come back: check it again each day until decided.
         OR (
           a.facts->'link'->>'status' = 'dead'

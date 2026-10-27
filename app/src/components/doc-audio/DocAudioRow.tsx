@@ -1,7 +1,9 @@
 import { Match, Show, Switch, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
+import { FolderInputIcon } from "lucide-solid";
 import { InPlaceEditableText } from "~/components/InPlaceEditableText";
 import { Badge } from "~/components/ui/badge";
+import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { formatDuration } from "~/features/audio-recorder/useAudioRecorder";
 import {
@@ -10,6 +12,7 @@ import {
   readableTranscriptError,
 } from "~/services/doc-audio/doc-audio.shared";
 import { DocAudioTranscript } from "./DocAudioTranscript";
+import { MoveRecordingDialog } from "./MoveRecordingDialog";
 import type { TranscriptMode } from "./TranscriptSections";
 import { TranscriptStatusLine } from "./TranscriptStatusLine";
 
@@ -35,7 +38,10 @@ export const DocAudioRow = (props: {
   onTranscribe: () => void;
   onInsert?: (mode: TranscriptMode) => void;
   onAddTask?: (text: string) => void;
+  /** Moves the recording to another note, or a new one (null). */
+  onMove: (toDocId: string | null) => Promise<void>;
 }) => {
+  const [moving, setMoving] = createSignal(false);
   let player: HTMLAudioElement | undefined;
   const [time, setTime] = createSignal<number | null>(null);
   const [playing, setPlaying] = createSignal(false);
@@ -84,6 +90,16 @@ export const DocAudioRow = (props: {
           {formatDuration(props.audio.durationMs)} ·{" "}
           {formatSize(props.audio.sizeBytes)}
         </Text>
+        <IconButton
+          size="2xs"
+          variant="plain"
+          alignSelf="center"
+          aria-label="Move to another note"
+          title="Move to another note"
+          onClick={() => setMoving(true)}
+        >
+          <FolderInputIcon />
+        </IconButton>
       </HStack>
       <audio
         ref={player}
@@ -128,6 +144,15 @@ export const DocAudioRow = (props: {
           </TranscriptStatusLine>
         </Match>
       </Switch>
+      <MoveRecordingDialog
+        open={moving()}
+        docId={props.audio.docId}
+        label={props.audio.label ?? defaultRecordingLabel(props.audio)}
+        onClose={() => setMoving(false)}
+        onMove={(toDocId) =>
+          props.onMove(toDocId).then(() => void setMoving(false))
+        }
+      />
     </Stack>
   );
 };

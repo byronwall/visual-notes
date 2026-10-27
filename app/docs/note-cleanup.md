@@ -28,7 +28,7 @@ A note that is only a link is usually a breadcrumb: something to come back to, s
 
 A note with recordings always goes to `keep`. Every cleanup action archives the note, and the purge deletes an archived note's `DocAudio` rows with it. The decision model still reads the transcripts (`Doc.audioText` is appended to the body), so a voice note gets its regroup Move suggestion. When `archiveNotes` archives a note into another note (distill, combine), the recordings move to that note.
 
-A note is stale when it has no assessment, its `contentVersion` changed, `QUESTION_SET_VERSION` changed, or one of its recordings was added or transcribed after the assessment. Collection rows, events, and places are never assessed.
+A note is stale when it has no assessment, its `contentVersion` changed, `QUESTION_SET_VERSION` changed, or one of its recordings was added or transcribed after the assessment, or its recording count changed (a recording moved in or out). Collection rows, events, and places are never assessed.
 
 ### Provider
 

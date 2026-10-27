@@ -68,6 +68,10 @@ with its recording without touching the block schema.
   on the first five words), and clicking it opens Raw there. Copy and
   Insert use the form that is showing. The strip polls while a transcript
   is pending.
+- Move: the row's move button sends a recording, with its transcript, to
+  an existing note or a new one (`moveDocAudio`). A new note takes the
+  recording's name and the source note's path. Both notes' `audioText` is
+  rebuilt.
 - Cleanup: a note with recordings always goes to Keep, because the archive
   purge would delete its recordings. The assessment reads `audioText` as part
   of the body, and a finished transcript makes the assessment stale. When
