@@ -45,6 +45,8 @@ export type DocumentEditorApi = {
   save: () => Promise<void>;
   /** Appends blocks at the end of the note; autosave persists them. */
   appendBlocks: (blocks: JSONContent[]) => void;
+  /** Uploads files at a screen point (else the cursor) as cards or pictures. */
+  insertFiles: (files: File[], at?: { x: number; y: number }) => void;
   canSave: () => boolean;
   saving: () => boolean;
   dirty: () => boolean;
@@ -654,6 +656,16 @@ const DocumentEditor: VoidComponent<{
         const ed = editor();
         if (!ed) return;
         ed.chain().insertContentAt(ed.state.doc.content.size, blocks).run();
+      },
+      insertFiles: (files, at) => {
+        const ed = editor();
+        if (!ed) return;
+        const hit = at && ed.view.posAtCoords({ left: at.x, top: at.y });
+        // A position keeps FilePaste from replacing a selection.
+        ed.storage.filePaste.insertFiles(
+          files,
+          hit?.pos ?? ed.state.selection.from,
+        );
       },
       canSave,
       saving,

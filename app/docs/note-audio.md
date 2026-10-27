@@ -25,6 +25,22 @@ with its recording without touching the block schema.
   sidebar and phone app bar, which creates a note and starts recording from
   one tap.
 
+## Dropped recordings
+
+- Drop audio files (Voice Memos `.m4a`, `.mp3`, `.wav`, …) anywhere on an
+  open note. `useDocAudioDrop` catches the drop in the capture phase, ahead
+  of the editor, so audio becomes recordings instead of file cards. Other
+  files in the same drop still go to the editor as attachments.
+- Each file posts its raw bytes to `POST /api/doc-audio?docId=&name=&lastModified=&durationMs=`
+  (XHR, for progress), one at a time. The server streams it to disk
+  (`writeAudioFile`, 100 MB cap to match Groq) and creates a `ready` row.
+- The row's label is the file name without its extension, and `createdAt` is
+  the file's modified time, so a stack of memos sorts in recorded order.
+  Duration comes from the browser reading the file's metadata.
+- Each dropped file queues a transcript like a finished recording. With two
+  or more transcripts, "Insert all transcripts" appends them to the note,
+  each under a heading with its recording's name.
+
 ## Transcripts
 
 - Job: Stop sets `transcriptStatus` to `pending` and queues

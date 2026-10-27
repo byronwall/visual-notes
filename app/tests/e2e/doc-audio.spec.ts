@@ -61,6 +61,88 @@ test("records audio into a note, plays it back, and renames it", async ({
   );
 });
 
+test("dropped voice memos become recordings; other files become cards", async ({
+  page,
+}) => {
+  const title = `Dropped audio ${uniqueSuffix()}`;
+  const noteId = await createNoteFixture(page, {
+    title,
+    markdown: `# ${title}\n\nBody.`,
+  });
+  await page.goto(`/docs/${noteId}`);
+  await waitForAppReady(page);
+  // A selection must survive a drop that also carries a non-audio file.
+  await page.locator(".ProseMirror").getByText("Body.").click();
+  await page.keyboard.press("ControlOrMeta+a");
+
+  await page.evaluate(() => {
+    // One second of silent 8 kHz mono WAV, so the browser reads a duration.
+    const wav = () => {
+      const samples = 8000;
+      const view = new DataView(new ArrayBuffer(44 + samples));
+      const str = (at: number, text: string) =>
+        [...text].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+      str(0, "RIFF");
+      view.setUint32(4, 36 + samples, true);
+      str(8, "WAVEfmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, 8000, true);
+      view.setUint32(28, 8000, true);
+      view.setUint16(32, 1, true);
+      view.setUint16(34, 8, true);
+      str(36, "data");
+      view.setUint32(40, samples, true);
+      return view.buffer;
+    };
+    const dt = new DataTransfer();
+    // The later memo comes first; recordings sort by the file's time.
+    dt.items.add(
+      new File([wav()], "Kitchen.wav", {
+        type: "audio/wav",
+        lastModified: Date.UTC(2026, 9, 2, 9),
+      }),
+    );
+    dt.items.add(
+      new File([wav()], "Morning walk.wav", {
+        type: "audio/x-wav",
+        lastModified: Date.UTC(2026, 9, 1, 9),
+      }),
+    );
+    dt.items.add(
+      new File(["%PDF-1.4\n%%EOF\n"], "agenda.pdf", {
+        type: "application/pdf",
+      }),
+    );
+    const target = document.querySelector(".ProseMirror")!;
+    for (const type of ["dragenter", "dragover", "drop"]) {
+      target.dispatchEvent(
+        new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }),
+      );
+    }
+  });
+
+  const rows = page.getByTestId("doc-audio-row");
+  await expect(rows).toHaveCount(2, { timeout: 15_000 });
+  await expect(rows.nth(0)).toContainText("Morning walk");
+  await expect(rows.nth(1)).toContainText("Kitchen");
+  await expect(rows.nth(0)).toContainText("0:01");
+  await expect(page.getByTestId("doc-audio-upload")).toHaveCount(0);
+  await expect(
+    page.locator(".ProseMirror [data-file-attachment]"),
+  ).toContainText("agenda.pdf");
+  await expect(page.locator(".ProseMirror")).toContainText("Body.");
+
+  const src = await rows.nth(0).locator("audio").getAttribute("src");
+  const served = await page.request.get(src!);
+  expect(served.headers()["content-type"]).toBe("audio/wav");
+
+  await page.reload();
+  await waitForAppReady(page);
+  await expect(page.getByTestId("doc-audio-row")).toHaveCount(2);
+});
+
 test.describe("on a phone", () => {
   const { defaultBrowserType: _browser, ...pixel } = devices["Pixel 7"];
   test.use(pixel);
