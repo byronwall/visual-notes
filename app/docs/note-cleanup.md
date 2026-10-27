@@ -78,6 +78,16 @@ The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `
 - **Make task** (`is_todo` ≥ 0.8, `server/cleanup/make-task.ts`). The panel lists unchecked lines, or short bullets, or the title, as editable Inbox tasks. Checkboxes that are already inline tasks show as "Already tasks" and are detached from the note so they outlive it. Approving creates the new tasks and archives the note.
 - **Delete.** Shows what the note holds, or "This note is empty", and archives it. It is deleted after 30 days.
 
+## Revisit link
+
+`RevisitLinkPanel.tsx` and `server/cleanup/link-expand.ts`. When the card opens, the browser asks the server to load the page again. The server reads its text and writes a summary with the distill path and `LINK_FOCUS`. The decision model answers `page_worth_keeping` on the page text (`LINK_QUESTIONS`, not part of the sweep). The panel then offers:
+
+- **Add summary to note**: appends a "Summary" section under the link (with a `cleanup-append` revision). The note stays.
+- **Remind me to check it**: adds an Inbox task "Check out <title>: <url>" and snoozes the card for 30 days.
+- **Archive**: the primary action when the link is dead or `page_worth_keeping` < 0.3.
+
+A page that refuses the fetch or has little readable text gets no summary, so the reminder is the primary action. **Check again** loads the page again.
+
 ## Daily stack
 
 `/cleanup?mode=daily` (`components/cleanup/DailyStack.tsx`, `server/cleanup/daily.ts`) is the maintenance view: one card at a time from a quota of 8 a day across every bucket. Buckets are interleaved round-robin, strongest first, so one bucket can't fill the day. Progress counts the assessments decided today (approved, kept, or snoozed). Each card is the bucket's normal panel plus **Snooze 30 days** (Z). **Skip** (S or →) moves a card to the back for this visit. The **Daily / Deep pass** toggle switches modes.

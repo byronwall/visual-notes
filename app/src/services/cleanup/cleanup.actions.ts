@@ -8,6 +8,12 @@ import {
   draftDistill,
   type DistillDraft,
 } from "~/server/cleanup/distill";
+import {
+  addLinkSummary,
+  expandLink,
+  remindLink,
+  type LinkExpansion,
+} from "~/server/cleanup/link-expand";
 import { applyMakeTask } from "~/server/cleanup/make-task";
 import { archiveNotes } from "~/server/notes/note-archive";
 import { keepNote, snoozeNote } from "~/server/cleanup/queue";
@@ -188,3 +194,30 @@ export const makeTaskAction = action(
   },
   "cleanup-make-task",
 );
+
+/** Loads and summarizes a saved link. Not cached: each call re-fetches. */
+export async function expandLinkForNote(id: string): Promise<LinkExpansion> {
+  "use server";
+  return expandLink(docId.parse(id));
+}
+
+const linkSummaryInput = z.object({
+  docId,
+  markdown: z.string().min(1).max(100_000),
+});
+
+export const addLinkSummaryAction = action(
+  async (input: z.input<typeof linkSummaryInput>) => {
+    "use server";
+    const parsed = linkSummaryInput.parse(input);
+    await addLinkSummary(parsed.docId, parsed.markdown);
+    return json({ ok: true }, { revalidate: queueKeys() });
+  },
+  "cleanup-link-summary",
+);
+
+export const remindLinkAction = action(async (id: string) => {
+  "use server";
+  await remindLink(docId.parse(id));
+  return json({ ok: true }, { revalidate: queueKeys() });
+}, "cleanup-link-remind");

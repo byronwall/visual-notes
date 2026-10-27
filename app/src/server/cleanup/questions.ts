@@ -108,6 +108,19 @@ export const NOTE_QUESTIONS: Question[] = [
 ];
 
 /**
+ * Asked when the owner opens a saved link: `page` is the page as it loads
+ * today. Not part of the sweep, so it needs no version bump.
+ */
+export const LINK_QUESTIONS: Question[] = [
+  {
+    id: "page_worth_keeping",
+    type: "noul",
+    instructions:
+      "`owner` saved a link to `page` to come back to it. Does `page.text` hold something he would want to keep or try, given his interests? A login wall, an error page, a parked domain, or a generic page does not count.",
+  },
+];
+
+/**
  * Two related notes in state as `a` and `b`. "Only shares vocabulary" is its
  * own bottom tier so look-alike notes don't read as merge candidates.
  */

@@ -40,7 +40,7 @@ export function interleave(groups: QueueItem[][]): QueueItem[] {
 export async function dailyStack(now = new Date()): Promise<DailyStack> {
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
-  const [doneToday, distill, postEvent, makeTask, del, regroup] =
+  const [doneToday, distill, postEvent, makeTask, links, del, regroup] =
     await Promise.all([
       prisma.noteAssessment.count({
         where: { decidedAt: { gte: startOfDay } },
@@ -48,10 +48,11 @@ export async function dailyStack(now = new Date()): Promise<DailyStack> {
       queueFor("distill"),
       queueFor("post_event"),
       queueFor("make_task"),
+      queueFor("revisit_link"),
       queueFor("delete"),
       regroupQueue(),
     ]);
-  const all = interleave([distill, regroup, postEvent, makeTask, del]);
+  const all = interleave([distill, regroup, postEvent, makeTask, links, del]);
   const remaining = Math.max(0, Math.min(all.length, DAILY_QUOTA - doneToday));
   return {
     quota: DAILY_QUOTA,

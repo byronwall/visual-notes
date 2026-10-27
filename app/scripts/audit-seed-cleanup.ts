@@ -152,6 +152,26 @@ const NOTES: SeedNote[] = [
     ageDays: 4,
     markdown: " ",
   },
+  // Saved links: the seed fetches them, so one live page, one blocked by the
+  // site, and one that can never resolve (.invalid).
+  {
+    key: "link-live",
+    title: "Mortise and tenon",
+    ageDays: 300,
+    markdown: "https://en.wikipedia.org/wiki/Mortise_and_tenon\n",
+  },
+  {
+    key: "link-blocked",
+    title: "Shared post",
+    ageDays: 200,
+    markdown: "check this out https://www.linkedin.com/feed/\n",
+  },
+  {
+    key: "link-dead",
+    title: "Jig plans",
+    ageDays: 700,
+    markdown: "[Jig plans](https://jig-plans.invalid/sled)\n",
+  },
   {
     key: "hub",
     title: "js",

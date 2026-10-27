@@ -13,6 +13,7 @@ import { MakeTaskPanel } from "./MakeTaskPanel";
 import { DistillPanel } from "./DistillPanel";
 import { MovePanel } from "./MovePanel";
 import { PanelSection } from "./PanelSection";
+import { RevisitLinkPanel } from "./RevisitLinkPanel";
 
 export type DetailHandlers = {
   onDone: () => void;
@@ -90,6 +91,14 @@ export const CleanupDetail: VoidComponent<
         <ArchiveOnlyPanel
           item={props.item}
           reason={props.item.bucket === "delete" ? "delete" : "post_event"}
+          onDone={props.onDone}
+          onKeep={props.onKeep}
+          onSkip={props.onSkip}
+        />
+      </Match>
+      <Match when={props.item.bucket === "revisit_link"}>
+        <RevisitLinkPanel
+          item={props.item}
           onDone={props.onDone}
           onKeep={props.onKeep}
           onSkip={props.onSkip}
