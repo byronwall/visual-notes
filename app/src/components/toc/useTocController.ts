@@ -1,59 +1,40 @@
 import {
-  createEffect,
-  createMemo,
-  createSignal,
-  onCleanup,
-  onMount,
-  type Accessor,
-} from "solid-js";
-import {
-  COMPACT_RAIL_HEIGHT,
-  DEFAULT_PANEL_LEFT,
-  DEFAULT_PANEL_OFFSET,
-  DEFAULT_PANEL_WIDTH,
-  DEFAULT_RAIL_HEIGHT,
-  EXPANDED_TOP_GUTTER,
-  MIN_RAIL_HEIGHT,
-  RAIL_REST_TOP,
-} from "./constants";
+  HEADING_SCROLL_OFFSET,
+  scrollHeadingToTop,
+} from "~/components/editor/core/blockLinks";
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { DEFAULT_RAIL_HEIGHT, PINNED_MIN_TOP, RIGHT_GAP } from "./constants";
 import { extractTocItems, findHeadingByLevelAndText } from "./headings";
-import {
-  computeTocLayout,
-  getPanelMaxHeightCss,
-  getViewportMaxHeightPx,
-} from "./layout";
+import { computeTocLayout } from "./layout";
 import { computeMarkers, computeVisibleMarkerBounds } from "./markers";
 import { getHeadingViewportTops, resolveActiveRange } from "./range";
-import { type TocItem } from "./types";
-import { clamp } from "./utils";
+import { type TocItem, type TocLayout } from "./types";
 
 type UseTocControllerOptions = {
   getRootEl: () => HTMLElement | null;
-  maxVh: Accessor<number>;
 };
+
+const DEFAULT_LAYOUT: TocLayout = {
+  mode: "rail",
+  leftPx: RIGHT_GAP,
+  widthPx: 0,
+  railHeightPx: DEFAULT_RAIL_HEIGHT,
+};
+
+export type TocController = ReturnType<typeof useTocController>;
 
 export function useTocController(options: UseTocControllerOptions) {
   const [items, setItems] = createSignal<TocItem[]>([]);
   const [activeIndex, setActiveIndex] = createSignal(0);
   const [visibleStartIndex, setVisibleStartIndex] = createSignal(0);
   const [visibleEndIndex, setVisibleEndIndex] = createSignal(0);
-
-  const [showExpandedByDefault, setShowExpandedByDefault] = createSignal(false);
-  const [isHoverExpanded, setIsHoverExpanded] = createSignal(false);
-
-  const [panelLeftPx, setPanelLeftPx] = createSignal(DEFAULT_PANEL_LEFT);
-  const [panelWidthPx, setPanelWidthPx] = createSignal(DEFAULT_PANEL_WIDTH);
-  const [panelOffsetPx, setPanelOffsetPx] = createSignal(DEFAULT_PANEL_OFFSET);
-  const [railHeightPx, setRailHeightPx] = createSignal(DEFAULT_RAIL_HEIGHT);
-  const [compactAtRest, setCompactAtRest] = createSignal(false);
-  const [expandedPanelHeightPx, setExpandedPanelHeightPx] = createSignal(320);
+  const [layout, setLayout] = createSignal<TocLayout>(DEFAULT_LAYOUT);
+  const [pinnedTopPx, setPinnedTopPx] = createSignal(PINNED_MIN_TOP);
   const [viewportHeightPx, setViewportHeightPx] = createSignal(800);
   const [positionTick, setPositionTick] = createSignal(0);
 
-  const showExpandedPanel = createMemo(
-    () => showExpandedByDefault() || isHoverExpanded(),
-  );
-  const hasItems = createMemo(() => items().length > 0);
+  // A single heading is not worth an outline.
+  const hasItems = createMemo(() => items().length >= 2);
 
   const minHeadingLevel = createMemo(() => {
     const levels = items().map((item) => item.level);
@@ -61,61 +42,12 @@ export function useTocController(options: UseTocControllerOptions) {
     return Math.min(...levels) as TocItem["level"];
   });
 
-  const panelMaxHeightCss = createMemo(() =>
-    getPanelMaxHeightCss(options.maxVh()),
+  const railTopPx = createMemo(() =>
+    Math.max(
+      PINNED_MIN_TOP,
+      Math.round((viewportHeightPx() - layout().railHeightPx) / 2),
+    ),
   );
-
-  const collapsedRailHeightPx = createMemo(() => {
-    if (!compactAtRest()) return railHeightPx();
-    return Math.min(railHeightPx(), COMPACT_RAIL_HEIGHT);
-  });
-
-  const expandedTopMode = createMemo(() => {
-    const panelHeight = expandedPanelHeightPx();
-    const viewportHeight = viewportHeightPx();
-    const anchoredBottom = RAIL_REST_TOP + COMPACT_RAIL_HEIGHT;
-    const growCapacity = anchoredBottom - EXPANDED_TOP_GUTTER;
-    const centeredTop = clamp(
-      (viewportHeight - panelHeight) / 2,
-      EXPANDED_TOP_GUTTER,
-      Math.max(
-        EXPANDED_TOP_GUTTER,
-        viewportHeight - panelHeight - EXPANDED_TOP_GUTTER,
-      ),
-    );
-    const growTop = clamp(
-      anchoredBottom - panelHeight,
-      EXPANDED_TOP_GUTTER,
-      RAIL_REST_TOP,
-    );
-    const mode = panelHeight > growCapacity ? "grow-up" : "center";
-
-    return {
-      mode,
-      top: mode === "grow-up" ? growTop : centeredTop,
-      panelHeight,
-      viewportHeight,
-      growCapacity,
-      centeredTop,
-      growTop,
-      anchoredBottom,
-    } as const;
-  });
-
-  const containerTopPx = createMemo(() => {
-    if (!showExpandedPanel()) {
-      const collapsedHeight = collapsedRailHeightPx();
-      return Math.max(
-        EXPANDED_TOP_GUTTER,
-        Math.round((viewportHeightPx() - collapsedHeight) / 2),
-      );
-    }
-    return expandedTopMode().top;
-  });
-
-  let listRef: HTMLElement | undefined;
-  let listScrollRef: HTMLElement | undefined;
-  let expandedPanelRef: HTMLElement | undefined;
 
   let lastSignature = "";
   let observedRoot: HTMLElement | null = null;
@@ -125,68 +57,28 @@ export function useTocController(options: UseTocControllerOptions) {
   let rootPollTimer: number | undefined;
   let positionFrame: number | undefined;
   let geometryDirty = false;
-  let scrollHandler: (() => void) | undefined;
-  let resizeHandler: (() => void) | undefined;
-  let focusHandler: (() => void) | undefined;
-  let visibilityHandler: (() => void) | undefined;
-  let loadHandler: ((event: Event) => void) | undefined;
-  let fontHandler: (() => void) | undefined;
-  let wasExpanded = false;
-  let geometry = {
-    headingOffsets: [] as number[],
-  };
+  let headingOffsets: number[] = [];
 
   function resolveHeadingEl(item: TocItem): HTMLElement | null {
     if (item.el && item.el.isConnected) return item.el;
-
     const byId = document.getElementById(item.id);
     if (byId) return byId;
-
-    const root = options.getRootEl();
-    const byText = findHeadingByLevelAndText(
-      root,
-      item.level,
-      item.text,
-      item.occurrence,
+    return (
+      findHeadingByLevelAndText(
+        options.getRootEl(),
+        item.level,
+        item.text,
+        item.occurrence,
+      ) ??
+      item.el ??
+      null
     );
-    if (byText) return byText;
-
-    return item.el || null;
   }
 
-  function resetLayoutState() {
-    setPanelLeftPx(DEFAULT_PANEL_LEFT);
-    setPanelWidthPx(DEFAULT_PANEL_WIDTH);
-    setPanelOffsetPx(DEFAULT_PANEL_OFFSET);
-    setRailHeightPx(DEFAULT_RAIL_HEIGHT);
+  function refreshLayout() {
     setViewportHeightPx(window.innerHeight);
-    setCompactAtRest(false);
-    setShowExpandedByDefault(false);
-    setIsHoverExpanded(false);
-  }
-
-  function refreshLayoutMode() {
     const root = options.getRootEl();
-    setViewportHeightPx(window.innerHeight);
-
-    if (!root) {
-      if (!hasItems()) {
-        resetLayoutState();
-      }
-      return;
-    }
-
-    const layout = computeTocLayout(root, options.maxVh(), items().length);
-
-    setPanelLeftPx(layout.panelLeftPx);
-    setPanelWidthPx(layout.panelWidthPx);
-    setPanelOffsetPx(layout.panelOffsetPx);
-    setCompactAtRest(layout.compactAtRest);
-    setShowExpandedByDefault(false);
-
-    if (!showExpandedPanel()) {
-      setRailHeightPx(layout.railHeightPx);
-    }
+    setLayout(root ? computeTocLayout(root, items().length) : DEFAULT_LAYOUT);
   }
 
   function updateActiveIndex(
@@ -194,6 +86,10 @@ export function useTocController(options: UseTocControllerOptions) {
     rootRect = root?.getBoundingClientRect(),
   ) {
     const list = items();
+    if (rootRect) {
+      // Start level with the note body, then stick below the toolbar.
+      setPinnedTopPx(Math.max(PINNED_MIN_TOP, Math.round(rootRect.top)));
+    }
     if (list.length === 0) {
       setActiveIndex(0);
       setVisibleStartIndex(0);
@@ -210,11 +106,11 @@ export function useTocController(options: UseTocControllerOptions) {
     const headingViewportTops = rootRect
       ? getHeadingViewportTops(
           rootContentTop,
-          geometry.headingOffsets,
+          headingOffsets,
           root?.scrollTop ?? 0,
         )
       : list.map(() => Number.POSITIVE_INFINITY);
-    const visibleTop = Math.max(80, rootContentTop);
+    const visibleTop = Math.max(HEADING_SCROLL_OFFSET, rootContentTop);
     const visibleBottom = Math.min(window.innerHeight - 24, rootContentBottom);
 
     const range = resolveActiveRange(
@@ -222,7 +118,13 @@ export function useTocController(options: UseTocControllerOptions) {
       visibleTop,
       visibleBottom,
     );
-    setActiveIndex(range.startIdx);
+    // The last sections can be too short to reach the reading line. Once
+    // the page can't scroll further, the lowest heading on screen is current.
+    const atBottom =
+      window.scrollY > 0 &&
+      window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+    setActiveIndex(atBottom ? range.endIdx : range.startIdx);
     setVisibleStartIndex(range.startIdx);
     setVisibleEndIndex(range.endIdx);
   }
@@ -233,16 +135,14 @@ export function useTocController(options: UseTocControllerOptions) {
   ) {
     const rootRect = root?.getBoundingClientRect();
     const rootContentTop = rootRect ? rootRect.top + (root?.clientTop ?? 0) : 0;
-    geometry = {
-      headingOffsets: currentItems.map((item) => {
-        const el = resolveHeadingEl(item);
-        return el
-          ? el.getBoundingClientRect().top -
-              rootContentTop +
-              (root?.scrollTop ?? 0)
-          : 0;
-      }),
-    };
+    headingOffsets = currentItems.map((item) => {
+      const el = resolveHeadingEl(item);
+      return el
+        ? el.getBoundingClientRect().top -
+            rootContentTop +
+            (root?.scrollTop ?? 0)
+        : 0;
+    });
     setPositionTick((prev) => prev + 1);
     updateActiveIndex(root, rootRect);
   }
@@ -276,7 +176,7 @@ export function useTocController(options: UseTocControllerOptions) {
 
     const found = extractTocItems(root);
     const signature = found
-      .map((item) => `${item.level}:${item.id}:${item.text}`)
+      .map((item) => `${item.level}:${item.id}:${item.blockId}:${item.text}`)
       .join("|");
 
     if (signature !== lastSignature) {
@@ -290,27 +190,24 @@ export function useTocController(options: UseTocControllerOptions) {
 
     observedRoot = nextRoot;
     lastSignature = "";
-    if (observer) observer.disconnect();
-    if (resizeObserver) resizeObserver.disconnect();
+    observer?.disconnect();
+    resizeObserver?.disconnect();
 
     if (!nextRoot) {
       setItems([]);
-      geometry = { headingOffsets: [] };
+      headingOffsets = [];
       setActiveIndex(0);
       setVisibleStartIndex(0);
       setVisibleEndIndex(0);
-      resetLayoutState();
+      refreshLayout();
       return;
     }
 
     collectHeadings(nextRoot);
-    refreshLayoutMode();
+    refreshLayout();
     refreshTocGeometry();
 
-    observer = new MutationObserver(() => {
-      scheduleRecollect();
-    });
-
+    observer = new MutationObserver(() => scheduleRecollect());
     observer.observe(nextRoot, {
       childList: true,
       subtree: true,
@@ -331,7 +228,7 @@ export function useTocController(options: UseTocControllerOptions) {
       } else {
         collectHeadings(observedRoot);
       }
-      refreshLayoutMode();
+      refreshLayout();
       schedulePositionUpdate(true);
     }, 250);
   }
@@ -340,221 +237,108 @@ export function useTocController(options: UseTocControllerOptions) {
     const target = resolveHeadingEl(item);
     if (!target) return;
 
-    const top = target.getBoundingClientRect().top + window.scrollY - 80;
-    window.scrollTo({ top, behavior: "smooth" });
-  }
-
-  function onRailMouseEnter() {
-    setIsHoverExpanded(true);
-  }
-
-  function onRailMouseLeave() {
-    setIsHoverExpanded(false);
-  }
-
-  function scrollListToActive(mode: "center" | "keep-visible") {
-    const idx = activeIndex();
-    const itemEl = listRef?.querySelector(
-      `[data-toc-idx="${idx}"]`,
-    ) as HTMLElement | null;
-    const scrollEl = listScrollRef;
-    if (!itemEl || !scrollEl) return;
-
-    const containerRect = scrollEl.getBoundingClientRect();
-    const itemRect = itemEl.getBoundingClientRect();
-    const itemTop = itemRect.top - containerRect.top + scrollEl.scrollTop;
-    const itemBottom = itemTop + itemRect.height;
-    const viewTop = scrollEl.scrollTop;
-    const viewBottom = viewTop + scrollEl.clientHeight;
-    const padding = 24;
-
-    if (mode === "center") {
-      const centeredTop =
-        itemTop - (scrollEl.clientHeight - itemRect.height) / 2;
-      scrollEl.scrollTo({ top: Math.max(centeredTop, 0), behavior: "auto" });
-      return;
-    }
-
-    if (itemTop < viewTop + padding) {
-      scrollEl.scrollTo({
-        top: Math.max(itemTop - padding, 0),
-        behavior: "auto",
-      });
-      return;
-    }
-
-    if (itemBottom > viewBottom - padding) {
-      const nextTop = itemBottom - scrollEl.clientHeight + padding;
-      scrollEl.scrollTo({ top: Math.max(nextTop, 0), behavior: "auto" });
+    scrollHeadingToTop(target);
+    // Keep the section in the URL so a refresh or a shared link lands here.
+    // replaceState skips the router, so the block flash only runs on load.
+    if (item.blockId) {
+      history.replaceState(history.state, "", `#b-${item.blockId}`);
     }
   }
 
+  // Only the rail draws markers, and computing them reads layout per block.
   const markers = createMemo(() => {
     positionTick();
+    if (layout().mode !== "rail") return [];
     return computeMarkers({
       items: items(),
       root: options.getRootEl(),
-      railHeightPx: railHeightPx(),
+      railHeightPx: layout().railHeightPx,
       resolveHeadingEl,
     });
   });
 
-  const visibleMarkerBounds = createMemo(() => {
-    return computeVisibleMarkerBounds(
+  const visibleMarkerBounds = createMemo(() =>
+    computeVisibleMarkerBounds(
       markers(),
       visibleStartIndex(),
       visibleEndIndex(),
-    );
-  });
+    ),
+  );
 
   onMount(() => {
+    resizeObserver = new ResizeObserver(() => {
+      refreshLayout();
+      schedulePositionUpdate(true);
+    });
     bindRoot(options.getRootEl());
-    refreshLayoutMode();
+    refreshLayout();
     refreshTocGeometry();
 
     rootPollTimer = window.setInterval(() => {
       const root = options.getRootEl();
       if (!root) return;
       bindRoot(root);
-      if (rootPollTimer) {
-        window.clearInterval(rootPollTimer);
-        rootPollTimer = undefined;
-      }
+      window.clearInterval(rootPollTimer);
+      rootPollTimer = undefined;
     }, 300);
 
-    resizeObserver = new ResizeObserver(() => {
-      refreshLayoutMode();
-      schedulePositionUpdate(true);
-    });
-    if (observedRoot) resizeObserver.observe(observedRoot);
-
-    scrollHandler = () => schedulePositionUpdate();
-    resizeHandler = () => {
-      refreshLayoutMode();
+    const onScroll = () => schedulePositionUpdate();
+    const onResize = () => {
+      refreshLayout();
       schedulePositionUpdate(true);
     };
-    focusHandler = () => {
-      window.requestAnimationFrame(() => {
-        bindRoot(options.getRootEl());
-        schedulePositionUpdate(true);
-      });
-    };
-    visibilityHandler = () => {
+    const onRebind = () => {
       if (document.hidden) return;
       window.requestAnimationFrame(() => {
         bindRoot(options.getRootEl());
         schedulePositionUpdate(true);
       });
     };
-    loadHandler = (event) => {
+    const onLoad = (event: Event) => {
       if (event.target instanceof HTMLImageElement) {
         schedulePositionUpdate(true);
       }
     };
-    fontHandler = () => schedulePositionUpdate(true);
+    const onFonts = () => schedulePositionUpdate(true);
 
-    window.addEventListener("scroll", scrollHandler, {
+    window.addEventListener("scroll", onScroll, {
       capture: true,
       passive: true,
     });
-    window.addEventListener("resize", resizeHandler);
-    window.addEventListener("focus", focusHandler);
-    window.addEventListener("load", loadHandler, true);
-    document.addEventListener("visibilitychange", visibilityHandler);
-    document.fonts.addEventListener("loadingdone", fontHandler);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("focus", onRebind);
+    window.addEventListener("load", onLoad, true);
+    document.addEventListener("visibilitychange", onRebind);
+    document.fonts.addEventListener("loadingdone", onFonts);
 
     onCleanup(() => {
       if (recollectTimer) window.clearTimeout(recollectTimer);
       if (rootPollTimer) window.clearInterval(rootPollTimer);
       if (positionFrame !== undefined)
         window.cancelAnimationFrame(positionFrame);
-      if (observer) observer.disconnect();
-      if (resizeObserver) resizeObserver.disconnect();
-      if (scrollHandler)
-        window.removeEventListener("scroll", scrollHandler, true);
-      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
-      if (focusHandler) window.removeEventListener("focus", focusHandler);
-      if (loadHandler) window.removeEventListener("load", loadHandler, true);
-      if (visibilityHandler) {
-        document.removeEventListener("visibilitychange", visibilityHandler);
-      }
-      if (fontHandler)
-        document.fonts.removeEventListener("loadingdone", fontHandler);
-    });
-  });
-
-  createEffect(() => {
-    const isExpanded = showExpandedPanel();
-    if (isExpanded && !wasExpanded) {
-      window.requestAnimationFrame(() => scrollListToActive("center"));
-    }
-    wasExpanded = isExpanded;
-  });
-
-  createEffect(() => {
-    if (!showExpandedPanel()) return;
-    activeIndex();
-    window.requestAnimationFrame(() => scrollListToActive("keep-visible"));
-  });
-
-  createEffect(() => {
-    panelWidthPx();
-    items().length;
-    showExpandedPanel();
-
-    window.requestAnimationFrame(() => {
-      const panel = expandedPanelRef;
-      if (!panel) return;
-
-      const viewportMaxHeightPx = getViewportMaxHeightPx(options.maxVh());
-      const measuredHeight = panel.getBoundingClientRect().height;
-
-      setExpandedPanelHeightPx(
-        Math.max(Math.floor(measuredHeight), MIN_RAIL_HEIGHT),
-      );
-      if (!showExpandedPanel()) return;
-
-      setRailHeightPx(
-        clamp(Math.floor(measuredHeight), MIN_RAIL_HEIGHT, viewportMaxHeightPx),
-      );
+      observer?.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("focus", onRebind);
+      window.removeEventListener("load", onLoad, true);
+      document.removeEventListener("visibilitychange", onRebind);
+      document.fonts.removeEventListener("loadingdone", onFonts);
     });
   });
 
   return {
     activeIndex,
-    collapsedRailHeightPx,
-    containerTopPx,
-    isHoverExpanded,
+    hasItems,
     items,
+    layout,
+    markers,
     minHeadingLevel,
     onItemClick,
-    onListReady: () => {
-      if (showExpandedPanel()) {
-        window.requestAnimationFrame(() => scrollListToActive("center"));
-      }
-    },
-    onListRef: (el: HTMLElement | undefined) => {
-      listRef = el;
-    },
-    onListScrollRef: (el: HTMLElement | undefined) => {
-      listScrollRef = el;
-    },
-    onPanelRef: (el: HTMLElement | undefined) => {
-      expandedPanelRef = el;
-    },
-    onRailMouseEnter,
-    onRailMouseLeave,
-    panelLeftPx,
-    panelMaxHeightCss,
-    panelOffsetPx,
-    panelWidthPx,
-    setIsHoverExpanded,
-    showExpandedByDefault,
-    showExpandedPanel,
+    pinnedTopPx,
+    railTopPx,
     visibleEndIndex,
     visibleMarkerBounds,
     visibleStartIndex,
-    markers,
-    hasItems,
   };
 }
