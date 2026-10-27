@@ -34,11 +34,15 @@ export function computeTocLayout(
 
   return {
     mode: "rail",
+    // Hug the screen edge when the gutter is tight, so the rail stays off
+    // the text for as long as it fits.
     leftPx: Math.round(
-      clamp(
-        rect.right + RIGHT_GAP,
-        VIEWPORT_PADDING,
-        window.innerWidth - VIEWPORT_PADDING - RAIL_WIDTH,
+      Math.max(
+        Math.min(rect.right + RIGHT_GAP, window.innerWidth - RAIL_WIDTH - 2),
+        Math.min(
+          rect.right + 2,
+          window.innerWidth - VIEWPORT_PADDING - RAIL_WIDTH,
+        ),
       ),
     ),
     widthPx: RAIL_WIDTH,

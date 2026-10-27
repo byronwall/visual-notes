@@ -114,7 +114,13 @@ export function useTocController(options: UseTocControllerOptions) {
       visibleTop,
       visibleBottom,
     );
-    setActiveIndex(range.startIdx);
+    // The last sections can be too short to reach the reading line. Once
+    // the page can't scroll further, the lowest heading on screen is current.
+    const atBottom =
+      window.scrollY > 0 &&
+      window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+    setActiveIndex(atBottom ? range.endIdx : range.startIdx);
     setVisibleStartIndex(range.startIdx);
     setVisibleEndIndex(range.endIdx);
   }

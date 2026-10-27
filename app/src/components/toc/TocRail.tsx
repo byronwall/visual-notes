@@ -9,9 +9,6 @@ const railClass = css({
   borderRadius: "l2",
   cursor: "pointer",
   outline: "none",
-  transitionProperty: "background-color",
-  transitionDuration: "140ms",
-  _hover: { bg: "bg.hover" },
   _focusVisible: { outline: "2px solid", outlineColor: "border.focus" },
 });
 
@@ -33,7 +30,10 @@ const markerClass = css({
   bg: "gray.a7",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
-  "&[data-active=true]": { bg: "fg.default" },
+  "[role=button]:hover &": { bg: "gray.a9" },
+  "&[data-active=true], [role=button]:hover &[data-active=true]": {
+    bg: "fg.default",
+  },
 });
 
 const MARKER_WIDTH = [14, 10, 7, 5];

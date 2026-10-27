@@ -9,7 +9,7 @@ export const PINNED_GAP = 24;
 export const PINNED_MIN_WIDTH = 168;
 export const PINNED_MAX_WIDTH = 272;
 // Keep the pinned outline below the sticky editor toolbar.
-export const PINNED_MIN_TOP = 64;
+export const PINNED_MIN_TOP = 56;
 export const PINNED_BOTTOM_GAP = 16;
 
 export const FLYOUT_WIDTH = 288;

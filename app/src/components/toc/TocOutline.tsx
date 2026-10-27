@@ -11,6 +11,17 @@ import {
 import { CheckIcon, LinkIcon, SearchIcon } from "lucide-solid";
 import { css, cx } from "styled-system/css";
 import { HighlightMatch } from "~/components/archive/list/HighlightMatch";
+import { toaster } from "~/components/ui/toast";
+import {
+  countClass,
+  emptyClass,
+  filterClass,
+  inputClass,
+  linkButtonClass,
+  listClass,
+  outlineClass,
+  rowClass,
+} from "./outline-styles";
 import { type TocItem } from "./types";
 import { type TocController } from "./useTocController";
 
@@ -24,117 +35,7 @@ type Props = {
   style?: JSX.CSSProperties;
 };
 
-const outlineClass = css({
-  display: "flex",
-  flexDirection: "column",
-  minH: "0",
-  gap: "0.5",
-});
-
-const filterClass = css({
-  display: "flex",
-  alignItems: "center",
-  gap: "1.5",
-  flexShrink: 0,
-  h: "8",
-  px: "2",
-  borderRadius: "l2",
-  color: "fg.subtle",
-  transitionProperty: "background-color, color",
-  transitionDuration: "140ms",
-  _hover: { bg: "bg.hover" },
-  _focusWithin: { bg: "bg.muted", color: "fg.muted" },
-});
-
-const inputClass = css({
-  flex: "1",
-  minW: "0",
-  h: "full",
-  bg: "transparent",
-  border: "none",
-  outline: "none",
-  fontSize: "sm",
-  color: "fg.default",
-  _placeholder: { color: "fg.subtle" },
-  "&::-webkit-search-cancel-button": { display: "none" },
-});
-
-const countClass = css({
-  flexShrink: 0,
-  fontSize: "xs",
-  color: "fg.subtle",
-  fontVariantNumeric: "tabular-nums",
-});
-
-const listClass = css({
-  position: "relative",
-  flex: "1",
-  minH: "0",
-  overflowY: "auto",
-  overscrollBehavior: "contain",
-  scrollbarWidth: "thin",
-  listStyle: "none",
-  m: "0",
-  p: "0",
-});
-
-const rowClass = css({
-  display: "block",
-  w: "full",
-  textAlign: "left",
-  py: "1",
-  pr: "7",
-  borderRadius: "l2",
-  fontSize: "sm",
-  lineHeight: "1.35",
-  color: "fg.muted",
-  cursor: "pointer",
-  transitionProperty: "background-color, color",
-  transitionDuration: "140ms",
-  _hover: { bg: "bg.hover", color: "fg.default" },
-  _active: { bg: "bg.active" },
-  _focusVisible: {
-    outline: "2px solid",
-    outlineColor: "border.focus",
-    outlineOffset: "-2px",
-  },
-  "&[data-depth='0']": { fontWeight: "medium" },
-  "&[data-inview=true]": { color: "fg.default" },
-  "&[data-cursor=true]": { bg: "bg.hover", color: "fg.default" },
-  "&[data-active=true]": { bg: "bg.selected", color: "fg.default" },
-  "&[data-touch=true]": { py: "2.5", pr: "3", fontSize: "md" },
-  _motionReduce: { transition: "none" },
-});
-
-const linkButtonClass = css({
-  position: "absolute",
-  top: "1",
-  right: "1",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  w: "5",
-  h: "5",
-  borderRadius: "l1",
-  color: "fg.subtle",
-  cursor: "pointer",
-  opacity: "0",
-  transitionProperty: "opacity, background-color, color, transform",
-  transitionDuration: "140ms",
-  "li:hover > &": { opacity: "1" },
-  "&:focus-visible, &[data-copied=true]": { opacity: "1" },
-  _hover: { bg: "gray.a4", color: "fg.default" },
-  _active: { transform: "scale(0.9)" },
-  "&[data-copied=true]": { color: "fg.success" },
-  _motionReduce: { transition: "none" },
-});
-
-const emptyClass = css({
-  px: "2",
-  py: "1.5",
-  fontSize: "sm",
-  color: "fg.subtle",
-});
+const liClass = css({ position: "relative" });
 
 function matchesQuery(text: string, query: string) {
   const lower = text.toLowerCase();
@@ -146,7 +47,7 @@ function matchesQuery(text: string, query: string) {
 }
 
 /**
- * The note's headings as a readable outline: the section in view is lit,
+ * The note's headings as a readable outline: the current section is lit,
  * the list follows reading position, and the filter field searches headings
  * with arrow-key and Enter navigation. Shared by the pinned gutter outline,
  * the rail flyout, and the phone sheet.
@@ -155,7 +56,10 @@ export function TocOutline(props: Props) {
   const [query, setQuery] = createSignal("");
   const [cursor, setCursor] = createSignal(-1);
   const [copiedIndex, setCopiedIndex] = createSignal(-1);
+  const [fade, setFade] = createSignal<"top" | "bottom" | "both">();
+  const [filterFocused, setFilterFocused] = createSignal(false);
   let listEl: HTMLUListElement | undefined;
+  let inputEl: HTMLInputElement | undefined;
   let copiedTimer: number | undefined;
 
   const entries = createMemo(() => {
@@ -170,26 +74,39 @@ export function TocOutline(props: Props) {
     Math.min(Math.max(item.level - props.toc.minHeadingLevel(), 0), 3);
 
   const countLabel = () => {
-    if (query().trim()) {
-      const n = entries().length;
-      return n === 1 ? "1 match" : `${n} matches`;
+    if (!query().trim()) {
+      return `${props.toc.activeIndex() + 1}/${props.toc.items().length}`;
     }
-    return `${props.toc.activeIndex() + 1}/${props.toc.items().length}`;
+    const n = entries().length;
+    if (n === 0) return "";
+    return n === 1 ? "1 match" : `${n} matches`;
   };
 
+  function updateFade() {
+    if (!listEl) return;
+    const { scrollTop, scrollHeight, clientHeight } = listEl;
+    const above = scrollTop > 1;
+    const below = scrollTop + clientHeight < scrollHeight - 1;
+    setFade(
+      above && below ? "both" : above ? "top" : below ? "bottom" : undefined,
+    );
+  }
+
+  // Keep a row in the middle of the list, so the sections before and after
+  // the current one stay in sight.
   function scrollRowIntoList(index: number, center = false) {
     const row = listEl?.querySelector<HTMLElement>(`[data-toc-idx="${index}"]`);
     if (!row || !listEl) return;
+    const view = listEl.clientHeight;
     const top = row.offsetTop;
     const bottom = top + row.offsetHeight;
-    const view = listEl.clientHeight;
-    if (center) {
-      listEl.scrollTop = Math.max(top - (view - row.offsetHeight) / 2, 0);
-    } else if (top < listEl.scrollTop + 8) {
-      listEl.scrollTop = Math.max(top - 8, 0);
-    } else if (bottom > listEl.scrollTop + view - 8) {
-      listEl.scrollTop = bottom - view + 8;
+    const band = view * 0.25;
+    const outside =
+      top < listEl.scrollTop + band || bottom > listEl.scrollTop + view - band;
+    if (center || outside) {
+      listEl.scrollTop = Math.max(top - (view - row.offsetHeight) / 3, 0);
     }
+    updateFade();
   }
 
   onMount(() =>
@@ -208,6 +125,8 @@ export function TocOutline(props: Props) {
       },
     ),
   );
+
+  createEffect(on(entries, () => window.requestAnimationFrame(updateFade)));
 
   function jump(item: TocItem) {
     if (props.onSelect) props.onSelect(item);
@@ -229,7 +148,7 @@ export function TocOutline(props: Props) {
     scrollRowIntoList(next.index);
   }
 
-  function onKeyDown(event: KeyboardEvent) {
+  function onFilterKeyDown(event: KeyboardEvent) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       moveCursor(event.key === "ArrowDown" ? 1 : -1);
@@ -241,15 +160,32 @@ export function TocOutline(props: Props) {
       if (!target) return;
       event.preventDefault();
       jump(target.item);
+      // The jump is done; show the whole outline around the new section.
+      setQuery("");
+      setCursor(-1);
     } else if (event.key === "Escape") {
       if (!query() && cursor() === -1) {
-        (event.currentTarget as HTMLInputElement).blur();
+        inputEl?.blur();
         return;
       }
       event.stopPropagation();
       setQuery("");
       setCursor(-1);
     }
+  }
+
+  // Arrow keys move between rows once Tab has reached the list.
+  function onListKeyDown(event: KeyboardEvent) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const rows = Array.from(
+      listEl?.querySelectorAll<HTMLElement>("[data-toc-row]") ?? [],
+    );
+    const at = rows.indexOf(document.activeElement as HTMLElement);
+    if (at === -1) return;
+    event.preventDefault();
+    const next = event.key === "ArrowDown" ? at + 1 : at - 1;
+    if (next < 0) inputEl?.focus();
+    else rows[Math.min(next, rows.length - 1)].focus();
   }
 
   async function copyLink(item: TocItem, index: number) {
@@ -262,6 +198,11 @@ export function TocOutline(props: Props) {
       copiedTimer = window.setTimeout(() => setCopiedIndex(-1), 1400);
     } catch (error) {
       console.warn("[toc] clipboard write failed", error);
+      toaster.create({
+        title: "Could not copy link",
+        description: url,
+        type: "error",
+      });
     }
   }
 
@@ -274,37 +215,47 @@ export function TocOutline(props: Props) {
       <label class={filterClass}>
         <SearchIcon size={14} aria-hidden="true" />
         <input
+          ref={inputEl}
           type="search"
           class={inputClass}
-          placeholder="Contents"
+          placeholder={filterFocused() ? "Filter headings" : "Contents"}
           aria-label="Filter headings"
+          autocomplete="off"
           value={query()}
           onInput={(event) => {
             setQuery(event.currentTarget.value);
             setCursor(-1);
             if (listEl) listEl.scrollTop = 0;
           }}
-          onKeyDown={onKeyDown}
-          onBlur={() => setCursor(-1)}
+          onKeyDown={onFilterKeyDown}
+          onFocus={() => setFilterFocused(true)}
+          onBlur={() => {
+            setFilterFocused(false);
+            setCursor(-1);
+          }}
         />
         <span class={countClass}>{countLabel()}</span>
       </label>
 
-      <ul class={listClass} ref={listEl}>
+      <ul
+        class={listClass}
+        ref={listEl}
+        data-fade={fade()}
+        onScroll={updateFade}
+        onKeyDown={onListKeyDown}
+      >
         <For each={entries()}>
           {({ item, index }) => {
             const isActive = () => index === props.toc.activeIndex();
-            const inView = () =>
-              index >= props.toc.visibleStartIndex() &&
-              index <= props.toc.visibleEndIndex();
+            const copied = () => copiedIndex() === index;
             return (
-              <li data-toc-idx={index} class={css({ position: "relative" })}>
+              <li data-toc-idx={index} class={liClass}>
                 <button
                   type="button"
                   class={rowClass}
+                  data-toc-row
                   data-depth={depth(item)}
                   data-active={isActive()}
-                  data-inview={inView()}
                   data-cursor={index === cursor()}
                   data-touch={props.touch ? "true" : undefined}
                   aria-current={isActive() ? "location" : undefined}
@@ -319,17 +270,16 @@ export function TocOutline(props: Props) {
                   />
                 </button>
                 <Show when={!props.touch && item.blockId}>
+                  {/* Out of the tab order: Tab and arrows walk the headings. */}
                   <button
                     type="button"
+                    tabIndex={-1}
                     class={linkButtonClass}
-                    data-copied={copiedIndex() === index}
+                    data-copied={copied() ? "true" : undefined}
                     aria-label={`Copy link to “${item.text}”`}
                     onClick={() => void copyLink(item, index)}
                   >
-                    <Show
-                      when={copiedIndex() === index}
-                      fallback={<LinkIcon size={12} />}
-                    >
+                    <Show when={copied()} fallback={<LinkIcon size={12} />}>
                       <CheckIcon size={12} />
                     </Show>
                   </button>
@@ -339,7 +289,9 @@ export function TocOutline(props: Props) {
           }}
         </For>
         <Show when={entries().length === 0}>
-          <li class={emptyClass}>No heading matches “{query().trim()}”</li>
+          <li class={emptyClass}>
+            No headings match “{query().trim()}”. Esc clears the filter.
+          </li>
         </Show>
       </ul>
     </nav>

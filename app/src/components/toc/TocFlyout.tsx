@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { css } from "styled-system/css";
 import { FLYOUT_WIDTH, RAIL_WIDTH, VIEWPORT_PADDING } from "./constants";
 import { TocOutline } from "./TocOutline";
@@ -28,6 +28,14 @@ const panelClass = css({
  */
 export function TocFlyout(props: { toc: TocController }) {
   const [hovered, setHovered] = createSignal(false);
+  let hoverTimer: number | undefined;
+  // A short open delay ignores a pointer passing over the rail; a longer
+  // close delay lets it cross the gap between the rail and the panel.
+  const hoverSoon = (next: boolean) => {
+    window.clearTimeout(hoverTimer);
+    hoverTimer = window.setTimeout(() => setHovered(next), next ? 80 : 220);
+  };
+  onCleanup(() => window.clearTimeout(hoverTimer));
   const [focused, setFocused] = createSignal(false);
   let panelEl: HTMLDivElement | undefined;
   const open = () => hovered() || focused();
@@ -45,8 +53,8 @@ export function TocFlyout(props: { toc: TocController }) {
         "z-index": "30",
         "user-select": "none",
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => hoverSoon(true)}
+      onMouseLeave={() => hoverSoon(false)}
       onFocusIn={() => setFocused(true)}
       onFocusOut={(event) => {
         const next = event.relatedTarget as Node | null;
@@ -70,7 +78,16 @@ export function TocFlyout(props: { toc: TocController }) {
           "pointer-events": open() ? "auto" : "none",
         }}
       >
-        <TocOutline toc={props.toc} class={css({ flex: "1" })} />
+        <TocOutline
+          toc={props.toc}
+          class={css({ flex: "1" })}
+          onSelect={(item) => {
+            props.toc.onItemClick(item);
+            // Drop focus so the panel closes once the pointer leaves.
+            (document.activeElement as HTMLElement | null)?.blur();
+            setFocused(false);
+          }}
+        />
       </div>
     </div>
   );
