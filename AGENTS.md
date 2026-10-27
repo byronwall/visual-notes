@@ -10,6 +10,7 @@ focused skills listed under [Skills](#skills).
 | Setup (Node 24+, pinned pnpm 9.15.9 via Corepack) | [README Getting Started](README.md#getting-started) |
 | Checks | `cd app && pnpm lint && pnpm type-check && pnpm test` (oxlint ~2s, TypeScript 7 ~5s cold / <1s warm); CI runs the same in [checks.yml](.github/workflows/checks.yml); the [pre-commit hook](.githooks/pre-commit) (installed by `pnpm install`) runs lint on staged files plus type-check |
 | Generated output | `cd app && pnpm panda` (Panda); `pnpm install` runs `prisma generate` |
+| Local Postgres without Docker (Homebrew `postgresql@18`, one shared server, one database per worktree; start, reset, migrate, copy old data) | [app/docs/local-postgres.md](app/docs/local-postgres.md) |
 | Test database (`pnpm audit:db -- --owner <slug>`), isolated browser audits, screenshots (`pnpm audit:shoot`), fixtures, cleanup, handoffs | [app/docs/audit-harness.md](app/docs/audit-harness.md) |
 | One-off Playwright checks (sign-in, hydration wait, widths, layout report, exit codes) | [app/docs/browser-checks.md](app/docs/browser-checks.md) |
 | UI design judgement calls (checked in review) | [CODING_STANDARDS.md](CODING_STANDARDS.md) |

@@ -137,11 +137,9 @@ function runSeeder(args: string[], env: Record<string, string>) {
   }
 }
 
-export const devPostgres = {
-  container: "vn-dev-pg",
-  volume: "vn-dev-pg-data",
-  image: "postgres:16",
-};
+// Dev Postgres is Homebrew's, shared by every worktree; each worktree or
+// owner gets its own database on it. Idle, the server uses about 30 MB.
+export const devPostgres = { formula: "postgresql@18" };
 
 function canConnect(host: string, port: number) {
   return new Promise<boolean>((resolvePromise) => {
@@ -163,78 +161,112 @@ function serverAddress(target: URL) {
   };
 }
 
-/** `docker run` for the one supported dev server; secrets pass by env name. */
-export function devPostgresRunArgs(target: URL) {
-  const { port } = serverAddress(target);
-  return [
-    "run",
-    "-d",
-    "--name",
-    devPostgres.container,
-    "-p",
-    `127.0.0.1:${port}:5432`,
-    "-v",
-    `${devPostgres.volume}:/var/lib/postgresql/data`,
-    "-e",
-    "POSTGRES_USER",
-    "-e",
-    "POSTGRES_PASSWORD",
-    devPostgres.image,
-  ];
+/** SQL that creates the env file's login role; the password stays out of argv. */
+export function createRoleSql(target: URL) {
+  const user = decodeURIComponent(target.username || "postgres");
+  const password = decodeURIComponent(target.password).replaceAll("'", "''");
+  return `DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${user.replaceAll("'", "''")}') THEN
+    CREATE ROLE "${user.replaceAll('"', '""')}" WITH LOGIN SUPERUSER PASSWORD '${password}';
+  END IF;
+END $$;`;
 }
 
-function docker(args: string[], env?: Record<string, string>) {
-  return spawnSync("docker", args, {
-    encoding: "utf8",
-    env: { ...process.env, ...env },
-  });
+function run(command: string, args: string[], input?: string) {
+  return spawnSync(command, args, { encoding: "utf8", input });
 }
 
 /**
- * Makes sure the env file's loopback Postgres answers. When nothing listens,
- * starts (or creates) the vn-dev-pg container on that port, so agents stop
- * improvising with Homebrew servers or other projects' containers.
+ * Makes sure the env file's loopback Postgres answers and knows the env
+ * file's role. When nothing listens, starts Homebrew's postgresql@18 service
+ * (installing it first if needed), so no worktree needs Docker.
  */
 async function ensureDatabaseServer(target: URL) {
   const { host, port } = serverAddress(target);
-  if (await canConnect(host, port)) return;
-  if (docker(["info"]).status !== 0) {
-    throw new Error(
-      `[audit-db] Nothing listens on ${host}:${port}, and Docker isn't running. Start Docker Desktop (open -a Docker), wait until \`docker info\` succeeds, and rerun. Don't start another Postgres by hand.`,
-    );
-  }
-  const exists =
-    docker(["container", "inspect", devPostgres.container]).status === 0;
-  const result = exists
-    ? docker(["start", devPostgres.container])
-    : docker(devPostgresRunArgs(target), {
-        POSTGRES_USER: decodeURIComponent(target.username || "postgres"),
-        POSTGRES_PASSWORD: decodeURIComponent(target.password),
-      });
-  if (result.status !== 0) {
-    throw new Error(
-      `[audit-db] Could not start ${devPostgres.container} on ${host}:${port}:\n${result.stderr}`,
-    );
-  }
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const ready = docker([
-      "exec",
-      devPostgres.container,
-      "pg_isready",
-      "-h",
-      "127.0.0.1",
-    ]);
-    if (ready.status === 0 && (await canConnect(host, port))) {
-      console.info(
-        `[audit-db] ${exists ? "started" : "created"} ${devPostgres.container} on ${host}:${port}.`,
+  if (!(await canConnect(host, port))) {
+    if (run("brew", ["--version"]).status !== 0) {
+      throw new Error(
+        `[audit-db] Nothing listens on ${host}:${port}, and Homebrew isn't installed. Install Homebrew, then rerun.`,
       );
-      return;
     }
-    await new Promise((wake) => setTimeout(wake, 1000));
+    if (run("brew", ["list", devPostgres.formula]).status !== 0) {
+      console.info(`[audit-db] installing ${devPostgres.formula}…`);
+      const install = spawnSync("brew", ["install", devPostgres.formula], {
+        stdio: "inherit",
+      });
+      if (install.status !== 0)
+        throw new Error("[audit-db] brew install failed.");
+    }
+    const started = run("brew", ["services", "start", devPostgres.formula]);
+    if (started.status !== 0) {
+      throw new Error(
+        `[audit-db] Could not start ${devPostgres.formula}:\n${started.stderr}`,
+      );
+    }
+    let ready = false;
+    for (let attempt = 0; attempt < 30 && !ready; attempt += 1) {
+      await new Promise((wake) => setTimeout(wake, 1000));
+      ready = await canConnect(host, port);
+    }
+    if (!ready) {
+      throw new Error(
+        `[audit-db] ${devPostgres.formula} did not listen on ${host}:${port} within 30s; check \`brew services info ${devPostgres.formula}\` and its log in $(brew --prefix)/var/log.`,
+      );
+    }
+    console.info(
+      `[audit-db] started ${devPostgres.formula} on ${host}:${port}.`,
+    );
   }
-  throw new Error(
-    `[audit-db] ${devPostgres.container} did not accept connections within 60s; see \`docker logs ${devPostgres.container}\`.`,
+  // Homebrew's initdb makes only the macOS user a superuser. Connect as that
+  // user to add the env file's role; a no-op once it exists.
+  const bin = run("brew", ["--prefix", devPostgres.formula]).stdout.trim();
+  const psql = bin ? join(bin, "bin/psql") : "psql";
+  const role = run(
+    psql,
+    [
+      "-h",
+      host,
+      "-p",
+      String(port),
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-q",
+    ],
+    createRoleSql(target),
   );
+  if (role.status !== 0) {
+    console.warn(
+      `[audit-db] could not check the database role:\n${role.stderr}`,
+    );
+  }
+  // Docker containers and other Homebrew versions also default to 5432 and
+  // can bind beside this server, so check which one actually answers.
+  const answer = spawnSync(
+    psql,
+    [
+      "-h",
+      host,
+      "-p",
+      String(port),
+      "-U",
+      decodeURIComponent(target.username || "postgres"),
+      "-d",
+      "postgres",
+      "-Atc",
+      "SELECT version()",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, PGPASSWORD: decodeURIComponent(target.password) },
+    },
+  );
+  if (!answer.stdout.includes("Homebrew")) {
+    throw new Error(
+      `[audit-db] ${host}:${port} is not Homebrew's ${devPostgres.formula}: ${(answer.stdout || answer.stderr).trim()}\nStop the other server (a Docker container such as vn-db2, or another \`brew services\` Postgres), then rerun.`,
+    );
+  }
 }
 
 function maintenanceUrl(target: URL) {
