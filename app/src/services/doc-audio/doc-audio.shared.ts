@@ -66,3 +66,13 @@ export const docAudioChunkUrl = (id: string, seq: number, elapsedMs: number) =>
   `/api/doc-audio/${id}/chunks?seq=${seq}&elapsedMs=${Math.round(elapsedMs)}`;
 
 export const DOC_AUDIO_LABEL_MAX = 120;
+
+// Dropped recordings: Groq's Whisper accepts up to 100 MB per file.
+export const DOC_AUDIO_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
+export const DOC_AUDIO_UPLOAD_URL = "/api/doc-audio";
+
+const AUDIO_EXTENSION = /\.(m4a|mp4a|mp3|wav|aac|ogg|oga|opus|webm|flac)$/i;
+
+/** True for a file the strip can keep as a recording (Voice Memos, mp3, …). */
+export const isAudioFile = (file: { name: string; type: string }) =>
+  file.type.startsWith("audio/") || AUDIO_EXTENSION.test(file.name);

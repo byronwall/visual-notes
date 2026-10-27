@@ -1,4 +1,8 @@
-import { appendFile, mkdir, open, stat, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { appendFile, mkdir, open, rm, stat, writeFile } from "node:fs/promises";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import path from "node:path";
 
 // Note audio recordings live on disk next to doc-images; the DocAudio row
@@ -17,11 +21,24 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   "audio/ogg": "ogg",
   "audio/mpeg": "mp3",
   "audio/wav": "wav",
+  "audio/flac": "flac",
+};
+
+// Names browsers give dropped files (macOS Voice Memos are `audio/x-m4a`).
+const MIME_ALIASES: Record<string, string> = {
+  "audio/x-m4a": "audio/mp4",
+  "audio/m4a": "audio/mp4",
+  "audio/mp3": "audio/mpeg",
+  "audio/x-wav": "audio/wav",
+  "audio/wave": "audio/wav",
+  "audio/vnd.wave": "audio/wav",
+  "audio/x-flac": "audio/flac",
 };
 
 /** Base MIME type without codec parameters, or null when unsupported. */
 export function normalizeAudioMimeType(raw: string): string | null {
-  const base = raw.split(";")[0]?.trim().toLowerCase() ?? "";
+  const lower = raw.split(";")[0]?.trim().toLowerCase() ?? "";
+  const base = MIME_ALIASES[lower] ?? lower;
   return base in EXTENSION_BY_MIME ? base : null;
 }
 
@@ -52,6 +69,40 @@ export async function appendAudioChunk(
   const abs = resolveAudioPath(fileName);
   await appendFile(abs, chunk);
   return (await stat(abs)).size;
+}
+
+export class AudioTooLargeError extends Error {}
+
+/**
+ * Streams a whole file (a dropped recording) to disk and returns its size.
+ * Stops at `maxBytes` and removes what it wrote on any failure.
+ */
+export async function writeAudioFile(
+  fileName: string,
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): Promise<number> {
+  await mkdir(resolveDocAudioStorageDir(), { recursive: true });
+  const abs = resolveAudioPath(fileName);
+  let size = 0;
+  const limit = new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      size += chunk.length;
+      if (size > maxBytes) return done(new AudioTooLargeError());
+      done(null, chunk);
+    },
+  });
+  try {
+    await pipeline(
+      Readable.fromWeb(body as WebReadableStream),
+      limit,
+      createWriteStream(abs, { flags: "wx" }),
+    );
+    return size;
+  } catch (error) {
+    await rm(abs, { force: true });
+    throw error;
+  }
 }
 
 export async function audioFileSize(fileName: string): Promise<number> {

@@ -17,11 +17,15 @@ import {
 } from "~/services/doc-audio/doc-audio.actions";
 import { fetchDocAudios } from "~/services/doc-audio/doc-audio.queries";
 import {
+  type DocAudioSummary,
   type TranscriptAnalysis,
   formatStamp,
   stampSeconds,
 } from "~/services/doc-audio/doc-audio.shared";
-import { DocAudioRow } from "./DocAudioRow";
+import { Button } from "~/components/ui/button";
+import { DocAudioRow, defaultRecordingLabel } from "./DocAudioRow";
+import { DocAudioUploadRow } from "./DocAudioUploadRow";
+import type { useDocAudioDrop } from "./useDocAudioDrop";
 import { LiveRecordingRow } from "./LiveRecordingRow";
 
 const text = (value: string) => (value ? [{ type: "text", text: value }] : []);
@@ -36,6 +40,21 @@ const transcriptBlocks = (analysis: TranscriptAnalysis): JSONContent[] =>
     },
     { type: "paragraph", content: text(s.cleanedText.trim()) },
   ]);
+
+/** Every finished transcript, oldest first, each under its recording's name. */
+const allTranscriptBlocks = (audios: DocAudioSummary[]): JSONContent[] =>
+  audios.flatMap((a) =>
+    a.transcriptAnalysis
+      ? [
+          {
+            type: "heading",
+            attrs: { level: 2 },
+            content: text(a.label ?? defaultRecordingLabel(a)),
+          },
+          ...transcriptBlocks(a.transcriptAnalysis),
+        ]
+      : [],
+  );
 
 // The editor's task plugin creates the Inbox task for a new taskRef block.
 const taskBlock = (value: string): JSONContent => ({
@@ -54,6 +73,8 @@ export const DocAudioStrip = (props: {
   docId: string;
   /** Appends blocks to the open note's editor. */
   onInsertBlocks?: (blocks: JSONContent[]) => void;
+  /** Dropped audio files still uploading (or failed). */
+  drop?: ReturnType<typeof useDocAudioDrop>;
 }) => {
   const recorder = useAudioRecorder();
   const rename = useAction(renameDocAudio);
@@ -97,8 +118,22 @@ export const DocAudioStrip = (props: {
     mutate((prev) => prev?.map((a) => (a.id === id ? updated : a)));
   };
 
+  createEffect(() =>
+    props.drop?.listen((audio) =>
+      mutate((prev) =>
+        [...(prev ?? []), audio].sort((a, b) =>
+          a.createdAt.localeCompare(b.createdAt),
+        ),
+      ),
+    ),
+  );
+  const uploads = () => props.drop?.uploads() ?? [];
+  const transcribed = () => stored().filter((a) => a.transcriptAnalysis);
+
   return (
-    <Show when={live() || stored().length > 0 || error()}>
+    <Show
+      when={live() || stored().length > 0 || uploads().length > 0 || error()}
+    >
       <Stack gap="2" mb="4" data-testid="doc-audio-strip">
         <HStack justifyContent="space-between" gap="2">
           <Text
@@ -117,6 +152,16 @@ export const DocAudioStrip = (props: {
                 {message()}
               </Text>
             )}
+          </Show>
+          <Show when={props.onInsertBlocks && transcribed().length > 1}>
+            <Button
+              size="xs"
+              variant="plain"
+              flexShrink="0"
+              onClick={() => insert(allTranscriptBlocks(transcribed()))}
+            >
+              Insert all transcripts
+            </Button>
           </Show>
         </HStack>
         <Show when={live()}>
@@ -138,6 +183,15 @@ export const DocAudioStrip = (props: {
                   ? (value) => insert([taskBlock(value)])
                   : undefined
               }
+            />
+          )}
+        </For>
+        <For each={uploads()}>
+          {(upload) => (
+            <DocAudioUploadRow
+              upload={upload}
+              onRetry={() => props.drop?.retry(upload.key)}
+              onDismiss={() => props.drop?.dismiss(upload.key)}
             />
           )}
         </For>

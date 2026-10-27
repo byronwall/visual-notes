@@ -17,6 +17,7 @@ import {
   leadingHeadingText,
 } from "~/lib/note-content/markdown";
 import { DocAudioStrip } from "./doc-audio/DocAudioStrip";
+import { useDocAudioDrop } from "./doc-audio/useDocAudioDrop";
 import { DocCollectionHeader } from "./collections/DocCollectionHeader";
 import { NoteEventSection } from "./events/note/NoteEventSection";
 import { AddToCollectionDialog } from "./collections/membership/NoteCollectionMenu";
@@ -261,8 +262,50 @@ const DocumentViewer: VoidComponent<{
     />
   );
 
+  const audioDrop = useDocAudioDrop({
+    docId: () => props.doc.id,
+    onOtherFiles: (files) => editorApi()?.insertFiles(files),
+  });
+
   return (
-    <Box class="prose" maxW="none">
+    <Box
+      ref={(el) => audioDrop.bind(el)}
+      class="prose"
+      maxW="none"
+      position="relative"
+    >
+      <Show when={audioDrop.dragging()}>
+        <Box
+          position="absolute"
+          inset="0"
+          zIndex="overlay"
+          pointerEvents="none"
+          display="flex"
+          alignItems="flex-start"
+          justifyContent="center"
+          pt="24"
+          borderWidth="2px"
+          borderStyle="dashed"
+          borderColor="fg.muted"
+          borderRadius="l3"
+          bg="bg.default/80"
+          data-testid="doc-audio-drop-overlay"
+        >
+          <Box
+            px="4"
+            py="2"
+            borderRadius="l2"
+            bg="bg.default"
+            borderWidth="1px"
+            borderColor="border"
+            fontSize="sm"
+            fontWeight="medium"
+            boxShadow="md"
+          >
+            Drop to attach recordings and transcribe them
+          </Box>
+        </Box>
+      </Show>
       <Show when={props.panelMode} fallback={<Box mb="2">{header()}</Box>}>
         {/* The panel scrolls inside itself, so its header stays pinned with
             the close button in reach. */}
@@ -301,6 +344,7 @@ const DocumentViewer: VoidComponent<{
       <DocAudioStrip
         docId={props.doc.id}
         onInsertBlocks={(blocks) => editorApi()?.appendBlocks(blocks)}
+        drop={audioDrop}
       />
       <DocumentEditor
         docId={props.doc.id}
