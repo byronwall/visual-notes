@@ -164,7 +164,13 @@ export const heuristicDecider: Decider = async ({ state, questions }) => {
   const started = Date.now();
   const ids = new Set(questions.map((q) => q.id));
   let answers: Answers;
-  if (ids.has("better_together")) {
+  if (ids.has("page_worth_keeping")) {
+    // A page with a real amount of text might hold something; a thin one
+    // (login wall, error page) likely doesn't.
+    const { page } = state as { page: { text: string } };
+    const words = page.text.match(/\w+/g)?.length ?? 0;
+    answers = { page_worth_keeping: { p: words >= 300 ? 0.6 : 0.25 } };
+  } else if (ids.has("better_together")) {
     const { a, b } = state as { a: PairNote; b: PairNote };
     answers = pairAnswers(a, b);
   } else if (ids.has("placement")) {

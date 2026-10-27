@@ -5,8 +5,10 @@ import {
   Match,
   Show,
   Switch,
+  createEffect,
   createResource,
   createSignal,
+  on,
   onMount,
   type VoidComponent,
 } from "solid-js";
@@ -61,9 +63,17 @@ export const RevisitLinkPanel: VoidComponent<{
     () => (mounted() ? props.item.docId : false),
     (id) => expandLinkForNote(id),
   );
-  const latest = () => (page.error ? undefined : page.latest);
+  // `latest` would show the previous card's page while the next one loads.
+  const latest = () => (page.error || page.loading ? undefined : page());
   const [busy, setBusy] = createSignal<Primary | null>(null);
   const [error, setError] = createSignal<string | null>(null);
+  createEffect(
+    on(
+      () => props.item.docId,
+      () => setError(null),
+      { defer: true },
+    ),
+  );
 
   const primary = (): Primary => {
     const x = latest();
@@ -156,7 +166,7 @@ export const RevisitLinkPanel: VoidComponent<{
         </Stack>
       </PanelSection>
       <Show
-        when={mounted() && (!page.loading || latest())}
+        when={mounted() && !page.loading}
         fallback={
           <Stack gap="2" aria-busy="true" aria-label="Loading the page">
             <Skeleton h="4" w="60%" />

@@ -2,7 +2,7 @@ import { prisma } from "~/server/db";
 import { ensureInboxList } from "~/server/notes/inline-tasks";
 import { noteMarkdown } from "~/server/notes/note-store";
 import { createTask } from "~/server/tasks/task-store";
-import { appendMarkdown } from "./apply";
+import { MONTH_DAY_YEAR, appendMarkdown } from "./apply";
 import { deciderFor, resolveProvider } from "./assess";
 import { p } from "./buckets";
 import { draftDistill, type DistillDraft } from "./distill";
@@ -54,8 +54,8 @@ async function linkNote(docId: string) {
 
 export async function expandLink(docId: string): Promise<LinkExpansion> {
   const note = await linkNote(docId);
-  const { httpStatus, html, timedOut } = await fetchPage(note.url, PAGE_BYTES);
-  const status = statusFor(httpStatus, timedOut);
+  const { httpStatus, html, noHost } = await fetchPage(note.url, PAGE_BYTES);
+  const status = statusFor(httpStatus, noHost);
   const title = html ? pageTitle(html) : null;
   const text = html ? pageText(html).slice(0, TEXT_CAP) : "";
   const base = { url: note.url, status, httpStatus, title };
@@ -86,11 +86,7 @@ export async function expandLink(docId: string): Promise<LinkExpansion> {
 
 /** Adds the summary under the link; the note stays where it is. */
 export async function addLinkSummary(docId: string, markdown: string) {
-  const when = new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const when = new Date().toLocaleDateString("en-US", MONTH_DAY_YEAR);
   await appendMarkdown(
     docId,
     `## Summary\n\n${markdown.trim()}\n\n_Summarized from the link on ${when}._`,
