@@ -1,13 +1,15 @@
-import { Show } from "solid-js";
+import { Match, Show, Switch } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { InPlaceEditableText } from "~/components/InPlaceEditableText";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
 import { formatDuration } from "~/features/audio-recorder/useAudioRecorder";
 import {
   type DocAudioSummary,
   docAudioUrl,
 } from "~/services/doc-audio/doc-audio.shared";
+import { DocAudioTranscript } from "./DocAudioTranscript";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -24,54 +26,112 @@ const formatSize = (bytes: number) =>
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
-/** One stored recording: editable name, details, and a player. */
+/** One stored recording: editable name, details, player, and transcript. */
 export const DocAudioRow = (props: {
   audio: DocAudioSummary;
   onRename: (label: string) => Promise<void>;
-}) => (
-  <Stack
-    gap="1.5"
-    px="3"
-    py="2"
-    borderWidth="1px"
-    borderColor="border"
-    borderRadius="l2"
-    bg="bg.default"
-    data-testid="doc-audio-row"
-  >
-    <HStack gap="2" alignItems="center" minW="0">
-      <Box flex="1" minW="0">
-        <InPlaceEditableText
-          value={props.audio.label ?? ""}
-          placeholder={defaultRecordingLabel(props.audio)}
-          onCommit={(value) => props.onRename(value)}
-          allowEmpty
-          fontSize="sm"
-          fontWeight="medium"
-          fillWidth
-          truncatePreview
-        />
-      </Box>
-      <Show when={props.audio.status === "recording"}>
-        <Badge size="sm" variant="subtle" colorPalette="amber">
-          Interrupted
-        </Badge>
-      </Show>
-      <Text
-        fontSize="xs"
-        color="fg.muted"
-        fontVariantNumeric="tabular-nums"
-        flexShrink="0"
-      >
-        {formatDuration(props.audio.durationMs)} ·{" "}
-        {formatSize(props.audio.sizeBytes)}
-      </Text>
-    </HStack>
-    <audio
-      controls
-      preload="metadata"
-      src={docAudioUrl(props.audio.id)}
-      style={{ width: "100%", height: "36px" }}
-    />
-  </Stack>
-);
+  onTranscribe: () => void;
+  onInsert?: () => void;
+  onAddTask?: (text: string) => void;
+}) => {
+  let player: HTMLAudioElement | undefined;
+  const seek = (seconds: number) => {
+    if (!player) return;
+    player.currentTime = seconds;
+    // play() rejects when a pause or new seek interrupts it; that's fine.
+    player.play().catch(() => {});
+  };
+
+  return (
+    <Stack
+      gap="1.5"
+      px="3"
+      py="2"
+      borderWidth="1px"
+      borderColor="border"
+      borderRadius="l2"
+      bg="bg.default"
+      data-testid="doc-audio-row"
+    >
+      <HStack gap="2" alignItems="center" minW="0">
+        <Box flex="1" minW="0">
+          <InPlaceEditableText
+            value={props.audio.label ?? ""}
+            placeholder={defaultRecordingLabel(props.audio)}
+            onCommit={(value) => props.onRename(value)}
+            allowEmpty
+            fontSize="sm"
+            fontWeight="medium"
+            fillWidth
+            truncatePreview
+          />
+        </Box>
+        <Show when={props.audio.status === "recording"}>
+          <Badge size="sm" variant="subtle" colorPalette="amber">
+            Interrupted
+          </Badge>
+        </Show>
+        <Text
+          fontSize="xs"
+          color="fg.muted"
+          fontVariantNumeric="tabular-nums"
+          flexShrink="0"
+        >
+          {formatDuration(props.audio.durationMs)} ·{" "}
+          {formatSize(props.audio.sizeBytes)}
+        </Text>
+      </HStack>
+      <audio
+        ref={player}
+        controls
+        preload="metadata"
+        src={docAudioUrl(props.audio.id)}
+        style={{ width: "100%", height: "36px" }}
+      />
+      <Switch>
+        <Match when={props.audio.transcriptAnalysis}>
+          {(analysis) => (
+            <DocAudioTranscript
+              analysis={analysis()}
+              onSeek={seek}
+              onInsert={props.onInsert}
+              onAddTask={props.onAddTask}
+            />
+          )}
+        </Match>
+        <Match when={props.audio.transcriptStatus === "pending"}>
+          <Text fontSize="xs" color="fg.muted" role="status">
+            Transcribing…
+          </Text>
+        </Match>
+        <Match when={props.audio.transcriptStatus === "failed"}>
+          <HStack gap="2" justifyContent="space-between">
+            <Text
+              fontSize="xs"
+              color="red.11"
+              truncate
+              title={props.audio.transcriptError ?? ""}
+            >
+              Transcript failed: {props.audio.transcriptError}
+            </Text>
+            <Button
+              size="xs"
+              variant="plain"
+              flexShrink="0"
+              onClick={props.onTranscribe}
+            >
+              Retry
+            </Button>
+          </HStack>
+        </Match>
+        <Match when={props.audio.transcriptStatus === "none"}>
+          <HStack justifyContent="flex-end">
+            <Button size="xs" variant="plain" onClick={props.onTranscribe}>
+              Transcribe
+            </Button>
+          </HStack>
+        </Match>
+      </Switch>
+    </Stack>
+  );
+};

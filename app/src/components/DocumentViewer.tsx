@@ -298,7 +298,10 @@ const DocumentViewer: VoidComponent<{
         adding={addingEventDates()}
         onAddingDone={() => setAddingEventDates(false)}
       />
-      <DocAudioStrip docId={props.doc.id} />
+      <DocAudioStrip
+        docId={props.doc.id}
+        onInsertBlocks={(blocks) => editorApi()?.appendBlocks(blocks)}
+      />
       <DocumentEditor
         docId={props.doc.id}
         showTopBar={false}
