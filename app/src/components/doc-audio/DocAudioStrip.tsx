@@ -1,6 +1,13 @@
 import { useAction } from "@solidjs/router";
 import type { JSONContent } from "@tiptap/core";
-import { For, Show, createEffect, createResource, onCleanup } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createResource,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import { HStack, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import { useAudioRecorder } from "~/features/audio-recorder/useAudioRecorder";
@@ -68,10 +75,20 @@ export const DocAudioStrip = (props: {
     onCleanup(() => clearInterval(timer));
   });
 
+  const [transcribeError, setTranscribeError] = createSignal<string>();
+
   const handleTranscribe = async (id: string) => {
-    const updated = await transcribe(id);
-    mutate((prev) => prev?.map((a) => (a.id === id ? updated : a)));
+    setTranscribeError(undefined);
+    try {
+      const updated = await transcribe(id);
+      mutate((prev) => prev?.map((a) => (a.id === id ? updated : a)));
+    } catch (err) {
+      console.warn("[doc-audio] transcribe failed", err);
+      setTranscribeError(err instanceof Error ? err.message : String(err));
+    }
   };
+
+  const error = () => recorder.errorFor(props.docId) ?? transcribeError();
 
   const insert = (blocks: JSONContent[]) => props.onInsertBlocks?.(blocks);
 
@@ -81,9 +98,7 @@ export const DocAudioStrip = (props: {
   };
 
   return (
-    <Show
-      when={live() || stored().length > 0 || recorder.errorFor(props.docId)}
-    >
+    <Show when={live() || stored().length > 0 || error()}>
       <Stack gap="2" mb="4" data-testid="doc-audio-strip">
         <HStack justifyContent="space-between" gap="2">
           <Text
@@ -96,7 +111,7 @@ export const DocAudioStrip = (props: {
             Recordings
             <Show when={stored().length > 0}> · {stored().length}</Show>
           </Text>
-          <Show when={recorder.errorFor(props.docId)}>
+          <Show when={error()}>
             {(message) => (
               <Text fontSize="xs" color="red.11" role="alert" truncate>
                 {message()}

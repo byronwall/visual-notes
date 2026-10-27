@@ -27,11 +27,12 @@ export const DocAudioTranscript = (props: {
   onAddTask?: (text: string) => void;
 }) => {
   const [open, setOpen] = createSignal(false);
-  const [added, setAdded] = createSignal<Set<number>>(new Set());
+  // Keyed by text so a redo with a different task list starts clean.
+  const [added, setAdded] = createSignal<Set<string>>(new Set());
 
-  const addTask = (index: number, text: string) => {
+  const addTask = (text: string) => {
     props.onAddTask?.(text);
-    setAdded((prev) => new Set(prev).add(index));
+    setAdded((prev) => new Set(prev).add(text));
   };
 
   return (
@@ -45,7 +46,7 @@ export const DocAudioTranscript = (props: {
             Tasks
           </Text>
           <For each={props.analysis.tasks}>
-            {(task, index) => (
+            {(task) => (
               <HStack gap="1.5" alignItems="flex-start">
                 <Show when={props.onAddTask}>
                   <IconButton
@@ -54,19 +55,19 @@ export const DocAudioTranscript = (props: {
                     flexShrink="0"
                     mt="-0.5"
                     aria-label={
-                      added().has(index())
+                      added().has(task.text)
                         ? "Added as a task in the note"
                         : "Add as a task in the note"
                     }
                     title={
-                      added().has(index())
+                      added().has(task.text)
                         ? "Added to the note"
                         : "Add as a task in the note"
                     }
-                    disabled={added().has(index())}
-                    onClick={() => addTask(index(), task.text)}
+                    disabled={added().has(task.text)}
+                    onClick={() => addTask(task.text)}
                   >
-                    {added().has(index()) ? (
+                    {added().has(task.text) ? (
                       <CheckIcon size={14} />
                     ) : (
                       <PlusIcon size={14} />
