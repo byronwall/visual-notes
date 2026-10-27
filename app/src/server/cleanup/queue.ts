@@ -129,7 +129,15 @@ async function destinationsFor(
         NOT: {
           cleanupAssessment: {
             is: {
-              bucket: { in: ["distill", "delete", "post_event", "make_task"] },
+              bucket: {
+                in: [
+                  "distill",
+                  "delete",
+                  "post_event",
+                  "make_task",
+                  "revisit_link",
+                ],
+              },
             },
           },
         },

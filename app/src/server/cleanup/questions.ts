@@ -7,7 +7,7 @@
  * change: bump QUESTION_SET_VERSION so the sweep re-asks every note.
  */
 
-export const QUESTION_SET_VERSION = "v1";
+export const QUESTION_SET_VERSION = "v2";
 
 export type Option = readonly [key: string, description: string];
 
@@ -79,7 +79,7 @@ export const NOTE_QUESTIONS: Question[] = [
     id: "empty_or_stub",
     type: "noul",
     instructions:
-      "Is `note.body` empty, a title with no content, or a single link or line with no explanation?",
+      "Is `note.body` empty, a title with no content, or a single line with no explanation? A note that is only a saved link does not count: `owner` keeps those to come back to.",
   },
   {
     id: "import_junk",

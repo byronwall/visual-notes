@@ -45,6 +45,7 @@ describe("buildNoteState", () => {
       latestDateInBody: "2026-09-13",
       latestDateIsPast: true,
       truncated: false,
+      linkUrl: null,
     });
   });
 

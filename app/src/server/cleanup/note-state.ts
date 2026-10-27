@@ -1,3 +1,5 @@
+import { linkOnlyUrl, type LinkCheck } from "./link-check";
+
 /**
  * Builds the decision state for one note. Anything code can know for sure
  * (source, dates, counts, whether a date has passed) is computed here and sent
@@ -21,6 +23,10 @@ export type NoteFacts = {
   latestDateInBody: string | null;
   latestDateIsPast: boolean | null;
   truncated: boolean;
+  /** The link when the note is only a saved link (a breadcrumb), else null. */
+  linkUrl: string | null;
+  /** Whether `linkUrl` still loads; filled in by the sweep before asking. */
+  link?: LinkCheck;
 };
 
 export type NoteStateInput = {
@@ -138,6 +144,7 @@ export function buildNoteState(input: NoteStateInput, today: Date): NoteState {
       latestDateInBody: latest,
       latestDateIsPast: latest ? latest < todayIso : null,
       truncated,
+      linkUrl: linkOnlyUrl(body),
     },
     note: {
       title: input.title,

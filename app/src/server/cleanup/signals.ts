@@ -25,6 +25,14 @@ const longDate = (iso: string) =>
     year: "numeric",
   });
 
+const hostOf = (url: string | null) => {
+  try {
+    return new URL(url ?? "").hostname.replace(/^www\./, "");
+  } catch {
+    return url ?? "";
+  }
+};
+
 export function signalsFor(
   bucket: string,
   facts: NoteFacts,
@@ -51,7 +59,25 @@ export function signalsFor(
   if (bucket === "make_task") {
     add(`Reads as a to-do ${pct(p(answers, "is_todo"))}`, "strong");
   }
-  if (bucket === "delete") {
+  const link = facts.link;
+  if (link?.status === "dead") {
+    add(
+      link.httpStatus
+        ? `Link is dead (${link.httpStatus})`
+        : "Link does not load",
+      "strong",
+    );
+  } else if (bucket === "revisit_link") {
+    add(`Saved link: ${hostOf(facts.linkUrl)}`, "strong");
+    add(
+      link?.status === "ok"
+        ? "Link works"
+        : link?.status === "blocked"
+          ? `Site refused the check${link.httpStatus ? ` (${link.httpStatus})` : ""}`
+          : "Link not checked yet",
+    );
+  }
+  if (bucket === "delete" && link?.status !== "dead") {
     const stub = p(answers, "empty_or_stub");
     const junk = p(answers, "import_junk");
     if (stub >= junk && stub > 0.5) add(`Empty or stub ${pct(stub)}`, "strong");

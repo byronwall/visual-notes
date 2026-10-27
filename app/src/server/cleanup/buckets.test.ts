@@ -14,6 +14,7 @@ const facts: NoteFacts = {
   latestDateInBody: null,
   latestDateIsPast: null,
   truncated: false,
+  linkUrl: null,
 };
 
 const answers = (overrides: Answers = {}): Answers => ({
@@ -73,6 +74,25 @@ describe("bucketFor", () => {
     expect(
       bucketFor({ ...facts, source: "chatgpt_transcript" }, copied).confidence,
     ).toBeCloseTo(0.93);
+  });
+
+  it("keeps a saved link out of delete unless the link is dead", () => {
+    const stub = answers({ empty_or_stub: { p: 0.95 } });
+    const linkFacts = { ...facts, linkUrl: "https://example.com/post" };
+    const check = (status: "ok" | "dead" | "blocked") => ({
+      url: linkFacts.linkUrl,
+      status,
+      httpStatus: null,
+      title: null,
+      checkedAt: "2026-10-26T00:00:00Z",
+    });
+    expect(bucketFor(linkFacts, stub).bucket).toBe("revisit_link");
+    expect(
+      bucketFor({ ...linkFacts, link: check("blocked") }, stub).bucket,
+    ).toBe("revisit_link");
+    expect(bucketFor({ ...linkFacts, link: check("dead") }, stub).bucket).toBe(
+      "delete",
+    );
   });
 
   it("deletes generic notes not worth reading", () => {

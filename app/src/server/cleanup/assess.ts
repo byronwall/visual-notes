@@ -10,6 +10,7 @@ import {
   type DecisionProvider,
 } from "./decide";
 import { heuristicDecider } from "./heuristic";
+import { checkLink } from "./link-check";
 import { buildNoteState } from "./note-state";
 import { assessPlacement, assessStalePairs } from "./regroup";
 import {
@@ -111,6 +112,11 @@ export async function assessDoc(
     },
     today,
   );
+  // Breadcrumb links: check the link once per content version, so a dead
+  // one can go to delete and a live one to revisit_link.
+  if (state.facts.linkUrl) {
+    state.facts.link = await checkLink(state.facts.linkUrl);
+  }
   const result = await decide({
     owner: OWNER_PROFILE,
     state,

@@ -32,7 +32,14 @@ function noteAnswers(facts: NoteFacts, title: string, body: string): Answers {
     : facts.source === "agent"
       ? 0.75
       : 0.25 - ownVoice * 0.2;
-  const empty = words < 8 ? 0.95 : words < 25 ? 0.6 : 0.05;
+  // A saved link is not a stub (see the v2 empty_or_stub wording).
+  const empty = facts.linkUrl
+    ? 0.1
+    : words < 8
+      ? 0.95
+      : words < 25
+        ? 0.6
+        : 0.05;
   // Mostly links to other pages (Notion hubs) or delimiter rows.
   const junk =
     linkLines / lines > 0.6
