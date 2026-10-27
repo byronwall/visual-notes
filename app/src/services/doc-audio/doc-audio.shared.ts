@@ -141,7 +141,9 @@ export const readableTranscriptError = (error: string) => {
   );
   if (!message) return error;
   const prefix = error.slice(0, json).replace(/[:\s]+$/, "");
-  return `${message[1]!.replace(/\\"/g, '"')}${prefix ? ` (${prefix})` : ""}`;
+  // The capture is a JSON string body; parse it to decode every escape.
+  const text = JSON.parse(`"${message[1]}"`) as string;
+  return `${text}${prefix ? ` (${prefix})` : ""}`;
 };
 
 export const docAudioUrl = (id: string) => `/api/doc-audio/${id}`;

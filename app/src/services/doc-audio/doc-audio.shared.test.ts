@@ -52,6 +52,9 @@ describe("readableTranscriptError", () => {
         'whisper-1 413: {"error":{"message":"File too \\"big\\"","type":"x"}}',
       ),
     ).toBe('File too "big" (whisper-1 413)');
+    expect(
+      readableTranscriptError('x 400: {"message":"Bad\\nfile caf\\u00e9"}'),
+    ).toBe("Bad\nfile café (x 400)");
     expect(readableTranscriptError("No speech found")).toBe("No speech found");
   });
 });
