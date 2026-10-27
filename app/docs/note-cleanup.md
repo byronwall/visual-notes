@@ -21,8 +21,8 @@ Cleanup suggests what to do with notes that have stopped earning their place: di
 
 A note that is only a link is usually a breadcrumb: something to come back to, summarize, or try. It is never a stub.
 
-- Before the questions, the sweep fetches the link once per content version and stores `facts.link`: `ok`, `dead` (404, 410, or a failed lookup), or `blocked` (401, 403, 429, 5xx, or a timeout). The decision model sees it as a fact.
-- `dead` goes to `delete` with a "Link is dead" signal. Everything else goes to `revisit_link`, links that load first. A `blocked` link never goes to delete, because sites often refuse bots.
+- Before the questions, the sweep fetches the link once per content version and stores `facts.link`: `ok`, `dead` (404, 410, or a host that does not exist), or `blocked` (401, 403, 429, 5xx, a timeout, or any other network error). The decision model sees it as a fact.
+- `dead` goes to `delete` with a "Link is dead" signal, and the sweep checks it again each day until you decide, so a site that comes back leaves Delete. A short to-do with a link still goes to `make_task`. Every other link goes to `revisit_link`, links that load first. A `blocked` link never goes to delete, because sites often refuse bots.
 
 A note is stale when it has no assessment, its `contentVersion` changed, or `QUESTION_SET_VERSION` changed. Collection rows, events, and places are never assessed.
 

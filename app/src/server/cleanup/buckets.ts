@@ -55,6 +55,11 @@ export function bucketFor(facts: NoteFacts, answers: Answers): BucketResult {
     if (facts.link?.status === "dead") {
       return { bucket: "delete", confidence: 0.95 };
     }
+    // A short to-do or plan that happens to hold a link is still a to-do.
+    const todo = p(answers, "is_todo");
+    if (todo >= THRESHOLDS.todo) {
+      return { bucket: "make_task", confidence: todo };
+    }
     return {
       bucket: "revisit_link",
       confidence: LINK_CONFIDENCE[facts.link?.status ?? "unchecked"],

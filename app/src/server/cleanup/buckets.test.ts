@@ -93,6 +93,9 @@ describe("bucketFor", () => {
     expect(bucketFor({ ...linkFacts, link: check("dead") }, stub).bucket).toBe(
       "delete",
     );
+    expect(bucketFor(linkFacts, answers({ is_todo: { p: 0.9 } })).bucket).toBe(
+      "make_task",
+    );
   });
 
   it("deletes generic notes not worth reading", () => {

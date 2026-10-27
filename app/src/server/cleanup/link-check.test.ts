@@ -51,17 +51,20 @@ describe("checkLink", () => {
     expect((await checkLink("https://x.co", page(429))).status).toBe("blocked");
   });
 
-  it("calls a failed lookup dead and a timeout blocked", async () => {
-    const fail = (name: string) =>
+  it("calls a missing host dead and other network errors blocked", async () => {
+    const fail = (name: string, code?: string) =>
       (async () => {
-        throw Object.assign(new Error(name), { name });
+        throw Object.assign(new TypeError("fetch failed"), {
+          name,
+          cause: code ? { code } : undefined,
+        });
       }) as unknown as typeof fetch;
-    expect((await checkLink("https://x.co", fail("TypeError"))).status).toBe(
-      "dead",
-    );
-    expect((await checkLink("https://x.co", fail("TimeoutError"))).status).toBe(
-      "blocked",
-    );
+    const status = async (f: typeof fetch) =>
+      (await checkLink("https://x.co", f)).status;
+    expect(await status(fail("TypeError", "ENOTFOUND"))).toBe("dead");
+    expect(await status(fail("TypeError", "EAI_AGAIN"))).toBe("blocked");
+    expect(await status(fail("TypeError", "ECONNRESET"))).toBe("blocked");
+    expect(await status(fail("TimeoutError"))).toBe("blocked");
   });
 });
 

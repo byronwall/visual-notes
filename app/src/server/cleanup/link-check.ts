@@ -50,11 +50,13 @@ export function linkOnlyUrl(markdown: string): string | null {
 
 export const statusFor = (
   httpStatus: number | null,
-  timedOut = false,
+  noHost = false,
 ): LinkStatus => {
-  // A slow site is not a dead one; only a failed lookup or 404/410 is.
-  if (timedOut) return "blocked";
-  if (httpStatus === null || GONE.has(httpStatus)) return "dead";
+  // Only a host that doesn't exist or a 404/410 is dead. A timeout, reset,
+  // refused connection, or TLS error may pass, so it never sends the note to
+  // delete.
+  if (httpStatus === null) return noHost ? "dead" : "blocked";
+  if (GONE.has(httpStatus)) return "dead";
   if (httpStatus < 400) return "ok";
   // 401/403/429 and 5xx: the site refused a bot or hiccuped. Not proof the
   // page is gone, so it never sends the note to delete.
@@ -103,7 +105,7 @@ export async function fetchPage(
   url: string,
   maxBytes: number,
   fetchImpl: FetchLike = fetch,
-): Promise<{ httpStatus: number | null; html: string; timedOut: boolean }> {
+): Promise<{ httpStatus: number | null; html: string; noHost: boolean }> {
   try {
     const res = await fetchImpl(url, {
       redirect: "follow",
@@ -113,21 +115,25 @@ export async function fetchPage(
     const type = res.headers.get("content-type") ?? "";
     if (!res.ok || !type.includes("html") || !res.body) {
       await res.body?.cancel();
-      return { httpStatus: res.status, html: "", timedOut: false };
+      return { httpStatus: res.status, html: "", noHost: false };
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let html = "";
-    while (html.length < maxBytes) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      html += decoder.decode(value, { stream: true });
+    try {
+      while (html.length < maxBytes) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        html += decoder.decode(value, { stream: true });
+      }
+      await reader.cancel();
+    } catch {
+      // The page answered; a slow or cut-off body still counts as loaded.
     }
-    await reader.cancel();
-    return { httpStatus: res.status, html, timedOut: false };
+    return { httpStatus: res.status, html, noHost: false };
   } catch (err) {
-    const timedOut = err instanceof Error && err.name === "TimeoutError";
-    return { httpStatus: null, html: "", timedOut };
+    const code = (err as { cause?: { code?: string } }).cause?.code;
+    return { httpStatus: null, html: "", noHost: code === "ENOTFOUND" };
   }
 }
 
@@ -136,14 +142,14 @@ export async function checkLink(
   fetchImpl: FetchLike = fetch,
   now = new Date(),
 ): Promise<LinkCheck> {
-  const { httpStatus, html, timedOut } = await fetchPage(
+  const { httpStatus, html, noHost } = await fetchPage(
     url,
     HEAD_BYTES,
     fetchImpl,
   );
   return {
     url,
-    status: statusFor(httpStatus, timedOut),
+    status: statusFor(httpStatus, noHost),
     httpStatus,
     title: html ? pageTitle(html) : null,
     checkedAt: now.toISOString(),

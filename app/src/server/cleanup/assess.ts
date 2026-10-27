@@ -64,6 +64,12 @@ export async function staleDocIds(limit: number): Promise<string[]> {
         a.id IS NULL
         OR a."contentVersion" <> d."contentVersion"
         OR a."questionSetVersion" <> ${QUESTION_SET_VERSION}
+        -- A dead link may come back: check it again each day until decided.
+        OR (
+          a.facts->'link'->>'status' = 'dead'
+          AND a."decision" IS NULL
+          AND a."updatedAt" < now() - interval '1 day'
+        )
       )
     ORDER BY d."updatedAt" DESC
     LIMIT ${limit}`;
