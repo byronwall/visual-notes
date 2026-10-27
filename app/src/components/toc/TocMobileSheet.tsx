@@ -1,58 +1,26 @@
-import { For, createSignal, type Accessor } from "solid-js";
+import { createSignal } from "solid-js";
 import { ListTreeIcon } from "lucide-solid";
-import { css } from "styled-system/css";
 import { Box } from "styled-system/jsx";
 import * as Drawer from "~/components/ui/drawer";
 import { mobileBarButtonClass } from "~/components/sidebar/mobile-app-bar";
+import { TocOutline } from "./TocOutline";
 import { type TocItem } from "./types";
-
-type Props = {
-  items: Accessor<TocItem[]>;
-  activeIndex: Accessor<number>;
-  minHeadingLevel: Accessor<TocItem["level"]>;
-  onItemClick: (item: TocItem) => void;
-};
-
-const itemClass = css({
-  display: "block",
-  w: "full",
-  textAlign: "left",
-  py: "2.5",
-  pr: "3",
-  borderRadius: "l2",
-  fontSize: "md",
-  lineHeight: "snug",
-  color: "fg.muted",
-  cursor: "pointer",
-  transitionProperty: "background-color, color",
-  transitionDuration: "140ms",
-  _hover: { bg: "bg.hover", color: "fg.default" },
-  _active: { bg: "bg.active" },
-  "&[data-depth='0']": { color: "fg.default", fontWeight: "medium" },
-  "&[data-active=true]": {
-    bg: "bg.selected",
-    color: "fg.selected",
-    fontWeight: "semibold",
-  },
-  _motionReduce: { transition: "none" },
-});
+import { type TocController } from "./useTocController";
 
 /**
  * Phone table of contents: an app-bar button that opens a bottom sheet of
- * the note's headings. Replaces the desktop rail, which would sit on top of
- * the text at phone width.
+ * the note's headings. Replaces the desktop outline, which would sit on top
+ * of the text at phone width.
  */
-export function TocMobileSheet(props: Props) {
+export function TocMobileSheet(props: { toc: TocController }) {
   const [open, setOpen] = createSignal(false);
   let triggerEl: HTMLButtonElement | undefined;
-
-  const depth = (item: TocItem) =>
-    Math.min(Math.max(item.level - props.minHeadingLevel(), 0), 3);
+  let contentEl: HTMLDivElement | undefined;
 
   const jumpTo = (item: TocItem) => {
     setOpen(false);
     // Scroll after the sheet starts closing so focus restore can't fight it.
-    window.requestAnimationFrame(() => props.onItemClick(item));
+    window.requestAnimationFrame(() => props.toc.onItemClick(item));
   };
 
   return (
@@ -72,10 +40,18 @@ export function TocMobileSheet(props: Props) {
         onOpenChange={(details) => setOpen(details.open)}
         placement="bottom"
         finalFocusEl={() => triggerEl ?? null}
+        // Land on the current section, not the filter, so the phone
+        // keyboard stays closed until the user asks for it.
+        initialFocusEl={() =>
+          contentEl?.querySelector<HTMLElement>("[aria-current=location]") ??
+          contentEl ??
+          null
+        }
       >
         <Drawer.Backdrop />
         <Drawer.Positioner>
           <Drawer.Content
+            ref={contentEl}
             maxH="72dvh"
             borderTopRadius="l3"
             pb="env(safe-area-inset-bottom)"
@@ -86,41 +62,19 @@ export function TocMobileSheet(props: Props) {
                 alignSelf="center"
                 w="9"
                 h="1"
-                mb="2"
                 borderRadius="full"
                 bg="gray.a5"
               />
-              <Drawer.Title textStyle="sm" color="fg.muted">
-                Contents
-              </Drawer.Title>
+              <Drawer.Title srOnly>Contents</Drawer.Title>
             </Drawer.Header>
-            <Drawer.Body p="2" pt="0" alignItems="stretch">
-              <nav aria-label="Contents">
-                <For each={props.items()}>
-                  {(item, index) => (
-                    <button
-                      type="button"
-                      class={itemClass}
-                      data-depth={depth(item)}
-                      data-active={index() === props.activeIndex()}
-                      aria-current={
-                        index() === props.activeIndex() ? "location" : undefined
-                      }
-                      style={{ "padding-left": `${12 + depth(item) * 16}px` }}
-                      ref={(element) => {
-                        // Open with the current section in view.
-                        if (index() !== props.activeIndex()) return;
-                        queueMicrotask(() =>
-                          element.scrollIntoView({ block: "nearest" }),
-                        );
-                      }}
-                      onClick={() => jumpTo(item)}
-                    >
-                      {item.text}
-                    </button>
-                  )}
-                </For>
-              </nav>
+            <Drawer.Body
+              p="2"
+              pt="0"
+              alignItems="stretch"
+              overflow="hidden"
+              minH="0"
+            >
+              <TocOutline toc={props.toc} touch onSelect={jumpTo} />
             </Drawer.Body>
           </Drawer.Content>
         </Drawer.Positioner>

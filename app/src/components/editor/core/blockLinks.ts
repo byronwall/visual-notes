@@ -28,10 +28,18 @@ export async function copyBlockLink(editor: Editor) {
   const url = `${window.location.origin}/docs/${docId}#${blockAnchor(blockId)}`;
   try {
     await navigator.clipboard.writeText(url);
-    toaster.create({ title: "Block link copied", description: url, type: "success" });
+    toaster.create({
+      title: "Block link copied",
+      description: url,
+      type: "success",
+    });
   } catch (e) {
     console.warn("[block-links] clipboard write failed", e);
-    toaster.create({ title: "Could not copy link", description: url, type: "error" });
+    toaster.create({
+      title: "Could not copy link",
+      description: url,
+      type: "error",
+    });
   }
 }
 
@@ -44,7 +52,14 @@ export function revealBlock(root: HTMLElement, hash: string): boolean {
   if (!match) return true;
   const el = root.querySelector<HTMLElement>(`[data-id="${match[1]}"]`);
   if (!el) return false;
-  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  if (/^H[1-6]$/.test(el.tagName)) {
+    // A heading opens its section: put it at the top, under the toolbar,
+    // where the contents outline also counts it as the current section.
+    const top = el.getBoundingClientRect().top + window.scrollY - 80;
+    window.scrollTo({ top, behavior: "smooth" });
+  } else {
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
   el.classList.add("block-flash");
   window.setTimeout(() => el.classList.remove("block-flash"), 1800);
   return true;

@@ -19,13 +19,13 @@ export function computeMarkers(params: {
   if (!root) {
     const fallbackSpan = 1 / items.length;
     const fallbackRaw = items.map((_, index) =>
-      items.length === 1 ? 0.5 : index / (items.length - 1)
+      items.length === 1 ? 0.5 : index / (items.length - 1),
     );
     const fallbackDisplay = distributeMarkerRatios(
       fallbackRaw,
       edgeRatio,
       1 - edgeRatio,
-      clamp(5 / railInnerHeightPx, 0.004, 0.02)
+      clamp(5 / railInnerHeightPx, 0.004, 0.02),
     );
 
     return items.map((item, index) => ({
@@ -50,14 +50,22 @@ export function computeMarkers(params: {
   });
 
   const rawSpans = headingTops.map((top, index) => {
-    const nextTop = index === headingTops.length - 1 ? docHeight : headingTops[index + 1];
+    const nextTop =
+      index === headingTops.length - 1 ? docHeight : headingTops[index + 1];
     return Math.max(nextTop - top, docHeight * 0.02);
   });
 
   const spanTotal = rawSpans.reduce((sum, value) => sum + value, 0) || 1;
-  const rawDisplay = items.map((_, index) => clamp(headingTops[index] / docHeight, 0, 1));
+  const rawDisplay = items.map((_, index) =>
+    clamp(headingTops[index] / docHeight, 0, 1),
+  );
   const minGap = clamp(5 / railInnerHeightPx, 0.004, 0.02);
-  const distributed = distributeMarkerRatios(rawDisplay, edgeRatio, 1 - edgeRatio, minGap);
+  const distributed = distributeMarkerRatios(
+    rawDisplay,
+    edgeRatio,
+    1 - edgeRatio,
+    minGap,
+  );
 
   return items.map((item, index) => ({
     item,
@@ -68,7 +76,11 @@ export function computeMarkers(params: {
   }));
 }
 
-export function computeVisibleMarkerBounds(markers: TocMarker[], start: number, end: number) {
+export function computeVisibleMarkerBounds(
+  markers: TocMarker[],
+  start: number,
+  end: number,
+) {
   if (markers.length === 0) {
     return { topRatio: 0.02, bottomRatio: 0.98 };
   }

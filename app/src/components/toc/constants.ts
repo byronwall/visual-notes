@@ -1,17 +1,15 @@
-export const DEFAULT_MAX_VH = 100;
-export const DEFAULT_PANEL_WIDTH = 288;
-export const DEFAULT_PANEL_LEFT = 12;
-export const DEFAULT_PANEL_OFFSET = 40;
-export const DEFAULT_RAIL_HEIGHT = 220;
-
 export const VIEWPORT_PADDING = 8;
 export const RIGHT_GAP = 12;
-export const RAIL_WIDTH = 32;
-export const PANEL_GAP = 8;
-export const MAX_PANEL_WIDTH = 320;
-export const IDEAL_PANEL_WIDTH = 288;
-
+export const RAIL_WIDTH = 24;
+export const DEFAULT_RAIL_HEIGHT = 220;
 export const MIN_RAIL_HEIGHT = 88;
-export const COMPACT_RAIL_HEIGHT = 100;
-export const RAIL_REST_TOP = 300;
-export const EXPANDED_TOP_GUTTER = 12;
+
+// The outline pins open once the gutter right of the note fits this width.
+export const PINNED_GAP = 24;
+export const PINNED_MIN_WIDTH = 168;
+export const PINNED_MAX_WIDTH = 272;
+// Keep the pinned outline below the sticky editor toolbar.
+export const PINNED_MIN_TOP = 64;
+export const PINNED_BOTTOM_GAP = 16;
+
+export const FLYOUT_WIDTH = 288;
