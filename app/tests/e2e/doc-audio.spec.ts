@@ -71,7 +71,9 @@ test("dropped voice memos become recordings; other files become cards", async ({
   });
   await page.goto(`/docs/${noteId}`);
   await waitForAppReady(page);
-  await page.locator(".ProseMirror").waitFor();
+  // A selection must survive a drop that also carries a non-audio file.
+  await page.locator(".ProseMirror").getByText("Body.").click();
+  await page.keyboard.press("ControlOrMeta+a");
 
   await page.evaluate(() => {
     // One second of silent 8 kHz mono WAV, so the browser reads a duration.
@@ -130,6 +132,7 @@ test("dropped voice memos become recordings; other files become cards", async ({
   await expect(
     page.locator(".ProseMirror [data-file-attachment]"),
   ).toContainText("agenda.pdf");
+  await expect(page.locator(".ProseMirror")).toContainText("Body.");
 
   const src = await rows.nth(0).locator("audio").getAttribute("src");
   const served = await page.request.get(src!);
