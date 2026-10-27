@@ -8,6 +8,10 @@ import {
   createAudioFile,
   normalizeAudioMimeType,
 } from "~/server/notes/doc-audio-storage";
+import {
+  canTranscribe,
+  queueTranscription,
+} from "~/server/notes/doc-audio-transcribe";
 import { fetchDocAudios, toDocAudioSummary } from "./doc-audio.queries";
 import { DOC_AUDIO_LABEL_MAX } from "./doc-audio.shared";
 
@@ -70,12 +74,29 @@ export const finishDocAudio = action(
       },
     });
     console.info("[doc-audio] finished", row.id, `${sizeBytes} bytes`);
+    queueTranscription(row.id);
     return json(toDocAudioSummary(row), {
       revalidate: fetchDocAudios.keyFor(row.docId),
     });
   },
   "doc-audio-finish",
 );
+
+/** Transcribes a recording again (or for the first time, if interrupted). */
+export const transcribeDocAudio = action(async (id: string) => {
+  "use server";
+  if (!canTranscribe()) {
+    throw new Error("Transcription needs GROQ_API_KEY or OPENAI_API_KEY");
+  }
+  const row = await prisma.docAudio.update({
+    where: { id: z.string().min(1).parse(id) },
+    data: { transcriptStatus: "pending", transcriptError: null },
+  });
+  queueTranscription(row.id);
+  return json(toDocAudioSummary(row), {
+    revalidate: fetchDocAudios.keyFor(row.docId),
+  });
+}, "doc-audio-transcribe");
 
 export const renameDocAudio = action(
   async (payload: z.infer<typeof renameInput>) => {
