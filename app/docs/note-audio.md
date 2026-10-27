@@ -68,6 +68,10 @@ with its recording without touching the block schema.
   on the first five words), and clicking it opens Raw there. Copy and
   Insert use the form that is showing. The strip polls while a transcript
   is pending.
+- Cleanup: a note with recordings always goes to Keep, because the archive
+  purge would delete its recordings. The assessment reads `audioText` as part
+  of the body, and a finished transcript makes the assessment stale. When
+  cleanup archives a note into another note, its recordings move there.
 
 ## iOS notes
 

@@ -64,6 +64,12 @@ export async function staleDocIds(limit: number): Promise<string[]> {
         a.id IS NULL
         OR a."contentVersion" <> d."contentVersion"
         OR a."questionSetVersion" <> ${QUESTION_SET_VERSION}
+        -- A transcript finished (or the recording count is unknown) since.
+        OR EXISTS (
+          SELECT 1 FROM "DocAudio" x
+          WHERE x."docId" = d.id
+            AND (a.facts->'recordings' IS NULL OR x."transcribedAt" > a."updatedAt")
+        )
         -- A dead link may come back: check it again each day until decided.
         OR (
           a.facts->'link'->>'status' = 'dead'
@@ -102,7 +108,9 @@ export async function assessDoc(
       markdown: true,
       html: true,
       originalSource: true,
+      audioText: true,
       activitySnapshot: { select: { views30d: true } },
+      _count: { select: { audioRecordings: true } },
     },
   });
   if (!doc) return;
@@ -115,6 +123,8 @@ export async function assessDoc(
       originalSource: doc.originalSource,
       createdByAgent: await createdByAgent(doc.id),
       views30d: doc.activitySnapshot?.views30d ?? 0,
+      recordings: doc._count.audioRecordings,
+      audioText: doc.audioText,
     },
     today,
   );

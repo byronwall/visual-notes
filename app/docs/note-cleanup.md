@@ -24,7 +24,11 @@ A note that is only a link is usually a breadcrumb: something to come back to, s
 - Before the questions, the sweep fetches the link once per content version and stores `facts.link`: `ok`, `dead` (404, 410, or a host that does not exist), or `blocked` (401, 403, 429, 5xx, a timeout, or any other network error). The decision model sees it as a fact.
 - `dead` goes to `delete` with a "Link is dead" signal, and the sweep checks it again each day until you decide, so a site that comes back leaves Delete. A short to-do with a link still goes to `make_task`. Every other link goes to `revisit_link`, links that load first. A `blocked` link never goes to delete, because sites often refuse bots.
 
-A note is stale when it has no assessment, its `contentVersion` changed, or `QUESTION_SET_VERSION` changed. Collection rows, events, and places are never assessed.
+### Voice notes
+
+A note with recordings always goes to `keep`. Every cleanup action archives the note, and the purge deletes an archived note's `DocAudio` rows with it. The decision model still reads the transcripts (`Doc.audioText` is appended to the body), so a voice note gets its regroup Move suggestion. When `archiveNotes` archives a note into another note (distill, combine), the recordings move to that note.
+
+A note is stale when it has no assessment, its `contentVersion` changed, `QUESTION_SET_VERSION` changed, or one of its recordings was transcribed after the assessment. Collection rows, events, and places are never assessed.
 
 ### Provider
 

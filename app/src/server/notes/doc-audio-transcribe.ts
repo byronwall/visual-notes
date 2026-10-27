@@ -193,7 +193,7 @@ const isPlaceholderTitle = (title: string) =>
  * Rebuilds `Doc.audioText` from every transcribed recording on the note and
  * renames a still-untitled voice note after its first recording's analysis.
  */
-async function refreshDocAudioText(docId: string) {
+export async function refreshDocAudioText(docId: string) {
   const audios = await prisma.docAudio.findMany({
     where: { docId, transcriptStatus: "done" },
     orderBy: { createdAt: "asc" },

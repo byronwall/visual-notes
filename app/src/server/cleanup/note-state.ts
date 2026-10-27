@@ -27,6 +27,8 @@ export type NoteFacts = {
   linkUrl: string | null;
   /** Whether `linkUrl` still loads; filled in by the sweep before asking. */
   link?: LinkCheck;
+  /** Audio recordings attached to the note. */
+  recordings: number;
 };
 
 export type NoteStateInput = {
@@ -37,6 +39,9 @@ export type NoteStateInput = {
   originalSource: string | null;
   createdByAgent: boolean;
   views30d: number;
+  recordings?: number;
+  /** Summaries and cleaned transcripts of the note's recordings. */
+  audioText?: string | null;
 };
 
 export type NoteState = {
@@ -127,7 +132,13 @@ export function sourceOf(input: NoteStateInput, body: string): NoteSource {
 }
 
 export function buildNoteState(input: NoteStateInput, today: Date): NoteState {
-  const body = cleanBody(input.markdown);
+  // A voice note's body is often empty; its words are in the transcript.
+  const audio = input.audioText?.trim();
+  const body = cleanBody(
+    audio
+      ? `${input.markdown}\n\n# Recording transcripts\n\n${audio}`
+      : input.markdown,
+  );
   const dates = findDates(body).sort();
   const latest = dates.at(-1) ?? null;
   const todayIso = today.toISOString().slice(0, 10);
@@ -145,6 +156,7 @@ export function buildNoteState(input: NoteStateInput, today: Date): NoteState {
       latestDateIsPast: latest ? latest < todayIso : null,
       truncated,
       linkUrl: linkOnlyUrl(body),
+      recordings: input.recordings ?? 0,
     },
     note: {
       title: input.title,
