@@ -37,12 +37,15 @@ const processSchema = z.object({
 });
 
 // Blocks are canonical; their markdown view keeps headings for chunking.
+// Recording transcripts (`audioText`) follow the body.
 function normalizeSourceForEmbedding(input: {
   content?: unknown;
   html?: string | null;
   markdown?: string | null;
+  audioText?: string | null;
 }): string {
-  return noteMarkdown(input);
+  const body = noteMarkdown(input);
+  return input.audioText ? `${body}\n\n${input.audioText}` : body;
 }
 
 export async function createEmbeddingRun(
@@ -66,6 +69,7 @@ export async function createEmbeddingRun(
       content: true,
       html: true,
       markdown: true,
+      audioText: true,
     },
     orderBy: { createdAt: "asc" },
   });
@@ -326,11 +330,12 @@ export async function processEmbeddingRun(
     markdown: string;
     html: string;
     content: unknown;
+    audioText: string | null;
   }[] = [];
   if (mode === "missing") {
     try {
       const rows = (await prisma.$queryRaw<any[]>`
-          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content, d."audioText" AS "audioText"
           FROM "Doc" d
           LEFT JOIN "DocEmbedding" de
             ON de."docId" = d."id"
@@ -339,6 +344,7 @@ export async function processEmbeddingRun(
             AND (
               COALESCE(TRIM(d."markdown"), '') <> ''
               OR COALESCE(TRIM(d."html"), '') <> ''
+              OR COALESCE(TRIM(d."audioText"), '') <> ''
             )
           ORDER BY d."createdAt" ASC
           LIMIT ${batchSize};
@@ -351,7 +357,7 @@ export async function processEmbeddingRun(
   } else {
     try {
       const rows = (await prisma.$queryRaw<any[]>`
-          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content
+          SELECT d."id"::text AS id, d."title"::text AS title, d."markdown"::text AS markdown, d."html"::text AS html, d."content" AS content, d."audioText" AS "audioText"
           FROM "DocEmbedding" de
           JOIN "Doc" d ON d."id" = de."docId"
           WHERE de."runId" = ${run.id}
@@ -359,6 +365,7 @@ export async function processEmbeddingRun(
             AND (
               COALESCE(TRIM(d."markdown"), '') <> ''
               OR COALESCE(TRIM(d."html"), '') <> ''
+              OR COALESCE(TRIM(d."audioText"), '') <> ''
             )
           ORDER BY d."updatedAt" ASC
           LIMIT ${batchSize};
@@ -384,6 +391,7 @@ export async function processEmbeddingRun(
               AND (
                 COALESCE(TRIM(d."markdown"), '') <> ''
                 OR COALESCE(TRIM(d."html"), '') <> ''
+                OR COALESCE(TRIM(d."audioText"), '') <> ''
               );
           `) as any[];
         remainingEligible = Number(rows?.[0]?.c || 0);
@@ -606,33 +614,39 @@ export async function processEmbeddingRun(
     (mode === "changed" && emptyChunkDocIds.size > 0)
   ) {
     // Vector batches can exceed Prisma's five-second transaction default.
-    await prisma.$transaction(async (tx) => {
-      if (mode === "changed") {
-        const docIds = [
-          ...new Set([...docRows.map((row) => row.docId), ...emptyChunkDocIds]),
-        ];
-        if (docIds.length) {
-          await tx.docSectionEmbedding.deleteMany({
-            where: { runId: run.id, docId: { in: docIds } },
-          });
-          await tx.docEmbedding.deleteMany({
-            where: { runId: run.id, docId: { in: docIds } },
+    await prisma.$transaction(
+      async (tx) => {
+        if (mode === "changed") {
+          const docIds = [
+            ...new Set([
+              ...docRows.map((row) => row.docId),
+              ...emptyChunkDocIds,
+            ]),
+          ];
+          if (docIds.length) {
+            await tx.docSectionEmbedding.deleteMany({
+              where: { runId: run.id, docId: { in: docIds } },
+            });
+            await tx.docEmbedding.deleteMany({
+              where: { runId: run.id, docId: { in: docIds } },
+            });
+          }
+        }
+        if (sectionEmbRows.length) {
+          await tx.docSectionEmbedding.createMany({
+            data: sectionEmbRows,
+            skipDuplicates: true,
           });
         }
-      }
-      if (sectionEmbRows.length) {
-        await tx.docSectionEmbedding.createMany({
-          data: sectionEmbRows,
-          skipDuplicates: true,
-        });
-      }
-      if (docRows.length) {
-        await tx.docEmbedding.createMany({
-          data: docRows,
-          skipDuplicates: true,
-        });
-      }
-    }, { timeout: 60_000 });
+        if (docRows.length) {
+          await tx.docEmbedding.createMany({
+            data: docRows,
+            skipDuplicates: true,
+          });
+        }
+      },
+      { timeout: 60_000 },
+    );
   }
 
   let umapProjectionSummary:
@@ -696,6 +710,7 @@ export async function processEmbeddingRun(
             AND (
               COALESCE(TRIM(d."markdown"), '') <> ''
               OR COALESCE(TRIM(d."html"), '') <> ''
+              OR COALESCE(TRIM(d."audioText"), '') <> ''
             );
         `) as any[];
       remainingEligible = Number(rows?.[0]?.c || 0);

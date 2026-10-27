@@ -56,26 +56,27 @@ Keep this file current when adding an action or a tool. A new action is either c
 
 ## Note audio
 
-| Action / query                                                        | MCP        | Notes                                                      |
-| --------------------------------------------------------------------- | ---------- | ---------------------------------------------------------- |
-| `startDocAudio`, `finishDocAudio`, `renameDocAudio`, `fetchDocAudios` | human-only | Recording runs in the browser; agents can't hear the audio |
+| Action / query                                                            | MCP                                                | Notes                                                       |
+| ------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------- |
+| `startDocAudio`, `finishDocAudio`, `renameDocAudio`, `transcribeDocAudio` | human-only                                         | Recording runs in the browser; transcription runs on Stop   |
+| `fetchDocAudios`                                                          | `notes_get` (`recordings`), `notes_get_transcript` | Agents read the transcript analysis and text, not the audio |
 
 ## Research
 
-| Action / query                                                                | MCP                                                                | Notes                                           |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
-| `fetchResearchTopics`                                                         | `research_list_topics`                                             | `includeArchived`                               |
-| `fetchResearchTopicGraph`                                                     | `research_get_topic`, `research_get_card`, `research_list_batches` |                                                 |
-| `createResearchTopic`                                                         | `research_create_topic`                                            |                                                 |
-| `renameResearchTopic`, `setResearchTopicArchived`                             | `research_update_topic`                                            |                                                 |
-| `editResearchCard`                                                            | `research_update_cards`                                            | Undoable batch                                  |
-| `removeResearchCards`                                                         | `research_remove_cards`                                            | Hides cards as an undoable batch                |
-| `setResearchCardState`                                                        | `research_set_card_states`                                         |                                                 |
-| `undoResearchBatch`, `redoResearchBatch`                                      | `research_undo_batch`, `research_redo_batch`                       |                                                 |
-| (agent-only)                                                                  | `research_add_cards`                                               | Cards and typed links arrive this way           |
-| (agent-only)                                                                  | `research_update_topic` (`streams`, `kinds`, `answer`)             | The topic frame, as an undoable batch           |
-| `addResearchComment`                                                          | (user-only)                                                        | Agents read comments and resolve them           |
-| `setResearchCommentResolved`                                                  | `research_resolve_comments`                                        |                                                 |
+| Action / query                                    | MCP                                                                | Notes                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------- |
+| `fetchResearchTopics`                             | `research_list_topics`                                             | `includeArchived`                     |
+| `fetchResearchTopicGraph`                         | `research_get_topic`, `research_get_card`, `research_list_batches` |                                       |
+| `createResearchTopic`                             | `research_create_topic`                                            |                                       |
+| `renameResearchTopic`, `setResearchTopicArchived` | `research_update_topic`                                            |                                       |
+| `editResearchCard`                                | `research_update_cards`                                            | Undoable batch                        |
+| `removeResearchCards`                             | `research_remove_cards`                                            | Hides cards as an undoable batch      |
+| `setResearchCardState`                            | `research_set_card_states`                                         |                                       |
+| `undoResearchBatch`, `redoResearchBatch`          | `research_undo_batch`, `research_redo_batch`                       |                                       |
+| (agent-only)                                      | `research_add_cards`                                               | Cards and typed links arrive this way |
+| (agent-only)                                      | `research_update_topic` (`streams`, `kinds`, `answer`)             | The topic frame, as an undoable batch |
+| `addResearchComment`                              | (user-only)                                                        | Agents read comments and resolve them |
+| `setResearchCommentResolved`                      | `research_resolve_comments`                                        |                                       |
 
 ## Tasks
 

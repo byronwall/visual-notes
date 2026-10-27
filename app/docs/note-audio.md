@@ -1,8 +1,8 @@
 # Note audio recordings
 
 A note can hold any number of audio recordings (`DocAudio` rows). They sit in
-a strip above the note body, outside `Doc.content`, so a later transcript can
-pair with its recording without touching the block schema.
+a strip above the note body, outside `Doc.content`, so each transcript pairs
+with its recording without touching the block schema.
 
 ## Pieces
 
@@ -24,6 +24,28 @@ pair with its recording without touching the block schema.
 - Entry points: the mic button in the note header, plus "Voice note" in the
   sidebar and phone app bar, which creates a note and starts recording from
   one tap.
+
+## Transcripts
+
+- Job: Stop sets `transcriptStatus` to `pending` and queues
+  `server/notes/doc-audio-transcribe.ts`. Jobs run one at a time in the app
+  process. At boot, `resumeTranscriptions` re-queues `none`/`pending` rows
+  that are `ready`, or that have been quiet for 15 minutes (interrupted).
+- Speech-to-text: Groq `whisper-large-v3-turbo` when `GROQ_API_KEY` is set
+  (100 MB limit), else OpenAI `whisper-1` (25 MB). `TRANSCRIPT_VOCABULARY`
+  overrides the spelling prompt of project terms.
+- Analysis: one structured call (`TRANSCRIPT_LLM_MODEL`, default
+  `gpt-5.4-mini`) ported from voice-to-context's `transcript_plan` prompt,
+  plus tasks. It returns title, summary, bullets, themes, timed sections with
+  cleaned text, and tasks with excerpts (`TranscriptAnalysis`).
+- Derived: `Doc.audioText` (summaries and cleaned text of every transcript)
+  feeds keyword search and embeddings. A note still titled `Voice note · …`
+  takes the first transcript's title.
+- Agents: `notes_get` lists `recordings` with the analysis and cleaned text.
+  `notes_get_transcript` returns one recording's cleaned or raw timed text.
+- UI: summary, tasks (+ appends a task block, which becomes an Inbox task),
+  and sections behind a toggle; a section's time seeks the player. The strip
+  polls while a transcript is pending.
 
 ## iOS notes
 
