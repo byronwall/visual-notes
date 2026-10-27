@@ -94,24 +94,36 @@ export function TocOutline(props: Props) {
 
   // Keep a row in the middle of the list, so the sections before and after
   // the current one stay in sight.
-  function scrollRowIntoList(index: number, center = false) {
+  function scrollRowIntoList(
+    index: number,
+    mode: "follow" | "center" | "nearest" = "follow",
+  ) {
     const row = listEl?.querySelector<HTMLElement>(`[data-toc-idx="${index}"]`);
     if (!row || !listEl) return;
     const view = listEl.clientHeight;
     const top = row.offsetTop;
     const bottom = top + row.offsetHeight;
-    const band = view * 0.25;
-    const outside =
-      top < listEl.scrollTop + band || bottom > listEl.scrollTop + view - band;
-    if (center || outside) {
-      listEl.scrollTop = Math.max(top - (view - row.offsetHeight) / 3, 0);
+    if (mode === "nearest") {
+      // The keyboard cursor scrolls just enough, so the list moves with it.
+      if (top < listEl.scrollTop + 8) listEl.scrollTop = Math.max(top - 8, 0);
+      else if (bottom > listEl.scrollTop + view - 8) {
+        listEl.scrollTop = bottom - view + 8;
+      }
+    } else {
+      const band = view * 0.25;
+      const outside =
+        top < listEl.scrollTop + band ||
+        bottom > listEl.scrollTop + view - band;
+      if (mode === "center" || outside) {
+        listEl.scrollTop = Math.max(top - (view - row.offsetHeight) / 3, 0);
+      }
     }
     updateFade();
   }
 
   onMount(() =>
     window.requestAnimationFrame(() =>
-      scrollRowIntoList(props.toc.activeIndex(), true),
+      scrollRowIntoList(props.toc.activeIndex(), "center"),
     ),
   );
 
@@ -127,6 +139,15 @@ export function TocOutline(props: Props) {
   );
 
   createEffect(on(entries, () => window.requestAnimationFrame(updateFade)));
+
+  // The pinned outline's height follows the page scroll and the window,
+  // so the fade follows them too.
+  createEffect(
+    on(
+      () => [props.toc.pinnedTopPx(), props.toc.layout()],
+      () => window.requestAnimationFrame(updateFade),
+    ),
+  );
 
   function jump(item: TocItem) {
     if (props.onSelect) props.onSelect(item);
@@ -145,7 +166,7 @@ export function TocOutline(props: Props) {
     }
     const next = list[Math.min(Math.max(pos + step, 0), list.length - 1)];
     setCursor(next.index);
-    scrollRowIntoList(next.index);
+    scrollRowIntoList(next.index, "nearest");
   }
 
   function onFilterKeyDown(event: KeyboardEvent) {

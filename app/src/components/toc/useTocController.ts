@@ -1,3 +1,7 @@
+import {
+  HEADING_SCROLL_OFFSET,
+  scrollHeadingToTop,
+} from "~/components/editor/core/blockLinks";
 import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { DEFAULT_RAIL_HEIGHT, PINNED_MIN_TOP, RIGHT_GAP } from "./constants";
 import { extractTocItems, findHeadingByLevelAndText } from "./headings";
@@ -106,7 +110,7 @@ export function useTocController(options: UseTocControllerOptions) {
           root?.scrollTop ?? 0,
         )
       : list.map(() => Number.POSITIVE_INFINITY);
-    const visibleTop = Math.max(80, rootContentTop);
+    const visibleTop = Math.max(HEADING_SCROLL_OFFSET, rootContentTop);
     const visibleBottom = Math.min(window.innerHeight - 24, rootContentBottom);
 
     const range = resolveActiveRange(
@@ -233,8 +237,7 @@ export function useTocController(options: UseTocControllerOptions) {
     const target = resolveHeadingEl(item);
     if (!target) return;
 
-    const top = target.getBoundingClientRect().top + window.scrollY - 80;
-    window.scrollTo({ top, behavior: "smooth" });
+    scrollHeadingToTop(target);
     // Keep the section in the URL so a refresh or a shared link lands here.
     // replaceState skips the router, so the block flash only runs on load.
     if (item.blockId) {
@@ -242,8 +245,10 @@ export function useTocController(options: UseTocControllerOptions) {
     }
   }
 
+  // Only the rail draws markers, and computing them reads layout per block.
   const markers = createMemo(() => {
     positionTick();
+    if (layout().mode !== "rail") return [];
     return computeMarkers({
       items: items(),
       root: options.getRootEl(),

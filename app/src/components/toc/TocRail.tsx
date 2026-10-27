@@ -54,6 +54,7 @@ export function TocRail(props: { toc: TocController; onActivate: () => void }) {
       tabIndex={0}
       role="button"
       aria-label="Contents"
+      onClick={() => props.onActivate()}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();

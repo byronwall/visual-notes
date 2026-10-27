@@ -14,6 +14,16 @@ export function blockIdAtSelection(editor: Editor): string | null {
 
 export const blockAnchor = (blockId: string) => `b-${blockId}`;
 
+/** Where a jumped-to heading lands: just under the sticky editor toolbar. */
+export const HEADING_SCROLL_OFFSET = 80;
+
+/** Scrolls a heading to the top, where the contents outline reads it as current. */
+export function scrollHeadingToTop(el: HTMLElement) {
+  const top =
+    el.getBoundingClientRect().top + window.scrollY - HEADING_SCROLL_OFFSET;
+  window.scrollTo({ top, behavior: "smooth" });
+}
+
 /** Copies `/docs/:id#b-:blockId` for the block at the cursor. */
 export async function copyBlockLink(editor: Editor) {
   const blockId = blockIdAtSelection(editor);
@@ -53,10 +63,8 @@ export function revealBlock(root: HTMLElement, hash: string): boolean {
   const el = root.querySelector<HTMLElement>(`[data-id="${match[1]}"]`);
   if (!el) return false;
   if (/^H[1-6]$/.test(el.tagName)) {
-    // A heading opens its section: put it at the top, under the toolbar,
-    // where the contents outline also counts it as the current section.
-    const top = el.getBoundingClientRect().top + window.scrollY - 80;
-    window.scrollTo({ top, behavior: "smooth" });
+    // A heading opens its section, so it lands where an outline jump does.
+    scrollHeadingToTop(el);
   } else {
     el.scrollIntoView({ block: "center", behavior: "smooth" });
   }
