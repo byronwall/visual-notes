@@ -47,7 +47,10 @@ export async function uploadDocAudio(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${DOC_AUDIO_UPLOAD_URL}?${params}`);
-    xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
+    xhr.setRequestHeader(
+      "content-type",
+      file.type || "application/octet-stream",
+    );
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total);
     };

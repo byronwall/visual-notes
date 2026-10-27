@@ -8,6 +8,7 @@ import { uploadDocAudio } from "./uploadDocAudio";
 
 export type AudioUpload = {
   key: number;
+  docId: string;
   file: File;
   /** 0–1 while sending; null once it failed. */
   progress: number | null;
@@ -30,15 +31,14 @@ const dragHasAudio = (dt: DataTransfer | null) =>
  */
 export function useDocAudioDrop(props: {
   docId: () => string;
-  onOtherFiles: (files: File[]) => void;
+  onOtherFiles: (files: File[], at: { x: number; y: number }) => void;
 }) {
   const recorder = useAudioRecorder();
   const [uploads, setUploads] = createSignal<AudioUpload[]>([]);
   const [dragging, setDragging] = createSignal(false);
   let nextKey = 0;
   // The strip swaps a finished upload into its list without a refetch gap.
-  let onUploaded: (audio: DocAudioSummary) => void = () =>
-    recorder.bumpList();
+  let onUploaded: (audio: DocAudioSummary) => void = () => recorder.bumpList();
   // Uploads go one at a time, in drop order.
   let chain: Promise<void> = Promise.resolve();
 
@@ -50,12 +50,13 @@ export function useDocAudioDrop(props: {
     setUploads((list) => list.filter((u) => u.key !== key));
 
   const send = (upload: AudioUpload) => {
-    const docId = props.docId();
     chain = chain.then(async () => {
       patch(upload.key, { progress: 0, error: undefined });
       try {
-        const audio = await uploadDocAudio(docId, upload.file, (fraction) =>
-          patch(upload.key, { progress: fraction }),
+        const audio = await uploadDocAudio(
+          upload.docId,
+          upload.file,
+          (fraction) => patch(upload.key, { progress: fraction }),
         );
         onUploaded(audio);
         remove(upload.key);
@@ -68,7 +69,12 @@ export function useDocAudioDrop(props: {
 
   const addFiles = (files: File[]) => {
     for (const file of files) {
-      const upload = { key: ++nextKey, file, progress: 0 };
+      const upload = {
+        key: ++nextKey,
+        docId: props.docId(),
+        file,
+        progress: 0,
+      };
       setUploads((list) => [...list, upload]);
       send(upload);
     }
@@ -93,7 +99,9 @@ export function useDocAudioDrop(props: {
     event.stopPropagation();
     addFiles(audio);
     const rest = files.filter((f) => !audio.includes(f));
-    if (rest.length) props.onOtherFiles(rest);
+    if (rest.length) {
+      props.onOtherFiles(rest, { x: event.clientX, y: event.clientY });
+    }
   };
 
   /** Wires the drop zone; pass the note's root element. */
@@ -110,7 +118,8 @@ export function useDocAudioDrop(props: {
   };
 
   return {
-    uploads,
+    // The note view is reused across notes; show only this note's uploads.
+    uploads: () => uploads().filter((u) => u.docId === props.docId()),
     dragging,
     bind,
     retry: (key: number) => {

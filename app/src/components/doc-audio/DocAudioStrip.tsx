@@ -119,13 +119,15 @@ export const DocAudioStrip = (props: {
   };
 
   createEffect(() =>
-    props.drop?.listen((audio) =>
+    props.drop?.listen((audio) => {
+      // An upload can finish after the view moved to another note.
+      if (audio.docId !== props.docId) return;
       mutate((prev) =>
         [...(prev ?? []), audio].sort((a, b) =>
           a.createdAt.localeCompare(b.createdAt),
         ),
-      ),
-    ),
+      );
+    }),
   );
   const uploads = () => props.drop?.uploads() ?? [];
   const transcribed = () => stored().filter((a) => a.transcriptAnalysis);

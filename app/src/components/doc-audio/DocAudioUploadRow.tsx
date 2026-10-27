@@ -51,11 +51,7 @@ export const DocAudioUploadRow = (props: {
         when={props.upload.error}
         fallback={
           <Box h="1" bg="bg.muted" borderRadius="full" overflow="hidden">
-            <Box
-              h="full"
-              bg="fg.muted"
-              style={{ width: `${percent()}%` }}
-            />
+            <Box h="full" bg="fg.muted" style={{ width: `${percent()}%` }} />
           </Box>
         }
       >

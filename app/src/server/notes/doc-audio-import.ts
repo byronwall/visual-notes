@@ -3,32 +3,14 @@ import { prisma } from "~/server/db";
 import {
   DOC_AUDIO_LABEL_MAX,
   DOC_AUDIO_UPLOAD_MAX_BYTES,
+  audioMimeFor,
 } from "~/services/doc-audio/doc-audio.shared";
 import {
   audioFileNameFor,
-  normalizeAudioMimeType,
+  removeAudioFile,
   writeAudioFile,
 } from "./doc-audio-storage";
 import { canTranscribe, queueTranscription } from "./doc-audio-transcribe";
-
-const MIME_BY_EXTENSION: Record<string, string> = {
-  m4a: "audio/mp4",
-  mp4a: "audio/mp4",
-  aac: "audio/aac",
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  oga: "audio/ogg",
-  opus: "audio/ogg",
-  webm: "audio/webm",
-  flac: "audio/flac",
-};
-
-/** The stored MIME type for a dropped file, from its type or its extension. */
-export function importedAudioMime(name: string, type: string): string | null {
-  const ext = /\.([a-z0-9]+)$/i.exec(name)?.[1]?.toLowerCase() ?? "";
-  return normalizeAudioMimeType(type) ?? MIME_BY_EXTENSION[ext] ?? null;
-}
 
 /** "New Recording 12.m4a" → "New Recording 12". */
 const labelFor = (name: string) =>
@@ -50,7 +32,7 @@ export async function importDocAudio(input: {
   durationMs: number;
   body: ReadableStream<Uint8Array>;
 }) {
-  const mimeType = importedAudioMime(input.name, input.type);
+  const mimeType = audioMimeFor(input);
   if (!mimeType) throw new AudioImportError(`${input.name} is not audio`);
   const doc = await prisma.doc.findUnique({
     where: { id: input.docId },
@@ -65,21 +47,27 @@ export async function importDocAudio(input: {
     input.body,
     DOC_AUDIO_UPLOAD_MAX_BYTES,
   );
-  if (sizeBytes === 0) throw new AudioImportError(`${input.name} is empty`);
-  const row = await prisma.docAudio.create({
-    data: {
-      id,
-      docId: doc.id,
-      label: labelFor(input.name),
-      mimeType,
-      fileName,
-      status: "ready",
-      sizeBytes,
-      durationMs: input.durationMs,
-      ...(input.recordedAt ? { createdAt: input.recordedAt } : {}),
-      ...(canTranscribe() ? { transcriptStatus: "pending" as const } : {}),
-    },
-  });
+  let row;
+  try {
+    if (sizeBytes === 0) throw new AudioImportError(`${input.name} is empty`);
+    row = await prisma.docAudio.create({
+      data: {
+        id,
+        docId: doc.id,
+        label: labelFor(input.name),
+        mimeType,
+        fileName,
+        status: "ready",
+        sizeBytes,
+        durationMs: input.durationMs,
+        ...(input.recordedAt ? { createdAt: input.recordedAt } : {}),
+        ...(canTranscribe() ? { transcriptStatus: "pending" as const } : {}),
+      },
+    });
+  } catch (error) {
+    await removeAudioFile(fileName);
+    throw error;
+  }
   console.info(
     "[doc-audio] imported",
     row.id,

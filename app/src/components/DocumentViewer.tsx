@@ -264,7 +264,7 @@ const DocumentViewer: VoidComponent<{
 
   const audioDrop = useDocAudioDrop({
     docId: () => props.doc.id,
-    onOtherFiles: (files) => editorApi()?.insertFiles(files),
+    onOtherFiles: (files, at) => editorApi()?.insertFiles(files, at),
   });
 
   return (

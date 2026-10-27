@@ -71,8 +71,54 @@ export const DOC_AUDIO_LABEL_MAX = 120;
 export const DOC_AUDIO_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 export const DOC_AUDIO_UPLOAD_URL = "/api/doc-audio";
 
-const AUDIO_EXTENSION = /\.(m4a|mp4a|mp3|wav|aac|ogg|oga|opus|webm|flac)$/i;
+/** Stored audio types and the extension each file is saved under. */
+export const AUDIO_EXTENSION_BY_MIME: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/flac": "flac",
+};
+
+// Names browsers give dropped files (macOS Voice Memos are `audio/x-m4a`).
+const MIME_ALIASES: Record<string, string> = {
+  "audio/x-m4a": "audio/mp4",
+  "audio/m4a": "audio/mp4",
+  "audio/mp3": "audio/mpeg",
+  "audio/x-wav": "audio/wav",
+  "audio/wave": "audio/wav",
+  "audio/vnd.wave": "audio/wav",
+  "audio/x-flac": "audio/flac",
+};
+
+// For files the browser gives no usable type.
+const MIME_BY_EXTENSION: Record<string, string> = {
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  webm: "audio/webm",
+  flac: "audio/flac",
+};
+
+/** Base MIME type without codec parameters, or null when unsupported. */
+export function normalizeAudioMimeType(raw: string): string | null {
+  const lower = raw.split(";")[0]?.trim().toLowerCase() ?? "";
+  const base = MIME_ALIASES[lower] ?? lower;
+  return base in AUDIO_EXTENSION_BY_MIME ? base : null;
+}
+
+/** The stored type for a dropped file, from its type or its extension. */
+export function audioMimeFor(file: { name: string; type: string }) {
+  const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? "";
+  return normalizeAudioMimeType(file.type) ?? MIME_BY_EXTENSION[ext] ?? null;
+}
 
 /** True for a file the strip can keep as a recording (Voice Memos, mp3, …). */
 export const isAudioFile = (file: { name: string; type: string }) =>
-  file.type.startsWith("audio/") || AUDIO_EXTENSION.test(file.name);
+  audioMimeFor(file) !== null;
