@@ -15,6 +15,7 @@ const facts: NoteFacts = {
   latestDateIsPast: null,
   truncated: false,
   linkUrl: null,
+  recordings: 0,
 };
 
 const answers = (overrides: Answers = {}): Answers => ({
@@ -105,5 +106,12 @@ describe("bucketFor", () => {
         answers({ worth_reading: { p: 0.1 }, author_specific: { p: 0.1 } }),
       ).bucket,
     ).toBe("delete");
+  });
+
+  it("keeps a voice note: archiving would purge its recording", () => {
+    const stub = answers({ empty_or_stub: { p: 0.95 }, is_todo: { p: 0.9 } });
+    expect(bucketFor({ ...facts, words: 3, recordings: 1 }, stub).bucket).toBe(
+      "keep",
+    );
   });
 });

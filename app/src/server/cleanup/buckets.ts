@@ -49,6 +49,12 @@ const prob = (answers: Answers, id: string, key: string): number => {
 const LINK_CONFIDENCE = { ok: 0.8, blocked: 0.6, unchecked: 0.5 } as const;
 
 export function bucketFor(facts: NoteFacts, answers: Answers): BucketResult {
+  // Every cleanup action archives the note, and the archive purge deletes
+  // its recordings with it. A recording is the original; keep the note.
+  if (facts.recordings > 0) {
+    return { bucket: "keep", confidence: 1 };
+  }
+
   // A saved link is a breadcrumb, not a stub: delete it only when the link
   // is gone. Otherwise it waits in revisit_link to be expanded or checked.
   if (facts.linkUrl) {

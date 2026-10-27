@@ -7,7 +7,10 @@ import type {
   TranscriptAnalysis,
   TranscriptSegment,
 } from "~/services/doc-audio/doc-audio.shared";
-import { transcriptMarkdown } from "~/services/doc-audio/doc-audio.shared";
+import {
+  readableTranscriptError,
+  transcriptMarkdown,
+} from "~/services/doc-audio/doc-audio.shared";
 import { audioFileSize, resolveDocAudioStorageDir } from "./doc-audio-storage";
 import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
@@ -76,7 +79,11 @@ async function transcribeFile(row: DocAudio) {
   });
   const body = await res.text();
   if (!res.ok) {
-    throw new Error(`${provider.model} ${res.status}: ${body.slice(0, 300)}`);
+    throw new Error(
+      readableTranscriptError(
+        `${provider.model} ${res.status}: ${body.slice(0, 300)}`,
+      ),
+    );
   }
   const json = JSON.parse(body) as {
     text?: string;
@@ -193,7 +200,7 @@ const isPlaceholderTitle = (title: string) =>
  * Rebuilds `Doc.audioText` from every transcribed recording on the note and
  * renames a still-untitled voice note after its first recording's analysis.
  */
-async function refreshDocAudioText(docId: string) {
+export async function refreshDocAudioText(docId: string) {
   const audios = await prisma.docAudio.findMany({
     where: { docId, transcriptStatus: "done" },
     orderBy: { createdAt: "asc" },

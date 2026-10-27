@@ -60,8 +60,18 @@ with its recording without touching the block schema.
 - Agents: `notes_get` lists `recordings` with the analysis and cleaned text.
   `notes_get_transcript` returns one recording's cleaned or raw timed text.
 - UI: summary, tasks (+ appends a task block, which becomes an Inbox task),
-  and sections behind a toggle; a section's time seeks the player. The strip
-  polls while a transcript is pending.
+  and sections behind a toggle. The section "cleaned text" is really an LLM
+  summary, so a **Summary / Raw** switch shows the Whisper segments under the
+  same headings (`segmentsBySection`). Click a raw phrase or a section time
+  to seek. The phrase being played is highlighted and kept in view.
+  A task shows the time its excerpt was said (`excerptSeconds`, exact match
+  on the first five words), and clicking it opens Raw there. Copy and
+  Insert use the form that is showing. The strip polls while a transcript
+  is pending.
+- Cleanup: a note with recordings always goes to Keep, because the archive
+  purge would delete its recordings. The assessment reads `audioText` as part
+  of the body, and a finished transcript makes the assessment stale. When
+  cleanup archives a note into another note, its recordings move there.
 
 ## iOS notes
 

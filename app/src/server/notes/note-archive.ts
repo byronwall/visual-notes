@@ -5,6 +5,7 @@ import {
   DAY_MS,
   type ArchiveReason,
 } from "./archive-window";
+import { refreshDocAudioText } from "./doc-audio-transcribe";
 
 /**
  * The cleanup archive. Archiving hides a note from lists and search but keeps
@@ -31,6 +32,23 @@ export async function archiveNotes(input: {
       archiveReason: input.reason,
     },
   });
+  // The purge deletes an archived note's recordings with it. When the
+  // content went into another note, move the recordings there too.
+  if (input.intoId) {
+    const moved = await prisma.docAudio.updateMany({
+      where: { docId: { in: ids } },
+      data: { docId: input.intoId },
+    });
+    if (moved.count) {
+      await refreshDocAudioText(input.intoId);
+      for (const id of ids) await refreshDocAudioText(id);
+      console.info(
+        `${LOG_PREFIX} moved %d recordings into %s`,
+        moved.count,
+        input.intoId,
+      );
+    }
+  }
   for (const id of ids) {
     await logActionEvent({
       eventType: "doc.archive",
