@@ -40,10 +40,14 @@ test("closing a row peek saves first, and asks when it can't", async ({
   // A failed save: the panel stays until the user chooses.
   const editor = await open();
   await editor.click();
-  await page.keyboard.type("kept text");
-  // After the panel's own loads, so only the autosave fails.
-  const block = (route: Route) => route.abort();
+  // Only saves fail, from before the first keystroke: on a slow run the
+  // autosave can land first, and then no failure ever shows.
+  const block = (route: Route) =>
+    isServerFn(route.request().headers()["x-server-id"], "saveDocContent")
+      ? route.abort()
+      : route.continue();
   await page.route("**/_server*", block);
+  await page.keyboard.type("kept text");
   const failed = page.getByRole("button", { name: /Couldn't save/ });
   await expect(failed).toBeVisible();
   await closeButton.click();

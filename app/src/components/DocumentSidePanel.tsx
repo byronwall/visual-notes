@@ -62,7 +62,11 @@ export const DocumentSidePanel: VoidComponent<{
   docId?: string;
   onClose: () => void;
   onDeleted: (docId: string) => void;
-  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
+  onEditorApiChange?: (
+    docId: string,
+    api?: DocumentEditorApi,
+    gone?: DocumentEditorApi,
+  ) => void;
   /** Leave the page behind interactive (default: modal). */
   modal?: boolean;
   width?: string;
@@ -178,15 +182,15 @@ export const DocumentSidePanel: VoidComponent<{
                     }
                     subheader={props.header}
                     onDeleted={props.onDeleted}
-                    onEditorApiChange={(docId, api) => {
+                    onEditorApiChange={(docId, api, gone) => {
                       setEditor((current) =>
                         api
                           ? { id: docId, api }
-                          : current?.id === docId
+                          : current?.api === gone
                             ? undefined
                             : current,
                       );
-                      props.onEditorApiChange?.(docId, api);
+                      props.onEditorApiChange?.(docId, api, gone);
                     }}
                     onTitleChange={props.onTitleChange}
                   />
