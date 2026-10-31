@@ -35,8 +35,9 @@ test.describe("research topic board", () => {
       fixture("insurance-streams"),
       `Board e2e ${uniqueSuffix()}`,
     );
-    await page.goto(`/research/${topic.slug}`);
+    await page.goto(`/research/${topic.slug}?view=board`);
     await waitForAppReady(page);
+    await page.getByRole("button", { name: "Detailed" }).click();
 
     await expect(page.getByTestId("research-board-column")).toHaveCount(3);
     await expect(column(page, "pick").locator("h2")).toHaveText(
@@ -104,7 +105,7 @@ test.describe("research topic board", () => {
       fixture("printer-streams"),
       `Board table ${uniqueSuffix()}`,
     );
-    await page.goto(`/research/${topic.slug}`);
+    await page.goto(`/research/${topic.slug}?view=board`);
     await waitForAppReady(page);
     await expect(page.getByTestId("research-board-column")).toHaveCount(5);
     // Sources back findings, so none of the cited ones is its own row.
@@ -145,7 +146,7 @@ test.describe("research topic board", () => {
       fixture("wide-comparison"),
       `Board legacy ${uniqueSuffix()}`,
     );
-    await page.goto(`/research/${topic.slug}`);
+    await page.goto(`/research/${topic.slug}?view=board`);
     await waitForAppReady(page);
     await expect(
       page.getByTestId("research-board-column").first(),
@@ -183,8 +184,9 @@ test.describe("research topic board", () => {
 
   test("comments for the agent and gist/stream edits from the reader", async ({ page, request }) => {
     const topic = await createResearchTopicFixture(request, fixture("insurance-streams"), `Board comments ${uniqueSuffix()}`);
-    await page.goto(`/research/${topic.slug}`);
+    await page.goto(`/research/${topic.slug}?view=board`);
     await waitForAppReady(page);
+    await page.getByRole("button", { name: "Detailed" }).click();
     await cardByTitle(page, "Carrier G").click();
     const detail = page.getByTestId("research-card-detail");
     const comments = detail.getByTestId("research-comments");
@@ -215,7 +217,7 @@ test.describe("research topic board", () => {
       fixture("empty"),
       `Empty e2e ${uniqueSuffix()}`,
     );
-    await page.goto(`/research/${topic.slug}`);
+    await page.goto(`/research/${topic.slug}?view=board`);
     await waitForAppReady(page);
     await expect(page.getByTestId("research-empty")).toContainText(
       "No cards yet",

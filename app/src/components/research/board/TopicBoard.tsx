@@ -39,15 +39,15 @@ export const TopicBoard = (props: {
   onSelect: (id: string) => void;
   onSelectStream: (key: string) => void;
 }) => {
-  const [density, setDensity] = createSignal<BoardDensity>("detailed");
+  const [density, setDensity] = createSignal<BoardDensity>("compact");
   const [hovered, setHovered] = createSignal<string | null>(null);
   // A saved density applies after mount: only the browser knows it.
   onMount(() => {
     try {
-      if (localStorage.getItem(DENSITY_KEY) === "compact")
-        setDensity("compact");
+      if (localStorage.getItem(DENSITY_KEY) === "detailed")
+        setDensity("detailed");
     } catch {
-      // Storage can be blocked; stay detailed.
+      // Storage can be blocked; stay compact.
     }
   });
   const chooseDensity = (next: BoardDensity) => {
