@@ -1,6 +1,7 @@
 import { action, json } from "@solidjs/router";
 import { fetchDocActivityHistory } from "~/services/activity/activity.queries";
 import { fetchDocs as fetchDocsList } from "~/features/docs-index/data/docs.queries.list";
+import { fetchDoc } from "~/services/docs.queries";
 import { fetchRecentItems } from "~/services/recents/recents.queries";
 import { z } from "zod";
 import { prisma } from "~/server/db";
@@ -139,7 +140,9 @@ export const updateDoc = action(
  * every cached query, so each autosave refetched the full note (twice),
  * prompts, and AI models. This one refreshes only what a content save
  * changes: the note's activity, the recent-notes list, and the sidebar's
- * Recent list.
+ * Recent list. It also expires the cached note. An open editor does not
+ * subscribe to that entry, so this reads nothing now, and a reopen cannot
+ * start from text older than this save.
  */
 export const saveDocContent = action(
   async (payload: z.infer<typeof updateInput>) => {
@@ -147,6 +150,7 @@ export const saveDocContent = action(
     const result = await applyDocUpdate(payload);
     return json(result, {
       revalidate: [
+        fetchDoc.keyFor(result.id),
         fetchDocActivityHistory.keyFor(result.id),
         fetchDocsList.key,
         fetchRecentItems.key,

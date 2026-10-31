@@ -36,16 +36,23 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await openGuardedRow(page);
   const open = () => openPeek(page);
   const closeButton = page.getByRole("button", { name: "Close panel" });
+  // Not `closeButton`: a guard dialog hides it from role queries while the
+  // panel is still open, and a reopen during the exit keeps the same editor.
+  const panel = page.locator("[data-side-panel-scroll]");
 
   // A failed save: the panel stays until the user chooses.
   const editor = await open();
   await editor.click();
-  await page.keyboard.type("kept text");
-  // After the panel's own loads, so only the autosave fails.
-  const block = (route: Route) => route.abort();
+  // Only saves fail, from before the first keystroke: on a slow run the
+  // autosave can land first, and then no failure ever shows.
+  const block = (route: Route) =>
+    isServerFn(route.request().headers()["x-server-id"], "saveDocContent")
+      ? route.abort()
+      : route.continue();
   await page.route("**/_server*", block);
+  await page.keyboard.type("kept text");
   const failed = page.getByRole("button", { name: /Couldn't save/ });
-  await expect(failed).toBeVisible();
+  await expect(failed).toBeVisible({ timeout: 15_000 });
   await closeButton.click();
   await expect(page.getByText("This note didn't save")).toBeVisible();
   await page.getByRole("button", { name: "Stay" }).click();
@@ -55,15 +62,53 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await page.unroute("**/_server*", block);
   await expect(failed).toBeHidden({ timeout: 35_000 });
   await closeButton.click();
-  await expect(closeButton).toBeHidden();
+  await expect(panel).toHaveCount(0);
 
   // A working network: the close saves text the autosave had not reached.
   await (await open()).click();
   await page.keyboard.press("End");
   await page.keyboard.type(" quick text");
   await closeButton.click();
-  await expect(closeButton).toBeHidden();
+  await expect(panel).toHaveCount(0);
   await expect(await open()).toContainText("kept text quick text");
+});
+
+// A reopen within seconds of a close can read the cached note. If that copy is
+// older than the save, the next edit replaces the saved text. The socket's
+// refresh and the view log's bare action can both land after the reopen, so
+// here neither does: the save alone must refresh the cache.
+test("a reopen right after a close shows the saved text", async ({ page }) => {
+  await page.routeWebSocket("**/ws/notes", (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage((message) => {
+      if (!String(message).includes("notes:changed")) ws.send(message);
+    });
+  });
+  await page.route("**/_server*", (route) => {
+    // Held, never answered: a failed action would raise the error page.
+    if (isServerFn(route.request().headers()["x-server-id"], "logDocViewEvent"))
+      return;
+    return route.continue();
+  });
+  await openGuardedRow(page);
+  const closeButton = page.getByRole("button", { name: "Close panel" });
+  const panel = page.locator("[data-side-panel-scroll]");
+
+  await (await openPeek(page)).click();
+  await page.keyboard.type("quick text");
+  await closeButton.click();
+  // Until the exit animation ends, a reopen gets the same editor back.
+  await expect(panel).toHaveCount(0);
+
+  const editor = await openPeek(page);
+  await expect(editor).toContainText("quick text");
+  await editor.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" and more");
+  await closeButton.click();
+  await expect(panel).toHaveCount(0);
+  await expect(await openPeek(page)).toContainText("quick text and more");
 });
 
 // A landed action revalidates every live query. If one of those reads fails,
