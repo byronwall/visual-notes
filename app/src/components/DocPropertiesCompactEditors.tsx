@@ -84,6 +84,8 @@ export const DocPropertiesCompactEditors: VoidComponent<{
     if (docChanged) setMetaPopoverOpen(false);
   });
 
+  let pathEditorRoot: HTMLDivElement | undefined;
+
   const handlePathChange = (nextPath: string) => {
     if (nextPath === pathDraft()) return;
     setPathDraft(nextPath);
@@ -122,6 +124,11 @@ export const DocPropertiesCompactEditors: VoidComponent<{
         portalled={props.pathPopoverPortalled}
         anchorClass={pathAnchorClass}
         onEscapeKeyDown={keepOpenOnPathInputEscape}
+        initialFocusEl={() =>
+          pathEditorRoot?.querySelector<HTMLElement>(
+            "[data-path-segment-input]",
+          ) ?? null
+        }
         anchor={
           <HStack gap="0" alignItems="center" minW="0">
             <Show
@@ -159,12 +166,13 @@ export const DocPropertiesCompactEditors: VoidComponent<{
           </HStack>
         }
       >
-        <Stack gap="2" p="3">
+        <Stack ref={pathEditorRoot} gap="2" p="3">
           <PathEditor
             docId={props.docId}
             initialPath={pathDraft() || undefined}
             onChange={handlePathChange}
             onChangeWhenSavedOnly
+            onSubmit={() => setPathPopoverOpen(false)}
           />
         </Stack>
       </SimplePopover>

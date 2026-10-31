@@ -69,6 +69,29 @@ describe("fromNoteMarkdown", () => {
     expect(text).toContain("#code");
   });
 
+  it("keeps a tag with every allowed character across a round trip", () => {
+    const source: NoteDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "tag", attrs: { name: "work/q4_plan-next" } },
+            { type: "text", text: " and (" },
+            { type: "tag", attrs: { name: "a_b_c" } },
+            { type: "text", text: ")." },
+          ],
+        },
+      ],
+    };
+    const parsed = fromNoteMarkdown(toMarkdown(source));
+    expect(
+      inline(parsed.content![0])
+        .filter((n) => n.type === "tag")
+        .map((n) => n.attrs?.name),
+    ).toEqual(["work/q4_plan-next", "a_b_c"]);
+  });
+
   it("leaves fenced code alone", () => {
     const doc = fromNoteMarkdown("```\n- [ ] not a task #nottag [[x|y]]\n```");
     expect(types(doc)).toEqual(["codeBlock"]);
