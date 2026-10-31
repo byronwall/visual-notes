@@ -1,5 +1,12 @@
 import { PlusIcon } from "lucide-solid";
-import { For, Show, createMemo, createSignal } from "solid-js";
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import { css } from "styled-system/css";
 import {
   applyView,
@@ -19,7 +26,11 @@ import { BulkBar } from "./BulkBar";
 import { FooterCell } from "./FooterCell";
 import { TableHeaderCell } from "./TableHeaderCell";
 import { TitleCell } from "./TitleCell";
-import { ROW_HEIGHT, useWindowedRows } from "./useWindowedRows";
+import {
+  ROW_HEIGHT,
+  WINDOW_THRESHOLD,
+  useWindowedRows,
+} from "./useWindowedRows";
 
 const DEFAULT_WIDTH = 180;
 const TITLE_WIDTH = 280;
@@ -41,6 +52,21 @@ const pageScroller = css({
   borderTopWidth: "1px",
   borderColor: "border",
   overscrollBehavior: "contain",
+});
+// Says that more columns sit past the right edge, mainly on a phone.
+const edgeFade = css({
+  position: "absolute",
+  top: "0",
+  right: "0",
+  bottom: "0",
+  w: "8",
+  zIndex: "4",
+  pointerEvents: "none",
+  opacity: "0",
+  background:
+    "linear-gradient(to right, transparent, token(colors.bg.default))",
+  transition: "opacity 140ms",
+  "&[data-on]": { opacity: "1" },
 });
 const grid = css({
   display: "grid",
@@ -138,8 +164,12 @@ const empty = css({
 });
 
 /** Spreadsheet-style view: one row per note, one column per property. */
-export const CollectionTable = (props: { view: CollectionView }) => {
-  const { store, embedded } = useCollection();
+export const CollectionTable = (props: {
+  view: CollectionView;
+  /** Receives the action behind the toolbar's New button. */
+  addRef?: (add: () => void) => void;
+}) => {
+  const { store, embedded, openRow } = useCollection();
   const [autoEditRowId, setAutoEditRowId] = createSignal<string | null>(null);
   const [limit, setLimit] = createSignal(
     embedded ? EMBED_ROW_LIMIT : Number.POSITIVE_INFINITY,
@@ -152,7 +182,22 @@ export const CollectionTable = (props: { view: CollectionView }) => {
     id: string;
     side: "before" | "after";
   } | null>(null);
+  const [moreRight, setMoreRight] = createSignal(false);
   let bodyStart: HTMLDivElement | undefined;
+  let scrollEl: HTMLDivElement | undefined;
+  let gridEl: HTMLDivElement | undefined;
+
+  const measureRightEdge = () => {
+    if (!scrollEl) return;
+    const { scrollWidth, clientWidth, scrollLeft } = scrollEl;
+    setMoreRight(scrollWidth - clientWidth - scrollLeft > 1);
+  };
+  onMount(() => {
+    const observer = new ResizeObserver(measureRightEdge);
+    observer.observe(scrollEl!);
+    observer.observe(gridEl!);
+    onCleanup(() => observer.disconnect());
+  });
 
   const config = () => store.effectiveConfig(props.view);
   const columns = createMemo<CollectionProperty[]>(() => [
@@ -308,8 +353,24 @@ export const CollectionTable = (props: { view: CollectionView }) => {
 
   const addRow = async () => {
     const created = await store.addRow();
-    if (created) setAutoEditRowId(created.id);
+    if (!created) return;
+    const index = Math.min(
+      rows().findIndex((r) => r.id === created.id),
+      limitedRows().length,
+    );
+    // A filter or search can hide the new row, and a window change remounts
+    // rows and ends the edit. In both cases the name opens in the panel.
+    if (index < 0 || limitedRows().length > WINDOW_THRESHOLD) {
+      openRow(created.id);
+      return;
+    }
+    // The page table scrolls inside itself; a note embed scrolls with the page.
+    if (!embedded && scrollEl)
+      scrollEl.scrollTop = index * ROW_HEIGHT - scrollEl.clientHeight / 2;
+    windowed.reveal(index);
+    setAutoEditRowId(created.id);
   };
+  props.addRef?.(() => void addRow());
 
   const stickyTitleStyle = { left: `${SELECT_COLUMN}px` };
 
@@ -321,8 +382,13 @@ export const CollectionTable = (props: { view: CollectionView }) => {
           onClear={() => setSelected(new Set<string>())}
         />
       </Show>
-      <div class={embedded ? scroller : pageScroller}>
+      <div
+        ref={scrollEl}
+        class={embedded ? scroller : pageScroller}
+        onScroll={measureRightEdge}
+      >
         <div
+          ref={gridEl}
           class={grid}
           style={{ "grid-template-columns": template() }}
           role="grid"
@@ -522,6 +588,12 @@ export const CollectionTable = (props: { view: CollectionView }) => {
           </div>
         </div>
       </div>
+      <div
+        class={edgeFade}
+        data-scroll-fade=""
+        data-on={moreRight() ? "" : undefined}
+        aria-hidden="true"
+      />
     </div>
   );
 };

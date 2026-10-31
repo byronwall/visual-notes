@@ -83,6 +83,7 @@ export const AddNotesDialog = (props: {
   const [path, setPath] = createSignal("");
   const [picked, setPicked] = createSignal<Set<string>>(new Set());
   const [busy, setBusy] = createSignal(false);
+  let searchEl: HTMLInputElement | undefined;
   const [candidates] = createResource(
     () =>
       props.open
@@ -140,6 +141,7 @@ export const AddNotesDialog = (props: {
       title={`Add notes to ${store.state.collection.name}`}
       description="Notes keep their content. Meta keys that match property names fill those properties."
       maxW="40rem"
+      initialFocusEl={() => searchEl ?? null}
       footer={
         <div class={footer}>
           <Button variant="outline" size="sm" onClick={() => props.onClose()}>
@@ -158,6 +160,7 @@ export const AddNotesDialog = (props: {
       <div class={filters}>
         <input
           {...noAutofill}
+          ref={searchEl}
           class={input}
           placeholder="Search titles"
           aria-label="Search notes"
@@ -187,7 +190,7 @@ export const AddNotesDialog = (props: {
                 )
               }
             />
-            <span class={titleCls}>Select all {all().length}</span>
+            <span class={titleCls}>Select all {all().length} shown</span>
           </label>
         </Show>
         <For

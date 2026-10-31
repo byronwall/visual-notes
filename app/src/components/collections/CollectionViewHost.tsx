@@ -19,7 +19,14 @@ const stack = css({ display: "flex", flexDirection: "column", gap: "2" });
 /** Toolbar plus the view body, by type. Shared by collection pages and note embeds. */
 export const CollectionViewHost = (props: { view: CollectionView }) => {
   const { store, openRow } = useCollection();
-  const addAndOpen = async () => {
+  // The table and board take the new name in place. Gallery and calendar have
+  // no name field, so their row opens in the peek panel.
+  let addInView: (() => void) | undefined;
+  const onNew = async () => {
+    if (props.view.type !== "gallery" && props.view.type !== "calendar") {
+      addInView?.();
+      return;
+    }
     const row = await store.addRow();
     if (row) openRow(row.id);
   };
@@ -27,7 +34,7 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
     <div class={stack}>
       <CollectionToolbar
         view={props.view}
-        onNew={() => void addAndOpen()}
+        onNew={() => void onNew()}
         settings={
           <Switch>
             <Match when={props.view.type === "board"}>
@@ -47,12 +54,25 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
           </Switch>
         }
       />
-      <Switch fallback={<CollectionTable view={props.view} />}>
+      <Switch
+        fallback={
+          <CollectionTable
+            view={props.view}
+            addRef={(add) => (addInView = add)}
+          />
+        }
+      >
         <Match when={props.view.type === "table"}>
-          <CollectionTable view={props.view} />
+          <CollectionTable
+            view={props.view}
+            addRef={(add) => (addInView = add)}
+          />
         </Match>
         <Match when={props.view.type === "board"}>
-          <CollectionBoard view={props.view} />
+          <CollectionBoard
+            view={props.view}
+            addRef={(add) => (addInView = add)}
+          />
         </Match>
         <Match when={props.view.type === "gallery"}>
           <CollectionGallery view={props.view} />
