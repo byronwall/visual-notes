@@ -130,6 +130,25 @@ test.describe("canvas note panel", () => {
     expect(posts, "discarding must not save the edit").toEqual([]);
   });
 
+  test("closing after a failed save names the failure", async ({ page }) => {
+    await openFromRail(page, title);
+    await page.route("**/_server*", (route) =>
+      (route.request().postData() ?? "").includes("failed canvas edit")
+        ? route.abort()
+        : route.continue(),
+    );
+    await typeIntoEditor(page, " failed canvas edit");
+    await expect(
+      panel(page).getByRole("button", { name: /Couldn't save/ }),
+    ).toBeVisible();
+
+    await panel(page).getByRole("button", { name: "Close panel" }).click();
+    const prompt = page.getByRole("dialog", { name: "This note didn't save" });
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Stay" }).click();
+    await expect(editor(page)).toContainText("failed canvas edit");
+  });
+
   test("a save in flight blocks closing until it finishes", async ({
     page,
   }) => {

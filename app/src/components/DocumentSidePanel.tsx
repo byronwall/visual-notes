@@ -2,10 +2,14 @@ import {
   type JSX,
   Show,
   createMemo,
+  createEffect,
   createResource,
+  createSignal,
+  on,
   type VoidComponent,
 } from "solid-js";
 import { Box, Stack } from "styled-system/jsx";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import { SidePanel } from "./SidePanel";
@@ -78,6 +82,12 @@ export const DocumentSidePanel: VoidComponent<{
     mutate: (next) => mutate(next),
   });
 
+  const [editor, setEditor] = createSignal<{
+    id: string;
+    api: DocumentEditorApi;
+  }>();
+  const [guardOpen, setGuardOpen] = createSignal(false);
+
   // The note on screen. Switching notes keeps the previous one (dimmed and
   // inert) until the next one loads, so the panel never blanks or jumps.
   // Closing keeps it too, so the panel slides out with its content. A note
@@ -93,13 +103,23 @@ export const DocumentSidePanel: VoidComponent<{
     const reopened = open && !wasOpen;
     wasOpen = open;
     if (!open) return prev;
-    if (doc.state === "errored") return undefined;
+    // A failed load must not unmount an editor that holds unsaved text.
+    if (doc.state === "errored") {
+      const current = editor();
+      return current?.id === prev?.id && current?.api.dirty()
+        ? prev
+        : undefined;
+    }
     if (loaded?.id === props.docId) return loaded;
     return reopened ? undefined : prev;
   });
   const shownId = createMemo(() => shown()?.id);
+  const loadFailed = () => doc.state === "errored" && !!shownId();
   const switching = () =>
-    props.open && !!shownId() && shownId() !== props.docId;
+    props.open && !!shownId() && shownId() !== props.docId && !loadFailed();
+
+  // When the text saves, `shown` lets go of the note and the prompt closes.
+  createEffect(on(loadFailed, (failed) => setGuardOpen(failed)));
 
   let bodyEl: HTMLDivElement | undefined;
   const resetScroll = () => {
@@ -107,64 +127,95 @@ export const DocumentSidePanel: VoidComponent<{
   };
 
   return (
-    <SidePanel
-      open={props.open}
-      onClose={props.onClose}
-      ariaLabel="Document details"
-      modal={props.modal}
-      width={props.width}
-    >
-      <Box
-        ref={bodyEl}
-        px="5"
-        pb="10"
-        inert={switching() || undefined}
-        aria-busy={switching()}
-        // Fade only when the next note is slow; a quick load swaps cleanly.
-        style={{
-          opacity: switching() ? 0.45 : 1,
-          transition: switching()
-            ? "opacity 160ms cubic-bezier(0.23, 1, 0.32, 1) 120ms"
-            : "none",
-        }}
+    <>
+      <SidePanel
+        open={props.open}
+        onClose={props.onClose}
+        ariaLabel="Document details"
+        modal={props.modal}
+        width={props.width}
       >
-        <Show
-          when={shownId()}
-          keyed
-          fallback={
-            <Show when={doc.error} fallback={<PanelSkeleton />}>
-              <Text pt="4" fontSize="sm" color="fg.muted">
-                Couldn't load this note.
-              </Text>
-            </Show>
-          }
-        >
-          {(id) => {
-            resetScroll();
-            // `shown` can go empty a beat before this keyed view is disposed.
-            let last = shown()!;
-            const current = () => (last = shown() ?? last);
-            return (
-              <Box animation="fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1)">
-                <DocumentViewer
-                  doc={current()}
-                  panelMode
-                  headerTrailing={
-                    <DocPanelActions
-                      fullPageHref={`/docs/${id}`}
-                      onClose={props.onClose}
-                    />
-                  }
-                  subheader={props.header}
-                  onDeleted={props.onDeleted}
-                  onEditorApiChange={props.onEditorApiChange}
-                  onTitleChange={props.onTitleChange}
-                />
-              </Box>
-            );
+        <Box
+          ref={bodyEl}
+          px="5"
+          pb="10"
+          inert={switching() || undefined}
+          aria-busy={switching()}
+          // Fade only when the next note is slow; a quick load swaps cleanly.
+          style={{
+            opacity: switching() ? 0.45 : 1,
+            transition: switching()
+              ? "opacity 160ms cubic-bezier(0.23, 1, 0.32, 1) 120ms"
+              : "none",
           }}
-        </Show>
-      </Box>
-    </SidePanel>
+        >
+          <Show
+            when={shownId()}
+            keyed
+            fallback={
+              <Show when={doc.error} fallback={<PanelSkeleton />}>
+                <Text pt="4" fontSize="sm" color="fg.muted">
+                  Couldn't load this note.
+                </Text>
+              </Show>
+            }
+          >
+            {(id) => {
+              resetScroll();
+              // `shown` can go empty a beat before this keyed view is disposed.
+              let last = shown()!;
+              const current = () => (last = shown() ?? last);
+              return (
+                <Box animation="fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1)">
+                  <DocumentViewer
+                    doc={current()}
+                    panelMode
+                    headerTrailing={
+                      <DocPanelActions
+                        fullPageHref={`/docs/${id}`}
+                        onClose={props.onClose}
+                      />
+                    }
+                    subheader={props.header}
+                    onDeleted={props.onDeleted}
+                    onEditorApiChange={(docId, api) => {
+                      setEditor((current) =>
+                        api
+                          ? { id: docId, api }
+                          : current?.id === docId
+                            ? undefined
+                            : current,
+                      );
+                      props.onEditorApiChange?.(docId, api);
+                    }}
+                    onTitleChange={props.onTitleChange}
+                  />
+                </Box>
+              );
+            }}
+          </Show>
+        </Box>
+      </SidePanel>
+      {/* Mounted on demand so its portal lands above the panel's. */}
+      <Show when={guardOpen()}>
+        <ConfirmDialog
+          open
+          onOpenChange={setGuardOpen}
+          title={
+            editor()?.api.error()
+              ? "This note didn't save"
+              : "Leave without saving?"
+          }
+          description={
+            editor()?.api.error()
+              ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
+              : "You have unsaved changes. If you leave now, they will be lost."
+          }
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          onConfirm={() => setEditor(undefined)}
+        />
+      </Show>
+    </>
   );
 };

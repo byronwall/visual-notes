@@ -248,6 +248,48 @@ export const createResearchTopicFixture = async (
 export const canSeedAuditDatabase = () =>
   Boolean(process.env.AUDIT_RUN_MANIFEST && process.env.AUDIT_ENV_FILE);
 
+const seedDatasourceUrl = () => {
+  const run = readRunManifest();
+  const envFile = process.env.AUDIT_ENV_FILE;
+  if (!run || !envFile) {
+    throw new Error(
+      "[e2e-fixtures] seeding needs AUDIT_RUN_MANIFEST and AUDIT_ENV_FILE.",
+    );
+  }
+  const source = parseEnv(readFileSync(envFile, "utf8"));
+  if (!source.DATABASE_URL)
+    throw new Error("Env file must define DATABASE_URL.");
+  return auditDatabaseUrl(source.DATABASE_URL, source, run.database).toString();
+};
+
+/**
+ * Seeds one earlier version of a note, so Versions has something to restore.
+ * The row deletes with its note. It writes only to the run manifest's
+ * synthetic database.
+ */
+export const seedRevisionFixture = async (
+  docId: string,
+  title: string,
+  markdown: string,
+) => {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient({ datasourceUrl: seedDatasourceUrl() });
+  try {
+    await prisma.docRevision.create({
+      data: {
+        docId,
+        title,
+        markdown,
+        html: `<p>${markdown}</p>`,
+        actorType: "magic_user",
+        reason: "restore",
+      },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
 /**
  * Seeds the smallest UMAP projection the Canvas route can open notes from:
  * one embedding run, one UMAP run with a single region, and a point per note.
@@ -259,21 +301,7 @@ export const seedCanvasRegionFixture = async (
   regionTitle: string,
   notes: Array<{ id: string; title: string }>,
 ) => {
-  const run = readRunManifest();
-  const envFile = process.env.AUDIT_ENV_FILE;
-  if (!run || !envFile) {
-    throw new Error(
-      "[e2e-fixtures] canvas seeding needs AUDIT_RUN_MANIFEST and AUDIT_ENV_FILE.",
-    );
-  }
-  const source = parseEnv(readFileSync(envFile, "utf8"));
-  if (!source.DATABASE_URL)
-    throw new Error("Env file must define DATABASE_URL.");
-  const datasourceUrl = auditDatabaseUrl(
-    source.DATABASE_URL,
-    source,
-    run.database,
-  ).toString();
+  const datasourceUrl = seedDatasourceUrl();
 
   const points = notes.map((note, index) => ({
     docId: note.id,

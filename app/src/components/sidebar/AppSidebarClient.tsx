@@ -14,6 +14,7 @@ import {
 import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
 import type { LLMSidebarApi } from "~/components/ai/LLMSidebarHost";
+import { toaster } from "~/components/ui/toast";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
 import { CommandKMenu } from "~/components/CommandKMenu";
 import { ConsoleLogsPanel } from "~/components/ConsoleLogsPanel";
@@ -57,6 +58,11 @@ const OnDemand = (props: { name: string; children: JSX.Element }) => (
   <ErrorBoundary
     fallback={(error) => {
       console.warn(`[app-sidebar] ${props.name} failed to load`, error);
+      toaster.create({
+        title: `Couldn't open ${props.name}`,
+        description: "Check your connection, then reload the page.",
+        type: "error",
+      });
       return null;
     }}
   >
@@ -274,7 +280,7 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       />
       <ConsoleLogsPanel open={logsOpen()} onClose={() => setLogsOpen(false)} />
       <Show when={newNoteUsed()}>
-        <OnDemand name="new note">
+        <OnDemand name="New note">
           <NewNoteModal
             open={newNoteOpen()}
             onOpenChange={handleNewNoteOpenChange}
