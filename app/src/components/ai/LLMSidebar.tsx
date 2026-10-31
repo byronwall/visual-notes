@@ -8,7 +8,7 @@ import {
   onCleanup,
 } from "solid-js";
 import type { Accessor } from "solid-js";
-import { createAsync, revalidate, useAction } from "@solidjs/router";
+import { revalidate, useAction } from "@solidjs/router";
 import TiptapEditor from "~/components/TiptapEditor";
 import { createStore } from "solid-js/store";
 import type { Editor } from "@tiptap/core";
@@ -38,6 +38,7 @@ import {
   updateChatMessage,
   updateChatThread,
 } from "~/services/ai/ai-chat.actions";
+import { createKeptAsync } from "~/utils/kept-async";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 
@@ -91,14 +92,14 @@ export function useLLMSidebar() {
     if (initialized()) return;
     setInitialized(true);
   };
-  const threads = createAsync(() => {
+  const threads = createKeptAsync(() => {
     if (!initialized()) return Promise.resolve<ThreadPreview[]>([]);
     return recoverServerFunctionCall(
       () => fetchChatThreads(),
       "fetchChatThreads"
     );
   });
-  const thread = createAsync(() => {
+  const thread = createKeptAsync(() => {
     if (!initialized()) return Promise.resolve<ThreadDetail | null>(null);
     const id = selectedId();
     if (!id) return Promise.resolve<ThreadDetail | null>(null);

@@ -1,4 +1,3 @@
-import { createAsync } from "@solidjs/router";
 import { Show, Suspense, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { fetchPathPageData } from "~/services/docs.service";
@@ -11,6 +10,7 @@ import { PathNoteList } from "./PathNoteList";
 import { PathNoteListSkeleton } from "./PathNoteListSkeleton";
 import { PathQuickCreate } from "./PathQuickCreate";
 import { PathSubpathGrid } from "./PathSubpathGrid";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const sectionTitleClass = css({
   mb: "2",
@@ -21,7 +21,7 @@ const sectionTitleClass = css({
 
 export const PathDetailView = (props: { path: string }) => {
   const tree = usePathTree();
-  const data = createAsync(() => fetchPathPageData({ path: props.path }));
+  const data = createKeptAsync(() => fetchPathPageData({ path: props.path }));
   const node = createMemo(() => findPathNode(tree(), props.path));
   const [createOpen, setCreateOpen] = createSignal(false);
 

@@ -1,5 +1,5 @@
 import { Title } from "@solidjs/meta";
-import { createAsync, revalidate, useAction, useSearchParams } from "@solidjs/router";
+import { revalidate, useAction, useSearchParams } from "@solidjs/router";
 import { createMemo } from "solid-js";
 import { Box, Container } from "styled-system/jsx";
 import { ArchiveDetailDrawer } from "~/components/archive/ArchiveDetailDrawer";
@@ -19,6 +19,7 @@ import {
   fetchArchivedPageTotals,
   fetchArchivedPages,
 } from "~/services/archive/archive.service";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const readParam = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) || "";
@@ -48,10 +49,10 @@ const ArchivePage = () => {
     };
   });
 
-  const items = createAsync(() => fetchArchivedPages(filters()));
-  const groups = createAsync(() => fetchArchivedPageGroups());
-  const groupSummaries = createAsync(() => fetchArchivedPageGroupSummaries());
-  const totals = createAsync(() => fetchArchivedPageTotals());
+  const items = createKeptAsync(() => fetchArchivedPages(filters()));
+  const groups = createKeptAsync(() => fetchArchivedPageGroups());
+  const groupSummaries = createKeptAsync(() => fetchArchivedPageGroupSummaries());
+  const totals = createKeptAsync(() => fetchArchivedPageTotals());
 
   const visibleItems = createMemo(() => {
     const list = items.latest ?? [];

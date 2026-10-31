@@ -21,6 +21,7 @@ import {
   parseNumberOrUndefined,
 } from "~/features/umap/format";
 import type { UmapFormState, UmapRun } from "~/features/umap/types";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const defaultFormState: UmapFormState = {
   creating: false,
@@ -49,7 +50,7 @@ const UmapIndex: VoidComponent = () => {
 
   const [state, setState] = createStore<UmapFormState>(defaultFormState);
 
-  const activeJob = createAsync(() => {
+  const activeJob = createKeptAsync(() => {
     if (!state.activeJobId) return Promise.resolve(null);
     return fetchJobStatus(state.activeJobId);
   });
