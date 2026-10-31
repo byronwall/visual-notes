@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-solid";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
+import { Button } from "~/components/ui/button";
 import { Kbd } from "~/components/ui/kbd";
 import { formatDue, formatDuration } from "./taskFormat";
 import { parseTaskInput, type ParsedTaskInput } from "./taskTitle";
@@ -8,17 +9,19 @@ import { parseTaskInput, type ParsedTaskInput } from "./taskTitle";
 type Props = {
   todayKey: string;
   disabled?: boolean;
-  ref?: (element: HTMLInputElement) => void;
+  ref?: (element: HTMLTextAreaElement) => void;
   onSubmit: (parsed: ParsedTaskInput) => Promise<void>;
 };
 
 const wrapClass = css({
   display: "flex",
-  alignItems: "center",
-  gap: "1",
+  flexWrap: { base: "wrap", md: "nowrap" },
+  alignItems: "flex-start",
+  columnGap: "1",
   pl: "1",
-  pr: "2",
-  h: "9",
+  pr: { base: "0", md: "2" },
+  minH: { base: "11", md: "9" },
+  flexShrink: 0,
   borderRadius: "l2",
   bg: "gray.a2",
   color: "fg.subtle",
@@ -33,30 +36,56 @@ const wrapClass = css({
 });
 
 const inputClass = css({
+  display: "block",
   flex: "1",
   minW: "0",
-  h: "full",
+  // Five lines on a phone, which leaves Add and the preview above the keyboard.
+  maxH: "8.75rem",
+  py: { base: "2.5", md: "2" },
   bg: "transparent",
   borderWidth: "0",
   outline: "none",
-  fontSize: "sm",
+  resize: "none",
+  overflowY: "auto",
+  // iOS Safari zooms the page when it focuses text smaller than 16px.
+  fontSize: { base: "md", md: "sm" },
+  lineHeight: { base: "1.5rem", md: "1.25rem" },
   color: "fg.default",
   _placeholder: { color: "fg.subtle" },
 });
 
-const previewClass = css({
+const addClass = css({
+  display: "none",
+  flexShrink: 0,
+  h: "11",
+  minW: "11",
+  px: "3",
+  md: { order: 1 },
+  "@media (pointer: coarse), (max-width: 47.99em)": { display: "inline-flex" },
+});
+
+const noteClass = css({
   display: "flex",
-  gap: "2",
+  flexWrap: { base: "wrap", md: "nowrap" },
+  alignItems: "center",
+  columnGap: "2",
+  w: { base: "full", md: "auto" },
+  minH: { md: "9" },
+  pl: { base: "7", md: "0" },
+  pb: { base: "1.5", md: "0" },
   fontSize: "xs",
   color: "fg.muted",
   whiteSpace: "nowrap",
   fontVariantNumeric: "tabular-nums",
 });
 
+const isTouchKeyboard = () => window.matchMedia("(pointer: coarse)").matches;
+
 export const TaskQuickAdd = (props: Props) => {
   const [value, setValue] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  let inputRef: HTMLTextAreaElement | undefined;
 
   const parsed = createMemo(() => parseTaskInput(value(), props.todayKey));
   const chips = createMemo(() => {
@@ -70,9 +99,16 @@ export const TaskQuickAdd = (props: Props) => {
     return items;
   });
 
+  createEffect(() => {
+    const text = value();
+    if (!inputRef) return;
+    inputRef.style.height = "auto";
+    if (text) inputRef.style.height = `${inputRef.scrollHeight}px`;
+  });
+
   const submit = async () => {
     const result = parsed();
-    if (!value().trim()) return;
+    if (saving() || !value().trim()) return;
     if (!result.description) {
       setError("Add a title");
       return;
@@ -92,31 +128,45 @@ export const TaskQuickAdd = (props: Props) => {
   return (
     <label class={wrapClass} data-testid="task-quick-add">
       {/* Reserve the chevron column so + and text align with row status and titles. */}
-      <span class={css({ w: "6", flexShrink: 0 })} />
+      <span
+        class={css({
+          display: { base: "none", md: "block" },
+          w: "6",
+          flexShrink: 0,
+        })}
+      />
       <span
         class={css({
           display: "inline-flex",
+          alignItems: "center",
           w: "6",
+          h: { base: "11", md: "9" },
           flexShrink: 0,
           justifyContent: "center",
         })}
       >
         <PlusIcon size={16} />
       </span>
-      <input
-        ref={(element) => props.ref?.(element)}
+      <textarea
+        ref={(element) => {
+          inputRef = element;
+          props.ref?.(element);
+        }}
         class={inputClass}
+        rows={1}
         value={value()}
         disabled={props.disabled}
         aria-label="Add a task"
-        placeholder="Add a task  #tag  @tomorrow  ~30m"
+        placeholder="Add a task  #tag  @fri  ~30m"
         data-testid="task-quick-add-input"
         onInput={(event) => {
           setValue(event.currentTarget.value);
           if (error()) setError(null);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !saving()) {
+          if (event.key === "Enter") {
+            // A touch keyboard has no Shift key, so Enter adds a line there.
+            if (event.shiftKey || isTouchKeyboard()) return;
             event.preventDefault();
             void submit();
           } else if (event.key === "Escape") {
@@ -126,6 +176,17 @@ export const TaskQuickAdd = (props: Props) => {
           }
         }}
       />
+      <Button
+        class={addClass}
+        size="sm"
+        disabled={saving() || !value().trim()}
+        data-testid="task-quick-add-submit"
+        // Keep focus in the field so the keyboard stays up for the next task.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => void submit()}
+      >
+        Add
+      </Button>
       <Show
         when={error()}
         fallback={
@@ -135,22 +196,32 @@ export const TaskQuickAdd = (props: Props) => {
               <Kbd
                 size="sm"
                 data-hint
-                class={css({ display: { base: "none", md: "inline-flex" } })}
+                class={css({
+                  display: { base: "none", md: "inline-flex" },
+                  mt: "2",
+                })}
               >
                 N
               </Kbd>
             }
           >
-            <span class={previewClass} data-testid="task-quick-add-preview">
+            <span class={noteClass} data-testid="task-quick-add-preview">
               <For each={chips()}>{(chip) => <span>{chip}</span>}</For>
-              <span class={css({ color: "fg.subtle" })}>↵</span>
+              <span
+                class={css({
+                  color: "fg.subtle",
+                  "@media (pointer: coarse)": { display: "none" },
+                })}
+              >
+                ↵
+              </span>
             </span>
           </Show>
         }
       >
         {(message) => (
-          <span class={css({ fontSize: "xs", color: "red.11" })}>
-            {message()}
+          <span class={noteClass}>
+            <span class={css({ color: "red.11" })}>{message()}</span>
           </span>
         )}
       </Show>

@@ -5,10 +5,11 @@ import { TaskListsWorkspace } from "~/components/tasks/TaskListsWorkspace";
 const TasksPage = () => {
   return (
     <Container
-      py="3"
+      py={{ base: "1", lg: "3" }}
       px="4"
       maxW="7xl"
-      h="100dvh"
+      // The app bar sits above this page below md.
+      h={{ base: "calc(100dvh - 3rem)", md: "100dvh" }}
       minH="0"
       display="flex"
       flexDirection="column"
