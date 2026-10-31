@@ -199,6 +199,13 @@ export const deleteDocAudio = action(async (id: string) => {
   "use server";
   const row = await prisma.docAudio.findUnique({
     where: { id: z.string().min(1).parse(id) },
+    select: {
+      id: true,
+      docId: true,
+      fileName: true,
+      status: true,
+      updatedAt: true,
+    },
   });
   if (!row) throw new Error("Recording not found");
   // Another tab or device can still be uploading to this row.
@@ -213,8 +220,5 @@ export const deleteDocAudio = action(async (id: string) => {
   });
   await refreshDocAudioText(row.docId);
   console.info("[doc-audio] deleted", row.id, "from doc", row.docId);
-  return json(
-    { id: row.id },
-    { revalidate: fetchDocAudios.keyFor(row.docId) },
-  );
+  return json(null, { revalidate: fetchDocAudios.keyFor(row.docId) });
 }, "doc-audio-delete");

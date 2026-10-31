@@ -291,7 +291,10 @@ export function queueTranscription(id: string) {
   }
   if (queued.has(id)) return;
   queued.add(id);
-  queue = queue.then(() => transcribe(id)).finally(() => queued.delete(id));
+  queue = queue
+    .then(() => transcribe(id))
+    .catch((err) => console.error(`${LOG} job failed %s`, id, err))
+    .finally(() => queued.delete(id));
 }
 
 // A recording left in `recording` this long was interrupted, not active.
