@@ -115,7 +115,7 @@ export const PaletteNavRow = (
       }}
     </Show>
     <span class={labelClass}>{props.label}</span>
-    <span class={trailingClass}>{props.href}</span>
+    <span class={trailingClass}>{props.trailing ?? props.href}</span>
   </a>
 );
 

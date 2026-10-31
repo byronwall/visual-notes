@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { matchActions, matchDestinations, scoreCommand } from "./palette-commands";
+import {
+  bestRowIndex,
+  matchActions,
+  matchDestinations,
+  scoreCommand,
+} from "./palette-commands";
+
+describe("bestRowIndex", () => {
+  const newNote = "New note";
+
+  it("keeps New note for an empty query or when nothing else is listed", () => {
+    expect(bestRowIndex("", [newNote, "Recent note"])).toBe(0);
+    expect(bestRowIndex("gate", [newNote])).toBe(0);
+  });
+
+  it("picks the first result, an exact title first", () => {
+    expect(bestRowIndex("gate", [newNote, "Fix the gate"])).toBe(1);
+    expect(bestRowIndex("tasks", [newNote, "Tasks board", "tasks"])).toBe(2);
+  });
+
+  it("passes over a keyword-only row for a label match", () => {
+    expect(bestRowIndex("ai", [newNote, "Open chat", "AI ideas"])).toBe(2);
+  });
+});
 
 describe("scoreCommand", () => {
   it("ranks label prefix above word prefix above keyword", () => {
