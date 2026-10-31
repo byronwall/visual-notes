@@ -451,7 +451,7 @@ const CanvasRoute: VoidComponent = () => {
     const regionId = selectedRegionId();
     if (regionId && umapRegions() && !selectedRegion()) {
       setSelectedRegionId(
-        resolveUmapRegionId(umapRun()?.regions, regionId) ?? undefined
+        resolveUmapRegionId(umapRun()?.regions, regionId) ?? undefined,
       );
     }
   });
@@ -832,10 +832,20 @@ const CanvasRoute: VoidComponent = () => {
             setDiscardDialogOpen(open);
             if (!open) setPendingSelectedId(undefined);
           }}
-          title="Discard unsaved changes?"
-          description="Your unsaved changes will be lost if you leave this note."
-          confirmLabel="Discard changes"
-          cancelLabel="Keep editing"
+          title={
+            activeEditor()?.api.error()
+              ? "This note didn't save"
+              : "Discard unsaved changes?"
+          }
+          description={
+            activeEditor()?.api.error()
+              ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
+              : "Your unsaved changes will be lost if you leave this note."
+          }
+          confirmLabel={
+            activeEditor()?.api.error() ? "Leave" : "Discard changes"
+          }
+          cancelLabel={activeEditor()?.api.error() ? "Stay" : "Keep editing"}
           onConfirm={() => {
             setSelectedId(pendingSelectedId());
             setPendingSelectedId(undefined);
