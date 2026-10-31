@@ -6,10 +6,11 @@ import {
   Trash2Icon,
 } from "lucide-solid";
 import { Dynamic } from "solid-js/web";
-import { Show, createResource, createSignal } from "solid-js";
+import { Match, Show, Switch, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
 import { fetchCollectionViewBundle } from "~/services/collections/collections.queries";
+import { forgetQuery } from "~/features/live-sync/forget-query";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { keepOnFailedRead } from "~/utils/kept-async";
 import { CollectionProvider } from "../CollectionContext";
@@ -186,6 +187,10 @@ export const CollectionEmbed = (props: {
     () => setRefresh((n) => n + 1),
     (id) => id === bundle.latest?.collection.id,
   );
+  const retry = (viewId: string) =>
+    void forgetQuery([fetchCollectionViewBundle.keyFor(viewId)]).then(() =>
+      setRefresh((n) => n + 1),
+    );
   return (
     <div class={frame} data-collection-embed="">
       <Show
@@ -204,15 +209,27 @@ export const CollectionEmbed = (props: {
           <Show
             when={bundle.latest}
             fallback={
-              <Show
-                when={bundle.state === "ready" || bundle.state === "errored"}
-                fallback={<div class={missing}>Loading collection…</div>}
-              >
-                <div class={missing}>
-                  <DatabaseIcon size={14} /> This collection view no longer
-                  exists.
-                </div>
-              </Show>
+              <Switch fallback={<div class={missing}>Loading collection…</div>}>
+                <Match when={bundle.latest === null}>
+                  <div class={missing}>
+                    <DatabaseIcon size={14} /> This collection view no longer
+                    exists.
+                  </div>
+                </Match>
+                {/* A failed read is the only way to be ready with no value. */}
+                <Match when={bundle.state === "ready"}>
+                  <div class={missing} role="status">
+                    <DatabaseIcon size={14} /> Couldn't load this view.
+                    <button
+                      type="button"
+                      class={iconBtn}
+                      onClick={() => retry(viewId())}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </Match>
+              </Switch>
             }
           >
             {(b) => (

@@ -1,4 +1,4 @@
-import { createAsync, useAction } from "@solidjs/router";
+import { useAction } from "@solidjs/router";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -27,6 +27,7 @@ import {
 import { normalizeTimeBlockColor } from "./time-block-colors";
 import { useNestedDialogGuard } from "./useNestedDialogGuard";
 import { formatRangeLabel } from "./TimeBlocksToolbar";
+import { createKeptAsync } from "~/utils/kept-async";
 
 type Props = {
   open: boolean;
@@ -72,7 +73,7 @@ const dayLabel = (date: Date) =>
 
 /** The visible range as a list: one compact row per block, grouped by day. */
 export const TimeBlocksListDialog = (props: Props) => {
-  const blocks = createAsync(() => {
+  const blocks = createKeptAsync(() => {
     // Re-run after mutations initiated by the calendar.
     void props.refreshKey;
     return fetchWeeklyTimeBlocks({

@@ -4,6 +4,7 @@ import { css } from "styled-system/css";
 import { Box, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import { fetchBacklinks } from "~/services/note-links.queries";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const rowLink = css({
   display: "block",
@@ -18,7 +19,10 @@ const rowLink = css({
 
 /** "Linked from" list under a note: every note that links here, with context. */
 export const BacklinksSection: VoidComponent<{ docId: string }> = (props) => {
-  const [backlinks] = createResource(() => props.docId, fetchBacklinks);
+  const [backlinks] = createResource(
+    () => props.docId,
+    (id) => keepOnFailedRead(undefined, () => fetchBacklinks(id)),
+  );
   const items = () => backlinks.latest ?? [];
 
   return (
