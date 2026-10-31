@@ -115,6 +115,7 @@ export const ActivityToolbar = (props: ActivityToolbarProps) => {
     <HStack gap="2" flexWrap="wrap" alignItems="center">
       <HStack
         gap="0.5"
+        flexWrap="wrap"
         bg="bg.subtle"
         borderRadius="l2"
         p="0.5"
