@@ -1,5 +1,4 @@
 import {
-  createAsync,
   revalidate,
   useNavigate,
   useSearchParams,
@@ -33,6 +32,7 @@ import { Toaster, toaster } from "~/components/ui/toast";
 import { fetchPathDiscovery } from "~/services/docs.service";
 import { Spinner } from "~/components/ui/spinner";
 import { Box, Container, HStack } from "styled-system/jsx";
+import { createKeptAsync } from "~/utils/kept-async";
 
 // A component (not a pre-built element) so hydration claims its nodes in place.
 const LoadingRows = () => (
@@ -73,8 +73,8 @@ const DocsIndexPage = () => {
     shown: q.clientShown,
     setShown: q.setClientShown,
   });
-  const sources = createAsync(() => fetchSources());
-  const pathDiscovery = createAsync(() => fetchPathDiscovery());
+  const sources = createKeptAsync(() => fetchSources());
+  const pathDiscovery = createKeptAsync(() => fetchPathDiscovery());
   const refreshDocs = docs.refresh;
   const refreshSources = () => revalidate(fetchSources.key);
 

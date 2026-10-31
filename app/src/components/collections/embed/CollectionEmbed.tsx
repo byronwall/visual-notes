@@ -11,6 +11,7 @@ import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
 import { fetchCollectionViewBundle } from "~/services/collections/collections.queries";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
+import { keepOnFailedRead } from "~/utils/kept-async";
 import { CollectionProvider } from "../CollectionContext";
 import { CollectionViewHost } from "../CollectionViewHost";
 import { RowPeekPanel } from "../RowPeekPanel";
@@ -167,9 +168,17 @@ export const CollectionEmbed = (props: {
   onRemove: () => void;
 }) => {
   const [refresh, setRefresh] = createSignal(0);
-  const [bundle] = createResource(
+  const [bundle] = createResource<
+    Awaited<ReturnType<typeof fetchCollectionViewBundle>> | undefined,
+    { viewId: string; refresh: number }
+  >(
     () => (props.viewId ? { viewId: props.viewId, refresh: refresh() } : false),
-    (source) => fetchCollectionViewBundle(source.viewId),
+    // A refresh that can't reach the server keeps the note and its draft.
+    (source, info) =>
+      keepOnFailedRead(
+        info.value?.viewId === source.viewId ? info.value : undefined,
+        () => fetchCollectionViewBundle(source.viewId),
+      ),
   );
   // An agent may add or change rows while the note is open.
   useAppChanges(

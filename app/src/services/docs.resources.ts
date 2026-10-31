@@ -6,17 +6,18 @@ import {
   fetchUmapPoints,
 } from "~/services/umap.service";
 import type { UmapPoint } from "~/types/notes";
+import { createKeptAsync } from "~/utils/kept-async";
 
 export function useDocsResource() {
   return createAsync(() => fetchDocs());
 }
 
 export function useUmapRunResource() {
-  return createAsync(() => fetchLatestUmapRun());
+  return createKeptAsync(() => fetchLatestUmapRun());
 }
 
 export function useUmapPointsResource(runId: Accessor<string | undefined>) {
-  return createAsync(() => {
+  return createKeptAsync(() => {
     const id = runId();
     if (!id) return Promise.resolve([] as UmapPoint[]);
     return fetchUmapPoints(id);

@@ -34,6 +34,7 @@ import {
 import { createUmapRun } from "~/services/umap/umap.actions";
 import { fetchUmapRuns } from "~/services/umap/umap.queries";
 import { fetchJobStatus, type JobStatus } from "~/services/jobs/jobs.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 type EmbeddingRun = {
   id: string;
@@ -132,7 +133,7 @@ const EmbeddingDetail: VoidComponent = () => {
       UmapRunSummary[]
     >;
   });
-  const activeJob = createAsync((): Promise<JobStatus | null> => {
+  const activeJob = createKeptAsync((): Promise<JobStatus | null> => {
     if (!state.activeJobId) return Promise.resolve(null);
     return fetchJobStatus(state.activeJobId);
   });

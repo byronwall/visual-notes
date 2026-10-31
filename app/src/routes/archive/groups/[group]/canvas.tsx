@@ -1,5 +1,5 @@
 import { Meta, Title } from "@solidjs/meta";
-import { A, createAsync, useParams } from "@solidjs/router";
+import { A, useParams } from "@solidjs/router";
 import { ListIcon } from "lucide-solid";
 import { Match, Suspense, Switch } from "solid-js";
 import { Box, Stack, styled } from "styled-system/jsx";
@@ -12,15 +12,16 @@ import {
   fetchArchivedPageGroupSummaries,
   fetchArchivedPageGroups,
 } from "~/services/archive/archive.service";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const RouterButtonLink = styled(A, button);
 
 const ArchiveGroupCanvasRoute = () => {
   const params = useParams();
   const groupName = () => decodeURIComponent(params.group || "");
-  const items = createAsync(() => fetchArchiveGroupCanvasItems(groupName()));
-  const groups = createAsync(() => fetchArchivedPageGroups());
-  const summaries = createAsync(() => fetchArchivedPageGroupSummaries());
+  const items = createKeptAsync(() => fetchArchiveGroupCanvasItems(groupName()));
+  const groups = createKeptAsync(() => fetchArchivedPageGroups());
+  const summaries = createKeptAsync(() => fetchArchivedPageGroupSummaries());
   const pageTitle = () => `${groupName() || "Explorer"} Canvas • Visual Notes`;
 
   const breadcrumb = () => (

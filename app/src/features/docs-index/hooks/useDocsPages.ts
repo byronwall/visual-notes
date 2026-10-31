@@ -1,4 +1,4 @@
-import { createAsync, revalidate } from "@solidjs/router";
+import { revalidate } from "@solidjs/router";
 import {
   createEffect,
   createMemo,
@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { fetchDocs, fetchDocsSummary } from "../data/docs.service";
 import type { DocListItem } from "../data/docs.types";
+import { createKeptAsync } from "~/utils/kept-async";
 
 export const DOCS_PAGE_SIZE = 100;
 
@@ -25,10 +26,10 @@ export function useDocsPages(args: {
   shown: Accessor<number>;
   setShown: (n: number) => void;
 }) {
-  const firstPage = createAsync(() =>
+  const firstPage = createKeptAsync(() =>
     fetchDocs({ ...args.filters(), skip: 0, take: DOCS_PAGE_SIZE }),
   );
-  const summary = createAsync(() => {
+  const summary = createKeptAsync(() => {
     const { sortMode, ...filters } = args.filters();
     void sortMode;
     return fetchDocsSummary(filters);

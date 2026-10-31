@@ -6,7 +6,6 @@ import {
   createSignal,
 } from "solid-js";
 import type { VoidComponent } from "solid-js";
-import { createAsync } from "@solidjs/router";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import type { DocsQueryStore } from "../state/docsQuery";
 import { Button } from "~/components/ui/button";
@@ -23,6 +22,7 @@ import {
   ChevronsUpIcon,
   XIcon,
 } from "lucide-solid";
+import { createKeptAsync } from "~/utils/kept-async";
 
 type PathCount = { path: string; count: number };
 
@@ -86,7 +86,7 @@ function sortChildren(node: TreeNode): void {
 export const PathTreeSidebar: VoidComponent<{ q: DocsQueryStore }> = (
   props
 ) => {
-  const pathCounts = createAsync(() => fetchPathSuggestions());
+  const pathCounts = createKeptAsync(() => fetchPathSuggestions());
   const [expanded, setExpanded] = createSignal<Record<string, boolean>>({});
 
   const tree = createMemo(() => {
