@@ -239,9 +239,18 @@ const DocumentViewer: VoidComponent<{
     }
   });
 
+  // `save` reports a failure through `error`, and it skips a run while another
+  // save is in flight. A pending retry would write the old draft over the
+  // restored version, so a restore goes ahead only when nothing is unsaved.
   const flushEditorChanges = async () => {
     const api = editorApi();
-    if (api?.dirty()) await api.save();
+    if (!api?.dirty()) return;
+    await api.save();
+    if (api.dirty()) {
+      throw new Error(
+        "Your latest changes aren't saved. The restore did not run.",
+      );
+    }
   };
 
   const header = () => (
