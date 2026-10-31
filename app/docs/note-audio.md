@@ -72,6 +72,13 @@ with its recording without touching the block schema.
   an existing note or a new one (`moveDocAudio`). A new note takes the
   recording's name and the source note's path. Both notes' `audioText` is
   rebuilt.
+- Delete: the row's trash button asks first, then permanently removes the
+  recording, its file, and its transcript (`deleteDocAudio`) and rebuilds
+  `audioText`. Transcript text and tasks already inserted into the note stay.
+  The live row has no delete, and the server refuses a `recording` row that
+  got a chunk in the last minute, so a second tab can't delete an active
+  recording. Interrupted rows can be deleted. A transcription that finishes
+  after the delete is dropped. Agents can't delete recordings.
 - Cleanup: a note with recordings always goes to Keep, because the archive
   purge would delete its recordings. The assessment reads `audioText` as part
   of the body, and a finished transcript makes the assessment stale. When

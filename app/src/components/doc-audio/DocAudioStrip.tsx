@@ -13,6 +13,7 @@ import { Text } from "~/components/ui/text";
 import { useToasts } from "~/components/Toast";
 import { useAudioRecorder } from "~/features/audio-recorder/useAudioRecorder";
 import {
+  deleteDocAudio,
   moveDocAudio,
   renameDocAudio,
   transcribeDocAudio,
@@ -100,6 +101,7 @@ export const DocAudioStrip = (props: {
   const rename = useAction(renameDocAudio);
   const transcribe = useAction(transcribeDocAudio);
   const move = useAction(moveDocAudio);
+  const remove = useAction(deleteDocAudio);
   const navigate = useNavigate();
   const { show: showToast } = useToasts();
   const [audios, { mutate, refetch }] = createResource(
@@ -150,6 +152,20 @@ export const DocAudioStrip = (props: {
       actionLabel: "Open note",
       onClick: () => navigate(`/docs/${result.docId}`),
     });
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await remove(id);
+      mutate((prev) => prev?.filter((a) => a.id !== id));
+      showToast({ type: "success", message: "Recording deleted" });
+    } catch (err) {
+      console.warn("[doc-audio] delete failed", err);
+      showToast({
+        type: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
 
   createEffect(() =>
@@ -217,6 +233,7 @@ export const DocAudioStrip = (props: {
               onRename={(label) => handleRename(audio.id, label)}
               onTranscribe={() => void handleTranscribe(audio.id)}
               onMove={(toDocId) => handleMove(audio.id, toDocId)}
+              onDelete={() => handleDelete(audio.id)}
               onInsert={
                 props.onInsertBlocks && audio.transcriptAnalysis
                   ? (mode) =>

@@ -1,8 +1,9 @@
 import { Match, Show, Switch, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
-import { FolderInputIcon } from "lucide-solid";
+import { FolderInputIcon, Trash2Icon } from "lucide-solid";
 import { InPlaceEditableText } from "~/components/InPlaceEditableText";
 import { Badge } from "~/components/ui/badge";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { formatDuration } from "~/features/audio-recorder/useAudioRecorder";
@@ -40,8 +41,17 @@ export const DocAudioRow = (props: {
   onAddTask?: (text: string) => void;
   /** Moves the recording to another note, or a new one (null). */
   onMove: (toDocId: string | null) => Promise<void>;
+  /** Permanently deletes the recording; the row asks first. */
+  onDelete: () => Promise<void>;
 }) => {
   const [moving, setMoving] = createSignal(false);
+  const [confirming, setConfirming] = createSignal(false);
+  const [deleting, setDeleting] = createSignal(false);
+  const name = () => props.audio.label ?? defaultRecordingLabel(props.audio);
+  const confirmDelete = () => {
+    setDeleting(true);
+    void props.onDelete().finally(() => setDeleting(false));
+  };
   let player: HTMLAudioElement | undefined;
   const [time, setTime] = createSignal<number | null>(null);
   const [playing, setPlaying] = createSignal(false);
@@ -100,6 +110,17 @@ export const DocAudioRow = (props: {
         >
           <FolderInputIcon />
         </IconButton>
+        <IconButton
+          size="2xs"
+          variant="plain"
+          alignSelf="center"
+          aria-label="Delete recording"
+          title="Delete recording"
+          disabled={deleting()}
+          onClick={() => setConfirming(true)}
+        >
+          <Trash2Icon />
+        </IconButton>
       </HStack>
       <audio
         ref={player}
@@ -147,11 +168,20 @@ export const DocAudioRow = (props: {
       <MoveRecordingDialog
         open={moving()}
         docId={props.audio.docId}
-        label={props.audio.label ?? defaultRecordingLabel(props.audio)}
+        label={name()}
         onClose={() => setMoving(false)}
         onMove={(toDocId) =>
           props.onMove(toDocId).then(() => void setMoving(false))
         }
+      />
+      <ConfirmDialog
+        open={confirming()}
+        onOpenChange={setConfirming}
+        title="Delete recording?"
+        description={`"${name()}" and its transcript will be deleted. This cannot be undone. Text already inserted into the note stays.`}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmDelete}
       />
     </Stack>
   );
