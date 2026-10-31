@@ -18,7 +18,8 @@ const inputClass = css({
   borderWidth: "0",
   bg: "bg.default",
   boxShadow: "inset 0 0 0 1px token(colors.gray.a7)",
-  fontSize: "sm",
+  // iOS Safari zooms the page when it focuses text smaller than 16px.
+  fontSize: { base: "md", md: "sm" },
   color: "fg.default",
   outline: "none",
   _placeholder: { color: "fg.subtle" },
