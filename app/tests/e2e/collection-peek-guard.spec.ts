@@ -66,6 +66,44 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await expect(await open()).toContainText("kept text quick text");
 });
 
+// A reopen within seconds of a close can read the cached note. If that copy is
+// older than the save, the next edit replaces the saved text. The socket's
+// refresh and the view log's bare action can both land after the reopen, so
+// here neither does: the save alone must refresh the cache.
+test("a reopen right after a close shows the saved text", async ({ page }) => {
+  await page.routeWebSocket("**/ws/notes", (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage((message) => {
+      if (!String(message).includes("notes:changed")) ws.send(message);
+    });
+  });
+  await page.route("**/_server*", (route) => {
+    // Held, never answered: a failed action would raise the error page.
+    if (isServerFn(route.request().headers()["x-server-id"], "logDocViewEvent"))
+      return;
+    return route.continue();
+  });
+  await openGuardedRow(page);
+  const closeButton = page.getByRole("button", { name: "Close panel" });
+  const panel = page.locator("[data-side-panel-scroll]");
+
+  await (await openPeek(page)).click();
+  await page.keyboard.type("quick text");
+  await closeButton.click();
+  // Until the exit animation ends, a reopen gets the same editor back.
+  await expect(panel).toHaveCount(0);
+
+  const editor = await openPeek(page);
+  await expect(editor).toContainText("quick text");
+  await editor.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" and more");
+  await closeButton.click();
+  await expect(panel).toHaveCount(0);
+  await expect(await openPeek(page)).toContainText("quick text and more");
+});
+
 // A landed action revalidates every live query. If one of those reads fails,
 // it must not take the page, and the draft in it, down with it.
 test("a failed read leaves an open row peek and its draft", async ({
