@@ -14,7 +14,7 @@ test.describe("visual notes app", () => {
     for (const [name, href] of [
       ["Canvas", "/canvas"],
       ["Paths", "/path"],
-      ["Time Blocks", "/time-blocks"],
+      ["Tasks", "/tasks"],
     ]) {
       await expect(
         sections.getByRole("link", { name, exact: true }),
