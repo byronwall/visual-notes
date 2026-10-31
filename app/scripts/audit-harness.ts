@@ -247,7 +247,12 @@ function makeChildEnv(
   // Optional MCP connector for local agent runs (the dev token is ignored in
   // production). The launching shell wins, so a run can turn it on without
   // editing the env file.
-  for (const key of ["MCP_CONNECTOR_ENABLED", "MCP_DEV_TOKEN"] as const) {
+  // CLEANUP_DECIDER=heuristic fills the cleanup queues with no network call.
+  for (const key of [
+    "MCP_CONNECTOR_ENABLED",
+    "MCP_DEV_TOKEN",
+    "CLEANUP_DECIDER",
+  ] as const) {
     const value = process.env[key] ?? source[key];
     if (value) childEnv[key] = value;
   }
@@ -297,6 +302,18 @@ function selfCheck() {
   assert.equal(env.MAGIC_PASSWORD, "test-only-password");
   assert.equal(env.OPENAI_API_KEY, "");
   assert.equal(env.NODE_ENV, "development");
+  assert.equal(
+    makeChildEnv(
+      {
+        DATABASE_URL: "postgresql://localhost/db",
+        AUTH_SECRET: "x",
+        CLEANUP_DECIDER: "heuristic",
+      },
+      options,
+      "test-only-password",
+    ).CLEANUP_DECIDER,
+    "heuristic",
+  );
   assert.equal(
     makeChildEnv(
       { DATABASE_URL: "postgresql://localhost/db", AUTH_SECRET: "x" },
