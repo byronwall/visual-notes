@@ -78,6 +78,12 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     setParams({ stream: key ?? undefined, card: undefined }, { replace: true });
   const plainCount = () =>
     data.cards().filter((card) => card.type !== "summary").length;
+  // <Title> below names the server render. After a client navigation the app's
+  // fallback title re-registers last and wins, so set the tab here as well.
+  const pageTitle = () => `${data.current()?.topic.title} • Visual Notes`;
+  createEffect(() => {
+    if (data.current()) document.title = pageTitle();
+  });
   const [query, setQuery] = createSignal("");
   const matches = createMemo(() => matchingIds(data.cards(), query()));
   // Picking a card opens it in the inspector; clearing the pick goes back to Contents.
@@ -188,7 +194,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
             minH: 0,
           })}
         >
-          <Title>{`${graph().topic.title} • Visual Notes`}</Title>
+          <Title>{pageTitle()}</Title>
           <header
             class={css({
               display: "flex",

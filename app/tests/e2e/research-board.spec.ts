@@ -43,6 +43,22 @@ test.describe("research topic at narrow widths", () => {
     expect((await answer.boundingBox())!.width).toBeGreaterThan(300);
   });
 
+  test("the tab names the topic after a move from the index", async ({
+    page,
+    request,
+  }) => {
+    const title = `Tab title ${uniqueSuffix()}`;
+    const topic = await createResearchTopicFixture(
+      request,
+      fixture("empty"),
+      title,
+    );
+    await page.goto("/research");
+    await waitForAppReady(page);
+    await page.locator(`a[href="/research/${topic.slug}"]`).first().click();
+    await expect(page).toHaveTitle(`${title} • Visual Notes`);
+  });
+
   test("a phone keeps the view full height until a card is picked", async ({
     page,
     request,
