@@ -105,7 +105,13 @@ export const MapCanvas = (props: {
       <MapToolbar
         query={props.query}
         found={props.state.foundCount()}
+        matchAt={props.state.matchAt()}
         onQuery={props.onQuery}
+        onStep={(step) => {
+          clearTimeout(searchTimer);
+          hover.hide();
+          focus.stepMatch(step);
+        }}
         onExpandAll={() => {
           props.state.expandAll();
           fitAll();
