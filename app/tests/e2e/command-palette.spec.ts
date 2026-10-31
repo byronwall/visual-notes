@@ -1,11 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
 
 // Enter in Cmd+K opens the best match. It must never fall through to New note
 // while the results are on their way.
 
-const openPalette = async (page: import("@playwright/test").Page) => {
+const openPalette = async (page: Page) => {
   await page.goto("/");
   await waitForAppReady(page);
   await page.keyboard.press("Meta+k");
