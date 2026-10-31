@@ -78,3 +78,24 @@ export const matchActions = (
   limit = 3
 ): PaletteAction[] =>
   rank(query, actions, (item) => [item.label, item.keywords], limit);
+
+/**
+ * The row Enter should run for a query, given every row label. Row 0 is New
+ * note, so it wins only when nothing else is listed: an exact title beats a
+ * label match, and a keyword-only row loses to any label match.
+ */
+export const bestRowIndex = (query: string, labels: string[]): number => {
+  const q = normalize(query);
+  if (!q || labels.length < 2) return 0;
+  let best = 1;
+  let top = 0;
+  for (let i = 1; i < labels.length; i++) {
+    const score =
+      normalize(labels[i]) === q ? 4 : scoreCommand(q, labels[i]);
+    if (score > top) {
+      top = score;
+      best = i;
+    }
+  }
+  return best;
+};

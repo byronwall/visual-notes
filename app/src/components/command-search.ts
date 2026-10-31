@@ -5,6 +5,10 @@ import {
   type DocListItem,
   type ServerSearchItem,
 } from "~/features/docs-index/data/docs.service";
+import {
+  searchPaletteGroups,
+  type PaletteGroups,
+} from "~/components/command-palette/palette-search.queries";
 
 export type CommandSearchParams = {
   q: string;
@@ -16,11 +20,13 @@ export type CommandSearchParams = {
   activityClass: "" | "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
 };
 
-export type CommandSearchResult = {
+export type CommandSearchResult = PaletteGroups & {
   key: string;
   items: ServerSearchItem[];
   failed: boolean;
 };
+
+const NO_GROUPS: PaletteGroups = { tasks: [], topics: [], pages: [] };
 
 export const commandSearchKey = (params: CommandSearchParams) =>
   JSON.stringify([params.q, params.sortMode, params.activityClass]);
@@ -47,10 +53,14 @@ export async function retryCommandResults(
   params: CommandSearchParams,
   refetch: () => unknown,
 ) {
-  const key = params.q
-    ? searchDocs.keyFor(searchArgs(params))
-    : fetchDocs.keyFor(feedArgs(params));
-  await revalidate(key);
+  if (params.q) {
+    await revalidate([
+      searchDocs.keyFor(searchArgs(params)),
+      searchPaletteGroups.keyFor(params.q),
+    ]);
+  } else {
+    await revalidate(fetchDocs.keyFor(feedArgs(params)));
+  }
   refetch();
 }
 
@@ -61,10 +71,17 @@ export async function loadCommandResults(
 
   try {
     if (params.q) {
-      const docs = await searchDocs(searchArgs(params));
+      // The note filter does not apply to the other kinds, so they step aside.
+      // They are extras: if they fail, the notes still show.
+      const [docs, groups] = await Promise.all([
+        searchDocs(searchArgs(params)),
+        params.activityClass
+          ? NO_GROUPS
+          : searchPaletteGroups(params.q).catch(() => NO_GROUPS),
+      ]);
       if (!Array.isArray(docs))
         throw new TypeError("Search returned invalid results");
-      return { key, items: docs as ServerSearchItem[], failed: false };
+      return { ...groups, key, items: docs as ServerSearchItem[], failed: false };
     }
 
     const docs = await fetchDocs(feedArgs(params));
@@ -72,6 +89,7 @@ export async function loadCommandResults(
       throw new TypeError("Search returned invalid results");
 
     return {
+      ...NO_GROUPS,
       key,
       items: docs.map(
         (doc: DocListItem): ServerSearchItem => ({
@@ -82,6 +100,6 @@ export async function loadCommandResults(
       failed: false,
     };
   } catch {
-    return { key, items: [], failed: true };
+    return { ...NO_GROUPS, key, items: [], failed: true };
   }
 }

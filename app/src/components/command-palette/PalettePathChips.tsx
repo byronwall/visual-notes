@@ -118,53 +118,44 @@ export const PalettePathChips = (props: PalettePathChipsProps) => {
   return (
     <HStack ref={wrapEl} gap="2" alignItems="center" minW="0" h={ROW_HEIGHT}>
       <RouteIcon size={14} class={css({ color: "fg.muted", flexShrink: "0" })} />
-      <Show
-        when={props.paths.length > 0}
-        fallback={
-          <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
-            No matching paths
-          </Text>
-        }
-      >
-        <Box ref={rowEl} class={chipRowClass} data-palette-paths>
-          <For each={props.paths}>
-            {(item, index) => (
-              <PathChip
-                item={item}
-                query={props.query}
-                hidden={isHidden(index())}
-                onPick={props.onPick}
-              />
-            )}
-          </For>
-        </Box>
-        <Show when={overflow().length > 0}>
-          <SimplePopover
-            open={moreOpen()}
-            onClose={() => setMoreOpen(false)}
-            placement="bottom-end"
-            offset={4}
-            anchor={
-              <button
-                type="button"
-                class={moreButtonClass}
-                aria-label={`${overflow().length} more paths`}
-                aria-expanded={moreOpen()}
-                onClick={() => setMoreOpen((open) => !open)}
-              >
-                +{overflow().length}
-              </button>
-            }
-          >
-            <Stack gap="0.5" p="1" maxW="20rem">
-              <For each={overflow()}>
-                {(item) => (
-                  <PathChip item={item} query={props.query} onPick={props.onPick} />
-                )}
-              </For>
-            </Stack>
-          </SimplePopover>
-        </Show>
+      <Box ref={rowEl} class={chipRowClass} data-palette-paths>
+        <For each={props.paths}>
+          {(item, index) => (
+            <PathChip
+              item={item}
+              query={props.query}
+              hidden={isHidden(index())}
+              onPick={props.onPick}
+            />
+          )}
+        </For>
+      </Box>
+      <Show when={overflow().length > 0}>
+        <SimplePopover
+          open={moreOpen()}
+          onClose={() => setMoreOpen(false)}
+          placement="bottom-end"
+          offset={4}
+          anchor={
+            <button
+              type="button"
+              class={moreButtonClass}
+              aria-label={`${overflow().length} more paths`}
+              aria-expanded={moreOpen()}
+              onClick={() => setMoreOpen((open) => !open)}
+            >
+              +{overflow().length}
+            </button>
+          }
+        >
+          <Stack gap="0.5" p="1" maxW="20rem">
+            <For each={overflow()}>
+              {(item) => (
+                <PathChip item={item} query={props.query} onPick={props.onPick} />
+              )}
+            </For>
+          </Stack>
+        </SimplePopover>
       </Show>
     </HStack>
   );
