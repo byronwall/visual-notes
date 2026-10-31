@@ -28,14 +28,16 @@ export const TaskListHeader = (props: Props) => (
   <div
     class={css({
       display: "flex",
-      alignItems: "flex-start",
+      alignItems: { base: "center", lg: "flex-start" },
       gap: "3",
-      mb: "2",
+      mb: { base: "1", lg: "2" },
     })}
   >
     <div class={css({ flex: "1", minW: "0" })}>
       <h1
         class={css({
+          // The list switcher above already shows this name on phones.
+          srOnly: { base: true, lg: false },
           fontSize: "xl",
           fontWeight: "semibold",
           lineHeight: "1.75rem",
@@ -74,7 +76,7 @@ export const TaskListHeader = (props: Props) => (
       </Show>
     </div>
 
-    <div class={css({ display: "flex", alignItems: "center", gap: "1", flexShrink: 0, pt: "0.5" })}>
+    <div class={css({ display: "flex", alignItems: "center", gap: "1", flexShrink: 0, pt: { lg: "0.5" } })}>
       <Show when={props.doneCount > 0 || props.showDone}>
         <Button
           size="xs"
@@ -87,7 +89,9 @@ export const TaskListHeader = (props: Props) => (
           {props.showDone ? "Hide done" : `Show done (${props.doneCount})`}
         </Button>
       </Show>
-      <TaskShortcutsPopover />
+      <span class={css({ display: { base: "none", md: "inline-flex" } })}>
+        <TaskShortcutsPopover />
+      </span>
     </div>
   </div>
 );

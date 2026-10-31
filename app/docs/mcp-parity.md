@@ -59,6 +59,7 @@ Keep this file current when adding an action or a tool. A new action is either c
 | Action / query                                                            | MCP                                                | Notes                                                       |
 | ------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------- |
 | `startDocAudio`, `finishDocAudio`, `renameDocAudio`, `transcribeDocAudio` | human-only                                         | Recording runs in the browser; transcription runs on Stop   |
+| `deleteDocAudio`                                                          | human-only                                         | Deletes                                                     |
 | `fetchDocAudios`                                                          | `notes_get` (`recordings`), `notes_get_transcript` | Agents read the transcript analysis and text, not the audio |
 
 ## Research

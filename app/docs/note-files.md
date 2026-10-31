@@ -26,4 +26,4 @@ A note can keep any file: a PDF, spreadsheet, slide deck, zip, recording. Each o
 - The schema node is `lib/note-content/file-attachment.ts` (`src`, `name`, `mime`, `size`); its stored HTML is a plain `<a download>` link inside `div[data-file-attachment]`, which read-only views style in `src/panda.css`.
 - In markdown it is `[name](/api/doc-files/…)` alone on its line (`toMarkdown` writes it, `fromNoteMarkdown` reads it back). A file link inside a sentence stays a link.
 - The file's name is in the note's plain text, so search finds notes by attachment name.
-- Agents attach through `notes_attach_file` ([mcp-connector.md](mcp-connector.md#files)).
+- Agents attach through `notes_attach_file` ([mcp-connector.md](mcp-connector.md#files)). If ChatGPT cannot attach a file, see [the troubleshooting table](mcp-connector.md#when-chatgpt-cannot-attach-a-file).

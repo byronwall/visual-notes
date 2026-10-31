@@ -17,7 +17,8 @@ export type McpCallRecord = {
   ctx: ConnectorContext;
   callId: string;
   tool: string;
-  kind: "read" | "write";
+  /** Left out when the SDK refused the arguments before the tool ran. */
+  kind?: "read" | "write";
   outcome: McpCallOutcome;
   durationMs: number;
   args: unknown;

@@ -7,6 +7,7 @@ import {
   audioFileSize,
   createAudioFile,
   normalizeAudioMimeType,
+  removeAudioFile,
 } from "~/server/notes/doc-audio-storage";
 import { createNoteRecord } from "~/server/notes/create-note";
 import {
@@ -186,3 +187,38 @@ export const moveDocAudio = action(
   },
   "doc-audio-move",
 );
+
+// Chunks arrive every 5s, so a `recording` row this quiet was interrupted.
+const LIVE_RECORDING_MS = 60_000;
+
+/**
+ * Permanently deletes a recording, its stored file, and its transcript.
+ * Transcript text already inserted into the note stays there.
+ */
+export const deleteDocAudio = action(async (id: string) => {
+  "use server";
+  const row = await prisma.docAudio.findUnique({
+    where: { id: z.string().min(1).parse(id) },
+    select: {
+      id: true,
+      docId: true,
+      fileName: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
+  if (!row) throw new Error("Recording not found");
+  // Another tab or device can still be uploading to this row.
+  const live =
+    row.status === "recording" &&
+    Date.now() - row.updatedAt.getTime() < LIVE_RECORDING_MS;
+  if (live) throw new Error("This recording is still in progress");
+  // Row first: a failed file removal leaves an orphan file, not a broken row.
+  await prisma.docAudio.delete({ where: { id: row.id } });
+  await removeAudioFile(row.fileName).catch((err) => {
+    console.error("[doc-audio] orphaned file", row.fileName, err);
+  });
+  await refreshDocAudioText(row.docId);
+  console.info("[doc-audio] deleted", row.id, "from doc", row.docId);
+  return json(null, { revalidate: fetchDocAudios.keyFor(row.docId) });
+}, "doc-audio-delete");

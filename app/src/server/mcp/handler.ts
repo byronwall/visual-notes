@@ -1,5 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { timingSafeEqual } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 import {
   unauthorizedResponse,
   verifyBearerAccessToken,
@@ -12,6 +12,8 @@ import {
   mcpNotFoundResponse,
   resolvePublicOrigin,
 } from "./config";
+import { recordMcpCall } from "./call-log";
+import type { ConnectorContext } from "./shared";
 import { scopeForAnnotations } from "./tool-registry";
 import { createNotesMcpServer } from "./tools";
 
@@ -101,6 +103,41 @@ async function withSecuritySchemes(response: Response): Promise<Response> {
   });
 }
 
+const INVALID_ARGUMENTS = "MCP error -32602: Input validation error";
+
+type ToolCallBody = {
+  method?: string;
+  params?: { name?: string; arguments?: unknown };
+};
+
+/**
+ * The SDK checks arguments against the schema before a tool's callback runs,
+ * so the registrar never sees these calls. Without this record, a client
+ * sending the wrong shape looks the same as a client that never called.
+ */
+async function recordInvalidArguments(
+  ctx: ConnectorContext,
+  call: Request,
+  response: Response,
+): Promise<void> {
+  const reply = await response.clone().text();
+  if (!reply.includes(INVALID_ARGUMENTS)) return;
+  const text: unknown = JSON.parse(reply).result?.content?.[0]?.text;
+  if (typeof text !== "string" || !text.startsWith(INVALID_ARGUMENTS)) return;
+  const body: ToolCallBody = await call.json();
+  if (body.method !== "tools/call" || !body.params?.name) return;
+  await recordMcpCall({
+    ctx,
+    callId: randomUUID(),
+    tool: body.params.name,
+    outcome: "refused",
+    durationMs: 0,
+    args: body.params.arguments,
+    code: "invalid",
+    message: text.replace(/^.*Invalid arguments for tool \S+: /, ""),
+  });
+}
+
 /**
  * Stateless Streamable HTTP: every POST builds a fresh server + transport,
  * so no session state lives in the app process.
@@ -113,7 +150,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if (!auth.ok) return auth.response;
 
-  const server = createNotesMcpServer({
+  const ctx: ConnectorContext = {
     origin: resolvePublicOrigin(request),
     actorId: auth.caller.actorId,
     scopes: auth.caller.scopes,
@@ -123,14 +160,20 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
       "insufficient_scope",
       "Reconnect Visual Notes to grant write access",
     ),
-  });
+  };
+  const server = createNotesMcpServer(ctx);
+  const call = request.clone();
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
   await server.connect(transport);
   try {
-    return await withSecuritySchemes(await transport.handleRequest(request));
+    const response = await withSecuritySchemes(
+      await transport.handleRequest(request),
+    );
+    await recordInvalidArguments(ctx, call, response);
+    return response;
   } finally {
     void server.close();
   }

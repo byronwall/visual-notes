@@ -9,10 +9,12 @@ import {
   onCleanup,
 } from "solid-js";
 import { HStack, Stack } from "styled-system/jsx";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Text } from "~/components/ui/text";
 import { useToasts } from "~/components/Toast";
 import { useAudioRecorder } from "~/features/audio-recorder/useAudioRecorder";
 import {
+  deleteDocAudio,
   moveDocAudio,
   renameDocAudio,
   transcribeDocAudio,
@@ -82,6 +84,9 @@ const taskBlock = (value: string): JSONContent => ({
   content: text(value),
 });
 
+const recordingName = (audio: DocAudioSummary | undefined) =>
+  audio ? (audio.label ?? defaultRecordingLabel(audio)) : "";
+
 // Transcription runs on the server after Stop; poll until it settles.
 const TRANSCRIPT_POLL_MS = 4000;
 
@@ -100,6 +105,7 @@ export const DocAudioStrip = (props: {
   const rename = useAction(renameDocAudio);
   const transcribe = useAction(transcribeDocAudio);
   const move = useAction(moveDocAudio);
+  const remove = useAction(deleteDocAudio);
   const navigate = useNavigate();
   const { show: showToast } = useToasts();
   const [audios, { mutate, refetch }] = createResource(
@@ -150,6 +156,30 @@ export const DocAudioStrip = (props: {
       actionLabel: "Open note",
       onClick: () => navigate(`/docs/${result.docId}`),
     });
+  };
+
+  // Held here, not in the row: the transcript poll replaces every row object,
+  // so For remounts the rows and would close a dialog inside one.
+  const [confirmOpen, setConfirmOpen] = createSignal(false);
+  // Stays set after closing, so the name holds through the fade-out.
+  const [deleteTarget, setDeleteTarget] = createSignal<DocAudioSummary>();
+  const [deletingId, setDeletingId] = createSignal<string>();
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await remove(id);
+      mutate((prev) => prev?.filter((a) => a.id !== id));
+      showToast({ type: "success", message: "Recording deleted" });
+    } catch (err) {
+      console.warn("[doc-audio] delete failed", err);
+      showToast({
+        type: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setDeletingId(undefined);
+    }
   };
 
   createEffect(() =>
@@ -217,6 +247,11 @@ export const DocAudioStrip = (props: {
               onRename={(label) => handleRename(audio.id, label)}
               onTranscribe={() => void handleTranscribe(audio.id)}
               onMove={(toDocId) => handleMove(audio.id, toDocId)}
+              onDelete={() => {
+                setDeleteTarget(audio);
+                setConfirmOpen(true);
+              }}
+              deleting={deletingId() === audio.id}
               onInsert={
                 props.onInsertBlocks && audio.transcriptAnalysis
                   ? (mode) =>
@@ -242,6 +277,15 @@ export const DocAudioStrip = (props: {
             />
           )}
         </For>
+        <ConfirmDialog
+          open={confirmOpen()}
+          onOpenChange={setConfirmOpen}
+          title="Delete recording?"
+          description={`"${recordingName(deleteTarget())}" and its transcript will be deleted. This cannot be undone. Text already inserted into the note stays.`}
+          confirmLabel="Delete"
+          destructive
+          onConfirm={() => void handleDelete(deleteTarget()!.id)}
+        />
       </Stack>
     </Show>
   );
