@@ -7,16 +7,21 @@ import {
   type TaskItem,
   type TaskListItem,
 } from "~/services/tasks/tasks.service";
-import { isDoneStatus } from "./taskFormat";
+import { isDoneStatus, type DueFilter } from "./taskFormat";
 import { buildOpenIndex, groupChildren } from "./taskTreeOps";
 
 /**
  * Lists, the selected list (persisted as `?list=`), its tasks, and the
  * derived display tree. Done tasks without open descendants are hidden unless
  * `?done=1`; tasks finished during this visit stay put until the list changes.
+ * `?due=overdue` or `?due=today` narrows the list to those open tasks.
  */
 export const createTaskData = () => {
-  const [searchParams, setSearchParams] = useSearchParams<{ list?: string; done?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams<{
+    list?: string;
+    done?: string;
+    due?: string;
+  }>();
   const [listsNonce, setListsNonce] = createSignal(0);
   const [tasksNonce, setTasksNonce] = createSignal(0);
   const [recentlyDone, setRecentlyDone] = createSignal<Set<string>>(new Set());
@@ -79,6 +84,16 @@ export const createTaskData = () => {
     setSearchParams({ done: value ? "1" : undefined }, { replace: true });
   };
 
+  const dueFilter = (): DueFilter | null =>
+    searchParams.due === "overdue" || searchParams.due === "today"
+      ? searchParams.due
+      : null;
+  const toggleDueFilter = (filter: DueFilter) =>
+    setSearchParams(
+      { due: dueFilter() === filter ? undefined : filter },
+      { replace: true },
+    );
+
   const isVisibleInActive = (task: TaskItem) =>
     !isDoneStatus(task.status) || recentlyDone().has(task.id) || hasOpen()(task);
 
@@ -120,7 +135,7 @@ export const createTaskData = () => {
 
   const selectList = (listId: string) => {
     setRecentlyDone(new Set<string>());
-    setSearchParams({ list: listId }, { replace: true });
+    setSearchParams({ list: listId, due: undefined }, { replace: true });
   };
 
   const markRecentlyDone = (taskId: string) =>
@@ -164,6 +179,8 @@ export const createTaskData = () => {
     mutateTasks,
     showDone,
     setShowDone,
+    dueFilter,
+    toggleDueFilter,
     visibleChildIds,
     doneRootIds,
     hiddenDoneCount,

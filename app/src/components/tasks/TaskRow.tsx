@@ -26,6 +26,9 @@ const sourceLinkClass = css({
 });
 import { handleMoveKey, handleRowKeyDown } from "./taskRowKeys";
 import { useTaskTree, type DropKind } from "./TaskTreeContext";
+import { createRowSwipe } from "./createRowSwipe";
+import { rowSwipeClass, TaskRowSwipeBack } from "./TaskRowSwipeBack";
+import { usesTaskSheet } from "./taskTouch";
 
 type Props = {
   task: TaskItem;
@@ -38,16 +41,19 @@ export const rowClass = css({
   display: "flex",
   alignItems: "flex-start",
   gap: "1",
-  pl: "1",
-  pr: "1",
-  py: "1",
+  pl: { base: "0", md: "1" },
+  pr: { base: "0", md: "1" },
+  py: { base: "0", md: "1" },
   borderRadius: "l2",
-  minH: "8",
+  minH: { base: "11", md: "8" },
   outline: "none",
-  transitionProperty: "background-color, opacity",
+  // Below md, a swipe moves the row, and a vertical drag still scrolls the list.
+  touchAction: { base: "pan-y", md: "auto" },
+  transitionProperty: "background-color, opacity, transform",
   transitionDuration: "fast",
   _hover: { bg: "bg.hover" },
-  "&[data-selected=true]": { bg: "bg.selected" },
+  md: { "&[data-selected=true]": { bg: "bg.selected" } },
+  "&[data-swiping=true]": { bg: "bg.default", transitionDuration: "0s" },
   _focusVisible: { boxShadow: "inset 0 0 0 2px token(colors.border.focus)" },
   "&[data-dragging=true]": { opacity: 0.4 },
   "&[data-drop=inside]": {
@@ -64,7 +70,7 @@ export const rowClass = css({
   "&:hover [data-reveal], &[data-selected=true] [data-reveal], & [data-reveal]:focus-visible, & [data-reveal][data-state=open]":
     { opacity: 1 },
   "@media (hover: none)": { "& [data-reveal]": { opacity: 1 } },
-  "@media (pointer: coarse)": { minH: "11", py: "1.5" },
+  "@media (pointer: coarse)": { minH: "11" },
   "&[data-flash=true]": { animation: "taskRowFlash 900ms ease-out" },
   "@media (prefers-reduced-motion: reduce)": {
     "&[data-flash=true]": { animation: "none" },
@@ -90,21 +96,44 @@ const iconButtonClass = css({
     outlineOffset: "-2px",
   },
   "@media (prefers-reduced-motion: reduce)": { _active: { transform: "none" } },
-  "@media (pointer: coarse)": { w: "8", h: "8" },
+});
+
+// Phone rows: status first, a due and time rail on the right, then the chevron.
+const statusButtonClass = css({
+  "@media (pointer: coarse), (max-width: 47.99em)": { w: "9", h: "11" },
 });
 
 const chevronClass = css({
+  order: { base: 3, md: 0 },
+  w: { base: "9", md: "6" },
+  h: { base: "11", md: "6" },
+  _disabled: { display: { base: "none", md: "inline-flex" } },
   color: "fg.subtle",
   "& svg": { transitionProperty: "transform", transitionDuration: "fast" },
   "&[data-expanded=true] svg": { transform: "rotate(90deg)" },
 });
 
+const contentClass = css({
+  flex: "1",
+  minW: "0",
+  display: { base: "grid", md: "flex" },
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  flexWrap: "wrap",
+  alignItems: "flex-start",
+  alignContent: "center",
+  minH: { base: "11", md: "auto" },
+  py: { base: "1", md: "0" },
+  columnGap: { base: "2", md: "3" },
+  rowGap: "0",
+});
+
 const titleClass = css({
   flex: "1 1 16rem",
+  gridColumn: "1",
   minW: "0",
-  py: "0.5",
-  fontSize: "sm",
-  lineHeight: "1.25rem",
+  py: { base: "0", md: "0.5" },
+  fontSize: { base: "md", md: "sm" },
+  lineHeight: { base: "1.375rem", md: "1.25rem" },
   color: "fg.default",
   cursor: "text",
   overflowWrap: "anywhere",
@@ -121,6 +150,7 @@ const inlineInputClass = css({
   borderWidth: "0",
   color: "fg.default",
   flex: "1 1 16rem",
+  gridColumn: "1",
   minW: "0",
   py: "0.5",
   // iOS Safari zooms the page when it focuses text smaller than 16px.
@@ -190,183 +220,201 @@ export const TaskRow = (props: Props) => {
     });
   });
 
+  const swipe = createRowSwipe({
+    onRight: () => ctx.finishTask(props.task),
+    onLeft: () => ctx.snoozeTask(props.task),
+  });
+
   const readDraggedId = (event: DragEvent) =>
     event.dataTransfer?.getData("text/plain")?.trim() || null;
 
   return (
-    <div
-      ref={rowRef}
-      class={rowClass}
-      role="treeitem"
-      aria-selected={isActive()}
-      aria-expanded={props.hasChildren ? expanded() : undefined}
-      data-testid={`task-row-${props.task.id}`}
-      data-selected={isActive() ? "true" : "false"}
-      data-dragging={
-        ctx.draggingTaskId() === props.task.id ? "true" : undefined
-      }
-      data-drop={dropKind() ?? "none"}
-      tabIndex={ctx.tabStopId() === props.task.id ? 0 : -1}
-      data-flash={flash() ? "true" : undefined}
-      draggable={!isEditing()}
-      onFocus={() => ctx.activate(props.task.id)}
-      onClick={() => ctx.activate(props.task.id)}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        handleRowKeyDown(event, props.task, ctx);
-      }}
-      onDragStart={(event) => {
-        event.dataTransfer?.setData("text/plain", props.task.id);
-        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-        ctx.dragStart(props.task.id);
-      }}
-      onDragEnd={() => ctx.dragEnd()}
-      onDragOver={(event) => {
-        if (!ctx.draggingTaskId() || ctx.draggingTaskId() === props.task.id)
-          return;
-        event.preventDefault();
-        ctx.dragOver(
-          props.task.id,
-          dropKindFromPointer(event, event.currentTarget),
-        );
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        ctx.drop(
-          props.task.id,
-          dropKindFromPointer(event, event.currentTarget),
-          readDraggedId(event),
-        );
-      }}
-    >
-      <button
-        type="button"
-        class={`${iconButtonClass} ${chevronClass}`}
-        data-expanded={expanded() ? "true" : "false"}
-        data-testid={`task-toggle-${props.task.id}`}
-        tabIndex={-1}
-        disabled={!props.hasChildren}
-        aria-label={expanded() ? "Collapse subtasks" : "Expand subtasks"}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (props.hasChildren) ctx.toggleExpanded(props.task.id);
-        }}
-      >
-        <Show when={props.hasChildren}>
-          <ChevronRightIcon size={14} />
-        </Show>
-      </button>
-
-      <button
-        type="button"
-        class={`${iconButtonClass} ${statusColorClass}`}
-        data-status={props.task.status}
-        data-testid={`task-status-${props.task.id}`}
-        tabIndex={-1}
-        aria-label={
-          props.task.status === "complete"
-            ? `Mark "${props.task.description}" not done`
-            : `Mark "${props.task.description}" done`
-        }
-        title={STATUS_META[props.task.status].label}
-        onClick={(event) => {
-          event.stopPropagation();
-          ctx.activate(props.task.id);
-          ctx.toggleStatus(props.task, "complete");
-        }}
-      >
-        <TaskStatusIcon status={props.task.status} />
-      </button>
-
+    <div class={rowSwipeClass}>
+      <TaskRowSwipeBack dx={swipe.dx()} armed={swipe.armed()} />
       <div
-        class={css({
-          flex: "1",
-          minW: "0",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-start",
-          columnGap: "3",
-          rowGap: "0",
-        })}
+        ref={rowRef}
+        class={rowClass}
+        style={
+          swipe.dx() !== 0
+            ? { transform: `translateX(${swipe.dx()}px)` }
+            : undefined
+        }
+        data-swiping={swipe.dx() !== 0 ? "true" : undefined}
+        onPointerDown={swipe.onPointerDown}
+        onPointerMove={swipe.onPointerMove}
+        onPointerUp={swipe.onPointerUp}
+        onPointerCancel={swipe.onPointerCancel}
+        role="treeitem"
+        aria-selected={isActive()}
+        aria-expanded={props.hasChildren ? expanded() : undefined}
+        data-testid={`task-row-${props.task.id}`}
+        data-selected={isActive() ? "true" : "false"}
+        data-dragging={
+          ctx.draggingTaskId() === props.task.id ? "true" : undefined
+        }
+        data-drop={dropKind() ?? "none"}
+        tabIndex={ctx.tabStopId() === props.task.id ? 0 : -1}
+        data-flash={flash() ? "true" : undefined}
+        draggable={!isEditing()}
+        onFocus={() => ctx.activate(props.task.id)}
+        onClick={() => {
+          if (swipe.consumeClick()) return;
+          ctx.activate(props.task.id);
+          if (usesTaskSheet()) ctx.openSheet(props.task);
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          handleRowKeyDown(event, props.task, ctx);
+        }}
+        onDragStart={(event) => {
+          event.dataTransfer?.setData("text/plain", props.task.id);
+          if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+          ctx.dragStart(props.task.id);
+        }}
+        onDragEnd={() => ctx.dragEnd()}
+        onDragOver={(event) => {
+          if (!ctx.draggingTaskId() || ctx.draggingTaskId() === props.task.id)
+            return;
+          event.preventDefault();
+          ctx.dragOver(
+            props.task.id,
+            dropKindFromPointer(event, event.currentTarget),
+          );
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          ctx.drop(
+            props.task.id,
+            dropKindFromPointer(event, event.currentTarget),
+            readDraggedId(event),
+          );
+        }}
       >
-        <Show
-          when={edit()}
-          fallback={
-            <TaskMarkdownPreview
-              class={titleClass}
-              data-done={done() ? "true" : "false"}
-              data-status={props.task.status}
-              markdown={props.task.description}
-              onClick={() => {
-                ctx.activate(props.task.id);
-                ctx.openInlineEdit(props.task);
-              }}
-            />
-          }
+        <button
+          type="button"
+          class={`${iconButtonClass} ${chevronClass}`}
+          data-expanded={expanded() ? "true" : "false"}
+          data-testid={`task-toggle-${props.task.id}`}
+          tabIndex={-1}
+          disabled={!props.hasChildren}
+          aria-label={expanded() ? "Collapse subtasks" : "Expand subtasks"}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (props.hasChildren) ctx.toggleExpanded(props.task.id);
+          }}
         >
-          {(state) => (
-            <input
-              ref={inlineInputRef}
-              class={inlineInputClass}
-              value={state().value}
-              disabled={state().saving}
-              aria-label="Task title"
-              placeholder="Task title  #tag  @fri  ~30m"
-              data-testid={`task-inline-input-${props.task.id}`}
-              onClick={(event) => event.stopPropagation()}
-              onInput={(event) =>
-                ctx.inlineEditChange(event.currentTarget.value)
-              }
-              onBlur={() => {
-                // Read the memo, not the Show accessor: blur also fires on unmount.
-                if (edit() && !edit()!.saving) ctx.inlineEditSubmit();
-              }}
-              onKeyDown={(event) => {
-                if (handleMoveKey(event, props.task, ctx)) return;
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  ctx.inlineEditSubmit();
-                } else if (event.key === "Escape") {
-                  event.preventDefault();
-                  ctx.inlineEditCancel();
+          <Show when={props.hasChildren}>
+            <ChevronRightIcon size={14} />
+          </Show>
+        </button>
+
+        <button
+          type="button"
+          class={`${iconButtonClass} ${statusButtonClass} ${statusColorClass}`}
+          data-status={props.task.status}
+          data-testid={`task-status-${props.task.id}`}
+          tabIndex={-1}
+          aria-label={
+            props.task.status === "complete"
+              ? `Mark "${props.task.description}" not done`
+              : `Mark "${props.task.description}" done`
+          }
+          title={STATUS_META[props.task.status].label}
+          onClick={(event) => {
+            event.stopPropagation();
+            ctx.activate(props.task.id);
+            if (usesTaskSheet()) ctx.finishTask(props.task);
+            else ctx.toggleStatus(props.task, "complete");
+          }}
+        >
+          <TaskStatusIcon status={props.task.status} />
+        </button>
+
+        <div class={contentClass}>
+          <Show
+            when={edit()}
+            fallback={
+              <TaskMarkdownPreview
+                class={titleClass}
+                data-done={done() ? "true" : "false"}
+                data-status={props.task.status}
+                markdown={props.task.description}
+                onClick={() => {
+                  ctx.activate(props.task.id);
+                  if (usesTaskSheet()) ctx.openSheet(props.task);
+                  else ctx.openInlineEdit(props.task);
+                }}
+              />
+            }
+          >
+            {(state) => (
+              <input
+                ref={inlineInputRef}
+                class={inlineInputClass}
+                value={state().value}
+                disabled={state().saving}
+                aria-label="Task title"
+                placeholder="Task title  #tag  @fri  ~30m"
+                data-testid={`task-inline-input-${props.task.id}`}
+                onClick={(event) => event.stopPropagation()}
+                onInput={(event) =>
+                  ctx.inlineEditChange(event.currentTarget.value)
                 }
-              }}
-            />
-          )}
-        </Show>
+                onBlur={() => {
+                  // Read the memo, not the Show accessor: blur also fires on unmount.
+                  if (edit() && !edit()!.saving) ctx.inlineEditSubmit();
+                }}
+                onKeyDown={(event) => {
+                  if (handleMoveKey(event, props.task, ctx)) return;
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    ctx.inlineEditSubmit();
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    ctx.inlineEditCancel();
+                  }
+                }}
+              />
+            )}
+          </Show>
 
-        <Show when={props.task.source}>
-          {(source) => (
-            <A
-              href={`/docs/${source().docId}${source().blockId ? `#b-${source().blockId}` : ""}`}
-              class={sourceLinkClass}
-              title="Open the note this task was written in"
-              onClick={(event) => event.stopPropagation()}
-            >
-              ↗ {source().title}
-            </A>
-          )}
-        </Show>
+          <Show when={props.task.source}>
+            {(source) => (
+              <A
+                href={`/docs/${source().docId}${source().blockId ? `#b-${source().blockId}` : ""}`}
+                class={sourceLinkClass}
+                title="Open the note this task was written in"
+                onClick={(event) => event.stopPropagation()}
+              >
+                ↗ {source().title}
+              </A>
+            )}
+          </Show>
 
-        <TaskRowMeta
-          task={props.task}
-          todayKey={ctx.todayKey()}
-          childProgress={props.childProgress}
-          error={edit()?.error ?? null}
+          <TaskRowMeta
+            task={props.task}
+            todayKey={ctx.todayKey()}
+            childProgress={props.childProgress}
+            error={edit()?.error ?? null}
+          />
+        </div>
+
+        <TaskRowMenu
+          class={css({
+            display: { base: "none", md: "inline-flex" },
+            flexShrink: 0,
+            mt: "0.5",
+          })}
+          taskLabel={props.task.description}
+          status={props.task.status}
+          onStatus={(status) => ctx.setStatus(props.task, status)}
+          onEditDetails={() => ctx.openDetails(props.task)}
+          onAddSubtask={() => ctx.addSubtask(props.task)}
+          onDelete={() => ctx.deleteTask(props.task)}
+          otherLists={ctx.otherLists()}
+          onMoveToList={(listId) => ctx.moveToList(props.task, listId)}
         />
       </div>
-
-      <TaskRowMenu
-        class={css({ flexShrink: 0, mt: "0.5" })}
-        taskLabel={props.task.description}
-        status={props.task.status}
-        onStatus={(status) => ctx.setStatus(props.task, status)}
-        onEditDetails={() => ctx.openDetails(props.task)}
-        onAddSubtask={() => ctx.addSubtask(props.task)}
-        onDelete={() => ctx.deleteTask(props.task)}
-        otherLists={ctx.otherLists()}
-        onMoveToList={(listId) => ctx.moveToList(props.task, listId)}
-      />
     </div>
   );
 };

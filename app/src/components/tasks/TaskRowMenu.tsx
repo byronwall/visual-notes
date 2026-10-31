@@ -83,7 +83,11 @@ export const TaskRowMenu = (props: Props) => (
             </HStack>
             <Kbd size="sm">⌘↵</Kbd>
           </Menu.Item>
-          <Menu.Item value="subtask" onSelect={props.onAddSubtask}>
+          <Menu.Item
+            value="subtask"
+            // The menu takes focus back on close, which would cancel the draft row.
+            onSelect={() => setTimeout(props.onAddSubtask)}
+          >
             <HStack gap="2" flex="1">
               <ListPlusIcon size={14} />
               Add subtask
