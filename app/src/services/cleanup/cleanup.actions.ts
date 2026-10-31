@@ -44,6 +44,7 @@ export async function draftDistillForNote(
     title: doc.title,
     markdown: noteMarkdown(doc),
     focus: mode === "post_event" ? POST_EVENT_FOCUS : undefined,
+    trigger: `cleanup:${mode}`,
   });
 }
 
@@ -195,10 +196,13 @@ export const makeTaskAction = action(
   "cleanup-make-task",
 );
 
-/** Loads and summarizes a saved link. Not cached: each call re-fetches. */
-export async function expandLinkForNote(id: string): Promise<LinkExpansion> {
+/** Loads a saved link, and summarizes it when asked. Not cached. */
+export async function expandLinkForNote(
+  id: string,
+  summarize: boolean,
+): Promise<LinkExpansion> {
   "use server";
-  return expandLink(docId.parse(id));
+  return expandLink(docId.parse(id), z.boolean().parse(summarize));
 }
 
 const linkSummaryInput = z.object({

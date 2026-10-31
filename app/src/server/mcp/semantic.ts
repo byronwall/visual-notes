@@ -191,7 +191,7 @@ export async function semanticSearch(
     const run = await latestRun();
     if (!run) return { status: "off", hits: [] };
     const [[queryVector], index] = await Promise.all([
-      embedWithOpenAI([query], run.model),
+      embedWithOpenAI([query], run.model, "search"),
       loadIndex(run),
     ]);
     return {

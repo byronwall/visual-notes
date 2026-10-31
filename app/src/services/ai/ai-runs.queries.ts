@@ -153,3 +153,26 @@ export const fetchPromptRun = query(
   },
   "ai-run"
 );
+
+const PAID_CALL_LIMIT = 100;
+
+export const fetchPaidCalls = query(async () => {
+  "use server";
+  const rows = await prisma.llmRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    take: PAID_CALL_LIMIT,
+    select: {
+      id: true,
+      createdAt: true,
+      model: true,
+      status: true,
+      totalTokens: true,
+      trigger: true,
+      noteId: true,
+    },
+  });
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}, "ai-paid-calls");

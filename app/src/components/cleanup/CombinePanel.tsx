@@ -1,12 +1,12 @@
 import { useAction } from "@solidjs/router";
 import {
+  Match,
   Show,
+  Switch,
   createEffect,
   createMemo,
-  createResource,
   createSignal,
   on,
-  onMount,
   untrack,
   type VoidComponent,
 } from "solid-js";
@@ -21,14 +21,15 @@ import {
   applyCombineAction,
   draftCombineForCluster,
 } from "~/services/cleanup/cleanup.actions";
-import { CleanupActionBar } from "./CleanupActionBar";
+import { CleanupActionBar, paidLabel } from "./CleanupActionBar";
 import { CombineMembers } from "./CombineMembers";
 import { PanelSection } from "./PanelSection";
+import { useOnDemand } from "./useOnDemand";
 
 /**
  * Combine a cluster: choose the members and the note to keep; the LLM writes
- * what the others add (on demand, in the browser), and approving appends it
- * and archives the rest into the kept note.
+ * what the others add (on request when that costs money), and approving
+ * appends it and archives the rest into the kept note.
  */
 export const CombinePanel: VoidComponent<{
   item: CleanupItemDetail;
@@ -39,8 +40,6 @@ export const CombinePanel: VoidComponent<{
   onSkip: () => void;
 }> = (props) => {
   const apply = useAction(applyCombineAction);
-  const [mounted, setMounted] = createSignal(false);
-  onMount(() => setMounted(true));
   const [included, setIncluded] = createSignal(
     untrack(() => new Set(props.members.map((m) => m.docId))),
   );
@@ -58,22 +57,24 @@ export const CombinePanel: VoidComponent<{
       .map((m) => m.docId)
       .filter((id) => included().has(id) && id !== keepId()),
   );
-  const draftKey = () =>
-    mounted() && others().length
-      ? JSON.stringify({ keepId: keepId(), otherIds: others() })
-      : false;
-  const [draft, { refetch }] = createResource(draftKey, (key) =>
-    draftCombineForCluster(JSON.parse(key)),
-  );
-  // A failed draft must not throw out of the page: read the value only when
-  // the resource has not errored.
-  const latestDraft = () => (draft.error ? undefined : draft.latest);
+  const paid = () => props.item.paid.draft;
+  const draft = useOnDemand({
+    // Changing the members or the kept note asks for a new draft.
+    key: () =>
+      others().length
+        ? JSON.stringify({ keepId: keepId(), otherIds: others() })
+        : false,
+    paid,
+    run: (key) => draftCombineForCluster(JSON.parse(key)),
+  });
+  const latestDraft = draft.value;
   createEffect(
     on(
       () => latestDraft(),
-      (d) => d && setMarkdown(d.markdown),
+      (d) => setMarkdown(d?.markdown ?? ""),
     ),
   );
+  const needsDraft = () => others().length > 0 && !latestDraft() && !draft.loading();
   createEffect(
     on(
       () => props.item.docId,
@@ -150,26 +151,27 @@ export const CombinePanel: VoidComponent<{
                 </Text>
               )}
             </Show>
-            <Button
-              size="xs"
-              variant="plain"
-              onClick={() => setEditing((v) => !v)}
-            >
-              {editing() ? "Done editing" : "Edit"}
-            </Button>
-            <Button
-              size="xs"
-              variant="plain"
-              onClick={() => refetch()}
-              disabled={draft.loading}
-            >
-              Regenerate
-            </Button>
+            <Show when={latestDraft()}>
+              <Button
+                size="xs"
+                variant="plain"
+                onClick={() => setEditing((v) => !v)}
+              >
+                {editing() ? "Done editing" : "Edit"}
+              </Button>
+              <Button
+                size="xs"
+                variant="plain"
+                onClick={draft.ask}
+                disabled={draft.loading()}
+              >
+                {paid() ? paidLabel("Regenerate") : "Regenerate"}
+              </Button>
+            </Show>
           </HStack>
         }
       >
-        <Show
-          when={mounted() && (!draft.loading || latestDraft())}
+        <Switch
           fallback={
             <Stack gap="2" aria-busy="true" aria-label="Writing combined draft">
               <Skeleton h="4" w="90%" />
@@ -177,31 +179,43 @@ export const CombinePanel: VoidComponent<{
             </Stack>
           }
         >
-          <Show
-            when={editing()}
-            fallback={
-              <Box
+          <Match when={draft.idle()}>
+            <Text fontSize="xs" color="fg.muted">
+              No draft yet. Writing one calls {props.item.paid.model}.
+            </Text>
+          </Match>
+          <Match when={draft.failed()}>
+            <Text fontSize="sm" color="fg.error">
+              Couldn't write a draft. Try again.
+            </Text>
+          </Match>
+          <Match when={latestDraft() || !others().length}>
+            <Show
+              when={editing()}
+              fallback={
+                <Box
+                  fontSize="sm"
+                  whiteSpace="pre-wrap"
+                  maxH="22rem"
+                  overflowY="auto"
+                  color="fg.default"
+                  data-testid="combine-preview"
+                >
+                  {markdown()}
+                </Box>
+              }
+            >
+              <Textarea
+                aria-label="Combined markdown"
+                minH="18rem"
                 fontSize="sm"
-                whiteSpace="pre-wrap"
-                maxH="22rem"
-                overflowY="auto"
-                color="fg.default"
-                data-testid="combine-preview"
-              >
-                {markdown()}
-              </Box>
-            }
-          >
-            <Textarea
-              aria-label="Combined markdown"
-              minH="18rem"
-              fontSize="sm"
-              fontFamily="mono"
-              value={markdown()}
-              onInput={(e) => setMarkdown(e.currentTarget.value)}
-            />
-          </Show>
-        </Show>
+                fontFamily="mono"
+                value={markdown()}
+                onInput={(e) => setMarkdown(e.currentTarget.value)}
+              />
+            </Show>
+          </Match>
+        </Switch>
       </PanelSection>
       <Show when={error()}>
         {(message) => (
@@ -211,11 +225,18 @@ export const CombinePanel: VoidComponent<{
         )}
       </Show>
       <CleanupActionBar
-        primaryLabel={`Combine and archive ${Math.max(0, others().length)} ${others().length === 1 ? "note" : "notes"}`}
-        onPrimary={approve}
+        primaryLabel={
+          needsDraft()
+            ? paid()
+              ? paidLabel("Write draft")
+              : "Write draft"
+            : `Combine and archive ${others().length} ${others().length === 1 ? "note" : "notes"}`
+        }
+        onPrimary={needsDraft() ? draft.ask : approve}
         busy={busy()}
         disabled={
-          !others().length || !markdown().trim() || draft.loading || !mounted()
+          !needsDraft() &&
+          (!others().length || !markdown().trim() || draft.loading())
         }
         onKeep={props.onKeep}
         onSkip={props.onSkip}

@@ -69,7 +69,7 @@ describe("semanticSearch", () => {
   it("embeds the query with the latest run's model", async () => {
     mocks.embed.mockResolvedValue([[1, 0]]);
     const { status, hits } = await semanticSearch("minimap", 5);
-    expect(mocks.embed).toHaveBeenCalledWith(["minimap"], "m");
+    expect(mocks.embed).toHaveBeenCalledWith(["minimap"], "m", "search");
     expect(status).toBe("used");
     expect(hits.map((hit) => hit.id)).toEqual(["near", "mid"]);
   });

@@ -1,5 +1,3 @@
-import type { QueueItem } from "~/server/cleanup/queue";
-
 const SOURCE_LABELS: Record<string, string> = {
   chatgpt_transcript: "ChatGPT",
   notion_import: "Notion import",
@@ -17,19 +15,15 @@ export const monthYear = (isoDate: string) =>
   });
 
 /** The second line of a queue row. */
-export function queueMeta(item: QueueItem): string {
-  if (item.regroup?.kind === "combine") {
-    const count = item.regroup.members.length;
-    return [`Combine ${count} notes`, item.path].filter(Boolean).join(" · ");
-  }
-  if (item.regroup?.kind === "move") {
-    return `Unfiled · move to ${item.regroup.placement.label}`;
-  }
-  return [
-    sourceLabel(item.source),
-    monthYear(item.created),
-    `${item.words.toLocaleString()} words`,
+export const queueMeta = (facts: {
+  source: string;
+  created: string;
+  words: number;
+}) =>
+  [
+    sourceLabel(facts.source),
+    monthYear(facts.created),
+    `${facts.words.toLocaleString()} words`,
   ]
     .filter(Boolean)
     .join(" · ");
-}

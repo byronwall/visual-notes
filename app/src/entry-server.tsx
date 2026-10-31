@@ -5,11 +5,11 @@ import { startCleanupSweep } from "~/server/cleanup/assessment-sweep";
 import { startArchivePurge } from "~/server/notes/note-archive";
 import { resumeTranscriptions } from "~/server/notes/doc-audio-transcribe";
 
-// Nitro imports this module at boot in production and on the first request in
-// dev. Nitro server plugins don't fit: dev loads them through a throwaway Vite
-// server without `~/` paths. The sweep is idempotent and skips without an
-// OpenAI key. The cleanup sweep follows the same rules and skips without a
-// decision provider.
+// Nitro imports this module on the first request, in production too, so that
+// request arms the sweeps once per process. Nitro server plugins don't fit: dev
+// loads them through a throwaway Vite server without `~/` paths. The sweep is
+// idempotent and skips without an OpenAI key. The cleanup sweep follows the
+// same rules and skips without a decision provider.
 startEmbeddingSweep();
 startCleanupSweep();
 startArchivePurge();

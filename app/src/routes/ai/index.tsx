@@ -2,6 +2,7 @@ import { createAsync, useSearchParams } from "@solidjs/router";
 import { type VoidComponent, For, Show, Suspense, createMemo, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { PromptDeleteDialog, PromptEditDialog } from "~/components/ai-dashboard/PromptDialogs";
+import { PaidCallsTable } from "~/components/ai-dashboard/PaidCallsTable";
 import { PromptsTable } from "~/components/ai-dashboard/PromptsTable";
 import { RunsTable } from "~/components/ai-dashboard/RunsTable";
 import {
@@ -90,6 +91,12 @@ const AiDashboard: VoidComponent = () => {
                 onDelete={setDeleting}
               />
             </Show>
+          </Suspense>
+        </SecondarySection>
+
+        <SecondarySection title="Paid calls">
+          <Suspense fallback={<Text px="3" py="4" fontSize="sm" color="fg.muted">Loading paid calls…</Text>}>
+            <PaidCallsTable />
           </Suspense>
         </SecondarySection>
 
