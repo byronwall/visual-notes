@@ -135,4 +135,22 @@ describe("note content conversion", () => {
     expect(dup.content![0].attrs!.id).toBe("same123");
     expect(dup.content![1].attrs!.id).not.toBe("same123");
   });
+
+  // The editor loads emoji data on first use. The server must not need that.
+  it("renders a stored emoji in server HTML", () => {
+    const doc = normalizeNoteDoc({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "emoji", attrs: { name: "tada" } }],
+        },
+      ],
+    });
+    const html = toHtml(doc);
+    expect(html).toContain('data-name="tada"');
+    // Node has no emoji font check, so the server sends the fallback image.
+    expect(html).toContain('alt="tada emoji"');
+    expect(fromHtml(html).content![0].content![0].attrs!.name).toBe("tada");
+  });
 });

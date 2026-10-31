@@ -1,5 +1,4 @@
 import { buildNoteExtensions } from "~/lib/note-content/schema";
-import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import { Table } from "@tiptap/extension-table";
 import { CustomCodeBlock } from "./CustomCodeBlock";
 import { CustomImage } from "./CustomImage";
@@ -13,7 +12,7 @@ import { FileAttachmentNode } from "./FileAttachmentNode";
 import { MarkdownPaste } from "./MarkdownPaste";
 import { ListItemReorderShortcuts } from "./ListItemReorderShortcuts";
 import { SelectionMarkShortcuts } from "./SelectionMarkShortcuts";
-import { createEmojiSuggestion } from "./emojiSuggestion";
+import { NoteEmoji } from "./NoteEmoji";
 import { SlashCommands } from "./SlashCommands";
 import { DeferredFocusEvents } from "./DeferredFocusEvents";
 import { NoteLinkSuggestion } from "./NoteLinkSuggestion";
@@ -37,13 +36,8 @@ export function buildExtensions(
 ) {
   return [
     DeferredFocusEvents,
-    ...buildNoteExtensions({
+    ...buildNoteExtensions(NoteEmoji, {
       image: CustomImage.configure({ allowBase64: true }),
-      emoji: Emoji.configure({
-        emojis: gitHubEmojis,
-        enableEmoticons: true,
-        suggestion: createEmojiSuggestion(gitHubEmojis),
-      }),
       codeBlock: CustomCodeBlock,
       table: Table.configure({
         resizable: true,
