@@ -137,22 +137,22 @@ Start this batch after PR #271 merges.
 
 | ID | Surface | Problem | Repro | Measured evidence | Severity | Batch | Files |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| E1 | Add event dates | The form opens with no focus. | Note menu, Add event dates…. Type a date. | Focus is `BODY`. Fix: focus the date field. | Slowing | B9 | `events/note/AddEventDates.tsx` |
-| E2 | Note with an event | The event form sits above the note and pushes the body down about 400 px. Most fields are empty. | Add a date to a note. Reopen it. | Editor toolbar moves from y≈82 to y≈489. Fix: one summary row (date, decision, place) that expands on click. | Slowing | B9 | `events/note/NoteEventSection.tsx`, `events/note/EventDetailsForm.tsx` |
-| E3 | Upcoming | The count line uses the wrong plural. `/events` has no `h1`. | Add one show. Open `/events`. | "1 shows on 1 days". `h1` count 0. | Polish | B9 | `events/views/UpcomingList.tsx`, `events/views/EventsPageShell.tsx` |
-| E4 | Note event | "No feeds yet. Create one under Events → Feeds." is not a link. | Add a date to a note with no feeds. | Plain text. Fix: link to `/events/feeds`. | Polish | B9 | `events/note/NoteEventSection.tsx` |
+| E1 | Add event dates | **Fixed in PR #278.** The form opens with no focus. | Note menu, Add event dates…. Type a date. | Focus is `BODY`. Fix: focus the date field. | Slowing | B9 | `events/note/AddEventDates.tsx` |
+| E2 | Note with an event | **Fixed in PR #278.** The event form sits above the note and pushes the body down about 400 px. Most fields are empty. | Add a date to a note. Reopen it. | Editor toolbar moves from y≈82 to y≈489. Fix: one summary row (date, decision, place) that expands on click. | Slowing | B9 | `events/note/NoteEventSection.tsx`, `events/note/EventDetailsForm.tsx` |
+| E3 | Upcoming | **Fixed in PR #278.** The count line uses the wrong plural. `/events` has no `h1`. | Add one show. Open `/events`. | "1 shows on 1 days". `h1` count 0. | Polish | B9 | `events/views/UpcomingList.tsx`, `events/views/EventsPageShell.tsx` |
+| E4 | Note event | **Fixed in PR #278.** "No feeds yet. Create one under Events → Feeds." is not a link. | Add a date to a note with no feeds. | Plain text. Fix: link to `/events/feeds`. | Polish | B9 | `events/note/NoteEventSection.tsx` |
 
 ### B10: Shell, Activity and Explorer rows
 
 | ID | Surface | Problem | Repro | Measured evidence | Severity | Batch | Files |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| S1 | Sidebar keyboard | The keyboard path to the page passes every Recent row. There is no skip link. | Load `/` and press Tab until focus leaves the sidebar. | 53 Tab stops on `/`, `/tasks` and a topic page. Fix: add a skip link as the first stop. | Slowing | B10 | `sidebar/AppSidebarLayout.tsx` |
-| S2 | Landmarks | `/research` has no `main` landmark. | Check the page structure. | `main` count 0. | Polish | B10 | `research/ResearchTopicIndex.tsx` |
-| A1 | Activity on a phone | Rows with a path wrap the title to one word per line. | Open `/activity` at 390 px. | "Viewed / book / idea / 1347" on 4 lines. Fix: move the path to its own line. | Polish | B10 | `activity/ActivityEventRow.tsx` |
-| A2 | Note Activity popover | One row shows the raw event name. | Open Activity on a new note. | "doc.create". Fix: "Created". | Polish | B10 | `DocActivitySummaryPopover.tsx` |
-| A3 | Activity filters | The filter labels are internal names, such as "Event type: doc.update" and "Actor: magic_…". | Open More filters. | Seven raw fields. Fix: use readable labels and a preset for event type. | Polish | B10 | `activity/ActivityToolbar.tsx` |
-| AR1 | Explorer drawer | The group control is cut. | Open a saved page. | "Add gr..." with room to its right. Fix: let it fit its text. | Polish | B10 | `archive/ArchiveDetailDrawer.tsx` |
-| AR2 | Explorer rows | Every row repeats "Add group" as a visible control. | Open `/archive`. | 58 px rows, 13 "Add group" controls in one screen. Fix: show it on row hover or focus, and always on touch. | Polish | B10 | `archive/list/ArchiveListRow.tsx` |
+| S1 | Sidebar keyboard | **Fixed in PR #278.** The keyboard path to the page passes every Recent row. There is no skip link. | Load `/` and press Tab until focus leaves the sidebar. | 53 Tab stops on `/`, `/tasks` and a topic page. Fix: add a skip link as the first stop. | Slowing | B10 | `sidebar/AppSidebarLayout.tsx` |
+| S2 | Landmarks | **Fixed in PR #278.** `/research` has no `main` landmark. | Check the page structure. | `main` count 0. | Polish | B10 | `research/ResearchTopicIndex.tsx` |
+| A1 | Activity on a phone | **Fixed in PR #278.** Rows with a path wrap the title to one word per line. | Open `/activity` at 390 px. | "Viewed / book / idea / 1347" on 4 lines. Fix: move the path to its own line. | Polish | B10 | `activity/ActivityEventRow.tsx` |
+| A2 | Note Activity popover | **Fixed in PR #278.** One row shows the raw event name. | Open Activity on a new note. | "doc.create". Fix: "Created". | Polish | B10 | `DocActivitySummaryPopover.tsx` |
+| A3 | Activity filters | **Fixed in PR #278.** The filter labels are internal names, such as "Event type: doc.update" and "Actor: magic_…". | Open More filters. | Seven raw fields. Fix: use readable labels and a preset for event type. | Polish | B10 | `activity/ActivityToolbar.tsx` |
+| AR1 | Explorer drawer | **Fixed in PR #278.** The group control is cut. | Open a saved page. | "Add gr..." with room to its right. Fix: let it fit its text. | Polish | B10 | `archive/ArchiveDetailDrawer.tsx` |
+| AR2 | Explorer rows | **Fixed in PR #278.** Every row repeats "Add group" as a visible control. | Open `/archive`. | 58 px rows, 13 "Add group" controls in one screen. Fix: show it on row hover or focus, and always on touch. | Polish | B10 | `archive/list/ArchiveListRow.tsx` |
 | CH1 | Chat panel | The first field is a raw "Note ID…" input. There are two close controls. | Press Cmd+I. | Fields "Note ID…" and "Title (optional)", a green New Chat button, an × and a Close button. See Needs Byron before work starts. | Polish | B10 | `ai/LLMSidebar.tsx` |
 
 ### B11: First load weight
