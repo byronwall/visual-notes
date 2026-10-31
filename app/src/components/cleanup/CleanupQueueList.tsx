@@ -1,6 +1,6 @@
 import { For, Show, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { Box, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import type { QueueRow } from "~/server/cleanup/queue";
 
@@ -27,8 +27,18 @@ export const CleanupQueueList: VoidComponent<{
   items: QueueRow[];
   selectedId: string | null;
   onSelect: (docId: string) => void;
+  /** Takes focus when the note that had it leaves the queue. */
+  ref?: (el: HTMLDivElement) => void;
 }> = (props) => (
-  <Box role="listbox" aria-label="Notes to review" overflowY="auto" minH="0">
+  <Box
+    ref={props.ref}
+    role="listbox"
+    aria-label="Notes to review"
+    tabIndex={-1}
+    outline="none"
+    overflowY="auto"
+    minH="0"
+  >
     <Show
       when={props.items.length}
       fallback={
@@ -55,30 +65,6 @@ export const CleanupQueueList: VoidComponent<{
               <Text fontSize="xs" color="fg.muted" truncate>
                 {item.meta}
               </Text>
-              <HStack gap="2">
-                <Box
-                  flex="1"
-                  h="1"
-                  bg="gray.a3"
-                  borderRadius="full"
-                  overflow="hidden"
-                >
-                  <Box
-                    h="full"
-                    bg="fg.muted"
-                    borderRadius="full"
-                    style={{ width: `${Math.round(item.confidence * 100)}%` }}
-                  />
-                </Box>
-                <Text
-                  as="span"
-                  fontSize="xs"
-                  color="fg.muted"
-                  fontVariantNumeric="tabular-nums"
-                >
-                  {item.confidence.toFixed(2)}
-                </Text>
-              </HStack>
             </Stack>
           </button>
         )}

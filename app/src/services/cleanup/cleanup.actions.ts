@@ -15,7 +15,7 @@ import {
   type LinkExpansion,
 } from "~/server/cleanup/link-expand";
 import { applyMakeTask } from "~/server/cleanup/make-task";
-import { archiveNotes } from "~/server/notes/note-archive";
+import { archiveNotes, restoreNote } from "~/server/notes/note-archive";
 import { keepNote, snoozeNote } from "~/server/cleanup/queue";
 import { noteMarkdown } from "~/server/notes/note-store";
 import {
@@ -181,6 +181,18 @@ export const archiveOnlyAction = action(
   },
   "cleanup-archive-only",
 );
+
+/** Undoes an archive: the note comes back, and so does its queue card. */
+export const undoArchiveOnlyAction = action(async (id: string) => {
+  "use server";
+  const parsed = docId.parse(id);
+  await restoreNote(parsed);
+  await prisma.noteAssessment.updateMany({
+    where: { docId: parsed },
+    data: { decision: null, decidedAt: null },
+  });
+  return json({ ok: true }, { revalidate: queueKeys() });
+}, "cleanup-undo-archive");
 
 const makeTaskInput = z.object({
   docId,
