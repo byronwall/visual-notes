@@ -325,8 +325,9 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
     );
     const others = [...tasks, ...topics, ...pages];
     const docGroup: CommandGroup = q ? "Notes" : "Recent";
-    // Fewer notes when other kinds match, so their groups stay on screen.
-    const docLimit = others.length > 0 ? 6 : 10;
+    // Fewer notes when other kinds match, so their groups stay on screen. Only
+    // under relevance: another sort can put an exact title further down.
+    const docLimit = others.length > 0 && sortMode() === "relevance" ? 6 : 10;
     const mapped: CommandItem[] = hits.slice(0, docLimit).map((d) => ({
       kind: "doc",
       group: docGroup,
@@ -373,7 +374,10 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   };
 
   const moveSelected = (delta: number) => {
-    pickRow(clampSelected(selectedIndex() + delta));
+    const next = clampSelected(selectedIndex() + delta);
+    // No row to move to is not a choice, so the best row stays in charge.
+    if (next === selectedIndex()) return;
+    pickRow(next);
     scrollSelectedIntoView();
   };
 
@@ -411,7 +415,13 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   });
 
   const handleInputKeyDown = (ev: KeyboardEvent) => {
-    if (ev.metaKey && !ev.altKey && !ev.ctrlKey && !ev.shiftKey && ev.key === "d") {
+    if (
+      ev.metaKey &&
+      !ev.altKey &&
+      !ev.ctrlKey &&
+      !ev.shiftKey &&
+      ev.key.toLowerCase() === "d"
+    ) {
       ev.preventDefault();
       handleCreateNewNote();
       return;

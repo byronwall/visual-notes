@@ -14,8 +14,11 @@ const SORT_MODES: { label: string; value: SortMode }[] = [
   { label: "Most edited (30d)", value: "most_edited_30d" },
 ];
 
-const ACTIVITY_CLASSES: { label: string; value: ActivityClass }[] = [
-  { label: "All activity", value: "" },
+// The menu can't highlight an empty value, so "All activity" is "all" here.
+const ALL_ACTIVITY = "all";
+
+const ACTIVITY_CLASSES: { label: string; value: string }[] = [
+  { label: "All activity", value: ALL_ACTIVITY },
   { label: "Read-heavy", value: "READ_HEAVY" },
   { label: "Edit-heavy", value: "EDIT_HEAVY" },
   { label: "Balanced", value: "BALANCED" },
@@ -57,7 +60,9 @@ export const PaletteSortMenu = (props: PaletteSortMenuProps) => {
   const sortLabel = () =>
     SORT_MODES.find((item) => item.value === props.sortMode)?.label;
   const activityLabel = () =>
-    ACTIVITY_CLASSES.find((item) => item.value === props.activityClass)?.label;
+    ACTIVITY_CLASSES.find(
+      (item) => item.value === (props.activityClass || ALL_ACTIVITY),
+    )?.label;
   const changedLabel = () =>
     [
       props.sortMode === "relevance" ? undefined : sortLabel(),
@@ -104,9 +109,13 @@ export const PaletteSortMenu = (props: PaletteSortMenuProps) => {
           </Menu.RadioItemGroup>
           <Menu.Separator />
           <Menu.RadioItemGroup
-            value={props.activityClass}
+            value={props.activityClass || ALL_ACTIVITY}
             onValueChange={(details) =>
-              props.onActivityClass(details.value as ActivityClass)
+              props.onActivityClass(
+                details.value === ALL_ACTIVITY
+                  ? ""
+                  : (details.value as ActivityClass),
+              )
             }
           >
             <Menu.ItemGroupLabel>Note activity</Menu.ItemGroupLabel>

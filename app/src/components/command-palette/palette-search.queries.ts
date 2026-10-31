@@ -2,6 +2,7 @@ import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { searchArchivedPages } from "~/server/archive/archive-store";
 import { queryTasks } from "~/server/tasks/task-store";
+import { isDoneStatus } from "~/components/tasks/taskFormat";
 import type { TaskStatus } from "~/services/tasks/tasks.types";
 
 export type PaletteGroups = {
@@ -20,10 +21,12 @@ const GROUP_LIMIT = 5;
 export const searchPaletteGroups = query(
   async (q: string): Promise<PaletteGroups> => {
     "use server";
-    const text = q.trim();
+    const lower = q.trim().toLowerCase();
+    // `contains` is LIKE, so "_" and "%" must not act as wildcards.
+    const text = q.trim().replace(/[\\%_]/g, "\\$&");
     const contains = { contains: text, mode: "insensitive" as const };
     const [tasks, topics, pages] = await Promise.all([
-      queryTasks({ text, limit: GROUP_LIMIT }),
+      queryTasks({ text, limit: 25 }),
       prisma.researchTopic.findMany({
         where: {
           archivedAt: null,
@@ -50,16 +53,19 @@ export const searchPaletteGroups = query(
       }),
       searchArchivedPages({ text, limit: GROUP_LIMIT }),
     ]);
-    const lower = text.toLowerCase();
     const inTitle = (title: string) => (title.toLowerCase().includes(lower) ? 0 : 1);
     return {
-      tasks: tasks.map((task) => ({
-        id: task.id,
-        description: task.description,
-        listId: task.listId,
-        listName: task.list.name,
-        status: task.status as TaskStatus,
-      })),
+      tasks: tasks
+        .map((task) => ({
+          id: task.id,
+          description: task.description,
+          listId: task.listId,
+          listName: task.list.name,
+          status: task.status as TaskStatus,
+        }))
+        // Open tasks first, so old finished ones can't fill the group.
+        .sort((a, b) => Number(isDoneStatus(a.status)) - Number(isDoneStatus(b.status)))
+        .slice(0, GROUP_LIMIT),
       topics: topics
         .sort((a, b) => inTitle(a.title) - inTitle(b.title))
         .slice(0, GROUP_LIMIT),

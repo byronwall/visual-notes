@@ -72,9 +72,12 @@ export async function loadCommandResults(
   try {
     if (params.q) {
       // The note filter does not apply to the other kinds, so they step aside.
+      // They are extras: if they fail, the notes still show.
       const [docs, groups] = await Promise.all([
         searchDocs(searchArgs(params)),
-        params.activityClass ? NO_GROUPS : searchPaletteGroups(params.q),
+        params.activityClass
+          ? NO_GROUPS
+          : searchPaletteGroups(params.q).catch(() => NO_GROUPS),
       ]);
       if (!Array.isArray(docs))
         throw new TypeError("Search returned invalid results");
