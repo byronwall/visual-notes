@@ -827,13 +827,15 @@ enum CollectionViewType {
 
 /// A typed set of notes (Notion-style database). Rows are Docs.
 model Collection {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  icon        String?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  icon             String?
+  /// Opt-in: list this collection's row notes in the sidebar Recent list.
+  showRowsInRecent Boolean   @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   properties CollectionProperty[]
   views      CollectionView[]

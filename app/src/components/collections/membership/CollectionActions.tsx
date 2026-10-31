@@ -1,13 +1,19 @@
 import { useAction, useNavigate } from "@solidjs/router";
-import { EllipsisIcon, FilePlusIcon, Trash2Icon } from "lucide-solid";
-import { createSignal } from "solid-js";
+import {
+  CheckIcon,
+  EllipsisIcon,
+  FilePlusIcon,
+  HistoryIcon,
+  Trash2Icon,
+} from "lucide-solid";
+import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { useToasts } from "~/components/Toast";
 import { deleteCollection } from "~/services/collections/collections.actions";
 import { useCollection } from "../CollectionContext";
-import { MenuItem, menuPanel } from "../menu/MenuList";
+import { MenuItem, menuPanel, menuSeparator } from "../menu/MenuList";
 import { fitContent } from "../popover-styles";
 import { AddNotesDialog } from "./AddNotesDialog";
 
@@ -30,7 +36,10 @@ const btn = css({
   _hover: { bg: "bg.muted", color: "fg.default" },
 });
 
-/** Page-level collection actions: add existing notes, delete the collection. */
+/**
+ * Page-level collection actions: add existing notes, list rows in the sidebar
+ * Recent list, delete the collection.
+ */
 export const CollectionActions = () => {
   const { store } = useCollection();
   const navigate = useNavigate();
@@ -62,6 +71,23 @@ export const CollectionActions = () => {
         }
       >
         <div class={menuPanel}>
+          <MenuItem
+            icon={<HistoryIcon size={14} />}
+            aria-pressed={store.state.collection.showRowsInRecent}
+            trailing={
+              <Show when={store.state.collection.showRowsInRecent}>
+                <CheckIcon size={14} />
+              </Show>
+            }
+            onClick={() =>
+              void store.setShowRowsInRecent(
+                !store.state.collection.showRowsInRecent,
+              )
+            }
+          >
+            Show rows in Recent
+          </MenuItem>
+          <div class={menuSeparator} />
           <MenuItem
             danger
             icon={<Trash2Icon size={14} />}
