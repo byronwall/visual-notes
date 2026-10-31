@@ -86,8 +86,10 @@ export const parseTaskTitle = (value: string): ParsedTaskTitle => {
       }
       return prefix;
     })
-    .replace(/\s+/g, " ")
-    .trim();
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
 
   return {
     description,

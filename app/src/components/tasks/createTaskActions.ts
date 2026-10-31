@@ -309,7 +309,12 @@ export const createTaskActions = (
   };
 
   // ---- inline edit -----------------------------------------------------
-  const openInlineEdit = (task: TaskItem) =>
+  const openInlineEdit = (task: TaskItem) => {
+    // The inline field holds one line, so saving there would merge the lines.
+    if (task.description.includes("\n")) {
+      options.openDetails(task);
+      return;
+    }
     batch(() => {
       setActiveTaskId(task.id);
       setInlineCreate(null);
@@ -320,6 +325,7 @@ export const createTaskActions = (
         error: null,
       });
     });
+  };
 
   const inlineEditCancel = () => {
     const edit = inlineEdit();

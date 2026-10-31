@@ -52,7 +52,7 @@ export const TaskListsWorkspace = () => {
 
   const [editingTask, setEditingTask] = createSignal<TaskItem | null>(null);
   const [rootDropActive, setRootDropActive] = createSignal(false);
-  let quickAddRef: HTMLInputElement | undefined;
+  let quickAddRef: HTMLTextAreaElement | undefined;
 
   const actions = createTaskActions(data, {
     focusQuickAdd: () => quickAddRef?.focus(),
@@ -115,7 +115,7 @@ export const TaskListsWorkspace = () => {
         },
         gridTemplateRows: { base: "auto minmax(0, 1fr)", lg: "minmax(0, 1fr)" },
         columnGap: "8",
-        rowGap: "3",
+        rowGap: { base: "0.5", lg: "3" },
         flex: "1",
         minH: "0",
       })}
