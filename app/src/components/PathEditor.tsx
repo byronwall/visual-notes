@@ -16,6 +16,7 @@ import {
   buildNextSegmentSuggestions,
   clearPathDraft,
   commitCurrentSegment,
+  normalizeCurrentSegment,
   parsePersistedPathDraft,
   popSegmentIntoCurrent,
   serializePathDraft,
@@ -33,6 +34,8 @@ export const PathEditor: VoidComponent<{
   initialPath?: string;
   onChange?: (path: string) => void;
   onChangeWhenSavedOnly?: boolean;
+  /** Enter on an empty segment finished the edit. */
+  onSubmit?: () => void;
   actions?: JSX.Element;
 }> = (props) => {
   let inputRef: HTMLInputElement | undefined;
@@ -108,8 +111,8 @@ export const PathEditor: VoidComponent<{
 
   const savePath = async (path: string) => {
     const docId = props.docId;
-    if (!docId) return;
-    if (pendingDocIds().has(docId)) return;
+    if (!docId) return false;
+    if (pendingDocIds().has(docId)) return false;
     const version = ++saveVersion;
     setPendingDocIds((current) => new Set(current).add(docId));
     setError(undefined);
@@ -124,10 +127,12 @@ export const PathEditor: VoidComponent<{
       ) {
         props.onChange(path);
       }
+      return true;
     } catch (e) {
       if (props.docId === docId && version === saveVersion) {
         setError((e as Error).message || "Failed to save path");
       }
+      return false;
     } finally {
       setPendingDocIds((current) => {
         const next = new Set(current);
@@ -161,8 +166,9 @@ export const PathEditor: VoidComponent<{
 
     if (ev.key === "Enter") {
       ev.preventDefault();
-      setDraft((prev) => commitCurrentSegment(prev));
-      if (inputRef) inputRef.blur();
+      if (draft().current.trim())
+        setDraft((prev) => commitCurrentSegment(prev));
+      else void handleSubmit();
       return;
     }
 
@@ -174,7 +180,16 @@ export const PathEditor: VoidComponent<{
 
   const handleSave = async () => {
     if (isSavingCurrentDoc()) return;
-    await savePath(serializePathDraft(draft()).trim());
+    const nextDraft = updateDraft(normalizeCurrentSegment);
+    await savePath(serializePathDraft(nextDraft).trim());
+  };
+
+  const handleSubmit = async () => {
+    if (isSavingCurrentDoc()) return;
+    const path = serializePathDraft(draft()).trim();
+    const changed = path !== (props.initialPath || "").trim();
+    if (props.docId && changed && !(await savePath(path))) return;
+    props.onSubmit?.();
   };
 
   const handleTruncate = (index: number) => {

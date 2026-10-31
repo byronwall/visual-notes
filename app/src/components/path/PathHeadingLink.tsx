@@ -24,9 +24,9 @@ export const PathHeadingLink = (props: PathHeadingLinkProps) => {
       href={local.href}
       onClick={local.onClick}
       title={local.title}
-      fontWeight="bold"
+      fontWeight={isPopover() ? "medium" : "bold"}
       fontFamily="mono"
-      fontSize={isPopover() ? "2xl" : { base: "2xl", md: "3xl" }}
+      fontSize={isPopover() ? "sm" : { base: "2xl", md: "3xl" }}
       textDecoration="none"
       _hover={{ textDecoration: "underline" }}
     >
