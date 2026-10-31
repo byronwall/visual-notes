@@ -27,6 +27,12 @@ vi.mock("~/features/docs-index/data/docs.service", () => ({
     keyFor: vi.fn(() => "search-docs-key"),
   }),
 }));
+vi.mock("~/components/command-palette/palette-search.queries", () => ({
+  searchPaletteGroups: Object.assign(
+    vi.fn(async () => ({ tasks: [], topics: [], pages: [] })),
+    { keyFor: vi.fn(() => "palette-search-key") },
+  ),
+}));
 vi.mock("@solidjs/router", () => ({ revalidate: vi.fn(async () => {}) }));
 
 const search = vi.mocked(searchDocs);
@@ -101,7 +107,10 @@ describe("CmdK search resource recovery", () => {
       sortMode: "relevance",
       activityClass: undefined,
     });
-    expect(revalidate).toHaveBeenCalledWith("search-docs-key");
+    expect(revalidate).toHaveBeenCalledWith([
+      "search-docs-key",
+      "palette-search-key",
+    ]);
     state.dispose();
   });
 
