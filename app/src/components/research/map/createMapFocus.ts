@@ -45,6 +45,31 @@ export const createMapFocus = (
 
   const toggle = (id: string) => setBranch(id, !state.isOpen(id));
 
+  /** Shows a picked node with its parent; if both cannot fit, the node wins. */
+  const showPick = (id: string) => {
+    const { byId } = state.layout();
+    const box = byId.get(id);
+    if (!box) return;
+    const parent = byId.get(state.tree().byId.get(id)?.parentId ?? "");
+    if (parent) view.reveal(boundsOf([parent, box]));
+    view.reveal(box);
+  };
+
+  let centering: string | null = null;
+  const centerOn = (id: string) => {
+    const box = state.layout().byId.get(id);
+    if (box) view.center(box);
+  };
+
+  /** Opens the next search match. Focus stays in the search field. */
+  const stepMatch = (step: 1 | -1) => {
+    const node = state.nextMatch(step);
+    if (!node?.card) return;
+    if (state.selectedNode() === node.id) return centerOn(node.id);
+    centering = node.id;
+    onSelect(node.card.id);
+  };
+
   const pick = (id: string) => {
     const node = state.tree().byId.get(id);
     if (!node || node.kind === "root") return;
@@ -65,10 +90,9 @@ export const createMapFocus = (
       (id) => {
         if (!id) return;
         setFocused(id);
-        requestAnimationFrame(() => {
-          const box = state.layout().byId.get(id);
-          if (box) view.reveal(box);
-        });
+        const center = centering === id;
+        centering = null;
+        requestAnimationFrame(() => (center ? centerOn(id) : showPick(id)));
       },
       { defer: true },
     ),
@@ -81,5 +105,5 @@ export const createMapFocus = (
     if (id) setFocused(id);
   };
 
-  return { current, moveTo, toggle, pick, track };
+  return { current, moveTo, toggle, pick, stepMatch, track };
 };

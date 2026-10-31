@@ -105,6 +105,15 @@ export const CardEditForm = (props: {
     }
   };
 
+  // A native listener: Solid's delegated handlers run too late to keep Esc
+  // from the page, which would close the card. An open select marks its own
+  // Esc as handled, so that press closes only the select.
+  const onEscape = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    if (!event.defaultPrevented && unchanged()) props.onDone(false);
+  };
+
   return (
     <form
       class={css({
@@ -114,11 +123,18 @@ export const CardEditForm = (props: {
         mb: "2",
       })}
       onSubmit={save}
+      on:keydown={onEscape}
     >
       <input
         aria-label="Card title"
         class={fieldClass}
         value={title()}
+        ref={(element) =>
+          queueMicrotask(() => {
+            element.focus();
+            element.setSelectionRange(element.value.length, element.value.length);
+          })
+        }
         onInput={(event) => setTitle(event.currentTarget.value)}
       />
       <textarea

@@ -84,6 +84,15 @@ export const createMapView = () => {
     glide(() => setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy })));
   };
 
+  /** Puts a bounds' middle at the viewport's center, at the current zoom. */
+  const center = (bounds: MapBounds) => {
+    const next = {
+      x: -(bounds.x + bounds.w / 2) * zoom(),
+      y: -(bounds.y + bounds.h / 2) * zoom(),
+    };
+    glide(() => setPan(next));
+  };
+
   const nudge = (dx: number, dy: number) =>
     setPan((prev) => ({ x: prev.x + dx * zoom(), y: prev.y + dy * zoom() }));
 
@@ -142,6 +151,7 @@ export const createMapView = () => {
     dragging,
     fit,
     reveal,
+    center,
     nudge,
     glide,
     // oxlint-disable-next-line solid/reactivity
