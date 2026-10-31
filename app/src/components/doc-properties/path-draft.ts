@@ -5,6 +5,16 @@ export type PathDraft = {
   current: string;
 };
 
+/** Letters, digits, `-` and `_`. Any other run becomes one `-`. */
+export const normalizePathSegment = (raw: string) =>
+  raw.replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-+|-+$/g, "");
+
+const typedSegments = (raw: string) =>
+  raw
+    .split(".")
+    .map(normalizePathSegment)
+    .filter((segment) => segment.length > 0);
+
 export const parsePathDraft = (raw?: string): PathDraft => {
   const incoming = (raw || "").trim();
   if (!incoming) return { committed: [], current: "" };
@@ -32,18 +42,24 @@ export const parsePersistedPathDraft = (raw?: string): PathDraft => {
 };
 
 export const serializePathDraft = (draft: PathDraft) => {
-  const parts = [...draft.committed];
-  if (draft.current.length > 0) parts.push(draft.current);
-  return parts.join(".");
+  return [...draft.committed, ...typedSegments(draft.current)].join(".");
 };
 
-export const commitCurrentSegment = (draft: PathDraft): PathDraft => {
-  const nextCurrent = draft.current.trim();
-  if (!nextCurrent) return draft;
-  return { committed: [...draft.committed, nextCurrent], current: "" };
-};
+export const commitCurrentSegment = (draft: PathDraft): PathDraft => ({
+  committed: [...draft.committed, ...typedSegments(draft.current)],
+  current: "",
+});
 
-export const appendSegment = (draft: PathDraft, segment: string): PathDraft => ({
+/** Shows the saved form in the input without moving it to the chips. */
+export const normalizeCurrentSegment = (draft: PathDraft): PathDraft => ({
+  ...draft,
+  current: typedSegments(draft.current).join("."),
+});
+
+export const appendSegment =(
+  draft: PathDraft,
+  segment: string,
+): PathDraft => ({
   committed: [...draft.committed, segment],
   current: "",
 });
@@ -56,12 +72,18 @@ export const popSegmentIntoCurrent = (draft: PathDraft): PathDraft => {
   return { committed: nextCommitted, current: last };
 };
 
-export const truncatePathDraft = (draft: PathDraft, index: number): PathDraft => {
+export const truncatePathDraft = (
+  draft: PathDraft,
+  index: number,
+): PathDraft => {
   if (index < 0 || index >= draft.committed.length) return draft;
   return { committed: draft.committed.slice(0, index + 1), current: "" };
 };
 
-export const setCurrentSegment = (draft: PathDraft, current: string): PathDraft => ({
+export const setCurrentSegment = (
+  draft: PathDraft,
+  current: string,
+): PathDraft => ({
   ...draft,
   current,
 });
@@ -71,7 +93,7 @@ export const clearPathDraft = (): PathDraft => ({ committed: [], current: "" });
 export const buildNextSegmentSuggestions = (
   items: PathCount[],
   committed: string[],
-  current: string
+  current: string,
 ) => {
   if (!Array.isArray(items) || items.length === 0) {
     return [] as { seg: string; count: number }[];

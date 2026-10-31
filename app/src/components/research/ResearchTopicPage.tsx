@@ -1,3 +1,4 @@
+import { Title } from "@solidjs/meta";
 import { A, useSearchParams } from "@solidjs/router";
 import { PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-solid";
 import {
@@ -12,6 +13,7 @@ import {
   Switch,
 } from "solid-js";
 import { css } from "styled-system/css";
+import { token } from "styled-system/tokens";
 import { countOpen } from "~/services/research/research.graph";
 import { OptionsTable } from "./board/OptionsTable";
 import { TopicBoard } from "./board/TopicBoard";
@@ -34,6 +36,12 @@ const crumbLinkClass = css({
 
 const INSPECTOR_KEY = "research-inspector";
 
+/**
+ * "auto" lasts until mount, when only CSS knows the width: the inspector shows
+ * from `lg` up and stays hidden below it, so a phone never paints it first.
+ */
+type InspectorState = "auto" | "open" | "closed";
+
 const savedInspector = () => {
   try {
     return localStorage.getItem(INSPECTOR_KEY);
@@ -42,6 +50,11 @@ const savedInspector = () => {
     return null;
   }
 };
+
+// Below `lg` the inspector stacks under the view and takes half the screen, so
+// only a picked card or an explicit toggle opens it, and the choice is not saved.
+const isNarrow = () =>
+  !window.matchMedia(`(min-width: ${token("breakpoints.lg")})`).matches;
 
 export const ResearchTopicPage = (props: { slug: string }) => {
   const data = createTopicData(() => props.slug);
@@ -65,6 +78,12 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     setParams({ stream: key ?? undefined, card: undefined }, { replace: true });
   const plainCount = () =>
     data.cards().filter((card) => card.type !== "summary").length;
+  // <Title> below names the server render. After a client navigation the app's
+  // fallback title re-registers last and wins, so set the tab here as well.
+  const pageTitle = () => `${data.current()?.topic.title} • Visual Notes`;
+  createEffect(() => {
+    if (data.current()) document.title = pageTitle();
+  });
   const [query, setQuery] = createSignal("");
   const matches = createMemo(() => matchingIds(data.cards(), query()));
   // Picking a card opens it in the inspector; clearing the pick goes back to Contents.
@@ -72,9 +91,14 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     params.card || params.stream ? "card" : "contents",
   );
   // The map opens on its own, full width; the first pick brings the reader in.
-  const [inspectorOpen, setInspectorOpen] = createSignal(
-    view() !== "map" || !!params.card || !!params.stream,
+  const [inspector, setInspector] = createSignal<InspectorState>(
+    params.card || params.stream
+      ? "open"
+      : view() === "map"
+        ? "closed"
+        : "auto",
   );
+  const inspectorOpen = () => inspector() !== "closed";
   const [expanded, setExpanded] = createSignal(false);
   const reader = createReaderWidth();
   let aside: HTMLElement | undefined;
@@ -86,8 +110,11 @@ export const ResearchTopicPage = (props: { slug: string }) => {
       (card) => {
         if (card) {
           setTab("card");
-          setInspectorOpen(true);
-        } else if (tab() === "card") setTab("contents");
+          setInspector("open");
+          return;
+        }
+        if (tab() === "card") setTab("contents");
+        if (isNarrow()) setInspector("closed");
       },
       { defer: true },
     ),
@@ -96,8 +123,8 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     on(
       view,
       (next) => {
-        if (next !== "map" && savedInspector() !== "closed")
-          setInspectorOpen(true);
+        if (next !== "map" && savedInspector() !== "closed" && !isNarrow())
+          setInspector("open");
       },
       { defer: true },
     ),
@@ -127,15 +154,18 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
   onMount(() => {
+    if (params.card || params.stream) return;
     const saved = savedInspector();
-    if (saved === "closed" && !params.card) setInspectorOpen(false);
-    if (saved === "open") setInspectorOpen(true);
+    if (isNarrow()) setInspector("closed");
+    else if (saved === "closed" || saved === "open") setInspector(saved);
+    else if (inspector() === "auto") setInspector("open");
   });
   const toggleInspector = () => {
-    const next = !inspectorOpen();
-    setInspectorOpen(next);
+    const next = inspectorOpen() ? "closed" : "open";
+    setInspector(next);
+    if (isNarrow()) return;
     try {
-      localStorage.setItem(INSPECTOR_KEY, next ? "open" : "closed");
+      localStorage.setItem(INSPECTOR_KEY, next);
     } catch {
       // Not saved; the toggle still works for this visit.
     }
@@ -164,6 +194,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
             minH: 0,
           })}
         >
+          <Title>{pageTitle()}</Title>
           <header
             class={css({
               display: "flex",
@@ -256,8 +287,11 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 gridTemplateRows: "minmax(0, 1fr)",
               },
               "&[data-inspector=closed] > aside": { display: "none" },
+              "&[data-inspector=auto] > aside": {
+                display: { base: "none", lg: "block" },
+              },
             })}
-            data-inspector={inspectorOpen() ? "open" : "closed"}
+            data-inspector={inspector()}
             data-reader={expanded() ? "expanded" : "rail"}
             style={
               reader.width()
