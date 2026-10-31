@@ -1,4 +1,5 @@
-import { createAsync, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { FolderSearchIcon } from "lucide-solid";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -25,7 +26,7 @@ export const PathRelatedNotesPopover = (props: {
   const normalizedPath = createMemo(() => normalizeDotPath(props.path));
   const ancestors = createMemo(() => buildPathAncestors(normalizedPath()));
   const parentPaths = createMemo(() => ancestors().slice(0, -1).reverse());
-  const related = createAsync(() =>
+  const related = createKeptAsync(() =>
     open() && normalizedPath().length > 0
       ? fetchRelatedNotesByPath({
           path: normalizedPath(),

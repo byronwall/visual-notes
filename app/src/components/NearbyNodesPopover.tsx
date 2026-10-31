@@ -1,4 +1,5 @@
-import { createAsync, useNavigate } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { WaypointsIcon } from "lucide-solid";
 import {
   For,
@@ -50,7 +51,7 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (
   const [open, setOpen] = createSignal(false);
   const [hoveredDocId, setHoveredDocId] = createSignal<string | undefined>();
 
-  const nearby = createAsync(() =>
+  const nearby = createKeptAsync(() =>
     open() && props.docId
       ? fetchNearbyUmapDocs({ docId: props.docId, take: 36 })
       : Promise.resolve({ points: [] }),

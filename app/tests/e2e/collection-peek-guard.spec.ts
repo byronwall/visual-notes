@@ -1,13 +1,12 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 // Closing a row peek unmounts its editor, which cancels the autosave and every
 // retry. So a close must save first, or ask.
 
-test("closing a row peek saves first, and asks when it can't", async ({
-  page,
-}) => {
+const openGuardedRow = async (page: Page) => {
   await page.goto("/collections");
   await waitForAppReady(page);
   const name = page.getByLabel("New collection name");
@@ -22,13 +21,20 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await page.getByRole("button", { name: "New", exact: true }).first().click();
   await page.getByLabel("Edit name").fill("Guarded row");
   await page.getByLabel("Edit name").press("Enter");
+};
 
-  const open = async () => {
-    await page.getByRole("button", { name: "Open Guarded row" }).click();
-    const editor = page.locator("[data-side-panel-scroll] .ProseMirror");
-    await editor.waitFor();
-    return editor;
-  };
+const openPeek = async (page: Page) => {
+  await page.getByRole("button", { name: "Open Guarded row" }).click();
+  const editor = page.locator("[data-side-panel-scroll] .ProseMirror");
+  await editor.waitFor();
+  return editor;
+};
+
+test("closing a row peek saves first, and asks when it can't", async ({
+  page,
+}) => {
+  await openGuardedRow(page);
+  const open = () => openPeek(page);
   const closeButton = page.getByRole("button", { name: "Close panel" });
 
   // A failed save: the panel stays until the user chooses.
@@ -58,4 +64,31 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await closeButton.click();
   await expect(closeButton).toBeHidden();
   await expect(await open()).toContainText("kept text quick text");
+});
+
+// A landed action revalidates every live query. If one of those reads fails,
+// it must not take the page, and the draft in it, down with it.
+test("a failed read leaves an open row peek and its draft", async ({
+  page,
+}) => {
+  await openGuardedRow(page);
+  const editor = await openPeek(page);
+  await editor.click();
+
+  await page.route("**/_server*", (route) =>
+    isServerFn(route.request().headers()["x-server-id"], "saveDocContent")
+      ? route.continue()
+      : route.abort(),
+  );
+  // The saved text comes back as a live change, which refreshes this read.
+  const failedRead = page.waitForEvent("requestfailed", (request) =>
+    isServerFn(request.headers()["x-server-id"], "fetchDocActivityHistory"),
+  );
+  await page.keyboard.type("kept text");
+  await failedRead;
+
+  await expect(page.getByText("Something went wrong")).toBeHidden();
+  await expect(page.getByText("Client exception")).toBeHidden();
+  await page.keyboard.type(" and more");
+  await expect(editor).toContainText("kept text and more");
 });

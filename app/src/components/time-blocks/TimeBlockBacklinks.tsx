@@ -1,4 +1,4 @@
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { useNavigate } from "@solidjs/router";
 import { For, Show } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -14,7 +14,7 @@ type Props = {
 
 export const TimeBlockBacklinks = (props: Props) => {
   const navigate = useNavigate();
-  const blocks = createAsync(() =>
+  const blocks = createKeptAsync(() =>
     fetchTimeBlockBacklinks({
       noteId: props.noteId,
       take: 25,

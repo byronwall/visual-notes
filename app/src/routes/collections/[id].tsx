@@ -6,15 +6,24 @@ import { Box, Container } from "styled-system/jsx";
 import { CollectionPage } from "~/components/collections/CollectionPage";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
+import type { CollectionBundle } from "~/lib/collections/types";
 import { fetchCollectionBundle } from "~/services/collections/collections.queries";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 export default function CollectionRoute() {
   const params = useParams<{ id: string }>();
   const [refresh, setRefresh] = createSignal(0);
-  const [bundle] = createResource(
+  const [bundle] = createResource<
+    CollectionBundle | null | undefined,
+    { id: string; refresh: number }
+  >(
     () => ({ id: params.id, refresh: refresh() }),
-    (source) => fetchCollectionBundle(source.id),
+    // A refresh that can't reach the server keeps the page and its row peek.
+    (source, info) =>
+      info.value?.collection.id === source.id
+        ? keepOnFailedRead(info.value, () => fetchCollectionBundle(source.id))
+        : fetchCollectionBundle(source.id),
   );
   // Agent writes reconcile into the page's store like any fresh bundle.
   useAppChanges(
