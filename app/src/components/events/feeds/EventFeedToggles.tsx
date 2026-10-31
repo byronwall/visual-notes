@@ -1,5 +1,6 @@
-import { useAction } from "@solidjs/router";
+import { A, useAction } from "@solidjs/router";
 import { For, Show, createResource, createSignal } from "solid-js";
+import { css } from "styled-system/css";
 import { HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import * as Checkbox from "~/components/ui/checkbox";
@@ -56,7 +57,18 @@ export function EventFeedToggles(props: EventFeedTogglesProps) {
     <Stack gap="1">
       <Show when={feeds.latest && feeds.latest.length === 0}>
         <Text fontSize="sm" color="fg.muted">
-          No feeds yet. Create one under Events → Feeds.
+          No feeds yet.{" "}
+          <A
+            href="/events/feeds"
+            class={css({
+              color: "fg.link",
+              transitionProperty: "color",
+              transitionDuration: "140ms",
+              _hover: { color: "fg.linkHover" },
+            })}
+          >
+            Create one under Events → Feeds
+          </A>
         </Text>
       </Show>
       <For each={feeds.latest}>

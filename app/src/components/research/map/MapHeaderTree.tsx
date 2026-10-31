@@ -175,7 +175,12 @@ export const MapHeaderTree = (props: {
       <MapSearch
         query={props.query}
         found={props.state.foundCount()}
+        matchAt={props.state.matchAt()}
         onQuery={props.onQuery}
+        onStep={(step) => {
+          const card = props.state.nextMatch(step)?.card;
+          if (card) props.onSelect(card.id);
+        }}
       />
       <button
         type="button"

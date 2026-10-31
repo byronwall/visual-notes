@@ -105,14 +105,11 @@ export const MapNodeView = (props: {
           >
             <span class={streamHeadClass}>
               <span
-                class={css({
-                  minW: 0,
-                  flex: 1,
+                class={`${clampClass} ${css({
                   fontSize: "sm",
                   fontWeight: "semibold",
                   lineHeight: "18px",
-                  lineClamp: 2,
-                })}
+                })}`}
                 data-map-title
               >
                 <HighlightMatch text={node().title} query={props.query} />

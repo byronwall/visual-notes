@@ -70,6 +70,10 @@ export const clampClass = css({
   flex: 1,
   lineClamp: 2,
   overflowWrap: "anywhere",
+  // A short last line sets its ellipsis past the right edge of right-aligned
+  // text. The padding keeps that ellipsis inside the clip, and the margins give
+  // back the width so titles wrap the same on both sides.
+  "[data-side=left] &": { pr: "3", mx: "-1.5" },
 });
 
 export const metaClass = css({

@@ -122,7 +122,11 @@ const NONE = "__none__";
 const COLUMN_PAGE = 50;
 
 /** Kanban view: one column per select or status option; drag cards to change the value. */
-export const CollectionBoard = (props: { view: CollectionView }) => {
+export const CollectionBoard = (props: {
+  view: CollectionView;
+  /** Receives the action behind the toolbar's New button. */
+  addRef?: (add: () => void) => void;
+}) => {
   const { store, openRow } = useCollection();
   const [drop, setDrop] = createSignal<{ key: string; index: number } | null>(
     null,
@@ -159,9 +163,20 @@ export const CollectionBoard = (props: { view: CollectionView }) => {
   );
   const groups = createMemo<BoardGroup[]>(() => {
     const property = groupProperty();
-    return property
-      ? groupRows(rows(), property, props.view.config.hiddenGroups)
-      : [];
+    if (!property) return [];
+    const all = groupRows(rows(), property, props.view.config.hiddenGroups);
+    // New rows land here, so it leads instead of sitting past the right edge.
+    const none = all.find((g) => g.key === null);
+    return none?.rows.length ? [none, ...all.filter((g) => g !== none)] : all;
+  });
+
+  props.addRef?.(() => {
+    const first = groups()[0];
+    if (first) {
+      setAddingTo(first.key ?? NONE);
+      return;
+    }
+    void store.addRow().then((row) => row && openRow(row.id));
   });
 
   const locate = (x: number, y: number) => {

@@ -27,6 +27,9 @@ const dayHead = css({
 });
 const summary = css({ fontSize: "xs", color: "fg.subtle", px: "2" });
 
+const countLabel = (count: number, one: string) =>
+  `${count} ${one}${count === 1 ? "" : "s"}`;
+
 const relative = (date: string, today: string) => {
   if (date === today) return "Today";
   if (date === addDays(today, 1)) return "Tomorrow";
@@ -59,7 +62,8 @@ export function UpcomingList() {
           }
         >
           <div class={summary}>
-            {view.latest!.items.length} shows on {groups().length} days
+            {countLabel(view.latest!.items.length, "show")} on{" "}
+            {countLabel(groups().length, "day")}
           </div>
           <For each={groups()}>
             {(group) => (

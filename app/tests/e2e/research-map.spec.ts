@@ -101,6 +101,40 @@ test.describe("research topic map", () => {
     await expect(page).toHaveURL(/card=/);
   });
 
+  test("steps through search matches and keeps branches on reload", async ({
+    page,
+    request,
+  }) => {
+    const topic = await createResearchTopicFixture(
+      request,
+      fixture,
+      `Map steps e2e ${uniqueSuffix()}`,
+    );
+    await page.goto(`/research/${topic.slug}`);
+    await waitForAppReady(page);
+
+    const map = page.getByTestId("research-map");
+    await map.locator("[data-kind=stream]").first().click();
+    await expect(map.locator("[data-kind=section]")).not.toHaveCount(0);
+    const open = await map.locator("[data-kind=section]").count();
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(map.locator("[data-kind=section]")).toHaveCount(open);
+
+    await page.keyboard.press("/");
+    const search = map.locator("..").getByLabel("Search cards");
+    await search.fill("carrier");
+    const counter = map.locator("..").getByRole("toolbar");
+    await search.press("Enter");
+    await expect(page).toHaveURL(/card=/);
+    await expect(counter).toContainText(/1 of \d+/);
+    await expect(search).toBeFocused();
+    await search.press("Enter");
+    await expect(counter).toContainText(/2 of \d+/);
+    await search.press("Shift+Enter");
+    await expect(counter).toContainText(/1 of \d+/);
+  });
+
   test("shows a folding tree on a phone", async ({ page, request }) => {
     const topic = await createResearchTopicFixture(
       request,

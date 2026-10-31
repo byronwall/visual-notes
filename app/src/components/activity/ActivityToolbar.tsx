@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/button";
 import * as Field from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { SimplePopover } from "~/components/ui/simple-popover";
+import { SimpleSelect } from "~/components/ui/simple-select";
 import { ACTIVITY_DOMAINS } from "./activity-format";
 import type { ActivityFilters } from "./useActivityFilters";
 
@@ -14,26 +15,38 @@ type ActivityToolbarProps = {
 
 const PATH_DEBOUNCE_MS = 300;
 
+const ANY_ACTION = "any";
+
+const ACTION_ITEMS = [
+  { value: ANY_ACTION, label: "Any action" },
+  { value: "doc.view", label: "Note viewed" },
+  { value: "doc.create", label: "Note created" },
+  { value: "doc.update", label: "Note edited" },
+  { value: "doc.delete", label: "Note deleted" },
+  { value: "search.query.executed", label: "Searched" },
+  { value: "search.result.opened", label: "Opened from search" },
+  { value: "task.created", label: "Task added" },
+  { value: "task.updated", label: "Task updated" },
+  { value: "collection.row_added", label: "Collection row added" },
+  { value: "event.created", label: "Event added" },
+  { value: "archive.note_added", label: "Saved page note added" },
+  { value: "research.batch_added", label: "Research added" },
+  { value: "ai.prompt.run_finished", label: "Prompt run finished" },
+];
+
 const advancedFields = [
   {
-    key: "event",
-    label: "Event type",
-    placeholder: "doc.update",
-    mono: true,
-    type: "text",
-  },
-  {
     key: "actor",
-    label: "Actor",
-    placeholder: "magic_…",
-    mono: true,
+    label: "Done by",
+    placeholder: "User or agent ID",
+    mono: false,
     type: "text",
   },
   {
     key: "doc",
-    label: "Note ID",
-    placeholder: "cm…",
-    mono: true,
+    label: "Note",
+    placeholder: "Note ID",
+    mono: false,
     type: "text",
   },
   {
@@ -45,9 +58,9 @@ const advancedFields = [
   },
   {
     key: "call",
-    label: "MCP call ID",
-    placeholder: "uuid",
-    mono: true,
+    label: "MCP call",
+    placeholder: "Call ID",
+    mono: false,
     type: "text",
   },
   {
@@ -80,6 +93,14 @@ export const ActivityToolbar = (props: ActivityToolbarProps) => {
       (value) => setPathDraft(value),
     ),
   );
+
+  // A link can carry an event type with no preset; show it, do not drop it.
+  const actionItems = () => {
+    const current = filters().advanced("event");
+    return !current || ACTION_ITEMS.some((item) => item.value === current)
+      ? ACTION_ITEMS
+      : [...ACTION_ITEMS, { value: current, label: current }];
+  };
 
   const handlePathInput = (value: string) => {
     setPathDraft(value);
@@ -177,6 +198,16 @@ export const ActivityToolbar = (props: ActivityToolbarProps) => {
           gap="3"
           p="1"
         >
+          <SimpleSelect
+            label="Action"
+            labelProps={{ fontSize: "xs", color: "fg.muted" }}
+            size="sm"
+            items={actionItems()}
+            value={filters().advanced("event") || ANY_ACTION}
+            onChange={(value) =>
+              filters().setParam("event", value === ANY_ACTION ? "" : value)
+            }
+          />
           <For each={advancedFields}>
             {(field) => (
               <Field.Root>

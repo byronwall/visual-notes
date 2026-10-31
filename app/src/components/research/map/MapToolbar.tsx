@@ -37,7 +37,11 @@ export const MapSearch = (props: {
   query: string;
   /** Cards found, or null without a search. */
   found: number | null;
+  /** 1-based place of the open card among the matches, or 0. */
+  matchAt: number;
   onQuery: (query: string) => void;
+  /** Enter steps forward through the matches, Shift+Enter back. */
+  onStep: (step: 1 | -1) => void;
 }) => (
   <label
     class={`${searchClass} ${css({ flex: "1 1 20rem", minW: "11rem", maxW: "20rem" })}`}
@@ -51,6 +55,11 @@ export const MapSearch = (props: {
       value={props.query}
       onInput={(event) => props.onQuery(event.currentTarget.value)}
       onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.isComposing) {
+          event.preventDefault();
+          props.onStep(event.shiftKey ? -1 : 1);
+          return;
+        }
         if (event.key !== "Escape") return;
         props.onQuery("");
         event.currentTarget.blur();
@@ -65,7 +74,11 @@ export const MapSearch = (props: {
           fontVariantNumeric: "tabular-nums",
         })}
       >
-        {props.found ? `${props.found} found` : "None found"}
+        {props.matchAt
+          ? `${props.matchAt} of ${props.found}`
+          : props.found
+            ? `${props.found} found`
+            : "None found"}
       </span>
     </Show>
     <Show
@@ -96,7 +109,9 @@ export const MapSearch = (props: {
 export const MapToolbar = (props: {
   query: string;
   found: number | null;
+  matchAt: number;
   onQuery: (query: string) => void;
+  onStep: (step: 1 | -1) => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
   onZoomOut: () => void;
@@ -118,7 +133,9 @@ export const MapToolbar = (props: {
     <MapSearch
       query={props.query}
       found={props.found}
+      matchAt={props.matchAt}
       onQuery={props.onQuery}
+      onStep={props.onStep}
     />
     <span class={css({ flex: 1 })} />
     <button

@@ -20,7 +20,7 @@ import { ShowRow } from "./ShowRow";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A show is past once it has ended; untimed shows last their whole day. */
-const isPast = (show: Occurrence, now: number) => {
+export const isPastShow = (show: Occurrence, now: number) => {
   const start = Date.parse(show.startsAt);
   const end = show.endsAt
     ? Date.parse(show.endsAt)
@@ -56,7 +56,7 @@ export const ShowsList: VoidComponent = () => {
     const past: Occurrence[] = [];
     const upcoming: Occurrence[] = [];
     for (const show of shows())
-      (isPast(show, now) ? past : upcoming).push(show);
+      (isPastShow(show, now) ? past : upcoming).push(show);
     return { past, upcoming };
   });
 

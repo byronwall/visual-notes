@@ -58,6 +58,7 @@ export const CardDetailPanel = (props: {
   const runRemove = useAction(removeResearchCards);
   const [editing, setEditing] = createSignal(false);
   const [confirmRemove, setConfirmRemove] = createSignal(false);
+  let editButton: HTMLButtonElement | undefined;
   // Selecting another card closes the editor and any pending remove.
   createEffect(
     on(
@@ -203,6 +204,7 @@ export const CardDetailPanel = (props: {
           card={props.card}
           onDone={(changed) => {
             setEditing(false);
+            editButton?.focus();
             if (changed) props.data.reload();
           }}
         />
@@ -276,6 +278,7 @@ export const CardDetailPanel = (props: {
           })}
         >
           <button
+            ref={editButton}
             type="button"
             class={textButtonClass}
             onClick={() => setEditing(true)}

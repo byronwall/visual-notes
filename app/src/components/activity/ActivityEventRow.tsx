@@ -180,6 +180,7 @@ export const ActivityEventRow = (props: ActivityEventRowProps) => {
             whiteSpace="nowrap"
             overflow="hidden"
             textOverflow="ellipsis"
+            flexBasis={{ base: "100%", md: "auto" }}
             maxW={{ base: "100%", md: "40%" }}
             pl={{ base: "24", md: "0" }}
             title={path()}

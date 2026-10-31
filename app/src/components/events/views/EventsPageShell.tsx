@@ -1,6 +1,6 @@
 import { Title } from "@solidjs/meta";
 import type { JSX } from "solid-js";
-import { Box, Container } from "styled-system/jsx";
+import { Box, Container, styled } from "styled-system/jsx";
 import { EventsTabs } from "../EventsTabs";
 
 /** Page frame for the /events views: title, section tabs, then content. */
@@ -12,6 +12,7 @@ export function EventsPageShell(props: {
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Title>{`${props.title} • Events • Visual Notes`}</Title>
+      <styled.h1 srOnly>{`Events: ${props.title}`}</styled.h1>
       <Container
         maxW="6xl"
         pt={{ base: "4", md: "6" }}

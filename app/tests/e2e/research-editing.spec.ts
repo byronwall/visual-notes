@@ -31,8 +31,21 @@ test.describe("research editing", () => {
 
     await rows.filter({ hasText: "Why does Pin exist?" }).getByText("Why does Pin exist?").click();
     const detail = page.getByTestId("research-card-detail");
-    await detail.getByRole("button", { name: "Edit", exact: true }).click();
-    await detail.getByLabel("Card title").fill("Why does Pin exist at all?");
+    const edit = detail.getByRole("button", { name: "Edit", exact: true });
+    const titleField = detail.getByLabel("Card title");
+
+    // Esc leaves an unchanged form and keeps a changed one.
+    await edit.click();
+    await expect(titleField).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(titleField).toBeHidden();
+    await expect(edit).toBeFocused();
+    await edit.click();
+    await page.keyboard.type(" draft");
+    await page.keyboard.press("Escape");
+    await expect(titleField).toHaveValue("Why does Pin exist? draft");
+
+    await titleField.fill("Why does Pin exist at all?");
     if (shots) await page.screenshot({ path: `${shots}/card-edit.png` });
     await detail.getByRole("button", { name: "Save", exact: true }).click();
     await expect(detail.getByRole("heading", { name: "Why does Pin exist at all?" })).toBeVisible();
