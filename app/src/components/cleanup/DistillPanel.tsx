@@ -1,11 +1,11 @@
 import { useAction } from "@solidjs/router";
 import {
+  Match,
   Show,
+  Switch,
   createEffect,
-  createResource,
   createSignal,
   on,
-  onMount,
   untrack,
   type VoidComponent,
 } from "solid-js";
@@ -19,11 +19,12 @@ import {
   archiveOnlyAction,
   draftDistillForNote,
 } from "~/services/cleanup/cleanup.actions";
-import { CleanupActionBar } from "./CleanupActionBar";
+import { CleanupActionBar, paidLabel } from "./CleanupActionBar";
 import { DestinationPicker, type DestinationChoice } from "./DestinationPicker";
 import { DistillReview } from "./DistillReview";
-import { DraftPreview } from "./DraftPreview";
+import { DraftPreview, NotePreview } from "./DraftPreview";
 import { PanelSection } from "./PanelSection";
+import { useOnDemand } from "./useOnDemand";
 
 const defaultDestination = (
   item: CleanupItemDetail,
@@ -52,17 +53,13 @@ export const DistillPanel: VoidComponent<{
   const apply = useAction(applyDistillAction);
   const archiveOnly = useAction(archiveOnlyAction);
   const mode = () => props.mode ?? "distill";
-  // Drafting calls an LLM, so it runs only in the browser once the note is
-  // selected: never during SSR, and never for a note nobody opened.
-  const [mounted, setMounted] = createSignal(false);
-  onMount(() => setMounted(true));
-  const [draft, { refetch }] = createResource(
-    () => (mounted() ? { id: props.item.docId, mode: mode() } : false),
-    (key) => draftDistillForNote(key.id, key.mode),
-  );
-  // A failed draft must not throw out of the page: read the value only when
-  // the resource has not errored.
-  const latestDraft = () => (draft.error ? undefined : draft.latest);
+  const paid = () => props.item.paid.draft;
+  const draft = useOnDemand({
+    key: () => `${mode()}:${props.item.docId}`,
+    paid,
+    run: () => draftDistillForNote(props.item.docId, mode()),
+  });
+  const latestDraft = draft.value;
   const [markdown, setMarkdown] = createSignal("");
   // Seeded from the first item; the effect below resets it per note.
   const [destination, setDestination] = createSignal<DestinationChoice>(
@@ -76,8 +73,8 @@ export const DistillPanel: VoidComponent<{
     on(
       () => latestDraft(),
       (next) => {
+        setMarkdown(next?.markdown ?? "");
         if (!next) return;
-        setMarkdown(next.markdown);
         const dest = destination();
         if (dest.kind === "new" && !dest.title) {
           setDestination({ ...dest, title: next.title });
@@ -158,26 +155,27 @@ export const DistillPanel: VoidComponent<{
                   </Text>
                 )}
               </Show>
-              <Button
-                size="xs"
-                variant="plain"
-                onClick={() => setReviewing(true)}
-              >
-                Review and edit
-              </Button>
-              <Button
-                size="xs"
-                variant="plain"
-                onClick={() => refetch()}
-                disabled={draft.loading}
-              >
-                Regenerate
-              </Button>
+              <Show when={latestDraft()}>
+                <Button
+                  size="xs"
+                  variant="plain"
+                  onClick={() => setReviewing(true)}
+                >
+                  Review and edit
+                </Button>
+                <Button
+                  size="xs"
+                  variant="plain"
+                  onClick={draft.ask}
+                  disabled={draft.loading()}
+                >
+                  {paid() ? paidLabel("Regenerate") : "Regenerate"}
+                </Button>
+              </Show>
             </HStack>
           }
         >
-          <Show
-            when={mounted() && (!draft.loading || latestDraft())}
+          <Switch
             fallback={
               <Stack gap="2" aria-busy="true" aria-label="Writing draft">
                 <Skeleton h="4" w="90%" />
@@ -186,17 +184,21 @@ export const DistillPanel: VoidComponent<{
               </Stack>
             }
           >
-            <Show
-              when={!draft.error}
-              fallback={
-                <Text fontSize="sm" color="fg.error">
-                  Couldn't write a draft. Try Regenerate.
-                </Text>
-              }
-            >
+            <Match when={draft.idle()}>
+              <NotePreview
+                markdown={props.item.markdown}
+                note={`No draft yet. Writing one calls ${props.item.paid.model}.`}
+              />
+            </Match>
+            <Match when={draft.failed()}>
+              <Text fontSize="sm" color="fg.error">
+                Couldn't write a draft. Try again.
+              </Text>
+            </Match>
+            <Match when={latestDraft()}>
               <DraftPreview markdown={markdown()} />
-            </Show>
-          </Show>
+            </Match>
+          </Switch>
         </PanelSection>
       </Show>
       <PanelSection title="Send to">
@@ -234,13 +236,20 @@ export const DistillPanel: VoidComponent<{
       </Show>
       <CleanupActionBar
         primaryLabel={
-          mode() === "post_event"
-            ? "Summarize and archive"
-            : "Distill and archive original"
+          draft.idle() || draft.failed()
+            ? paid()
+              ? paidLabel("Write draft")
+              : "Write draft"
+            : mode() === "post_event"
+              ? "Summarize and archive"
+              : "Distill and archive original"
         }
-        onPrimary={approve}
+        onPrimary={draft.idle() || draft.failed() ? draft.ask : approve}
         busy={busy()}
-        disabled={!markdown().trim() || !mounted() || draft.loading}
+        disabled={
+          !(draft.idle() || draft.failed()) &&
+          (!markdown().trim() || draft.loading())
+        }
         onKeep={props.onKeep}
         onSkip={props.onSkip}
       />

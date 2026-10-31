@@ -5,10 +5,10 @@ vi.mock("./queue", () => ({ queueFor: vi.fn() }));
 vi.mock("./regroup-queue", () => ({ regroupQueue: vi.fn() }));
 
 import { interleave } from "./daily";
-import type { QueueItem } from "./queue";
+import type { QueueRow } from "./queue";
 
 const item = (docId: string, bucket: string, confidence: number) =>
-  ({ docId, bucket, confidence }) as QueueItem;
+  ({ docId, bucket, confidence }) as QueueRow;
 
 describe("interleave", () => {
   it("alternates buckets, strongest bucket first, without duplicates", () => {

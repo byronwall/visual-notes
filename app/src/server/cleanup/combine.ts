@@ -74,6 +74,7 @@ export async function draftCombine(input: {
   }
   const { output } = await callLLM({
     model: DISTILL_MODEL,
+    trigger: "cleanup:combine",
     system: SYSTEM,
     user: JSON.stringify({
       keep: keep

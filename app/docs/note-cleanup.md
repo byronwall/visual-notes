@@ -15,7 +15,8 @@ Cleanup suggests what to do with notes that have stopped earning their place: di
 | `heuristic.ts`        | Rule-based answers for runs without a vendor key (local, audit databases). Results carry the `heuristic-v1` model name                                                                       |
 | `buckets.ts`          | Combines answers into `distill`, `post_event`, `make_task`, `revisit_link`, `delete`, or `keep`, with the probability the queue sorts on                                                     |
 | `assess.ts`           | Finds stale notes, asks the questions, and upserts `NoteAssessment`                                                                                                                          |
-| `assessment-sweep.ts` | One pass after boot, every six hours, and a minute after any content write                                                                                                                   |
+| `assessment-sweep.ts` | One pass after boot, every six hours, and a minute after the last content write                                                                                                              |
+| `status.ts`           | The status line: provider, active run, last run, pending items, calls and tokens                                                                                                             |
 
 ### Saved links
 
@@ -42,6 +43,30 @@ A note is stale when it has no assessment, its `contentVersion` changed, `QUESTI
 
 Jev costs about $0.11 per 1,000 notes for this question set and answers in ~0.2 s. Rewording a question is a code change: bump `QUESTION_SET_VERSION` and every note is re-asked on the next sweep.
 
+## Paid calls
+
+Reading a page never spends money. A paid call starts only from the sweep or from a click on a button that says **· paid**.
+
+| Call                           | Provider and model                | What starts it                                      | How often                                                                              | `LlmRequest.trigger`                    |
+| ------------------------------ | --------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------- |
+| Note questions                 | Decider (Jev or OpenAI)           | Boot, the six-hour timer, a minute after a write    | One call per stale note, up to 8,400 notes in a pass                                   | `sweep:<boot\|timer\|write>:note`       |
+| Placement                      | Decider                           | The same pass, for unfiled notes                    | One call per stale unfiled note                                                        | `sweep:<cause>:placement`               |
+| Regroup pairs                  | Decider                           | The same pass, after the notes                      | Up to five calls per changed note                                                      | `sweep:<cause>:pair`                    |
+| Distill or post-event draft    | `gpt-5-mini`                      | **Write draft · paid**, **Regenerate · paid**       | One call per click                                                                     | `cleanup:distill`, `cleanup:post_event` |
+| Combine draft                  | `gpt-5-mini`                      | **Write draft · paid**, **Regenerate · paid**       | One call per click                                                                     | `cleanup:combine`                       |
+| Link summary and worth         | `gpt-5-mini` and the decider      | **Summarize page · paid**, **Check again · paid**   | Two calls per click                                                                    | `cleanup:link`, `cleanup:link:worth`    |
+| Embeddings                     | OpenAI                            | Ten seconds after a write, and a 15-minute sweep    | One call per batch of up to 128 chunks; none when nothing changed                      | `embedding`                             |
+| Semantic search                | OpenAI                            | A search that uses meaning (MCP `search`)           | One call per search                                                                    | `search`                                |
+| Transcription and its analysis | Groq or OpenAI, then `gpt-5.4-mini` | A new recording, and resume at boot               | One Whisper call and one analysis call per recording                                   | `transcript`                            |
+| Prompts, chat, map region names | OpenAI                           | A click, or a canvas map build                      | One call per run                                                                       | none                                    |
+
+- **Page views.** A page view does not start a sweep, with one exception: `entry-server.tsx` loads on the first request after a restart, in production too, so that request arms the boot pass a minute later. This happens once per process, and the pass covers only stale notes. After that, `scheduleCleanupAssessment` runs only from the content-write hook that `middleware.ts` registers. Before this design, selecting a Distill, Regroup, or Revisit link card wrote a draft on its own, so J/K spent money on every note.
+- **Writes.** The write trigger stays, so a changed note gets a fresh suggestion within minutes. It is a real debounce: a minute after the last write, so a long edit costs one pass.
+- **No key.** Local extracts cost nothing, so they still run as soon as a card opens, and the buttons drop the label. The link page check is always free.
+- **Recording.** `callLLM` writes `LlmRequest` for model calls. `recordPaidCall` does the same for calls outside it (decider, embeddings, Whisper) with a short summary in place of the prompt. A logging failure never fails the call.
+- **Tokens, not dollars.** The app has no price table, so it shows calls and tokens. Jev and the Decisions API report input tokens only. Whisper bills by audio time, so a transcript row shows no tokens.
+- **Status line.** The rail (and a single line in the daily stack) shows the provider, whether a run is active, the last run, pending notes and pairs, and calls and tokens for today and seven days. It refreshes every 20 seconds. The active run is process state on `globalThis`. After a restart, the last run comes from the newest `sweep:` row. **Paid calls** links to the table on `/ai`.
+
 ## Archive
 
 Every cleanup action archives the original instead of deleting it (`server/notes/note-archive.ts`).
@@ -58,8 +83,10 @@ To seed an audit database with cleanup archetypes, assessments (heuristic), and 
 
 `/cleanup` (`components/cleanup/`) is the deep-pass view: a bucket rail with counts, the selected bucket's queue sorted by confidence, and the selected note.
 
+The page paints at once. The rail, the queue, the note, and the status line each load behind their own `Suspense` with a fallback of the same size. `fetchCleanupQueue` picks the default bucket on the server, so the browser doesn't wait for the rail's counts. A queue shows its top 100 rows, and each row holds only what the list draws (`QueueRow`). Regroup count and rows come from `regroupPlan`, which reads only strong edges and unfiled notes. Production has thousands of clusters, so keep `clusterPairs` linear in edges.
+
 - **Why it is here** shows signal chips from `server/cleanup/signals.ts`.
-- **Distill**: the draft is written on demand when a note is selected, and only in the browser (never during SSR). `server/cleanup/distill.ts` asks `gpt-5-mini` for JSON bullets plus one snippet. Without `OPENAI_API_KEY` it falls back to a local sentence extract labeled "Local extract". **Review and edit** opens the original beside an editable markdown draft.
+- **Distill**: with `OPENAI_API_KEY`, the panel shows the note and **Write draft · paid**, and Enter clicks it (`useOnDemand.ts`). `server/cleanup/distill.ts` asks `gpt-5-mini` for JSON bullets plus one snippet. Without a key, a local sentence extract labeled "Local extract" appears as soon as the note opens, and only in the browser (never during SSR). **Review and edit** opens the original beside an editable markdown draft.
 - **Send to**: a new note in the source's path, or an existing note in the same area. Appending adds a heading and keeps a `cleanup-append` revision. Both get a "Distilled from …" line. Approving archives the source into the destination (`server/cleanup/apply.ts`).
 - **Keep as is** hides the note for six months (`NoteAssessment.snoozedUntil`). **Skip** just moves on.
 - Keys: J/K or arrows move, Enter approves, E keeps, S skips. The keys click the visible buttons (`data-cleanup-action`), so the keys and the mouse do the same thing.
@@ -73,7 +100,7 @@ A flagged note shows a quiet **Cleanup: <bucket>** chip in its header (`componen
 
 The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `regroup-queue.ts`):
 
-- **Combine.** After the note pass, the sweep checks each note's embedding neighbors (cosine ≥ 0.8 from the stored vectors, `docNeighbors` in `server/mcp/semantic.ts`). Without vectors it falls back to same-path notes that share a title word. For each pair it asks the pair questions: `relation` (bottom tier "shares words only"), `a_covers_b`, `b_covers_a`, and `better_together`. Results go in `NotePairAssessment`. Pairs at `better_together` ≥ 0.6 are joined with union-find into clusters of 2–6 notes. The default note to keep is the member that covers the most others. The panel lets you untick members, pick the note to keep (or a new note), and review the LLM-written content the others add (or a local merge without a key). Approving appends that content and archives the rest into the kept note.
+- **Combine.** After the note pass, the sweep checks each note's embedding neighbors (cosine ≥ 0.8 from the stored vectors, `docNeighbors` in `server/mcp/semantic.ts`). Without vectors it falls back to same-path notes that share a title word. For each pair it asks the pair questions: `relation` (bottom tier "shares words only"), `a_covers_b`, `b_covers_a`, and `better_together`. Results go in `NotePairAssessment`. Pairs at `better_together` ≥ 0.6 are joined with union-find into clusters of 2–6 notes. The default note to keep is the member that covers the most others. The panel lets you untick members, pick the note to keep (or a new note), and ask for the LLM-written content the others add (or see a local merge without a key). Changing the members or the kept note drops the draft. Approving appends that content and archives the rest into the kept note.
 - **Move.** For an unfiled note, a choice question over existing paths (2+ notes) and collections suggests where it belongs (`NoteAssessment.placement`). When `p` ≥ 0.5, **Move to …** sets the path or adds the note to the collection. Nothing is archived.
 
 ## Post-event, make task, delete
@@ -84,7 +111,7 @@ The Regroup bucket holds two kinds of suggestion (`server/cleanup/regroup.ts`, `
 
 ## Revisit link
 
-`RevisitLinkPanel.tsx` and `server/cleanup/link-expand.ts`. When the card opens, the browser asks the server to load the page again. The server reads its text and writes a summary with the distill path and `LINK_FOCUS`. The decision model answers `page_worth_keeping` on the page text (`LINK_QUESTIONS`, not part of the sweep). The panel then offers:
+`RevisitLinkPanel.tsx` and `server/cleanup/link-expand.ts`. When the card opens, the browser asks the server to load the page again, which costs nothing. **Summarize page · paid** writes a summary with the distill path and `LINK_FOCUS`, and the decision model answers `page_worth_keeping` on the page text (`LINK_QUESTIONS`, not part of the sweep). The panel then offers:
 
 - **Add summary to note**: appends a "Summary" section under the link (with a `cleanup-append` revision). The note stays.
 - **Remind me to check it**: adds an Inbox task "Check out <title>: <url>" and snoozes the card for 30 days.

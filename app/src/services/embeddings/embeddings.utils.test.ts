@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("~/server/lib/ai", () => ({ recordPaidCall: vi.fn() }));
 import { embedBatched } from "./embeddings.utils";
 
 afterEach(() => {

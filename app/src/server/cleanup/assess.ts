@@ -1,6 +1,7 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "~/server/db";
 import { serverEnv } from "~/env/server";
+import { recordPaidCall } from "~/server/lib/ai";
 import { noteMarkdown } from "~/server/notes/note-store";
 import { bucketFor } from "./buckets";
 import {
@@ -37,10 +38,45 @@ export function resolveProvider(): DecisionProvider | null {
   return serverEnv.TYPESAFE_API_KEY?.trim() ? "jev" : null;
 }
 
-export function deciderFor(provider: DecisionProvider): Decider {
-  if (provider === "jev") return createJevDecider(serverEnv.TYPESAFE_API_KEY!);
+/** Logs every vendor call with what started it. */
+function recorded(
+  decide: Decider,
+  provider: DecisionProvider,
+  trigger: string,
+): Decider {
+  return async (input) => {
+    const call = {
+      trigger: input.kind ? `${trigger}:${input.kind}` : trigger,
+      summary: `${input.questions.length} questions`,
+      noteId: input.noteId,
+    };
+    try {
+      const result = await decide(input);
+      await recordPaidCall({
+        ...call,
+        model: result.model,
+        tokens: result.inputTokens,
+      });
+      return result;
+    } catch (error) {
+      await recordPaidCall({ ...call, model: provider, error: String(error) });
+      throw error;
+    }
+  };
+}
+
+/** `trigger` says what started the calls (see `LlmRequest.trigger`). */
+export function deciderFor(
+  provider: DecisionProvider,
+  trigger: string,
+): Decider {
+  if (provider === "jev") {
+    const decide = createJevDecider(serverEnv.TYPESAFE_API_KEY!);
+    return recorded(decide, provider, trigger);
+  }
   if (provider === "openai") {
-    return createOpenaiDecider(serverEnv.OPENAI_API_KEY!);
+    const decide = createOpenaiDecider(serverEnv.OPENAI_API_KEY!);
+    return recorded(decide, provider, trigger);
   }
   return heuristicDecider;
 }
@@ -51,9 +87,7 @@ export function deciderFor(provider: DecisionProvider): Decider {
  * cleanup candidates; their value is the structured record. Archived notes
  * are already handled.
  */
-export async function staleDocIds(limit: number): Promise<string[]> {
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT d.id
+const STALE_NOTES = Prisma.sql`
     FROM "Doc" d
     LEFT JOIN "NoteAssessment" a ON a."docId" = d.id
     WHERE d."collectionId" IS NULL
@@ -84,10 +118,21 @@ export async function staleDocIds(limit: number): Promise<string[]> {
           AND a."decision" IS NULL
           AND a."updatedAt" < now() - interval '1 day'
         )
-      )
+      )`;
+
+export async function staleDocIds(limit: number): Promise<string[]> {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT d.id ${STALE_NOTES}
     ORDER BY d."updatedAt" DESC
     LIMIT ${limit}`;
   return rows.map((row) => row.id);
+}
+
+/** Notes the next sweep will ask about. */
+export async function countStaleDocs(): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ n: number }>>`
+    SELECT count(*)::int AS n ${STALE_NOTES}`;
+  return rows[0]?.n ?? 0;
 }
 
 async function createdByAgent(docId: string): Promise<boolean> {
@@ -145,6 +190,8 @@ export async function assessDoc(
     owner: OWNER_PROFILE,
     state,
     questions: NOTE_QUESTIONS,
+    noteId: doc.id,
+    kind: "note",
   });
   const { bucket, confidence } = bucketFor(state.facts, result.answers);
   const data = {
@@ -168,21 +215,24 @@ export async function assessDoc(
 }
 
 /** The pair pass for regroup, with the configured provider. */
-export async function assessStalePairsNow(limit: number) {
+export async function assessStalePairsNow(limit: number, trigger: string) {
   const provider = resolveProvider();
   if (!provider) return { checked: 0, asked: 0 };
-  return assessStalePairs(limit, deciderFor(provider));
+  return assessStalePairs(limit, deciderFor(provider, trigger));
 }
 
 /** Assesses up to `limit` stale notes; returns how many were assessed. */
-export async function assessStaleNotes(limit: number): Promise<{
+export async function assessStaleNotes(
+  limit: number,
+  trigger: string,
+): Promise<{
   provider: DecisionProvider | null;
   assessed: number;
   failed: number;
 }> {
   const provider = resolveProvider();
   if (!provider) return { provider, assessed: 0, failed: 0 };
-  const decide = deciderFor(provider);
+  const decide = deciderFor(provider, trigger);
   const ids = await staleDocIds(limit);
   let assessed = 0;
   let failed = 0;

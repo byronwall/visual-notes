@@ -1,3 +1,4 @@
+import { recordPaidCall } from "~/server/lib/ai";
 import {
   estimateTokensApprox,
   estimateTokensUpperBound,
@@ -48,7 +49,8 @@ function validateVectors(vectors: number[][], expectedCount: number): number[][]
 
 export async function embedWithOpenAI(
   texts: string[],
-  model: string
+  model: string,
+  trigger = "embedding"
 ): Promise<number[][]> {
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -63,6 +65,12 @@ export async function embedWithOpenAI(
     throw new Error(`OpenAI embeddings error ${res.status}: ${msg.slice(0, 400)}`);
   }
   const json = (await res.json()) as any;
+  await recordPaidCall({
+    model,
+    trigger,
+    summary: `${texts.length} texts`,
+    tokens: json.usage?.total_tokens,
+  });
   const data = Array.isArray(json.data) ? json.data : [];
   return validateVectors(
     data.map((d: any) => d.embedding as number[]),

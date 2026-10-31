@@ -2,7 +2,7 @@ import { openAsBlob } from "node:fs";
 import path from "node:path";
 import { Prisma, type DocAudio } from "@prisma/client";
 import { prisma } from "~/server/db";
-import { callLLM } from "~/server/lib/ai";
+import { callLLM, recordPaidCall } from "~/server/lib/ai";
 import type {
   TranscriptAnalysis,
   TranscriptSegment,
@@ -85,6 +85,12 @@ async function transcribeFile(row: DocAudio) {
       ),
     );
   }
+  await recordPaidCall({
+    model: provider.model,
+    trigger: "transcript",
+    summary: `${row.fileName} (${Math.round(size / 1024)} KB)`,
+    noteId: row.docId,
+  });
   const json = JSON.parse(body) as {
     text?: string;
     segments?: { start: number; end: number; text: string }[];
@@ -186,6 +192,7 @@ async function analyzeTranscript(
     system: SHARED_INSTRUCTIONS,
     user: `${transcript}\n\n${PLAN_TASK}`,
     noteId: docId,
+    trigger: "transcript",
     schema: { name: "transcript_plan", schema: PLAN_SCHEMA },
   });
   if (!output) throw new Error("Transcript analysis returned nothing");
