@@ -231,7 +231,9 @@ export async function refreshDocAudioText(docId: string) {
 async function transcribe(id: string) {
   const row = await prisma.docAudio.findUnique({ where: { id } });
   if (!row) return;
-  await prisma.docAudio.update({
+  // updateMany throughout the failure path: the recording can be deleted
+  // while the job runs, and a throw here would stop the whole queue.
+  await prisma.docAudio.updateMany({
     where: { id },
     data: { transcriptStatus: "pending", transcriptError: null },
   });
@@ -264,8 +266,7 @@ async function transcribe(id: string) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`${LOG} failed %s: %s`, id, message);
-    await prisma.docAudio.update({
+    const { count } = await prisma.docAudio.updateMany({
       where: { id },
       data: {
         transcriptStatus: "failed",
@@ -273,6 +274,8 @@ async function transcribe(id: string) {
         transcriptAnalysis: Prisma.JsonNull,
       },
     });
+    if (count) console.error(`${LOG} failed %s: %s`, id, message);
+    else console.info(`${LOG} dropped %s: recording was deleted`, id);
   }
 }
 
@@ -288,7 +291,10 @@ export function queueTranscription(id: string) {
   }
   if (queued.has(id)) return;
   queued.add(id);
-  queue = queue.then(() => transcribe(id)).finally(() => queued.delete(id));
+  queue = queue
+    .then(() => transcribe(id))
+    .catch((err) => console.error(`${LOG} job failed %s`, id, err))
+    .finally(() => queued.delete(id));
 }
 
 // A recording left in `recording` this long was interrupted, not active.
