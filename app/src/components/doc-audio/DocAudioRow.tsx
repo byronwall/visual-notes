@@ -27,6 +27,9 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
 export const defaultRecordingLabel = (audio: DocAudioSummary) =>
   `Recording · ${timeFormat.format(new Date(audio.createdAt))}`;
 
+// Taller than the header row needs, so a thumb can hit it on a phone.
+const ROW_BUTTON_SIZE = { base: "8", sm: "6" };
+
 const formatSize = (bytes: number) =>
   bytes >= 1024 * 1024
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -104,6 +107,8 @@ export const DocAudioRow = (props: {
           size="2xs"
           variant="plain"
           alignSelf="center"
+          h={ROW_BUTTON_SIZE}
+          minW={ROW_BUTTON_SIZE}
           aria-label="Move to another note"
           title="Move to another note"
           onClick={() => setMoving(true)}
@@ -114,6 +119,8 @@ export const DocAudioRow = (props: {
           size="2xs"
           variant="plain"
           alignSelf="center"
+          h={ROW_BUTTON_SIZE}
+          minW={ROW_BUTTON_SIZE}
           aria-label="Delete recording"
           title="Delete recording"
           disabled={deleting()}
