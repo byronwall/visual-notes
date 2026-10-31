@@ -26,11 +26,14 @@ const bucketButton = css({
   "&[aria-current=true]": { bg: "gray.a3", fontWeight: "medium" },
 });
 
-/** Buckets with open counts, then the archive link. */
+/**
+ * Buckets with open counts, then the archive link. Without counts yet it
+ * shows dashes at the same size, so the rail doesn't move when they arrive.
+ */
 export const CleanupRail: VoidComponent<{
-  counts: Record<string, number>;
-  archived: number;
-  selected: BucketId;
+  counts?: Record<string, number>;
+  archived?: number;
+  selected: BucketId | "";
   onSelect: (bucket: BucketId) => void;
 }> = (props) => (
   <Stack gap="0.5" as="nav" aria-label="Cleanup buckets">
@@ -56,7 +59,7 @@ export const CleanupRail: VoidComponent<{
             color="fg.muted"
             fontVariantNumeric="tabular-nums"
           >
-            {props.counts[bucket] ?? 0}
+            {props.counts ? props.counts[bucket] ?? 0 : "–"}
           </Text>
         </button>
       )}
@@ -72,7 +75,7 @@ export const CleanupRail: VoidComponent<{
         color="fg.muted"
         fontVariantNumeric="tabular-nums"
       >
-        {props.archived}
+        {props.archived ?? "–"}
       </Text>
     </A>
     <Text fontSize="xs" color="fg.subtle" px="2.5">

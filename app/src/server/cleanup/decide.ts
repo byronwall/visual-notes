@@ -29,6 +29,10 @@ export type DecideInput = {
   owner?: unknown;
   state: Record<string, unknown>;
   questions: Question[];
+  /** Note the answers are about, for the paid-call log. */
+  noteId?: string;
+  /** What is being asked (`note`, `placement`, `pair`), for the paid-call log. */
+  kind?: string;
 };
 
 export type Decider = (input: DecideInput) => Promise<DecideResult>;

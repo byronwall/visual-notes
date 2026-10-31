@@ -9,11 +9,16 @@ const env = vi.hoisted(() => ({
 }));
 vi.mock("~/env/server", () => env);
 vi.mock("./tools", () => ({ createNotesMcpServer: vi.fn() }));
+vi.mock("./call-log", () => ({ recordMcpCall: vi.fn() }));
 vi.mock("~/server/db", () => ({
   prisma: { oAuthGrant: { findUnique: vi.fn() } },
 }));
 
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import { recordMcpCall } from "./call-log";
 import { handleMcpRequest } from "./handler";
+import { createNotesMcpServer } from "./tools";
 
 function post(headers: Record<string, string> = {}): Request {
   return new Request("http://notes.test/mcp", {
@@ -66,5 +71,46 @@ describe("handleMcpRequest", () => {
       new Request("http://notes.test/mcp"),
     );
     expect(response.status).toBe(405);
+  });
+
+  it("records a tool call the SDK refuses before the tool runs", async () => {
+    const server = new McpServer({ name: "test", version: "1" });
+    server.registerTool(
+      "notes_attach_file",
+      { inputSchema: { files: z.array(z.object({})) } },
+      async () => ({ content: [] }),
+    );
+    vi.mocked(createNotesMcpServer).mockReturnValueOnce(server);
+
+    const response = await handleMcpRequest(
+      new Request("http://notes.test/mcp", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer dev-token",
+          Accept: "application/json, text/event-stream",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "notes_attach_file",
+            arguments: { files: ["chat_upload://image_0"] },
+          },
+        }),
+      }),
+    );
+
+    expect((await response.json()).result.isError).toBe(true);
+    expect(recordMcpCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool: "notes_attach_file",
+        outcome: "refused",
+        code: "invalid",
+        args: { files: ["chat_upload://image_0"] },
+        message: "Expected object, received string at files[0]",
+      }),
+    );
   });
 });

@@ -96,6 +96,12 @@ export type FileSource = {
   mimeType?: string;
 };
 
+const NO_FILE =
+  "No file reached Visual Notes. ChatGPT fills files only with files the user attached in this chat, so ask the user to attach the file here, or pass data (base64) or a public url.";
+
+/** A path in the chat's own sandbox, which a model may send as data or url. */
+const SANDBOX_PATH = /^(sandbox:|file:|\/mnt\/)/i;
+
 /** Reads every file the call names, before anything is stored. */
 async function loadSources(input: FileSource): Promise<FetchedUpload[]> {
   const given = [
@@ -103,10 +109,19 @@ async function loadSources(input: FileSource): Promise<FetchedUpload[]> {
     Boolean(input.data),
     Boolean(input.url),
   ];
-  if (given.filter(Boolean).length !== 1) {
+  const count = given.filter(Boolean).length;
+  if (count === 0) throw new ConnectorError("invalid", NO_FILE);
+  if (count > 1) {
     throw new ConnectorError(
       "invalid",
-      "Pass exactly one of files (files the user gave you), data (base64), or url.",
+      "Pass only one of files (files the user gave you), data (base64), or url.",
+    );
+  }
+  const text = (input.url ?? input.data ?? "").trim();
+  if (SANDBOX_PATH.test(text)) {
+    throw new ConnectorError(
+      "invalid",
+      `${text.slice(0, 80)} is a path in the chat's sandbox, which Visual Notes cannot read. ${NO_FILE}`,
     );
   }
   if (input.files?.length) {

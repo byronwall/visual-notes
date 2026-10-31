@@ -2,8 +2,7 @@ import { For, Show, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
-import type { QueueItem } from "~/server/cleanup/queue";
-import { queueMeta } from "./cleanup-format";
+import type { QueueRow } from "~/server/cleanup/queue";
 
 const row = css({
   display: "block",
@@ -25,7 +24,7 @@ const row = css({
 
 /** One bucket's notes, highest confidence first. */
 export const CleanupQueueList: VoidComponent<{
-  items: QueueItem[];
+  items: QueueRow[];
   selectedId: string | null;
   onSelect: (docId: string) => void;
 }> = (props) => (
@@ -54,7 +53,7 @@ export const CleanupQueueList: VoidComponent<{
                 {item.title || "Untitled note"}
               </Text>
               <Text fontSize="xs" color="fg.muted" truncate>
-                {queueMeta(item)}
+                {item.meta}
               </Text>
               <HStack gap="2">
                 <Box

@@ -1,5 +1,5 @@
 import { createAsync, useAction, useSearchParams } from "@solidjs/router";
-import { Show, createMemo, type VoidComponent } from "solid-js";
+import { Show, Suspense, type VoidComponent } from "solid-js";
 import { Box, Grid, Stack } from "styled-system/jsx";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
@@ -14,12 +14,13 @@ import { CleanupModeToggle } from "./CleanupModeToggle";
 import { DailyStack } from "./DailyStack";
 import { CleanupQueueList } from "./CleanupQueueList";
 import { CleanupRail } from "./CleanupRail";
+import { CleanupRunStatus } from "./CleanupRunStatus";
+import { DetailSkeleton, QueueSkeleton } from "./CleanupSkeletons";
 import { BUCKET_META, RAIL_BUCKETS, type BucketId } from "./cleanup-buckets";
 import { useCleanupKeys } from "./useCleanupKeys";
 
 const pane = { minH: "0", overflowY: "auto" } as const;
 
-/** Deep-pass triage: buckets, the selected bucket's queue, and one note. */
 /** Daily stack or deep-pass triage, by `?mode=`. */
 export const CleanupWorkspace: VoidComponent = () => {
   const [params] = useSearchParams();
@@ -30,27 +31,39 @@ export const CleanupWorkspace: VoidComponent = () => {
   );
 };
 
+const QueueHeader: VoidComponent<{ bucket: BucketId | ""; total?: number }> = (
+  props,
+) => (
+  <Stack gap="1" px="3" py="4" borderBottomWidth="1px" borderColor="border">
+    <Text fontSize="md" fontWeight="semibold">
+      <Show when={props.bucket} fallback={" "}>
+        {BUCKET_META[props.bucket as BucketId].label} · {props.total ?? "–"}{" "}
+        notes
+      </Show>
+    </Text>
+    <Text fontSize="xs" color="fg.muted" minH="2lh">
+      {props.bucket ? BUCKET_META[props.bucket].blurb : ""}
+    </Text>
+  </Stack>
+);
+
+/**
+ * Deep-pass triage: buckets, the selected bucket's queue, and one note. The
+ * page paints at once, and each column fills in behind its own boundary.
+ */
 const DeepPass: VoidComponent = () => {
   const [params, setParams] = useSearchParams();
   const overview = createAsync(() => fetchCleanupOverview());
-  const bucket = createMemo<BucketId>(() => {
-    const requested = params.bucket as BucketId;
-    if (RAIL_BUCKETS.includes(requested)) return requested;
-    const counts = overview()?.counts ?? {};
-    return RAIL_BUCKETS.find((b) => (counts[b] ?? 0) > 0) ?? RAIL_BUCKETS[0];
-  });
-  const queue = createAsync(() => fetchCleanupQueue(bucket()));
-  const ids = () => (queue() ?? []).map((item) => item.docId);
-  const selectedId = () => {
-    const requested = params.doc as string | undefined;
-    return requested && ids().includes(requested)
-      ? requested
-      : ids()[0] ?? null;
+  const requested = (): BucketId | "" => {
+    const bucket = params.bucket as BucketId;
+    return RAIL_BUCKETS.includes(bucket) ? bucket : "";
   };
-  const item = createAsync(() => {
-    const id = selectedId();
-    return id ? fetchCleanupItem(id, bucket()) : Promise.resolve(null);
-  });
+  const queue = createAsync(() => fetchCleanupQueue(requested()));
+  const bucket = () =>
+    requested() || ((queue.latest?.bucket ?? RAIL_BUCKETS[0]) as BucketId);
+  const ids = () => (queue.latest?.rows ?? []).map((row) => row.docId);
+  // A deep link may name a note past the rows this list shows.
+  const selectedId = () => (params.doc as string | undefined) ?? ids()[0] ?? null;
   const keep = useAction(keepNoteAction);
 
   const select = (docId: string | null) => {
@@ -74,6 +87,8 @@ const DeepPass: VoidComponent = () => {
     select(list[index + 1] ?? list[index - 1] ?? null);
   };
   useCleanupKeys(move);
+  const onBucket = (next: BucketId) =>
+    setParams({ bucket: next, doc: undefined });
 
   return (
     <Grid
@@ -94,12 +109,17 @@ const DeepPass: VoidComponent = () => {
           Cleanup
         </Heading>
         <CleanupModeToggle mode="deep" />
-        <CleanupRail
-          counts={overview()?.counts ?? {}}
-          archived={overview()?.archived ?? 0}
-          selected={bucket()}
-          onSelect={(next) => setParams({ bucket: next, doc: undefined })}
-        />
+        <Suspense
+          fallback={<CleanupRail selected={requested()} onSelect={onBucket} />}
+        >
+          <CleanupRail
+            counts={overview.latest?.counts}
+            archived={overview.latest?.archived}
+            selected={bucket()}
+            onSelect={onBucket}
+          />
+        </Suspense>
+        <CleanupRunStatus />
       </Stack>
       <Stack
         gap="0"
@@ -107,25 +127,21 @@ const DeepPass: VoidComponent = () => {
         borderColor="border"
         {...pane}
       >
-        <Stack
-          gap="1"
-          px="3"
-          py="4"
-          borderBottomWidth="1px"
-          borderColor="border"
+        <Suspense
+          fallback={
+            <>
+              <QueueHeader bucket={requested()} />
+              <QueueSkeleton />
+            </>
+          }
         >
-          <Text fontSize="md" fontWeight="semibold">
-            {BUCKET_META[bucket()].label} · {queue()?.length ?? 0} notes
-          </Text>
-          <Text fontSize="xs" color="fg.muted">
-            {BUCKET_META[bucket()].blurb}
-          </Text>
-        </Stack>
-        <CleanupQueueList
-          items={queue() ?? []}
-          selectedId={selectedId()}
-          onSelect={select}
-        />
+          <QueueHeader bucket={bucket()} total={queue.latest?.total} />
+          <CleanupQueueList
+            items={queue.latest?.rows ?? []}
+            selectedId={selectedId()}
+            onSelect={select}
+          />
+        </Suspense>
       </Stack>
       <Box
         px={{ base: "4", md: "6" }}
@@ -134,34 +150,57 @@ const DeepPass: VoidComponent = () => {
         display="flex"
         flexDirection="column"
       >
-        <Show
-          when={item()}
-          fallback={
-            <Text fontSize="sm" color="fg.muted">
-              <Show
-                when={overview() && overview()!.assessed === 0}
-                fallback="Select a note to review."
-              >
-                No notes have been assessed yet. Set TYPESAFE_API_KEY (or
-                CLEANUP_DECIDER=heuristic) and the sweep fills these queues.
-              </Show>
-            </Text>
-          }
-        >
-          {(detail) => (
-            <CleanupDetail
-              item={detail()}
-              onDone={advance}
-              onSkip={() => move(1)}
-              onKeep={() => {
-                const id = detail().docId;
-                advance();
-                void keep(id);
-              }}
-            />
-          )}
-        </Show>
+        <Suspense fallback={<DetailSkeleton />}>
+          <SelectedNote
+            id={selectedId()}
+            bucket={bucket()}
+            assessed={overview.latest?.assessed}
+            onDone={advance}
+            onSkip={() => move(1)}
+            onKeep={(id) => {
+              advance();
+              void keep(id);
+            }}
+          />
+        </Suspense>
       </Box>
     </Grid>
+  );
+};
+
+const SelectedNote: VoidComponent<{
+  id: string | null;
+  bucket: BucketId;
+  assessed?: number;
+  onDone: () => void;
+  onSkip: () => void;
+  onKeep: (docId: string) => void;
+}> = (props) => {
+  const item = createAsync(() =>
+    props.id
+      ? fetchCleanupItem(props.id, props.bucket)
+      : Promise.resolve(null),
+  );
+  return (
+    <Show
+      when={item.latest}
+      fallback={
+        <Text fontSize="sm" color="fg.muted">
+          <Show when={props.assessed === 0} fallback="Select a note to review.">
+            No notes have been assessed yet. Set TYPESAFE_API_KEY (or
+            CLEANUP_DECIDER=heuristic) and the sweep fills these queues.
+          </Show>
+        </Text>
+      }
+    >
+      {(detail) => (
+        <CleanupDetail
+          item={detail()}
+          onDone={props.onDone}
+          onSkip={props.onSkip}
+          onKeep={() => props.onKeep(detail().docId)}
+        />
+      )}
+    </Show>
   );
 };

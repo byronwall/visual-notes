@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "~/server/db";
 import { noteMarkdown } from "~/server/notes/note-store";
 import type { Answers, Decider } from "./decide";
@@ -96,6 +96,8 @@ export async function assessPlacement(
     owner: OWNER_PROFILE,
     state: { note: { title: note.title, body: note.body.slice(0, 6_000) } },
     questions: [placementQuestion(targets)],
+    noteId: docId,
+    kind: "placement",
   });
   const placement = readPlacement(result.answers, targets);
   await prisma.noteAssessment.update({
@@ -196,6 +198,8 @@ export async function assessPairsFor(
       owner: OWNER_PROFILE,
       state: { a: pairNote(a), b: pairNote(b) },
       questions: PAIR_QUESTIONS,
+      noteId: a.id,
+      kind: "pair",
     });
     const relation = result.answers.relation;
     const data = {
@@ -224,14 +228,22 @@ export async function assessPairsFor(
 }
 
 /** Notes whose pairs were never checked, or changed since they were. */
-export async function assessStalePairs(limit: number, decide: Decider) {
-  const rows = await prisma.$queryRaw<Array<{ docId: string }>>`
-    SELECT a."docId"
+const STALE_PAIRS = Prisma.sql`
     FROM "NoteAssessment" a
     JOIN "Doc" d ON d.id = a."docId"
     WHERE d."archivedAt" IS NULL
       AND d."collectionId" IS NULL
-      AND (a."pairsVersion" IS NULL OR a."pairsVersion" <> d."contentVersion")
+      AND (a."pairsVersion" IS NULL OR a."pairsVersion" <> d."contentVersion")`;
+
+export async function countStalePairs(): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ n: number }>>`
+    SELECT count(*)::int AS n ${STALE_PAIRS}`;
+  return rows[0]?.n ?? 0;
+}
+
+export async function assessStalePairs(limit: number, decide: Decider) {
+  const rows = await prisma.$queryRaw<Array<{ docId: string }>>`
+    SELECT a."docId" ${STALE_PAIRS}
     ORDER BY d."updatedAt" DESC
     LIMIT ${limit}`;
   let asked = 0;
@@ -299,19 +311,28 @@ export function clusterPairs(edges: PairEdge[]): Array<{
   const groups = new Map<string, string[]>();
   for (const id of parent.keys()) {
     const root = find(id);
-    groups.set(root, [...(groups.get(root) ?? []), id]);
+    const group = groups.get(root);
+    if (group) group.push(id);
+    else groups.set(root, [id]);
   }
-  return [...groups.values()]
-    .filter((ids) => ids.length >= 2)
-    .map((ids) => {
-      const members = new Set(ids);
-      const inside = strong.filter(
-        (e) => members.has(e.aId) && members.has(e.bId),
-      );
+  // Production has thousands of clusters: sort each edge into its cluster
+  // once instead of rescanning every edge per cluster.
+  const within = new Map<string, PairEdge[]>();
+  for (const e of edges) {
+    if (!parent.has(e.aId) || !parent.has(e.bId)) continue;
+    const root = find(e.aId);
+    if (root !== find(e.bId)) continue;
+    const list = within.get(root);
+    if (list) list.push(e);
+    else within.set(root, [e]);
+  }
+  return [...groups.entries()]
+    .filter(([, ids]) => ids.length >= 2)
+    .map(([root, ids]) => {
+      const members = within.get(root) ?? [];
+      const inside = members.filter((e) => e.betterTogether >= BETTER_TOGETHER);
       const covers = new Map<string, number>();
-      for (const e of edges.filter(
-        (x) => members.has(x.aId) && members.has(x.bId),
-      )) {
+      for (const e of members) {
         covers.set(e.aId, (covers.get(e.aId) ?? 0) + e.aCoversB);
         covers.set(e.bId, (covers.get(e.bId) ?? 0) + e.bCoversA);
       }

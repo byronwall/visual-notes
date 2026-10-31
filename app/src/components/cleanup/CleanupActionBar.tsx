@@ -4,6 +4,9 @@ import { Button } from "~/components/ui/button";
 import { Kbd } from "~/components/ui/kbd";
 import { Text } from "~/components/ui/text";
 
+/** Marks a button that spends money, so the label says so before the click. */
+export const paidLabel = (label: string) => `${label} · paid`;
+
 /** Set by the daily stack: adds "Snooze 30 days" to every action bar. */
 export const CleanupSnoozeContext = createContext<(() => void) | null>(null);
 
