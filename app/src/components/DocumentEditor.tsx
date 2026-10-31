@@ -6,7 +6,9 @@ import {
   createMemo,
   createResource,
   createSignal,
+  on,
   onCleanup,
+  untrack,
 } from "solid-js";
 import { useBeforeLeave, useLocation, useNavigate } from "@solidjs/router";
 import { revealBlock } from "./editor/core/blockLinks";
@@ -24,6 +26,7 @@ import { shouldCheckRemote } from "~/features/live-sync/remote-note-change";
 import { fetchDocContentVersion } from "~/services/docs.queries";
 import { topLevelHashes } from "~/lib/note-content/ids";
 import { applyRemoteContent } from "./editor/core/applyRemoteContent";
+import { titleFromFirstLine } from "./new-note-title";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 import TiptapEditor from "./TiptapEditor";
 import { DocPropertiesCompactEditors } from "./DocPropertiesCompactEditors";
@@ -51,10 +54,18 @@ export type DocumentEditorApi = {
   saving: () => boolean;
   dirty: () => boolean;
   error: () => string | undefined;
+  focus: () => void;
 };
 
 // Quiet period after the last keystroke before an autosave fires.
 const AUTOSAVE_DELAY_MS = 1500;
+// A failed save retries on its own, waiting longer each time up to the cap.
+const RETRY_BASE_MS = 2000;
+const RETRY_MAX_MS = 30_000;
+
+// The note just created here. Its page puts the caret at the end, so the next
+// keystroke lands in the note.
+let caretAtEndOfNote: string | undefined;
 
 const fetchDocData = (id: string) => fetchDoc(id) as Promise<DocData>;
 
@@ -322,17 +333,85 @@ const DocumentEditor: VoidComponent<{
         scheduleAutosave();
         return;
       }
-      void onSave();
+      void onSave(true);
     }, AUTOSAVE_DELAY_MS);
   };
   onCleanup(clearAutosave);
+
+  let failedSaves = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearRetry = () => {
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+  };
+  const scheduleRetry = () => {
+    if (!props.autosave || isNew()) return;
+    clearRetry();
+    const delay = Math.min(RETRY_BASE_MS * 2 ** failedSaves, RETRY_MAX_MS);
+    failedSaves += 1;
+    retryTimer = setTimeout(() => void onSave(true), delay);
+  };
+  onCleanup(clearRetry);
+
+  // The way back from a failure is often an event: the network returns, or
+  // the user signs in on another tab and comes back.
+  createEffect(() => {
+    if (!props.autosave) return;
+    const retryNow = () => {
+      if (document.visibilityState === "hidden") return;
+      if (error() && dirty()) void onSave(true);
+    };
+    window.addEventListener("online", retryNow);
+    window.addEventListener("focus", retryNow);
+    document.addEventListener("visibilitychange", retryNow);
+    onCleanup(() => {
+      window.removeEventListener("online", retryNow);
+      window.removeEventListener("focus", retryNow);
+      document.removeEventListener("visibilitychange", retryNow);
+    });
+  });
+
+  // Switching notes reuses this editor, and the old note's state must not
+  // follow. A dirty note reaches here only after "Leave".
+  createEffect(
+    on(
+      () => props.docId,
+      () => {
+        clearAutosave();
+        clearRetry();
+        failedSaves = 0;
+        setDirty(false);
+        setError(undefined);
+      },
+      { defer: true },
+    ),
+  );
+
+  // A new note gets an update on mount, when plugins add block ids and a
+  // trailing paragraph. So it is dirty only when its filled blocks, path or
+  // details differ from how it opened.
+  const newDraftKey = (ed: Editor) => {
+    let filled = 0;
+    ed.state.doc.forEach((node) => {
+      if (node.isLeaf || node.content.size > 0) filled += 1;
+    });
+    const text = ed.state.doc.textContent;
+    return JSON.stringify([filled, text, newPath(), newMeta()]);
+  };
+  let openedDraftKey = "";
+  const markNewDraft = () => {
+    const ed = editor();
+    if (ed) setDirty(newDraftKey(ed) !== openedDraftKey);
+  };
 
   // Track editor updates to mark dirty
   createEffect(() => {
     const ed = editor();
     if (!ed) return;
+    openedDraftKey = untrack(() => newDraftKey(ed));
     const handler = () => {
-      setDirty(true);
+      if (isNew()) markNewDraft();
+      else setDirty(true);
       scheduleAutosave();
     };
     ed.on("update", handler);
@@ -408,6 +487,15 @@ const DocumentEditor: VoidComponent<{
       ed.commands.focus();
       ed.commands.setTextSelection(selectionRange);
       hasAppliedInitialLineSelection = true;
+    });
+  });
+
+  createEffect(() => {
+    const ed = editor();
+    if (!ed || !doc() || doc()?.id !== caretAtEndOfNote) return;
+    caretAtEndOfNote = undefined;
+    queueMicrotask(() => {
+      if (!ed.isDestroyed) ed.commands.focus("end");
     });
   });
 
@@ -503,7 +591,11 @@ const DocumentEditor: VoidComponent<{
     return false;
   };
 
-  async function onSave() {
+  /**
+   * `background` is for saves nobody asked for. A failed save keeps showing
+   * its error through them, so the status does not flicker on each retry.
+   */
+  async function onSave(background?: boolean | Event) {
     if (saving()) return;
     const ed = editor();
     const d = doc();
@@ -519,35 +611,35 @@ const DocumentEditor: VoidComponent<{
     const submittedKey = JSON.stringify(submittedContent);
     const draftKey = () => JSON.stringify(ed.getJSON());
     setSaving(true);
-    setError(undefined);
+    clearRetry();
+    if (background !== true) setError(undefined);
+    let failed = false;
     try {
       const content = submittedContent;
       if (isNew()) {
         // First save → create the note
         let title = newTitle().trim();
         const detected = firstH1Text(ed);
-        if (
-          props.preferH1TitleForNewDoc &&
-          detected &&
-          detected.trim().length > 0
-        ) {
-          title = detected.trim();
-        }
-        if (!title && detected && detected.trim().length > 0) {
-          title = detected.trim();
+        const fromBody = props.preferH1TitleForNewDoc
+          ? titleFromFirstLine(content)
+          : undefined;
+        if (fromBody) title = detected || fromBody.title || title;
+        if (!title && detected) {
+          title = detected;
         }
         if (!title) {
           title = "Untitled note";
         }
         const json = await runCreateDoc({
           title,
-          content,
+          content: fromBody?.content ?? content,
           path: newPath() || undefined,
           meta: newMeta(),
         });
         if (!isMounted) return;
         setDirty(false);
         shouldRestoreSelection = false;
+        caretAtEndOfNote = json.id;
         if (props.onCreated) props.onCreated(json.id);
       } else {
         // Update existing
@@ -614,7 +706,11 @@ const DocumentEditor: VoidComponent<{
         }
       }
     } catch (e) {
-      setError((e as Error).message || "Failed to save");
+      // A late failure from a note the user left must not land on this one.
+      if (!submittedDocId || submittedDocId === props.docId) {
+        failed = true;
+        setError((e as Error).message || "Failed to save");
+      }
     } finally {
       if (shouldRestoreSelection) {
         queueMicrotask(() => {
@@ -639,8 +735,14 @@ const DocumentEditor: VoidComponent<{
         });
       }
       setSaving(false);
-      // Edits made while the request was in flight still need a save.
-      if (dirty() && !error()) scheduleAutosave();
+      if (failed) {
+        scheduleRetry();
+      } else {
+        failedSaves = 0;
+        setError(undefined);
+        // Edits made while the request was in flight still need a save.
+        if (dirty()) scheduleAutosave();
+      }
       // A live event that arrived mid-save may be newer than what we wrote.
       if (recheckAfterSave) {
         recheckAfterSave = false;
@@ -671,6 +773,7 @@ const DocumentEditor: VoidComponent<{
       saving,
       dirty,
       error,
+      focus: () => void editor()?.commands.focus(),
     });
   }
 
@@ -687,6 +790,16 @@ const DocumentEditor: VoidComponent<{
   const shouldShowNewDocPropertiesAfterEditor = () =>
     isNew() && shouldPlaceNewDocPropertiesAfterEditor();
 
+  const handleNewPath = (nextPath: string) => {
+    setNewPath(nextPath);
+    markNewDraft();
+  };
+
+  const handleNewMeta = (nextMeta: MetaRecord) => {
+    setNewMeta(nextMeta);
+    markNewDraft();
+  };
+
   const handleLeaveConfirm = () => {
     const retry = pendingRetry();
     setPendingRetry(null);
@@ -697,6 +810,15 @@ const DocumentEditor: VoidComponent<{
     setLeaveDialogOpen(open);
     if (!open) setPendingRetry(null);
   };
+
+  // A save can land while the dialog is open. Nothing is at risk any more,
+  // so finish the navigation the user asked for.
+  createEffect(() => {
+    if (!leaveDialogOpen() || dirty()) return;
+    const retry = pendingRetry();
+    handleLeaveOpenChange(false);
+    retry?.();
+  });
 
   return (
     <Box class={props.class} w="full">
@@ -763,8 +885,8 @@ const DocumentEditor: VoidComponent<{
           <DocPropertiesCompactEditors
             initialPath={newPath()}
             initialMeta={newMeta()}
-            onPathChange={(nextPath) => setNewPath(nextPath)}
-            onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+            onPathChange={handleNewPath}
+            onMetaChange={handleNewMeta}
             pathPopoverPortalled={props.pathPopoverPortalled}
           />
         </Stack>
@@ -784,8 +906,8 @@ const DocumentEditor: VoidComponent<{
           <DocPropertiesCompactEditors
             initialPath={newPath()}
             initialMeta={newMeta()}
-            onPathChange={(nextPath) => setNewPath(nextPath)}
-            onMetaChange={(nextMeta) => setNewMeta(nextMeta)}
+            onPathChange={handleNewPath}
+            onMetaChange={handleNewMeta}
             pathPopoverPortalled={props.pathPopoverPortalled}
           />
         </Stack>
@@ -793,8 +915,12 @@ const DocumentEditor: VoidComponent<{
       <ConfirmDialog
         open={leaveDialogOpen()}
         onOpenChange={handleLeaveOpenChange}
-        title="Leave without saving?"
-        description="You have unsaved changes. If you leave now, they will be lost."
+        title={error() ? "This note didn't save" : "Leave without saving?"}
+        description={
+          error()
+            ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
+            : "You have unsaved changes. If you leave now, they will be lost."
+        }
         confirmLabel="Leave"
         cancelLabel="Stay"
         onConfirm={handleLeaveConfirm}
