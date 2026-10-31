@@ -1,11 +1,21 @@
 import type { JSX } from "solid-js";
-import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+import {
+  ErrorBoundary,
+  Show,
+  Suspense,
+  createEffect,
+  createMemo,
+  createSignal,
+  lazy,
+  on,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import { useLocation } from "@solidjs/router";
 import { useMagicAuth } from "~/hooks/useMagicAuth";
-import { useLLMSidebar } from "~/components/ai/LLMSidebar";
+import type { LLMSidebarApi } from "~/components/ai/LLMSidebarHost";
 import { onLLMSidebarEvent } from "~/components/ai/LLMSidebarBus";
 import { CommandKMenu } from "~/components/CommandKMenu";
-import { NewNoteModal } from "~/components/NewNoteModal";
 import { ConsoleLogsPanel } from "~/components/ConsoleLogsPanel";
 import { AppSidebarDesktop } from "./AppSidebarDesktop";
 import { AppSidebarMobile } from "./AppSidebarMobile";
@@ -28,23 +38,52 @@ import {
   writeSidebarCollapsed,
 } from "./sidebar-collapse-cookie";
 
+// Chat and New note pull in the whole editor (about 1 MB). Load them on first
+// use, so routes that do not edit notes do not pay for it.
+const LLMSidebarHost = lazy(() => import("~/components/ai/LLMSidebarHost"));
+const NewNoteModal = lazy(() =>
+  import("~/components/NewNoteModal").then((mod) => ({
+    default: mod.NewNoteModal,
+  })),
+);
+
 type AppSidebarClientProps = {
   children: JSX.Element;
 };
 
+// A chunk that fails offline must stay here: the app's own boundary would
+// replace the page and any unsaved note on it.
+const OnDemand = (props: { name: string; children: JSX.Element }) => (
+  <ErrorBoundary
+    fallback={(error) => {
+      console.warn(`[app-sidebar] ${props.name} failed to load`, error);
+      return null;
+    }}
+  >
+    <Suspense>{props.children}</Suspense>
+  </ErrorBoundary>
+);
+
 export const AppSidebarClient = (props: AppSidebarClientProps) => {
   const { authed, logout } = useMagicAuth();
-  const {
-    open: openLLM,
-    view: llmSidebarView,
-    hasUnreadAny,
-    hasLoadingAny,
-  } = useLLMSidebar();
+  const [llm, setLLM] = createSignal<LLMSidebarApi>();
+  const [llmRequest, setLLMRequest] = createSignal<{ threadId?: string }>();
+  const openLLM = (threadId?: string) => {
+    const api = llm();
+    if (api) api.open(threadId);
+    else setLLMRequest({ threadId });
+  };
+  const hasUnreadAny = () => llm()?.hasUnreadAny() ?? false;
+  const hasLoadingAny = () => llm()?.hasLoadingAny() ?? false;
 
   const [collapsed, setCollapsed] = createSignal(readSidebarCollapsed());
   const [cmdkOpen, setCmdkOpen] = createSignal(false);
   const [logsOpen, setLogsOpen] = createSignal(false);
   const [newNoteOpen, setNewNoteOpen] = createSignal(false);
+  const newNoteUsed = createMemo<boolean>(
+    (used) => used || newNoteOpen(),
+    false,
+  );
   const [newNoteInitialTitle, setNewNoteInitialTitle] = createSignal<
     string | undefined
   >(undefined);
@@ -220,7 +259,13 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         </AppSidebarDesktop>
       </Box>
 
-      {llmSidebarView}
+      <Show when={llmRequest()}>
+        {(request) => (
+          <OnDemand name="chat">
+            <LLMSidebarHost threadId={request().threadId} onReady={setLLM} />
+          </OnDemand>
+        )}
+      </Show>
       <CommandKMenu
         open={cmdkOpen()}
         onOpenChange={setCmdkOpen}
@@ -228,11 +273,15 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         actions={paletteActions}
       />
       <ConsoleLogsPanel open={logsOpen()} onClose={() => setLogsOpen(false)} />
-      <NewNoteModal
-        open={newNoteOpen()}
-        onOpenChange={handleNewNoteOpenChange}
-        initialTitle={newNoteInitialTitle()}
-      />
+      <Show when={newNoteUsed()}>
+        <OnDemand name="new note">
+          <NewNoteModal
+            open={newNoteOpen()}
+            onOpenChange={handleNewNoteOpenChange}
+            initialTitle={newNoteInitialTitle()}
+          />
+        </OnDemand>
+      </Show>
     </MobileAppBarContext.Provider>
   );
 };

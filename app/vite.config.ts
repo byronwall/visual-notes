@@ -4,6 +4,11 @@ import devtools from "solid-devtools/vite";
 import { defineConfig } from "vite";
 import lucidePreprocess from "vite-plugin-lucide-preprocess";
 
+// In the client build, "use server" leaves these modules imported but unused.
+// Their top-level code is only definitions, so drop them: otherwise a bare
+// import keeps the 1 MB note schema on routes that never edit a note.
+const pureOnClient = /\/src\/(server|lib\/note-content)\//;
+
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   // vinxi read PORT and HOST; CI, Playwright, and the audit harness still set them.
@@ -28,6 +33,25 @@ export default defineConfig({
     },
   },
   plugins: [
+    {
+      // A plugin, because solidStart sets the client's `treeshake: true` after
+      // the user config and replaces an object set there.
+      name: "client-pure-modules",
+      enforce: "post",
+      configEnvironment: (name) =>
+        name === "client"
+          ? {
+              build: {
+                rolldownOptions: {
+                  treeshake: {
+                    moduleSideEffects: (id: string) =>
+                      pureOnClient.test(id) ? false : undefined,
+                  },
+                },
+              },
+            }
+          : undefined,
+    },
     lucidePreprocess(),
     devtools({
       /* features options - all disabled by default */
@@ -37,7 +61,12 @@ export default defineConfig({
         jsxLocation: true,
       },
     }),
-    solidStart({ middleware: "./src/middleware.ts" }),
+    // Its reload fires on a failed hover preload too, so going offline dropped
+    // the page and any unsaved note. app.tsx ignores failed preloads instead.
+    solidStart({
+      middleware: "./src/middleware.ts",
+      reloadOnRouteChunkError: false,
+    }),
     nitro({
       preset: "node-server",
       features: { websocket: true },
