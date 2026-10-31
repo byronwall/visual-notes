@@ -11,7 +11,6 @@ export const QueueSkeleton: VoidComponent = () => (
           <Stack gap="1">
             <Skeleton h="5" w="80%" />
             <Skeleton h="4" w="55%" />
-            <Skeleton h="4" w="full" />
           </Stack>
         </Box>
       )}

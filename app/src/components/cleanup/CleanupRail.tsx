@@ -1,7 +1,7 @@
 import { A } from "@solidjs/router";
 import { For, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
-import { Box, Stack } from "styled-system/jsx";
+import { Box } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import {
   BUCKET_META,
@@ -14,7 +14,7 @@ const bucketButton = css({
   display: "flex",
   alignItems: "center",
   gap: "2",
-  w: "full",
+  minH: "9",
   px: "2.5",
   py: "1.5",
   borderRadius: "l2",
@@ -24,6 +24,24 @@ const bucketButton = css({
   cursor: "pointer",
   _hover: { bg: "gray.a3" },
   "&[aria-current=true]": { bg: "gray.a3", fontWeight: "medium" },
+  xl: { w: "full", minH: "0" },
+});
+
+const bucketList = css({
+  display: "flex",
+  flexWrap: "wrap",
+  columnGap: "1",
+  rowGap: "0.5",
+  flexBasis: "full",
+  order: "1",
+  mx: "-1",
+  xl: {
+    flexDirection: "column",
+    flexWrap: "nowrap",
+    flexBasis: "auto",
+    order: "0",
+    mx: "0",
+  },
 });
 
 /**
@@ -36,7 +54,7 @@ export const CleanupRail: VoidComponent<{
   selected: BucketId | "";
   onSelect: (bucket: BucketId) => void;
 }> = (props) => (
-  <Stack gap="0.5" as="nav" aria-label="Cleanup buckets">
+  <nav aria-label="Cleanup buckets" class={bucketList}>
     <For each={RAIL_BUCKETS}>
       {(bucket) => (
         <button
@@ -52,7 +70,7 @@ export const CleanupRail: VoidComponent<{
             flexShrink="0"
             style={{ background: dotColor(BUCKET_META[bucket].dot) }}
           />
-          <Box flex="1">{BUCKET_META[bucket].label}</Box>
+          <Box flex={{ xl: "1" }}>{BUCKET_META[bucket].label}</Box>
           <Text
             as="span"
             fontSize="xs"
@@ -64,9 +82,14 @@ export const CleanupRail: VoidComponent<{
         </button>
       )}
     </For>
-    <Box borderTopWidth="1px" borderColor="border" my="2" />
+    <Box
+      display={{ base: "none", xl: "block" }}
+      borderTopWidth="1px"
+      borderColor="border"
+      my="2"
+    />
     <A href="/docs/archived" class={bucketButton}>
-      <Box flex="1" color="fg.muted">
+      <Box flex={{ xl: "1" }} color="fg.muted">
         Archived
       </Box>
       <Text
@@ -78,8 +101,13 @@ export const CleanupRail: VoidComponent<{
         {props.archived ?? "–"}
       </Text>
     </A>
-    <Text fontSize="xs" color="fg.subtle" px="2.5">
+    <Text
+      display={{ base: "none", xl: "block" }}
+      fontSize="xs"
+      color="fg.subtle"
+      px="2.5"
+    >
       Deleted 30 days after archiving
     </Text>
-  </Stack>
+  </nav>
 );
