@@ -1,4 +1,4 @@
-import { A, createAsync, useAction } from "@solidjs/router";
+import { A, useAction } from "@solidjs/router";
 import { For, Show, createSignal, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -16,6 +16,7 @@ import {
   reasonVerb,
   shortDate,
 } from "./archive-format";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const SOON_DAYS = 3;
 const titleLink = css({ display: "block", py: "1", minW: "0" });
@@ -102,7 +103,7 @@ const ArchivedRow: VoidComponent<{ note: ArchivedNote }> = (props) => {
 
 /** Every archived note, soonest deletion first, with Restore. */
 export const ArchivedNotesView: VoidComponent = () => {
-  const data = createAsync(() => fetchArchivedNotes());
+  const data = createKeptAsync(() => fetchArchivedNotes());
 
   return (
     <Stack gap="4" maxW="4xl" w="full" mx="auto">
