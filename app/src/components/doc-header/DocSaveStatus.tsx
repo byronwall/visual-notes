@@ -7,6 +7,7 @@ import {
   type VoidComponent,
 } from "solid-js";
 import { Box, styled } from "styled-system/jsx";
+import { loginPathFor } from "~/utils/safe-next";
 import { formatRelativeShort } from "./relative-time";
 
 export type SaveState = {
@@ -80,7 +81,7 @@ export const DocSaveStatus: VoidComponent<{
         {/* A new tab keeps this page, and the unsaved text, open. The save
             retries when the user comes back. */}
         <styled.a
-          href={`/login?next=${encodeURIComponent(location.pathname)}`}
+          href={loginPathFor(location.pathname)}
           target="_blank"
           rel="noopener"
           title="Your session ended. Sign in on the new tab, then come back. This note saves on its own."

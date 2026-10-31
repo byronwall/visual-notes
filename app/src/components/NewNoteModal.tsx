@@ -45,6 +45,7 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
   // footer, because a second dialog stays hidden from screen readers here.
   const handleOpenChange = (open: boolean) => {
     if (open) props.onOpenChange(true);
+    else if (isSaving()) return;
     else if (discardOpen()) keepWriting();
     else if (editorApi()?.dirty()) setDiscardOpen(true);
     else handleCancel();
@@ -102,6 +103,7 @@ export const NewNoteModal: VoidComponent<NewNoteModalProps> = (props) => {
                 variant="outline"
                 colorPalette="gray"
                 onClick={handleCancel}
+                disabled={isSaving()}
               >
                 Cancel
               </Button>

@@ -50,10 +50,12 @@ export const titleFromFirstLine = (
   const body = rest[start];
   const line = firstLine(body);
   const title = clip(line);
+  const skipped = rest.slice(0, start);
   const wholeBlock =
     body.type === "paragraph" &&
     title === line &&
-    !body.content?.some((child) => child.type === "hardBreak");
+    !body.content?.some((child) => child.type === "hardBreak") &&
+    skipped.every((block) => block.type === "paragraph" && !block.content);
   if (!wholeBlock) return { title, content: { ...doc, content: rest } };
 
   const heading = {

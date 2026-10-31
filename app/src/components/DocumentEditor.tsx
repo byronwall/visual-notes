@@ -345,7 +345,7 @@ const DocumentEditor: VoidComponent<{
     retryTimer = undefined;
   };
   const scheduleRetry = () => {
-    if (!props.autosave || isNew()) return;
+    if (!isMounted || !props.autosave || isNew()) return;
     clearRetry();
     const delay = Math.min(RETRY_BASE_MS * 2 ** failedSaves, RETRY_MAX_MS);
     failedSaves += 1;
@@ -428,7 +428,7 @@ const DocumentEditor: VoidComponent<{
       if (document.visibilityState !== "hidden") return;
       if (!dirty() || saving() || isNew()) return;
       clearAutosave();
-      void onSave();
+      void onSave(true);
     };
     document.addEventListener("visibilitychange", onVisibility);
     onCleanup(() =>
@@ -514,7 +514,6 @@ const DocumentEditor: VoidComponent<{
   // Block client-side route navigation when dirty
   useBeforeLeave((evt) => {
     if (!dirty()) return;
-    if (leaveDialogOpen()) return;
     if (evt.defaultPrevented) return;
     evt.preventDefault();
     setPendingRetry(() => () => evt.retry(true));
@@ -595,7 +594,7 @@ const DocumentEditor: VoidComponent<{
    * `background` is for saves nobody asked for. A failed save keeps showing
    * its error through them, so the status does not flicker on each retry.
    */
-  async function onSave(background?: boolean | Event) {
+  async function onSave(background?: boolean) {
     if (saving()) return;
     const ed = editor();
     const d = doc();
@@ -612,7 +611,7 @@ const DocumentEditor: VoidComponent<{
     const draftKey = () => JSON.stringify(ed.getJSON());
     setSaving(true);
     clearRetry();
-    if (background !== true) setError(undefined);
+    if (!background) setError(undefined);
     let failed = false;
     try {
       const content = submittedContent;
@@ -630,6 +629,8 @@ const DocumentEditor: VoidComponent<{
         if (!title) {
           title = "Untitled note";
         }
+        // Text typed now would not be in the note this request creates.
+        ed.setEditable(false, false);
         const json = await runCreateDoc({
           title,
           content: fromBody?.content ?? content,
@@ -736,6 +737,10 @@ const DocumentEditor: VoidComponent<{
       }
       setSaving(false);
       if (failed) {
+        if (isNew() && !ed.isDestroyed) {
+          ed.setEditable(true, false);
+          ed.commands.focus();
+        }
         scheduleRetry();
       } else {
         failedSaves = 0;
@@ -838,7 +843,7 @@ const DocumentEditor: VoidComponent<{
                 variant="outline"
                 colorPalette="gray"
                 disabled={!canSave()}
-                onClick={onSave}
+                onClick={() => void onSave()}
               >
                 {saving() ? "Saving…" : dirty() ? "Save*" : "Save"}
               </Button>
@@ -917,7 +922,7 @@ const DocumentEditor: VoidComponent<{
         onOpenChange={handleLeaveOpenChange}
         title={error() ? "This note didn't save" : "Leave without saving?"}
         description={
-          error()
+          error() && props.autosave
             ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
             : "You have unsaved changes. If you leave now, they will be lost."
         }

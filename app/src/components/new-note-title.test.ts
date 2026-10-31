@@ -52,6 +52,15 @@ describe("titleFromFirstLine", () => {
     expect(content.content).toEqual([body]);
   });
 
+  it("keeps a block that sits above the first line", () => {
+    const image = { type: "image", attrs: { src: "/a.png" } };
+    const { title, content } = titleFromFirstLine(
+      doc(emptyH1, image, para("Caption")),
+    );
+    expect(title).toBe("Caption");
+    expect(content.content).toEqual([image, para("Caption")]);
+  });
+
   it("drops the empty heading of a blank note", () => {
     const { title, content } = titleFromFirstLine(doc(emptyH1));
     expect(title).toBeUndefined();
