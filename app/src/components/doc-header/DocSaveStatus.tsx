@@ -7,6 +7,7 @@ import {
   type VoidComponent,
 } from "solid-js";
 import { Box, styled } from "styled-system/jsx";
+import { loginPathFor } from "~/utils/safe-next";
 import { formatRelativeShort } from "./relative-time";
 
 export type SaveState = {
@@ -15,6 +16,10 @@ export type SaveState = {
   error?: string;
   updatedAt?: string;
 };
+
+// Server functions report a rejected session only through this message.
+const sessionEnded = (error: string | undefined) =>
+  !!error && /status 401\b/.test(error);
 
 /**
  * One quiet line that answers "is my writing safe?": Saving…, Unsaved,
@@ -72,11 +77,35 @@ export const DocSaveStatus: VoidComponent<{
         </styled.button>
       }
     >
+      <Match when={sessionEnded(props.state.error)}>
+        {/* A new tab keeps this page, and the unsaved text, open. The save
+            retries when the user comes back. */}
+        <styled.a
+          href={loginPathFor(location.pathname)}
+          target="_blank"
+          rel="noopener"
+          title="Your session ended. Sign in on the new tab, then come back. This note saves on its own."
+          display="inline-flex"
+          alignItems="center"
+          fontSize="xs"
+          fontWeight="medium"
+          color="red.11"
+          px="1.5"
+          h="7"
+          borderRadius="l2"
+          cursor="pointer"
+          whiteSpace="nowrap"
+          focusVisibleRing="outside"
+          _hover={{ bg: "red.a3" }}
+        >
+          Not saved · Sign in
+        </styled.a>
+      </Match>
       <Match when={props.state.error}>
         <styled.button
           type="button"
           onClick={() => props.onRetry?.()}
-          title={props.state.error}
+          title={`${props.state.error}. Retrying on its own. Click to retry now.`}
           fontSize="xs"
           fontWeight="medium"
           color="red.11"
