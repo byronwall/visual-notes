@@ -23,7 +23,7 @@ export type DetailHandlers = {
 
 /** The selected note: why it is here, then the bucket's action panel. */
 export const CleanupDetail: VoidComponent<
-  DetailHandlers & { item: CleanupItemDetail }
+  DetailHandlers & { item: CleanupItemDetail; showConfidence?: boolean }
 > = (props) => (
   <Stack gap="4" h="full" minH="0" data-testid="cleanup-detail">
     <Stack gap="1.5">
@@ -32,18 +32,13 @@ export const CleanupDetail: VoidComponent<
           {props.item.title || "Untitled note"}
         </A>
       </Heading>
-      <HStack gap="2">
-        <Show when={props.item.path}>
-          {(path) => (
-            <Badge size="sm" variant="outline">
-              {path()}
-            </Badge>
-          )}
-        </Show>
-        <Text fontSize="xs" color="fg.subtle">
-          {props.item.model}
-        </Text>
-      </HStack>
+      <Show when={props.item.path}>
+        {(path) => (
+          <Badge size="sm" variant="outline" w="fit-content">
+            {path()}
+          </Badge>
+        )}
+      </Show>
     </Stack>
     <PanelSection title="Why it is here">
       <HStack gap="1.5" flexWrap="wrap">
@@ -61,6 +56,11 @@ export const CleanupDetail: VoidComponent<
             </Box>
           )}
         </For>
+        <Show when={props.showConfidence}>
+          <Text as="span" fontSize="xs" color="fg.muted">
+            Confidence {props.item.confidence.toFixed(2)}
+          </Text>
+        </Show>
       </HStack>
     </PanelSection>
     <Switch>

@@ -1,14 +1,18 @@
 import { A, createAsync, revalidate } from "@solidjs/router";
+import { ChevronDownIcon } from "lucide-solid";
 import {
   For,
   Show,
   Suspense,
+  createSignal,
   onCleanup,
   onMount,
   type VoidComponent,
 } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { css } from "styled-system/css";
+import { Box, Stack } from "styled-system/jsx";
 import { Link } from "~/components/ui/link";
+import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
 import type { CleanupStatus } from "~/server/cleanup/status";
 import { fetchCleanupStatus } from "~/services/cleanup/cleanup.queries";
@@ -36,7 +40,9 @@ function rows(status?: CleanupStatus): Array<[string, string]> {
   return [
     [
       "Last run",
-      status?.lastRunAt ? formatRelativeShort(Date.now(), status.lastRunAt) : "–",
+      status?.lastRunAt
+        ? formatRelativeShort(Date.now(), status.lastRunAt)
+        : "–",
     ],
     ["Pending", pending],
     ["Today", status ? spend(status.today) : "–"],
@@ -54,6 +60,65 @@ const headline = (status?: CleanupStatus) => {
   return `${name} · ${status.sweepPaid ? "paid, idle" : "free, idle"}`;
 };
 
+const summary = css({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "1.5",
+  minH: "9",
+  px: "1",
+  borderRadius: "l2",
+  fontSize: "xs",
+  fontWeight: "medium",
+  whiteSpace: "nowrap",
+  cursor: "pointer",
+  _hover: { bg: "gray.a3" },
+  xl: { minH: "7", alignSelf: "flex-start" },
+});
+
+/** The headline, with the numbers and the Paid calls link in a popover. */
+const Summary: VoidComponent<{ status?: CleanupStatus }> = (props) => {
+  const [open, setOpen] = createSignal(false);
+  return (
+    <SimplePopover
+      open={open()}
+      onClose={() => setOpen(false)}
+      placement="bottom-start"
+      anchor={
+        <button
+          type="button"
+          class={summary}
+          aria-expanded={open()}
+          data-testid="cleanup-run-status"
+          onClick={() => setOpen(!open())}
+        >
+          <Box
+            w="2"
+            h="2"
+            borderRadius="full"
+            flexShrink="0"
+            bg={props.status?.running ? "amber.9" : "gray.a6"}
+          />
+          {headline(props.status)}
+          <ChevronDownIcon size={12} />
+        </button>
+      }
+    >
+      <Stack gap="1" px="3" py="2.5">
+        <For each={rows(props.status)}>
+          {([label, value]) => (
+            <Text fontSize="xs" color="fg.muted">
+              {label}: {value}
+            </Text>
+          )}
+        </For>
+        <Link as={A} href="/ai" fontSize="xs" w="fit-content">
+          Paid calls
+        </Link>
+      </Stack>
+    </SimplePopover>
+  );
+};
+
 const Body: VoidComponent<{ status?: CleanupStatus; inline?: boolean }> = (
   props,
 ) => (
@@ -69,30 +134,7 @@ const Body: VoidComponent<{ status?: CleanupStatus; inline?: boolean }> = (
       </Text>
     }
   >
-    <Stack gap="1" data-testid="cleanup-run-status">
-      <HStack gap="1.5">
-        <Box
-          w="2"
-          h="2"
-          borderRadius="full"
-          flexShrink="0"
-          bg={props.status?.running ? "amber.9" : "gray.a6"}
-        />
-        <Text fontSize="xs" fontWeight="medium">
-          {headline(props.status)}
-        </Text>
-      </HStack>
-      <For each={rows(props.status)}>
-        {([label, value]) => (
-          <Text fontSize="xs" color="fg.muted">
-            {label}: {value}
-          </Text>
-        )}
-      </For>
-      <Link as={A} href="/ai" fontSize="xs" w="fit-content">
-        Paid calls
-      </Link>
-    </Stack>
+    <Summary status={props.status} />
   </Show>
 );
 

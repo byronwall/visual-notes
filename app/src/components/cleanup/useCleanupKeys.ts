@@ -8,12 +8,15 @@ const isTyping = (target: EventTarget | null) => {
   );
 };
 
-const click = (action: string) =>
-  document
-    .querySelector<HTMLButtonElement>(
-      `[data-cleanup-action="${action}"]:not([disabled])`,
-    )
-    ?.click();
+const button = (action: string) => {
+  const el = document.querySelector<HTMLButtonElement>(
+    `[data-cleanup-action="${action}"]:not([disabled])`,
+  );
+  // Below `lg` the queue view keeps the note mounted but hidden.
+  return el?.offsetParent ? el : null;
+};
+
+const click = (action: string) => button(action)?.click();
 
 /**
  * Triage keys: J/K or arrows move, Enter approves, E keeps, S (or →) skips,
@@ -38,7 +41,7 @@ export function useCleanupKeys(move: (delta: number) => void) {
     if (
       key === "enter" &&
       el.tagName === "BUTTON" &&
-      el.getAttribute("role") !== "option"
+      (el.getAttribute("role") !== "option" || !button("primary"))
     ) {
       return;
     }
