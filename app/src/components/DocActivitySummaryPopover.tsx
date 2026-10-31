@@ -1,5 +1,11 @@
 import { createAsync } from "@solidjs/router";
-import { Clock3Icon, EyeIcon, PencilIcon, SearchIcon } from "lucide-solid";
+import {
+  Clock3Icon,
+  EyeIcon,
+  FilePlusIcon,
+  PencilIcon,
+  SearchIcon,
+} from "lucide-solid";
 import {
   For,
   Show,
@@ -9,7 +15,9 @@ import {
   type VoidComponent,
 } from "solid-js";
 import { Box, HStack, Stack } from "styled-system/jsx";
+import { describeActivityEvent } from "~/components/activity/activity-format";
 import { fetchDocActivityHistory } from "~/services/activity/activity.queries";
+import type { ActionEventItem } from "~/services/activity/activity.types";
 import { Button } from "~/components/ui/button";
 import { SimplePopover } from "~/components/ui/simple-popover";
 import { Text } from "~/components/ui/text";
@@ -47,14 +55,15 @@ function formatRelativeTimestamp(
   return `${years}y ago`;
 }
 
-function eventTypeLabel(eventType: string): string {
-  if (eventType === "doc.view") return "Opened";
-  if (eventType === "doc.update") return "Edited";
-  if (eventType === "search.result.opened") return "Opened from search";
-  return eventType;
+function eventLabel(event: ActivityEvent): string {
+  if (event.eventType === "doc.view") return "Opened";
+  if (event.eventType === "doc.update") return "Edited";
+  if (event.eventType === "search.result.opened") return "Opened from search";
+  return describeActivityEvent(event as ActionEventItem).verb;
 }
 
 function eventIcon(eventType: string) {
+  if (eventType === "doc.create") return FilePlusIcon;
   if (eventType === "doc.view") return EyeIcon;
   if (eventType === "doc.update") return PencilIcon;
   if (eventType === "search.result.opened") return SearchIcon;
@@ -307,7 +316,7 @@ export const DocActivitySummaryPopover: VoidComponent<{
                                 color="fg.default"
                                 fontWeight="medium"
                               >
-                                {eventTypeLabel(event.eventType)}
+                                {eventLabel(event)}
                                 <Show when={event.count > 1}>
                                   <Box as="span" color="fg.subtle" ml="1">
                                     ×{event.count}

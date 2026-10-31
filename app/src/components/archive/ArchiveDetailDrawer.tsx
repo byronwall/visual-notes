@@ -52,6 +52,13 @@ const sectionLabelClass = css({
   letterSpacing: "wider",
 });
 
+// The switcher button has ml="-2", so its max width must allow for that margin
+// here, where the wrapper sizes to the button. Otherwise the label is cut.
+const groupFitClass = css({
+  display: "contents",
+  "& button": { maxW: "calc(100% + token(spacing.2))" },
+});
+
 export const ArchiveDetailDrawer: VoidComponent<{
   open: boolean;
   pageId?: string;
@@ -277,18 +284,20 @@ export const ArchiveDetailDrawer: VoidComponent<{
                   <ExternalLinkIcon size={12} class={css({ flexShrink: 0 })} />
                 </a>
                 <HStack gap="2" fontSize="xs" color="fg.muted" flexWrap="wrap">
-                  <ArchiveGroupSwitcher
-                    value={current().groupName || ""}
-                    options={props.groupOptions}
-                    placeholder="Add group"
-                    onCommit={async (groupName) => {
-                      await runUpdateArchivedPage({
-                        id: current().id,
-                        groupName,
-                      });
-                      await refresh(current().id);
-                    }}
-                  />
+                  <span class={groupFitClass}>
+                    <ArchiveGroupSwitcher
+                      value={current().groupName || ""}
+                      options={props.groupOptions}
+                      placeholder="Add group"
+                      onCommit={async (groupName) => {
+                        await runUpdateArchivedPage({
+                          id: current().id,
+                          groupName,
+                        });
+                        await refresh(current().id);
+                      }}
+                    />
+                  </span>
                   <Show when={current().lastCapturedAt}>
                     {(captured) => (
                       <span title={formatExactTime(captured())}>
