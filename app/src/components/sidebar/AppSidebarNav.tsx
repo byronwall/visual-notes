@@ -14,7 +14,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
   const pathname = () => location.pathname;
 
   return (
-    // Two columns when expanded: nine sections in five short rows, so the
+    // Two columns when expanded: ten sections in five short rows, so the
     // Recent list starts high in the sidebar.
     <Grid
       as="ul"
