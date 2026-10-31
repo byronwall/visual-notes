@@ -917,19 +917,23 @@ const DocumentEditor: VoidComponent<{
           />
         </Stack>
       </Show>
-      <ConfirmDialog
-        open={leaveDialogOpen()}
-        onOpenChange={handleLeaveOpenChange}
-        title={error() ? "This note didn't save" : "Leave without saving?"}
-        description={
-          error() && props.autosave
-            ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
-            : "You have unsaved changes. If you leave now, they will be lost."
-        }
-        confirmLabel="Leave"
-        cancelLabel="Stay"
-        onConfirm={handleLeaveConfirm}
-      />
+      {/* Mounted on demand: the phone drawer hides every portal that exists
+          when it opens from the accessibility tree. */}
+      <Show when={leaveDialogOpen()}>
+        <ConfirmDialog
+          open
+          onOpenChange={handleLeaveOpenChange}
+          title={error() ? "This note didn't save" : "Leave without saving?"}
+          description={
+            error() && props.autosave
+              ? "Your latest changes aren't saved. If you stay, this note keeps retrying. If you leave now, they will be lost."
+              : "You have unsaved changes. If you leave now, they will be lost."
+          }
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          onConfirm={handleLeaveConfirm}
+        />
+      </Show>
     </Box>
   );
 };
