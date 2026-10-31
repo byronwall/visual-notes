@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 // Enter in Cmd+K opens the best match. It must never fall through to New note
 // while the results are on their way.
@@ -33,8 +34,22 @@ test("Enter before the results arrive still opens the match", async ({ page }) =
   const noteId = await createNoteFixture(page, { title, markdown: "Body." });
 
   await openPalette(page);
+  let release!: () => void;
+  let captured!: () => void;
+  const waiting = new Promise<void>((resolve) => { captured = resolve; });
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/_server*", async (route) => {
+    if (isServerFn(route.request().headers()["x-server-id"], "searchDocs")) {
+      captured();
+      await gate;
+    }
+    await route.continue();
+  });
   await page.keyboard.insertText(title);
+  await waiting;
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Create note" })).toHaveCount(0);
+  release();
   await expect(page).toHaveURL(new RegExp(`/docs/${noteId}$`));
 });
 
