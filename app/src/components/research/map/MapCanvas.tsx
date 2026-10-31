@@ -44,10 +44,12 @@ export const MapCanvas = (props: {
   onCleanup(() => clearTimeout(searchTimer));
   createEffect(
     on(
-      () => props.state.matchCounts(),
-      (counts) => {
+      // The text, not the hits: a live update must not re-frame the view.
+      () => props.query,
+      () => {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => {
+          const counts = props.state.matchCounts();
           const { boxes, byId } = props.state.layout();
           const hits = counts
             ? [...counts.keys()].flatMap((id) => byId.get(id) ?? [])
@@ -63,7 +65,8 @@ export const MapCanvas = (props: {
     const id = (event.target as HTMLElement).closest<HTMLElement>(
       "[data-node-id]",
     )?.dataset.nodeId;
-    if (!id) return;
+    // Cmd+← and Alt+← stay the browser's back shortcut.
+    if (!id || event.metaKey || event.altKey || event.ctrlKey) return;
     if (event.key === "Enter" && event.shiftKey) {
       const key = props.state.tree().byId.get(id)?.streamKey;
       if (!key) return;
@@ -77,6 +80,7 @@ export const MapCanvas = (props: {
       props.state.tree(),
       props.state.layout(),
       props.state.openIds(),
+      props.state.searchOpen(),
     );
     const handled = [
       "ArrowUp",
@@ -130,7 +134,10 @@ export const MapCanvas = (props: {
         data-testid="research-map"
         data-dragging={view.dragging()}
         data-gliding={view.gliding()}
-        onPointerDown={view.onPointerDown}
+        onPointerDown={(event) => {
+          hover.hide();
+          view.onPointerDown(event);
+        }}
         onPointerOver={hover.onPointerOver}
         onPointerLeave={hover.hide}
         onFocusIn={(event) => {

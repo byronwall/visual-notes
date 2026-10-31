@@ -27,16 +27,16 @@ export const createMapState = (props: {
       plainExcerpt(props.data().current()?.topic.answer ?? ""),
     ),
   );
-  const selectedNode = () => {
+  // A memo, so a live update that rebuilds the tree does not read as a new pick.
+  const selectedNode = createMemo(() => {
     const card = props.selectedId();
     if (card) return tree().cardNodes.get(card) ?? null;
     const key = props.selectedStream();
     if (!key) return null;
     return (
-      [...tree().root.children].find((node) => node.streamKey === key)?.id ??
-      null
+      tree().root.children.find((node) => node.streamKey === key)?.id ?? null
     );
-  };
+  });
 
   const initialOpen = () => {
     const next = new Set<string>();
@@ -78,16 +78,15 @@ export const createMapState = (props: {
   });
 
   // A search opens what it needs without losing the branches you opened.
-  const openIds = createMemo(() => {
-    const matches = props.matches();
-    if (!matches) return open();
-    const next = new Set(open());
-    for (const cardId of matches) {
+  const searchOpen = createMemo(() => {
+    const forced = new Set<string>();
+    for (const cardId of props.matches() ?? []) {
       const id = tree().cardNodes.get(cardId);
-      if (id) for (const at of ancestorsOf(tree(), id)) next.add(at);
+      if (id) for (const at of ancestorsOf(tree(), id)) forced.add(at);
     }
-    return next;
+    return forced;
   });
+  const openIds = createMemo(() => new Set([...open(), ...searchOpen()]));
 
   const layout = createMemo(() => layoutMap(tree(), openIds()));
 
@@ -106,6 +105,7 @@ export const createMapState = (props: {
     tree,
     layout,
     openIds,
+    searchOpen,
     matchCounts,
     foundCount: () => props.matches()?.size ?? null,
     selectedPath,

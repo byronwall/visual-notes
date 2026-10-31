@@ -153,7 +153,7 @@ test.describe("research topic board", () => {
     ).toBeVisible();
 
     // Searching the contents dims non-matching rows and highlights the match.
-    await page.getByLabel("Search cards").fill("northwind");
+    await page.locator("aside").getByLabel("Search cards").fill("northwind");
     await expect(
       page
         .locator("[data-testid=research-board-card][data-dimmed=true]")
@@ -172,7 +172,7 @@ test.describe("research topic board", () => {
         .getByRole("heading", { name: "Northwind lower deductibles" }),
     ).toBeVisible();
     await page.getByRole("tab", { name: "Contents" }).click();
-    await page.getByLabel("Search cards").fill("");
+    await page.locator("aside").getByLabel("Search cards").fill("");
 
     // Keyboard: Enter on a board card selects it, Esc clears.
     await cardByTitle(page, "Harbor Auto: $332").focus();

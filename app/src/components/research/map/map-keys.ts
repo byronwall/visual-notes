@@ -17,6 +17,8 @@ export const mapMove = (
   tree: MapTree,
   layout: MapLayout,
   open: Set<string>,
+  /** Branches a search holds open; they cannot close until it clears. */
+  held: Set<string>,
 ): MapMove => {
   const node = tree.byId.get(id);
   const box = layout.byId.get(id);
@@ -46,6 +48,6 @@ export const mapMove = (
     if (!node.children.length) return null;
     return isOpen ? { to: node.children[0].id } : { toggle: id };
   }
-  if (isOpen && node.children.length) return { toggle: id };
+  if (isOpen && node.children.length && !held.has(id)) return { toggle: id };
   return node.parentId ? { to: node.parentId } : null;
 };

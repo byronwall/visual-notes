@@ -7,7 +7,13 @@ const HOVER_DELAY_MS = 200;
 const GAP = 6;
 const CARD_MAX_W = 352;
 
-type Hover = { title: string; goal: string; left: number; top: number };
+type Hover = {
+  title: string;
+  goal: string;
+  left: number;
+  top: number;
+  above: number | null;
+};
 
 /**
  * One card for the whole map, not one per node: it shows a title cut off by the
@@ -38,6 +44,8 @@ export const createMapHover = (tree: () => MapTree) => {
       goal,
       left: Math.min(rect.left, window.innerWidth - CARD_MAX_W - GAP),
       top: rect.bottom + GAP,
+      // Low on the screen, the card opens upward so its end stays in view.
+      above: rect.bottom > window.innerHeight * 0.75 ? rect.top - GAP : null,
     });
   };
   const nodeAt = (target: EventTarget | null) =>
@@ -53,7 +61,10 @@ export const createMapHover = (tree: () => MapTree) => {
     },
     onFocusIn: (event: FocusEvent) => {
       const element = nodeAt(event.target);
-      if (element?.matches(":focus-visible")) show(element);
+      if (!element?.matches(":focus-visible")) return;
+      hide();
+      // After the glide that brought the node into view, so the rect is final.
+      timer = setTimeout(() => show(element), HOVER_DELAY_MS);
     },
     Card: () => (
       <Show when={hover()}>
@@ -77,7 +88,9 @@ export const createMapHover = (tree: () => MapTree) => {
               })}
               style={{
                 left: `${entry().left}px`,
-                top: `${entry().top}px`,
+                top: `${entry().above ?? entry().top}px`,
+                transform:
+                  entry().above === null ? undefined : "translateY(-100%)",
                 "max-width": `${CARD_MAX_W}px`,
               }}
             >

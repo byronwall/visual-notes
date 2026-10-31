@@ -53,16 +53,21 @@ test.describe("research topic map", () => {
       "Carrier A draft",
     );
 
-    // Search opens the branch that holds a match and dims the rest.
     await page.keyboard.press("Escape");
+    // A trip to Board keeps what was open.
     await page.getByRole("tab", { name: "Board" }).click();
     await expect(page).toHaveURL(/view=board/);
+    await page.getByRole("tab", { name: "Map" }).click();
+    await expect(nodes("section")).not.toHaveCount(0);
+
+    await page.getByRole("tab", { name: "Board" }).click();
     await page.reload();
     await waitForAppReady(page);
     await expect(page.getByTestId("research-board")).toBeVisible();
     await page.getByRole("tab", { name: "Map" }).click();
     await expect(page).not.toHaveURL(/view=/);
 
+    // Search opens the branch that holds a match and dims the rest.
     await map.locator("..").getByLabel("Search cards").fill("deductibles");
     await expect(
       nodes("card").filter({ hasText: "Higher deductibles" }),

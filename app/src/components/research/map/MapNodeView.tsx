@@ -154,7 +154,6 @@ export const MapNodeView = (props: {
                   type="button"
                   tabIndex={-1}
                   class={countButtonClass}
-                  data-map-control
                   aria-label={
                     props.open
                       ? "Collapse"

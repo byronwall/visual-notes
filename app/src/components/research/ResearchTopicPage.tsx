@@ -277,19 +277,23 @@ export const ResearchTopicPage = (props: { slug: string }) => {
                 when={data.cards().length}
                 fallback={<EmptyTopic title={graph().topic.title} />}
               >
+                {/* Stays mounted so open branches and pan survive a trip to Board. */}
+                <div
+                  class={css({ h: "full" })}
+                  style={{ display: view() === "map" ? undefined : "none" }}
+                >
+                  <TopicMap
+                    data={data}
+                    selectedId={selected()?.id ?? null}
+                    selectedStream={selectedStream()?.key ?? null}
+                    matches={matches()}
+                    query={query()}
+                    onQuery={setQuery}
+                    onSelect={select}
+                    onSelectStream={selectStream}
+                  />
+                </div>
                 <Switch>
-                  <Match when={view() === "map"}>
-                    <TopicMap
-                      data={data}
-                      selectedId={selected()?.id ?? null}
-                      selectedStream={selectedStream()?.key ?? null}
-                      matches={matches()}
-                      query={query()}
-                      onQuery={setQuery}
-                      onSelect={select}
-                      onSelectStream={selectStream}
-                    />
-                  </Match>
                   <Match when={view() === "board"}>
                     <TopicBoard
                       data={data}
