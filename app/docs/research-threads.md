@@ -11,7 +11,7 @@ A research topic is one board of cards: questions, findings, options, tasks, cri
 | Payload rules | `research.payload.ts` (zod) and `research.plan.ts` (pure planner: refs, `$0.1` paths, kinds and streams, every error at once) |
 | Streams, relations, lint | `research.streams.ts` (`assignStreams`: explicit stream, else came-from ancestor's, else Unsorted; topics with no streams get one column per root) and `lintTopic`; `research.relations.ts` (answers, results, blockers, citations from parents plus typed links). Pure and unit tested |
 | Board model | `components/research/board/board-model.ts`: columns with fixed blocks (Criteria, Options, Questions, Tasks, Notes, Sources), cards in creation order, answers and results nested within a column, cited sources folded into their finding. Pure and unit tested |
-| UI | `/research` (topic index), `/research/:slug`: Board (default), `?view=table` (Options table, one per kind), `?view=outline`. `?card=<id>` or `?stream=<key>` opens the reader, which resizes, expands to full width, and steps through a stream. The reader edits and removes cards as batches by "you". Open pages refresh on `app:changed` research events |
+| UI | `/research` (topic index), `/research/:slug`: Map (default, titles and counts only, `components/research/map/`), `?view=board`, `?view=table` (Options table, one per kind), `?view=outline`. `?card=<id>` or `?stream=<key>` opens the reader, which resizes, expands to full width, and steps through a stream. The reader edits and removes cards as batches by "you". Open pages refresh on `app:changed` research events |
 | Activity | `research.activity.ts` logs `research.*` events for agent, API, and in-app writes |
 | Agents | MCP `research_*` tools in `server/mcp/research-tools.ts` and `research-tools-edit.ts` ([mcp-connector.md](mcp-connector.md#research)), and REST `POST /api/research/topics[/:topic/ingest]`, `PATCH /api/research/topics/:topic` (setup) with `Authorization: Bearer $RESEARCH_AGENT_TOKEN` |
 
@@ -36,4 +36,4 @@ pnpm research:seed --base http://127.0.0.1:<port> --token <RESEARCH_AGENT_TOKEN>
 pnpm research:seed --base http://127.0.0.1:<port> --token <RESEARCH_AGENT_TOKEN> tests/fixtures/research/printer-streams.json
 ```
 
-The audit harness sets `RESEARCH_AGENT_TOKEN=audit-harness-research-token`. It also forwards `MCP_CONNECTOR_ENABLED` and `MCP_DEV_TOKEN` from the launching shell or the env file, so a local agent can connect to `/mcp`. The browser specs are `tests/e2e/research-board.spec.ts` and `research-editing.spec.ts`; set `RESEARCH_SHOTS_DIR` to save screenshots.
+The audit harness sets `RESEARCH_AGENT_TOKEN=audit-harness-research-token`. It also forwards `MCP_CONNECTOR_ENABLED` and `MCP_DEV_TOKEN` from the launching shell or the env file, so a local agent can connect to `/mcp`. The browser specs are `tests/e2e/research-map.spec.ts`, `research-board.spec.ts`, and `research-editing.spec.ts`; set `RESEARCH_SHOTS_DIR` to save screenshots.

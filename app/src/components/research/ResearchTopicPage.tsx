@@ -1,14 +1,9 @@
 import { A, useSearchParams } from "@solidjs/router";
-import {
-  LayersIcon,
-  PanelRightCloseIcon,
-  PanelRightOpenIcon,
-} from "lucide-solid";
+import { PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-solid";
 import {
   createEffect,
   createMemo,
   createSignal,
-  For,
   on,
   onCleanup,
   Match,
@@ -21,12 +16,15 @@ import { countOpen } from "~/services/research/research.graph";
 import { OptionsTable } from "./board/OptionsTable";
 import { TopicBoard } from "./board/TopicBoard";
 import { createTopicData } from "./createTopicData";
+import { EmptyTopic } from "./EmptyTopic";
 import { matchingIds } from "./inspector/contents";
 import { createReaderWidth } from "./inspector/createReaderWidth";
 import { ReaderResizeHandle } from "./inspector/ReaderResizeHandle";
 import { TopicInspector, type InspectorTab } from "./inspector/TopicInspector";
+import { TopicMap } from "./map/TopicMap";
 import { TopicOutline } from "./TopicOutline";
 import { TopicTitle } from "./TopicTitle";
+import { parseTopicView, topicTabClass, TopicViewTabs } from "./TopicViewTabs";
 
 const crumbLinkClass = css({
   color: "fg.link",
@@ -34,61 +32,16 @@ const crumbLinkClass = css({
   _hover: { color: "fg.linkHover" },
 });
 
-const tabClass = css({
-  px: "2",
-  h: "7",
-  fontSize: "sm",
-  color: "fg.muted",
-  borderRadius: "l1",
-  cursor: "pointer",
-  transitionProperty: "background-color, color",
-  transitionDuration: "140ms",
-  display: "inline-flex",
-  alignItems: "center",
-  _hover: { bg: "bg.hover", color: "fg.default" },
-  "&[data-active=true]": {
-    bg: "bg.selected",
-    color: "fg.selected",
-    fontWeight: "medium",
-  },
-});
-
 const INSPECTOR_KEY = "research-inspector";
 
-/** A topic with no cards yet: say how cards arrive, since nothing here adds them by hand. */
-const EmptyTopic = (props: { title: string }) => (
-  <div
-    class={css({
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "2",
-      h: "full",
-      minH: "60",
-      px: "6",
-      textAlign: "center",
-    })}
-    data-testid="research-empty"
-  >
-    <LayersIcon size={28} class={css({ color: "fg.subtle" })} />
-    <h2 class={css({ fontSize: "md", fontWeight: "semibold" })}>
-      No cards yet
-    </h2>
-    <p class={css({ maxW: "26rem", fontSize: "sm", color: "fg.muted" })}>
-      Ask an agent with the Visual Notes connector to research “{props.title}”.
-      Its questions, findings, and sources land here as cards, and each batch
-      can be undone.
-    </p>
-  </div>
-);
-
-const VIEWS = [
-  { id: "board", label: "Board" },
-  { id: "table", label: "Options" },
-  { id: "outline", label: "Outline" },
-] as const;
-type View = (typeof VIEWS)[number]["id"];
+const savedInspector = () => {
+  try {
+    return localStorage.getItem(INSPECTOR_KEY);
+  } catch {
+    // Storage can be blocked; fall back to the view's default.
+    return null;
+  }
+};
 
 export const ResearchTopicPage = (props: { slug: string }) => {
   const data = createTopicData(() => props.slug);
@@ -97,10 +50,7 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     card?: string;
     stream?: string;
   }>();
-  const view = (): View =>
-    VIEWS.some((entry) => entry.id === params.view)
-      ? (params.view as View)
-      : "board";
+  const view = () => parseTopicView(params.view);
   const nowMs = () => Date.parse(data.current()?.generatedAt ?? "") || 0;
   const selected = () =>
     params.card ? data.cardsById().get(params.card) ?? null : null;
@@ -121,7 +71,10 @@ export const ResearchTopicPage = (props: { slug: string }) => {
   const [tab, setTab] = createSignal<InspectorTab>(
     params.card || params.stream ? "card" : "contents",
   );
-  const [inspectorOpen, setInspectorOpen] = createSignal(true);
+  // The map opens on its own, full width; the first pick brings the reader in.
+  const [inspectorOpen, setInspectorOpen] = createSignal(
+    view() !== "map" || !!params.card || !!params.stream,
+  );
   const [expanded, setExpanded] = createSignal(false);
   const reader = createReaderWidth();
   let aside: HTMLElement | undefined;
@@ -139,7 +92,17 @@ export const ResearchTopicPage = (props: { slug: string }) => {
       { defer: true },
     ),
   );
-  // Rendered open on the server; a saved "closed" applies after mount.
+  createEffect(
+    on(
+      view,
+      (next) => {
+        if (next !== "map" && savedInspector() !== "closed")
+          setInspectorOpen(true);
+      },
+      { defer: true },
+    ),
+  );
+  // A saved choice applies after mount: only the browser knows it.
   // Esc clears the selection unless a field, dialog, or menu has focus.
   onMount(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -164,12 +127,9 @@ export const ResearchTopicPage = (props: { slug: string }) => {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
   onMount(() => {
-    try {
-      if (localStorage.getItem(INSPECTOR_KEY) === "closed" && !params.card)
-        setInspectorOpen(false);
-    } catch {
-      // Storage can be blocked; stay open.
-    }
+    const saved = savedInspector();
+    if (saved === "closed" && !params.card) setInspectorOpen(false);
+    if (saved === "open") setInspectorOpen(true);
   });
   const toggleInspector = () => {
     const next = !inspectorOpen();
@@ -251,34 +211,18 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               </span>{" "}
               · {plainCount()} {plainCount() === 1 ? "card" : "cards"}
             </span>
-            <div
-              role="tablist"
-              aria-label="Topic view"
-              class={css({ display: "flex", gap: "0.5" })}
-            >
-              <For each={VIEWS}>
-                {(entry) => (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={view() === entry.id}
-                    class={tabClass}
-                    data-active={view() === entry.id}
-                    onClick={() =>
-                      setParams(
-                        { view: entry.id === "board" ? undefined : entry.id },
-                        { replace: true },
-                      )
-                    }
-                  >
-                    {entry.label}
-                  </button>
-                )}
-              </For>
-            </div>
+            <TopicViewTabs
+              view={view()}
+              onView={(next) =>
+                setParams(
+                  { view: next === "map" ? undefined : next },
+                  { replace: true },
+                )
+              }
+            />
             <button
               type="button"
-              class={tabClass}
+              class={topicTabClass}
               aria-pressed={inspectorOpen()}
               aria-label={inspectorOpen() ? "Hide inspector" : "Show inspector"}
               title={inspectorOpen() ? "Hide inspector" : "Show inspector"}
@@ -325,13 +269,30 @@ export const ResearchTopicPage = (props: { slug: string }) => {
               class={css({
                 minH: 0,
                 isolation: "isolate",
-                overflow: view() === "board" ? "hidden" : "auto",
+                overflow:
+                  view() === "board" || view() === "map" ? "hidden" : "auto",
               })}
             >
               <Show
                 when={data.cards().length}
                 fallback={<EmptyTopic title={graph().topic.title} />}
               >
+                {/* Stays mounted so open branches and pan survive a trip to Board. */}
+                <div
+                  class={css({ h: "full" })}
+                  style={{ display: view() === "map" ? undefined : "none" }}
+                >
+                  <TopicMap
+                    data={data}
+                    selectedId={selected()?.id ?? null}
+                    selectedStream={selectedStream()?.key ?? null}
+                    matches={matches()}
+                    query={query()}
+                    onQuery={setQuery}
+                    onSelect={select}
+                    onSelectStream={selectStream}
+                  />
+                </div>
                 <Switch>
                   <Match when={view() === "board"}>
                     <TopicBoard

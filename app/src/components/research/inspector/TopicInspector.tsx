@@ -41,7 +41,7 @@ const tabClass = css({
   },
 });
 
-const searchClass = css({
+export const searchClass = css({
   display: "flex",
   alignItems: "center",
   gap: "1.5",
