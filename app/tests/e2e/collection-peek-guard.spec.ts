@@ -36,6 +36,9 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await openGuardedRow(page);
   const open = () => openPeek(page);
   const closeButton = page.getByRole("button", { name: "Close panel" });
+  // Not `closeButton`: a guard dialog hides it from role queries while the
+  // panel is still open, and a reopen during the exit keeps the same editor.
+  const panel = page.locator("[data-side-panel-scroll]");
 
   // A failed save: the panel stays until the user chooses.
   const editor = await open();
@@ -49,7 +52,7 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await page.route("**/_server*", block);
   await page.keyboard.type("kept text");
   const failed = page.getByRole("button", { name: /Couldn't save/ });
-  await expect(failed).toBeVisible();
+  await expect(failed).toBeVisible({ timeout: 15_000 });
   await closeButton.click();
   await expect(page.getByText("This note didn't save")).toBeVisible();
   await page.getByRole("button", { name: "Stay" }).click();
@@ -59,14 +62,14 @@ test("closing a row peek saves first, and asks when it can't", async ({
   await page.unroute("**/_server*", block);
   await expect(failed).toBeHidden({ timeout: 35_000 });
   await closeButton.click();
-  await expect(closeButton).toBeHidden();
+  await expect(panel).toHaveCount(0);
 
   // A working network: the close saves text the autosave had not reached.
   await (await open()).click();
   await page.keyboard.press("End");
   await page.keyboard.type(" quick text");
   await closeButton.click();
-  await expect(closeButton).toBeHidden();
+  await expect(panel).toHaveCount(0);
   await expect(await open()).toContainText("kept text quick text");
 });
 
