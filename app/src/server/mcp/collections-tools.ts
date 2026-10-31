@@ -261,6 +261,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         id: found.id,
         name: found.name,
         description: found.description,
+        showRowsInRecent: found.showRowsInRecent,
         rowCount,
         properties: properties.map(describeProperty),
         views: views.map(mapView).map((v) => ({
