@@ -66,7 +66,7 @@ export async function dailyStack(now = new Date()): Promise<DailyStack> {
   const openTotal =
     regrouped +
     DAILY_BUCKETS.reduce((sum, bucket) => sum + (counts[bucket] ?? 0), 0);
-  const remaining = Math.max(0, Math.min(openTotal, DAILY_QUOTA - doneToday));
+  const remaining = Math.max(0, Math.min(all.length, DAILY_QUOTA - doneToday));
   return {
     quota: DAILY_QUOTA,
     doneToday,

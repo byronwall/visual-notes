@@ -1,5 +1,11 @@
 import { revalidate } from "@solidjs/router";
-import { createResource, createSignal, onMount } from "solid-js";
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  on,
+  onMount,
+} from "solid-js";
 import { fetchCleanupStatus } from "~/services/cleanup/cleanup.queries";
 
 /**
@@ -16,6 +22,9 @@ export function useOnDemand<T>(opts: {
   const [mounted, setMounted] = createSignal(false);
   onMount(() => setMounted(true));
   const [asked, setAsked] = createSignal<string | null>(null);
+  // A click pays for one draft of one note. Coming back to that note shows
+  // the draft it already has; it must not ask again on its own.
+  createEffect(on(opts.key, () => setAsked(null), { defer: true }));
   const source = () => {
     const key = opts.key();
     if (!mounted() || !key) return false;
@@ -45,7 +54,7 @@ export function useOnDemand<T>(opts: {
     ask: () => {
       const key = opts.key();
       if (!key) return;
-      if (!opts.paid() || asked() === key) void refetch();
+      if (!opts.paid() || source()) void refetch();
       else setAsked(key);
     },
   };

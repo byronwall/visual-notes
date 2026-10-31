@@ -69,14 +69,23 @@ export const RevisitLinkPanel: VoidComponent<{
       mounted() ? { id: props.item.docId, summarize: summarize() } : false,
     (key) => expandLinkForNote(key.id, key.summarize),
   );
-  // `latest` would show the previous card's page while the next one loads.
-  const latest = () => (page.error || page.loading ? undefined : page());
+  // `latest` would show the previous card's page while the next one loads,
+  // but a summary of this card's page keeps the page on screen.
+  const summarizing = () => summarizeId() === props.item.docId;
+  const latest = () => {
+    if (page.error || (page.loading && !summarizing())) return undefined;
+    return page.latest;
+  };
   const [busy, setBusy] = createSignal<Primary | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   createEffect(
     on(
       () => props.item.docId,
-      () => setError(null),
+      () => {
+        setError(null);
+        // A click pays for this visit; coming back must not summarize again.
+        setSummarizeId(null);
+      },
       { defer: true },
     ),
   );

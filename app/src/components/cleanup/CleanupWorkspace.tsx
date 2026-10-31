@@ -62,10 +62,8 @@ const DeepPass: VoidComponent = () => {
   const bucket = () =>
     requested() || ((queue.latest?.bucket ?? RAIL_BUCKETS[0]) as BucketId);
   const ids = () => (queue.latest?.rows ?? []).map((row) => row.docId);
-  const selectedId = () => {
-    const doc = params.doc as string | undefined;
-    return doc && ids().includes(doc) ? doc : ids()[0] ?? null;
-  };
+  // A deep link may name a note past the rows this list shows.
+  const selectedId = () => (params.doc as string | undefined) ?? ids()[0] ?? null;
   const keep = useAction(keepNoteAction);
 
   const select = (docId: string | null) => {
