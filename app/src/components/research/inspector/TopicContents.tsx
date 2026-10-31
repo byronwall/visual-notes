@@ -12,13 +12,15 @@ const headingClass = css({
   top: 0,
   zIndex: 1,
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: "1",
   w: "full",
-  h: "7",
   px: "1",
+  py: "1.5",
   bg: "bg.default",
   fontSize: "xs",
+  lineHeight: "1.35",
+  textAlign: "left",
   fontWeight: "medium",
   letterSpacing: "wider",
   textTransform: "uppercase",
@@ -27,7 +29,12 @@ const headingClass = css({
   transitionProperty: "color",
   transitionDuration: "140ms",
   _hover: { color: "fg.default" },
-  "& svg": { transitionProperty: "transform", transitionDuration: "140ms" },
+  "& svg": {
+    flexShrink: 0,
+    mt: "0.5",
+    transitionProperty: "transform",
+    transitionDuration: "140ms",
+  },
   "&[aria-expanded=true] svg": { transform: "rotate(90deg)" },
 });
 
@@ -130,11 +137,12 @@ export const TopicContents = (props: {
               onClick={() => toggle(section.key)}
             >
               <ChevronRightIcon size={12} />
-              {section.label}
+              <span class={css({ minW: 0 })}>{section.label}</span>
               <span
                 class={css({
                   color: "fg.subtle",
                   fontVariantNumeric: "tabular-nums",
+                  flexShrink: 0,
                 })}
               >
                 {section.cards.length}

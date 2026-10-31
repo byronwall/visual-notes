@@ -54,6 +54,14 @@ export const OptionsTable = (props: {
     board().assignment.columns.find(
       (column) => column.id === board().assignment.streamOf.get(card.id),
     )?.title ?? "Unsorted";
+  // One value repeated in every row tells the reader nothing.
+  const showStream = () =>
+    new Set(
+      props.data
+        .cards()
+        .filter((card) => card.type === "option")
+        .map(streamTitle),
+    ).size > 1;
   const groups = (): Group[] => {
     const options = props.data
       .cards()
@@ -131,7 +139,9 @@ export const OptionsTable = (props: {
                         {(field) => <th>{field.label}</th>}
                       </For>
                       <th>Open blockers</th>
-                      <th>Stream</th>
+                      <Show when={showStream()}>
+                        <th>Stream</th>
+                      </Show>
                     </tr>
                   </thead>
                   <tbody>
@@ -204,14 +214,17 @@ export const OptionsTable = (props: {
                                 {(entry) => <div>{entry.card.title}</div>}
                               </For>
                             </td>
-                            <td
-                              class={css({
-                                color: "fg.muted",
-                                whiteSpace: "nowrap",
-                              })}
-                            >
-                              {streamTitle(card)}
-                            </td>
+                            <Show when={showStream()}>
+                              <td
+                                class={css({
+                                  color: "fg.muted",
+                                  minW: "8rem",
+                                  maxW: "14rem",
+                                })}
+                              >
+                                {streamTitle(card)}
+                              </td>
+                            </Show>
                           </tr>
                         );
                       }}
