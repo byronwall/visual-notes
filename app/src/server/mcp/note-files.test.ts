@@ -87,13 +87,11 @@ describe("openAiFileArg", () => {
 
 describe("storeFiles", () => {
   it("downloads every file ChatGPT hands over, keeping their names", async () => {
-    fetchPublicFile
-      .mockResolvedValueOnce(fetched(PDF))
-      .mockResolvedValueOnce(
-        fetched(Buffer.from("a,b\n1,2\n"), {
-          contentDisposition: 'attachment; filename="scores.csv"',
-        }),
-      );
+    fetchPublicFile.mockResolvedValueOnce(fetched(PDF)).mockResolvedValueOnce(
+      fetched(Buffer.from("a,b\n1,2\n"), {
+        contentDisposition: 'attachment; filename="scores.csv"',
+      }),
+    );
     const files = await storeFiles(ctx, {
       files: [
         {
@@ -148,12 +146,12 @@ describe("storeFiles", () => {
   });
 
   it("needs exactly one source and turns fetch failures into refusals", async () => {
-    expect(await refusal(storeFiles(ctx, {}))).toMatch(/exactly one/);
+    expect(await refusal(storeFiles(ctx, {}))).toMatch(/No file reached/);
     expect(
       await refusal(
         storeFiles(ctx, { data: "AAAA", url: "https://example.com/a" }),
       ),
-    ).toMatch(/exactly one/);
+    ).toMatch(/only one/);
     const { PublicFetchError } = await import("~/server/lib/public-fetch");
     fetchPublicFile.mockRejectedValueOnce(
       new PublicFetchError("example.com answered 403"),
@@ -161,6 +159,13 @@ describe("storeFiles", () => {
     expect(
       await refusal(storeFiles(ctx, { url: "https://example.com/a.pdf" })),
     ).toMatch(/answered 403/);
+  });
+
+  it.each([
+    [{ data: "/mnt/data/report", name: "report.pdf" }],
+    [{ url: "sandbox:/mnt/data/report.pdf" }],
+  ])("refuses a sandbox path instead of storing it: %j", async (source) => {
+    expect(await refusal(storeFiles(ctx, source))).toMatch(/chat's sandbox/);
   });
 });
 
