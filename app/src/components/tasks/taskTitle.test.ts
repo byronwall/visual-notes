@@ -1,10 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { formatDue, formatDuration, summarizeTasks } from "./taskFormat";
+import {
+  formatDue,
+  formatDuration,
+  matchesDueFilter,
+  summarizeTasks,
+} from "./taskFormat";
 import { parseTaskInput, parseTaskTitle } from "./taskTitle";
 import type { TaskItem } from "~/services/tasks/tasks.service";
 
 // 2026-10-16 is a Friday.
 const TODAY = "2026-10-16";
+
+describe("matchesDueFilter", () => {
+  const due = (dueDate: string | null, status = "waiting") =>
+    ({ dueDate, status }) as TaskItem;
+
+  it("keeps open tasks on the matching side of today", () => {
+    expect(matchesDueFilter(due("2026-10-15"), "overdue", TODAY)).toBe(true);
+    expect(matchesDueFilter(due(TODAY), "overdue", TODAY)).toBe(false);
+    expect(matchesDueFilter(due(TODAY), "today", TODAY)).toBe(true);
+    expect(matchesDueFilter(due(null), "today", TODAY)).toBe(false);
+    expect(matchesDueFilter(due(TODAY, "complete"), "today", TODAY)).toBe(false);
+  });
+});
 
 describe("parseTaskInput", () => {
   it("pulls tags, due, and duration tokens out of the title", () => {

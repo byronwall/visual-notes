@@ -1,6 +1,7 @@
 import { useAction } from "@solidjs/router";
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { css } from "styled-system/css";
+import { Button } from "~/components/ui/button";
 import {
   createTaskList,
   deleteTaskList,
@@ -17,7 +18,9 @@ import { TaskListSelector } from "./TaskListSelector";
 import { TaskQuickAdd } from "./TaskQuickAdd";
 import { TaskTree } from "./TaskTree";
 import { TaskTreeProvider } from "./TaskTreeContext";
-import { summarizeTasks } from "./taskFormat";
+import { TaskDueFilters } from "./TaskDueFilters";
+import { TaskSheet } from "./TaskSheet";
+import { matchesDueFilter, summarizeTasks } from "./taskFormat";
 import { handleRowKeyDown } from "./taskRowKeys";
 import { isDescendantOf } from "./taskTreeOps";
 
@@ -62,7 +65,26 @@ export const TaskListsWorkspace = () => {
   const summary = createMemo(() =>
     summarizeTasks(data.taskItems(), actions.context.todayKey()),
   );
-  const activeRootIds = createMemo(() => data.visibleChildIds(null));
+  const activeRootIds = createMemo(() => {
+    const filter = data.dueFilter();
+    if (!filter) return data.visibleChildIds(null);
+    return data
+      .taskItems()
+      .filter((task) =>
+        matchesDueFilter(task, filter, actions.context.todayKey()),
+      )
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
+      .map((task) => task.id);
+  });
+  const topTags = createMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of data.taskItems())
+      for (const tag of task.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([tag]) => tag);
+  });
 
   const selectList = (listId: string) => {
     actions.resetForListChange();
@@ -142,6 +164,28 @@ export const TaskListsWorkspace = () => {
           await runDeleteList({ id: list.id });
           data.refreshLists();
         }}
+        phoneTrailing={
+          <Show
+            when={actions.error()}
+            fallback={
+              <TaskDueFilters
+                overdue={summary().overdue}
+                dueToday={summary().dueToday}
+                active={data.dueFilter()}
+                onToggle={data.toggleDueFilter}
+              />
+            }
+          >
+            {(message) => (
+              <span
+                role="alert"
+                class={css({ minW: "0", fontSize: "sm", color: "red.11" })}
+              >
+                {message()}
+              </span>
+            )}
+          </Show>
+        }
       />
 
       <main
@@ -180,11 +224,14 @@ export const TaskListsWorkspace = () => {
                 showDone={data.showDone()}
                 doneCount={data.hiddenDoneCount()}
                 onToggleDone={() => data.setShowDone(!data.showDone())}
+                dueFilter={data.dueFilter()}
+                onToggleDue={data.toggleDueFilter}
               />
 
               <TaskQuickAdd
                 ref={(element) => (quickAddRef = element)}
                 todayKey={actions.context.todayKey()}
+                tags={topTags()}
                 onSubmit={actions.quickAdd}
               />
 
@@ -193,9 +240,9 @@ export const TaskListsWorkspace = () => {
                   flex: "1",
                   minH: "0",
                   overflowY: "auto",
-                  mt: "2",
-                  mx: "-1",
-                  px: "1",
+                  mt: { base: "1", lg: "2" },
+                  mx: { base: "0", lg: "-1" },
+                  px: { base: "0", lg: "1" },
                   pb: "6",
                 })}
               >
@@ -265,6 +312,24 @@ export const TaskListsWorkspace = () => {
                   </div>
                 </Show>
 
+                <Show when={data.hiddenDoneCount() > 0 || data.showDone()}>
+                  <Button
+                    variant="plain"
+                    display={{ base: "inline-flex", lg: "none" }}
+                    h="11"
+                    px="2"
+                    mt="1"
+                    color="fg.muted"
+                    aria-pressed={data.showDone()}
+                    data-testid="task-toggle-done-phone"
+                    onClick={() => data.setShowDone(!data.showDone())}
+                  >
+                    {data.showDone()
+                      ? "Hide done"
+                      : `Show done (${data.hiddenDoneCount()})`}
+                  </Button>
+                </Show>
+
                 <Show when={data.showDone() && data.doneRootIds().length > 0}>
                   <div class={sectionLabelClass}>Done</div>
                   <TaskTree
@@ -274,6 +339,7 @@ export const TaskListsWorkspace = () => {
                   />
                 </Show>
               </div>
+              <TaskSheet />
             </TaskTreeProvider>
           )}
         </Show>

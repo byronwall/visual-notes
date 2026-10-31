@@ -3,11 +3,14 @@ import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
 import { Kbd } from "~/components/ui/kbd";
+import { TaskQuickTokens } from "./TaskQuickTokens";
 import { formatDue, formatDuration } from "./taskFormat";
 import { parseTaskInput, type ParsedTaskInput } from "./taskTitle";
 
 type Props = {
   todayKey: string;
+  /** The list's most used tags, offered as one-tap tokens on phones. */
+  tags: string[];
   disabled?: boolean;
   ref?: (element: HTMLTextAreaElement) => void;
   onSubmit: (parsed: ParsedTaskInput) => Promise<void>;
@@ -18,7 +21,7 @@ const wrapClass = css({
   flexWrap: { base: "wrap", md: "nowrap" },
   alignItems: "flex-start",
   columnGap: "1",
-  pl: "1",
+  pl: { base: "0", md: "1" },
   pr: { base: "0", md: "2" },
   minH: { base: "11", md: "9" },
   flexShrink: 0,
@@ -32,6 +35,7 @@ const wrapClass = css({
     bg: "bg.default",
     boxShadow: "inset 0 0 0 1px token(colors.gray.a7)",
     "& [data-hint]": { visibility: "hidden" },
+    "@media (max-width: 47.99em)": { "& [data-tokens]": { display: "flex" } },
   },
 });
 
@@ -39,8 +43,9 @@ const inputClass = css({
   display: "block",
   flex: "1",
   minW: "0",
-  // Five lines on a phone, which leaves Add and the preview above the keyboard.
-  maxH: "8.75rem",
+  // Four lines on a phone, which leaves Add, the preview, and the tokens above
+  // the keyboard.
+  maxH: { base: "7.25rem", md: "8.75rem" },
   py: { base: "2.5", md: "2" },
   bg: "transparent",
   borderWidth: "0",
@@ -71,7 +76,7 @@ const noteClass = css({
   columnGap: "2",
   w: { base: "full", md: "auto" },
   minH: { md: "9" },
-  pl: { base: "7", md: "0" },
+  pl: { base: "10", md: "0" },
   pb: { base: "1.5", md: "0" },
   fontSize: "xs",
   color: "fg.muted",
@@ -106,6 +111,12 @@ export const TaskQuickAdd = (props: Props) => {
     if (text) inputRef.style.height = `${inputRef.scrollHeight}px`;
   });
 
+  const insertToken = (token: string) => {
+    const text = value().trimEnd();
+    setValue(text ? `${text} ${token} ` : `${token} `);
+    if (error()) setError(null);
+  };
+
   const submit = async () => {
     const result = parsed();
     if (saving() || !value().trim()) return;
@@ -139,7 +150,7 @@ export const TaskQuickAdd = (props: Props) => {
         class={css({
           display: "inline-flex",
           alignItems: "center",
-          w: "6",
+          w: { base: "9", md: "6" },
           h: { base: "11", md: "9" },
           flexShrink: 0,
           justifyContent: "center",
@@ -225,6 +236,7 @@ export const TaskQuickAdd = (props: Props) => {
           </span>
         )}
       </Show>
+      <TaskQuickTokens tags={props.tags} onInsert={insertToken} />
     </label>
   );
 };

@@ -1,4 +1,5 @@
 import { useAction } from "@solidjs/router";
+import { useToasts } from "~/components/Toast";
 import { batch, createEffect, createSignal, onCleanup } from "solid-js";
 import {
   createTask,
@@ -10,7 +11,7 @@ import {
   type TaskStatus,
 } from "~/services/tasks/tasks.service";
 import type { TaskData } from "./createTaskData";
-import { isDoneStatus, toDateKey } from "./taskFormat";
+import { addDaysToKey, isDoneStatus, toDateKey } from "./taskFormat";
 import {
   formatTaskTitle,
   parseTaskInput,
@@ -67,6 +68,9 @@ export const createTaskActions = (
     createSignal<InlineCreateState | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [revealTaskId, setRevealTaskId] = createSignal<string | null>(null);
+  const [sheetOpen, setSheetOpen] = createSignal(false);
+  const [sheetTaskId, setSheetTaskId] = createSignal<string | null>(null);
+  const toasts = useToasts();
 
   // Drop selection/edit state for tasks that disappeared (deleted, list switch).
   createEffect(() => {
@@ -173,6 +177,44 @@ export const createTaskActions = (
   const toggleStatus = (task: TaskItem, status: TaskStatus) =>
     setStatus(task, task.status === status ? "waiting" : status);
 
+  const taskName = (task: TaskItem) => {
+    const line = task.description.split("\n")[0];
+    return line.length > 32 ? `${line.slice(0, 32)}…` : line;
+  };
+
+  const updateFields = (task: TaskItem, patch: Partial<TaskItem>) => {
+    setError(null);
+    patchTask(task.id, patch);
+    queueWrite("task update", "Could not save task", () =>
+      runUpdateTask({ id: task.id, ...patch }),
+    );
+  };
+
+  /** Toggles done for touch, where a stray tap needs a way back. */
+  const finishTask = (task: TaskItem) => {
+    if (task.status === "complete") return setStatus(task, "waiting");
+    const previous = task.status;
+    setStatus(task, "complete");
+    toasts.show({
+      message: `Done: ${taskName(task)}`,
+      type: "success",
+      timeoutMs: 5000,
+      actionLabel: "Undo",
+      onClick: () => setStatus({ ...task, status: "complete" }, previous),
+    });
+  };
+
+  const snoozeTask = (task: TaskItem) => {
+    const previous = task.dueDate;
+    updateFields(task, { dueDate: addDaysToKey(todayKey(), 1) });
+    toasts.show({
+      message: `Tomorrow: ${taskName(task)}`,
+      timeoutMs: 5000,
+      actionLabel: "Undo",
+      onClick: () => updateFields(task, { dueDate: previous }),
+    });
+  };
+
   // ---- create ----------------------------------------------------------
   const insertCreated = async (
     parsed: ParsedTaskInput,
@@ -224,6 +266,14 @@ export const createTaskActions = (
       setActiveTaskId(id);
       setRevealTaskId(id);
     });
+  };
+
+  const addSubtaskNow = (task: TaskItem, text: string) => {
+    const parsed = parseTaskInput(text, todayKey());
+    expand(task.id);
+    insertCreated(parsed, task.id, siblingsOf(task.id).length).catch((err) =>
+      setError(errorMessage(err, "Could not add subtask")),
+    );
   };
 
   const startInlineCreate = () => {
@@ -411,10 +461,21 @@ export const createTaskActions = (
         ? moveTaskLocally(current, taskId, parentTaskId, targetIndex)
         : current,
     );
-    select(taskId);
+    // A row must not take focus from the open sheet.
+    select(taskId, !sheetOpen());
     queueWrite("move", "Could not move task", () =>
       runMoveTask({ taskId, targetParentTaskId: parentTaskId, targetIndex }),
     );
+  };
+
+  const canMove = (taskId: string, direction: MoveDirection) => {
+    const task = data.tasksById().get(taskId);
+    if (!task) return false;
+    if (direction === "left") return !!task.parentTaskId;
+    const visible = data.visibleChildIds(task.parentTaskId);
+    const index = visible.indexOf(taskId);
+    if (direction === "down") return index >= 0 && index < visible.length - 1;
+    return index > 0;
   };
 
   const moveByKeyboard = (taskId: string, direction: MoveDirection) => {
@@ -603,6 +664,22 @@ export const createTaskActions = (
     toggleStatus,
     addSubtask,
     deleteTask: removeTask,
+    updateFields,
+    finishTask,
+    snoozeTask,
+    addSubtaskNow,
+    canMove,
+    sheetOpen,
+    sheetTask: () => {
+      const id = sheetTaskId();
+      return id ? (data.tasksById().get(id) ?? null) : null;
+    },
+    openSheet: (task) =>
+      batch(() => {
+        setSheetTaskId(task.id);
+        setSheetOpen(true);
+      }),
+    closeSheet: () => setSheetOpen(false),
     otherLists: () =>
       data
         .mergedLists()

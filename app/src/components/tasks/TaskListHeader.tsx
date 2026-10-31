@@ -1,7 +1,8 @@
 import { Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
-import { formatDuration, type ListSummary } from "./taskFormat";
+import { TaskDueFilters } from "./TaskDueFilters";
+import { formatDuration, type DueFilter, type ListSummary } from "./taskFormat";
 import { TaskShortcutsPopover } from "./TaskShortcutsPopover";
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
   showDone: boolean;
   doneCount: number;
   onToggleDone: () => void;
+  dueFilter: DueFilter | null;
+  onToggleDue: (filter: DueFilter) => void;
 };
 
 const summaryClass = css({
@@ -27,17 +30,16 @@ const summaryClass = css({
 export const TaskListHeader = (props: Props) => (
   <div
     class={css({
-      display: "flex",
-      alignItems: { base: "center", lg: "flex-start" },
+      // Phones show the list name and filters in the list switcher row.
+      display: { base: "none", lg: "flex" },
+      alignItems: "flex-start",
       gap: "3",
-      mb: { base: "1", lg: "2" },
+      mb: "2",
     })}
   >
     <div class={css({ flex: "1", minW: "0" })}>
       <h1
         class={css({
-          // The list switcher above already shows this name on phones.
-          srOnly: { base: true, lg: false },
           fontSize: "xl",
           fontWeight: "semibold",
           lineHeight: "1.75rem",
@@ -53,14 +55,12 @@ export const TaskListHeader = (props: Props) => (
         fallback={
           <p class={summaryClass} data-testid="task-list-summary">
             <span>{props.summary.open} open</span>
-            <Show when={props.summary.overdue > 0}>
-              <span data-sep>·</span>
-              <span class={css({ color: "red.11" })}>{props.summary.overdue} overdue</span>
-            </Show>
-            <Show when={props.summary.dueToday > 0}>
-              <span data-sep>·</span>
-              <span class={css({ color: "amber.11" })}>{props.summary.dueToday} due today</span>
-            </Show>
+            <TaskDueFilters
+              overdue={props.summary.overdue}
+              dueToday={props.summary.dueToday}
+              active={props.dueFilter}
+              onToggle={props.onToggleDue}
+            />
             <Show when={props.summary.plannedMinutes > 0}>
               <span data-sep>·</span>
               <span>{formatDuration(props.summary.plannedMinutes)} planned</span>
@@ -76,7 +76,7 @@ export const TaskListHeader = (props: Props) => (
       </Show>
     </div>
 
-    <div class={css({ display: "flex", alignItems: "center", gap: "1", flexShrink: 0, pt: { lg: "0.5" } })}>
+    <div class={css({ display: "flex", alignItems: "center", gap: "1", flexShrink: 0, pt: "0.5" })}>
       <Show when={props.doneCount > 0 || props.showDone}>
         <Button
           size="xs"
@@ -89,9 +89,7 @@ export const TaskListHeader = (props: Props) => (
           {props.showDone ? "Hide done" : `Show done (${props.doneCount})`}
         </Button>
       </Show>
-      <span class={css({ display: { base: "none", md: "inline-flex" } })}>
-        <TaskShortcutsPopover />
-      </span>
+      <TaskShortcutsPopover />
     </div>
   </div>
 );

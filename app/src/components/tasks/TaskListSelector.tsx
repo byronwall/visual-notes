@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-solid";
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
@@ -17,12 +17,15 @@ type Props = {
   onCreate: (name: string) => Promise<void>;
   onRename: (list: TaskListItem, nextName: string) => void;
   onDelete: (list: TaskListItem) => Promise<void>;
+  /** Phone-only content at the end of the list switcher row. */
+  phoneTrailing?: JSX.Element;
 };
 
 const triggerClass = css({
   justifyContent: "flex-start",
   gap: "2",
-  w: "full",
+  flex: "1",
+  minW: "0",
   h: "11",
   px: "1",
   fontSize: "lg",
@@ -95,7 +98,13 @@ export const TaskListSelector = (props: Props) => {
         {panel(false)}
       </div>
 
-      <div class={css({ display: { base: "block", lg: "none" } })}>
+      <div
+        class={css({
+          display: { base: "flex", lg: "none" },
+          alignItems: "center",
+          gap: "1",
+        })}
+      >
         <Popover.Root
           open={sheetOpen()}
           onOpenChange={(details) => setSheetOpen(details.open)}
@@ -148,6 +157,7 @@ export const TaskListSelector = (props: Props) => {
             </Popover.Positioner>
           </Portal>
         </Popover.Root>
+        {props.phoneTrailing}
       </div>
 
       <ConfirmDialog

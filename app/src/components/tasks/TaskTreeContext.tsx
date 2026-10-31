@@ -71,6 +71,17 @@ export type TaskTreeContextValue = {
   toggleStatus: (task: TaskItem, status: TaskStatus) => void;
   addSubtask: (task: TaskItem) => void;
   deleteTask: (task: TaskItem) => void;
+  updateFields: (task: TaskItem, patch: Partial<TaskItem>) => void;
+  /** Marks a task done with an Undo toast, or reopens a done task. */
+  finishTask: (task: TaskItem) => void;
+  /** Moves the due date to tomorrow with an Undo toast. */
+  snoozeTask: (task: TaskItem) => void;
+  addSubtaskNow: (task: TaskItem, text: string) => void;
+  canMove: (taskId: string, direction: MoveDirection) => boolean;
+  sheetOpen: () => boolean;
+  sheetTask: () => TaskItem | null;
+  openSheet: (task: TaskItem) => void;
+  closeSheet: () => void;
   /** Lists other than the open one, for "Move to list". */
   otherLists: () => { id: string; name: string }[];
   moveToList: (task: TaskItem, listId: string) => void;

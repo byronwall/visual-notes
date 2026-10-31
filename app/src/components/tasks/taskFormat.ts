@@ -85,6 +85,19 @@ export const formatDue = (
   return { label, tone, absolute };
 };
 
+export type DueFilter = "overdue" | "today";
+
+/** Whether an open task belongs to the overdue or due-today filter. */
+export const matchesDueFilter = (
+  task: TaskItem,
+  filter: DueFilter,
+  todayKey: string,
+) => {
+  if (isDoneStatus(task.status) || !task.dueDate) return false;
+  const diff = daysBetweenKeys(todayKey, task.dueDate);
+  return filter === "overdue" ? diff < 0 : diff === 0;
+};
+
 export const formatDuration = (minutes: number) => {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);

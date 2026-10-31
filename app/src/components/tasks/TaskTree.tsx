@@ -16,8 +16,8 @@ const groupClass = css({
   display: "flex",
   flexDirection: "column",
   // The subtask guide line sits under the parent's chevron.
-  ml: "4",
-  pl: "1",
+  ml: { base: "4.5", md: "4" },
+  pl: { base: "0", md: "1" },
   borderLeftWidth: "1px",
   borderLeftColor: "border",
 });
