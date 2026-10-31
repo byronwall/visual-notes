@@ -7,7 +7,7 @@ import {
   createSignal,
 } from "solid-js";
 import type { JSX, VoidComponent } from "solid-js";
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { ClearButton } from "~/components/ui/clear-button";
@@ -56,7 +56,7 @@ export const PathEditor: VoidComponent<{
   const [isFocused, setIsFocused] = createSignal(false);
 
   const { update: runUpdateDoc } = useNoteMutations();
-  const pathCounts = createAsync(() => fetchPathSuggestions());
+  const pathCounts = createKeptAsync(() => fetchPathSuggestions());
 
   createEffect(() => {
     const incomingDocId = props.docId;

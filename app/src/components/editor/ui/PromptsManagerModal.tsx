@@ -1,6 +1,7 @@
 import { For, Show, Suspense, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
-import { createAsync, revalidate, useAction } from "@solidjs/router";
+import { revalidate, useAction } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { usePromptDesignerModal } from "./PromptDesignerModal";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -26,7 +27,7 @@ type Prompt = {
 };
 export function usePromptsManagerModal() {
   const [open, setOpen] = createSignal(false);
-  const prompts = createAsync(() => fetchPrompts());
+  const prompts = createKeptAsync(() => fetchPrompts());
   const runCreatePrompt = useAction(createPrompt);
   const runCreateVersion = useAction(createPromptVersion);
   const runRevise = useAction(revisePrompt);

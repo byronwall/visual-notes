@@ -1,4 +1,3 @@
-import { createAsync } from "@solidjs/router";
 import {
   ErrorBoundary,
   Show,
@@ -20,12 +19,13 @@ import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { fetchTimelineEvents } from "~/services/activity/activity.queries";
 import type { ActionEventItem } from "~/services/activity/activity.types";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const PAGE_SIZE = 100;
 
 const ActivityRoute = () => {
   const filters = useActivityFilters();
-  const firstPage = createAsync(() =>
+  const firstPage = createKeptAsync(() =>
     fetchTimelineEvents({ ...filters.filter(), take: PAGE_SIZE }),
   );
   const [olderPages, setOlderPages] = createSignal<ActionEventItem[]>([]);

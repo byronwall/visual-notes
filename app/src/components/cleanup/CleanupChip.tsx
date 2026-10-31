@@ -1,4 +1,5 @@
-import { A, createAsync, useAction } from "@solidjs/router";
+import { A, useAction } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { For, Show, createSignal, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack, Stack } from "styled-system/jsx";
@@ -35,7 +36,7 @@ const chip = css({
  * (snoozes the suggestion for 30 days).
  */
 export const CleanupChip: VoidComponent<{ docId: string }> = (props) => {
-  const hint = createAsync(() => fetchNoteCleanupHint(props.docId));
+  const hint = createKeptAsync(() => fetchNoteCleanupHint(props.docId));
   const snooze = useAction(snoozeNoteAction);
   const [open, setOpen] = createSignal(false);
 

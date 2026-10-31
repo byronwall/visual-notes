@@ -1,4 +1,4 @@
-import { A, createAsync, revalidate } from "@solidjs/router";
+import { A, revalidate } from "@solidjs/router";
 import { ChevronDownIcon } from "lucide-solid";
 import {
   For,
@@ -17,6 +17,7 @@ import { Text } from "~/components/ui/text";
 import type { CleanupStatus } from "~/server/cleanup/status";
 import { fetchCleanupStatus } from "~/services/cleanup/cleanup.queries";
 import { formatRelativeShort } from "~/components/doc-header/relative-time";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const REFRESH_MS = 20_000;
 
@@ -142,7 +143,7 @@ const Body: VoidComponent<{ status?: CleanupStatus; inline?: boolean }> = (
 export const CleanupRunStatus: VoidComponent<{ inline?: boolean }> = (
   props,
 ) => {
-  const status = createAsync(() => fetchCleanupStatus());
+  const status = createKeptAsync(() => fetchCleanupStatus());
   onMount(() => {
     const timer = setInterval(() => {
       if (!document.hidden) void revalidate(fetchCleanupStatus.key);

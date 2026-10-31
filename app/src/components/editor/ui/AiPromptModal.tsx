@@ -4,7 +4,7 @@ import {
   createMemo,
   createSignal,
 } from "solid-js";
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Textarea } from "~/components/ui/textarea";
@@ -33,7 +33,7 @@ export function useAiPromptModal() {
   const [promptSystem, setPromptSystem] = createSignal<string | undefined>();
   const [promptTemplate, setPromptTemplate] = createSignal<string>("");
 
-  const models = createAsync(() => fetchAiModels());
+  const models = createKeptAsync(() => fetchAiModels());
   let resolver: ((p: AiRunPayload | "cancel") => void) | undefined;
 
   const modelItems = createMemo<SimpleSelectItem[]>(() => {

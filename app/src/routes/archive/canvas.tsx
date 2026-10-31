@@ -1,14 +1,14 @@
 import { Title } from "@solidjs/meta";
-import { createAsync } from "@solidjs/router";
 import { For, Match, Switch } from "solid-js";
 import { Box, Container, Grid, HStack } from "styled-system/jsx";
 import { ArchiveGroupTile } from "~/components/archive/canvas/ArchiveGroupTile";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { fetchArchiveCanvasOverviewGroups } from "~/services/archive/archive.service";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const ArchiveCanvasOverviewRoute = () => {
-  const groups = createAsync(() => fetchArchiveCanvasOverviewGroups());
+  const groups = createKeptAsync(() => fetchArchiveCanvasOverviewGroups());
 
   return (
     <Box as="main" minH="100vh" bg="bg.default">

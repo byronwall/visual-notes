@@ -10,8 +10,10 @@ import {
 import {
   fetchCollectionBundle,
   fetchCollections,
+  type CollectionListItem,
 } from "~/services/collections/collections.queries";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const box = css({
   borderWidth: "1px",
@@ -75,7 +77,9 @@ export const EmbedPicker = (props: {
   onPick: (viewId: string) => void;
   onRemove: () => void;
 }) => {
-  const [collections] = createResource(() => fetchCollections());
+  const [collections] = createResource<CollectionListItem[] | undefined>(
+    (_, info) => keepOnFailedRead(info.value, () => fetchCollections()),
+  );
   const runCreateCollection = useAction(createCollection);
   const runCreateView = useAction(createView);
   const { show } = useToasts();
@@ -84,7 +88,7 @@ export const EmbedPicker = (props: {
 
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
-    const all = collections.latest ?? [];
+    const all: CollectionListItem[] = collections.latest ?? [];
     return q ? all.filter((c) => c.name.toLowerCase().includes(q)) : all;
   });
 

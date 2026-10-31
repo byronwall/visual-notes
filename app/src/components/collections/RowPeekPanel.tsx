@@ -75,9 +75,11 @@ export const RowPeekPanel = (props: {
           store.replaceRows(store.state.rows.filter((r) => r.id !== docId));
           props.onClose();
         }}
-        onEditorApiChange={(id, api) =>
+        // A reopen can mount the next editor before the closing panel lets go
+        // of the last one. So only the editor that left clears the slot.
+        onEditorApiChange={(id, api, gone) =>
           setEditor((current) =>
-            api ? { id, api } : current?.id === id ? undefined : current,
+            api ? { id, api } : current?.api === gone ? undefined : current,
           )
         }
         onTitleChange={(docId, title) => store.applyLocalTitle(docId, title)}

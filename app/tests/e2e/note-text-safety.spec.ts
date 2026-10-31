@@ -1,6 +1,7 @@
 import { expect, test, type Route } from "@playwright/test";
 import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 import { holdNextServerAction } from "./helpers/server-actions";
 
 // Silent text loss is the worst failure in this app. The first test covers a
@@ -114,4 +115,54 @@ test("a late save acknowledgement does not mark newer text saved", async ({
   await page.reload();
   await waitForAppReady(page);
   await expect(editor).toContainText("First body. first edit second edit");
+});
+
+test("a blocked read on an embedded collection keeps the draft", async ({
+  page,
+}) => {
+  const noteId = await createNoteFixture(page, {
+    title: `Embed read ${uniqueSuffix()}`,
+    markdown: "Body line.",
+  });
+  await page.goto(`/docs/${noteId}`);
+  await waitForAppReady(page);
+  const editor = page.locator(".ProseMirror");
+  await editor.getByText("Body line.").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/collection");
+  await page.keyboard.press("Enter");
+  const search = page.getByLabel("Search collections");
+  await search.fill(`Embed ${uniqueSuffix()}`);
+  await search.press("Enter");
+  await expect(
+    editor.locator("[data-collection-view]:not([data-collection-view=''])"),
+  ).toBeVisible();
+  await expect(page.getByText(/^Saved/)).toBeVisible();
+
+  const blockRead = (route: Route) =>
+    isServerFn(
+      route.request().headers()["x-server-id"],
+      "fetchCollectionViewBundle",
+    )
+      ? route.abort()
+      : route.continue();
+  await page.route("**/_server*", blockRead);
+  await page.reload();
+  await waitForAppReady(page);
+
+  const embed = editor.locator("[data-collection-embed]");
+  await expect(embed).toContainText("Couldn't load this view");
+  await editor.getByText("Body line.").click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" draft line");
+  await expect(editor).toContainText("Body line. draft line");
+  await expect(page.getByText("Something went wrong")).toBeHidden();
+
+  await page.unroute("**/_server*", blockRead);
+  await embed.getByRole("button", { name: "Retry" }).click();
+  await expect(
+    embed.getByRole("link", { name: "Open collection" }),
+  ).toBeVisible();
+  await expect(editor).toContainText("Body line. draft line");
 });

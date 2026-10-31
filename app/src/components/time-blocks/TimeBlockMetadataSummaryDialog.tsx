@@ -1,4 +1,4 @@
-import { createAsync, useAction } from "@solidjs/router";
+import { useAction } from "@solidjs/router";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack, Stack, styled } from "styled-system/jsx";
@@ -29,6 +29,7 @@ import {
   startOfYear,
 } from "./date-utils";
 import { useNestedDialogGuard } from "./useNestedDialogGuard";
+import { createKeptAsync } from "~/utils/kept-async";
 
 type ViewMode = "range" | "month" | "year" | "custom";
 
@@ -111,7 +112,7 @@ export const TimeBlockMetadataSummaryDialog = (props: Props) => {
     }
   });
 
-  const entries = createAsync(() => {
+  const entries = createKeptAsync(() => {
     void props.refreshKey;
     const { start, end } = range();
     return fetchDateRangeTimeBlockMeta({

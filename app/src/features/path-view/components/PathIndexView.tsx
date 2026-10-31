@@ -1,4 +1,3 @@
-import { createAsync } from "@solidjs/router";
 import { Show, createMemo } from "solid-js";
 import { css } from "styled-system/css";
 import { fetchPathDiscovery } from "~/services/docs.service";
@@ -7,6 +6,7 @@ import type { PathTreeNode } from "../utils/path-tree";
 import { PathBrowserShell } from "./PathBrowserShell";
 import { PathRecentList, type PathRecentItem } from "./PathRecentList";
 import { PathSubpathGrid } from "./PathSubpathGrid";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const RECENT_LIMIT = 6;
 
@@ -20,7 +20,7 @@ const collectLeaves = (node: PathTreeNode, out: PathTreeNode[] = []) => {
 
 export const PathIndexView = () => {
   const tree = usePathTree();
-  const discovery = createAsync(() => fetchPathDiscovery());
+  const discovery = createKeptAsync(() => fetchPathDiscovery());
 
   const pathCount = createMemo(() => collectLeaves(tree()).length);
   const recentlyUpdated = createMemo<PathRecentItem[]>(() =>

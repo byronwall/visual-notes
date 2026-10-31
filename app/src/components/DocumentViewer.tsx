@@ -50,7 +50,12 @@ type DocumentData = {
 const DocumentViewer: VoidComponent<{
   doc: DocumentData;
   onDeleted?: (docId: string) => void;
-  onEditorApiChange?: (docId: string, api?: DocumentEditorApi) => void;
+  /** With no `api`, `gone` is the editor that left. */
+  onEditorApiChange?: (
+    docId: string,
+    api?: DocumentEditorApi,
+    gone?: DocumentEditorApi,
+  ) => void;
   /** Side-panel layout: pinned header, inline phone toolbar, no min height. */
   panelMode?: boolean;
   /** Host controls at the end of the header row, e.g. a panel's close. */
@@ -74,7 +79,7 @@ const DocumentViewer: VoidComponent<{
   let ownerActive = true;
   onCleanup(() => {
     ownerActive = false;
-    props.onEditorApiChange?.(docId);
+    props.onEditorApiChange?.(docId, undefined, editorApi());
   });
   const [title, setTitle] = createSignal(props.doc.title);
   const [savedUpdatedAt, setSavedUpdatedAt] = createSignal(props.doc.updatedAt);

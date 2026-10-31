@@ -116,14 +116,16 @@ const CanvasRoute: VoidComponent = () => {
     setSelectedId(nextId);
   };
 
-  const handleEditorApiChange = (docId: string, api?: DocumentEditorApi) => {
+  const handleEditorApiChange = (
+    docId: string,
+    api?: DocumentEditorApi,
+    gone?: DocumentEditorApi,
+  ) => {
     if (api) {
       setActiveEditor({ docId, api });
       return;
     }
-    setActiveEditor((current) =>
-      current?.docId === docId ? undefined : current,
-    );
+    setActiveEditor((current) => (current?.api === gone ? undefined : current));
   };
 
   createEffect(() => {

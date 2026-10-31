@@ -12,6 +12,7 @@ import { PropertyList } from "./PropertyList";
 import { createCollectionStore } from "./store/createCollectionStore";
 import { docCollectionVersion } from "./membership/docCollectionVersion";
 import { NoteCollectionMenu } from "./membership/NoteCollectionMenu";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const crumbRow = css({
   display: "flex",
@@ -68,9 +69,15 @@ const Header = (props: { info: NonNullable<DocCollectionInfo> }) => {
 
 /** On a note page: the note's collection and editable properties, when it has one. */
 export const DocCollectionHeader = (props: { docId: string }) => {
-  const [info] = createResource(
+  const [info] = createResource<
+    DocCollectionInfo | undefined,
+    { id: string; v: number }
+  >(
     () => ({ id: props.docId, v: docCollectionVersion() }),
-    ({ id }) => fetchDocCollection(id),
+    ({ id }, read) =>
+      keepOnFailedRead(read.value?.row.id === id ? read.value : undefined, () =>
+        fetchDocCollection(id),
+      ),
   );
   // Its own boundary so SSR waits for the lookup and hydration sees the same tree.
   return (

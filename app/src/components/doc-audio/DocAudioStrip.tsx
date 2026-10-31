@@ -33,6 +33,7 @@ import { DocAudioUploadRow } from "./DocAudioUploadRow";
 import type { useDocAudioDrop } from "./useDocAudioDrop";
 import { LiveRecordingRow } from "./LiveRecordingRow";
 import type { TranscriptMode } from "./TranscriptSections";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const text = (value: string) => (value ? [{ type: "text", text: value }] : []);
 
@@ -108,9 +109,16 @@ export const DocAudioStrip = (props: {
   const remove = useAction(deleteDocAudio);
   const navigate = useNavigate();
   const { show: showToast } = useToasts();
-  const [audios, { mutate, refetch }] = createResource(
+  const [audios, { mutate, refetch }] = createResource<
+    DocAudioSummary[] | undefined,
+    { docId: string; version: number }
+  >(
     () => ({ docId: props.docId, version: recorder.listVersion() }),
-    ({ docId }) => fetchDocAudios(docId),
+    ({ docId }, info) =>
+      keepOnFailedRead(
+        info.value?.[0]?.docId === docId ? info.value : undefined,
+        () => fetchDocAudios(docId),
+      ),
   );
   const live = () => recorder.isRecordingDoc(props.docId);
   // The active recording shows as the live row, not as a half-written file.

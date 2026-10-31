@@ -7,6 +7,7 @@ import { Input } from "~/components/ui/input";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { Text } from "~/components/ui/text";
 import { fetchDocs, searchDocs } from "~/features/docs-index/data/docs.service";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const option = css({
   display: "flex",
@@ -49,12 +50,13 @@ export const MoveRecordingDialog = (props: {
   const [results] = createResource(
     () =>
       props.open ? { q: debounced().trim(), docId: props.docId } : false,
-    async ({ q, docId }) => {
-      const docs = q
-        ? await searchDocs({ q, take: 9 })
-        : await fetchDocs({ take: 9, sortMode: "recent_activity" });
-      return (docs ?? []).filter((doc) => doc.id !== docId).slice(0, 8);
-    },
+    ({ q, docId }) =>
+      keepOnFailedRead(undefined, async () => {
+        const docs = q
+          ? await searchDocs({ q, take: 9 })
+          : await fetchDocs({ take: 9, sortMode: "recent_activity" });
+        return (docs ?? []).filter((doc) => doc.id !== docId).slice(0, 8);
+      }),
   );
 
   const move = async (toDocId: string | null) => {
