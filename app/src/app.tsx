@@ -11,6 +11,7 @@ import {
   Suspense,
   Switch,
   createEffect,
+  createMemo,
   createSignal,
   onCleanup,
   onMount,
@@ -31,6 +32,10 @@ type ClientExceptionState = {
   source: "error" | "unhandledrejection";
   error: unknown;
 };
+
+// Chrome, Firefox and Safari wordings, and Vite's CSS preload.
+const CHUNK_LOAD_ERROR =
+  /dynamically imported module|module script failed|Unable to preload CSS/i;
 
 export default function App() {
   const queryClient = new QueryClient();
@@ -54,6 +59,9 @@ export default function App() {
       });
     };
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // A hover preload failed, as it does offline. A real navigation to that
+      // route still reaches the ErrorBoundary and its reload button.
+      if (CHUNK_LOAD_ERROR.test(String(event.reason))) return;
       setClientException({
         source: "unhandledrejection",
         error: event.reason || "Unhandled promise rejection",
@@ -130,11 +138,12 @@ const DefaultMetadata = () => {
   const location = useLocation();
   const isPublicShareRoute = () => location.pathname.startsWith("/share/");
   // Route modules may set a more specific <Title>; this is the fallback so
-  // every tab names its section instead of a generic "Visual Notes".
-  const defaultTitle = () => {
+  // every tab names its section instead of a generic "Visual Notes". The memo
+  // matters: <Title> registers again when this changes, and the last one wins.
+  const defaultTitle = createMemo(() => {
     const section = sectionTitleForPath(location.pathname);
     return section ? `${section} • Visual Notes` : "Visual Notes";
-  };
+  });
 
   return (
     <Show when={!isPublicShareRoute()}>

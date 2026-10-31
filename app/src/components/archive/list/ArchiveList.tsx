@@ -1,4 +1,4 @@
-import { For, Match, Switch, onCleanup, onMount } from "solid-js";
+import { For, Match, Show, Switch, createSignal, onCleanup, onMount } from "solid-js";
 import { Box, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
@@ -20,6 +20,10 @@ export type ArchiveListProps = {
   onFocusSearch: () => void;
 };
 
+// Each row is about 9 KB of server-rendered HTML, so the first response stops
+// here. Search and filters still cover every page, because the data is all loaded.
+const ROW_PAGE_SIZE = 50;
+
 const isTypingTarget = (target: EventTarget | null) =>
   target instanceof HTMLInputElement ||
   target instanceof HTMLTextAreaElement ||
@@ -27,6 +31,10 @@ const isTypingTarget = (target: EventTarget | null) =>
   (target instanceof HTMLElement && target.isContentEditable);
 
 export const ArchiveList = (props: ArchiveListProps) => {
+  const [rowLimit, setRowLimit] = createSignal(ROW_PAGE_SIZE);
+  const shownItems = () => props.items.slice(0, rowLimit());
+  const hiddenCount = () => Math.max(0, props.items.length - rowLimit());
+
   const move = (delta: number) => {
     const list = props.items;
     if (!list.length) return;
@@ -35,6 +43,7 @@ export const ArchiveList = (props: ArchiveListProps) => {
       index < 0 ? (delta > 0 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, index + delta));
     const next = list[nextIndex];
     if (!next) return;
+    if (nextIndex >= rowLimit()) setRowLimit(nextIndex + ROW_PAGE_SIZE);
     props.onSelect(next.id);
     queueMicrotask(() =>
       document
@@ -86,7 +95,7 @@ export const ArchiveList = (props: ArchiveListProps) => {
       <Switch>
         <Match when={props.items.length > 0}>
           <Stack gap="0.5" role="rowgroup">
-            <For each={props.items}>
+            <For each={shownItems()}>
               {(item) => (
                 <ArchiveListRow
                   item={item}
@@ -101,6 +110,18 @@ export const ArchiveList = (props: ArchiveListProps) => {
               )}
             </For>
           </Stack>
+          <Show when={hiddenCount() > 0}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              mt="3"
+              mx="3"
+              onClick={() => setRowLimit((limit) => limit + ROW_PAGE_SIZE)}
+            >
+              Show {Math.min(ROW_PAGE_SIZE, hiddenCount())} more of {hiddenCount()}
+            </Button>
+          </Show>
         </Match>
         <Match when={!props.loaded}>
           <Stack gap="0.5">
