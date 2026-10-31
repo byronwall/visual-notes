@@ -1,4 +1,5 @@
-import { A, createAsync, useNavigate } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { Show, createEffect, type VoidComponent } from "solid-js";
 import { Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
@@ -12,7 +13,7 @@ import { shortDate } from "./archive-format";
  */
 export const NoteTombstoneNotice: VoidComponent<{ id: string }> = (props) => {
   const navigate = useNavigate();
-  const tombstone = createAsync(() => fetchNoteTombstone(props.id));
+  const tombstone = createKeptAsync(() => fetchNoteTombstone(props.id));
   createEffect(() => {
     const target = tombstone()?.redirect;
     if (target) navigate(`/docs/${target.id}`, { replace: true });

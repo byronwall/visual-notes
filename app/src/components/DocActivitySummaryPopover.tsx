@@ -1,4 +1,4 @@
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import {
   Clock3Icon,
   EyeIcon,
@@ -132,7 +132,7 @@ export const DocActivitySummaryPopover: VoidComponent<{
   }) => JSX.Element;
 }> = (props) => {
   const [open, setOpen] = createSignal(false);
-  const history = createAsync(() => fetchDocActivityHistory(props.docId));
+  const history = createKeptAsync(() => fetchDocActivityHistory(props.docId));
   const toggle = () => setOpen((value) => !value);
 
   return (

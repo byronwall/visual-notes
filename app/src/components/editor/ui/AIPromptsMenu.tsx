@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
-import { useAction, useNavigate, createAsync } from "@solidjs/router";
+import { useAction, useNavigate } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { For, Show, Suspense, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { getSelectionContext, stripDataUrlsFromText } from "../core/selection";
@@ -31,7 +32,7 @@ type PromptRecord = {
 
 export function AIPromptsMenu(props: { editor?: Editor; noteId?: string }) {
   const navigate = useNavigate();
-  const prompts = createAsync(() => fetchPrompts());
+  const prompts = createKeptAsync(() => fetchPrompts());
   const [running, setRunning] = createSignal<string | null>(null);
   const { prompt: openAiModal, view: aiModalView } = useAiPromptModal();
   const runPromptAction = useAction(runPrompt);

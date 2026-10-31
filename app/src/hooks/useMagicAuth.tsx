@@ -1,5 +1,6 @@
 import { createContext, useContext, type ParentComponent } from "solid-js";
-import { createAsync, revalidate, useAction } from "@solidjs/router";
+import { revalidate, useAction } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { fetchMagicSession } from "~/services/auth/magic-auth.queries";
 import { magicLogout } from "~/services/auth/magic-auth.actions";
 
@@ -13,7 +14,7 @@ type MagicAuthValue = {
 const MagicAuthContext = createContext<MagicAuthValue>();
 
 export const MagicAuthProvider: ParentComponent = (props) => {
-  const session = createAsync(() => fetchMagicSession());
+  const session = createKeptAsync(() => fetchMagicSession());
   const runLogout = useAction(magicLogout);
 
   const refresh = async () => {

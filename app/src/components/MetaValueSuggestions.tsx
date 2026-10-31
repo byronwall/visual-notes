@@ -1,5 +1,5 @@
 import { For, Show, createMemo } from "solid-js";
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import type { VoidComponent } from "solid-js";
 import { fetchMetaValues } from "~/services/docs.service";
 import { Button } from "~/components/ui/button";
@@ -11,7 +11,7 @@ export const MetaValueSuggestions: VoidComponent<{
   onSelect: (value: string) => void;
   limit?: number;
 }> = (props) => {
-  const valueSuggestions = createAsync(() => {
+  const valueSuggestions = createKeptAsync(() => {
     if (!props.keyName.trim()) return Promise.resolve([]);
     return fetchMetaValues(props.keyName);
   });

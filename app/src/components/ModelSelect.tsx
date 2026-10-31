@@ -1,5 +1,5 @@
 import { Suspense, createMemo } from "solid-js";
-import { createAsync } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Text } from "~/components/ui/text";
@@ -11,7 +11,7 @@ export function ModelSelect(props: {
   placeholderLabel?: string;
   placeholderValue?: string;
 }) {
-  const models = createAsync(() => fetchAiModels());
+  const models = createKeptAsync(() => fetchAiModels());
   const items = createMemo<SimpleSelectItem[]>(() => {
     const list: SimpleSelectItem[] = [];
     if (props.placeholderLabel !== undefined) {

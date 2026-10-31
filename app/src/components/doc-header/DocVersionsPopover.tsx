@@ -1,4 +1,5 @@
-import { createAsync, useAction } from "@solidjs/router";
+import { useAction } from "@solidjs/router";
+import { createKeptAsync } from "~/utils/kept-async";
 import { BotIcon, HistoryIcon } from "lucide-solid";
 import {
   For,
@@ -38,7 +39,7 @@ type Props = {
  * saved versions, each restorable. Renders nothing for ordinary notes.
  */
 export const DocVersionsPopover: VoidComponent<Props> = (props) => {
-  const info = createAsync(() => fetchDocRevisions(props.docId));
+  const info = createKeptAsync(() => fetchDocRevisions(props.docId));
   const restore = useAction(restoreDocRevision);
   const [open, setOpen] = createSignal(false);
   const [restoringId, setRestoringId] = createSignal<string | null>(null);
