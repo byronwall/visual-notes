@@ -7,7 +7,7 @@ import type { BoardNode } from "./board-model";
 import { useBoard } from "./BoardContext";
 
 /** Markdown body to one plain run of text, for cards written before gists existed. */
-const plainExcerpt = (markdown: string) =>
+export const plainExcerpt = (markdown: string) =>
   markdown
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
