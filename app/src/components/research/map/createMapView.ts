@@ -85,13 +85,13 @@ export const createMapView = () => {
   };
 
   /** Puts a bounds' middle at the viewport's center, at the current zoom. */
-  const center = (bounds: MapBounds) =>
-    glide(() =>
-      setPan({
-        x: -(bounds.x + bounds.w / 2) * zoom(),
-        y: -(bounds.y + bounds.h / 2) * zoom(),
-      }),
-    );
+  const center = (bounds: MapBounds) => {
+    const next = {
+      x: -(bounds.x + bounds.w / 2) * zoom(),
+      y: -(bounds.y + bounds.h / 2) * zoom(),
+    };
+    glide(() => setPan(next));
+  };
 
   const nudge = (dx: number, dy: number) =>
     setPan((prev) => ({ x: prev.x + dx * zoom(), y: prev.y + dy * zoom() }));
