@@ -16,6 +16,17 @@ describe("parseTaskInput", () => {
     });
   });
 
+  it("keeps extra lines and reads tokens from any line", () => {
+    expect(
+      parseTaskInput("Fix gate #home\n\n  ask about hinges  @tomorrow\n", TODAY),
+    ).toEqual({
+      description: "Fix gate\nask about hinges",
+      tags: ["home"],
+      dueDate: "2026-10-17",
+      durationMinutes: undefined,
+    });
+  });
+
   it("resolves weekdays to the next occurrence, never today", () => {
     expect(parseTaskInput("Call @mon", TODAY).dueDate).toBe("2026-10-19");
     expect(parseTaskInput("Call @fri", TODAY).dueDate).toBe("2026-10-23");

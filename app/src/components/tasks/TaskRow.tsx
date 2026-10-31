@@ -123,7 +123,8 @@ const inlineInputClass = css({
   flex: "1 1 16rem",
   minW: "0",
   py: "0.5",
-  fontSize: "sm",
+  // iOS Safari zooms the page when it focuses text smaller than 16px.
+  fontSize: { base: "md", md: "sm" },
   lineHeight: "1.25rem",
   outline: "none",
   _placeholder: { color: "fg.subtle" },
