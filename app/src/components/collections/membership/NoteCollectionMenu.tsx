@@ -25,6 +25,7 @@ import {
 import { MenuItem, menuPanel, menuSection } from "../menu/MenuList";
 import { bumpDocCollection } from "./docCollectionVersion";
 import { fitContent } from "../popover-styles";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const list = css({
   display: "flex",
@@ -63,14 +64,14 @@ export const NoteCollectionMenu = (props: {
   );
   const [collections] = createResource(
     () => (open() ? true : false),
-    () => fetchCollections(),
+    () => keepOnFailedRead(undefined, () => fetchCollections()),
   );
   const [preview] = createResource(
     () =>
       target()
         ? { docId: props.docId, targetCollectionId: target()!.id }
         : false,
-    (args) => previewMoveNote(args),
+    (args) => keepOnFailedRead(undefined, () => previewMoveNote(args)),
   );
 
   const describe = () => {
@@ -183,7 +184,7 @@ export const AddToCollectionDialog = (props: {
   const { show } = useToasts();
   const [collections] = createResource(
     () => (props.open ? true : false),
-    () => fetchCollections(),
+    () => keepOnFailedRead(undefined, () => fetchCollections()),
   );
   return (
     <SimpleDialog

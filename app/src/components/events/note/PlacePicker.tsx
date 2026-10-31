@@ -15,6 +15,7 @@ import { Text } from "~/components/ui/text";
 import type { PlaceSummary } from "~/lib/events/types";
 import { fetchPlaces } from "~/services/events/events.queries";
 import { PlaceCreateForm } from "./PlaceCreateForm";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 const optionClass = css({
   display: "flex",
@@ -49,7 +50,10 @@ export const PlacePicker: VoidComponent<{
 
   const [places] = createResource(
     () => (open() ? { search: query() } : false),
-    (input) => fetchPlaces(input.search ? { search: input.search } : {}),
+    (input) =>
+      keepOnFailedRead(undefined, () =>
+        fetchPlaces(input.search ? { search: input.search } : {}),
+      ),
   );
 
   const onSearch = (value: string) => {

@@ -9,6 +9,7 @@ import type { FeedMembership } from "~/server/calendar/feed-store";
 import { setCalendarFeedEntry } from "~/services/events/feeds.actions";
 import { fetchEventFeeds } from "~/services/events/feeds.queries";
 import { useFeedsRefresh } from "./feedsRefresh";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 export type EventFeedTogglesProps = { eventId: string };
 
@@ -37,7 +38,8 @@ export function EventFeedToggles(props: EventFeedTogglesProps) {
   const [busyFeed, setBusyFeed] = createSignal<string | null>(null);
   const [feeds] = createResource(
     () => ({ eventId: props.eventId, v: refresh.version() }),
-    ({ eventId, v }) => fetchEventFeeds(eventId, v),
+    ({ eventId, v }) =>
+      keepOnFailedRead(undefined, () => fetchEventFeeds(eventId, v)),
   );
 
   const apply = async (

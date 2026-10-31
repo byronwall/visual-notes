@@ -25,6 +25,7 @@ import {
 } from "~/services/events/events.actions";
 import { fetchNoteEvent } from "~/services/events/events.queries";
 import { useFeedsRefresh } from "~/components/events/feeds/feedsRefresh";
+import { keepOnFailedRead } from "~/utils/kept-async";
 
 type NoteEventApi = {
   docId: Accessor<string>;
@@ -61,10 +62,15 @@ export function NoteEventProvider(props: {
   // (resources do not track revalidated query keys). The first read uses 0
   // on both server and client so hydration reuses the SSR result.
   let refetches = 0;
-  const [resource, { refetch }] = createResource(
+  const [resource, { refetch }] = createResource<
+    NoteEvent | null | undefined,
+    string
+  >(
     () => props.docId,
-    (id: string, info: { refetching: unknown }) =>
-      fetchNoteEvent(id, info.refetching ? ++refetches : 0),
+    (id, info) =>
+      keepOnFailedRead(info.refetching ? info.value : undefined, () =>
+        fetchNoteEvent(id, info.refetching ? ++refetches : 0),
+      ),
   );
   const { show: toast } = useToasts();
   // Decision and collection edits can change which feeds match by rule.
