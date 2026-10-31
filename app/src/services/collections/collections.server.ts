@@ -43,6 +43,7 @@ export const mapCollection = (c: DbCollection): CollectionSummary => ({
   name: c.name,
   description: c.description,
   icon: c.icon,
+  showRowsInRecent: c.showRowsInRecent,
 });
 
 export const mapProperty = (p: DbProperty): CollectionProperty => ({

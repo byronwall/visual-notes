@@ -95,6 +95,7 @@ export const updateCollection = action(
     name?: string;
     description?: string | null;
     icon?: string | null;
+    showRowsInRecent?: boolean;
   }) => {
     "use server";
     const input = z
@@ -103,6 +104,7 @@ export const updateCollection = action(
         name: name.optional(),
         description: z.string().max(2000).nullable().optional(),
         icon: z.string().max(16).nullable().optional(),
+        showRowsInRecent: z.boolean().optional(),
       })
       .parse(payload);
     await requireCollection(input.id);

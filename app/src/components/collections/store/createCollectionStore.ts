@@ -66,7 +66,13 @@ export function createCollectionStore(
     initial
       ? fromBundle(initial)
       : {
-          collection: { id: "", name: "", description: null, icon: null },
+          collection: {
+            id: "",
+            name: "",
+            description: null,
+            icon: null,
+            showRowsInRecent: false,
+          },
           properties: [],
           views: [],
           rows: [],
@@ -485,6 +491,20 @@ export function createCollectionStore(
       } catch (error) {
         setState("collection", "name", previous);
         fail("Couldn't rename the collection", error);
+      }
+    },
+
+    async setShowRowsInRecent(next: boolean) {
+      const previous = state.collection.showRowsInRecent;
+      setState("collection", "showRowsInRecent", next);
+      try {
+        await run.updateCollection({
+          id: state.collection.id,
+          showRowsInRecent: next,
+        });
+      } catch (error) {
+        setState("collection", "showRowsInRecent", previous);
+        fail("Couldn't change the Recent setting", error);
       }
     },
   };

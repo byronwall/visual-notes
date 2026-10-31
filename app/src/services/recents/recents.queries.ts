@@ -8,7 +8,8 @@ const MAX_TAKE = 50;
 /**
  * Recently created or edited notes, collections, and research topics, newest
  * first. Ordered by `updatedAt` only: opening something is not activity, so
- * viewing never moves it up the list.
+ * viewing never moves it up the list. A collection's rows are notes, but they
+ * appear only when that collection opted in with `showRowsInRecent`.
  */
 export const fetchRecentItems = query(
   async (requested = 30): Promise<RecentItem[]> => {
@@ -21,7 +22,14 @@ export const fetchRecentItems = query(
     const startedAt = Date.now();
     const [docs, collections, topics] = await Promise.all([
       prisma.doc.findMany({
-        where: { archivedAt: null },
+        where: {
+          archivedAt: null,
+          // Deleting a collection clears `collectionId`, so its rows pass here.
+          OR: [
+            { collectionId: null },
+            { collection: { showRowsInRecent: true } },
+          ],
+        },
         orderBy: { updatedAt: "desc" },
         select: {
           id: true,

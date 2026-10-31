@@ -397,20 +397,23 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     "collections_update",
     {
       title: "Update collection",
-      description: "Change a collection's name or description.",
+      description:
+        "Change a collection's name, description, or whether its rows are listed in the sidebar Recent list.",
       input: {
         collection: collectionArg,
         name: z.string().trim().min(1).max(120).optional(),
         description: z.string().max(2000).nullable().optional(),
+        showRowsInRecent: z.boolean().optional(),
       },
     },
-    async ({ collection, name, description }) => {
+    async ({ collection, name, description, showRowsInRecent }) => {
       const found = await resolveCollection(collection);
       const updated = await prisma.collection.update({
         where: { id: found.id },
         data: {
           ...(name ? { name } : {}),
           ...(description !== undefined ? { description } : {}),
+          ...(showRowsInRecent !== undefined ? { showRowsInRecent } : {}),
         },
       });
       await log("collection.updated", updated, { previousName: found.name });
@@ -419,6 +422,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         id: updated.id,
         name: updated.name,
         description: updated.description,
+        showRowsInRecent: updated.showRowsInRecent,
         appUrl: collectionAppUrl(ctx, updated.id),
       };
     },

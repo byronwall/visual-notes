@@ -210,6 +210,7 @@ export type CollectionSummary = {
   name: string;
   description: string | null;
   icon: string | null;
+  showRowsInRecent: boolean;
 };
 
 export type CollectionBundle = {
