@@ -1,4 +1,5 @@
 import { getSchema } from "@tiptap/core";
+import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import sanitizeHtml from "sanitize-html";
 import { generateHTML, generateJSON } from "@tiptap/html";
 import type { Schema } from "@tiptap/pm/model";
@@ -14,7 +15,9 @@ let cachedExtensions: ReturnType<typeof buildNoteExtensions> | undefined;
 let cachedSchema: Schema | undefined;
 
 export function noteExtensions() {
-  cachedExtensions ??= buildNoteExtensions();
+  cachedExtensions ??= buildNoteExtensions(
+    Emoji.configure({ emojis: gitHubEmojis }),
+  );
   return cachedExtensions;
 }
 

@@ -1,7 +1,6 @@
 import type { AnyExtension, Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
-import Emoji, { gitHubEmojis } from "@tiptap/extension-emoji";
 import Image from "@tiptap/extension-image";
 import Code from "@tiptap/extension-code";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -94,7 +93,6 @@ export type NoteExtensionOverrides = {
   tableRow?: AnyExtension;
   tableHeader?: AnyExtension;
   tableCell?: AnyExtension;
-  emoji?: AnyExtension;
   table?: AnyExtension;
   noteLink?: AnyExtension;
   taskRef?: AnyExtension;
@@ -103,13 +101,16 @@ export type NoteExtensionOverrides = {
 };
 
 export function buildNoteExtensions(
+  // The emoji extension holds about 440 KB of data, so each caller brings
+  // its own: the server the package, the editor a lazy-loading node.
+  emoji: AnyExtension,
   overrides: NoteExtensionOverrides = {},
 ): Extensions {
   return [
     StarterKit.configure({ codeBlock: false, code: false }),
     Highlight.configure({}),
     overrides.image ?? NoteImage.configure({ allowBase64: true }),
-    overrides.emoji ?? Emoji.configure({ emojis: gitHubEmojis }),
+    emoji,
     NoteCode,
     overrides.codeBlock ??
       NoteCodeBlockBase.configure({ lowlight: noteLowlight }),

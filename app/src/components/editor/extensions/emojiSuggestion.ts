@@ -6,9 +6,7 @@ import type {
 } from "@tiptap/suggestion";
 import { type Instance as TippyInstance } from "tippy.js";
 import tippy from "tippy.js";
-import { gitHubEmojis } from "@tiptap/extension-emoji";
-
-type EmojiItem = (typeof gitHubEmojis)[number];
+import type { EmojiItem } from "@tiptap/extension-emoji";
 
 type EmojiSuggestionConfig = Omit<
   SuggestionOptions<EmojiItem, EmojiItem>,
@@ -103,12 +101,14 @@ function renderSuggestionList(
   container.appendChild(list);
 }
 
-export function createEmojiSuggestion(emojis: readonly EmojiItem[]) {
+export function createEmojiSuggestion(
+  loadEmojis: () => Promise<readonly EmojiItem[]>,
+) {
   // The Emoji extension expects a Suggestion config. We avoid importing types
   // from @tiptap/suggestion here to keep this module small and decoupled.
   const suggestion: EmojiSuggestionConfig = {
-    items: ({ query }: { query: string; editor: Editor }) =>
-      filterEmojis(emojis, query),
+    items: async ({ query }: { query: string; editor: Editor }) =>
+      filterEmojis(await loadEmojis(), query),
     render: () => {
       let popup: TippyInstance | null = null;
       let dom: HTMLDivElement | null = null;
