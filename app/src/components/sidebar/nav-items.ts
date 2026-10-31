@@ -78,7 +78,8 @@ export const isCanvasSectionActive = (pathname: string) =>
 
 /**
  * Primary sections after Notes + Canvas, in sidebar grid order (row-major,
- * two columns): Collections | Paths, Tasks | Time Blocks, Research | Tags.
+ * two columns): Collections | Paths, Events | Tasks, Research | Tags,
+ * Cleanup | Explorer.
  */
 export const PRIMARY_DESTINATIONS: AppDestination[] = [
   {
@@ -112,13 +113,6 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
       isSectionActive("/tasks", pathname) || pathname === "/views/note-tasks",
   },
   {
-    label: "Time Blocks",
-    href: "/time-blocks",
-    icon: CalendarClockIcon,
-    keywords: "calendar schedule week",
-    isActive: (pathname) => isSectionActive("/time-blocks", pathname),
-  },
-  {
     label: "Research",
     href: "/research",
     icon: TelescopeIcon,
@@ -145,6 +139,17 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     icon: CompassIcon,
     keywords: "archive bookmarks",
     isActive: (pathname) => isSectionActive("/archive", pathname),
+  },
+];
+
+/** Reachable by URL and the command palette, but not listed in the sidebar. */
+export const UNLISTED_DESTINATIONS: AppDestination[] = [
+  {
+    label: "Time Blocks",
+    href: "/time-blocks",
+    icon: CalendarClockIcon,
+    keywords: "calendar schedule week",
+    isActive: (pathname) => isSectionActive("/time-blocks", pathname),
   },
 ];
 
@@ -186,6 +191,7 @@ export const ALL_DESTINATIONS: AppDestination[] = [
   CANVAS_DESTINATION,
   ...CANVAS_CHILD_DESTINATIONS,
   ...PRIMARY_DESTINATIONS,
+  ...UNLISTED_DESTINATIONS,
   ...UTILITY_DESTINATIONS,
 ];
 
