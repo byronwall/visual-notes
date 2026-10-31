@@ -122,7 +122,8 @@ const RecentList = () => {
 
 /**
  * Recently created or edited notes, collections, and research topics, newest
- * first. Opening something does not move it. Fills the rest of the sidebar.
+ * first. Opening something does not move it. Collection rows are left out
+ * unless their collection opted in. Fills the rest of the sidebar.
  */
 export const AppSidebarRecent = (props: { expanded: boolean }) => (
   <Show when={props.expanded}>

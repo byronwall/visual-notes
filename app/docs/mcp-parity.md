@@ -101,7 +101,7 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `fetchCollectionViewBundle`                                       | `collections_query` with `view`                           |                                                   |
 | `fetchDocCollection`                                              | `notes_get`                                               | Reports `collectionId` and values                 |
 | `fetchNoteSummaries`, `searchNotesForCollection`                  | `search`, `collections_query`                             |                                                   |
-| `createCollection`, `updateCollection`                            | `collections_create`, `collections_update`                |                                                   |
+| `createCollection`, `updateCollection`                            | `collections_create`, `collections_update`                | Includes `showRowsInRecent`                       |
 | `createProperty`, `updateProperty`, `createSelectOption`          | `collections_add_property`, `collections_update_property` | Missing options are also created on write         |
 | `createRow`                                                       | `collections_add_row`, `collections_add_rows` (batch)     | A new note the agent owns                         |
 | `setRowProperties`                                                | `collections_set_values`                                  |                                                   |
