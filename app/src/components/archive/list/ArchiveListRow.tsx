@@ -30,6 +30,17 @@ const rowActionClass = css({
   _focusVisible: { outline: "2px solid", outlineColor: "colorPalette.default" },
 });
 
+// An empty group control is noise on every row. Touch has no hover to show it.
+const emptyGroupClass = css({
+  opacity: 0,
+  transitionProperty: "opacity",
+  transitionDuration: "fast",
+  _groupHover: { opacity: 1 },
+  _groupFocusWithin: { opacity: 1 },
+  "&:has([aria-expanded=true])": { opacity: 1 },
+  "@media (hover: none)": { opacity: 1 },
+});
+
 const hostButtonClass = css({
   fontFamily: "mono",
   fontSize: "xs",
@@ -157,7 +168,12 @@ export const ArchiveListRow = (props: ArchiveListRowProps) => {
         </HStack>
       </Box>
 
-      <Box role="cell" minW="0" hideBelow="md">
+      <Box
+        role="cell"
+        minW="0"
+        hideBelow="md"
+        class={props.item.groupName || props.selected ? undefined : emptyGroupClass}
+      >
         <ArchiveGroupSwitcher
           value={props.item.groupName || ""}
           options={props.groupOptions}

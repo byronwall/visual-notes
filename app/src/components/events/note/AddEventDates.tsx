@@ -72,7 +72,12 @@ export const AddEventDates: VoidComponent<{
             w="36"
             value={date()}
             onInput={(e) => setDate(e.currentTarget.value)}
-            ref={(el) => queueMicrotask(() => el.focus())}
+            // The note menu gives focus back as it closes, which takes a frame.
+            ref={(el) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => el.focus()),
+              )
+            }
           />
           <Input
             size="xs"

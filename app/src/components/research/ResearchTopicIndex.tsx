@@ -69,7 +69,7 @@ export const ResearchTopicIndex = () => {
   };
 
   return (
-    <div class={css({ maxW: "5xl", mx: "auto", w: "full", px: "4", py: "3" })}>
+    <main class={css({ maxW: "5xl", mx: "auto", w: "full", px: "4", py: "3" })}>
       <div class={css({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "3", mb: "3" })}>
         <h1 class={css({ fontSize: "lg", fontWeight: "semibold", flex: "1" })}>Research</h1>
         <form onSubmit={create} class={css({ display: "flex", gap: "2", minW: 0, flex: { base: "1 1 100%", sm: "0 0 auto" } })}>
@@ -147,6 +147,6 @@ export const ResearchTopicIndex = () => {
           </For>
         </div>
       </Show>
-    </div>
+    </main>
   );
 };
