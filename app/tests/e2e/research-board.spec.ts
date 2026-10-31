@@ -21,6 +21,46 @@ const column = (page: Page, key: string) =>
 const cardByTitle = (page: Page, title: string) =>
   page.getByTestId("research-board-card").filter({ hasText: title }).first();
 
+test.describe("research topic at narrow widths", () => {
+  test("the Answer stays readable beside the open inspector", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1200, height: 900 });
+    const topic = await createResearchTopicFixture(
+      request,
+      fixture("printer-streams"),
+      `Board width ${uniqueSuffix()}`,
+    );
+    await page.goto(`/research/${topic.slug}?view=board`);
+    await waitForAppReady(page);
+    await expect(page.locator("aside")).toBeVisible();
+    const answer = page
+      .getByTestId("research-board")
+      .getByRole("heading", { name: "Answer", exact: true })
+      .first()
+      .locator("..");
+    expect((await answer.boundingBox())!.width).toBeGreaterThan(300);
+  });
+
+  test("a phone keeps the view full height until a card is picked", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const topic = await createResearchTopicFixture(
+      request,
+      fixture("printer-streams"),
+      `Board phone ${uniqueSuffix()}`,
+    );
+    await page.goto(`/research/${topic.slug}?view=board`);
+    await waitForAppReady(page);
+    await expect(page.locator("aside")).toBeHidden();
+    await cardByTitle(page, "Entry printer").click();
+    await expect(page.locator("aside")).toBeVisible();
+  });
+});
+
 test.describe("research topic board", () => {
   test.use({ viewport: { width: 1600, height: 1000 } });
 

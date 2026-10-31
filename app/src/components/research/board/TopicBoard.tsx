@@ -26,6 +26,22 @@ const toggleClass = css({
   },
 });
 
+// The sidebar and the resizable reader set the board's width, so this measures
+// the board, not the viewport. Criteria share the Answer's row only when both
+// fit; otherwise they take a row of their own below it.
+const criteriaClass = css({
+  order: 1,
+  flex: "1 0 100%",
+  // Card rows carry their own inset; line them up with the Answer above.
+  ml: "-2",
+  "@container (min-width: 60rem)": {
+    order: 0,
+    flex: "none",
+    w: "22rem",
+    ml: "0",
+  },
+});
+
 /**
  * The stream board: the topic's answer and criteria on top, then one fixed-width
  * column per stream. Positions come from the data alone, so nothing moves
@@ -96,15 +112,18 @@ export const TopicBoard = (props: {
       >
         <div
           class={css({
+            containerType: "inline-size",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "flex-start",
-            gap: "6",
+            columnGap: "6",
+            rowGap: "2",
             px: "4",
             pt: "3",
             pb: "2",
           })}
         >
-          <div class={css({ flex: 1, minW: 0, maxW: "56rem" })}>
+          <div class={css({ flex: "1 1 16rem", minW: 0, maxW: "56rem" })}>
             <h2 class={blockLabelClass} style={{ "padding-left": 0 }}>
               Answer
             </h2>
@@ -128,7 +147,7 @@ export const TopicBoard = (props: {
             </Show>
           </div>
           <Show when={board().topicCriteria.length}>
-            <div class={css({ flex: "none", w: "22rem" })}>
+            <div class={criteriaClass}>
               <h2 class={blockLabelClass}>
                 Criteria{" "}
                 <span class={css({ color: "fg.subtle" })}>
@@ -143,7 +162,12 @@ export const TopicBoard = (props: {
           <div
             role="group"
             aria-label="Density"
-            class={css({ display: "flex", gap: "0.5", flex: "none" })}
+            class={css({
+              display: "flex",
+              gap: "0.5",
+              flex: "none",
+              ml: "auto",
+            })}
           >
             <button
               type="button"
