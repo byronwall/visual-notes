@@ -86,11 +86,15 @@ test("a blocked read on an embedded collection keeps the draft", async ({
   await search.press("Enter");
 
   const embed = editor.locator("[data-collection-embed]");
-  await expect(embed).toContainText("no longer exists");
+  await expect(embed).toContainText("Couldn't load this view");
   await editor.getByText("Body line.").click();
   await page.keyboard.press("End");
   await page.keyboard.type(" draft line");
   await expect(page.getByText("Something went wrong")).toBeHidden();
   await expect(editor).toContainText("Body line. draft line");
+
   await page.unroute("**/_server*", blockRead);
+  await embed.getByRole("button", { name: "Retry" }).click();
+  await expect(embed.getByRole("link", { name: "Open" })).toBeVisible();
+  await expect(editor).toContainText("Body line. draft line");
 });
