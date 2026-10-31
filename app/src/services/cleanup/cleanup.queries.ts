@@ -8,11 +8,13 @@ import {
   noteCleanupHint,
   type CleanupItemDetail,
   type NoteCleanupHint,
-  type QueueItem,
+  type QueueRow,
 } from "~/server/cleanup/queue";
 import { resolveProvider } from "~/server/cleanup/assess";
-import { regroupQueue } from "~/server/cleanup/regroup-queue";
+import { regroupCount, regroupQueue } from "~/server/cleanup/regroup-queue";
 import { dailyStack, type DailyStack } from "~/server/cleanup/daily";
+import { cleanupStatus, type CleanupStatus } from "~/server/cleanup/status";
+import { RAIL_BUCKETS } from "~/components/cleanup/cleanup-buckets";
 
 export type CleanupOverview = {
   counts: Record<string, number>;
@@ -24,14 +26,14 @@ export type CleanupOverview = {
 export const fetchCleanupOverview = query(
   async (): Promise<CleanupOverview> => {
     "use server";
-    const [counts, archived, assessed, regroup] = await Promise.all([
+    const [counts, regroup, archived, assessed] = await Promise.all([
       bucketCounts(),
+      regroupCount(),
       prisma.doc.count({ where: { archivedAt: { not: null } } }),
       prisma.noteAssessment.count(),
-      regroupQueue(),
     ]);
     return {
-      counts: { ...counts, regroup: regroup.length },
+      counts: { ...counts, regroup },
       archived,
       assessed,
       provider: resolveProvider(),
@@ -40,12 +42,29 @@ export const fetchCleanupOverview = query(
   "cleanup-overview",
 );
 
+export type CleanupQueue = { bucket: string; total: number; rows: QueueRow[] };
+
+/**
+ * A bucket's rows. With no bucket asked for it picks the first one with
+ * notes, so the browser doesn't wait for the counts before it asks.
+ */
 export const fetchCleanupQueue = query(
-  async (bucket: string): Promise<QueueItem[]> => {
+  async (requested: string): Promise<CleanupQueue> => {
     "use server";
-    if (bucket === "regroup") return regroupQueue();
-    if (!CLEANUP_BUCKETS.includes(bucket as CleanupBucket)) return [];
-    return queueFor(bucket as CleanupBucket);
+    const counts = await bucketCounts();
+    // Regroup is the slow count, so ask only when this queue needs it.
+    const needsRegroup = requested === "regroup" || (!requested && !counts.distill);
+    if (needsRegroup) counts.regroup = await regroupCount();
+    const bucket = (RAIL_BUCKETS as string[]).includes(requested)
+      ? requested
+      : RAIL_BUCKETS.find((b) => (counts[b] ?? 0) > 0) ?? RAIL_BUCKETS[0];
+    const rows =
+      bucket === "regroup"
+        ? await regroupQueue()
+        : CLEANUP_BUCKETS.includes(bucket as CleanupBucket)
+          ? await queueFor(bucket as CleanupBucket)
+          : [];
+    return { bucket, total: counts[bucket] ?? 0, rows };
   },
   "cleanup-queue",
 );
@@ -70,3 +89,8 @@ export const fetchCleanupDaily = query(async (): Promise<DailyStack> => {
   "use server";
   return dailyStack();
 }, "cleanup-daily");
+
+export const fetchCleanupStatus = query(async (): Promise<CleanupStatus> => {
+  "use server";
+  return cleanupStatus();
+}, "cleanup-status");

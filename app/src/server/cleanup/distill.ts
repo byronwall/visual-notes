@@ -115,6 +115,8 @@ export async function draftDistill(input: {
   markdown: string;
   /** Extra instruction for other cleanup actions (post-event summaries). */
   focus?: string;
+  /** What started the call (see `LlmRequest.trigger`). */
+  trigger: string;
 }): Promise<DistillDraft> {
   const local = () =>
     input.focus === POST_EVENT_FOCUS
@@ -127,6 +129,7 @@ export async function draftDistill(input: {
     system: input.focus ? `${SYSTEM}\n${input.focus}` : SYSTEM,
     user: JSON.stringify({ title: input.title, body }),
     noteId: input.docId,
+    trigger: input.trigger,
   });
   const parsed = output ? parseDraftJson(output) : null;
   if (!parsed) {

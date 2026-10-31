@@ -1,5 +1,34 @@
 import { prisma } from "~/server/db";
 
+/**
+ * Logs a paid call made outside `callLLM` (decision models, embeddings,
+ * transcription). `summary` stands in for the prompt, which can be huge. A
+ * failed log line must not fail the call it describes.
+ */
+export async function recordPaidCall(call: {
+  model: string;
+  trigger: string;
+  summary: string;
+  tokens?: number | null;
+  noteId?: string;
+  error?: string;
+}) {
+  await prisma.llmRequest
+    .create({
+      data: {
+        model: call.model,
+        trigger: call.trigger,
+        userPrompt: call.summary,
+        status: call.error ? "ERROR" : "SUCCESS",
+        error: call.error ?? null,
+        promptTokens: call.tokens ?? null,
+        totalTokens: call.tokens ?? null,
+        noteId: call.noteId ?? null,
+      },
+    })
+    .catch((error) => console.warn("[llm] paid call not recorded", error));
+}
+
 export async function callLLM(opts: {
   system?: string;
   user: string;
@@ -7,6 +36,8 @@ export async function callLLM(opts: {
   temperature?: number;
   top_p?: number;
   noteId?: string;
+  /** What started the call (see `LlmRequest.trigger`). */
+  trigger?: string;
   /** JSON schema for Structured Outputs; the output is then that JSON text. */
   schema?: { name: string; schema: Record<string, unknown> };
 }) {
@@ -25,6 +56,7 @@ export async function callLLM(opts: {
       topP: topP ?? null,
       status: "PARTIAL",
       noteId: opts.noteId ?? null,
+      trigger: opts.trigger ?? null,
     },
   });
 

@@ -25,11 +25,11 @@ import {
   expandLinkForNote,
   remindLinkAction,
 } from "~/services/cleanup/cleanup.actions";
-import { CleanupActionBar } from "./CleanupActionBar";
+import { CleanupActionBar, paidLabel } from "./CleanupActionBar";
 import { DraftPreview } from "./DraftPreview";
 import { PanelSection } from "./PanelSection";
 
-type Primary = "summary" | "remind" | "archive";
+type Primary = "summarize" | "summary" | "remind" | "archive";
 
 const statusLine = (x: LinkExpansion) => {
   const code = x.httpStatus ? ` (${x.httpStatus})` : "";
@@ -37,14 +37,15 @@ const statusLine = (x: LinkExpansion) => {
   if (x.status === "blocked") {
     return `The site refused the check${code}. Open it yourself to see it.`;
   }
-  if (!x.draft) return "The page loads, but has little readable text.";
+  if (!x.readable) return "The page loads, but has little readable text.";
   return null;
 };
 
 /**
- * A saved link: load the page again, summarize it, and choose. Add the
- * summary to the note, get an Inbox reminder to go look, or archive it
- * when the link is dead or nothing is there.
+ * A saved link: load the page again (free), summarize it (on request when
+ * that costs money), and choose. Add the summary to the note, get an Inbox
+ * reminder to go look, or archive it when the link is dead or nothing is
+ * there.
  */
 export const RevisitLinkPanel: VoidComponent<{
   item: CleanupItemDetail;
@@ -55,13 +56,18 @@ export const RevisitLinkPanel: VoidComponent<{
   const addSummary = useAction(addLinkSummaryAction);
   const remind = useAction(remindLinkAction);
   const archive = useAction(archiveOnlyAction);
-  // Fetching the page and asking an LLM runs only in the browser once the
-  // card is open: never during SSR, and never for a card nobody opened.
+  const paid = () => props.item.paid.link;
+  // Fetching the page runs only in the browser once the card is open: never
+  // during SSR, and never for a card nobody opened. The summary waits for a
+  // click when it costs money, so moving through cards spends nothing.
   const [mounted, setMounted] = createSignal(false);
   onMount(() => setMounted(true));
+  const [summarizeId, setSummarizeId] = createSignal<string | null>(null);
+  const summarize = () => !paid() || summarizeId() === props.item.docId;
   const [page, { refetch }] = createResource(
-    () => (mounted() ? props.item.docId : false),
-    (id) => expandLinkForNote(id),
+    () =>
+      mounted() ? { id: props.item.docId, summarize: summarize() } : false,
+    (key) => expandLinkForNote(key.id, key.summarize),
   );
   // `latest` would show the previous card's page while the next one loads.
   const latest = () => (page.error || page.loading ? undefined : page());
@@ -80,10 +86,15 @@ export const RevisitLinkPanel: VoidComponent<{
     if (!x) return "remind";
     if (x.status === "dead") return "archive";
     if (x.draft && x.worth !== null && x.worth < 0.3) return "archive";
-    return x.draft ? "summary" : "remind";
+    if (x.draft) return "summary";
+    return x.readable ? "summarize" : "remind";
   };
 
   const run = async (kind: Primary) => {
+    if (kind === "summarize") {
+      setSummarizeId(props.item.docId);
+      return;
+    }
     setBusy(kind);
     setError(null);
     try {
@@ -104,6 +115,7 @@ export const RevisitLinkPanel: VoidComponent<{
   };
 
   const labels: Record<Primary, string> = {
+    summarize: paidLabel("Summarize page"),
     summary: "Add summary to note",
     remind: "Remind me to check it",
     archive: "Archive",
@@ -124,7 +136,7 @@ export const RevisitLinkPanel: VoidComponent<{
             onClick={() => refetch()}
             disabled={page.loading}
           >
-            Check again
+            {paid() && summarize() ? paidLabel("Check again") : "Check again"}
           </Button>
         }
       >
@@ -179,6 +191,11 @@ export const RevisitLinkPanel: VoidComponent<{
           <Match when={page.error}>
             <Text fontSize="sm" color="fg.error">
               Couldn't load the page. Try Check again.
+            </Text>
+          </Match>
+          <Match when={paid() && latest()?.readable && !latest()?.draft}>
+            <Text fontSize="xs" color="fg.muted">
+              The page loads. A summary calls {props.item.paid.model}.
             </Text>
           </Match>
           <Match when={latest()?.draft}>

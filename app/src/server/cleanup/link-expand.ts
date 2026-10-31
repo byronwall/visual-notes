@@ -28,7 +28,9 @@ export type LinkExpansion = {
   status: LinkStatus;
   httpStatus: number | null;
   title: string | null;
-  /** Null when the page didn't load or had no readable text. */
+  /** The page loaded and has enough text to summarize. */
+  readable: boolean;
+  /** Null when not asked for, or when the page isn't readable. */
   draft: DistillDraft | null;
   /** P(the page holds something worth keeping); null without a decider. */
   worth: number | null;
@@ -52,16 +54,19 @@ async function linkNote(docId: string) {
   return { title: doc.title, url };
 }
 
-export async function expandLink(docId: string): Promise<LinkExpansion> {
+/** The page check is free. `summarize` adds the calls that cost money. */
+export async function expandLink(
+  docId: string,
+  summarize: boolean,
+): Promise<LinkExpansion> {
   const note = await linkNote(docId);
   const { httpStatus, html, noHost } = await fetchPage(note.url, PAGE_BYTES);
   const status = statusFor(httpStatus, noHost);
   const title = html ? pageTitle(html) : null;
   const text = html ? pageText(html).slice(0, TEXT_CAP) : "";
-  const base = { url: note.url, status, httpStatus, title };
-  if (status !== "ok" || text.length < MIN_TEXT) {
-    return { ...base, draft: null, worth: null };
-  }
+  const readable = status === "ok" && text.length >= MIN_TEXT;
+  const base = { url: note.url, status, httpStatus, title, readable };
+  if (!readable || !summarize) return { ...base, draft: null, worth: null };
   const provider = resolveProvider();
   const [draft, worth] = await Promise.all([
     draftDistill({
@@ -69,15 +74,18 @@ export async function expandLink(docId: string): Promise<LinkExpansion> {
       title: title ?? note.title,
       markdown: text,
       focus: LINK_FOCUS,
+      trigger: "cleanup:link",
     }),
     provider
-      ? deciderFor(provider)({
+      ? deciderFor(provider, "cleanup:link")({
           owner: OWNER_PROFILE,
           state: {
             note: { title: note.title, url: note.url },
             page: { title, text },
           },
           questions: LINK_QUESTIONS,
+          noteId: docId,
+          kind: "worth",
         }).then((r) => p(r.answers, "page_worth_keeping"))
       : Promise.resolve(null),
   ]);

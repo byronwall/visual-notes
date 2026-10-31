@@ -2,6 +2,7 @@ import { createAsync, useAction } from "@solidjs/router";
 import {
   For,
   Show,
+  Suspense,
   createMemo,
   createSignal,
   type VoidComponent,
@@ -9,7 +10,7 @@ import {
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
-import type { QueueItem } from "~/server/cleanup/queue";
+import type { QueueRow } from "~/server/cleanup/queue";
 import {
   keepNoteAction,
   snoozeNoteAction,
@@ -21,6 +22,8 @@ import {
 import { CleanupSnoozeContext } from "./CleanupActionBar";
 import { CleanupDetail } from "./CleanupDetail";
 import { CleanupModeToggle } from "./CleanupModeToggle";
+import { CleanupRunStatus } from "./CleanupRunStatus";
+import { DetailSkeleton } from "./CleanupSkeletons";
 import { BUCKET_META, dotColor, isBucketId } from "./cleanup-buckets";
 import { useCleanupKeys } from "./useCleanupKeys";
 
@@ -30,14 +33,33 @@ const minutesLeft = (cards: number) => Math.max(1, Math.round(cards * 0.4));
  * Daily maintenance: one card at a time from a small quota across every
  * bucket, with Snooze. Skipped cards drop to the back for this visit.
  */
-export const DailyStack: VoidComponent = () => {
+export const DailyStack: VoidComponent = () => (
+  <Stack
+    gap="5"
+    maxW="3xl"
+    mx="auto"
+    px={{ base: "4", md: "6" }}
+    py="6"
+    w="full"
+  >
+    <Stack gap="2" alignItems="center">
+      <CleanupModeToggle mode="daily" />
+      <CleanupRunStatus inline />
+    </Stack>
+    <Suspense fallback={<DetailSkeleton />}>
+      <DailyCards />
+    </Suspense>
+  </Stack>
+);
+
+const DailyCards: VoidComponent = () => {
   const daily = createAsync(() => fetchCleanupDaily());
   const keep = useAction(keepNoteAction);
   const snooze = useAction(snoozeNoteAction);
   const [skipped, setSkipped] = createSignal<string[]>([]);
 
   const today = createMemo(() => {
-    const d = daily();
+    const d = daily.latest;
     if (!d) return [];
     const cards = d.items.slice(0, d.remaining);
     const later = new Set(skipped());
@@ -47,12 +69,12 @@ export const DailyStack: VoidComponent = () => {
     ];
   });
   const upcoming = () => {
-    const d = daily();
+    const d = daily.latest;
     return d ? d.items.slice(d.remaining) : [];
   };
   const current = () => today()[0] ?? null;
   const progress = () => {
-    const d = daily();
+    const d = daily.latest;
     if (!d) return { done: 0, total: 0 };
     return { done: d.doneToday, total: d.doneToday + d.remaining };
   };
@@ -64,16 +86,8 @@ export const DailyStack: VoidComponent = () => {
   useCleanupKeys(() => {});
 
   return (
-    <Stack
-      gap="5"
-      maxW="3xl"
-      mx="auto"
-      px={{ base: "4", md: "6" }}
-      py="6"
-      w="full"
-    >
+    <>
       <Stack gap="3" alignItems="center">
-        <CleanupModeToggle mode="daily" />
         <Text fontSize="sm" color="fg.muted" data-testid="daily-progress">
           <Text as="span" color="fg.default" fontWeight="medium">
             Today: {progress().done} of {progress().total}
@@ -114,16 +128,19 @@ export const DailyStack: VoidComponent = () => {
             bg="bg.default"
           >
             <Text fontSize="md" fontWeight="medium">
-              <Show when={daily()?.openTotal} fallback="Nothing to clean up.">
+              <Show
+                when={daily.latest?.openTotal}
+                fallback="Nothing to clean up."
+              >
                 Done for today.
               </Show>
             </Text>
             <Text fontSize="sm" color="fg.muted" mt="1">
               <Show
-                when={daily()?.openTotal}
+                when={daily.latest?.openTotal}
                 fallback="New suggestions show up here as notes change."
               >
-                {daily()?.openTotal} more suggestions wait in the deep pass.
+                {daily.latest?.openTotal} more suggestions wait in the deep pass.
               </Show>
             </Text>
           </Box>
@@ -184,13 +201,13 @@ export const DailyStack: VoidComponent = () => {
           </For>
         </HStack>
       </Show>
-    </Stack>
+    </>
   );
 };
 
 /** One card: fetches its note's detail and shows the bucket's panel. */
 const DailyCard: VoidComponent<{
-  card: QueueItem;
+  card: QueueRow;
   stacked: boolean;
   onSkip: () => void;
   onKeep: () => void;
@@ -224,8 +241,7 @@ const DailyCard: VoidComponent<{
         display="flex"
         flexDirection="column"
       >
-        <Show
-          when={item()}
+        <Suspense
           fallback={
             <Stack gap="3" aria-busy="true" aria-label="Loading card">
               <Skeleton h="6" w="60%" />
@@ -233,18 +249,20 @@ const DailyCard: VoidComponent<{
             </Stack>
           }
         >
-          {(detail) => (
-            <CleanupSnoozeContext.Provider value={props.onSnooze}>
-              <BucketPill bucket={props.card.bucket} />
-              <CleanupDetail
-                item={detail()}
-                onDone={() => {}}
-                onSkip={props.onSkip}
-                onKeep={props.onKeep}
-              />
-            </CleanupSnoozeContext.Provider>
-          )}
-        </Show>
+          <Show when={item.latest}>
+            {(detail) => (
+              <CleanupSnoozeContext.Provider value={props.onSnooze}>
+                <BucketPill bucket={props.card.bucket} />
+                <CleanupDetail
+                  item={detail()}
+                  onDone={() => {}}
+                  onSkip={props.onSkip}
+                  onKeep={props.onKeep}
+                />
+              </CleanupSnoozeContext.Provider>
+            )}
+          </Show>
+        </Suspense>
       </Box>
     </Box>
   );

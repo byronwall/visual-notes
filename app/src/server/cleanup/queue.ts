@@ -5,14 +5,17 @@ import type { CleanupBucket } from "./buckets";
 import type { Answers } from "./decide";
 import type { NoteFacts } from "./note-state";
 import type { RegroupDetail } from "./regroup-queue";
+import { queueMeta } from "~/components/cleanup/cleanup-format";
 import { p } from "./buckets";
 import { taskPlan, type TaskPlan } from "./make-task";
 import { signalsFor, type Signal } from "./signals";
+import { paidActions, type PaidActions } from "./status";
 
 /** Reads for the triage page: bucket counts, a bucket's queue, one item. */
 
 const KEEP_SNOOZE_MONTHS = 6;
-const QUEUE_LIMIT = 300;
+/** Rows in a queue list. The rail has the full count. */
+export const QUEUE_LIMIT = 100;
 
 /** Assessments that should show: live note, not snoozed, not acted on. */
 export const openAssessmentWhere = (
@@ -25,6 +28,17 @@ export const openAssessmentWhere = (
     { OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }] },
   ],
 });
+
+/** One line of a queue list: what the list shows and nothing more. */
+export type QueueRow = {
+  docId: string;
+  title: string;
+  path: string | null;
+  bucket: string;
+  confidence: number;
+  /** The row's second line. */
+  meta: string;
+};
 
 export type QueueItem = {
   docId: string;
@@ -79,14 +93,30 @@ function toItem(row: ItemRow): QueueItem {
   };
 }
 
-export async function queueFor(bucket: CleanupBucket): Promise<QueueItem[]> {
+export async function queueFor(
+  bucket: CleanupBucket,
+  limit = QUEUE_LIMIT,
+): Promise<QueueRow[]> {
   const rows = await prisma.noteAssessment.findMany({
     where: { ...openAssessmentWhere(), bucket },
     orderBy: { confidence: "desc" },
-    take: QUEUE_LIMIT,
-    select: itemSelect,
+    take: limit,
+    select: {
+      docId: true,
+      bucket: true,
+      confidence: true,
+      facts: true,
+      doc: { select: { title: true, path: true } },
+    },
   });
-  return rows.map(toItem);
+  return rows.map((row) => ({
+    docId: row.docId,
+    title: row.doc.title,
+    path: row.doc.path,
+    bucket: row.bucket,
+    confidence: row.confidence,
+    meta: queueMeta(row.facts as unknown as NoteFacts),
+  }));
 }
 
 export type DestinationOption = {
@@ -103,6 +133,7 @@ export type CleanupItemDetail = QueueItem & {
   evergreen: number;
   /** Make task: tasks already in the note and suggested new ones. */
   tasks: TaskPlan | null;
+  paid: PaidActions;
 };
 
 /**
@@ -156,8 +187,8 @@ export async function cleanupItem(
   bucket?: string,
 ): Promise<CleanupItemDetail | null> {
   if (bucket === "regroup") {
-    const { regroupQueue } = await import("./regroup-queue");
-    const item = (await regroupQueue()).find((i) => i.docId === docId);
+    const { regroupItem } = await import("./regroup-queue");
+    const item = await regroupItem(docId);
     if (!item) return null;
     const doc = await prisma.doc.findUnique({
       where: { id: docId },
@@ -169,6 +200,7 @@ export async function cleanupItem(
       destinations: [],
       evergreen: 1,
       tasks: null,
+      paid: paidActions(),
     };
   }
   const row = await prisma.noteAssessment.findUnique({
@@ -198,6 +230,7 @@ export async function cleanupItem(
       row.bucket === "make_task"
         ? await taskPlan(docId, row.doc.title, markdown)
         : null,
+    paid: paidActions(),
   };
 }
 

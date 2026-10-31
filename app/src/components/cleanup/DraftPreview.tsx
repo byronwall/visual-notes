@@ -13,6 +13,28 @@ export function parseDraft(markdown: string) {
   return { bullets, code };
 }
 
+/** The note itself, for deciding whether a paid draft is worth writing. */
+export const NotePreview: VoidComponent<{ markdown: string; note: string }> = (
+  props,
+) => (
+  <Stack gap="2">
+    <Text fontSize="xs" color="fg.muted">
+      {props.note}
+    </Text>
+    <Box
+      fontSize="sm"
+      whiteSpace="pre-wrap"
+      overflowWrap="anywhere"
+      maxH="18rem"
+      overflowY="auto"
+      color="fg.muted"
+      data-testid="cleanup-note-preview"
+    >
+      {props.markdown}
+    </Box>
+  </Stack>
+);
+
 export const DraftPreview: VoidComponent<{ markdown: string }> = (props) => {
   const parsed = () => parseDraft(props.markdown);
   return (
