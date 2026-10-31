@@ -103,6 +103,8 @@ async function withSecuritySchemes(response: Response): Promise<Response> {
   });
 }
 
+const INVALID_ARGUMENTS = "MCP error -32602: Input validation error";
+
 type ToolCallBody = {
   method?: string;
   params?: { name?: string; arguments?: unknown };
@@ -115,17 +117,15 @@ type ToolCallBody = {
  */
 async function recordInvalidArguments(
   ctx: ConnectorContext,
-  body: ToolCallBody | null,
+  call: Request,
   response: Response,
 ): Promise<void> {
-  if (body?.method !== "tools/call" || !body.params?.name) return;
-  const reply = await response
-    .clone()
-    .json()
-    .catch(() => null);
-  const text: unknown = reply?.result?.content?.[0]?.text;
-  if (!reply?.result?.isError || typeof text !== "string") return;
-  if (!text.includes("Input validation error")) return;
+  const reply = await response.clone().text();
+  if (!reply.includes(INVALID_ARGUMENTS)) return;
+  const text: unknown = JSON.parse(reply).result?.content?.[0]?.text;
+  if (typeof text !== "string" || !text.startsWith(INVALID_ARGUMENTS)) return;
+  const body: ToolCallBody = await call.json();
+  if (body.method !== "tools/call" || !body.params?.name) return;
   await recordMcpCall({
     ctx,
     callId: randomUUID(),
@@ -162,10 +162,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     ),
   };
   const server = createNotesMcpServer(ctx);
-  const body: ToolCallBody | null = await request
-    .clone()
-    .json()
-    .catch(() => null);
+  const call = request.clone();
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -175,7 +172,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     const response = await withSecuritySchemes(
       await transport.handleRequest(request),
     );
-    await recordInvalidArguments(ctx, body, response);
+    await recordInvalidArguments(ctx, call, response);
     return response;
   } finally {
     void server.close();
