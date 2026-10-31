@@ -1,6 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import { createNoteFixture, uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { holdNextServerAction } from "./helpers/server-actions";
 
 // Silent text loss is the worst failure in this app. The first test covers a
 // save that fails until the network returns. The second covers Esc in New note.
@@ -52,4 +53,65 @@ test("Esc asks before it drops text in New note", async ({ page }) => {
   await page.keyboard.press("Escape");
   await dialog.getByRole("button", { name: "Discard" }).click();
   await expect(dialog).toBeHidden();
+});
+
+test("retries after several failed saves when the connection returns", async ({
+  page,
+}) => {
+  const noteId = await createNoteFixture(page, {
+    title: `Offline ${uniqueSuffix()}`,
+    markdown: "Offline body.",
+  });
+  await page.goto(`/docs/${noteId}`);
+  await waitForAppReady(page);
+  const editor = page.locator(".ProseMirror");
+  await expect(editor).toContainText("Offline body.");
+  let attempts = 0;
+  const block = async (route: Route) => {
+    if (route.request().method() === "POST") attempts++;
+    await route.abort();
+  };
+  await page.route("**/_server*", block);
+  await editor.getByText("Offline body.").click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" held through failures");
+  await expect
+    .poll(() => attempts, { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(3);
+  await expect(editor).toContainText("held through failures");
+  await page.unroute("**/_server*", block);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.getByRole("button", { name: /Couldn't save/ })).toBeHidden({
+    timeout: 15_000,
+  });
+  await page.reload();
+  await waitForAppReady(page);
+  await expect(editor).toContainText("Offline body. held through failures");
+});
+
+test("a late save acknowledgement does not mark newer text saved", async ({
+  page,
+}) => {
+  const noteId = await createNoteFixture(page, {
+    title: `Late save ${uniqueSuffix()}`,
+    markdown: "First body.",
+  });
+  await page.goto(`/docs/${noteId}`);
+  await waitForAppReady(page);
+  const editor = page.locator(".ProseMirror");
+  const held = await holdNextServerAction(page, "saveDocContent", [
+    "first edit",
+  ]);
+  await editor.getByText("First body.").click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" first edit");
+  await held.request;
+  await page.keyboard.type(" second edit");
+  held.release();
+  await expect(page.getByText("Saved just now")).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.reload();
+  await waitForAppReady(page);
+  await expect(editor).toContainText("First body. first edit second edit");
 });
