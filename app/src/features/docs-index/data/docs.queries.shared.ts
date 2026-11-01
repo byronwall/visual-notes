@@ -1,3 +1,5 @@
+import type { DocsFilters } from "./docs.types";
+
 function toIsoDate(dateOnly: string, time: string): string | undefined {
   const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
   if (!parts) return undefined;
@@ -23,21 +25,13 @@ function toIsoDateEnd(dateOnly: string): string | undefined {
   return toIsoDate(dateOnly, "23:59:59.999");
 }
 
-function buildDocsWhere(q: {
-  pathPrefix?: string;
-  pathBlankOnly?: boolean;
-  metaKey?: string;
-  metaValue?: string;
-  source?: string;
-  originalContentId?: string;
-  createdFrom?: string;
-  createdTo?: string;
-  updatedFrom?: string;
-  updatedTo?: string;
-  activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
-  /** Collection rows are notes too; hide them or show only them. */
-  collectionRows?: "hide" | "only";
-}) {
+function metaValueVariants(value: string): (string | number | boolean)[] {
+  if (value === "true" || value === "false") return [value, value === "true"];
+  const n = Number(value);
+  return value.trim() && Number.isFinite(n) ? [value, n] : [value];
+}
+
+function buildDocsWhere(q: DocsFilters) {
   // Archived notes only show on the archive page.
   const where: Record<string, any> = { archivedAt: null };
   const andClauses: Record<string, unknown>[] = [];
@@ -55,7 +49,13 @@ function buildDocsWhere(q: {
     });
   }
   if (q.metaKey && q.metaValue !== undefined) {
-    where.meta = { path: [q.metaKey], equals: q.metaValue } as any;
+    // The URL holds text, but meta values can be numbers or booleans.
+    const path = [q.metaKey];
+    andClauses.push({
+      OR: metaValueVariants(q.metaValue).map((equals) => ({
+        meta: { path, equals },
+      })),
+    });
   } else if (q.metaKey && q.metaValue === undefined) {
     where.meta = { path: [q.metaKey], not: null } as any;
   }
@@ -78,7 +78,11 @@ function buildDocsWhere(q: {
     }
     if (Object.keys(range).length) where.createdAt = range;
   }
-  if (q.updatedFrom || q.updatedTo) {
+  if (q.updatedWithinDays) {
+    where.updatedAt = {
+      gte: new Date(Date.now() - q.updatedWithinDays * 24 * 60 * 60 * 1000),
+    };
+  } else if (q.updatedFrom || q.updatedTo) {
     const range: any = {};
     if (q.updatedFrom) {
       const d = new Date(q.updatedFrom);
@@ -93,12 +97,30 @@ function buildDocsWhere(q: {
   if (q.activityClass) {
     where.activitySnapshot = { activityClass: q.activityClass };
   }
-  if (q.collectionRows === "hide") where.collectionId = null;
-  if (q.collectionRows === "only") where.collectionId = { not: null };
+  if (q.collectionId) {
+    where.collectionId = q.collectionId;
+  } else if (q.collectionRows === "only") {
+    where.collectionId = { not: null };
+  } else if (q.collectionRows !== "all") {
+    andClauses.push({
+      OR: [{ collectionId: null }, { collection: { showRowsInRecent: true } }],
+    });
+  }
   if (andClauses.length > 0) {
     where.AND = andClauses;
   }
   return where;
 }
 
-export { buildDocsWhere, toIsoDateEnd, toIsoDateStart };
+/** `buildDocsWhere` for URL filters, whose date bounds are date-only strings. */
+function docsWhereFromFilters(q: DocsFilters) {
+  return buildDocsWhere({
+    ...q,
+    createdFrom: q.createdFrom ? toIsoDateStart(q.createdFrom) : undefined,
+    createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
+    updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
+    updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
+  });
+}
+
+export { buildDocsWhere, docsWhereFromFilters, toIsoDateEnd, toIsoDateStart };

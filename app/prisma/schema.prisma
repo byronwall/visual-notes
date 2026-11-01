@@ -834,7 +834,7 @@ model Collection {
   name             String
   description      String?
   icon             String?
-  /// Opt-in: list this collection's row notes in the sidebar Recent list.
+  /// Opt-in: list this collection's row notes in Recent and on the notes index.
   showRowsInRecent Boolean   @default(false)
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())

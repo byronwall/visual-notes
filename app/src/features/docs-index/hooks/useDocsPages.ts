@@ -26,9 +26,19 @@ export function useDocsPages(args: {
   shown: Accessor<number>;
   setShown: (n: number) => void;
 }) {
-  const firstPage = createKeptAsync(() =>
-    fetchDocs({ ...args.filters(), skip: 0, take: DOCS_PAGE_SIZE }),
-  );
+  const filterKey = () => JSON.stringify(args.filters());
+  // The filters the rows on screen answer; lets the list dim while new ones
+  // load. Seeded because hydration reuses the server's rows without a fetch.
+  const [loadedKey, setLoadedKey] = createSignal(untrack(filterKey));
+  const firstPage = createKeptAsync(async () => {
+    const key = filterKey();
+    const filters = args.filters();
+    try {
+      return await fetchDocs({ ...filters, skip: 0, take: DOCS_PAGE_SIZE });
+    } finally {
+      setLoadedKey(key);
+    }
+  });
   const summary = createKeptAsync(() => {
     const { sortMode, ...filters } = args.filters();
     void sortMode;
@@ -42,7 +52,7 @@ export function useDocsPages(args: {
 
   createEffect(
     on(
-      () => JSON.stringify(args.filters()),
+      filterKey,
       () => {
         generation++;
         setExtra([]);
@@ -114,5 +124,7 @@ export function useDocsPages(args: {
     if (rows) setExtra(rows);
   };
 
-  return { items, summary, loadingMore, showMore, refresh };
+  const stale = () => loadedKey() !== filterKey();
+
+  return { items, summary, stale, loadingMore, showMore, refresh };
 }

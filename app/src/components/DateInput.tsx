@@ -9,6 +9,7 @@ export type DateInputProps = {
   min?: string;
   max?: string;
   "aria-label"?: string;
+  size?: "xs" | "sm" | "md";
 };
 
 // Expects and returns a date-only string in the form YYYY-MM-DD

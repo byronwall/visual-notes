@@ -399,7 +399,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     {
       title: "Update collection",
       description:
-        "Change a collection's name, description, or whether its rows are listed in the sidebar Recent list.",
+        "Change a collection's name, description, or whether its rows always show in the sidebar Recent list and on the notes index.",
       input: {
         collection: collectionArg,
         name: z.string().trim().min(1).max(120).optional(),

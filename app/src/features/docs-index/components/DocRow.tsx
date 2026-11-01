@@ -124,20 +124,16 @@ export const docRowListClass = css({
     color: "green.11",
   },
   "& .dr-collection": {
-    display: "inline-flex",
-    alignItems: "center",
-    ml: "1.5",
-    px: "1.5",
-    h: "4.5",
-    borderRadius: "l1",
-    bg: "bg.subtle",
-    borderWidth: "1px",
-    borderColor: "border",
-    color: "fg.muted",
-    fontSize: "2xs",
-    verticalAlign: "1px",
+    display: "inline-block",
+    maxW: "18rem",
+    verticalAlign: "bottom",
+    color: "fg.subtle",
+    fontSize: "xs",
     textDecoration: "none",
-    _hover: { color: "fg.default", borderColor: "border.emphasized" },
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    _hover: { color: "fg.default", textDecoration: "underline" },
   },
   "& .dr-cell": {
     minW: "0",
@@ -153,9 +149,10 @@ export const docRowListClass = css({
     justifyContent: "flex-end",
     gap: "3",
     minW: "0",
-    maxW: "16rem",
+    maxW: "10rem",
     overflow: "hidden",
     xl: { display: "flex" },
+    "2xl": { maxW: "16rem" },
   },
   "& .dr-meta-button": {
     flexShrink: "1",
@@ -265,6 +262,7 @@ export const DocRow = (props: DocRowProps) => {
             </span>
           )}
         </Show>
+        {/* A plain space, so the label has no indent when it wraps. */}{" "}
         <Show when={props.collection}>
           {(collection) => (
             <a
@@ -296,11 +294,7 @@ export const DocRow = (props: DocRowProps) => {
 
       <Show when={props.path}>
         {(path) => (
-          <a
-            href={pathToRoute(path())}
-            class="dr-cell dr-path"
-            title={path()}
-          >
+          <a href={pathToRoute(path())} class="dr-cell dr-path" title={path()}>
             <Show when={props.query} fallback={path()}>
               {(query) => renderHighlighted(path(), query())}
             </Show>

@@ -29,7 +29,7 @@ import { Text } from "~/components/ui/text";
 import { fetchPathSuggestions } from "~/services/docs.service";
 import { useNoteMutations } from "~/hooks/useNoteMutations";
 
-export const PathEditor: VoidComponent<{
+type PathEditorProps = {
   docId?: string;
   initialPath?: string;
   onChange?: (path: string) => void;
@@ -37,7 +37,20 @@ export const PathEditor: VoidComponent<{
   /** Enter on an empty segment finished the edit. */
   onSubmit?: () => void;
   actions?: JSX.Element;
-}> = (props) => {
+};
+
+/**
+ * Owns its Suspense boundary. The suggestions memo reads a resource in the
+ * component body, so without this a first load suspends the whole page behind
+ * the app shell's boundary and every row on screen unmounts.
+ */
+export const PathEditor: VoidComponent<PathEditorProps> = (props) => (
+  <Suspense fallback={null}>
+    <PathEditorBody {...props} />
+  </Suspense>
+);
+
+const PathEditorBody: VoidComponent<PathEditorProps> = (props) => {
   let inputRef: HTMLInputElement | undefined;
   // Seed with the mounted doc so the sync effect's first run is not treated as
   // a doc switch; that run can land after the user starts typing and would
