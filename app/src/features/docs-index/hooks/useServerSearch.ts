@@ -1,30 +1,16 @@
 import { createSignal, createEffect, onCleanup, type Accessor } from "solid-js";
 import { useDebouncedSignal } from "./useDebouncedSignal";
 import { searchDocs } from "../data/docs.service";
-import type { ServerSearchItem } from "../data/docs.types";
+import type {
+  DocsFilters,
+  ServerSearchItem,
+  SortMode,
+} from "../data/docs.types";
 
 const SEARCH_LOG_PREFIX = "[docs-index/search]";
 const REQUEST_TIMEOUT_MS = 15_000;
 
-type Filters = {
-  pathPrefix?: string;
-  pathBlankOnly?: boolean;
-  metaKey?: string;
-  metaValue?: string;
-  source?: string;
-  originalContentId?: string;
-  createdFrom?: string;
-  createdTo?: string;
-  updatedFrom?: string;
-  updatedTo?: string;
-  activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
-  collectionRows?: "hide" | "only";
-  sortMode?:
-    | "relevance"
-    | "recent_activity"
-    | "most_viewed_30d"
-    | "most_edited_30d";
-};
+type Filters = DocsFilters & { sortMode?: SortMode };
 
 export function useServerSearch(
   qSig: Accessor<string>,

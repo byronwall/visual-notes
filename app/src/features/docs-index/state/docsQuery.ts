@@ -1,4 +1,5 @@
 import { createStore } from "solid-js/store";
+import type { SortMode } from "../data/docs.types";
 
 export function createDocsQueryStore() {
   // Convert to a Solid store to group related state
@@ -15,12 +16,10 @@ export function createDocsQueryStore() {
     updatedFrom: "" as string,
     updatedTo: "" as string,
     activityClass: "",
-    collectionRows: "" as "" | "hide" | "only",
-    sortMode: "relevance" as
-      | "relevance"
-      | "recent_activity"
-      | "most_viewed_30d"
-      | "most_edited_30d",
+    updatedWithinDays: 0,
+    collectionRows: "" as "" | "all" | "only",
+    collectionId: "",
+    sortMode: "relevance" as SortMode,
     clientShown: 100,
     serverShown: 25,
   });
@@ -39,7 +38,9 @@ export function createDocsQueryStore() {
   const updatedFrom = () => state.updatedFrom;
   const updatedTo = () => state.updatedTo;
   const activityClass = () => state.activityClass;
+  const updatedWithinDays = () => state.updatedWithinDays;
   const collectionRows = () => state.collectionRows;
+  const collectionId = () => state.collectionId;
   const sortMode = () => state.sortMode;
   const clientShown = () => state.clientShown;
   const serverShown = () => state.serverShown;
@@ -56,24 +57,17 @@ export function createDocsQueryStore() {
   const setUpdatedFrom = (v?: string) => setState("updatedFrom", v ?? "");
   const setUpdatedTo = (v?: string) => setState("updatedTo", v ?? "");
   const setActivityClass = (v: string) => setState("activityClass", v);
+  const setUpdatedWithinDays = (v: number) => setState("updatedWithinDays", v);
   const setCollectionRows = (v: string) =>
-    setState("collectionRows", v === "hide" || v === "only" ? v : "");
-  const setSortMode = (
-    v: "relevance" | "recent_activity" | "most_viewed_30d" | "most_edited_30d",
-  ) => setState("sortMode", v);
+    setState("collectionRows", v === "all" || v === "only" ? v : "");
+  const setCollectionId = (v: string) => setState("collectionId", v);
+  const setSortMode = (v: SortMode) => setState("sortMode", v);
 
   const resetMeta = () => {
     setState({ metaKey: "", metaValue: "" });
   };
-  const resetDatesAndSource = () => {
-    setState({
-      source: "",
-      createdFrom: "",
-      createdTo: "",
-      updatedFrom: "",
-      updatedTo: "",
-    });
-  };
+  // Showing every collection row is a view setting, not a filter, so clearing
+  // filters keeps it.
   const resetFilters = () => {
     setState({
       pathPrefix: "",
@@ -87,7 +81,10 @@ export function createDocsQueryStore() {
       updatedFrom: "",
       updatedTo: "",
       activityClass: "",
-      collectionRows: "",
+      updatedWithinDays: 0,
+      collectionRows:
+        state.collectionRows === "only" ? "" : state.collectionRows,
+      collectionId: "",
     });
   };
   const hasFilters = () =>
@@ -103,7 +100,9 @@ export function createDocsQueryStore() {
       state.updatedFrom ||
       state.updatedTo ||
       state.activityClass ||
-      state.collectionRows
+      state.updatedWithinDays ||
+      state.collectionRows === "only" ||
+      state.collectionId
     );
   const resetPaging = () => {
     setState({ clientShown: 100, serverShown: 25 });
@@ -127,7 +126,9 @@ export function createDocsQueryStore() {
     updatedFrom,
     updatedTo,
     activityClass,
+    updatedWithinDays,
     collectionRows,
+    collectionId,
     sortMode,
     clientShown,
     serverShown,
@@ -144,10 +145,11 @@ export function createDocsQueryStore() {
     setUpdatedFrom,
     setUpdatedTo,
     setActivityClass,
+    setUpdatedWithinDays,
     setCollectionRows,
+    setCollectionId,
     setSortMode,
     resetMeta,
-    resetDatesAndSource,
     resetFilters,
     hasFilters,
     resetPaging,

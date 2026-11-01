@@ -1,8 +1,4 @@
-import {
-  revalidate,
-  useNavigate,
-  useSearchParams,
-} from "@solidjs/router";
+import { revalidate, useNavigate, useSearchParams } from "@solidjs/router";
 import {
   ErrorBoundary,
   Show,
@@ -11,11 +7,13 @@ import {
   createSignal,
 } from "solid-js";
 import { fetchSources } from "../data/docs.service";
+import type { ActivityClass } from "../data/docs.types";
 import { useDocsPages } from "../hooks/useDocsPages";
 import { useServerSearch } from "../hooks/useServerSearch";
 import { createDocsQueryStore } from "../state/docsQuery";
 import { DocsIndexHeader } from "./DocsIndexHeader";
 import { DocsToolbar } from "./DocsToolbar";
+import { FacetRail } from "./FacetRail";
 import { SelectionBar } from "./SelectionBar";
 import { ActionsMenu } from "./ActionsMenu";
 import { ResultsSection } from "./ResultsSection";
@@ -23,15 +21,13 @@ import { SearchInput } from "./SearchInput";
 import { ListEmptyState } from "./ListEmptyState";
 import { BulkMetaModal } from "./BulkMetaModal";
 import { BulkPathModal } from "./BulkPathModal";
-import { PathDiscoveryLinks } from "./PathDiscoveryLinks";
 import { useDocsIndexUrlSync } from "../hooks/useDocsIndexUrlSync";
 import { useDocsIndexBulkActions } from "../hooks/useDocsIndexBulkActions";
 import { useDocsListKeyboard } from "../hooks/useDocsListKeyboard";
 import { useAskDialog } from "../hooks/useAskDialog";
 import { Toaster, toaster } from "~/components/ui/toast";
-import { fetchPathDiscovery } from "~/services/docs.service";
 import { Spinner } from "~/components/ui/spinner";
-import { Box, Container, HStack } from "styled-system/jsx";
+import { Box, Container, Grid, HStack } from "styled-system/jsx";
 import { createKeptAsync } from "~/utils/kept-async";
 
 // A component (not a pre-built element) so hydration claims its nodes in place.
@@ -41,8 +37,6 @@ const LoadingRows = () => (
     Loading notes…
   </HStack>
 );
-
-type ActivityClass = "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
 
 const DocsIndexPage = () => {
   const q = createDocsQueryStore();
@@ -64,7 +58,9 @@ const DocsIndexPage = () => {
     activityClass: (q.activityClass() || undefined) as
       | ActivityClass
       | undefined,
+    updatedWithinDays: q.updatedWithinDays() || undefined,
     collectionRows: q.collectionRows() || undefined,
+    collectionId: q.collectionId() || undefined,
     sortMode: q.sortMode(),
   });
 
@@ -73,8 +69,10 @@ const DocsIndexPage = () => {
     shown: q.clientShown,
     setShown: q.setClientShown,
   });
-  const sources = createKeptAsync(() => fetchSources());
-  const pathDiscovery = createKeptAsync(() => fetchPathDiscovery());
+  const fetchedSources = createKeptAsync(() => fetchSources());
+  // `.latest`: a plain read here would suspend the page on every revalidation.
+  const sources = () => fetchedSources.latest;
+  const [filtersOpen, setFiltersOpen] = createSignal(false);
   const refreshDocs = docs.refresh;
   const refreshSources = () => revalidate(fetchSources.key);
 
@@ -153,99 +151,116 @@ const DocsIndexPage = () => {
 
   return (
     <Box as="main" minH="100vh" bg="bg.default">
-      <Container px={{ base: "3", md: "8" }} pb="16" maxW="960px">
-        <DocsIndexHeader
-          countLabel={countLabel()}
-          search={
-            <SearchInput
-              ref={setSearchEl}
-              value={q.searchText()}
-              loading={isSearching() && search.loading()}
-              onChange={setSearch}
-              onKeyDown={keys.handleSearchKeyDown}
-            />
-          }
-          actions={
-            <ActionsMenu
-              sources={sources}
-              onBulkSetSource={actions.handleBulkSetSource}
-              onCleanupTitles={actions.handleCleanupTitles}
-              onProcessPathRound={actions.handleProcessPathRound}
-              onScanRelativeImages={actions.handleScanRelativeImages}
-              onDeleteBySource={actions.handleDeleteBySource}
-              onDeleteAll={actions.handleDeleteAll}
-            />
-          }
-          toolbar={
-            <Show
-              when={actions.selectedVisibleCount() > 0}
-              fallback={
-                <DocsToolbar
-                  q={q}
-                  isSearching={isSearching()}
-                  sources={sources()?.sources}
+      <Container px={{ base: "3", md: "8" }} maxW="1280px">
+        <Grid
+          gridTemplateColumns={{
+            base: "minmax(0, 1fr)",
+            xl: "minmax(0, 1fr) 14rem",
+          }}
+          gap={{ base: "0", xl: "8" }}
+        >
+          <Box minW="0" pb="16">
+            <DocsIndexHeader
+              countLabel={countLabel()}
+              search={
+                <SearchInput
+                  ref={setSearchEl}
+                  value={q.searchText()}
+                  loading={isSearching() && search.loading()}
+                  onChange={setSearch}
+                  onKeyDown={keys.handleSearchKeyDown}
                 />
               }
-            >
-              <SelectionBar
-                selectedCount={actions.selectedVisibleCount()}
-                visibleCount={actions.visibleIds().length}
-                onSelectAll={actions.handleSelectAllVisible}
-                onClear={actions.handleSelectNone}
-                onBulkMeta={actions.handleOpenBulkMeta}
-                onBulkPath={actions.handleOpenBulkPath}
-                onDelete={actions.handleDeleteSelected}
-              />
-            </Show>
-          }
-        />
-        <Box pb="2">
-          <PathDiscoveryLinks data={pathDiscovery()} />
-        </Box>
-
-        <ErrorBoundary
-          fallback={(err) => {
-            console.error("[docs-index] ResultsSection crashed", err);
-            return (
-              <ListEmptyState
-                tone="error"
-                message="The notes list failed to render."
-              />
-            );
-          }}
-        >
-          <Suspense fallback={<LoadingRows />}>
-            {/* The first read must suspend so SSR waits for rows; later
-                revalidations keep showing the latest rows instead. */}
-            <Show when={docs.items()} fallback={<LoadingRows />}>
-              {(items) => (
-                <ResultsSection
-                  items={items()}
-                  summary={docs.summary.latest}
-                  onShowMore={docs.showMore}
-                  loadingMore={docs.loadingMore()}
-                  query={q}
-                  serverResults={search.results()}
-                  serverLoading={search.loading()}
-                  serverStale={
-                    search.loading() &&
-                    search.resultsQuery() !== q.searchText().trim()
-                  }
-                  serverError={search.error()}
-                  onSearchRetry={search.refetch}
-                  onVisibleIdsChange={actions.setVisibleIds}
-                  selectedIds={actions.selectedIds()}
-                  activeId={keys.activeId()}
-                  hasFilters={q.hasFilters()}
-                  onClearFilters={q.resetFilters}
-                  onToggleSelect={toggleSelect}
-                  onActivate={(id) => openDoc(id, false)}
-                  onResultOpen={actions.handleSearchResultOpen}
+              actions={
+                <ActionsMenu
+                  sources={sources}
+                  onBulkSetSource={actions.handleBulkSetSource}
+                  onCleanupTitles={actions.handleCleanupTitles}
+                  onProcessPathRound={actions.handleProcessPathRound}
+                  onScanRelativeImages={actions.handleScanRelativeImages}
+                  onDeleteBySource={actions.handleDeleteBySource}
+                  onDeleteAll={actions.handleDeleteAll}
                 />
-              )}
-            </Show>
+              }
+              toolbar={
+                <Show
+                  when={actions.selectedVisibleCount() > 0}
+                  fallback={
+                    <DocsToolbar
+                      q={q}
+                      isSearching={isSearching()}
+                      facets={docs.summary.latest?.facets}
+                      onOpenFilters={() => setFiltersOpen(true)}
+                    />
+                  }
+                >
+                  <SelectionBar
+                    selectedCount={actions.selectedVisibleCount()}
+                    visibleCount={actions.visibleIds().length}
+                    onSelectAll={actions.handleSelectAllVisible}
+                    onClear={actions.handleSelectNone}
+                    onBulkMeta={actions.handleOpenBulkMeta}
+                    onBulkPath={actions.handleOpenBulkPath}
+                    onDelete={actions.handleDeleteSelected}
+                  />
+                </Show>
+              }
+            />
+            <ErrorBoundary
+              fallback={(err) => {
+                console.error("[docs-index] ResultsSection crashed", err);
+                return (
+                  <ListEmptyState
+                    tone="error"
+                    message="The notes list failed to render."
+                  />
+                );
+              }}
+            >
+              <Suspense fallback={<LoadingRows />}>
+                {/* The first read must suspend so SSR waits for rows; later
+                revalidations keep showing the latest rows instead. */}
+                <Show when={docs.items()} fallback={<LoadingRows />}>
+                  {(items) => (
+                    <ResultsSection
+                      items={items()}
+                      summary={docs.summary.latest}
+                      onShowMore={docs.showMore}
+                      loadingMore={docs.loadingMore()}
+                      stale={docs.stale()}
+                      query={q}
+                      serverResults={search.results()}
+                      serverLoading={search.loading()}
+                      serverStale={
+                        search.loading() &&
+                        search.resultsQuery() !== q.searchText().trim()
+                      }
+                      serverError={search.error()}
+                      onSearchRetry={search.refetch}
+                      onVisibleIdsChange={actions.setVisibleIds}
+                      selectedIds={actions.selectedIds()}
+                      activeId={keys.activeId()}
+                      hasFilters={q.hasFilters()}
+                      onClearFilters={q.resetFilters}
+                      onToggleSelect={toggleSelect}
+                      onActivate={(id) => openDoc(id, false)}
+                      onResultOpen={actions.handleSearchResultOpen}
+                    />
+                  )}
+                </Show>
+              </Suspense>
+            </ErrorBoundary>
+          </Box>
+          <Suspense>
+            <FacetRail
+              q={q}
+              facets={docs.summary.latest?.facets}
+              hideCounts={isSearching()}
+              open={filtersOpen()}
+              onClose={() => setFiltersOpen(false)}
+            />
           </Suspense>
-        </ErrorBoundary>
+        </Grid>
         <BulkMetaModal
           open={actions.showBulkMeta()}
           onClose={actions.handleCloseBulkMeta}

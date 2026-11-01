@@ -1,6 +1,8 @@
 export type {
   BulkMetaAction,
   DocListItem,
+  DocsFacets,
+  DocsFilters,
   DocsSummary,
   MetaRecord,
   ScanRelativeImagesResult,

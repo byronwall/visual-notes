@@ -2,10 +2,7 @@ import { For, createMemo } from "solid-js";
 import { XIcon } from "lucide-solid";
 import { css } from "styled-system/css";
 import type { DocsQueryStore } from "../state/docsQuery";
-import { activityClassItems } from "./FiltersPopover";
-
-const itemLabel = (items: { label: string; value: string }[], v: string) =>
-  items.find((i) => i.value === v)?.label ?? v;
+import { activityLabel, updatedLabel } from "./facet-labels";
 
 type Token = {
   key: string;
@@ -47,7 +44,10 @@ const keyClass = css({ color: "fg.muted" });
 const rangeLabel = (from: string, to: string) =>
   from && to ? `${from} – ${to}` : from ? `≥ ${from}` : `≤ ${to}`;
 
-export const useActiveFilterTokens = (q: DocsQueryStore) =>
+export const useActiveFilterTokens = (
+  q: DocsQueryStore,
+  collectionName: (id: string) => string | undefined,
+) =>
   createMemo<Token[]>(() => {
     const out: Token[] = [];
     if (q.blankPathOnly())
@@ -76,14 +76,21 @@ export const useActiveFilterTokens = (q: DocsQueryStore) =>
       out.push({
         key: "activity",
         label: "activity",
-        value: itemLabel(activityClassItems, q.activityClass()),
+        value: activityLabel(q.activityClass()),
         clear: () => q.setActivityClass(""),
       });
-    if (q.collectionRows())
+    if (q.collectionId())
+      out.push({
+        key: "collection",
+        label: "collection",
+        value: collectionName(q.collectionId()) ?? "Unknown",
+        clear: () => q.setCollectionId(""),
+      });
+    else if (q.collectionRows() === "only")
       out.push({
         key: "collections",
         label: "collection rows",
-        value: q.collectionRows() === "hide" ? "hidden" : "only",
+        value: "only",
         clear: () => q.setCollectionRows(""),
       });
     if (q.source().trim())
@@ -110,6 +117,13 @@ export const useActiveFilterTokens = (q: DocsQueryStore) =>
           q.setCreatedFrom(undefined);
           q.setCreatedTo(undefined);
         },
+      });
+    if (q.updatedWithinDays())
+      out.push({
+        key: "updated-within",
+        label: "updated",
+        value: updatedLabel(q.updatedWithinDays()),
+        clear: () => q.setUpdatedWithinDays(0),
       });
     if (q.updatedFrom() || q.updatedTo())
       out.push({

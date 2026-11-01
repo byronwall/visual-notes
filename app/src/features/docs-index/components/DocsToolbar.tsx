@@ -1,24 +1,28 @@
-import { createMemo } from "solid-js";
-import { ArrowUpDownIcon } from "lucide-solid";
+import { Show, createMemo } from "solid-js";
+import { ArrowUpDownIcon, ListFilterIcon } from "lucide-solid";
+import { Button } from "~/components/ui/button";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
 import { Box, HStack } from "styled-system/jsx";
+import type { DocsFacets, SortMode } from "../data/docs.types";
 import type { DocsQueryStore } from "../state/docsQuery";
-import { FiltersPopover } from "./FiltersPopover";
 import {
   ActiveFilterTokens,
   useActiveFilterTokens,
 } from "./ActiveFilterTokens";
-
-type SortMode = ReturnType<DocsQueryStore["sortMode"]>;
+import { CollectionRowsToggle } from "./CollectionRowsToggle";
 
 export const DocsToolbar = (props: {
   q: DocsQueryStore;
   isSearching: boolean;
-  sources?: { originalSource: string; count: number }[];
+  facets?: DocsFacets;
+  onOpenFilters: () => void;
 }) => {
   const q = props.q;
-  const tokens = useActiveFilterTokens(q);
+  const tokens = useActiveFilterTokens(
+    q,
+    (id) => props.facets?.collections.find((c) => c.value === id)?.name,
+  );
   // "relevance" means rank while searching and last-updated while browsing.
   const sortItems = createMemo<SimpleSelectItem[]>(() => [
     {
@@ -31,7 +35,7 @@ export const DocsToolbar = (props: {
   ]);
 
   return (
-    <HStack gap="1.5" minW="0" flex="1">
+    <HStack gap="1.5" minW="0" flex="1" flexWrap="wrap" rowGap="1">
       <HStack gap="1" flexShrink="0">
         <Box color="fg.subtle" display="flex">
           <ArrowUpDownIcon size={13} />
@@ -46,13 +50,29 @@ export const DocsToolbar = (props: {
           skipPortal={false}
         />
       </HStack>
-      <FiltersPopover
-        q={q}
-        sources={props.sources}
-        activeCount={tokens().length}
-      />
-      <Box display="flex" gap="1.5" minW="0" overflow="hidden">
-        <ActiveFilterTokens tokens={tokens()} />
+      {/* From `xl` up the rail is always on screen. */}
+      <Box hideFrom="xl">
+        <Button
+          size="xs"
+          variant={tokens().length > 0 ? "subtle" : "outline"}
+          fontWeight="normal"
+          onClick={props.onOpenFilters}
+        >
+          <ListFilterIcon size={14} />
+          Filter
+          <Show when={tokens().length > 0}>
+            <Box as="span" color="fg.muted" fontVariantNumeric="tabular-nums">
+              {tokens().length}
+            </Box>
+          </Show>
+        </Button>
+      </Box>
+      <ActiveFilterTokens tokens={tokens()} />
+      <Box ml="auto" pl="2" display="flex">
+        <CollectionRowsToggle
+          q={q}
+          hiddenCount={props.facets?.hiddenCollectionRows}
+        />
       </Box>
     </HStack>
   );
