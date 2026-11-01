@@ -22,7 +22,7 @@ import { CloseButton } from "~/components/ui/close-button";
 import { IconButton } from "~/components/ui/icon-button";
 import { Text } from "~/components/ui/text";
 import { forgetQuery } from "~/features/live-sync/forget-query";
-import { keepOnFailedRead } from "~/utils/kept-async";
+import { keepOnFailedRead, onDemand } from "~/utils/kept-async";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { formatRelativeTime } from "~/features/docs-index/utils/time";
 import {
@@ -79,6 +79,7 @@ export const ArchiveDetailDrawer: VoidComponent<{
       keepOnFailedRead(info.value?.id === id ? info.value : undefined, () =>
         fetchArchivedPageDetail(id),
       ),
+    onDemand,
   );
   // Agents add notes to saved pages; show them on the open page.
   useAppChanges(

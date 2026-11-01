@@ -15,12 +15,12 @@ export const NoteTombstoneNotice: VoidComponent<{ id: string }> = (props) => {
   const navigate = useNavigate();
   const tombstone = createKeptAsync(() => fetchNoteTombstone(props.id));
   createEffect(() => {
-    const target = tombstone()?.redirect;
+    const target = tombstone.latest?.redirect;
     if (target) navigate(`/docs/${target.id}`, { replace: true });
   });
 
   return (
-    <Show when={tombstone()}>
+    <Show when={tombstone.latest}>
       {(t) => (
         <Stack gap="1" data-testid="note-tombstone">
           <Text fontSize="sm" color="fg.muted">

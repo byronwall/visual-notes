@@ -535,7 +535,7 @@ function CustomCodeBlockNodeView() {
                   data-md-language={language()}
                 >
                   <LineNumberedCodeView
-                    rendered={expandedRendered() ?? plainRendered()}
+                    rendered={expandedRendered.latest ?? plainRendered()}
                   />
                 </Box>
               </Box>

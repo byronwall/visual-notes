@@ -50,13 +50,13 @@ export const DocVersionsPopover: VoidComponent<Props> = (props) => {
     onCleanup(() => clearInterval(timer));
   });
 
-  const revisions = () => info()?.revisions ?? [];
+  const revisions = () => info.latest?.revisions ?? [];
   const visible = () =>
-    Boolean(info()?.savedByChatGpt) || revisions().length > 0;
+    Boolean(info.latest?.savedByChatGpt) || revisions().length > 0;
   const chipLabel = () => {
     const count = revisions().length;
     const versions = count ? `${count + 1} versions` : "";
-    if (info()?.savedByChatGpt)
+    if (info.latest?.savedByChatGpt)
       return versions ? `ChatGPT · ${versions}` : "ChatGPT";
     return versions;
   };
@@ -106,7 +106,7 @@ export const DocVersionsPopover: VoidComponent<Props> = (props) => {
             _hover={{ bg: "gray.plain.bg.hover", color: "fg.default" }}
           >
             <Show
-              when={info()?.savedByChatGpt}
+              when={info.latest?.savedByChatGpt}
               fallback={<HistoryIcon size={13} />}
             >
               <BotIcon size={13} />
@@ -129,7 +129,7 @@ export const DocVersionsPopover: VoidComponent<Props> = (props) => {
             <Text fontSize="sm" fontWeight="semibold">
               Versions
             </Text>
-            <Show when={info()?.savedByChatGpt}>
+            <Show when={info.latest?.savedByChatGpt}>
               <Text fontSize="xs" color="fg.muted">
                 Saved by ChatGPT. ChatGPT can keep editing this note.
               </Text>

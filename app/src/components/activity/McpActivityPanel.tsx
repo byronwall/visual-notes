@@ -63,7 +63,7 @@ const Problems = (props: { count: number }) => (
 export const McpActivityPanel = (props: McpActivityPanelProps) => {
   const summary = createAsync(() => fetchMcpActivitySummary(WINDOW_DAYS));
   const maxCalls = () =>
-    Math.max(1, ...(summary()?.tools.map((t) => t.calls) ?? []));
+    Math.max(1, ...(summary.latest?.tools.map((t) => t.calls) ?? []));
 
   return (
     <Stack
@@ -77,17 +77,17 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
       <HStack gap="3" justifyContent="space-between" flexWrap="wrap">
         <Text fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums">
           <Show
-            when={summary() && !summary()!.loggedSinceWindowStart}
+            when={summary.latest && !summary.latest!.loggedSinceWindowStart}
             fallback={<>Last {WINDOW_DAYS} days</>}
           >
             <span
               title={`Tool calls are logged only since then, so this covers less than ${WINDOW_DAYS} days.`}
             >
-              Since {dayLabel(summary()!.from, props.timeZone)}, when call
+              Since {dayLabel(summary.latest!.from, props.timeZone)}, when call
               logging began
             </span>
           </Show>
-          <Show when={summary()}>
+          <Show when={summary.latest}>
             {(s) => (
               <>
                 {" · "}
@@ -115,7 +115,7 @@ export const McpActivityPanel = (props: McpActivityPanelProps) => {
       </HStack>
 
       <Show
-        when={summary()}
+        when={summary.latest}
         fallback={
           <Text fontSize="sm" color="fg.muted">
             Loading connector use…

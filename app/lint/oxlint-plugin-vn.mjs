@@ -10,9 +10,68 @@ const selectorRule = (selector, message) => ({
   },
 });
 
+// Only a read inside a <Suspense> child can fall back there. `Suspense` in a
+// fallback attribute is outside it.
+const insideSuspense = (node) => {
+  for (let child = node; child.parent; child = child.parent) {
+    const parent = child.parent;
+    if (
+      parent.type === "JSXElement" &&
+      child !== parent.openingElement &&
+      parent.openingElement.name.name === "Suspense"
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const resourceName = ({ id, init }) => {
+  const callee = init?.type === "CallExpression" ? init.callee.name : null;
+  if (!/^(createAsync|createKeptAsync|createResource)$/.test(callee ?? "")) {
+    return null;
+  }
+  const binding = id.type === "ArrayPattern" ? id.elements[0] : id;
+  return binding?.type === "Identifier" ? binding.name : null;
+};
+
+// Reports `data()` on a resource declared in the same file. Resources returned
+// from a hook are out of reach, so review those by hand.
+const resourceReadLatest = {
+  create(context) {
+    const names = new Set();
+    const calls = [];
+    return {
+      VariableDeclarator(node) {
+        const name = resourceName(node);
+        if (name) names.add(name);
+      },
+      CallExpression(node) {
+        if (
+          node.callee.type === "Identifier" &&
+          node.arguments.length === 0 &&
+          !insideSuspense(node)
+        ) {
+          calls.push(node);
+        }
+      },
+      "Program:exit"() {
+        for (const node of calls) {
+          if (!names.has(node.callee.name)) continue;
+          context.report({
+            node,
+            message: `Read ${node.callee.name}.latest here, or move this read inside a <Suspense> child in this file. A plain read outside one falls back at the page's boundary on every refetch and unmounts the page.`,
+          });
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: "vn" },
   rules: {
+    "resource-read-latest": resourceReadLatest,
     "note-body-writes": selectorRule(
       "CallExpression[callee.object.property.name='doc'][callee.property.name=/^(create|createMany|update|updateMany|upsert)$/] Property[key.name=/^(data|create|update)$/] > ObjectExpression > Property[key.name=/^(content|html|markdown)$/]",
       "Write note bodies only through server/notes/note-write.ts or note-store.ts (contentColumns), so validation, dual-write, search text, and the block index stay in step.",

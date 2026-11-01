@@ -23,9 +23,19 @@ export const keepOnFailedRead = async <T>(
 };
 
 /**
+ * Options for a resource that starts fetching after an interaction, such as a
+ * picker keyed on `open()`. Without a value, its first `.latest` read suspends
+ * like a plain read, and that boundary is often the page's.
+ */
+export const onDemand = { initialValue: undefined };
+
+/**
  * `createAsync` for a read that stays mounted beside a note editor. A live
  * refresh or a landed action reruns it at any time, so a network drop can
  * fail it while the note holds unsaved text.
  */
-export const createKeptAsync = <T>(read: () => Promise<T>) =>
-  createAsync<T | undefined>((prev) => keepOnFailedRead(prev, read));
+export const createKeptAsync = <T>(
+  read: () => Promise<T>,
+  options?: typeof onDemand,
+) =>
+  createAsync<T | undefined>((prev) => keepOnFailedRead(prev, read), options);

@@ -38,7 +38,7 @@ import {
   updateChatMessage,
   updateChatThread,
 } from "~/services/ai/ai-chat.actions";
-import { createKeptAsync } from "~/utils/kept-async";
+import { createKeptAsync, onDemand } from "~/utils/kept-async";
 
 type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
 
@@ -98,7 +98,7 @@ export function useLLMSidebar() {
       () => fetchChatThreads(),
       "fetchChatThreads"
     );
-  });
+  }, onDemand);
   const thread = createKeptAsync(() => {
     if (!initialized()) return Promise.resolve<ThreadDetail | null>(null);
     const id = selectedId();
@@ -107,7 +107,7 @@ export function useLLMSidebar() {
       () => fetchChatThread(id) as Promise<ThreadDetail | null>,
       "fetchChatThread"
     );
-  });
+  }, onDemand);
   const runCreateThread = useAction(createChatThread);
   const runUpdateThread = useAction(updateChatThread);
   const runSendMessage = useAction(sendChatMessage);
@@ -131,12 +131,12 @@ export function useLLMSidebar() {
   };
 
   const hasUnreadAny = () => {
-    const list = threads();
+    const list = threads.latest;
     if (!list) return false;
     return list.some((t) => t.hasUnread);
   };
   const hasLoadingAny = () => {
-    const list = threads();
+    const list = threads.latest;
     if (!list) return false;
     return list.some((t) => t.status === "LOADING");
   };
@@ -243,7 +243,7 @@ export function useLLMSidebar() {
 
   // Mark unread as read when viewing an open thread that has unread
   createEffect(() => {
-    const th = thread();
+    const th = thread.latest;
     if (!th) return;
     if (open() && th.hasUnread) {
       void runUpdateThread({ id: th.id, hasUnread: false }).then(() => {

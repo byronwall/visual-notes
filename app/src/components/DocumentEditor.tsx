@@ -145,7 +145,7 @@ const DocumentEditor: VoidComponent<{
   const isNew = createMemo(() => !props.docId);
 
   const displayTitle = createMemo(
-    () => doc()?.title || newTitle().trim() || "Untitled note",
+    () => doc.latest?.title || newTitle().trim() || "Untitled note",
   );
 
   createEffect(() => {
@@ -157,7 +157,7 @@ const DocumentEditor: VoidComponent<{
 
   // Existing notes load their blocks; new notes start from HTML/markdown.
   const initialContent = createMemo(
-    () => doc()?.content as JSONContent | undefined,
+    () => doc.latest?.content as JSONContent | undefined,
   );
 
   // The stored version this editor last agreed with. Saves send it so the
@@ -171,7 +171,7 @@ const DocumentEditor: VoidComponent<{
     base = { docId, version, hashes: topLevelHashes(content) };
   };
   createEffect(() => {
-    const d = doc();
+    const d = doc.latest;
     if (!d || base?.docId === d.id) return;
     setBase(d.id, d.contentVersion, d.content);
   });
@@ -205,7 +205,7 @@ const DocumentEditor: VoidComponent<{
     const ed = editor();
     if (!ed) return;
     const onBlur = () => {
-      const d = doc();
+      const d = doc.latest;
       if (!pendingRemote || !d || dirty()) return;
       if (base) adoptRemote(ed, d.id, base.version, pendingRemote);
     };
@@ -220,7 +220,7 @@ const DocumentEditor: VoidComponent<{
   let recheckAfterSave = false;
   const checkRemote = async (reason: string, knownVersion?: number | null) => {
     const ed = editor();
-    const d = doc();
+    const d = doc.latest;
     if (!ed || !d || !base || !props.autosave || isNew()) return;
     if (dirty() || saving()) {
       if (saving()) recheckAfterSave = true;
@@ -248,7 +248,7 @@ const DocumentEditor: VoidComponent<{
   useRemoteNoteChanges(
     () => props.docId,
     (change) => {
-      if (!shouldCheckRemote(change, doc()?.updatedAt)) return;
+      if (!shouldCheckRemote(change, doc.latest?.updatedAt)) return;
       void checkRemote("live");
     },
   );
@@ -259,7 +259,7 @@ const DocumentEditor: VoidComponent<{
     const ed = editor();
     if (!ed || !props.autosave || isNew()) return;
     const timer = setInterval(async () => {
-      const d = doc();
+      const d = doc.latest;
       if (!d || !base || document.visibilityState !== "visible") return;
       if (dirty() || saving()) return;
       try {
@@ -300,7 +300,7 @@ const DocumentEditor: VoidComponent<{
   let revealedKey = "";
   createEffect(() => {
     const ed = editor();
-    const d = doc();
+    const d = doc.latest;
     const hash = location.hash;
     if (!ed || !d || !hash.startsWith("#b-")) return;
     const key = `${d.id}${hash}`;
@@ -492,7 +492,7 @@ const DocumentEditor: VoidComponent<{
 
   createEffect(() => {
     const ed = editor();
-    if (!ed || !doc() || doc()?.id !== caretAtEndOfNote) return;
+    if (!ed || !doc.latest || doc.latest?.id !== caretAtEndOfNote) return;
     caretAtEndOfNote = undefined;
     queueMicrotask(() => {
       if (!ed.isDestroyed) ed.commands.focus("end");
@@ -524,7 +524,7 @@ const DocumentEditor: VoidComponent<{
     if (saving()) return false;
     if (!editor()) return false;
     // For an existing doc, block save until the doc resource loads.
-    if (props.docId) return !!doc();
+    if (props.docId) return !!doc.latest;
     return true;
   };
 
@@ -597,7 +597,7 @@ const DocumentEditor: VoidComponent<{
   async function onSave(background?: boolean) {
     if (saving()) return;
     const ed = editor();
-    const d = doc();
+    const d = doc.latest;
     if (!ed) return;
     let shouldRestoreSelection = true;
     const selectionSnapshot = {
@@ -664,7 +664,7 @@ const DocumentEditor: VoidComponent<{
           );
           props.onTitleSynced?.(syncedTitle);
         }
-        if (props.docId === updated.id && doc()?.id === updated.id) {
+        if (props.docId === updated.id && doc.latest?.id === updated.id) {
           const draftUnchanged =
             editor() === ed && !ed.isDestroyed && draftKey() === submittedKey;
           if (updated.mergedContent) {
@@ -717,7 +717,7 @@ const DocumentEditor: VoidComponent<{
         queueMicrotask(() => {
           const sameDoc =
             !submittedDocId ||
-            (props.docId === submittedDocId && doc()?.id === submittedDocId);
+            (props.docId === submittedDocId && doc.latest?.id === submittedDocId);
           if (
             !sameDoc ||
             editor() !== ed ||
@@ -831,7 +831,7 @@ const DocumentEditor: VoidComponent<{
         <HStack gap="2" alignItems="center" mb="2" flexWrap="wrap">
           <Show when={shouldShowTitleInTopBar()}>
             <Text fontSize="sm" fontWeight="medium" truncate>
-              <Show when={doc()} fallback={<span>{displayTitle()}</span>}>
+              <Show when={doc.latest} fallback={<span>{displayTitle()}</span>}>
                 {(d) => <span>{d().title}</span>}
               </Show>
             </Text>
@@ -900,7 +900,7 @@ const DocumentEditor: VoidComponent<{
         initialHTML={initialHTML()}
         initialContent={initialContent()}
         onEditor={(ed) => setEditor(ed)}
-        noteId={props.docId || doc()?.id}
+        noteId={props.docId || doc.latest?.id}
         showAiPromptsMenu={shouldShowAiPromptsBar()}
         minEditorHeight={props.minEditorHeight}
         borderless={props.borderless}

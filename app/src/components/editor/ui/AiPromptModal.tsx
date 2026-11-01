@@ -36,7 +36,8 @@ export function useAiPromptModal() {
   const models = createKeptAsync(() => fetchAiModels());
   let resolver: ((p: AiRunPayload | "cancel") => void) | undefined;
 
-  const modelItems = createMemo<SimpleSelectItem[]>(() => {
+  // Called in the JSX, so a first read waits under the Suspense there.
+  const modelItems = (): SimpleSelectItem[] => {
     const items: SimpleSelectItem[] = [];
     const defaultValue = defaultModel() || "";
     if (defaultValue) {
@@ -44,12 +45,12 @@ export function useAiPromptModal() {
     } else {
       items.push({ label: "Default", value: "" });
     }
-    for (const m of models()?.items || []) {
+    for (const m of models.latest?.items || []) {
       if (m === defaultValue) continue;
       items.push({ label: m, value: m });
     }
     return items;
-  });
+  };
 
   const varsJsonError = createMemo(() => {
     const raw = varsJson().trim();

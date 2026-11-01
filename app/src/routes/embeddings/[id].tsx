@@ -158,7 +158,7 @@ const EmbeddingDetail: VoidComponent = () => {
   });
 
   createEffect(() => {
-    const r = run();
+    const r = run.latest;
     if (!r) return;
     console.info("[EmbeddingDetail] runLoaded", {
       id: r.id,
@@ -174,7 +174,7 @@ const EmbeddingDetail: VoidComponent = () => {
   const [busy, setBusy] = createSignal(false);
 
   const includedRangeLabel = () => {
-    const r = run();
+    const r = run.latest;
     if (!r?.docs) return "";
     if ((r.docs.total || 0) === 0) return "Showing 0 of 0";
     const start = (r.docs.offset || 0) + 1;
@@ -182,11 +182,11 @@ const EmbeddingDetail: VoidComponent = () => {
     return `Showing ${start}-${end} of ${r.docs.total}`;
   };
 
-  const hasPrev = () => (run()?.docs?.offset || 0) > 0;
+  const hasPrev = () => (run.latest?.docs?.offset || 0) > 0;
   const hasNext = () => {
-    const off = run()?.docs?.offset || 0;
-    const len = run()?.docs?.items?.length || 0;
-    return off + len < (run()?.docs?.total || 0);
+    const off = run.latest?.docs?.offset || 0;
+    const len = run.latest?.docs?.items?.length || 0;
+    return off + len < (run.latest?.docs?.total || 0);
   };
 
   const handleDelete = async () => {
@@ -295,11 +295,11 @@ const EmbeddingDetail: VoidComponent = () => {
   };
 
   const handlePrev = () => {
-    setDocsOffset(Math.max(0, (run()?.docs?.offset || 0) - DOCS_LIMIT));
+    setDocsOffset(Math.max(0, (run.latest?.docs?.offset || 0) - DOCS_LIMIT));
   };
 
   const handleNext = () => {
-    setDocsOffset((run()?.docs?.offset || 0) + DOCS_LIMIT);
+    setDocsOffset((run.latest?.docs?.offset || 0) + DOCS_LIMIT);
   };
 
   const handleTitleQueryInput = (value: string) => {

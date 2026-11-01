@@ -41,7 +41,7 @@ export const CleanupChip: VoidComponent<{ docId: string }> = (props) => {
   const [open, setOpen] = createSignal(false);
 
   return (
-    <Show when={hint()}>
+    <Show when={hint.latest}>
       {(h) => {
         // Only buckets the triage page can act on get a chip.
         const meta = () => {

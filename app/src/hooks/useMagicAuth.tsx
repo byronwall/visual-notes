@@ -30,8 +30,8 @@ export const MagicAuthProvider: ParentComponent = (props) => {
   };
 
   const value: MagicAuthValue = {
-    authed: () => Boolean(session()?.authed) === true,
-    loading: () => session() === undefined,
+    authed: () => Boolean(session.latest?.authed) === true,
+    loading: () => session.latest === undefined,
     refresh,
     logout,
   };

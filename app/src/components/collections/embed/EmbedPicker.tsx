@@ -13,7 +13,7 @@ import {
   type CollectionListItem,
 } from "~/services/collections/collections.queries";
 import { noAutofill } from "~/components/ui/no-autofill";
-import { keepOnFailedRead } from "~/utils/kept-async";
+import { keepOnFailedRead, onDemand } from "~/utils/kept-async";
 
 const box = css({
   borderWidth: "1px",
@@ -79,6 +79,7 @@ export const EmbedPicker = (props: {
 }) => {
   const [collections] = createResource<CollectionListItem[] | undefined>(
     (_, info) => keepOnFailedRead(info.value, () => fetchCollections()),
+    onDemand,
   );
   const runCreateCollection = useAction(createCollection);
   const runCreateView = useAction(createView);

@@ -85,7 +85,7 @@ export const BlockMigrationPanel: VoidComponent = () => {
             note is snapshotted as a revision first; the old columns are left
             untouched.
           </Text>
-          <Show when={counts()}>
+          <Show when={counts.latest}>
             {(c) => (
               <Text textStyle="sm">
                 {c().migrated} of {c().total} notes use blocks ·{" "}
@@ -107,7 +107,7 @@ export const BlockMigrationPanel: VoidComponent = () => {
           <Button
             size="sm"
             loading={running() === "apply"}
-            disabled={running() !== null || counts()?.remaining === 0}
+            disabled={running() !== null || counts.latest?.remaining === 0}
             onClick={() => void execute(false)}
           >
             Convert remaining notes

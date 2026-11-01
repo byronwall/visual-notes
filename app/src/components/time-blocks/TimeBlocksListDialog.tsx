@@ -97,7 +97,7 @@ export const TimeBlocksListDialog = (props: Props) => {
   const days = createMemo(() =>
     Array.from({ length: props.numberOfDays }, (_, index) => {
       const date = addDays(props.weekStart, index);
-      const items = (blocks() ?? [])
+      const items = (blocks.latest ?? [])
         .filter((block) => isSameDay(new Date(block.startTime), date))
         .sort((a, b) => a.startTime.localeCompare(b.startTime));
       const minutes = items.reduce((sum, block) => sum + minutesOf(block), 0);

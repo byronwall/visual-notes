@@ -77,7 +77,8 @@
     "vn/note-body-writes": "error",
     "vn/no-nested-select-spread": "error",
     "vn/color-tokens": "error",
-    "vn/known-color-steps": "error"
+    "vn/known-color-steps": "error",
+    "vn/resource-read-latest": "error"
   },
   "overrides": [
     {
@@ -99,6 +100,11 @@
     {
       "files": ["src/lib/collections/colors.ts"],
       "rules": { "vn/color-tokens": "off" }
+    },
+    {
+      // These files change in PR #291, so its branch owns their reads.
+      "files": ["src/components/PathEditor.tsx", "src/features/docs-index/**"],
+      "rules": { "vn/resource-read-latest": "off" }
     }
   ]
 }

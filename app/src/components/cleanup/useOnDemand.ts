@@ -7,6 +7,7 @@ import {
   onMount,
 } from "solid-js";
 import { fetchCleanupStatus } from "~/services/cleanup/cleanup.queries";
+import { onDemand } from "~/utils/kept-async";
 
 /**
  * A draft that may cost money. When free it runs as soon as `key` is set; when
@@ -30,11 +31,15 @@ export function useOnDemand<T>(opts: {
     if (!mounted() || !key) return false;
     return !opts.paid() || asked() === key ? key : false;
   };
-  const [result, { refetch }] = createResource(source, async (key) => {
-    const value = await opts.run(key);
-    if (opts.paid()) void revalidate(fetchCleanupStatus.key);
-    return { key, value };
-  });
+  const [result, { refetch }] = createResource(
+    source,
+    async (key) => {
+      const value = await opts.run(key);
+      if (opts.paid()) void revalidate(fetchCleanupStatus.key);
+      return { key, value };
+    },
+    onDemand,
+  );
   /** The result for the current key only, never the previous note's. */
   const value = () => {
     if (result.error) return undefined;

@@ -35,8 +35,8 @@ const AiDashboard: VoidComponent = () => {
   const query = () => (typeof params.q === "string" ? params.q : "");
 
   // Read latest so revalidation does not flash the loading fallback.
-  const promptList = () => prompts.latest ?? prompts();
-  const runList = () => runs.latest ?? runs();
+  const promptList = () => prompts.latest;
+  const runList = () => runs.latest;
   const allRuns = () => runList() ?? [];
   const stats = createMemo(() => statsByPrompt(allRuns()));
   const statusCounts = createMemo(() => {

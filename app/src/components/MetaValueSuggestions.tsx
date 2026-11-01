@@ -16,8 +16,8 @@ export const MetaValueSuggestions: VoidComponent<{
     return fetchMetaValues(props.keyName);
   });
   const topValues = createMemo(() =>
-    (Array.isArray(valueSuggestions())
-      ? (valueSuggestions() as { value: string; count: number }[])
+    (Array.isArray(valueSuggestions.latest)
+      ? (valueSuggestions.latest as { value: string; count: number }[])
       : []
     ).slice(0, props.limit ?? 10)
   );

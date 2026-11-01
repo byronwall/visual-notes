@@ -20,7 +20,7 @@ function formatBytes(bytes: number | null | undefined) {
 const ArchiveSnapshotReviewRoute = () => {
   const params = useParams();
   const snapshot = createAsync(() => fetchArchiveAdminSnapshotDetail(String(params.id || "")));
-  const item = () => snapshot.latest ?? snapshot();
+  const item = () => snapshot.latest;
 
   return (
     <Box as="main" minH="100vh" bg="bg.default">

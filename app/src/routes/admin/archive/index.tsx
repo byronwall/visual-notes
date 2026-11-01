@@ -21,7 +21,7 @@ function formatBytes(bytes: number | null | undefined) {
 
 const ArchiveAdminRoute = () => {
   const snapshots = createAsync(() => fetchArchiveAdminSnapshots());
-  const items = createMemo(() => snapshots.latest ?? snapshots() ?? []);
+  const items = createMemo(() => snapshots.latest ?? []);
   const totalHtmlSize = createMemo(() =>
     items().reduce((sum, snapshot) => sum + (snapshot.htmlSizeBytes ?? 0), 0),
   );
