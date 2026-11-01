@@ -37,8 +37,8 @@ const btn = css({
 });
 
 /**
- * Page-level collection actions: add existing notes, list rows in the sidebar
- * Recent list, delete the collection.
+ * Page-level collection actions: add existing notes, always list rows in
+ * Recent and on the notes index, delete the collection.
  */
 export const CollectionActions = () => {
   const { store } = useCollection();
@@ -85,7 +85,7 @@ export const CollectionActions = () => {
               )
             }
           >
-            Show rows in Recent
+            Always show rows in Notes and Recent
           </MenuItem>
           <div class={menuSeparator} />
           <MenuItem

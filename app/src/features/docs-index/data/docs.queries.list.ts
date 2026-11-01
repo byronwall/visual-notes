@@ -1,52 +1,27 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
-import type { DocListItem, DocsSummary } from "./docs.types";
-import { updatedBucket } from "../utils/grouping";
-import {
-  buildDocsWhere,
-  toIsoDateEnd,
-  toIsoDateStart,
-} from "./docs.queries.shared";
+import type {
+  DocListItem,
+  DocsFilters,
+  DocsSummary,
+  MetaRecord,
+  SortMode,
+} from "./docs.types";
+import { computeFacets } from "./docs.facets";
+import { docsWhereFromFilters } from "./docs.queries.shared";
 
 export const fetchDocs = query(
-  async (q: {
-    pathPrefix?: string;
-    pathBlankOnly?: boolean;
-    metaKey?: string;
-    metaValue?: string;
-    source?: string;
-    originalContentId?: string;
-    createdFrom?: string;
-    createdTo?: string;
-    updatedFrom?: string;
-    updatedTo?: string;
-    activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
-    collectionRows?: "hide" | "only";
-    sortMode?:
-      | "relevance"
-      | "recent_activity"
-      | "most_viewed_30d"
-      | "most_edited_30d";
-    take?: number;
-    /** Rows to skip, for paging; the index loads 100 at a time. */
-    skip?: number;
-  }): Promise<DocListItem[]> => {
+  async (
+    q: DocsFilters & {
+      sortMode?: SortMode;
+      take?: number;
+      /** Rows to skip, for paging; the index loads 100 at a time. */
+      skip?: number;
+    },
+  ): Promise<DocListItem[]> => {
     "use server";
     const startedAt = Date.now();
-    const where = buildDocsWhere({
-      pathPrefix: q.pathPrefix,
-      pathBlankOnly: q.pathBlankOnly,
-      metaKey: q.metaKey,
-      metaValue: q.metaValue,
-      source: q.source,
-      originalContentId: q.originalContentId,
-      createdFrom: q.createdFrom ? toIsoDateStart(q.createdFrom) : undefined,
-      createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
-      updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
-      updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
-      activityClass: q.activityClass,
-      collectionRows: q.collectionRows,
-    });
+    const where = docsWhereFromFilters(q);
     const take = Math.max(1, Math.min(8000, q.take ?? 8000));
     const sortMode = q.sortMode ?? "recent_activity";
     // The id tiebreak keeps pages stable when timestamps tie.
@@ -125,42 +100,63 @@ export const fetchDocs = query(
   "docs-index-list",
 );
 
-type SummaryFilters = Omit<
-  Parameters<typeof fetchDocs>[0],
-  "take" | "skip" | "sortMode"
->;
-
 /**
- * Total matches plus counts per "last updated" heading, so the index can
- * label headings with real totals while it pages rows in 100 at a time.
- * Reads one timestamp per note, which stays small at production scale.
+ * Total matches, counts per "last updated" heading, and facet counts, so the
+ * index labels everything with real totals while it pages rows in 100 at a
+ * time. Reads a few short fields per note, never a body, which stays small at
+ * production scale. Filters without a facet narrow the query; the rest run in
+ * `computeFacets`, because each facet ignores its own selection.
  */
 export const fetchDocsSummary = query(
-  async (q: SummaryFilters): Promise<DocsSummary> => {
+  async (q: DocsFilters): Promise<DocsSummary> => {
     "use server";
     const startedAt = Date.now();
-    const where = buildDocsWhere({
-      ...q,
-      createdFrom: q.createdFrom ? toIsoDateStart(q.createdFrom) : undefined,
-      createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
-      updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
-      updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
-    });
-    const rows = await prisma.doc.findMany({
-      where,
-      select: { updatedAt: true },
-    });
+    const [rows, collections] = await Promise.all([
+      prisma.doc.findMany({
+        where: docsWhereFromFilters({
+          originalContentId: q.originalContentId,
+          createdFrom: q.createdFrom,
+          createdTo: q.createdTo,
+          updatedFrom: q.updatedWithinDays ? undefined : q.updatedFrom,
+          updatedTo: q.updatedWithinDays ? undefined : q.updatedTo,
+          collectionRows: "all",
+        }),
+        select: {
+          path: true,
+          originalSource: true,
+          collectionId: true,
+          collection: { select: { showRowsInRecent: true } },
+          updatedAt: true,
+          meta: true,
+          activitySnapshot: { select: { activityClass: true } },
+        },
+      }),
+      prisma.collection.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, icon: true },
+      }),
+    ]);
     const nowMs = Date.now();
-    const bucketCounts: Record<string, number> = {};
-    for (const row of rows) {
-      const { key } = updatedBucket(row.updatedAt.getTime(), nowMs);
-      bucketCounts[key] = (bucketCounts[key] ?? 0) + 1;
-    }
+    const summary = computeFacets(
+      rows.map((row) => ({
+        path: row.path,
+        source: row.originalSource,
+        collectionId: row.collectionId,
+        collectionOptedIn: !!row.collection?.showRowsInRecent,
+        updatedAtMs: row.updatedAt.getTime(),
+        activityClass: row.activitySnapshot?.activityClass ?? null,
+        meta: row.meta as MetaRecord | null,
+      })),
+      q,
+      collections,
+      nowMs,
+    );
     console.log("[docs-index] fetchDocsSummary", {
       ms: Date.now() - startedAt,
-      total: rows.length,
+      scanned: rows.length,
+      total: summary.total,
     });
-    return { total: rows.length, bucketCounts, nowMs };
+    return { ...summary, nowMs };
   },
   "docs-index-summary",
 );

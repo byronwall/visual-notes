@@ -17,7 +17,7 @@ const isTypingTarget = (target: EventTarget | null) => {
 
 const hasOpenOverlay = () =>
   !!document.querySelector(
-    "[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open]",
+    "[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open], aside[data-open]",
   );
 
 /**

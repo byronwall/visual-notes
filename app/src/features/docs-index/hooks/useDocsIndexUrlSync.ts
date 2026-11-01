@@ -1,5 +1,7 @@
 import { batch, createEffect } from "solid-js";
+import type { SortMode } from "../data/docs.types";
 import { type DocsQueryStore } from "../state/docsQuery";
+import { readShowCollectionRows } from "../utils/collection-rows-cookie";
 
 const MANAGED_KEYS = [
   "q",
@@ -13,8 +15,10 @@ const MANAGED_KEYS = [
   "createdTo",
   "updatedFrom",
   "updatedTo",
+  "updatedWithin",
   "activityClass",
   "collectionRows",
+  "collectionId",
   "sortMode",
   "clientShown",
   "serverShown",
@@ -59,13 +63,7 @@ export const useDocsIndexUrlSync = (args: {
       const v = Number(sp.get(key));
       return Number.isFinite(v) && v > 0 ? v : def;
     };
-    const parseSortMode = (
-      value: string,
-    ):
-      | "relevance"
-      | "recent_activity"
-      | "most_viewed_30d"
-      | "most_edited_30d" => {
+    const parseSortMode = (value: string): SortMode => {
       if (
         value === "recent_activity" ||
         value === "most_viewed_30d" ||
@@ -91,8 +89,12 @@ export const useDocsIndexUrlSync = (args: {
       createdTo: qp("createdTo"),
       updatedFrom: qp("updatedFrom"),
       updatedTo: qp("updatedTo"),
+      updatedWithinDays: num("updatedWithin", 0),
       activityClass: qp("activityClass"),
-      collectionRows: qp("collectionRows"),
+      // A plain /  link keeps the choice saved by the toggle.
+      collectionRows:
+        qp("collectionRows") || (readShowCollectionRows() ? "all" : ""),
+      collectionId: qp("collectionId"),
       sortMode: parseSortMode(qp("sortMode")),
       clientShown: num("clientShown", 100),
       serverShown: num("serverShown", 25),
@@ -128,8 +130,14 @@ export const useDocsIndexUrlSync = (args: {
       if (args.q.activityClass() !== next.activityClass) {
         args.q.setActivityClass(next.activityClass);
       }
+      if (args.q.updatedWithinDays() !== next.updatedWithinDays) {
+        args.q.setUpdatedWithinDays(next.updatedWithinDays);
+      }
       if (args.q.collectionRows() !== next.collectionRows) {
         args.q.setCollectionRows(next.collectionRows);
+      }
+      if (args.q.collectionId() !== next.collectionId) {
+        args.q.setCollectionId(next.collectionId);
       }
       if (args.q.sortMode() !== next.sortMode) args.q.setSortMode(next.sortMode);
       if (args.q.clientShown() !== desiredClient) args.q.setClientShown(desiredClient);
@@ -197,7 +205,11 @@ export const useDocsIndexUrlSync = (args: {
     if (args.q.updatedFrom().trim()) params.set("updatedFrom", args.q.updatedFrom().trim());
     if (args.q.updatedTo().trim()) params.set("updatedTo", args.q.updatedTo().trim());
     if (args.q.activityClass().trim()) params.set("activityClass", args.q.activityClass().trim());
+    if (args.q.updatedWithinDays()) {
+      params.set("updatedWithin", String(args.q.updatedWithinDays()));
+    }
     if (args.q.collectionRows()) params.set("collectionRows", args.q.collectionRows());
+    if (args.q.collectionId()) params.set("collectionId", args.q.collectionId());
     if (args.q.sortMode() !== "relevance") params.set("sortMode", args.q.sortMode());
     if (args.q.clientShown() !== 100) params.set("clientShown", String(args.q.clientShown()));
     if (args.q.serverShown() !== 25) params.set("serverShown", String(args.q.serverShown()));

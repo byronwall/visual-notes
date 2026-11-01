@@ -78,7 +78,7 @@ export const DocsIndexHeader = (props: {
           {props.search}
           {props.actions}
         </HStack>
-        <HStack gap="1.5" h="9" mt="1.5" minW="0" overflowX="clip">
+        <HStack gap="1.5" minH="9" mt="1.5" minW="0">
           {props.toolbar}
         </HStack>
       </Box>

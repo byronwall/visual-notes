@@ -32,7 +32,9 @@ describe("docs date filters", () => {
 
 describe("docs path filters", () => {
   it("matches the selected path and its dot-separated descendants", () => {
-    expect(buildDocsWhere({ pathPrefix: "work" })).toEqual({
+    expect(
+      buildDocsWhere({ pathPrefix: "work", collectionRows: "all" }),
+    ).toEqual({
       archivedAt: null,
       AND: [
         {
@@ -40,5 +42,42 @@ describe("docs path filters", () => {
         },
       ],
     });
+  });
+});
+
+describe("docs meta filters", () => {
+  it("matches a number stored as a number or as text", () => {
+    expect(
+      buildDocsWhere({
+        metaKey: "count",
+        metaValue: "3",
+        collectionRows: "all",
+      }).AND,
+    ).toEqual([
+      {
+        OR: [
+          { meta: { path: ["count"], equals: "3" } },
+          { meta: { path: ["count"], equals: 3 } },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("docs collection rows", () => {
+  const optedIn = {
+    OR: [{ collectionId: null }, { collection: { showRowsInRecent: true } }],
+  };
+
+  it("hides rows unless their collection opted in", () => {
+    expect(buildDocsWhere({}).AND).toEqual([optedIn]);
+  });
+
+  it("shows every row, only rows, or one collection on request", () => {
+    expect(buildDocsWhere({ collectionRows: "all" }).AND).toBeUndefined();
+    expect(buildDocsWhere({ collectionRows: "only" }).collectionId).toEqual({
+      not: null,
+    });
+    expect(buildDocsWhere({ collectionId: "c1" }).collectionId).toBe("c1");
   });
 });

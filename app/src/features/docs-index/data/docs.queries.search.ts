@@ -1,35 +1,27 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
-import type { ServerSearchItem } from "./docs.types";
-import {
-  buildDocsWhere,
-  toIsoDateEnd,
-  toIsoDateStart,
-} from "./docs.queries.shared";
+import type { DocsFilters, ServerSearchItem, SortMode } from "./docs.types";
+import { docsWhereFromFilters } from "./docs.queries.shared";
+
+const collectionSelect = {
+  id: true,
+  name: true,
+  icon: true,
+  deletedAt: true,
+} as const;
+
+const liveCollection = (
+  c:
+    | { id: string; name: string; icon: string | null; deletedAt: Date | null }
+    | null
+    | undefined,
+) => (c && !c.deletedAt ? { id: c.id, name: c.name, icon: c.icon } : null);
 
 export const searchDocs = query(
-  async (q: {
-    q: string;
-    pathPrefix?: string;
-    pathBlankOnly?: boolean;
-    metaKey?: string;
-    metaValue?: string;
-    source?: string;
-    originalContentId?: string;
-    createdFrom?: string;
-    createdTo?: string;
-    updatedFrom?: string;
-    updatedTo?: string;
-    activityClass?: "READ_HEAVY" | "EDIT_HEAVY" | "BALANCED" | "COLD";
-    collectionRows?: "hide" | "only";
-    sortMode?:
-      | "relevance"
-      | "recent_activity"
-      | "most_viewed_30d"
-      | "most_edited_30d";
-    take?: number;
-  }): Promise<ServerSearchItem[]> => {
+  async (
+    q: DocsFilters & { q: string; sortMode?: SortMode; take?: number },
+  ): Promise<ServerSearchItem[]> => {
     "use server";
     const startMs = Date.now();
     const term = (q.q || "").trim();
@@ -40,20 +32,7 @@ export const searchDocs = query(
     const hasMultiTermQuery = terms.length > 1;
 
     const take = Math.max(1, Math.min(200, q.take ?? 50));
-    const docFilters = buildDocsWhere({
-      pathPrefix: q.pathPrefix,
-      pathBlankOnly: q.pathBlankOnly,
-      metaKey: q.metaKey,
-      metaValue: q.metaValue,
-      source: q.source,
-      originalContentId: q.originalContentId,
-      createdFrom: q.createdFrom ? toIsoDateStart(q.createdFrom) : undefined,
-      createdTo: q.createdTo ? toIsoDateEnd(q.createdTo) : undefined,
-      updatedFrom: q.updatedFrom ? toIsoDateStart(q.updatedFrom) : undefined,
-      updatedTo: q.updatedTo ? toIsoDateEnd(q.updatedTo) : undefined,
-      activityClass: q.activityClass,
-      collectionRows: q.collectionRows,
-    });
+    const docFilters = docsWhereFromFilters(q);
 
     const titlePathTake = Math.min(Math.max(take * 4, 120), 800);
     const titlePathTokenAndClause = hasMultiTermQuery
@@ -109,6 +88,7 @@ export const searchDocs = query(
             shareUrl: true,
           },
         },
+        collection: { select: collectionSelect },
       },
       orderBy: [{ updatedAt: "desc" }],
       take: titlePathTake,
@@ -131,6 +111,7 @@ export const searchDocs = query(
         updatedAt: d.updatedAt.toISOString(),
         path: d.path,
         snippet: undefined,
+        collection: liveCollection(d.collection),
         share: d.share
           ? {
               slug: d.share.slug,
@@ -190,6 +171,7 @@ export const searchDocs = query(
               shareUrl: true,
             },
           },
+          collection: { select: collectionSelect },
         },
         orderBy: { id: "asc" },
         take: bodyPageSize,
@@ -228,6 +210,7 @@ export const searchDocs = query(
             updatedAt: d.updatedAt.toISOString(),
             path: d.path,
             snippet,
+            collection: liveCollection(d.collection),
             share: d.share
               ? { slug: d.share.slug, shareUrl: d.share.shareUrl }
               : null,
