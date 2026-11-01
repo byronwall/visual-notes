@@ -100,11 +100,6 @@
     {
       "files": ["src/lib/collections/colors.ts"],
       "rules": { "vn/color-tokens": "off" }
-    },
-    {
-      // These files change in PR #291, so its branch owns their reads.
-      "files": ["src/components/PathEditor.tsx", "src/features/docs-index/**"],
-      "rules": { "vn/resource-read-latest": "off" }
     }
   ]
 }

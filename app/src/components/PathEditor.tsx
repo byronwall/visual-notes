@@ -107,7 +107,7 @@ const PathEditorBody: VoidComponent<PathEditorProps> = (props) => {
 
   const nextSegmentSuggestions = createMemo(() =>
     buildNextSegmentSuggestions(
-      pathCounts() || [],
+      pathCounts.latest || [],
       draft().committed,
       draft().current,
     ),

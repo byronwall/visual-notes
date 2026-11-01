@@ -34,7 +34,7 @@ test("the command palette and chat open without unmounting the page", async ({
   await ensureAuthed(page);
   for (const open of [
     async () => {
-      await page.keyboard.press("ControlOrMeta+k");
+      await page.keyboard.press("Meta+k");
       await page.getByRole("dialog").first().waitFor();
     },
     () =>
