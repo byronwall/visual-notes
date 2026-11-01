@@ -33,98 +33,114 @@ type Props = {
   onMoveToList: (listId: string) => void;
 };
 
-export const TaskRowMenu = (props: Props) => (
-  <Menu.Root size="sm" positioning={{ placement: "bottom-end" }}>
-    <Menu.Trigger
-      asChild={(triggerProps) => (
-        <IconButton
-          {...triggerProps}
-          size="2xs"
-          variant="plain"
-          class={props.class}
-          aria-label={`Actions for ${props.taskLabel}`}
-          data-reveal=""
-        >
-          <EllipsisIcon size={14} />
-        </IconButton>
-      )}
-    />
-    <Portal>
-      <Menu.Positioner zIndex="popover">
-        <Menu.Content zIndex="popover">
-          <Menu.RadioItemGroup
-            value={props.status}
-            onValueChange={(details) =>
-              props.onStatus(details.value as TaskStatus)
-            }
+export const TaskRowMenu = (props: Props) => {
+  // Focus moves around until the menu has closed, and an empty draft row cancels
+  // when it loses focus, so Add subtask waits for that.
+  let afterClose: (() => void) | undefined;
+
+  return (
+    <Menu.Root
+      size="sm"
+      positioning={{ placement: "bottom-end" }}
+      onExitComplete={() => {
+        afterClose?.();
+        afterClose = undefined;
+      }}
+    >
+      <Menu.Trigger
+        asChild={(triggerProps) => (
+          <IconButton
+            {...triggerProps}
+            size="2xs"
+            variant="plain"
+            class={props.class}
+            aria-label={`Actions for ${props.taskLabel}`}
+            data-reveal=""
           >
-            <For each={STATUS_ORDER}>
-              {(status) => (
-                <Menu.RadioItem value={status}>
+            <EllipsisIcon size={14} />
+          </IconButton>
+        )}
+      />
+      <Portal>
+        <Menu.Positioner zIndex="popover">
+          <Menu.Content zIndex="popover">
+            <Menu.RadioItemGroup
+              value={props.status}
+              onValueChange={(details) =>
+                props.onStatus(details.value as TaskStatus)
+              }
+            >
+              <For each={STATUS_ORDER}>
+                {(status) => (
+                  <Menu.RadioItem value={status}>
+                    <HStack gap="2" flex="1">
+                      <span class={statusColorClass} data-status={status}>
+                        <TaskStatusIcon status={status} size={14} />
+                      </span>
+                      <Menu.ItemText>{STATUS_META[status].label}</Menu.ItemText>
+                    </HStack>
+                    <Show when={STATUS_META[status].shortcut}>
+                      {(key) => <Kbd size="sm">{key()}</Kbd>}
+                    </Show>
+                    <Menu.ItemIndicator />
+                  </Menu.RadioItem>
+                )}
+              </For>
+            </Menu.RadioItemGroup>
+            <Menu.Separator />
+            <Menu.Item value="details" onSelect={props.onEditDetails}>
+              <HStack gap="2" flex="1">
+                <SquarePenIcon size={14} />
+                Edit details
+              </HStack>
+              <Kbd size="sm">⌘↵</Kbd>
+            </Menu.Item>
+            <Menu.Item
+              value="subtask"
+              onSelect={() => (afterClose = props.onAddSubtask)}
+            >
+              <HStack gap="2" flex="1">
+                <ListPlusIcon size={14} />
+                Add subtask
+              </HStack>
+            </Menu.Item>
+            <Show when={props.otherLists.length > 0}>
+              <Menu.Root positioning={{ placement: "right-start", gutter: 2 }}>
+                <Menu.TriggerItem>
                   <HStack gap="2" flex="1">
-                    <span class={statusColorClass} data-status={status}>
-                      <TaskStatusIcon status={status} size={14} />
-                    </span>
-                    <Menu.ItemText>{STATUS_META[status].label}</Menu.ItemText>
+                    <ArrowRightLeftIcon size={14} />
+                    Move to list
                   </HStack>
-                  <Show when={STATUS_META[status].shortcut}>
-                    {(key) => <Kbd size="sm">{key()}</Kbd>}
-                  </Show>
-                  <Menu.ItemIndicator />
-                </Menu.RadioItem>
-              )}
-            </For>
-          </Menu.RadioItemGroup>
-          <Menu.Separator />
-          <Menu.Item value="details" onSelect={props.onEditDetails}>
-            <HStack gap="2" flex="1">
-              <SquarePenIcon size={14} />
-              Edit details
-            </HStack>
-            <Kbd size="sm">⌘↵</Kbd>
-          </Menu.Item>
-          <Menu.Item value="subtask" onSelect={props.onAddSubtask}>
-            <HStack gap="2" flex="1">
-              <ListPlusIcon size={14} />
-              Add subtask
-            </HStack>
-          </Menu.Item>
-          <Show when={props.otherLists.length > 0}>
-            <Menu.Root positioning={{ placement: "right-start", gutter: 2 }}>
-              <Menu.TriggerItem>
-                <HStack gap="2" flex="1">
-                  <ArrowRightLeftIcon size={14} />
-                  Move to list
-                </HStack>
-                <ChevronRightIcon size={14} />
-              </Menu.TriggerItem>
-              <Portal>
-                <Menu.Positioner zIndex="popover">
-                  <Menu.Content zIndex="popover" maxH="64" overflowY="auto">
-                    <For each={props.otherLists}>
-                      {(list) => (
-                        <Menu.Item
-                          value={`list-${list.id}`}
-                          onSelect={() => props.onMoveToList(list.id)}
-                        >
-                          {list.name}
-                        </Menu.Item>
-                      )}
-                    </For>
-                  </Menu.Content>
-                </Menu.Positioner>
-              </Portal>
-            </Menu.Root>
-          </Show>
-          <Menu.Separator />
-          <Menu.Item value="delete" color="red.11" onSelect={props.onDelete}>
-            <HStack gap="2" flex="1">
-              <Trash2Icon size={14} />
-              Delete task
-            </HStack>
-          </Menu.Item>
-        </Menu.Content>
-      </Menu.Positioner>
-    </Portal>
-  </Menu.Root>
-);
+                  <ChevronRightIcon size={14} />
+                </Menu.TriggerItem>
+                <Portal>
+                  <Menu.Positioner zIndex="popover">
+                    <Menu.Content zIndex="popover" maxH="64" overflowY="auto">
+                      <For each={props.otherLists}>
+                        {(list) => (
+                          <Menu.Item
+                            value={`list-${list.id}`}
+                            onSelect={() => props.onMoveToList(list.id)}
+                          >
+                            {list.name}
+                          </Menu.Item>
+                        )}
+                      </For>
+                    </Menu.Content>
+                  </Menu.Positioner>
+                </Portal>
+              </Menu.Root>
+            </Show>
+            <Menu.Separator />
+            <Menu.Item value="delete" color="red.11" onSelect={props.onDelete}>
+              <HStack gap="2" flex="1">
+                <Trash2Icon size={14} />
+                Delete task
+              </HStack>
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Positioner>
+      </Portal>
+    </Menu.Root>
+  );
+};
