@@ -25,6 +25,8 @@ export const ActionsMenu = (props: {
             {...triggerProps}
             size="sm"
             variant="plain"
+            // Lines the dots up with the times in the rows below.
+            mr="-2"
             aria-label="Note maintenance actions"
             title="Actions"
           >

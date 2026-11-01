@@ -8,7 +8,7 @@ import {
   type JSX,
 } from "solid-js";
 import { isServer } from "solid-js/web";
-import { XIcon } from "lucide-solid";
+import { ChevronRightIcon, XIcon } from "lucide-solid";
 import { DateInput } from "~/components/DateInput";
 import { Button } from "~/components/ui/button";
 import { IconButton } from "~/components/ui/icon-button";
@@ -18,7 +18,7 @@ import { Box, HStack, Stack } from "styled-system/jsx";
 import type { DocsFacets } from "../data/docs.types";
 import type { DocsQueryStore } from "../state/docsQuery";
 import { FacetList, type FacetItem } from "./FacetList";
-import { activityLabel, updatedLabel } from "./facet-labels";
+import { activityLabel, orderActivity, updatedLabel } from "./facet-labels";
 
 /**
  * The same element is the sticky rail from `xl` up and a bottom sheet below,
@@ -31,7 +31,8 @@ const railClass = css({
     alignSelf: "start",
     maxH: "100dvh",
     overflowY: "auto",
-    pt: "4",
+    overscrollBehavior: "contain",
+    scrollbarWidth: "thin",
     pb: "8",
     // Room for the rows' negative margin inside the scroll box.
     px: "2",
@@ -44,12 +45,11 @@ const railClass = css({
     zIndex: "modal",
     maxH: "82dvh",
     overflowY: "auto",
+    overscrollBehavior: "contain",
     bg: "bg.default",
     borderTopRadius: "l3",
     boxShadow: "lg",
     px: "4",
-    pt: "3",
-    pb: "max(1rem, env(safe-area-inset-bottom))",
     visibility: "hidden",
     transform: "translateY(100%)",
     transitionProperty: "transform, visibility",
@@ -58,6 +58,43 @@ const railClass = css({
     _motionReduce: { transitionDuration: "0ms" },
     "&[data-open]": { visibility: "visible", transform: "translateY(0)" },
   },
+  "&[data-stale] .count": { opacity: 0.5 },
+  "& .count": { transitionProperty: "opacity", transitionDuration: "160ms" },
+});
+
+// Stays on screen so Clear all and Close never scroll away. The search row is
+// 36px below 16px of padding, so this line centers on it.
+const railHeaderClass = css({
+  position: "sticky",
+  top: "0",
+  zIndex: "1",
+  bg: "bg.default",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  pt: "4",
+  h: "calc(token(spacing.4) + token(spacing.9))",
+  fontSize: "sm",
+  fontWeight: "semibold",
+});
+
+const clearClass = css({
+  fontSize: "xs",
+  fontWeight: "normal",
+  color: "fg.muted",
+  cursor: "pointer",
+  _hover: { color: "fg.default", textDecoration: "underline" },
+});
+
+// Bottom of the sheet only: the list is hidden behind it, so say what is next.
+const sheetFooterClass = css({
+  xl: { display: "none" },
+  position: "sticky",
+  bottom: "0",
+  bg: "bg.default",
+  mt: "4",
+  pt: "2",
+  pb: "max(0.75rem, env(safe-area-inset-bottom))",
 });
 
 const backdropClass = css({
@@ -81,12 +118,33 @@ const headingClass = css({
 });
 
 const crumbClass = css({
+  py: "0.5",
   fontSize: "xs",
   color: "fg.muted",
   fontFamily: "mono",
+  overflowWrap: "anywhere",
   cursor: "pointer",
   _hover: { color: "fg.default", textDecoration: "underline" },
   "&[aria-current]": { color: "fg.default", fontWeight: "medium" },
+  smDown: { py: "1.5" },
+});
+
+const moreClass = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "1",
+  h: "6",
+  fontSize: "xs",
+  fontWeight: "semibold",
+  color: "fg.muted",
+  cursor: "pointer",
+  _hover: { color: "fg.default" },
+  "& svg": {
+    transitionProperty: "transform",
+    transitionDuration: "120ms",
+    _motionReduce: { transitionDuration: "0ms" },
+  },
+  "&[aria-expanded=true] svg": { transform: "rotate(90deg)" },
 });
 
 const Section = (props: { title: string; children: JSX.Element }) => (
@@ -136,20 +194,19 @@ const DateRange = (props: {
     <Box fontSize="xs" color="fg.muted">
       {props.label}
     </Box>
-    <HStack gap="1.5">
-      <DateInput
-        value={props.from || undefined}
-        onChange={props.onFrom}
-        aria-label={`${props.label} from`}
-        size="xs"
-      />
-      <DateInput
-        value={props.to || undefined}
-        onChange={props.onTo}
-        aria-label={`${props.label} to`}
-        size="xs"
-      />
-    </HStack>
+    {/* Stacked: two native date inputs clip their text side by side here. */}
+    <DateInput
+      value={props.from || undefined}
+      onChange={props.onFrom}
+      aria-label={`${props.label} from`}
+      size="xs"
+    />
+    <DateInput
+      value={props.to || undefined}
+      onChange={props.onTo}
+      aria-label={`${props.label} to`}
+      size="xs"
+    />
   </Stack>
 );
 
@@ -158,6 +215,9 @@ export const FacetRail = (props: {
   facets?: DocsFacets;
   /** Counts describe the browse list, so they drop out during a search. */
   hideCounts: boolean;
+  /** New counts are on the way; dim the old ones. */
+  stale: boolean;
+  total?: number;
   open: boolean;
   onClose: () => void;
 }) => {
@@ -247,7 +307,7 @@ export const FacetRail = (props: {
   );
 
   const activityItems = createMemo<FacetItem[]>(() =>
-    (props.facets?.activity ?? []).map((a) => ({
+    orderActivity(props.facets?.activity ?? []).map((a) => ({
       key: a.value,
       label: activityLabel(a.value),
       count: count(a.count),
@@ -286,14 +346,25 @@ export const FacetRail = (props: {
     );
   const [moreOpen, setMoreOpen] = createSignal(moreActive());
 
+  let closeButton: HTMLButtonElement | undefined;
   createEffect(() => {
     if (isServer || !props.open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    closeButton?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") props.onClose();
     };
     window.addEventListener("keydown", onKey);
-    onCleanup(() => window.removeEventListener("keydown", onKey));
+    onCleanup(() => {
+      window.removeEventListener("keydown", onKey);
+      opener?.focus();
+    });
   });
+
+  const totalLabel = () => {
+    const n = props.total ?? 0;
+    return `Show ${n.toLocaleString()} ${n === 1 ? "note" : "notes"}`;
+  };
 
   return (
     <>
@@ -306,58 +377,59 @@ export const FacetRail = (props: {
       <aside
         class={railClass}
         data-open={props.open ? "" : undefined}
+        data-stale={props.stale ? "" : undefined}
         aria-label="Filter notes"
       >
-        <Stack gap="4">
-          <HStack justify="space-between" h="7">
-            <Box fontSize="sm" fontWeight="semibold">
-              Filter
+        <div class={railHeaderClass}>
+          Filter
+          <HStack gap="3">
+            <Show when={q.hasFilters()}>
+              <button
+                type="button"
+                class={clearClass}
+                onClick={() => q.resetFilters()}
+              >
+                Clear all
+              </button>
+            </Show>
+            <Box hideFrom="xl">
+              <IconButton
+                ref={closeButton}
+                size="xs"
+                variant="plain"
+                aria-label="Close filters"
+                onClick={props.onClose}
+              >
+                <XIcon size={15} />
+              </IconButton>
             </Box>
-            <HStack gap="1">
-              <Show when={q.hasFilters()}>
-                <Button
-                  size="xs"
-                  variant="plain"
-                  onClick={() => q.resetFilters()}
-                >
-                  Clear all
-                </Button>
-              </Show>
-              <Box hideFrom="xl">
-                <IconButton
-                  size="xs"
-                  variant="plain"
-                  aria-label="Close filters"
-                  onClick={props.onClose}
-                >
-                  <XIcon size={15} />
-                </IconButton>
-              </Box>
-            </HStack>
           </HStack>
-
+        </div>
+        <Stack gap="4" pt="2">
           <Section title="Updated">
             <FacetList items={updatedItems()} />
           </Section>
 
-          <Section title="Path">
-            <Show when={q.pathPrefix()}>
-              <Crumbs
-                rootLabel="All"
-                onRoot={() => setPath("")}
-                parts={pathSegments().map((label, i) => ({
-                  label,
-                  onSelect: () =>
-                    setPath(
-                      pathSegments()
-                        .slice(0, i + 1)
-                        .join("."),
-                    ),
-                }))}
-              />
-            </Show>
-            <FacetList items={pathItems()} />
-          </Section>
+          <Show when={pathItems().length > 0 || q.pathPrefix()}>
+            <Section title="Path">
+              <Show when={q.pathPrefix()}>
+                <Crumbs
+                  rootLabel="All"
+                  onRoot={() => setPath("")}
+                  parts={pathSegments().map((label, i) => ({
+                    label,
+                    onSelect: () =>
+                      setPath(
+                        pathSegments()
+                          .slice(0, i + 1)
+                          .join("."),
+                      ),
+                  }))}
+                />
+              </Show>
+              <FacetList items={pathItems()} />
+            </Section>
+          </Show>
 
           <Show when={collectionItems().length > 1}>
             <Section title="Collections">
@@ -395,12 +467,12 @@ export const FacetRail = (props: {
           <Stack gap="2">
             <button
               type="button"
-              class={headingClass}
+              class={moreClass}
               aria-expanded={moreOpen()}
-              style={{ cursor: "pointer" }}
               onClick={() => setMoreOpen((v) => !v)}
             >
-              {moreOpen() ? "Fewer filters" : "More filters"}
+              <ChevronRightIcon size={13} />
+              More filters
             </button>
             <Show when={moreOpen()}>
               <Stack gap="2.5">
@@ -444,6 +516,11 @@ export const FacetRail = (props: {
             </Show>
           </Stack>
         </Stack>
+        <div class={sheetFooterClass}>
+          <Button size="sm" w="full" onClick={props.onClose}>
+            {totalLabel()}
+          </Button>
+        </div>
       </aside>
     </>
   );

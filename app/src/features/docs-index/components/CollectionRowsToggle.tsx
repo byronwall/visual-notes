@@ -1,3 +1,4 @@
+import { Show } from "solid-js";
 import * as Switch from "~/components/ui/switch";
 import { Box } from "styled-system/jsx";
 import type { DocsQueryStore } from "../state/docsQuery";
@@ -24,24 +25,35 @@ export const CollectionRowsToggle = (props: {
       }}
     >
       <Switch.HiddenInput aria-label="Show collection rows" />
-      <Switch.Control />
-      <Switch.Label fontSize="xs" color="fg.muted" whiteSpace="nowrap">
+      {/* The label sits first so the switch stays put when the count goes. */}
+      <Switch.Label
+        fontSize="xs"
+        color="fg.muted"
+        whiteSpace="nowrap"
+        ms="0"
+        me="2"
+      >
         <Box as="span" hideBelow="sm">
           Collection rows
         </Box>
         <Box as="span" hideFrom="sm">
           Collections
         </Box>
-        <Box
-          as="span"
-          ml="1.5"
-          color="fg.subtle"
-          fontVariantNumeric="tabular-nums"
-          hideBelow="sm"
-        >
-          {props.hiddenCount ? props.hiddenCount.toLocaleString() : ""}
-        </Box>
+        <Show when={!showing() && props.hiddenCount}>
+          {(count) => (
+            <Box
+              as="span"
+              ml="1.5"
+              color="fg.subtle"
+              fontVariantNumeric="tabular-nums"
+              hideBelow="sm"
+            >
+              {count().toLocaleString()}
+            </Box>
+          )}
+        </Show>
       </Switch.Label>
+      <Switch.Control />
     </Switch.Root>
   );
 };

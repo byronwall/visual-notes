@@ -93,4 +93,11 @@ describe("computeFacets", () => {
     expect(total).toBe(2);
     expect(facets.metaValues.map((v) => v.value)).toEqual(["draft", "final"]);
   });
+
+  it("matches number and boolean meta values by their text", () => {
+    const rows = [row({ meta: { count: 3 } }), row({ meta: { count: 4 } })];
+    const { total, facets } = run(rows, { metaKey: "count", metaValue: "3" });
+    expect(total).toBe(1);
+    expect(facets.metaValues.map((v) => v.value)).toEqual(["3", "4"]);
+  });
 });

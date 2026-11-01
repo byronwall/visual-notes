@@ -25,6 +25,12 @@ function toIsoDateEnd(dateOnly: string): string | undefined {
   return toIsoDate(dateOnly, "23:59:59.999");
 }
 
+function metaValueVariants(value: string): (string | number | boolean)[] {
+  if (value === "true" || value === "false") return [value, value === "true"];
+  const n = Number(value);
+  return value.trim() && Number.isFinite(n) ? [value, n] : [value];
+}
+
 function buildDocsWhere(q: DocsFilters) {
   // Archived notes only show on the archive page.
   const where: Record<string, any> = { archivedAt: null };
@@ -43,7 +49,13 @@ function buildDocsWhere(q: DocsFilters) {
     });
   }
   if (q.metaKey && q.metaValue !== undefined) {
-    where.meta = { path: [q.metaKey], equals: q.metaValue } as any;
+    // The URL holds text, but meta values can be numbers or booleans.
+    const path = [q.metaKey];
+    andClauses.push({
+      OR: metaValueVariants(q.metaValue).map((equals) => ({
+        meta: { path, equals },
+      })),
+    });
   } else if (q.metaKey && q.metaValue === undefined) {
     where.meta = { path: [q.metaKey], not: null } as any;
   }

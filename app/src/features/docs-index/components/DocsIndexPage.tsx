@@ -166,7 +166,12 @@ const DocsIndexPage = () => {
                 <SearchInput
                   ref={setSearchEl}
                   value={q.searchText()}
-                  loading={isSearching() && search.loading()}
+                  loading={
+                    isSearching() &&
+                    search.loading() &&
+                    // Paging in more matches is not a new search.
+                    search.resultsQuery() !== q.searchText().trim()
+                  }
                   onChange={setSearch}
                   onKeyDown={keys.handleSearchKeyDown}
                 />
@@ -256,6 +261,8 @@ const DocsIndexPage = () => {
               q={q}
               facets={docs.summary.latest?.facets}
               hideCounts={isSearching()}
+              stale={docs.stale()}
+              total={docs.summary.latest?.total}
               open={filtersOpen()}
               onClose={() => setFiltersOpen(false)}
             />

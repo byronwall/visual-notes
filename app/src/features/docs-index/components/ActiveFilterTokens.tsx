@@ -122,7 +122,7 @@ export const useActiveFilterTokens = (
       out.push({
         key: "updated-within",
         label: "updated",
-        value: updatedLabel(q.updatedWithinDays()),
+        value: updatedLabel(q.updatedWithinDays()).toLowerCase(),
         clear: () => q.setUpdatedWithinDays(0),
       });
     if (q.updatedFrom() || q.updatedTo())

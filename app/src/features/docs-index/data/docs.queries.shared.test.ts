@@ -45,6 +45,25 @@ describe("docs path filters", () => {
   });
 });
 
+describe("docs meta filters", () => {
+  it("matches a number stored as a number or as text", () => {
+    expect(
+      buildDocsWhere({
+        metaKey: "count",
+        metaValue: "3",
+        collectionRows: "all",
+      }).AND,
+    ).toEqual([
+      {
+        OR: [
+          { meta: { path: ["count"], equals: "3" } },
+          { meta: { path: ["count"], equals: 3 } },
+        ],
+      },
+    ]);
+  });
+});
+
 describe("docs collection rows", () => {
   const optedIn = {
     OR: [{ collectionId: null }, { collection: { showRowsInRecent: true } }],

@@ -37,7 +37,7 @@ export const DocsToolbar = (props: {
   return (
     <HStack gap="1.5" minW="0" flex="1" flexWrap="wrap" rowGap="1">
       <HStack gap="1" flexShrink="0">
-        <Box color="fg.subtle" display="flex">
+        <Box color="fg.subtle" display="flex" hideBelow="sm">
           <ArrowUpDownIcon size={13} />
         </Box>
         <SimpleSelect
@@ -45,7 +45,7 @@ export const DocsToolbar = (props: {
           value={q.sortMode()}
           onChange={(value) => q.setSortMode(value as SortMode)}
           size="xs"
-          minW="9.5rem"
+          minW="8rem"
           sameWidth
           skipPortal={false}
         />
@@ -68,7 +68,7 @@ export const DocsToolbar = (props: {
         </Button>
       </Box>
       <ActiveFilterTokens tokens={tokens()} />
-      <Box ml="auto" pl="2" display="flex">
+      <Box ml="auto" display="flex">
         <CollectionRowsToggle
           q={q}
           hiddenCount={props.facets?.hiddenCollectionRows}

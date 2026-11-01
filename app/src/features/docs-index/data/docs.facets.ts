@@ -54,8 +54,8 @@ const dimensions = (f: DocsFilters, nowMs: number) => ({
   meta: (r: FacetRow) => {
     if (!f.metaKey) return true;
     const value = r.meta?.[f.metaKey];
-    if (f.metaValue !== undefined) return value === f.metaValue;
-    return value !== null && value !== undefined;
+    if (value === null || value === undefined) return false;
+    return f.metaValue === undefined || String(value) === f.metaValue;
   },
   updated: (r: FacetRow) =>
     !f.updatedWithinDays ||
@@ -124,8 +124,7 @@ export function computeFacets(
       for (const [key, value] of Object.entries(r.meta)) {
         if (value === null) continue;
         bump(metaKeys, key);
-        if (key === f.metaKey && typeof value === "string")
-          bump(metaValues, value);
+        if (key === f.metaKey) bump(metaValues, String(value));
       }
     }
     if (counts("collection") && r.collectionId) {

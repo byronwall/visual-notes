@@ -73,10 +73,9 @@ export const docRowListClass = css({
     },
     lg: { gridTemplateColumns: "minmax(0, 1fr) 12rem 3.5rem" },
     xl: {
-      gridTemplateColumns: "minmax(12rem, 1fr) auto 11rem 3.5rem",
+      gridTemplateColumns: "minmax(12rem, 1fr) auto 14rem 3.5rem",
       gridTemplateAreas: `"title meta path time" "snippet snippet . ."`,
     },
-    "2xl": { gridTemplateColumns: "minmax(12rem, 1fr) auto 14rem 3.5rem" },
   },
   "& > li[data-selection-mode]": {
     smDown: {
@@ -125,11 +124,15 @@ export const docRowListClass = css({
     color: "green.11",
   },
   "& .dr-collection": {
-    ml: "2",
+    display: "inline-block",
+    maxW: "18rem",
+    verticalAlign: "bottom",
     color: "fg.subtle",
     fontSize: "xs",
     textDecoration: "none",
     whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     _hover: { color: "fg.default", textDecoration: "underline" },
   },
   "& .dr-cell": {
@@ -259,6 +262,7 @@ export const DocRow = (props: DocRowProps) => {
             </span>
           )}
         </Show>
+        {/* A plain space, so the label has no indent when it wraps. */}{" "}
         <Show when={props.collection}>
           {(collection) => (
             <a
