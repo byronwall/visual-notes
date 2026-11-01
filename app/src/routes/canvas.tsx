@@ -84,7 +84,7 @@ const CanvasRoute: VoidComponent = () => {
       : (docs.latest as DocItem[] | undefined);
   const umapRun = useUmapRunResource();
   // Refetch points whenever the latest run id changes to avoid stale data after client navigation
-  const umapPoints = useUmapPointsResource(() => umapRun()?.id);
+  const umapPoints = useUmapPointsResource(() => umapRun.latest?.id);
   const [selectedId, setSelectedId] = createSignal<string | undefined>(
     untrack(() => searchParams.doc) || undefined,
   );
@@ -166,8 +166,8 @@ const CanvasRoute: VoidComponent = () => {
 
   const positionsStore = createPositionsStore({
     docs: loadedDocs,
-    umapRun,
-    umapPoints,
+    umapRun: () => umapRun.latest,
+    umapPoints: () => umapPoints.latest,
     aspectRatio: () => {
       const w = viewportW();
       const h = Math.max(1, viewportH() - canvasStore.navHeight());
@@ -179,7 +179,7 @@ const CanvasRoute: VoidComponent = () => {
   const positions = () => positionsStore.positions();
   const viewTransform = () => canvasStore.viewTransform();
   const umapRegions = createMemo(() =>
-    normalizeUmapRegions(umapPoints(), umapRun()?.regions, SPREAD),
+    normalizeUmapRegions(umapPoints.latest, umapRun.latest?.regions, SPREAD),
   );
   const regionList = createMemo(() => umapRegions()?.regions ?? []);
   const hasRegions = createMemo(() => regionList().length > 0);
@@ -453,7 +453,7 @@ const CanvasRoute: VoidComponent = () => {
     const regionId = selectedRegionId();
     if (regionId && umapRegions() && !selectedRegion()) {
       setSelectedRegionId(
-        resolveUmapRegionId(umapRun()?.regions, regionId) ?? undefined,
+        resolveUmapRegionId(umapRun.latest?.regions, regionId) ?? undefined,
       );
     }
   });

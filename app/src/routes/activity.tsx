@@ -54,7 +54,7 @@ const ActivityRoute = () => {
   );
 
   // Keep showing the previous list while a filter change refetches.
-  const page = () => firstPage.latest ?? firstPage();
+  const page = () => firstPage.latest;
   const events = createMemo(() => [...(page() ?? []), ...olderPages()]);
   const canLoadOlder = () =>
     !reachedEnd() && (page()?.length ?? 0) >= PAGE_SIZE;

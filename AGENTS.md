@@ -50,7 +50,10 @@ focused skills listed under [Skills](#skills).
 - Data loading (SolidStart)
   - Reads: `query()` + `createResource()`
   - For `createResource`, prefer consuming `resource.latest` by default to avoid transient loading/null visual bumps during revalidation.
-  - Use `resource()` (non-latest) only when you intentionally want loading-state transitions or explicit visual refresh bumps.
+  - Use `resource()` (non-latest) only when you intentionally want loading-state transitions or explicit visual refresh bumps, and only inside a `<Suspense>` child in the same file (lint: `vn/resource-read-latest`). A plain read re-suspends on every refetch outside a transition, and a boundary falling back removes everything under it.
+  - A resource read suspends the boundary above the reader's owner, not the one nearest in the JSX. A memo in a component body escapes a `<Suspense>` further down that component's JSX, so read in the JSX or put the boundary above the component.
+  - `.latest` still suspends until the first value arrives. A resource that starts fetching after an interaction (keyed on `open()`, a search, a selected id) takes `onDemand` from `~/utils/kept-async`, so it never suspends. SSR-loaded resources keep suspending under a local boundary on first read.
+  - `~/components/ui` overlay `Content` and `SidePanel` already have their own boundary, so an overlay's first read blanks the overlay, not the page. The shell logs `[suspense-flash]` when it falls back after hydration.
   - Writes: server actions
   - Avoid `fetch()` in UI components for app data, and avoid adding React Query/SWR/etc.
   - Note views stay live through `docs-*`/`activity-*` query keys. A view that holds a note in `createResource` must use `useLiveNoteResource` (swap with `mutate`, not `refetch`, and read with `fetchDocLatest`); see [live-note-updates.md](app/docs/live-note-updates.md#adding-a-note-view).

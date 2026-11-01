@@ -1,6 +1,7 @@
 import {
   JSX,
   Show,
+  Suspense,
   createEffect,
   createSignal,
   onCleanup,
@@ -162,7 +163,7 @@ export const SidePanel = (props: SidePanelProps) => {
                   }),
             }}
           >
-            {props.children}
+            <Suspense>{props.children}</Suspense>
           </Box>
         </Box>
       </Portal>

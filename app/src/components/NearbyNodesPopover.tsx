@@ -56,12 +56,8 @@ export const NearbyNodesPopover: VoidComponent<{ docId?: string }> = (
       ? fetchNearbyUmapDocs({ docId: props.docId, take: 36 })
       : Promise.resolve({ points: [] }),
   );
-  const nearbyData = createMemo(
-    () => nearby.latest ?? nearby() ?? { points: [] },
-  );
-  const isInitialLoading = createMemo(
-    () => open() && !nearby.latest && !nearby(),
-  );
+  const nearbyData = createMemo(() => nearby.latest ?? { points: [] });
+  const isInitialLoading = createMemo(() => open() && !nearby.latest);
 
   const plotPoints = createMemo<PlotPoint[]>(() => {
     const points = nearbyData().points || [];

@@ -17,6 +17,7 @@ import {
   onMount,
   type JSX,
 } from "solid-js";
+import { isServer } from "solid-js/web";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { AppSidebarLayout } from "./components/sidebar/AppSidebarLayout";
 import { MagicAuthProvider, useMagicAuth } from "~/hooks/useMagicAuth";
@@ -36,6 +37,17 @@ type ClientExceptionState = {
 // Chrome, Firefox and Safari wordings, and Vite's CSS preload.
 const CHUNK_LOAD_ERROR =
   /dynamically imported module|module script failed|Unable to preload CSS/i;
+
+// The first load shows nothing here. After hydration, every fallback here is a
+// bug: the whole page unmounts because a read has no closer boundary.
+const ShellFallback = () => {
+  if (!isServer && document.documentElement.dataset.appHydrated === "true") {
+    console.warn(
+      "[suspense-flash] the app shell fell back and unmounted the page",
+    );
+  }
+  return null;
+};
 
 export default function App() {
   const queryClient = new QueryClient();
@@ -103,9 +115,11 @@ export default function App() {
                   />
                 )}
               >
-                <Suspense fallback={null}>
+                <Suspense fallback={<ShellFallback />}>
                   <AuthGate>
-                    <Suspense>{props.children}</Suspense>
+                    <Suspense fallback={<ShellFallback />}>
+                      {props.children}
+                    </Suspense>
                   </AuthGate>
                 </Suspense>
               </ErrorBoundary>

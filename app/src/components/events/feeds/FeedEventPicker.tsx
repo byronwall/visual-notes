@@ -5,6 +5,7 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import type { FeedEntryMode } from "~/lib/events/types";
 import { fetchEventList } from "~/services/events/events.queries";
+import { onDemand } from "~/utils/kept-async";
 
 /** Search events by note title and include or exclude one. */
 export function FeedEventPicker(props: {
@@ -23,6 +24,7 @@ export function FeedEventPicker(props: {
   const [results] = createResource(
     () => search() || false,
     (q) => fetchEventList({ search: q, limit: 8 }),
+    onDemand,
   );
   const visible = () =>
     search()

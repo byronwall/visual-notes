@@ -14,6 +14,7 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { fetchDocs, searchDocs } from "~/features/docs-index/data/docs.service";
+import { onDemand } from "~/utils/kept-async";
 
 export type LinkedNote = { id: string; title: string };
 
@@ -67,6 +68,7 @@ export const NoteLinkField = (props: Props) => {
         path: doc.path ?? null,
       }));
     },
+    onDemand,
   );
   const items = createMemo(() => results.latest ?? []);
 

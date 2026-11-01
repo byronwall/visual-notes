@@ -31,7 +31,7 @@ export const PathIndexView = () => {
       .map((node) => ({ path: node.path, count: node.ownCount, at: node.lastUpdatedAt })),
   );
   const recentlyViewed = createMemo<PathRecentItem[]>(() =>
-    (discovery()?.recentlyViewed ?? []).slice(0, RECENT_LIMIT).map((item) => ({
+    (discovery.latest?.recentlyViewed ?? []).slice(0, RECENT_LIMIT).map((item) => ({
       path: item.path,
       at: item.lastViewedAt ?? null,
     })),

@@ -301,7 +301,7 @@ export const TimeBlockMetadataSummaryDialog = (props: Props) => {
 
         <Box overflow="auto" maxH="min(420px, 50vh)">
           <Show
-            when={(entries() ?? []).length > 0}
+            when={(entries.latest ?? []).length > 0}
             fallback={
               <Text color="fg.muted" fontSize="sm" py="6" textAlign="center">
                 No day metadata in {rangeLabel()}.
@@ -319,7 +319,7 @@ export const TimeBlockMetadataSummaryDialog = (props: Props) => {
                 </Table.Row>
               </Table.Head>
               <Table.Body>
-                <For each={entries() ?? []}>
+                <For each={entries.latest ?? []}>
                   {(entry) => (
                     <Table.Row data-testid="time-blocks-meta-row">
                       <Table.Cell

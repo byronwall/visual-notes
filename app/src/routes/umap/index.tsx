@@ -67,7 +67,7 @@ const UmapIndex: VoidComponent = () => {
   });
 
   const embeddingSelectItems = () =>
-    embeddingRuns()?.map((run) => ({
+    embeddingRuns.latest?.map((run) => ({
       label: run.id.slice(0, 10),
       value: run.id,
     })) ?? [];

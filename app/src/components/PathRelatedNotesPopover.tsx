@@ -113,7 +113,7 @@ export const PathRelatedNotesPopover = (props: {
             Related notes in same path
           </Text>
           <Show
-            when={(related()?.notes.length || 0) > 0}
+            when={(related.latest?.notes.length || 0) > 0}
             fallback={
               <Text fontSize="sm" color="fg.subtle">
                 No other notes in this exact path yet.
@@ -121,7 +121,7 @@ export const PathRelatedNotesPopover = (props: {
             }
           >
             <Stack gap="1" overflowY="auto" minH="0" flex="1" pr="1">
-              <For each={related()?.notes || []}>
+              <For each={related.latest?.notes || []}>
                 {(note) => (
                   <Button
                     size="xs"

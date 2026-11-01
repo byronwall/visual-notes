@@ -114,11 +114,11 @@ export const ArchivedNotesView: VoidComponent = () => {
         <Text fontSize="sm" color="fg.muted">
           Archived notes are hidden from search, lists, and the path tree. Links
           to them open the note their content went into. Each one is deleted{" "}
-          {data()?.retentionDays ?? 30} days after it was archived.
+          {data.latest?.retentionDays ?? 30} days after it was archived.
         </Text>
       </Stack>
       <Show
-        when={data()?.notes.length}
+        when={data.latest?.notes.length}
         fallback={
           <Box
             borderWidth="1px"
@@ -140,7 +140,7 @@ export const ArchivedNotesView: VoidComponent = () => {
           borderRadius="l2"
           bg="bg.default"
         >
-          <For each={data()?.notes}>
+          <For each={data.latest?.notes}>
             {(note) => <ArchivedRow note={note} />}
           </For>
         </Box>

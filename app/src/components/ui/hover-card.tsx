@@ -2,6 +2,7 @@ import { HoverCard } from '@ark-ui/solid/hover-card'
 import type { ComponentProps } from 'solid-js'
 import { createStyleContext } from 'styled-system/jsx'
 import { hoverCard } from 'styled-system/recipes'
+import { withOverlayBoundary } from './overlay-boundary'
 
 const { withRootProvider, withContext } = createStyleContext(hoverCard)
 
@@ -10,7 +11,7 @@ export const Root = withRootProvider(HoverCard.Root)
 export const RootProvider = withRootProvider(HoverCard.RootProvider)
 export const Arrow = withContext(HoverCard.Arrow, 'arrow')
 export const ArrowTip = withContext(HoverCard.ArrowTip, 'arrowTip')
-export const Content = withContext(HoverCard.Content, 'content')
+export const Content = withOverlayBoundary(withContext(HoverCard.Content, 'content'))
 export const Positioner = withContext(HoverCard.Positioner, 'positioner')
 export const Trigger = withContext(HoverCard.Trigger, 'trigger')
 

@@ -1,6 +1,7 @@
 import {
   type JSX,
   Show,
+  Suspense,
   createMemo,
   createEffect,
   createResource,
@@ -171,29 +172,32 @@ export const DocumentSidePanel: VoidComponent<{
               const current = () => (last = shown() ?? last);
               return (
                 <Box animation="fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1)">
-                  <DocumentViewer
-                    doc={current()}
-                    panelMode
-                    headerTrailing={
-                      <DocPanelActions
-                        fullPageHref={`/docs/${id}`}
-                        onClose={props.onClose}
-                      />
-                    }
-                    subheader={props.header}
-                    onDeleted={props.onDeleted}
-                    onEditorApiChange={(docId, api, gone) => {
-                      setEditor((current) =>
-                        api
-                          ? { id: docId, api }
-                          : current?.api === gone
-                            ? undefined
-                            : current,
-                      );
-                      props.onEditorApiChange?.(docId, api, gone);
-                    }}
-                    onTitleChange={props.onTitleChange}
-                  />
+                  {/* A new viewer fetches its own parts, as the note page does. */}
+                  <Suspense fallback={<PanelSkeleton />}>
+                    <DocumentViewer
+                      doc={current()}
+                      panelMode
+                      headerTrailing={
+                        <DocPanelActions
+                          fullPageHref={`/docs/${id}`}
+                          onClose={props.onClose}
+                        />
+                      }
+                      subheader={props.header}
+                      onDeleted={props.onDeleted}
+                      onEditorApiChange={(docId, api, gone) => {
+                        setEditor((current) =>
+                          api
+                            ? { id: docId, api }
+                            : current?.api === gone
+                              ? undefined
+                              : current,
+                        );
+                        props.onEditorApiChange?.(docId, api, gone);
+                      }}
+                      onTitleChange={props.onTitleChange}
+                    />
+                  </Suspense>
                 </Box>
               );
             }}

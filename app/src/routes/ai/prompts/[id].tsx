@@ -132,7 +132,7 @@ export const PromptDetailPage: VoidComponent = () => {
 
   onMount(() => {
     createEffect(() => {
-      const p = prompt();
+      const p = prompt.latest;
       if (!p) return;
       // Initialize defaults editor
       setDefModel(p.defaultModel || "");
@@ -154,8 +154,8 @@ export const PromptDetailPage: VoidComponent = () => {
   });
 
   const saveMeta = async () => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     const task = metaTask().trim();
     if (!task) {
       setMetaError("Name is required.");
@@ -178,8 +178,8 @@ export const PromptDetailPage: VoidComponent = () => {
   };
 
   const saveDefaults = async () => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     const payload: {
       defaultModel?: string;
       defaultTemp?: number;
@@ -202,8 +202,8 @@ export const PromptDetailPage: VoidComponent = () => {
   };
 
   const handleDeletePrompt = async () => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     setDeleteBusy(true);
     try {
       await runDeletePrompt({ id });
@@ -225,8 +225,8 @@ export const PromptDetailPage: VoidComponent = () => {
   };
 
   const handleCreateVersion = async (activate: boolean) => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     const template = editTemplate().trim();
     const system = editSystem().trim();
     if (!template) return;
@@ -247,8 +247,8 @@ export const PromptDetailPage: VoidComponent = () => {
   };
 
   const handleRevise = async () => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     const fb = feedback().trim();
     if (!fb) return;
     setReviseBusy(true);
@@ -264,8 +264,8 @@ export const PromptDetailPage: VoidComponent = () => {
   };
 
   const handleAcceptSuggestion = async (activate: boolean) => {
-    if (!prompt()) return;
-    const id = prompt()!.id;
+    if (!prompt.latest) return;
+    const id = prompt.latest!.id;
     const template = suggestedTemplate().trim();
     const system = suggestedSystem().trim();
     if (!template) return;
@@ -1015,7 +1015,7 @@ export const PromptDetailPage: VoidComponent = () => {
         open={deleteOpen()}
         onOpenChange={setDeleteOpen}
         title="Delete prompt"
-        description={`Delete "${prompt()?.task || "this prompt"}" and all of its versions and runs?`}
+        description={`Delete "${prompt.latest?.task || "this prompt"}" and all of its versions and runs?`}
         confirmLabel={deleteBusy() ? "Deleting…" : "Delete prompt"}
         onConfirm={() => void handleDeletePrompt()}
       >

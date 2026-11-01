@@ -3,6 +3,7 @@ import { ark } from '@ark-ui/solid/factory'
 import type { ComponentProps } from 'solid-js'
 import { createStyleContext, styled } from 'styled-system/jsx'
 import { dialog } from 'styled-system/recipes'
+import { withOverlayBoundary } from './overlay-boundary'
 
 const { withRootProvider, withContext } = createStyleContext(dialog)
 
@@ -15,7 +16,7 @@ export const RootProvider = withRootProvider(Dialog.RootProvider, {
 })
 export const Backdrop = withContext(Dialog.Backdrop, 'backdrop')
 export const CloseTrigger = withContext(Dialog.CloseTrigger, 'closeTrigger')
-export const Content = withContext(Dialog.Content, 'content')
+export const Content = withOverlayBoundary(withContext(Dialog.Content, 'content'))
 export const Description = withContext(Dialog.Description, 'description')
 export const Positioner = withContext(Dialog.Positioner, 'positioner')
 export const Title = withContext(Dialog.Title, 'title')

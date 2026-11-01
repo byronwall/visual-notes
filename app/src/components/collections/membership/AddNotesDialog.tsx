@@ -10,6 +10,7 @@ import {
 } from "~/services/collections/collections.membership";
 import { useCollection } from "../CollectionContext";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { onDemand } from "~/utils/kept-async";
 
 const filters = css({ display: "flex", gap: "2", mb: "2", w: "full" });
 const input = css({
@@ -90,6 +91,7 @@ export const AddNotesDialog = (props: {
         ? { collectionId: store.state.collection.id, q: q(), path: path() }
         : false,
     (args) => searchNotesForCollection(args),
+    onDemand,
   );
 
   const toggle = (id: string) => {

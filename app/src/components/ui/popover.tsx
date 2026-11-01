@@ -3,6 +3,7 @@ import { Popover } from '@ark-ui/solid/popover'
 import type { ComponentProps } from 'solid-js'
 import { createStyleContext } from 'styled-system/jsx'
 import { popover } from 'styled-system/recipes'
+import { withOverlayBoundary } from './overlay-boundary'
 
 const { withRootProvider, withContext } = createStyleContext(popover)
 
@@ -19,7 +20,7 @@ export const Arrow = withContext(Popover.Arrow, 'arrow', {
   defaultProps: () => ({ children: <ArrowTip /> }),
 })
 export const CloseTrigger = withContext(Popover.CloseTrigger, 'closeTrigger')
-export const Content = withContext(Popover.Content, 'content')
+export const Content = withOverlayBoundary(withContext(Popover.Content, 'content'))
 export const Description = withContext(Popover.Description, 'description')
 export const Indicator = withContext(Popover.Indicator, 'indicator')
 export const Positioner = withContext(Popover.Positioner, 'positioner')

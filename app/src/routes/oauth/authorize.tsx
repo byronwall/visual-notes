@@ -21,17 +21,17 @@ export default function OAuthAuthorizeRoute() {
   const consent = createAsync(() => fetchOAuthConsent(params()));
   const decide = useAction(decideOAuthConsent);
   const ask = () => {
-    const current = consent();
+    const current = consent.latest;
     return current?.kind === "ask" ? current : undefined;
   };
   const errorMessage = () => {
-    const current = consent();
+    const current = consent.latest;
     return current?.kind === "error" ? current.message : undefined;
   };
 
   // Protocol errors go straight back to the client; this needs the browser.
   createEffect(() => {
-    const current = consent();
+    const current = consent.latest;
     if (current?.kind === "redirect") window.location.replace(current.url);
   });
 

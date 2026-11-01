@@ -1,4 +1,4 @@
-import { Suspense, createMemo } from "solid-js";
+import { Suspense } from "solid-js";
 import { createKeptAsync } from "~/utils/kept-async";
 import type { SimpleSelectItem } from "~/components/ui/simple-select";
 import { SimpleSelect } from "~/components/ui/simple-select";
@@ -12,7 +12,8 @@ export function ModelSelect(props: {
   placeholderValue?: string;
 }) {
   const models = createKeptAsync(() => fetchAiModels());
-  const items = createMemo<SimpleSelectItem[]>(() => {
+  // Called in the JSX, so a first read waits under the Suspense below.
+  const items = (): SimpleSelectItem[] => {
     const list: SimpleSelectItem[] = [];
     if (props.placeholderLabel !== undefined) {
       list.push({
@@ -20,9 +21,9 @@ export function ModelSelect(props: {
         value: props.placeholderValue ?? "",
       });
     }
-    for (const m of models()?.items || []) list.push({ label: m, value: m });
+    for (const m of models.latest?.items || []) list.push({ label: m, value: m });
     return list;
-  });
+  };
   return (
     <Suspense
       fallback={

@@ -12,8 +12,8 @@ export const MetaKeySuggestions: VoidComponent<{
 }> = (props) => {
   const keySuggestions = createKeptAsync(() => fetchMetaKeys());
   const topKeys = createMemo(() =>
-    (Array.isArray(keySuggestions())
-      ? (keySuggestions() as { key: string; count: number }[])
+    (Array.isArray(keySuggestions.latest)
+      ? (keySuggestions.latest as { key: string; count: number }[])
       : []
     ).slice(0, props.limit ?? 10)
   );

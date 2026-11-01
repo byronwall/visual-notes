@@ -38,11 +38,11 @@ export const TimeBlockBacklinks = (props: Props) => {
         </HStack>
 
         <Show
-          when={(blocks() || []).length > 0}
+          when={(blocks.latest || []).length > 0}
           fallback={<Text color="fg.muted" fontSize="sm">No linked blocks yet.</Text>}
         >
           <Stack gap="2" maxH="180px" overflow="auto" pr="1">
-            <For each={blocks() || []}>
+            <For each={blocks.latest || []}>
               {(block) => (
                 <HStack
                   justifyContent="space-between"

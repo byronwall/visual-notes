@@ -53,6 +53,7 @@ import {
 } from "~/components/command-palette/palette-commands";
 import { ALL_DESTINATIONS } from "~/components/sidebar/nav-items";
 import { isDoneStatus } from "~/components/tasks/taskFormat";
+import { onDemand } from "~/utils/kept-async";
 
 type CommandKMenuProps = {
   open: boolean;
@@ -211,11 +212,16 @@ export const CommandKMenu: VoidComponent<CommandKMenuProps> = (props) => {
   const [collections] = createResource(
     () => props.open,
     async (isOpen) => (isOpen ? fetchCollections().catch(() => []) : []),
+    onDemand,
   );
-  const [allPathSuggestions] = createResource(() => props.open, async (isOpen) => {
-    if (!isOpen) return [];
-    return fetchPathSuggestions().catch(() => []);
-  });
+  const [allPathSuggestions] = createResource(
+    () => props.open,
+    async (isOpen) => {
+      if (!isOpen) return [];
+      return fetchPathSuggestions().catch(() => []);
+    },
+    onDemand,
+  );
 
   const close = () => {
     props.onOpenChange(false);

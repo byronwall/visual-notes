@@ -5,6 +5,6 @@ import { createKeptAsync } from "~/utils/kept-async";
 
 export const usePathTree = () => {
   const stats = createKeptAsync(() => fetchPathStats());
-  const tree = createMemo(() => buildPathTree(stats() ?? []));
+  const tree = createMemo(() => buildPathTree(stats.latest ?? []));
   return tree;
 };

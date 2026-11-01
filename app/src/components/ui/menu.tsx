@@ -4,6 +4,7 @@ import type { ComponentProps } from 'solid-js'
 import { Show } from 'solid-js'
 import { createStyleContext, type HTMLStyledProps } from 'styled-system/jsx'
 import { menu } from 'styled-system/recipes'
+import { withOverlayBoundary } from './overlay-boundary'
 
 const { withRootProvider, withContext } = createStyleContext(menu)
 
@@ -17,7 +18,7 @@ export const RootProvider = withRootProvider(Menu.Root, {
 export const Arrow = withContext(Menu.Arrow, 'arrow')
 export const ArrowTip = withContext(Menu.ArrowTip, 'arrowTip')
 export const CheckboxItem = withContext(Menu.CheckboxItem, 'item')
-export const Content = withContext(Menu.Content, 'content')
+export const Content = withOverlayBoundary(withContext(Menu.Content, 'content'))
 export const ContextTrigger = withContext(Menu.ContextTrigger, 'contextTrigger')
 export const Indicator = withContext(Menu.Indicator, 'indicator', {
   defaultProps: () => ({ children: <ChevronDownIcon /> }),
