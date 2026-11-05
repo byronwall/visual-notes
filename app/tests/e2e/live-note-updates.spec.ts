@@ -149,6 +149,54 @@ test.describe("open note", () => {
   });
 });
 
+test("a deferred remote edit does not follow the editor to the next note", async ({
+  page,
+  browser,
+}) => {
+  const nextId = await createNoteFixture(page, {
+    title: `Live switch next ${uniqueSuffix()}`,
+    markdown: "Next note body.",
+  });
+  const noteId = await createNoteFixture(page, {
+    title: `Live switch ${uniqueSuffix()}`,
+    markdown: "First note body.",
+  });
+  await openNote(page, noteId);
+  // The cursor in this block makes a remote edit to it wait for blur.
+  await editor(page).locator("p", { hasText: "First note body." }).click();
+
+  // The live event makes this tab read the newer version, then defer it.
+  const remoteRead = page.waitForResponse(
+    async (response) =>
+      response.url().includes("/_server") &&
+      (await response.text()).includes("Remote."),
+    { timeout: 8_000 },
+  );
+  const other = await openContext(browser, `/docs/${noteId}`);
+  try {
+    const saved = nextAutosave(other.page);
+    await typeInParagraph(other.page, "First note body.", " Remote.");
+    expect((await saved).ok()).toBe(true);
+  } finally {
+    await other.close();
+  }
+  expect((await remoteRead).ok()).toBe(true);
+  await expect(editor(page)).not.toContainText("Remote.");
+
+  // A note link click sends this event; the editor keeps focus and is reused.
+  await page.evaluate((href) => {
+    window.dispatchEvent(
+      new CustomEvent("note-link:navigate", { detail: href }),
+    );
+  }, `/docs/${nextId}`);
+  await expect(page).toHaveURL(new RegExp(`/docs/${nextId}`));
+  await expect(editor(page)).toContainText("Next note body.");
+  // Before the fix, blur applied the first note's deferred content here.
+  await editor(page).evaluate((el) => (el as HTMLElement).blur());
+  await expect(editor(page)).toContainText("Next note body.");
+  await expect(editor(page)).not.toContainText("First note body.");
+});
+
 test("typing keeps going while another note changes elsewhere", async ({
   page,
   browser,
