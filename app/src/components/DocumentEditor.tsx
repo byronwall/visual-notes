@@ -177,7 +177,13 @@ const DocumentEditor: VoidComponent<{
   });
 
   // A merged or remote version waiting for the cursor to leave its block.
-  let pendingRemote: NoteDoc | null = null;
+  // It keeps its note id and version so a note switch cannot apply it to the
+  // next note.
+  let pendingRemote: {
+    docId: string;
+    version: number;
+    content: NoteDoc;
+  } | null = null;
   const adoptRemote = (
     ed: Editor,
     docId: string,
@@ -188,7 +194,7 @@ const DocumentEditor: VoidComponent<{
       deferIfCursorInside: true,
     });
     if (result === "deferred") {
-      pendingRemote = next;
+      pendingRemote = { docId, version, content: next };
       return false;
     }
     pendingRemote = null;
@@ -206,8 +212,14 @@ const DocumentEditor: VoidComponent<{
     if (!ed) return;
     const onBlur = () => {
       const d = doc.latest;
-      if (!pendingRemote || !d || dirty()) return;
-      if (base) adoptRemote(ed, d.id, base.version, pendingRemote);
+      const pending = pendingRemote;
+      if (!pending || !d || dirty()) return;
+      // A save since the deferral may have moved the note past it.
+      if (pending.docId !== d.id || (base && pending.version < base.version)) {
+        pendingRemote = null;
+        return;
+      }
+      adoptRemote(ed, pending.docId, pending.version, pending.content);
     };
     ed.on("blur", onBlur);
     onCleanup(() => ed.off("blur", onBlur));
@@ -379,6 +391,7 @@ const DocumentEditor: VoidComponent<{
       () => {
         clearAutosave();
         clearRetry();
+        pendingRemote = null;
         failedSaves = 0;
         setDirty(false);
         setError(undefined);
