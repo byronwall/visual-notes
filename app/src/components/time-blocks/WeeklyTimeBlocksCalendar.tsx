@@ -260,6 +260,8 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
     pickColor: randomTimeBlockColor,
     onCreate: (range) => {
       setQuick(null);
+      // A new draft lets go of one still saving; its block arrives by itself.
+      setDraftSaving(null);
       setDraft(range);
     },
     onMove: (block, start, end, duplicate) => {
@@ -359,9 +361,10 @@ export const WeeklyTimeBlocksCalendar = (props: Props) => {
         title,
         noteId: props.initialNoteId,
       });
-      setDraftSaving(id);
+      if (draft() === current) setDraftSaving(id);
     } catch (error) {
       console.error("[time-blocks] create failed", error);
+      if (draft() !== current) return;
       setDraftSaving(null);
       setDraft(null);
     }

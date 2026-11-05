@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
 import { uniqueSuffix } from "./helpers/fixtures";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 const getBox = async (locator: Locator) => {
   const box = await locator.boundingBox();
@@ -261,5 +262,39 @@ test.describe("time blocks interactions", () => {
     expect(new Set(styleSamples.map((s) => s.y)).size).toBeGreaterThan(1);
 
     for (const title of titles) await deleteBlock(page, title);
+  });
+
+  test("a second draft survives the first draft's save", async ({ page }) => {
+    await openCalendar(page);
+    const first = `First draft ${uniqueSuffix()}`;
+    const second = `Second draft ${uniqueSuffix()}`;
+
+    // Hold the first create so the second draft starts while it saves.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/_server**", async (route) => {
+      const id = route.request().headers()["x-server-id"];
+      if (isServerFn(id, "createTimeBlock")) await held;
+      await route.continue();
+    });
+
+    const slotA = await emptySlot(page, 1, 80);
+    const inputA = await drawDraft(page, slotA.x, slotA.y);
+    await inputA.fill(first);
+    await inputA.press("Enter");
+
+    const slotB = await emptySlot(page, 3, 80);
+    const inputB = await drawDraft(page, slotB.x, slotB.y);
+    await expect(inputB).toBeEnabled();
+
+    release();
+    await expect(blockByTitle(page, first)).toBeVisible();
+    await expect(page.getByTestId("time-block-draft")).toHaveCount(1);
+    await inputB.fill(second);
+    await inputB.press("Enter");
+    await expect(blockByTitle(page, second)).toBeVisible();
+
+    await page.unroute("**/_server**");
+    for (const title of [first, second]) await deleteBlock(page, title);
   });
 });
