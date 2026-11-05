@@ -324,12 +324,16 @@ export const createTaskActions = (
       return;
     }
     setInlineCreate({ ...draft, saving: true, error: null });
+    // Opening an edit, cancelling, or switching lists while the insert runs
+    // replaces this draft; the late result must not bring it back.
+    const stillOpen = () => inlineCreate()?.saving === true;
     try {
       const id = await insertCreated(
         parsed,
         draft.parentTaskId,
         draft.targetIndex,
       );
+      if (!stillOpen()) return;
       // Stay in flow: the next draft opens right below the one just created.
       batch(() => {
         setActiveTaskId(id);
@@ -343,11 +347,12 @@ export const createTaskActions = (
         });
       });
     } catch (err) {
-      setInlineCreate({
-        ...draft,
-        saving: false,
-        error: errorMessage(err, "Could not add task"),
-      });
+      const message = errorMessage(err, "Could not add task");
+      if (!stillOpen()) {
+        setError(message);
+        return;
+      }
+      setInlineCreate({ ...draft, saving: false, error: message });
     }
   };
 
