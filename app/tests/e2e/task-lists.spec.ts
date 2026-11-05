@@ -65,12 +65,30 @@ test.describe("task lists", () => {
     await expect(page.getByTestId("tasks-page")).toBeVisible();
 
     await createList(page, listName);
+
+    // Hold the refetch that follows the add until the title editor is open:
+    // a refetch used to remount every row and close the editor.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const isTreeFetch = (headers: Record<string, string>) =>
+      isServerFn(headers["x-server-id"], "fetchTaskTree");
+    await page.route("**/_server**", async (route) => {
+      if (isTreeFetch(route.request().headers())) await held;
+      await route.continue();
+    });
     await addTask(page, taskName);
 
     await rowByText(page, taskName).getByText(taskName).click();
 
     const input = page.locator("[data-testid^='task-inline-input-']").first();
     await expect(input).toBeVisible();
+    const refetched = page.waitForResponse((res) =>
+      isTreeFetch(res.request().headers()),
+    );
+    release();
+    await refetched;
+    await page.unroute("**/_server**");
+    await expect(input).toBeFocused();
 
     await input.evaluate((el: HTMLInputElement) => el.setSelectionRange(5, 5));
     await page.keyboard.press("ArrowLeft");
@@ -274,11 +292,12 @@ test.describe("task lists", () => {
     await expect(editInput).toHaveValue(second);
 
     release();
-    // The late result must not move the selection or reopen the draft row.
+    // The late result must not move the selection, close the open edit, or
+    // reopen the draft row.
     await expect(rowByText(page, created)).toBeVisible();
-    await expect(page.getByRole("treeitem", { selected: true })).toContainText(
-      second,
-    );
+    await expect(
+      page.getByRole("treeitem", { selected: true }).locator(editInput),
+    ).toHaveValue(second);
     await expect(draft).toHaveCount(0);
   });
 });
