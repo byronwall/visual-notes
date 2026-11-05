@@ -55,13 +55,16 @@ export const TaskTree = (props: Props) => {
     </Show>
   );
 
+  // Take ids as an accessor so only the For reads them. Read in the caller's
+  // JSX, a new ids array rebuilt the whole For and remounted every row, which
+  // blurred and closed an open inline edit on each refetch.
   const renderIds = (
-    ids: string[],
+    ids: () => string[],
     parentTaskId: string | null,
   ): JSX.Element => (
     <>
       {draftAt(parentTaskId, null)}
-      <For each={ids}>
+      <For each={ids()}>
         {(taskId) => {
           const childIds = () => ctx.childIds(taskId);
           const expanded = () => ctx.expandedIds().has(taskId);
@@ -86,7 +89,7 @@ export const TaskTree = (props: Props) => {
                       role="group"
                       data-testid={`task-children-${taskId}`}
                     >
-                      {renderIds(childIds(), taskId)}
+                      {renderIds(childIds, taskId)}
                     </div>
                   </Show>
                   {draftAt(parentTaskId, taskId)}
@@ -101,7 +104,7 @@ export const TaskTree = (props: Props) => {
 
   return (
     <div role="tree" aria-label={props.label} data-testid={props.testId}>
-      {renderIds(props.rootIds, null)}
+      {renderIds(() => props.rootIds, null)}
     </div>
   );
 };

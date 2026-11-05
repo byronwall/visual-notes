@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ensureAuthed } from "./helpers/auth";
 import { waitForAppReady } from "./helpers/readiness";
+import { isServerFn } from "./helpers/server-fn-id";
 
 const rowByText = (page: Page, text: string) =>
   page.locator("[data-testid^='task-row-']").filter({ hasText: text }).first();
@@ -64,12 +65,30 @@ test.describe("task lists", () => {
     await expect(page.getByTestId("tasks-page")).toBeVisible();
 
     await createList(page, listName);
+
+    // Hold the refetch that follows the add until the title editor is open:
+    // a refetch used to remount every row and close the editor.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const isTreeFetch = (headers: Record<string, string>) =>
+      isServerFn(headers["x-server-id"], "fetchTaskTree");
+    await page.route("**/_server**", async (route) => {
+      if (isTreeFetch(route.request().headers())) await held;
+      await route.continue();
+    });
     await addTask(page, taskName);
 
     await rowByText(page, taskName).getByText(taskName).click();
 
     const input = page.locator("[data-testid^='task-inline-input-']").first();
     await expect(input).toBeVisible();
+    const refetched = page.waitForResponse((res) =>
+      isTreeFetch(res.request().headers()),
+    );
+    release();
+    await refetched;
+    await page.unroute("**/_server**");
+    await expect(input).toBeFocused();
 
     await input.evaluate((el: HTMLInputElement) => el.setSelectionRange(5, 5));
     await page.keyboard.press("ArrowLeft");
@@ -234,5 +253,51 @@ test.describe("task lists", () => {
       .getByRole("button", { name: "Delete list" })
       .click();
     await expect(listItem(page, renamedListName)).toHaveCount(0);
+  });
+
+  test("a slow inline create does not take over after the user moves on", async ({
+    page,
+  }) => {
+    const suffix = Date.now().toString().slice(-6);
+    const first = `First ${suffix}`;
+    const second = `Second ${suffix}`;
+    const created = `Created ${suffix}`;
+
+    await ensureAuthed(page);
+    await page.goto("/tasks");
+    await waitForAppReady(page);
+    await createList(page, `E2E Late Create ${suffix}`);
+    await addTask(page, first);
+    await addTask(page, second);
+
+    // Select the first task, then open a draft row below it.
+    await rowByText(page, first).getByText(first).click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("n");
+    const draft = page.getByTestId("task-inline-create-row");
+    await draft.getByLabel("New task title").fill(created);
+
+    // Hold the insert so an edit can open while it runs.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/_server**", async (route) => {
+      if (isServerFn(route.request().headers()["x-server-id"], "createTask")) {
+        await held;
+      }
+      await route.continue();
+    });
+    await draft.getByLabel("New task title").press("Enter");
+    await rowByText(page, second).getByText(second).click();
+    const editInput = page.locator("[data-testid^='task-inline-input-']");
+    await expect(editInput).toHaveValue(second);
+
+    release();
+    // The late result must not move the selection, close the open edit, or
+    // reopen the draft row.
+    await expect(rowByText(page, created)).toBeVisible();
+    await expect(
+      page.getByRole("treeitem", { selected: true }).locator(editInput),
+    ).toHaveValue(second);
+    await expect(draft).toHaveCount(0);
   });
 });
