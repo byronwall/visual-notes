@@ -11,28 +11,30 @@ import {
   readableTranscriptError,
   transcriptMarkdown,
 } from "~/services/doc-audio/doc-audio.shared";
+import { encodeForTranscription } from "./doc-audio-encode";
 import { audioFileSize, resolveDocAudioStorageDir } from "./doc-audio-storage";
 import { scheduleEmbeddingRefresh } from "./embedding-refresh";
 
 const LOG = "[doc-audio-transcribe]";
 
-// Groq is the default: Whisper large-v3 turbo at ~$0.04/hour with a 100 MB
-// upload limit. Without a Groq key, OpenAI's whisper-1 is the fallback; it
-// returns the same verbose_json segments but caps uploads at 25 MB.
+// Groq is the default: Whisper large-v3 turbo at ~$0.04/hour. Without a Groq
+// key, OpenAI's whisper-1 is the fallback; it returns the same verbose_json
+// segments. Both cap a direct upload at 25 MB (Groq's free tier), so every
+// recording is re-encoded into small pieces first (doc-audio-encode).
 const PROVIDERS = {
   groq: {
     url: "https://api.groq.com/openai/v1/audio/transcriptions",
     model: "whisper-large-v3-turbo",
-    maxBytes: 100 * 1024 * 1024,
     key: () => process.env.GROQ_API_KEY,
   },
   openai: {
     url: "https://api.openai.com/v1/audio/transcriptions",
     model: "whisper-1",
-    maxBytes: 25 * 1024 * 1024,
     key: () => process.env.OPENAI_API_KEY,
   },
 };
+
+type Provider = (typeof PROVIDERS)[keyof typeof PROVIDERS];
 
 const ANALYSIS_MODEL = process.env.TRANSCRIPT_LLM_MODEL || "gpt-5.4-mini";
 
@@ -50,24 +52,14 @@ function pickProvider() {
 
 export const canTranscribe = () => pickProvider() !== null;
 
-async function transcribeFile(row: DocAudio) {
-  const provider = pickProvider();
-  if (!provider) throw new Error("Set GROQ_API_KEY or OPENAI_API_KEY");
-  const size = await audioFileSize(row.fileName);
-  if (size > provider.maxBytes) {
-    const mb = Math.round(size / 1024 / 1024);
-    throw new Error(
-      `Recording is ${mb} MB; ${provider.model} accepts at most ${provider.maxBytes / 1024 / 1024} MB`,
-    );
-  }
+type WhisperJson = {
+  text?: string;
+  segments?: { start: number; end: number; text: string }[];
+};
+
+async function transcribePiece(provider: Provider, file: string) {
   const form = new FormData();
-  // openAsBlob reads the file as it uploads, so a long memo is never held
-  // in memory whole on the VPS.
-  const file = await openAsBlob(
-    path.join(resolveDocAudioStorageDir(), row.fileName),
-    { type: row.mimeType },
-  );
-  form.append("file", file, row.fileName);
+  form.append("file", await openAsBlob(file, { type: "audio/ogg" }), "a.ogg");
   form.append("model", provider.model);
   form.append("response_format", "verbose_json");
   form.append("timestamp_granularities[]", "segment");
@@ -85,22 +77,40 @@ async function transcribeFile(row: DocAudio) {
       ),
     );
   }
+  return JSON.parse(body) as WhisperJson;
+}
+
+async function transcribeFile(row: DocAudio) {
+  const provider = pickProvider();
+  if (!provider) throw new Error("Set GROQ_API_KEY or OPENAI_API_KEY");
+  const size = await audioFileSize(row.fileName);
+  const { segments: pieces, cleanup } = await encodeForTranscription(
+    path.join(resolveDocAudioStorageDir(), row.fileName),
+  );
+  const texts: string[] = [];
+  const segments: TranscriptSegment[] = [];
+  try {
+    for (const piece of pieces) {
+      const json = await transcribePiece(provider, piece.file);
+      texts.push((json.text ?? "").trim());
+      for (const s of json.segments ?? []) {
+        segments.push({
+          start: s.start + piece.offset,
+          end: s.end + piece.offset,
+          text: s.text.trim(),
+        });
+      }
+    }
+  } finally {
+    await cleanup();
+  }
   await recordPaidCall({
     model: provider.model,
     trigger: "transcript",
-    summary: `${row.fileName} (${Math.round(size / 1024)} KB)`,
+    summary: `${row.fileName} (${Math.round(size / 1024)} KB, ${pieces.length} piece${pieces.length === 1 ? "" : "s"})`,
     noteId: row.docId,
   });
-  const json = JSON.parse(body) as {
-    text?: string;
-    segments?: { start: number; end: number; text: string }[];
-  };
-  const segments: TranscriptSegment[] = (json.segments ?? []).map((s) => ({
-    start: s.start,
-    end: s.end,
-    text: s.text.trim(),
-  }));
-  return { text: (json.text ?? "").trim(), segments, model: provider.model };
+  return { text: texts.join(" ").trim(), segments, model: provider.model };
 }
 
 const clock = (seconds: number) => {
@@ -304,22 +314,39 @@ export function queueTranscription(id: string) {
     .finally(() => queued.delete(id));
 }
 
+// Errors from before recordings were split for upload ("Request Entity Too
+// Large (whisper-large-v3-turbo 413)", "Recording is 40 MB; ... accepts at
+// most 25 MB"). These retry on boot now that every file is split.
+const TOO_LARGE_ERRORS = [" 413)", "accepts at most"];
+
 // A recording left in `recording` this long was interrupted, not active.
 const STALE_RECORDING_MS = 15 * 60_000;
 
 /**
  * Boot pass: transcribes finished recordings that never were (older rows,
- * restarts mid-job) and interrupted recordings that went quiet.
+ * restarts mid-job), interrupted recordings that went quiet, and recordings
+ * that failed only because the file was too big to upload whole.
  */
 export async function resumeTranscriptions() {
   if (process.env.NODE_ENV === "test" || !canTranscribe()) return;
   const rows = await prisma.docAudio.findMany({
     where: {
-      transcriptStatus: { in: ["none", "pending"] },
       sizeBytes: { gt: 0 },
       OR: [
-        { status: "ready" },
-        { updatedAt: { lt: new Date(Date.now() - STALE_RECORDING_MS) } },
+        {
+          transcriptStatus: { in: ["none", "pending"] },
+          OR: [
+            { status: "ready" },
+            { updatedAt: { lt: new Date(Date.now() - STALE_RECORDING_MS) } },
+          ],
+        },
+        {
+          transcriptStatus: "failed",
+          status: "ready",
+          OR: TOO_LARGE_ERRORS.map((text) => ({
+            transcriptError: { contains: text },
+          })),
+        },
       ],
     },
     orderBy: { createdAt: "asc" },

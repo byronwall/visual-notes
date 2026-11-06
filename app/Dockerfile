@@ -40,6 +40,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # -------- runtime --------
 FROM os AS runtime
+# ffmpeg re-encodes recordings into small pieces for Whisper.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV UMAP_PYTHON_BIN=/app/.venv/bin/python
 ENV PATH=/opt/prisma/node_modules/.bin:$PATH

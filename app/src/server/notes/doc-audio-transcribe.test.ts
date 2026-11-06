@@ -8,6 +8,7 @@ vi.mock("~/server/db", () => ({
 }));
 vi.mock("~/server/lib/ai", () => ({ callLLM: vi.fn() }));
 vi.mock("./embedding-refresh", () => ({ scheduleEmbeddingRefresh: vi.fn() }));
+vi.mock("./doc-audio-encode", () => ({ encodeForTranscription: vi.fn() }));
 vi.mock("./doc-audio-storage", () => ({
   audioFileSize: vi.fn(),
   resolveDocAudioStorageDir: () => "/tmp",
