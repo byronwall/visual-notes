@@ -152,7 +152,8 @@ export const docAudioChunkUrl = (id: string, seq: number, elapsedMs: number) =>
 
 export const DOC_AUDIO_LABEL_MAX = 120;
 
-// Dropped recordings: Groq's Whisper accepts up to 100 MB per file.
+// Dropped recordings are stored up to 100 MB; transcription re-encodes them
+// into pieces small enough for Whisper's upload cap.
 export const DOC_AUDIO_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 export const DOC_AUDIO_UPLOAD_URL = "/api/doc-audio";
 
