@@ -1,8 +1,8 @@
-import { createMemo, Show } from "solid-js";
+import { Show } from "solid-js";
 import type { PathwayNode } from "~/lib/pathways/types";
+import type { CardFit } from "./card-fit";
 import { isFaint } from "./layout";
 import { usePathway } from "./pathway-state";
-import { fitText } from "./textfit";
 
 const KIND_LABEL = {
   root: "Question",
@@ -20,70 +20,27 @@ const RESEARCH_LABEL = {
   queued: "queued",
   done: "researched",
 };
-/** Titles never drop under this many px on screen. */
-const MIN_PX = 12;
-/** Badges stay at least this many px on screen. */
-const BADGE_PX = 10;
 
 export function PathwayCard(props: {
   n: PathwayNode;
   box?: { x: number; y: number; w: number; h: number };
-  paths: number;
   lit: boolean;
   /** Zoom, in ~9% steps. */
   k: number;
   far: boolean;
+  /** Title and badge sizes below full detail (see fitCards). */
+  fit?: CardFit;
   next?: number;
   onHover: (id: string | null) => void;
 }) {
   const s = usePathway();
   const n = () => props.n;
   // Level of detail by zoom. Below full detail the type label and note hide,
-  // and the title grows to fill the card (see fitText), in as many lines as
+  // and the title grows to fill the card (see fitCards), in as many lines as
   // the card's fixed height allows. Positions never change with zoom.
   const lod = () => (props.far ? "far" : props.k >= 0.9 ? "full" : "mid");
   const fresh = () => s.freshNodes().has(n().id);
-  const fit = createMemo(() => {
-    const b = props.box;
-    if (!b || lod() === "full") return null;
-    const k = props.k;
-    const pad = lod() === "far" ? 6 : 8;
-    const badges =
-      !!props.next ||
-      fresh() ||
-      props.paths > 1 ||
-      !!n().feedback ||
-      !!n().research ||
-      !!n().missed ||
-      n().status === "chosen";
-    // Content box: card minus padding and borders (4-6px left rail, 1-2px others), with 3% slack.
-    const textW = (b.w - 2 * (pad + 2) - 8) * 0.97;
-    // Badges scale with the title (half its size, at least BADGE_PX on screen).
-    const solve = (badgeF: number) => {
-      const headH = badges ? badgeF * 1.4 + 4 : 0;
-      const room = Math.max(8, b.h - 2 * pad - headH - 4);
-      return {
-        headH,
-        room,
-        size: fitText(n().title, textW, room, 650, 64 / k),
-      };
-    };
-    let badgeF = BADGE_PX / k;
-    let r = solve(badgeF);
-    if (badges && r.size * 0.5 > badgeF) {
-      badgeF = r.size * 0.5;
-      r = solve(badgeF);
-    }
-    const size = Math.max(r.size, Math.min(MIN_PX / k, r.room / 1.2));
-    return {
-      pad,
-      badgeF,
-      headH: r.headH,
-      size,
-      lines: Math.max(1, Math.floor(r.room / (size * 1.2))),
-      badges,
-    };
-  });
+  const fit = () => (lod() === "full" ? undefined : props.fit);
 
   return (
     <Show when={props.box}>
@@ -93,7 +50,6 @@ export function PathwayCard(props: {
           class={`node kind-${n().kind} status-${n().status} lod-${lod()}`}
           data-selected={String(!!(s.selected() === n().id))}
           data-dim={String(!props.lit)}
-          data-converge={String(!!(props.paths > 1))}
           data-fresh={String(!!fresh())}
           data-busy={
             s.busy() === n().id ||
@@ -143,14 +99,6 @@ export function PathwayCard(props: {
                 title="The agent thinks you may not have considered this"
               >
                 new angle
-              </span>
-            </Show>
-            <Show when={props.paths > 1}>
-              <span
-                class="badge badge-converge"
-                title="Several paths arrive here"
-              >
-                {props.paths} paths meet
               </span>
             </Show>
             <Show when={n().research}>

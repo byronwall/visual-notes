@@ -8,8 +8,9 @@ import {
   onMount,
   Show,
 } from "solid-js";
+import { fitCards } from "./card-fit";
 import { viewport as viewportClass } from "./graph-styles";
-import { inDegree, isFaint, layoutMap, lineage } from "./layout";
+import { isFaint, layoutMap, lineage } from "./layout";
 import { PathwayCard } from "./PathwayCard";
 import { usePathway } from "./pathway-state";
 import { smallButton } from "./styles";
@@ -35,7 +36,23 @@ type View = { x: number; y: number; k: number };
  */
 export function PathwayGraph() {
   const s = usePathway();
-  const graph = () => s.record().graph;
+  // Dropped cards (and their edges) hide unless the toggle shows them.
+  const [showDropped, setShowDropped] = createSignal(false);
+  const dropped = createMemo(
+    () => s.record().graph.nodes.filter((n) => n.status === "dropped").length,
+  );
+  const graph = createMemo(() => {
+    const g = s.record().graph;
+    if (showDropped() || !dropped()) return g;
+    const hidden = new Set(
+      g.nodes.filter((n) => n.status === "dropped").map((n) => n.id),
+    );
+    return {
+      ...g,
+      nodes: g.nodes.filter((n) => !hidden.has(n.id)),
+      edges: g.edges.filter((e) => !hidden.has(e.from) && !hidden.has(e.to)),
+    };
+  });
   let viewport!: HTMLDivElement;
   const [view, setView] = createSignal<View>({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = createSignal<string | null>(null);
@@ -85,7 +102,6 @@ export function PathwayGraph() {
     cancelAnimationFrame(raf);
   });
 
-  const degree = createMemo(() => inDegree(graph()));
   // Card id -> number of the first open Next steps task that moves it forward.
   const nextOf = createMemo(() => {
     const out = new Map<string, number>();
@@ -95,6 +111,27 @@ export function PathwayGraph() {
       },
     );
     return out;
+  });
+
+  // Zoomed-out title sizes, shared per card class (see fitCards).
+  const fits = createMemo(() => {
+    const k = kb();
+    if (!far() && k >= 0.9) return null;
+    const boxes = layout().boxes;
+    const fresh = s.freshNodes();
+    const cards = graph().nodes.flatMap((n) => {
+      const box = boxes.get(n.id);
+      if (!box) return [];
+      const badges =
+        nextOf().has(n.id) ||
+        fresh.has(n.id) ||
+        !!n.feedback ||
+        !!n.research ||
+        !!n.missed ||
+        n.status === "chosen";
+      return [{ n, box, badges }];
+    });
+    return fitCards(cards, k, far());
   });
 
   // The peek waits until the pointer rests on a card and the view is still.
@@ -232,12 +269,23 @@ export function PathwayGraph() {
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
     const v = current();
-    if (!(e.ctrlKey || e.metaKey))
-      return void schedule({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY });
+    // Line-mode wheels (Firefox) report lines, not pixels.
+    const unit = e.deltaMode === 1 ? 16 : 1;
+    const dx = e.deltaX * unit;
+    const dy = e.deltaY * unit;
+    const pinch = e.ctrlKey || e.metaKey;
+    // Shift+wheel and sideways swipes pan. Everything else zooms: the mouse
+    // wheel, two-finger scroll, and trackpad pinch (which arrives with ctrlKey).
+    if (e.shiftKey && !pinch)
+      return void schedule({ ...v, x: v.x - (dx || dy), y: v.y });
+    if (!pinch && Math.abs(dx) > Math.abs(dy))
+      return void schedule({ ...v, x: v.x - dx, y: v.y - dy });
     const r = viewport.getBoundingClientRect();
     const px = e.clientX - r.left;
     const py = e.clientY - r.top;
-    const k = Math.min(2, Math.max(0.1, v.k * Math.exp(-e.deltaY * 0.01)));
+    // Pinch deltas are small; a wheel tick is ~100px, so it gets a gentler rate (~20% a tick).
+    const rate = pinch ? 0.01 : 0.002;
+    const k = Math.min(2, Math.max(0.1, v.k * Math.exp(-dy * rate)));
     const next = {
       k,
       x: px - ((px - v.x) * k) / v.k,
@@ -370,10 +418,10 @@ export function PathwayGraph() {
             <PathwayCard
               n={node(id)}
               box={layout().boxes.get(id)}
-              paths={degree().get(id) ?? 0}
               lit={lit(id)}
               k={kb()}
               far={far()}
+              fit={fits()?.get(id)}
               next={nextOf().get(id)}
               onHover={setHover}
             />
@@ -405,11 +453,24 @@ export function PathwayGraph() {
         >
           Fit
         </button>
+        <Show when={dropped()}>
+          <button
+            class={smallButton}
+            aria-pressed={showDropped()}
+            onClick={() => {
+              setShowDropped((v) => !v);
+              queueMicrotask(fit);
+            }}
+            title="Dropped cards are hidden from the map"
+          >
+            {showDropped() ? "Hide dropped" : `Show ${dropped()} dropped`}
+          </button>
+        </Show>
         <span class="legend">
           <i data-kind="option" /> option <i data-kind="step" /> step{" "}
-          <i data-kind="outcome" /> outcome <i data-kind="meet" /> paths meet
+          <i data-kind="outcome" /> outcome
         </span>
-        <span>Drag to pan · ⌘ scroll to zoom · double-click to edit</span>
+        <span>Drag to pan · scroll to zoom · double-click to edit</span>
       </div>
     </div>
   );
