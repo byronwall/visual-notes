@@ -164,6 +164,7 @@ export async function archivePathwayFn(input: {
 }
 
 const actions = [
+  "start",
   "options",
   "forward",
   "converge",

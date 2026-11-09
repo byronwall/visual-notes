@@ -319,12 +319,12 @@ export function createPathwayState(initial: PathwayRecord) {
 
   /**
    * A map just started from a task or note opens with ?draft=1: the agent
-   * drafts the first options once, then the flag leaves the URL.
+   * drafts the first map once, then the flag leaves the URL.
    */
   const draftOnOpen = () => {
     if (params.draft !== "1") return;
     setParams({ draft: undefined }, { replace: true });
-    if (record().graph.nodes.length === 1) void runAgent("options", "root");
+    if (record().graph.nodes.length === 1) void runAgent("start", "root");
   };
 
   return {
