@@ -971,6 +971,8 @@ model ResearchComment {
   resolvedAt DateTime?
   /// What the agent did about it, shown under the comment.
   resolution String?
+  /// When you dismissed the agent's resolution in the inbox.
+  seenAt     DateTime?
   createdAt  DateTime  @default(now())
 
   topic  ResearchTopic   @relation(fields: [topicId], references: [id], onDelete: Cascade)

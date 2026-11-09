@@ -2,7 +2,8 @@ import { For } from "solid-js";
 import { useLocation } from "@solidjs/router";
 import { Grid } from "styled-system/jsx";
 import { AppSidebarCanvasMenu } from "./AppSidebarCanvasMenu";
-import { NOTES_DESTINATION, PRIMARY_DESTINATIONS } from "./nav-items";
+import { InboxBadge } from "~/components/inbox/InboxBadge";
+import { INBOX_HREF, NOTES_DESTINATION, PRIMARY_DESTINATIONS } from "./nav-items";
 import { SidebarNavLink } from "./SidebarNavLink";
 
 type AppSidebarNavProps = {
@@ -51,6 +52,7 @@ export const AppSidebarNav = (props: AppSidebarNavProps) => {
               label={item.label}
               href={item.href}
               icon={item.icon}
+              trailing={item.href === INBOX_HREF ? <InboxBadge /> : undefined}
               data-density="compact"
             />
           </li>

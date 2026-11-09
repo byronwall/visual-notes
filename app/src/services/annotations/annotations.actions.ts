@@ -168,3 +168,14 @@ export const closeRequestAction = action(async (requestId: string) => {
   const { closeRequest } = await import("~/server/annotations/requests");
   return closeRequest(id.parse(requestId));
 }, "annotations-request-close");
+
+export const dismissInboxItemAction = action(
+  async (payload: { kind: "annotation" | "research"; id: string }) => {
+    "use server";
+    const input = z.object({ kind: z.enum(["annotation", "research"]), id }).parse(payload);
+    const { dismissInboxItem } = await import("~/server/annotations/user-inbox");
+    await dismissInboxItem(input);
+    return { ok: true };
+  },
+  "inbox-dismiss",
+);

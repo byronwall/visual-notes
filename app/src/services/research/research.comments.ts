@@ -81,6 +81,8 @@ export const resolveComments = async (
     ),
   );
   publishAppChange("research", [topicId]);
+  // Resolutions show in the agent inbox until you dismiss them.
+  publishAppChange("inbox", null);
   return {
     resolved: resolved ? ids.length : 0,
     reopened: resolved ? 0 : ids.length,

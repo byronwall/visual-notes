@@ -7,6 +7,7 @@ import {
   CompassIcon,
   DatabaseIcon,
   HashIcon,
+  InboxIcon,
   FileTextIcon,
   LayoutGridIcon,
   ListTodoIcon,
@@ -81,7 +82,16 @@ export const isCanvasSectionActive = (pathname: string) =>
  * two columns): Collections | Paths, Events | Tasks, Research | Tags,
  * Cleanup | Explorer.
  */
+export const INBOX_HREF = "/inbox";
+
 export const PRIMARY_DESTINATIONS: AppDestination[] = [
+  {
+    label: "Inbox",
+    href: INBOX_HREF,
+    icon: InboxIcon,
+    keywords: "agents ai requests replies annotations",
+    isActive: (pathname) => isSectionActive(INBOX_HREF, pathname),
+  },
   {
     label: "Collections",
     href: "/collections",
