@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { createContext, createMemo, createSignal, useContext } from "solid-js";
 import { applyOps, newNodeId, type GraphOps } from "~/lib/pathways/graph-ops";
+import { ROOT_ID } from "~/lib/pathways/types";
 import type {
   NodeKind,
   PathwayContext,
@@ -199,11 +200,17 @@ export function createPathwayState(initial: PathwayRecord) {
     edit({ update: [{ id, research: research ?? null }] });
 
   const runAgent = async (
-    action: PathwayAgentAction,
+    asked: PathwayAgentAction,
     nodeId: string,
     hint = steer(),
   ) => {
     const cur = record();
+    // A map that is only its question gets a whole first map (the server
+    // makes the same call); name the run for what it does.
+    const action =
+      asked === "options" && nodeId === ROOT_ID && cur.graph.nodes.length === 1
+        ? "start"
+        : asked;
     if (busy()) return;
     setBusy(MAP_WIDE.includes(action) ? "map" : nodeId);
     setError("");

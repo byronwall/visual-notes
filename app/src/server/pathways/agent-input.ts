@@ -84,7 +84,7 @@ export function outline(p: MapInput, now = new Date()) {
   return `Today is ${today}.\n\n${contextText(p)}Question: ${p.title}\n\nNodes:\n${nodes}\n\nEdges:\n${edges || "(none)"}${plan}`;
 }
 
-const steerText = (hint: string) =>
+export const steerText = (hint: string) =>
   hint.trim() ? `\n\nThe person adds: ${hint.trim()}` : "";
 
 /** The system and user text for one map-editing action. */
@@ -103,16 +103,17 @@ export function mapPrompt(
 
 /**
  * The action the agent really runs. "More options" on a map that is only its
- * question builds a whole first map instead of a bare list of options.
+ * question builds a whole first map; a first map on a map that already has
+ * cards (another tab got there first) only adds options.
  */
 export function firstAction(
   action: MapAction,
   graph: PathwayGraph,
   nodeId: string,
 ): MapAction {
-  return action === "options" && nodeId === ROOT_ID && graph.nodes.length === 1
-    ? "start"
-    : action;
+  const blank = graph.nodes.length === 1;
+  if (action === "start" && !blank) return "options";
+  return action === "options" && nodeId === ROOT_ID && blank ? "start" : action;
 }
 
 /** The model's reply to a map action (see MAP_SCHEMA). */
@@ -141,9 +142,12 @@ export const replyToOps = (r: MapReply): GraphOps => ({
   drops: r.drops,
   chosen: r.chosen,
   appendNotes: r.appendNotes,
-  update: r.updates.map((u) => ({
-    id: u.id,
-    title: u.title || undefined,
-    note: u.note || undefined,
-  })),
+  // The root card is the person's question; the agent does not rewrite it.
+  update: r.updates
+    .filter((u) => u.id !== ROOT_ID)
+    .map((u) => ({
+      id: u.id,
+      title: u.title || undefined,
+      note: u.note || undefined,
+    })),
 });

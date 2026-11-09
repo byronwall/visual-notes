@@ -8,6 +8,7 @@ import {
   mapPrompt,
   outline,
   replyToOps,
+  steerText,
   type MapReply,
 } from "./agent-input";
 import {
@@ -48,21 +49,21 @@ async function ask<T>(
   schema: Record<string, unknown>,
   opts: { tools?: unknown[]; wholeMap?: boolean } = {},
 ) {
+  const model = opts.wholeMap ? MAP_MODEL : MODEL;
+  const effort = opts.wholeMap ? "low" : "medium";
+  console.info(`${LOG} ${trigger} on ${model} (${effort})`);
   const { output } = await callLLM({
-    model: opts.wholeMap ? MAP_MODEL : MODEL,
+    model,
     system,
     user,
     trigger,
-    effort: opts.wholeMap ? "low" : "medium",
+    effort,
     tools: opts.tools,
     schema: { name: "pathways", schema },
   });
   if (!output) throw new Error("The model returned no text");
   return JSON.parse(output) as T;
 }
-
-const steerText = (hint: string) =>
-  hint.trim() ? `\n\nThe person adds: ${hint.trim()}` : "";
 
 export async function runPathwayAgent(
   id: string,
