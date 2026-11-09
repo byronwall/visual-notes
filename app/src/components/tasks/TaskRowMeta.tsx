@@ -1,3 +1,4 @@
+import { A } from "@solidjs/router";
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import type { TaskItem } from "~/services/tasks/tasks.service";
@@ -9,6 +10,13 @@ type Props = {
   childProgress: { done: number; total: number };
   error: string | null;
 };
+
+const pathwayLinkClass = css({
+  maxW: "16rem",
+  truncate: true,
+  color: "fg.link",
+  _hover: { color: "fg.linkHover" },
+});
 
 const metaClass = css({
   ml: "auto",
@@ -84,7 +92,13 @@ export const TaskRowMeta = (props: Props) => {
           </span>
         )}
       </Show>
-      <Show when={props.childProgress.total > 0 || props.task.tags.length > 0}>
+      <Show
+        when={
+          props.childProgress.total > 0 ||
+          props.task.tags.length > 0 ||
+          props.task.pathways?.length
+        }
+      >
         <span class={subLineClass}>
           <Show when={props.childProgress.total > 0}>
             <span
@@ -96,6 +110,18 @@ export const TaskRowMeta = (props: Props) => {
           </Show>
           <For each={props.task.tags}>
             {(tag) => <span class={css({ color: "fg.subtle" })}>#{tag}</span>}
+          </For>
+          {/* Exported from a pathway: a way back to the map's Next steps. */}
+          <For each={props.task.pathways}>
+            {(p) => (
+              <A
+                class={pathwayLinkClass}
+                href={`/pathways/${p.id}?view=next`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                ↳ {p.title}
+              </A>
+            )}
           </For>
         </span>
       </Show>

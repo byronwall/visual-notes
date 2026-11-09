@@ -30,6 +30,7 @@ export const APP_LIVE_QUERY_KEYS: Record<AppArea, readonly string[]> = {
   archive: ["archive-"],
   events: ["events-"],
   inbox: ["annotations-", "inbox-"],
+  pathways: ["pathway"],
 };
 
 /** Coalesces bursts (bulk moves, multi-step MCP writes) into one refresh. */

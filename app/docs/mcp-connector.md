@@ -24,7 +24,7 @@ Every family registers through `tools.read` / `tools.write` in `server/mcp/tool-
 
 Agents get the same answer shapes from every family:
 
-- **Names** are `<area>_<verb>[_<object>]`: `notes_`, `research_`, `tasks_`, `collections_`, `time_blocks_`, `events_`, `places_`, `archive_`, `activity_`. `search` is the one cross-area tool.
+- **Names** are `<area>_<verb>[_<object>]`: `notes_`, `research_`, `tasks_`, `pathways_`, `collections_`, `time_blocks_`, `events_`, `places_`, `archive_`, `activity_`. `search` is the one cross-area tool.
 - **Verbs**: `list` enumerates a small set (lists, paths, tags, topics, places). `query` finds a family's items with filters. `get` reads by id. `create`, `update`, and `set` write. `add` and `remove` change membership. `upload` stores a file and says where it lives.
 - **Ids**: a tool's own records are `id` / `ids`. Records in other areas are `noteId`, `listId`, `showId`, `pageId`, `parentTaskId`. An event is addressed by its note's `noteId`.
 - **Links**: `appUrl` always opens the record in Visual Notes. `url` is always a web address: a research source, an event's ticket page, an archived page.
@@ -131,6 +131,22 @@ Writes log `research.*` events. Leaving comments stays with the user; the board'
 | `tasks_create_list` / `tasks_rename_list` | write |                                                                                                                  |
 
 A task that is a line in a note the user wrote (`textEditable: false`) keeps its text; its status, dates, tags, and place can still change. Agents set `cancelled` instead of deleting. A list named by a name several lists share is refused with their ids. Writes log `task.*` and `task_list.*` events. The Tasks page's own edits are not logged.
+
+### Pathways
+
+Decision maps: a root question, options, steps, and outcomes, with the person's goals, reactions, notes, weights, research, and Next steps. Tools share the page's store (`server/pathways/pathway-store.ts`) and edit format (`lib/pathways/graph-ops.ts`), and every write saves a revision first.
+
+| Tool                       | Kind  | Notes                                                                                                                                                       |
+| -------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pathways_list`            | read  | Maps by last change, with card and open Next steps counts                                                                                                   |
+| `pathways_get`             | read  | Goals and Q&A, cards (reactions, notes, weights, research), edges, where paths meet, research queue, Next steps                                             |
+| `pathways_create`          | write | From a question, a task (`fromTaskId`), or a note (`fromNoteId`); `import` copies a whole map                                                               |
+| `pathways_edit`            | write | One batch: new cards by ref, edges, merges, drops, chosen, dated notes, updates, removes; goals text and goal questions. Unknown ids come back in `skipped` |
+| `pathways_set_plan`        | write | Replaces open Next steps (finished ones stay); `updates` marks tasks done or skipped with what happened                                                     |
+| `pathways_report_research` | write | Findings and sources for a card's research question                                                                                                         |
+| `pathways_undo`            | write | Restores the map to before its last write, whoever made it                                                                                                  |
+
+Exporting Next steps to real tasks stays with the person on the page. Writes log `pathway.*` events.
 
 ### Collections
 

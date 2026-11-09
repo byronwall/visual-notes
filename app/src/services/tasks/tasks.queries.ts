@@ -1,4 +1,5 @@
 import { query } from "@solidjs/router";
+import { pathwaysForTasks } from "~/server/pathways/pathway-tasks";
 import { prisma } from "~/server/db";
 import type { TaskItem, TaskListItem } from "./tasks.types";
 
@@ -125,7 +126,8 @@ export const fetchTaskTree = query(
       ],
     });
 
-    return rows.map(mapTaskItem);
+    const links = await pathwaysForTasks(rows.map((r) => r.id));
+    return rows.map((r) => ({ ...mapTaskItem(r), pathways: links[r.id] }));
   },
   "task-tree",
 );

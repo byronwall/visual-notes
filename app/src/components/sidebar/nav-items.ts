@@ -14,6 +14,7 @@ import {
   MapIcon,
   NetworkIcon,
   ShieldIcon,
+  SignpostIcon,
   SparklesIcon,
   TelescopeIcon,
   WaypointsIcon,
@@ -79,8 +80,8 @@ export const isCanvasSectionActive = (pathname: string) =>
 
 /**
  * Primary sections after Notes + Canvas, in sidebar grid order (row-major,
- * two columns): Collections | Paths, Events | Tasks, Research | Tags,
- * Cleanup | Explorer.
+ * two columns): Collections | Paths, Events | Tasks, Pathways | Research,
+ * Tags | Cleanup, Explorer.
  */
 export const INBOX_HREF = "/inbox";
 
@@ -121,6 +122,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     keywords: "todo open tasks in notes",
     isActive: (pathname) =>
       isSectionActive("/tasks", pathname) || pathname === "/views/note-tasks",
+  },
+  {
+    label: "Pathways",
+    href: "/pathways",
+    icon: SignpostIcon,
+    keywords: "decision map options choices next steps mind map",
+    isActive: (pathname) => isSectionActive("/pathways", pathname),
   },
   {
     label: "Research",

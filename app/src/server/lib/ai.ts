@@ -34,6 +34,10 @@ export async function callLLM(opts: {
   user: string;
   model: string;
   temperature?: number;
+  /** Responses API tools, e.g. [{ type: "web_search" }]. */
+  tools?: unknown[];
+  /** Reasoning effort for reasoning models. */
+  effort?: "low" | "medium" | "high";
   top_p?: number;
   noteId?: string;
   /** What started the call (see `LlmRequest.trigger`). */
@@ -76,6 +80,8 @@ export async function callLLM(opts: {
         input: opts.system ? `${opts.system}\n\n${opts.user}` : opts.user,
         temperature,
         top_p: topP,
+        ...(opts.tools ? { tools: opts.tools } : {}),
+        ...(opts.effort ? { reasoning: { effort: opts.effort } } : {}),
         ...(opts.schema
           ? {
               text: {

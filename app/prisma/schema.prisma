@@ -235,6 +235,7 @@ model Doc {
   outgoingLinks        DocLink[]              @relation("DocLinkSource")
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
+  sourcedPathways      Pathway[]
   audioRecordings      DocAudio[]
   editProposals        EditProposal[]
   annotations          Annotation[]
@@ -432,11 +433,13 @@ model TaskItem {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  list        TaskList     @relation(fields: [listId], references: [id], onDelete: Cascade)
-  sourceDoc   Doc?         @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
-  parentTask  TaskItem?    @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  childTasks  TaskItem[]   @relation("TaskHierarchy")
-  annotations Annotation[]
+  list            TaskList          @relation(fields: [listId], references: [id], onDelete: Cascade)
+  sourceDoc       Doc?              @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+  parentTask      TaskItem?         @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks      TaskItem[]        @relation("TaskHierarchy")
+  annotations     Annotation[]
+  pathwayLinks    PathwayTaskLink[]
+  sourcedPathways Pathway[]         @relation("PathwaySourceTask")
 
   @@index([listId])
   @@index([parentTaskId])
@@ -1430,4 +1433,68 @@ model AnnotationMessage {
   annotation Annotation @relation(fields: [annotationId], references: [id], onDelete: Cascade)
 
   @@index([annotationId, createdAt])
+}
+
+/// A decision map: options, the steps they lead to, and outcomes, plus the
+/// person's goals and a plan of next steps. The JSON shapes are typed in
+/// src/lib/pathways/types.ts. Every write saves a PathwayRevision first.
+model Pathway {
+  id           String    @id @default(cuid())
+  title        String
+  /// { nodes: PathwayNode[], edges: PathwayEdge[] }
+  graph        Json      @default("{\"nodes\":[],\"edges\":[]}")
+  /// { notes, qa: [{ q, a }] }: goals and vibes; every agent prompt reads them.
+  context      Json?
+  /// { createdAt, summary, tasks: PlanTask[] }: the Next steps list.
+  plan         Json?
+  /// The task or note the map was started from.
+  sourceTaskId String?
+  sourceDocId  String?
+  /// The list "Export to tasks" used last.
+  exportListId String?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sourceTask TaskItem?         @relation("PathwaySourceTask", fields: [sourceTaskId], references: [id], onDelete: SetNull)
+  sourceDoc  Doc?              @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+  revisions  PathwayRevision[]
+  taskLinks  PathwayTaskLink[]
+
+  @@index([updatedAt])
+  @@index([sourceTaskId])
+}
+
+/// The pathway's graph, context, and plan as they were before one write.
+/// Undo restores the newest one.
+model PathwayRevision {
+  id        String   @id @default(cuid())
+  pathwayId String
+  snapshot  Json
+  /// What made the change: "you", "agent: plan", "mcp: pathways_edit", ...
+  label     String   @default("")
+  createdAt DateTime @default(now())
+
+  pathway Pathway @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+
+  @@index([pathwayId, createdAt])
+}
+
+/// A real task exported from (or attached to) a pathway. Many-to-many: one
+/// task can serve several pathways, and most tasks belong to none.
+model PathwayTaskLink {
+  id         String   @id @default(cuid())
+  pathwayId  String
+  taskId     String
+  /// Cards in the pathway this task moves forward.
+  nodeIds    String[] @default([])
+  /// The Next steps entry it was exported from, if any.
+  planTaskId String?
+  createdAt  DateTime @default(now())
+
+  pathway Pathway  @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  task    TaskItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([pathwayId, taskId])
+  @@index([taskId])
 }

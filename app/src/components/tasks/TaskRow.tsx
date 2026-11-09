@@ -1,4 +1,7 @@
 import { A } from "@solidjs/router";
+import { useNavigate } from "@solidjs/router";
+import { startPathwayFromTask } from "~/services/pathways/pathways.actions";
+import { useToasts } from "~/components/Toast";
 import { ChevronRightIcon } from "lucide-solid";
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { css } from "styled-system/css";
@@ -173,6 +176,8 @@ const dropKindFromPointer = (
 
 export const TaskRow = (props: Props) => {
   const ctx = useTaskTree();
+  const navigate = useNavigate();
+  const toasts = useToasts();
   let inlineInputRef: HTMLInputElement | undefined;
   let rowRef: HTMLDivElement | undefined;
 
@@ -410,6 +415,19 @@ export const TaskRow = (props: Props) => {
           onStatus={(status) => ctx.setStatus(props.task, status)}
           onEditDetails={() => ctx.openDetails(props.task)}
           onAddSubtask={() => ctx.addSubtask(props.task)}
+          onMapOut={async () => {
+            try {
+              const p = await startPathwayFromTask(props.task.id);
+              navigate(`/pathways/${p.id}${p.created ? "?draft=1" : ""}`);
+            } catch (err) {
+              console.error("[pathways] map this out failed", err);
+              toasts.show({
+                title: "Could not open a pathway",
+                message: (err as Error)?.message ?? "",
+                type: "error",
+              });
+            }
+          }}
           onDelete={() => ctx.deleteTask(props.task)}
           otherLists={ctx.otherLists()}
           onMoveToList={(listId) => ctx.moveToList(props.task, listId)}

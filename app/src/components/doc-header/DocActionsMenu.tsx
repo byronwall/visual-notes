@@ -1,4 +1,5 @@
 import {
+  SignpostIcon,
   CalendarPlusIcon,
   CopyIcon,
   DatabaseIcon,
@@ -26,6 +27,8 @@ export const DocActionsMenu: VoidComponent<{
   onAddToCollection?: () => void;
   /** Offered when the note has no event dates yet. */
   onAddEventDates?: () => void;
+  /** Opens the note's decision map, or starts one that reads the note. */
+  onExploreAsPathway?: () => void;
   disabled?: boolean;
 }> = (props) => {
   return (
@@ -86,6 +89,15 @@ export const DocActionsMenu: VoidComponent<{
               >
                 <CalendarPlusIcon size={14} />
                 Add event dates…
+              </Menu.Item>
+            </Show>
+            <Show when={props.onExploreAsPathway}>
+              <Menu.Item
+                value="explore-as-pathway"
+                onSelect={() => props.onExploreAsPathway?.()}
+              >
+                <SignpostIcon size={14} />
+                Explore as pathway
               </Menu.Item>
             </Show>
             <Menu.Separator />
