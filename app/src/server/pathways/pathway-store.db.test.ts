@@ -68,4 +68,25 @@ describe.skipIf(!enabled)("pathway store (database)", () => {
     expect(back2?.record.graph.nodes).toHaveLength(1);
     expect(await store.undoPathway(p.id)).toBeNull();
   });
+
+  it("keeps both edits when two writes run at once", async () => {
+    const p = await store.createPathway({ title: "Two tabs" });
+    ids.push(p.id);
+    const add = (title: string) =>
+      store.writePathway(p.id, "you", (d) => {
+        d.graph = applyOps(
+          d.graph,
+          { nodes: [{ ref: "n", kind: "option", title }] },
+          "me",
+        ).graph;
+      });
+    await Promise.all([add("A"), add("B"), add("C")]);
+    const saved = await store.getPathway(p.id);
+    expect(saved?.graph.nodes.map((n) => n.title).sort()).toEqual([
+      "A",
+      "B",
+      "C",
+      "Two tabs",
+    ]);
+  });
 });

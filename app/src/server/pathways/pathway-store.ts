@@ -55,6 +55,14 @@ const json = (v: unknown) =>
   v == null ? Prisma.DbNull : (v as Prisma.InputJsonValue);
 const graphJson = (g: PathwayGraph) => g as unknown as Prisma.InputJsonValue;
 
+/**
+ * Holds the row until the transaction ends, so two writes at once (the page,
+ * the agent, MCP) run one after the other instead of the later one dropping
+ * the earlier one's edit.
+ */
+const lockPathway = (tx: Prisma.TransactionClient, id: string) =>
+  tx.$executeRaw`SELECT 1 FROM "Pathway" WHERE "id" = ${id} FOR UPDATE`;
+
 export async function getPathway(id: string) {
   const row = await prisma.pathway.findUnique({ where: { id }, select });
   return row ? toRecord(row) : null;
@@ -133,6 +141,7 @@ export async function writePathway<T = void>(
   edit: (draft: PathwayDraft) => T,
 ): Promise<{ record: PathwayRecord; result: T }> {
   return prisma.$transaction(async (tx) => {
+    await lockPathway(tx, id);
     const row = await tx.pathway.findUnique({ where: { id }, select });
     if (!row) throw new Error(`Pathway ${id} not found`);
     const current = toRecord(row);
@@ -184,6 +193,7 @@ export async function writePathway<T = void>(
 /** Restores the newest revision. Returns null when there is nothing to undo. */
 export async function undoPathway(id: string) {
   return prisma.$transaction(async (tx) => {
+    await lockPathway(tx, id);
     const rev = await tx.pathwayRevision.findFirst({
       where: { pathwayId: id },
       orderBy: { createdAt: "desc" },
