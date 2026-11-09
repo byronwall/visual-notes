@@ -43,6 +43,17 @@ The steer box belongs to what is selected: it clears when you select something e
 
 After each run, the panel shows what changed (added, joined existing paths, dropped, merged) and how long the call took. The new nodes and edges stay outlined until the next change. **Undo** (⌘Z) steps back through every change, agent changes included.
 
+### Next steps (the "go do it" view)
+
+Switch the header from **Map** to **Next steps**.
+
+1. **Plan next steps**: the agent picks the 3–7 actions most worth doing now, from your goals, likes, notes, important cards, research, and where paths meet. Each has a reason, a "done when", an estimate, and the cards it moves forward. Cards with an open task show a "next #N" badge on the map.
+2. Do them. Check each one off in place (or Skip) and write **What happened?**.
+3. **Update map from what happened**: the agent marks cards chosen, drops ruled-out paths, adds new steps and outcomes, and appends dated notes. Finished tasks then move under "earlier tasks".
+4. **Plan again** from the updated map.
+
+**Copy as checklist** copies the open tasks as Markdown.
+
 ### Research
 
 The agent puts a research question on a node when acting on it needs facts from the web. You can add one by hand with **Needs research…**. Then:

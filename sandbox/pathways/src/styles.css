@@ -978,3 +978,205 @@ button.action.primary .action-what {
   background: var(--bg);
   color: var(--ink);
 }
+
+.body.hidden {
+  display: none;
+}
+
+.view-switch {
+  margin-left: 8px;
+}
+
+.count-pill {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Next steps view */
+.next {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.next-col {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 20px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.next-head h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+.lede {
+  margin: 0 0 4px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.next .change-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--missed);
+  border-radius: 8px;
+}
+
+.actions.row {
+  flex-direction: row;
+}
+
+.actions.row .action {
+  flex: 1;
+}
+
+.list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.list-head h2 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+button.copy {
+  height: 24px;
+  font-size: 12px;
+  transition: background-color 140ms, color 140ms;
+}
+
+button.copy.copied {
+  background: var(--outcome-bg);
+  color: var(--outcome);
+}
+
+.tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.task {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.task .check {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background-color 140ms, border-color 140ms;
+}
+
+.task .check:hover {
+  border-color: var(--outcome);
+  color: var(--outcome);
+}
+
+.task.done .check {
+  background: var(--outcome);
+  border-color: var(--outcome);
+  color: #fff;
+}
+
+.task-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-title {
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 650;
+}
+
+.task.done .task-title,
+.task.skipped .task-title {
+  color: var(--muted);
+}
+
+.task.skipped .task-title {
+  text-decoration: line-through;
+}
+
+.task-why {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.task-meta,
+.task-cards {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.task-cards .link {
+  font-size: 12px;
+}
+
+.task .auto-text {
+  margin-top: 4px;
+}
+
+.task .skip {
+  height: 26px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+button.link.earlier {
+  margin-top: 8px;
+}
+
+.badge.next {
+  background: var(--accent);
+  color: #fff;
+}
+
+.task {
+  transition: background-color 200ms;
+}
+
+.task.done {
+  background: color-mix(in srgb, var(--outcome-bg) 60%, transparent);
+}
+
+.task .check {
+  transition: background-color 160ms, border-color 160ms, transform 160ms;
+}
+
+.task.done .check {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task,
+  .task .check {
+    transition: none;
+  }
+}

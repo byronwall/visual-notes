@@ -15,12 +15,16 @@ import {
   setLinkFrom,
   setSelected,
   setTitleFocus,
+  setView,
   undo,
+  view,
 } from "./state";
+import { NextSteps } from "./NextSteps";
 import { AutoText } from "./AutoText";
 import { setVote, setWeight, VOTES, WEIGHTS } from "./NodePanel";
 
 export function App() {
+  const openTasks = () => map()?.plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
   // New-map popover: the question plus optional context that seeds Goals & vibes.
   const [draft, setDraft] = createSignal<{ q: string; notes: string } | null>(null);
 
@@ -119,6 +123,17 @@ export function App() {
             )}
           </Show>
         </div>
+        <div class="seg view-switch">
+          <button classList={{ on: view() === "map" }} onClick={() => setView("map")}>
+            Map
+          </button>
+          <button classList={{ on: view() === "next" }} onClick={() => setView("next")}>
+            Next steps
+            <Show when={openTasks()}>
+              <span class="count-pill">{openTasks()}</span>
+            </Show>
+          </button>
+        </div>
         <button onClick={undo} title="Undo the last change (⌘Z), including agent changes">
           Undo
         </button>
@@ -139,9 +154,13 @@ export function App() {
           </button>
         </div>
       </Show>
-      <main class="body">
+      {/* Both views stay mounted, so the map keeps its zoom and routes across switches. */}
+      <main class="body" classList={{ hidden: view() !== "map" }}>
         <Graph />
         <Panel />
+      </main>
+      <main class="body" classList={{ hidden: view() !== "next" }}>
+        <NextSteps />
       </main>
     </div>
   );

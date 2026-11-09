@@ -43,18 +43,37 @@ export type MapContext = {
   qa: { q: string; a: string }[];
 };
 
+/** One curated next action, done outside the app and reported back. */
+export type PlanTask = {
+  id: string;
+  title: string;
+  why: string;
+  doneWhen: string;
+  minutes: number;
+  /** Cards this task moves forward. */
+  nodeIds: string[];
+  status: "todo" | "done" | "skipped";
+  /** What happened, in the person's words. */
+  result: string;
+  /** Set once "Update map from what happened" has read this result. */
+  absorbed?: boolean;
+};
+
+export type Plan = { createdAt: string; summary: string; tasks: PlanTask[] };
+
 export type PMap = {
   id: string;
   title: string;
   nodes: PNode[];
   edges: PEdge[];
   context?: MapContext;
+  plan?: Plan;
   updatedAt: string;
 };
 
 export type MapInfo = { id: string; title: string; updatedAt: string };
 
-export type AgentAction = "options" | "forward" | "converge" | "questions" | "improve" | "regenerate";
+export type AgentAction = "options" | "forward" | "converge" | "questions" | "improve" | "regenerate" | "plan" | "absorb";
 
 export type AgentResult = { map: PMap; summary: string; added: string[]; ms: number; dropped?: string[] };
 

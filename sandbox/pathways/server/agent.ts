@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { AgentAction, AgentResult, Kind, PMap, Source } from "../src/types";
+import type { AgentAction, AgentResult, Kind, PMap, PlanTask, Source } from "../src/types";
 import { newId } from "./store";
 
 const MODEL = process.env.PATHWAYS_MODEL || "gpt-5.4-mini";
@@ -44,9 +44,16 @@ Nodes marked "important to the person" deserve the most thought; do not expand n
 
 The person's goals and context, when given, come first: prefer options and steps that fit them, and say so in the note when a node conflicts with them.
 
-In your response, refer to existing nodes by their id. Give each new node a ref like "n1", "n2" and use those refs in edges. Leave merges and drops empty unless the task asks for them.`;
+In your response, refer to existing nodes by their id. Give each new node a ref like "n1", "n2" and use those refs in edges. Leave merges, drops, chosen, and appendNotes empty unless the task asks for them.`;
 
-const ACTIONS: Record<Exclude<AgentAction, "questions">, (id: string) => string> = {
+const ACTIONS: Record<Exclude<AgentAction, "questions" | "plan">, (id: string) => string> = {
+  absorb: () => `Task: the person went and did things (see "Next steps" above, with what happened). Update the map so it matches reality now.
+- Put cards the person acted on, or committed to, in chosen.
+- Put paths that the results ruled out in drops.
+- Add steps or outcomes for new facts, new options, or new problems the results revealed, linked where they belong. Reuse existing cards where paths meet.
+- In appendNotes, add one short dated line ("Nov 9: ...") to each card a result changed, saying what happened.
+Only use what the results say; do not invent outcomes. Ignore tasks that are still todo.
+In summary, say in one or two sentences what changed and what is now the most open question.`,
   improve: () => `Task: improve the map using the person's reactions and notes (marked "Person's reaction" and "Person's note" above).
 - A note is the person's own words about that card. Follow it: it may ask for a change, add a fact, or set a direction for what comes after the card.
 - "does not want this": put the node id in drops (it is marked dropped, not deleted). Also drop steps that only that node leads to.
@@ -96,6 +103,22 @@ const MAP_SCHEMA = obj({
     items: obj({ keep: { type: "string" }, drop: { type: "string" }, title: nullable("string") }),
   },
   drops: { type: "array", items: { type: "string" } },
+  chosen: { type: "array", items: { type: "string" } },
+  appendNotes: { type: "array", items: obj({ id: { type: "string" }, text: { type: "string" } }) },
+});
+
+const PLAN_SCHEMA = obj({
+  summary: { type: "string" },
+  tasks: {
+    type: "array",
+    items: obj({
+      title: { type: "string" },
+      why: { type: "string" },
+      doneWhen: { type: "string" },
+      minutes: { type: "number" },
+      nodeIds: { type: "array", items: { type: "string" } },
+    }),
+  },
 });
 
 const QUESTION_SCHEMA = obj({
@@ -114,6 +137,8 @@ type Reply = {
   edges: { from: string; to: string }[];
   merges: { keep: string; drop: string; title: string | null }[];
   drops: string[];
+  chosen: string[];
+  appendNotes: { id: string; text: string }[];
 };
 
 const FEEDBACK_TEXT = { like: "likes this", no: "does not want this", more: "wants better options here" };
@@ -140,7 +165,15 @@ function outline(map: PMap) {
     })
     .join("\n");
   const edges = map.edges.map((e) => `- ${e.from} -> ${e.to}`).join("\n");
-  return `${contextText(map)}Question: ${map.title}\n\nNodes:\n${nodes}\n\nEdges:\n${edges || "(none)"}`;
+  const tasks = (map.plan?.tasks ?? [])
+    .map((t) => {
+      const got = t.result.trim() ? `\n  What happened: ${t.result.trim()}` : "";
+      return `- [${t.status}${t.absorbed ? ", already on the map" : ""}] ${t.title} (cards: ${t.nodeIds.join(", ") || "none"})${got}`;
+    })
+    .join("\n");
+  const plan = tasks ? `\n\nNext steps the person planned:\n${tasks}` : "";
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+  return `Today is ${today}.\n\n${contextText(map)}Question: ${map.title}\n\nNodes:\n${nodes}\n\nEdges:\n${edges || "(none)"}${plan}`;
 }
 
 async function ask<T>(
@@ -223,6 +256,15 @@ function apply(map: PMap, reply: Reply): { map: PMap; added: string[]; dropped: 
     dropped.push(n.id);
   }
 
+  for (const id of reply.chosen) {
+    const n = next.nodes.find((x) => x.id === ids.get(id));
+    if (n && n.id !== "root") n.status = "chosen";
+  }
+  for (const a of reply.appendNotes) {
+    const n = next.nodes.find((x) => x.id === ids.get(a.id));
+    if (n && a.text.trim()) n.note = n.note ? `${n.note}\n${a.text.trim()}` : a.text.trim();
+  }
+
   const seen = new Set<string>();
   next.edges = next.edges.filter((e) => {
     const k = `${e.from}>${e.to}`;
@@ -252,6 +294,47 @@ In summary, say in one sentence why these questions matter for this map.`,
   return { map: next, summary: reply.summary, added: [] };
 }
 
+async function askPlan(map: PMap, hint: string) {
+  const reply = await ask<{ summary: string; tasks: Omit<PlanTask, "id" | "status" | "result">[] }>(
+    "You turn a person's decision map into the few next actions most worth doing now. You are concrete and ruthless about priority.",
+    `${outline(map)}
+
+Task: pick the 3 to 7 best next actions the person can do in the next few days.
+- Fit their goals and context. Favor cards marked important or liked, and follow their notes. Skip anything dropped, noise, or "does not want this".
+- Do first what keeps the most good paths open: shared prerequisites where paths meet, cheap ways to get information that would settle a choice, and quick outreach that others must answer.
+- Each action is one sitting of work: verb first, specific (names, places, what to send), under 12 words.
+- why: one sentence on which path it moves and why now.
+- doneWhen: one sentence the person can check.
+- minutes: a realistic estimate.
+- nodeIds: the existing card ids this action moves forward (at least one).
+- Order them in the order to do them. Do not repeat a done task unless its result calls for a follow-up.${hint.trim() ? `
+
+The person adds: ${hint.trim()}` : ""}
+In summary, say in one or two sentences what this set of actions achieves and what it deliberately leaves for later.`,
+    PLAN_SCHEMA,
+  );
+  const next = structuredClone(map);
+  const ids = new Set(map.nodes.map((n) => n.id));
+  // Keep finished tasks as history; replace the open ones.
+  const kept = (map.plan?.tasks ?? []).filter((t) => t.status !== "todo");
+  next.plan = {
+    createdAt: new Date().toISOString(),
+    summary: reply.summary,
+    tasks: [
+      ...reply.tasks.map((t) => ({
+        ...t,
+        id: newId(),
+        minutes: Math.max(5, Math.round(t.minutes)),
+        nodeIds: t.nodeIds.filter((id) => ids.has(id)),
+        status: "todo" as const,
+        result: "",
+      })),
+      ...kept,
+    ],
+  };
+  return { map: next, summary: reply.summary, added: [] };
+}
+
 /**
  * Runs one agent action on `map`. For "regenerate", `map` is the old version the
  * prompt learns from and `target` is the new map (root only) the reply fills.
@@ -268,12 +351,16 @@ export async function runAgent(
   let result: Omit<AgentResult, "ms">;
   if (action === "questions") {
     result = await askQuestions(map, hint);
+  } else if (action === "plan") {
+    result = await askPlan(map, hint);
   } else {
     const steer = hint.trim() ? `\n\nThe person adds: ${hint.trim()}` : "";
     const reply = await ask<Reply>(SYSTEM, `${outline(map)}\n\n${ACTIONS[action](nodeId)}${steer}`, MAP_SCHEMA);
     const applied = apply(target, reply);
     // Requests for better options are handled once the agent has acted on them.
     if (action === "improve") for (const n of applied.map.nodes) if (n.feedback?.vote === "more") delete n.feedback;
+    // Results are on the map now; the next plan builds on them instead of re-reading them.
+    if (action === "absorb") for (const t of applied.map.plan?.tasks ?? []) if (t.status !== "todo") t.absorbed = true;
     result = { ...applied, summary: reply.summary };
   }
   const ms = Date.now() - t0;

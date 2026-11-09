@@ -84,6 +84,14 @@ export function Graph() {
     });
   };
   const degree = createMemo(() => (map() ? inDegree(map()!) : new Map<string, number>()));
+  // Card id -> number of the first open Next steps task that moves it forward.
+  const nextOf = createMemo(() => {
+    const out = new Map<string, number>();
+    (map()?.plan?.tasks.filter((t) => t.status === "todo") ?? []).forEach((t, i) => {
+      for (const id of t.nodeIds) if (!out.has(id)) out.set(id, i + 1);
+    });
+    return out;
+  });
   // The peek waits until the pointer rests on a card and the view is still,
   // so it does not flicker in and out while zooming or panning.
   const [peekId, setPeekId] = createSignal<string | null>(null);
@@ -272,7 +280,7 @@ export function Graph() {
                 }}
               </For>
             </svg>
-            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={kb()} far={far()} onHover={setHover} />}</For>
+            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={kb()} far={far()} next={nextOf().get(n.id)} onHover={setHover} />}</For>
           </div>
         )}
       </Show>
@@ -294,6 +302,7 @@ function Card(props: {
   lit: boolean;
   k: number;
   far: boolean;
+  next?: number;
   onHover: (id: string | null) => void;
 }) {
   const n = props.n;
@@ -306,7 +315,7 @@ function Card(props: {
     if (!b || lod() === "full") return null;
     const k = props.k;
     const pad = lod() === "far" ? 6 : 8;
-    const badges = freshNodes().has(n.id) || props.paths > 1 || !!n.feedback || !!n.research || n.missed || n.status === "chosen";
+    const badges = !!props.next || freshNodes().has(n.id) || props.paths > 1 || !!n.feedback || !!n.research || n.missed || n.status === "chosen";
     // Content box: card minus padding and borders (4-6px left rail, 1-2px others), with 3% slack.
     const textW = (b.w - 2 * (pad + 2) - 8) * 0.97;
     // Fill the card: the largest title that fits, never under MIN_PX on screen.
@@ -359,6 +368,11 @@ function Card(props: {
             style={fit() ? { "font-size": `${fit()!.badgeF}px`, height: `${fit()!.headH - 4}px`, display: fit()!.badges ? undefined : "none" } : undefined}
           >
             <span class="kind">{KIND_LABEL[n.kind]}</span>
+            <Show when={props.next}>
+              <span class="badge next" title="An open task in Next steps moves this card forward">
+                next #{props.next}
+              </span>
+            </Show>
             <Show when={freshNodes().has(n.id)}>
               <span class="badge new">new</span>
             </Show>

@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import { api } from "./api";
-import type { AgentAction, Kind, MapContext, MapInfo, PMap, PNode, Research } from "./types";
+import type { AgentAction, Kind, MapContext, MapInfo, PlanTask, PMap, PNode, Research } from "./types";
 
 // Module-level signals: the sandbox has one page and one open map.
 
@@ -17,6 +17,30 @@ export const [error, setError] = createSignal("");
  */
 export const [steer, setSteer] = createSignal("");
 export const [fitTick, setFitTick] = createSignal(0);
+
+/** Map for exploring, or the Next steps checklist for doing. */
+const savedView = (() => {
+  try {
+    return localStorage.getItem("pathways:view") === "next" ? "next" : "map";
+  } catch {
+    return "map";
+  }
+})();
+export const [view, setViewRaw] = createSignal<"map" | "next">(savedView);
+export const setView = (v: "map" | "next") => {
+  setViewRaw(v);
+  try {
+    localStorage.setItem("pathways:view", v);
+  } catch {
+    // Storage is a convenience only.
+  }
+  setSteer("");
+};
+/** Switch to the map with one card selected. */
+export const showOnMap = (id: string) => {
+  setView("map");
+  setSelected(id);
+};
 /** Bump to put the cursor in the selected node's title field. */
 export const [titleFocus, setTitleFocus] = createSignal(0);
 
@@ -34,6 +58,8 @@ export type Change = {
   newEdges: string[];
   dropped?: string[];
   questions?: number;
+  /** Open tasks a plan run produced. */
+  planned?: number;
 };
 export const [change, setChange] = createSignal<Change | null>(null);
 export const freshNodes = createMemo(() => new Set([...(change()?.added ?? []), ...(change()?.joined ?? [])]));
@@ -105,6 +131,12 @@ export function commit(edit: (m: PMap) => void) {
 export const updateNode = (id: string, patch: Partial<PNode>) =>
   commit((m) => Object.assign(m.nodes.find((n) => n.id === id)!, patch));
 
+export const updateTask = (id: string, patch: Partial<PlanTask>) =>
+  commit((m) => {
+    const t = m.plan?.tasks.find((x) => x.id === id);
+    if (t) Object.assign(t, patch);
+  });
+
 export const updateContext = (edit: (c: MapContext) => void) =>
   commit((m) => {
     m.context ??= { notes: "", qa: [] };
@@ -149,9 +181,11 @@ const ACTION_LABEL: Record<AgentAction, string> = {
   questions: "Ask me about my goals",
   improve: "Improve from feedback",
   regenerate: "Fresh map from feedback",
+  plan: "Plan next steps",
+  absorb: "Update map from what happened",
 };
 
-const MAP_WIDE: AgentAction[] = ["converge", "questions", "improve", "regenerate"];
+const MAP_WIDE: AgentAction[] = ["converge", "questions", "improve", "regenerate", "plan", "absorb"];
 
 export async function runAgent(action: AgentAction, nodeId: string, hint = steer()) {
   const cur = map();
@@ -174,6 +208,7 @@ export async function runAgent(action: AgentAction, nodeId: string, hint = steer
       localStorage.setItem("pathways:last", res.map.id);
     }
     if (action === "questions") c.questions = (res.map.context?.qa.length ?? 0) - (cur.context?.qa.length ?? 0);
+    if (action === "plan") c.planned = res.map.plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
     setMap(res.map);
     setChange(c);
     setFitTick((t) => t + 1);

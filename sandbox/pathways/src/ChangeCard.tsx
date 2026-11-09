@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { change, map, setChange, setSelected } from "./state";
+import { change, map, setChange, setSelected, setView } from "./state";
 
 /** "What changed" after an agent run, at the top of the side panel. */
 export function ChangeCard() {
@@ -38,7 +38,7 @@ export function ChangeCard() {
             <p class="muted">Steered by: “{c().steer}”</p>
           </Show>
           <Show
-            when={c().added.length || c().joined.length || c().removed.length || c().dropped?.length || c().questions}
+            when={c().added.length || c().joined.length || c().removed.length || c().dropped?.length || c().questions || c().planned}
             fallback={<p class="help">Nothing on the map changed.</p>}
           >
             <Show when={c().added.length}>
@@ -58,6 +58,14 @@ export function ChangeCard() {
               <ul class="edge-list">
                 <For each={c().removed}>{(t) => <li class="muted">{t}</li>}</For>
               </ul>
+            </Show>
+            <Show when={c().planned}>
+              <p class="help">
+                {c().planned} next steps are ready.{" "}
+                <button class="link" onClick={() => setView("next")}>
+                  Open Next steps
+                </button>
+              </p>
             </Show>
             <Show when={c().questions}>
               <p class="help">{c().questions} new questions under Goals &amp; vibes. Answer them, then ask again.</p>
