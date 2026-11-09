@@ -35,9 +35,23 @@ export type AnnotationTypeView = {
   builtIn: string | null;
 };
 
+export type RequestStatus = "open" | "claimed" | "ready" | "closed";
+
+export type AnnotationMessageView = {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+
 export type AnnotationView = {
   id: string;
   docId: string | null;
+  taskId: string | null;
+  /** Set when the type is For AI. */
+  status: RequestStatus | null;
+  claimedBy: string | null;
+  messages: AnnotationMessageView[];
   typeId: string;
   body: string;
   author: string;

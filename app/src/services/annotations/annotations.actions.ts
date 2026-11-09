@@ -130,3 +130,41 @@ export const deleteAnnotationTypeAction = action(async (typeId: string) => {
   await deleteAnnotationType(id.parse(typeId));
   return { ok: true };
 }, "annotations-type-delete");
+
+/** Note to AI: a whole-note (or task) request with the built-in Request type. */
+export const createAiRequest = action(
+  async (payload: { docId?: string; taskId?: string; body: string }) => {
+    "use server";
+    const input = z
+      .object({ docId: id.optional(), taskId: id.optional(), body: z.string().trim().min(1).max(4000) })
+      .refine((v) => Boolean(v.docId) !== Boolean(v.taskId), "Give a note or a task")
+      .parse(payload);
+    const { agentInboxEnabled } = await import("~/server/annotations/switch");
+    if (!agentInboxEnabled()) throw new Error("The agent inbox is turned off on this server.");
+    const { BUILT_IN, builtInTypeId } = await import("~/server/annotations/annotation-types");
+    const { createAnnotation } = await import("~/server/annotations/annotations");
+    return createAnnotation({
+      docId: input.docId,
+      taskId: input.taskId,
+      body: input.body,
+      typeId: await builtInTypeId(BUILT_IN.request),
+    });
+  },
+  "annotations-request-create",
+);
+
+export const replyToRequestAction = action(
+  async (payload: { id: string; body: string }) => {
+    "use server";
+    const input = z.object({ id, body: z.string().trim().min(1).max(4000) }).parse(payload);
+    const { replyToRequest } = await import("~/server/annotations/requests");
+    return replyToRequest({ ...input, author: "you" });
+  },
+  "annotations-request-reply",
+);
+
+export const closeRequestAction = action(async (requestId: string) => {
+  "use server";
+  const { closeRequest } = await import("~/server/annotations/requests");
+  return closeRequest(id.parse(requestId));
+}, "annotations-request-close");

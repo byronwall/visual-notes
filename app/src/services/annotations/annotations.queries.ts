@@ -35,3 +35,15 @@ export const fetchNoteAnnotations = query(
   },
   "annotations-note",
 );
+
+export const fetchTaskAnnotations = query(
+  async (taskId: string): Promise<AnnotationView[]> => {
+    "use server";
+    const { agentInboxEnabled } = await import("~/server/annotations/switch");
+    if (!taskId || !agentInboxEnabled()) return [];
+    const { listTaskAnnotations } = await import("~/server/annotations/requests");
+    return listTaskAnnotations(taskId);
+  },
+  "annotations-task",
+);
+

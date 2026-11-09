@@ -1,4 +1,5 @@
 import { Show, type JSX, type VoidComponent } from "solid-js";
+import { NoteToAiButton } from "~/components/annotations/NoteToAiButton";
 import { CleanupChip } from "~/components/cleanup/CleanupChip";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { DocActivitySummaryPopover } from "../DocActivitySummaryPopover";
@@ -64,6 +65,7 @@ export const DocHeaderBar: VoidComponent<{
     >
       <CleanupChip docId={props.doc.id} />
       <RecordAudioButton docId={props.doc.id} />
+      <NoteToAiButton docId={props.doc.id} />
       <DocVersionsPopover
         docId={props.doc.id}
         onBeforeRestore={props.onBeforeRestore}

@@ -19,6 +19,10 @@ const para = (id: string, text: string) => ({
 const ann = (over: Partial<AnnotationView>): AnnotationView => ({
   id: "n1",
   docId: "d",
+  taskId: null,
+  status: null,
+  claimedBy: null,
+  messages: [],
   typeId: "t",
   body: "",
   author: "you",

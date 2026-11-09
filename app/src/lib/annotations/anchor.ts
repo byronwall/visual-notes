@@ -19,3 +19,11 @@ export function locateQuote(
   }
   return best;
 }
+
+type TextNode = { type: string; text?: string; content?: TextNode[] };
+
+/** A block's text the way annotations count it: its text nodes joined. */
+export function nodeText(node: TextNode): string {
+  if (node.type === "text") return node.text ?? "";
+  return (node.content ?? []).map(nodeText).join("");
+}

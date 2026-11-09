@@ -12,6 +12,7 @@ import {
   updateNoteAnnotation,
 } from "~/services/annotations/annotations.actions";
 import { swatchStyle, useAnnotationLayer } from "./annotation-context";
+import { RequestStatusBadge, RequestThread } from "./RequestThread";
 
 // One annotation in the rail: its type, the quoted passage (click to jump
 // there), and the comment, which edits in place.
@@ -102,6 +103,16 @@ export const AnnotationEntry: VoidComponent<{ annotation: AnnotationView }> = (p
           </IconButton>
         </HStack>
       </HStack>
+      <Show when={props.annotation.status}>
+        <Box mt="1">
+          <RequestStatusBadge request={props.annotation} />
+        </Box>
+      </Show>
+      <Show when={!props.annotation.blockId}>
+        <Box fontSize="xs" color="fg.muted">
+          Whole note
+        </Box>
+      </Show>
       <Show when={props.annotation.quote}>
         {(quote) => (
           <button
@@ -150,6 +161,9 @@ export const AnnotationEntry: VoidComponent<{ annotation: AnnotationView }> = (p
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void commit();
           }}
         />
+      </Show>
+      <Show when={props.annotation.status}>
+        <RequestThread request={props.annotation} onChanged={layer.refresh} />
       </Show>
     </Box>
   );

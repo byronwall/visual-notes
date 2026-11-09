@@ -183,13 +183,13 @@ model LlmRequest {
 
 /// Minimal document for Markdown ingest
 model Doc {
-  id                         String   @id @default(cuid())
+  id                         String    @id @default(cuid())
   title                      String
   // Canonical note body: TipTap JSON with a stable id on every block.
   content                    Json?
-  contentSchemaVersion       Int      @default(1)
+  contentSchemaVersion       Int       @default(1)
   // Increments on every content write; saves carry it for per-block merge.
-  contentVersion             Int      @default(0)
+  contentVersion             Int       @default(0)
   // Plain text for indexed keyword search; derived on every content write.
   searchText                 String?
   // Summaries and cleaned transcripts of the note's recordings; derived after
@@ -208,16 +208,16 @@ model Doc {
   meta                       Json?
   // Backup snapshot captured before inline data-image migration rewrites.
   inlineImageMigrationBackup Json?
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
   // Cleanup archive: hidden from lists and search, still openable by id, and
   // deleted after the retention window (server/notes/note-archive.ts). Links
   // to an archived note open `archivedInto` (where its content went) instead.
   archivedAt                 DateTime?
   archivedIntoId             String?
   archiveReason              String?
-  archivedInto               Doc?     @relation("DocArchivedInto", fields: [archivedIntoId], references: [id], onDelete: SetNull)
-  archivedSources            Doc[]    @relation("DocArchivedInto")
+  archivedInto               Doc?      @relation("DocArchivedInto", fields: [archivedIntoId], references: [id], onDelete: SetNull)
+  archivedSources            Doc[]     @relation("DocArchivedInto")
 
   // Relations
   docEmbeddings        DocEmbedding[]
@@ -239,8 +239,8 @@ model Doc {
   editProposals        EditProposal[]
   annotations          Annotation[]
   cleanupAssessment    NoteAssessment?
-  cleanupPairsA        NotePairAssessment[] @relation("CleanupPairA")
-  cleanupPairsB        NotePairAssessment[] @relation("CleanupPairB")
+  cleanupPairsA        NotePairAssessment[]   @relation("CleanupPairA")
+  cleanupPairsB        NotePairAssessment[]   @relation("CleanupPairB")
 
   // Collections: a note can be a row in at most one collection. Values are
   // keyed by CollectionProperty id; they are kept if the note leaves the
@@ -432,10 +432,11 @@ model TaskItem {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  list       TaskList   @relation(fields: [listId], references: [id], onDelete: Cascade)
-  sourceDoc  Doc?       @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
-  parentTask TaskItem?  @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  childTasks TaskItem[] @relation("TaskHierarchy")
+  list        TaskList     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  sourceDoc   Doc?         @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+  parentTask  TaskItem?    @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks  TaskItem[]   @relation("TaskHierarchy")
+  annotations Annotation[]
 
   @@index([listId])
   @@index([parentTaskId])
@@ -1246,8 +1247,8 @@ model CalendarFeedEntry {
 // Decisions). Keyed to the note's contentVersion and the question set version,
 // so the sweep re-asks only when either changes. See server/cleanup/.
 model NoteAssessment {
-  id                 String   @id @default(cuid())
-  docId              String   @unique
+  id                 String    @id @default(cuid())
+  docId              String    @unique
   contentVersion     Int
   questionSetVersion String
   model              String
@@ -1270,8 +1271,8 @@ model NoteAssessment {
   // the contentVersion its related-note pairs were last checked at.
   placement          Json?
   pairsVersion       Int?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
 
@@ -1282,14 +1283,14 @@ model NoteAssessment {
 // old links still resolve: to where its content went, or to a "deleted" notice.
 model DocTombstone {
   // The deleted note's id.
-  id             String   @id
-  title          String
-  path           String?
-  archivedAt     DateTime
-  archiveReason  String?
+  id            String   @id
+  title         String
+  path          String?
+  archivedAt    DateTime
+  archiveReason String?
   // Where the content went when it was archived; followed at read time.
-  redirectDocId  String?
-  deletedAt      DateTime @default(now())
+  redirectDocId String?
+  deletedAt     DateTime @default(now())
 
   @@index([redirectDocId])
 }
@@ -1324,22 +1325,26 @@ model NotePairAssessment {
 /// editor, until the user accepts or rejects each op. Accepted ops are
 /// applied by the editor, so autosave writes them as the user's own edit.
 model EditProposal {
-  id         String    @id @default(cuid())
-  docId      String
+  id           String    @id @default(cuid())
+  docId        String
+  /// The request this answers, when the agent named one.
+  annotationId String?
   /// MCP client name of the agent that proposed it.
-  author     String
+  author       String
   /// One line on what the change does, shown above the suggestions.
-  summary    String?
+  summary      String?
   /// [{ op, blockId, blocks, baseHash, state }]; state is pending,
   /// accepted, or rejected.
-  ops        Json
-  createdAt  DateTime  @default(now())
+  ops          Json
+  createdAt    DateTime  @default(now())
   /// Set once no op is pending.
-  resolvedAt DateTime?
+  resolvedAt   DateTime?
 
-  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  doc        Doc         @relation(fields: [docId], references: [id], onDelete: Cascade)
+  annotation Annotation? @relation(fields: [annotationId], references: [id], onDelete: SetNull)
 
   @@index([docId, resolvedAt])
+  @@index([annotationId])
   @@index([resolvedAt, createdAt])
 }
 
@@ -1364,26 +1369,58 @@ model AnnotationType {
 /// A comment on a note, either on a passage (blockId + quote) or on the
 /// whole note. It is drawn over the text, never stored in the note body.
 model Annotation {
-  id         String    @id @default(cuid())
-  docId      String?
-  typeId     String
-  body       String    @default("")
+  id          String    @id @default(cuid())
+  docId       String?
+  /// Set instead of docId for a request on a task.
+  taskId      String?
+  typeId      String
+  body        String    @default("")
   /// "you", or the MCP client name of the agent that wrote it.
-  author     String    @default("you")
+  author      String    @default("you")
   /// The block holding the passage; null for a whole-note annotation.
-  blockId    String?
+  blockId     String?
   /// The highlighted text, matched again when the note loads.
-  quote      String?
+  quote       String?
   /// Where the quote starts in the block's text, to pick between repeats.
-  quoteStart Int?
+  quoteStart  Int?
   /// Set when the passage was deleted; the annotation stays in the rail.
-  detachedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  detachedAt  DateTime?
+  /// Request state when the type is For AI: open, claimed, ready, closed.
+  status      String?
+  /// MCP client name of the agent working on it.
+  claimedBy   String?
+  claimedAt   DateTime?
+  readyAt     DateTime?
+  closedAt    DateTime?
+  /// Last time an agent replied, annotated, or proposed for this request.
+  lastAgentAt DateTime?
+  /// Last time you opened it in the inbox; agent work after this needs you.
+  seenAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  doc  Doc?           @relation(fields: [docId], references: [id], onDelete: Cascade)
-  type AnnotationType @relation(fields: [typeId], references: [id])
+  doc       Doc?                @relation(fields: [docId], references: [id], onDelete: Cascade)
+  task      TaskItem?           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type      AnnotationType      @relation(fields: [typeId], references: [id])
+  messages  AnnotationMessage[]
+  proposals EditProposal[]
 
   @@index([docId])
+  @@index([taskId])
   @@index([typeId])
+  @@index([status, updatedAt])
+}
+
+/// One reply in a request's thread, from you or an agent.
+model AnnotationMessage {
+  id           String   @id @default(cuid())
+  annotationId String
+  /// "you", or the MCP client name of the agent.
+  author       String
+  body         String
+  createdAt    DateTime @default(now())
+
+  annotation Annotation @relation(fields: [annotationId], references: [id], onDelete: Cascade)
+
+  @@index([annotationId, createdAt])
 }

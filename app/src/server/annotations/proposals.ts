@@ -42,6 +42,7 @@ export async function createProposal(input: {
   docId: string;
   author: string;
   summary?: string;
+  requestId?: string;
   edits: ProposedEdit[];
   context?: LogActionEventInput["context"];
 }): Promise<EditProposalView> {
@@ -75,6 +76,7 @@ export async function createProposal(input: {
     data: {
       docId: doc.id,
       author: input.author,
+      annotationId: input.requestId ?? null,
       summary: input.summary?.trim().slice(0, SUMMARY_MAX) || null,
       ops: ops as unknown as Prisma.InputJsonValue,
     },
