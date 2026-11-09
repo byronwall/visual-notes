@@ -9,6 +9,7 @@ import { createProposal } from "~/server/annotations/proposals";
 import {
   claimRequest,
   replyToRequest,
+  assertAnswerable,
   touchRequestByAgent,
 } from "~/server/annotations/requests";
 import { prisma } from "~/server/db";
@@ -114,6 +115,7 @@ export function registerAnnotationTools(tools: ToolRegistrar): void {
       },
     },
     async (args) => {
+      if (args.requestId) await assertAnswerable(args.requestId);
       const passage = args.blockId ? await findPassage(args.noteId, args.blockId, args.quote) : null;
       const annotation = await createAnnotation({
         docId: args.noteId,
@@ -177,6 +179,7 @@ export function registerAnnotationTools(tools: ToolRegistrar): void {
             : undefined,
         })),
       );
+      if (args.requestId) await assertAnswerable(args.requestId);
       const proposal = await createProposal({
         docId: args.id,
         author: agent(),

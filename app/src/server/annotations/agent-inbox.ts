@@ -21,7 +21,8 @@ export async function readAgentInbox(input: { since?: Date; links: InboxLinks })
       status: { in: ["open", "claimed"] },
       ...(since ? { updatedAt: { gt: since } } : {}),
     },
-    orderBy: { createdAt: "asc" },
+    // Oldest change first, so a truncated answer's cursor picks up the rest.
+    orderBy: { updatedAt: "asc" },
     take: LIMIT,
     include: {
       type: true,
@@ -42,7 +43,9 @@ export async function readAgentInbox(input: { since?: Date; links: InboxLinks })
     : [];
 
   const comments = await prisma.researchComment.findMany({
-    where: { resolvedAt: null, ...(since ? { createdAt: { gt: since } } : {}) },
+    // Every open comment, every time: reopening sets no timestamp, so a
+    // since filter would hide a reopened one.
+    where: { resolvedAt: null },
     orderBy: { createdAt: "asc" },
     take: LIMIT,
     include: {
@@ -109,6 +112,7 @@ export async function readAgentInbox(input: { since?: Date; links: InboxLinks })
       appUrl: input.links.research(c.topic.slug),
     })),
     truncated: requests.length === LIMIT || comments.length === LIMIT,
-    pollSince: now.toISOString(),
+    // When requests were cut off, resume just after the last one returned.
+    pollSince: (requests.length === LIMIT ? requests[requests.length - 1].updatedAt : now).toISOString(),
   };
 }

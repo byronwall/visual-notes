@@ -36,7 +36,7 @@ const placeOf = (row: Row): InboxPlace =>
 
 const seenBefore = (seenAt: Date | null, at: Date | null) => Boolean(at && (!seenAt || at > seenAt));
 
-export async function loadUserInbox(): Promise<UserInbox> {
+export async function loadUserInbox(options: { runs?: boolean } = {}): Promise<UserInbox> {
   const rows = await prisma.annotation.findMany({
     where: {
       OR: [
@@ -112,12 +112,13 @@ export async function loadUserInbox(): Promise<UserInbox> {
   }
 
   needsYou.sort((a, b) => b.at.localeCompare(a.at));
-  return { generatedAt: new Date().toISOString(), needsYou, waiting, runs: await loadAgentRuns() };
+  const runs = options.runs === false ? [] : await loadAgentRuns();
+  return { generatedAt: new Date().toISOString(), needsYou, waiting, runs };
 }
 
 /** How many items wait on you, for the sidebar badge. */
 export async function countNeedsYou(): Promise<number> {
-  return (await loadUserInbox()).needsYou.length;
+  return (await loadUserInbox({ runs: false })).needsYou.length;
 }
 
 /** Groups the MCP call log into runs: one agent, calls less than 30 minutes apart. */

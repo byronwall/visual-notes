@@ -159,6 +159,12 @@ export async function claimRequest(input: {
   return toAnnotationView(row);
 }
 
+/** Refuses a request id an agent cannot answer, before anything is written. */
+export async function assertAnswerable(id: string) {
+  const row = await loadRequest(id);
+  if (row.status === "closed") throw new AnnotationError("This request is closed. The user reopens it by replying.");
+}
+
 /** Records agent work on a request (an annotation or a proposal) as activity. */
 export async function touchRequestByAgent(id: string, agent: string) {
   const current = await loadRequest(id);

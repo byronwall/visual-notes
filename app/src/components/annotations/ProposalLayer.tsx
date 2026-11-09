@@ -37,23 +37,27 @@ export const ProposalLayer: VoidComponent<{
   ) => {
     try {
       await runResolve({ proposalId, indexes: [index], state });
+      return true;
     } catch (error) {
       console.warn(`${LOG_PREFIX} resolve failed`, error);
       toaster.create({
         title: "Could not record that decision",
         type: "error",
       });
+      return false;
+    } finally {
+      void revalidate(fetchNoteProposals.keyFor(props.docId));
     }
-    void revalidate(fetchNoteProposals.keyFor(props.docId));
   };
 
   const handlers = {
-    accept: (proposalId: string, index: number) => {
+    // The decision is recorded before the note changes, so a failed save
+    // never leaves an applied edit that can be accepted a second time.
+    accept: async (proposalId: string, index: number) => {
       const ed = props.editor;
       const op = current.find((p) => p.id === proposalId)?.ops[index];
       if (!ed || !op) return;
-      const tr = proposalTransaction(ed.state, op);
-      if (!tr) {
+      if (!proposalTransaction(ed.state, op)) {
         toaster.create({
           title:
             "That part of the note changed, so the suggestion no longer fits",
@@ -61,9 +65,15 @@ export const ProposalLayer: VoidComponent<{
         });
         return;
       }
+      if (!(await decide(proposalId, index, "accepted"))) return;
+      // Built again from the current state: you may have typed meanwhile.
+      const tr = !ed.isDestroyed && proposalTransaction(ed.state, op);
+      if (!tr) {
+        toaster.create({ title: "The note changed before the suggestion could apply", type: "info" });
+        return;
+      }
       ed.view.dispatch(tr);
       console.info(`${LOG_PREFIX} accepted`, { proposalId, index });
-      void decide(proposalId, index, "accepted");
     },
     reject: (proposalId: string, index: number) => {
       void decide(proposalId, index, "rejected");
