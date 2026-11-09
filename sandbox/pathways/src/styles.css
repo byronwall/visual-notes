@@ -775,3 +775,72 @@ textarea {
   color: var(--accent);
   word-break: break-word;
 }
+
+/* Zoomed out: titles only (sizes come from Graph.tsx); keep the key badges. */
+.node.lod-mid .kind,
+.node.lod-mid .by,
+.node.lod-mid .note,
+.node.lod-far .kind,
+.node.lod-far .by,
+.node.lod-far .note {
+  display: none;
+}
+
+.node.lod-mid .badge,
+.node.lod-far .badge {
+  padding: 0 0.4em;
+  border-radius: 0.3em;
+}
+
+.node.lod-far .title {
+  font-weight: 650;
+}
+
+.node.lod-mid,
+.node.lod-far {
+  justify-content: center;
+}
+
+.node.lod-mid .node-head,
+.node.lod-far .node-head {
+  flex: none;
+  margin-bottom: 4px;
+}
+
+/* Edges thicken as the map zooms out, so they stay visible. */
+.edge-line {
+  stroke-width: calc(1.4px / min(1, max(var(--k, 1), 0.35)));
+}
+
+.edge.lit .edge-line,
+.edge.fresh .edge-line {
+  stroke-width: calc(1.8px / min(1, max(var(--k, 1), 0.45)));
+}
+
+.edge-halo {
+  stroke-width: calc(5px / min(1, max(var(--k, 1), 0.35)));
+}
+
+.peek {
+  position: absolute;
+  z-index: 5;
+  width: 300px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14);
+  pointer-events: none;
+}
+
+.peek-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.peek-note {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}

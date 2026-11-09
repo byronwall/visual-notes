@@ -4,10 +4,44 @@ import { busy, fitTick, freshEdges, freshNodes, link, linkFrom, map, selected, s
 import type { PNode } from "./types";
 
 const KIND_LABEL = { root: "Question", option: "Option", step: "Step", outcome: "Outcome" };
+const TITLE_PX = 14;
 const VOTE_LABEL = { like: "♥ like", no: "✕ not for me", more: "↻ want better" };
 const RESEARCH_LABEL = { suggested: "needs research", queued: "queued", running: "researching…", done: "researched" };
 
 export function Graph() {
+  // Hover peek: below full detail, show the hovered card's full text at screen size.
+  const Peek = () => {
+    const info = createMemo(() => {
+      const id = hover();
+      const l = layout();
+      const v = view();
+      if (!id || !l || v.k >= 0.9 || panning()) return null;
+      const n = map()?.nodes.find((x) => x.id === id);
+      const b = l.boxes.get(id);
+      if (!n || !b) return null;
+      const right = v.x + (b.x + b.w) * v.k + 10;
+      const vw = viewport?.clientWidth ?? 0;
+      const left = right + 300 > vw ? v.x + b.x * v.k - 310 : right;
+      return { n, left, top: Math.max(8, v.y + b.y * v.k) };
+    });
+    return (
+      <Show when={info()}>
+        {(i) => (
+          <div class="peek" style={{ left: `${i().left}px`, top: `${i().top}px` }}>
+            <div class="kind">{KIND_LABEL[i().n.kind]}</div>
+            <div class="peek-title">{i().n.title}</div>
+            <Show when={i().n.note}>
+              <div class="peek-note">{i().n.note}</div>
+            </Show>
+            <Show when={i().n.feedback?.comment}>
+              <div class="peek-note">Your take: {i().n.feedback!.comment}</div>
+            </Show>
+          </div>
+        )}
+      </Show>
+    );
+  };
+
   let viewport!: HTMLDivElement;
   const [view, setView] = createSignal({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = createSignal<string | null>(null);
@@ -134,14 +168,15 @@ export function Graph() {
               width: `${l().width}px`,
               height: `${l().height}px`,
               transform: `translate(${view().x}px, ${view().y}px) scale(${view().k})`,
+              "--k": String(view().k),
             }}
           >
             <svg class="edges" width={l().width} height={l().height}>
               <defs>
-                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                <marker id="arrow" viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
                   <path d="M1 1L7 4L1 7" class="arrow" />
                 </marker>
-                <marker id="arrow-lit" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                <marker id="arrow-lit" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
                   <path d="M1 1L7 4L1 7" class="arrow lit" />
                 </marker>
               </defs>
@@ -161,10 +196,11 @@ export function Graph() {
                 }}
               </For>
             </svg>
-            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} onHover={setHover} />}</For>
+            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={view().k} onHover={setHover} />}</For>
           </div>
         )}
       </Show>
+      <Peek />
       <div class="view-tools">
         <button onClick={fit} title="Fit the map to the window">
           Fit
@@ -180,15 +216,47 @@ function Card(props: {
   box?: { x: number; y: number; w: number; h: number };
   paths: number;
   lit: boolean;
+  k: number;
   onHover: (id: string | null) => void;
 }) {
   const n = props.n;
+  // Level of detail by zoom. Below full detail the type label and note hide,
+  // and the title grows to stay about TITLE_PX tall on screen, in as many
+  // lines as the card's fixed height allows. Layout never changes with zoom.
+  const lod = () => (props.k >= 0.9 ? "full" : props.k >= 0.5 ? "mid" : "far");
+  const fit = createMemo(() => {
+    const b = props.box;
+    if (!b || lod() === "full") return null;
+    const k = props.k;
+    const pad = lod() === "far" ? 6 : 10;
+    const badgeF = Math.min(10 / k, 22);
+    const badges = freshNodes().has(n.id) || props.paths > 1 || !!n.feedback || !!n.research || n.missed || n.status === "chosen";
+    const headH = badges ? badgeF * 1.45 + 4 : 0;
+    const room = b.h - 2 * pad - headH;
+    // Shrink up to 25% before the title gets cut off. 0.55em is an average glyph width.
+    const target = Math.min(TITLE_PX / k, 36);
+    const textW = b.w - 2 * (pad + 2);
+    let size = target;
+    let lines = Math.floor(room / (size * 1.2));
+    for (let s = target; s >= target * 0.75; s *= 0.95) {
+      const fits = Math.floor(room / (s * 1.2));
+      const need = Math.ceil((n.title.length * s * 0.55) / textW);
+      size = s;
+      lines = fits;
+      if (need <= fits) break;
+    }
+    if (lines < 1) {
+      size = Math.max(8, room / 1.2);
+      lines = 1;
+    }
+    return { pad, badgeF, headH, size, lines, badges };
+  });
   return (
     <Show when={props.box}>
       {(box) => (
         <div
           data-id={n.id}
-          class={`node kind-${n.kind} status-${n.status}`}
+          class={`node kind-${n.kind} status-${n.status} lod-${lod()}`}
           classList={{
             selected: selected() === n.id,
             dim: !props.lit,
@@ -199,11 +267,20 @@ function Card(props: {
             key: n.weight === "key",
             faint: isFaint(n),
           }}
-          style={{ left: `${box().x}px`, top: `${box().y}px`, width: `${box().w}px`, height: `${box().h}px` }}
+          style={{
+            left: `${box().x}px`,
+            top: `${box().y}px`,
+            width: `${box().w}px`,
+            height: `${box().h}px`,
+            padding: fit() ? `${fit()!.pad}px ${fit()!.pad + 2}px` : undefined,
+          }}
           onPointerEnter={() => props.onHover(n.id)}
           onPointerLeave={() => props.onHover(null)}
         >
-          <div class="node-head">
+          <div
+            class="node-head"
+            style={fit() ? { "font-size": `${fit()!.badgeF}px`, height: `${fit()!.headH - 4}px`, display: fit()!.badges ? undefined : "none" } : undefined}
+          >
             <span class="kind">{KIND_LABEL[n.kind]}</span>
             <Show when={freshNodes().has(n.id)}>
               <span class="badge new">new</span>
@@ -239,7 +316,16 @@ function Card(props: {
               {n.by === "agent" ? "✦" : ""}
             </span>
           </div>
-          <div class="title">{n.title}</div>
+          <div
+            class="title"
+            style={
+              fit()
+                ? { "font-size": `${fit()!.size}px`, "line-height": `${fit()!.size * 1.2}px`, "-webkit-line-clamp": String(fit()!.lines) }
+                : undefined
+            }
+          >
+            {n.title}
+          </div>
           <Show when={n.note}>
             <div class="note">{n.note}</div>
           </Show>
