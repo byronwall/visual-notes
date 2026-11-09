@@ -2,8 +2,10 @@
 id: page-next-steps-on-a-dedicated-tab-is-an-odd-choice
 label: Next steps on a dedicated tab is an odd choice
 type: page
-status: planned
+status: implemented
 parent: page-nov-9-feedback
+metadata:
+  implementation: Next steps moved into the side panel as a tab beside the map (Card/Overview, Next steps, Activity), so a step's cards light up on the map while you work the list. byronwall/visual-notes#323
 images:
   - id: ab7dbbf9-d826-40af-98d5-092fe1237a93
     src: /api/projects/pathways/images/page-next-steps-on-a-dedicated-tab-is-an-odd-choice/ab7dbbf9-d826-40af-98d5-092fe1237a93.png

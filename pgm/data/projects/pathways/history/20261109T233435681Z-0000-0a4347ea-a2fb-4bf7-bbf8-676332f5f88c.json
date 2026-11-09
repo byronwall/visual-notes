@@ -1,0 +1,17 @@
+{
+  "id": "0a4347ea-a2fb-4bf7-bbf8-676332f5f88c",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1b948",
+    "label": "Agent token ...e1b948"
+  },
+  "createdAt": "2026-11-09T23:34:35.681Z",
+  "summary": "Updated status, metadata.implementation on \"The \"what's new\" content is way too big and causes a layout shift\".",
+  "nodeIds": [
+    "page-the-what-s-new-content-is-way-too-big-and-causes-a-layout-shift"
+  ],
+  "metadata": {
+    "fields": "status,metadata.implementation"
+  }
+}
