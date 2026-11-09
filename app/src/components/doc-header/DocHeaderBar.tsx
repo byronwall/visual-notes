@@ -3,6 +3,7 @@ import { Show, type JSX, type VoidComponent } from "solid-js";
 import { NoteToAiButton } from "~/components/annotations/NoteToAiButton";
 import { startPathwayFromNote } from "~/services/pathways/pathways.actions";
 import { CleanupChip } from "~/components/cleanup/CleanupChip";
+import { toaster } from "~/components/ui/toast";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { DocActivitySummaryPopover } from "../DocActivitySummaryPopover";
 import { DocPropertiesCompactEditors } from "../DocPropertiesCompactEditors";
@@ -104,8 +105,17 @@ export const DocHeaderBar: VoidComponent<{
         onAddToCollection={props.onAddToCollection}
         onAddEventDates={props.onAddEventDates}
         onExploreAsPathway={async () => {
-          const p = await startPathwayFromNote(props.doc.id);
-          navigate(`/pathways/${p.id}${p.created ? "?draft=1" : ""}`);
+          try {
+            const p = await startPathwayFromNote(props.doc.id);
+            navigate(`/pathways/${p.id}${p.created ? "?draft=1" : ""}`);
+          } catch (err) {
+            console.error("[pathways] explore as pathway failed", err);
+            toaster.create({
+              title: "Could not open a pathway",
+              description: (err as Error)?.message,
+              type: "error",
+            });
+          }
         }}
       />
       {props.trailing}
