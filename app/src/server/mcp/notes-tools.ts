@@ -60,7 +60,9 @@ export function registerNoteTools(tools: ToolRegistrar): void {
         include: z
           .array(z.enum(SEARCH_KINDS))
           .optional()
-          .describe("Also search research cards, tasks, and/or archived pages"),
+          .describe(
+            "Also search research cards, tasks, decision maps (pathways), and/or archived pages",
+          ),
         limit: limitArg(25, 10).describe(
           "Per kind; at most 25, defaults to 10",
         ),
