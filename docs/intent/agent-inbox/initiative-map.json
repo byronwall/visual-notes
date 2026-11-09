@@ -1,0 +1,832 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "Agent inbox: notes to AI, annotations, and replies",
+    "slug": "agent-inbox",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-11-08",
+    "summary": "Let Byron leave requests and text annotations on notes for polling MCP agents, let agents annotate and reply, and show the whole back-and-forth in one central inbox.",
+    "status": "planned",
+    "next_action": "Start m1: notes_propose_edits plus inline accept in the editor."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-11-08"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-11-08"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-11-08"
+    }
+  },
+  "sources": [
+    {
+      "id": "S1",
+      "type": "transcript",
+      "location": "conversation",
+      "anchor": "initial /software-design-sleuth-full request, 2026-11-08",
+      "authority": "user"
+    },
+    {
+      "id": "S2",
+      "type": "repo",
+      "location": "app/docs/mcp-connector.md",
+      "anchor": "Rules: ownership, metadata is open, deleting stays with the user",
+      "authority": "repo"
+    },
+    {
+      "id": "S3",
+      "type": "repo",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "model ResearchComment (body, author, resolvedAt, resolution)",
+      "authority": "repo"
+    },
+    {
+      "id": "S4",
+      "type": "repo",
+      "location": "app/docs/mcp-connector.md",
+      "anchor": "activity_query pollSince",
+      "authority": "repo"
+    },
+    {
+      "id": "S5",
+      "type": "repo",
+      "location": "app/prisma/schema.prisma",
+      "anchor": "model ChatThread / ChatMessage (per-note in-app LLM sidebar)",
+      "authority": "repo"
+    },
+    {
+      "id": "S6",
+      "type": "repo",
+      "location": "AGENTS.md",
+      "anchor": "Note storage (blocks): every block carries a stable id",
+      "authority": "repo"
+    },
+    {
+      "id": "qa-round-1",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "1",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-2",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "2",
+      "authority": "user"
+    },
+    {
+      "id": "qa-round-3",
+      "type": "question-round",
+      "location": "conversation",
+      "anchor": "3",
+      "authority": "user"
+    },
+    {
+      "id": "S7",
+      "type": "doc",
+      "location": "https://porteden.com/blog/chatgpt-scheduled-tasks-tools/",
+      "anchor": "scheduled tasks reach connected apps (vendor blog, unverified with OpenAI docs)",
+      "authority": "inferred"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Byron wants an asynchronous channel to MCP agents that poll on a schedule: he leaves work, they pick it up later.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Requests are created while interacting with notes and other content in the app, not in a separate form.",
+        "kind": "desired experience",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "A quick 'note to AI' control on a note adds a top-level request (research, follow up, expand).",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Selected text can be annotated; it shows as a colored highlight with the annotation in a side rail; agents can read and act on it.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C5",
+        "statement": "Agents can add their own annotations to notes through MCP.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C6",
+        "statement": "One central place shows the inbox, agent feedback, and the back-and-forth, so Byron never has to open each note to check.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C7",
+        "statement": "'Every N hours' polling is the expected agent behavior; the cadence is an example, not a requirement.",
+        "kind": "example",
+        "commitment": "illustrative",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C8",
+        "statement": "Agents may not change the body of notes Byron wrote; 'expand this content' requests collide with that rule.",
+        "kind": "current repository reality",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Research comments already follow a 'user leaves, agent resolves with a note' pattern that this feature could generalize.",
+        "kind": "current repository reality",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "S3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "Each request is a task with a status (open, in progress, done) and a reply thread both sides can add to.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C11",
+        "statement": "For edits to Byron's own notes, the agent proposes a change and Byron accepts it; the ownership rule stays.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Any polling agent may claim an open request; the claim shows which agent has it so others skip it.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "The inbox shows all MCP agent activity (requests, replies, agent annotations, research comments, all agent writes), emphasizing the useful back-and-forth and de-ranking mundane updates.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "First release surfaces: notes and tasks. Research cards and archived pages come later (research comments still appear in the inbox).",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C15",
+        "statement": "Inbox has two tiers: Needs you (agent replies, proposed edits, agent questions, new agent annotations) stays on top until acted on or dismissed; routine agent writes collapse to one line per agent run.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C16",
+        "statement": "Agent marks a request ready for review; Byron closes it, or replies to reopen it.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C17",
+        "statement": "Proposed edits show inline in the note as suggestions; Byron accepts or rejects per block or all at once.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C18",
+        "statement": "Annotations have user-defined types. A type sets the color and a mark-for-AI flag. There is a default type, and the type can be changed when creating an annotation.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C19",
+        "statement": "Agents may annotate at any time technically, but tool guidance tells them to annotate or update a note only when explicitly asked.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C20",
+        "statement": "Agents can read annotations of every type as context, but act only on types flagged for AI.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C21",
+        "statement": "On task requests the agent acts directly (subtasks, dates, linked note), then replies and marks the request ready.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C22",
+        "statement": "Byron wants requests, annotations, proposals, and the inbox released together rather than as separate slices.",
+        "kind": "preference",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high",
+        "notes": "Shaping can still order internal milestones by proof value."
+      },
+      {
+        "id": "C23",
+        "statement": "A live count badge on an Inbox sidebar link signals new Needs-you items. No digest or push.",
+        "kind": "decision",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C24",
+        "statement": "No standing agent instructions in the app; the scheduled prompt of each agent says what to do.",
+        "kind": "anti-goal",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C25",
+        "statement": "Agent annotations use a built-in From AI type.",
+        "kind": "implementation hypothesis",
+        "commitment": "tentative",
+        "importance": "supporting",
+        "status": "active",
+        "horizon": "first release",
+        "sources": [
+          "qa-round-3"
+        ],
+        "confidence": "low",
+        "notes": "Provisional default; Byron did not choose between From AI and agent-picked types."
+      }
+    ],
+    "themes": [
+      "request lifecycle",
+      "anchoring to text",
+      "agent authorship",
+      "central visibility"
+    ],
+    "conflicts": [
+      {
+        "id": "K1",
+        "claims": [
+          "C3",
+          "C8"
+        ],
+        "note": "'Expand this content' needs a way to change the user's note without breaking the ownership rule.",
+        "status": "resolved",
+        "resolution": "C11: agent proposes, Byron accepts."
+      }
+    ],
+    "human_questions": [
+      {
+        "id": "Q1",
+        "question": "Should agents always annotate with a built-in From AI type, or pick from your types?",
+        "status": "open"
+      }
+    ]
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "accepted",
+    "appetite": "One release with all four pieces (C22); internal order by risk.",
+    "problem": "Requests to polling agents have no home in the app, and agent responses are scattered across notes and the activity log.",
+    "recommended_shape": "One Annotation record family (note-level or passage-anchored by blockId+quote, typed, optional request status/claim, reply thread, optional edit proposal using notes_edit_blocks ops) on notes and tasks; annotation rail opposite TOC drawn as editor decorations; /inbox page with Needs you, Waiting on agents, and per-run agent activity from the MCP call log; sidebar badge; MCP tools inbox_get, inbox_claim, inbox_reply, notes_annotate, notes_propose_edits; research comments read in place.",
+    "success_moves": [
+      {
+        "id": "SM1",
+        "move": "Accept proposals as an editor transaction, not a server write.",
+        "risk": "Second writer races autosave and deferred remote content (recent fixes #293)."
+      },
+      {
+        "id": "SM2",
+        "move": "Anchor highlights by blockId + quoted text as decorations outside note content.",
+        "risk": "Marks in content would change text, revisions, search, export, and agent ownership rules."
+      },
+      {
+        "id": "SM3",
+        "move": "Reuse notes_edit_blocks op shape (replace, insert_after, delete) for proposals, with per-block base hashes for staleness.",
+        "risk": "A new edit grammar for agents and a conflict model from scratch."
+      },
+      {
+        "id": "SM4",
+        "move": "Leave ResearchComment in place; inbox and inbox_get read it.",
+        "risk": "Migration and research UI churn for no user-visible gain."
+      },
+      {
+        "id": "SM5",
+        "move": "Drive the first proof with a local fake agent (mcp-smoke style) and confirm a real ChatGPT scheduled task only afterwards.",
+        "risk": "Debugging through unattended ChatGPT runs with unclear write-approval behavior."
+      },
+      {
+        "id": "SM6",
+        "move": "Build the lower inbox tier from existing mcp.call ActionEvents grouped by requestId/agent.",
+        "risk": "A second activity log."
+      }
+    ],
+    "first_proof": {
+      "question": "Can agent-proposed block edits render inline and be accepted in an open editor, through autosave, without fighting live or deferred content, while passage anchors survive nearby edits?",
+      "artifact": "Seeded local note + mcp-smoke style fake agent that claims, annotates, and proposes replace+insert; manual accept with typing in another block.",
+      "decision_rule": "If inline accept lands through autosave with no lost keystrokes and anchors hold, build on editor-side accept; otherwise fall back to an inbox diff with server-side accept-all and editor reload."
+    },
+    "rabbit_holes": [
+      {
+        "id": "R1",
+        "risk": "Inline suggestion rendering inside TipTap NodeViews (code blocks, tables, task refs).",
+        "mitigation": "Proposals target whole top-level blocks; unusual node types show as a plain before/after card."
+      },
+      {
+        "id": "R2",
+        "risk": "ChatGPT scheduled tasks may not auto-run write tools against custom connectors, or plan tiers may limit it.",
+        "mitigation": "Live smoke after local proof; any MCP client that polls still works."
+      },
+      {
+        "id": "R3",
+        "risk": "Anchor drift when the quoted passage is edited heavily.",
+        "mitigation": "Map decorations through edits and persist the updated quote on save; detach to passage removed."
+      }
+    ],
+    "open_decisions": [
+      {
+        "id": "D1",
+        "question": "Agent annotations: always From AI type, or agents may pick your types?",
+        "default": "From AI",
+        "owner": "Byron"
+      }
+    ]
+  },
+  "implementation": {
+    "status": "current",
+    "repository_snapshot": {
+      "root": "app/",
+      "revision": "474bc0b9",
+      "worktree_status": "clean except docs/intent/agent-inbox",
+      "subsystems": [
+        "server/mcp tool registry",
+        "lib/note-content block-ops and ids",
+        "components/DocumentEditor autosave and remote merge",
+        "components/editor/extensions",
+        "components/toc TocRail",
+        "components/tasks TaskSheet",
+        "features/live-sync",
+        "components/activity McpActivityPanel",
+        "components/sidebar nav-items"
+      ],
+      "test_commands": [
+        "pnpm lint",
+        "pnpm type-check",
+        "pnpm test",
+        "TEST_DATABASE_URL db tests",
+        "scripts/agent-inbox-smoke.ts"
+      ],
+      "deployment_surfaces": [
+        "AGENT_INBOX env switch",
+        "prisma migrations"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "DEP1",
+        "name": "ChatGPT scheduled tasks via custom MCP connector",
+        "material": true,
+        "application_seam": "MCP tool layer (server/mcp/tool-registry.ts); agents reach the feature only through five inbox tools",
+        "failure_modes": [
+          "two agents claim the same request",
+          "agent never finishes after claiming",
+          "proposal targets a block that changed",
+          "unknown block id",
+          "agent writes when not asked",
+          "scheduled task cannot run write tools unattended"
+        ],
+        "proof_rungs": [
+          "deterministic fake agent (scripts/agent-inbox-smoke.ts, two agents)",
+          "db tests against per-worktree Postgres",
+          "live scheduled-task smoke in prod (m5)"
+        ],
+        "first_proof_role": {
+          "mode": "local-substitute",
+          "rationale": "App behavior is identical for any MCP client; only unattended execution is ChatGPT-specific."
+        },
+        "local_proof": "agent-inbox-smoke.ts plus db tests for claim race, expiry, stale proposals",
+        "live_proof": "One scheduled ChatGPT task claims and answers a test request in prod",
+        "rollout": "AGENT_INBOX env switch; tools unregistered when off"
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm exec vitest run src/lib/annotations src/server/annotations && node --experimental-strip-types scripts/agent-inbox-smoke.ts",
+      "starts": "nothing; uses the audit-harness server and per-worktree Postgres from pnpm audit:db",
+      "network": "loopback only",
+      "failure_injection": "smoke script plays two agents for claim races and edits blocks to make proposals stale"
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "An agent proposes edits, and you accept them inline",
+        "outcome": "Agent-proposed block edits render as inline suggestions and accept as editor transactions through autosave.",
+        "dependencies_introduced": [],
+        "proof": "Vitest on proposalToTransaction; db test for notes_propose_edits; Playwright one-off accepting while typing in another block.",
+        "valid_intermediate_state": "Agents can propose; suggestions visible in notes; no inbox yet.",
+        "rollback": "AGENT_INBOX=off hides tool and decorations; tables stay.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m2",
+        "title": "Typed highlights in a rail beside the note",
+        "outcome": "User creates typed highlights shown in a rail; anchors survive edits and reloads.",
+        "dependencies_introduced": [],
+        "proof": "Anchor resolver unit tests; db test that content and searchText do not change; Playwright at 1280, 783, 390 px.",
+        "valid_intermediate_state": "Personal annotations work with no agent involvement.",
+        "rollback": "AGENT_INBOX=off hides rail; annotation rows stay.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m3",
+        "title": "Agents receive and answer requests",
+        "outcome": "Note to AI on notes and tasks; inbox_get, inbox_claim, inbox_reply, notes_annotate; lifecycle open, claimed, ready, closed.",
+        "dependencies_introduced": [],
+        "proof": "agent-inbox-smoke.ts two-agent run; db tests for claim race, expiry, reopen.",
+        "valid_intermediate_state": "Full loop visible per note; no central inbox yet.",
+        "rollback": "AGENT_INBOX=off unregisters tools.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m4",
+        "title": "One inbox shows what waits on you",
+        "outcome": "/inbox with Needs you, Waiting on agents, Agent activity; live sidebar badge.",
+        "dependencies_introduced": [],
+        "proof": "Playwright route, item click, dismiss, badge; screenshots.",
+        "valid_intermediate_state": "Feature complete locally.",
+        "rollback": "AGENT_INBOX=off returns 404 and hides nav entry.",
+        "status": "planned",
+        "evidence": []
+      },
+      {
+        "id": "m5",
+        "title": "A real agent works the inbox unattended",
+        "outcome": "One scheduled ChatGPT run claims and answers a request in prod, or the blocker is recorded.",
+        "dependencies_introduced": [
+          "DEP1"
+        ],
+        "proof": "MCP tab shows inbox_get, inbox_claim, inbox_reply from a ChatGPT client.",
+        "valid_intermediate_state": "Docs updated; switch on in prod.",
+        "rollback": "AGENT_INBOX=off.",
+        "status": "planned",
+        "evidence": []
+      }
+    ],
+    "cut_line": [
+      "requests on research cards and archived pages",
+      "merging ResearchComment into Annotation",
+      "push, email, or digest signals",
+      "standing agent instructions",
+      "annotations inside code blocks or table cells",
+      "multi-note proposals and resolved-proposal history"
+    ],
+    "open_decisions": [
+      {
+        "id": "PD1",
+        "question": "Agent annotation type: From AI only or agent-picked?",
+        "default": "From AI",
+        "fallback": "Add optional typeId later"
+      },
+      {
+        "id": "PD2",
+        "question": "Can ChatGPT scheduled tasks run write tools on a custom connector unattended?",
+        "evidence": "first live run in m5 plus OpenAI help center",
+        "fallback": "Claude scheduled routines or another MCP client"
+      }
+    ]
+  },
+  "question_rounds": {
+    "focus": "intent and scope",
+    "per_round": 5,
+    "planned_rounds": 3,
+    "status": "complete",
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "goals and stakes",
+        "source": "qa-round-1",
+        "questions": [
+          {
+            "n": 1,
+            "question": "What is a note to AI?",
+            "answer": "Task + thread",
+            "effect": "C10"
+          },
+          {
+            "n": 2,
+            "question": "Expand on your own note?",
+            "answer": "Agent proposes, you accept",
+            "effect": "C11; resolves K1"
+          },
+          {
+            "n": 3,
+            "question": "Who acts with many agents?",
+            "answer": "First to claim it",
+            "effect": "C12"
+          },
+          {
+            "n": 4,
+            "question": "Inbox scope?",
+            "answer": "All AI MCP activity, emphasize useful back-and-forth, de-rank mundane updates",
+            "effect": "C13"
+          },
+          {
+            "n": 5,
+            "question": "Surfaces besides notes?",
+            "answer": "Notes only for now, plus Tasks",
+            "effect": "C14 (read as notes + tasks)"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "behavior and limits",
+        "source": "qa-round-2",
+        "questions": [
+          {
+            "n": 6,
+            "question": "Two-tier inbox?",
+            "answer": "Yes, two tiers",
+            "effect": "C15"
+          },
+          {
+            "n": 7,
+            "question": "Who closes?",
+            "answer": "Agent marks ready, you confirm",
+            "effect": "C16"
+          },
+          {
+            "n": 8,
+            "question": "Where to review proposals?",
+            "answer": "Inline in the note",
+            "effect": "C17"
+          },
+          {
+            "n": 9,
+            "question": "Private highlights?",
+            "answer": "User-defined annotation types with color and mark-for-AI flag; default type; change type at creation",
+            "effect": "C18"
+          },
+          {
+            "n": 10,
+            "question": "When may agents annotate?",
+            "answer": "Anytime, but tool guidance says only when explicitly asked",
+            "effect": "C19; agent annotation type still open"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "boundaries and confirmation",
+        "source": "qa-round-3",
+        "questions": [
+          {
+            "n": 11,
+            "question": "Only AI-flagged types reach agents?",
+            "answer": "Agents see all types",
+            "effect": "C20; C25 provisional"
+          },
+          {
+            "n": 12,
+            "question": "Task requests?",
+            "answer": "Act directly, reply",
+            "effect": "C21"
+          },
+          {
+            "n": 13,
+            "question": "First slice?",
+            "answer": "Everything together",
+            "effect": "C22"
+          },
+          {
+            "n": 14,
+            "question": "Signal for new items?",
+            "answer": "Sidebar count badge",
+            "effect": "C23"
+          },
+          {
+            "n": 15,
+            "question": "Standing agent instructions?",
+            "answer": "No",
+            "effect": "C24"
+          }
+        ]
+      }
+    ]
+  },
+  "history": [
+    {
+      "date": "2026-11-08",
+      "change": "Created initiative from initial request and repo survey; status planned."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Recorded question round 1."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Recorded question round 2."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Recorded question round 3; intent brief rewritten and marked current."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Wrote shape brief; phase shape; success moves, first proof, and rabbit holes recorded."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Wrote implementation plan (5 layers); shape accepted; open PRs 212 and 298 are docs-only, no overlap."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Completed dependency record to schema; implementation status current."
+    }
+  ],
+  "closure": null
+}
