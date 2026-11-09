@@ -61,11 +61,17 @@ export type PlanTask = {
   taskId?: string;
 };
 
-export type PathwayPlan = { createdAt: string; summary: string; tasks: PlanTask[] };
+export type PathwayPlan = {
+  createdAt: string;
+  summary: string;
+  tasks: PlanTask[];
+};
 
 export const ROOT_ID = "root";
 
 export const emptyGraph = (title: string): PathwayGraph => ({
-  nodes: [{ id: ROOT_ID, kind: "root", title, note: "", by: "me", status: "open" }],
+  nodes: [
+    { id: ROOT_ID, kind: "root", title, note: "", by: "me", status: "open" },
+  ],
   edges: [],
 });

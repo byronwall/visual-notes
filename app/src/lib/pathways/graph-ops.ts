@@ -1,4 +1,12 @@
-import { ROOT_ID, type Feedback, type NodeKind, type NodeStatus, type PathwayGraph, type PathwayNode, type Research } from "./types";
+import {
+  ROOT_ID,
+  type Feedback,
+  type NodeKind,
+  type NodeStatus,
+  type PathwayGraph,
+  type PathwayNode,
+  type Research,
+} from "./types";
 
 /**
  * One batch of graph edits, used by the in-app agent and by MCP
@@ -6,7 +14,14 @@ import { ROOT_ID, type Feedback, type NodeKind, type NodeStatus, type PathwayGra
  * may name a ref or an existing id. Unknown ids are skipped, not errors.
  */
 export type GraphOps = {
-  nodes?: { ref: string; kind: Exclude<NodeKind, "root">; title: string; note?: string; missed?: boolean; research?: string }[];
+  nodes?: {
+    ref: string;
+    kind: Exclude<NodeKind, "root">;
+    title: string;
+    note?: string;
+    missed?: boolean;
+    research?: string;
+  }[];
   edges?: { from: string; to: string }[];
   removeEdges?: { from: string; to: string }[];
   /** Fold `drop` into `keep`: its edges move to `keep`, then it is deleted. */
@@ -40,7 +55,12 @@ export type OpsResult = {
 
 export const newNodeId = () => Math.random().toString(36).slice(2, 8);
 
-export function applyOps(graph: PathwayGraph, ops: GraphOps, by: "me" | "agent", makeId = newNodeId): OpsResult {
+export function applyOps(
+  graph: PathwayGraph,
+  ops: GraphOps,
+  by: "me" | "agent",
+  makeId = newNodeId,
+): OpsResult {
   const next: PathwayGraph = structuredClone(graph);
   const ids = new Map<string, string>(next.nodes.map((n) => [n.id, n.id]));
   const node = (ref: string) => next.nodes.find((n) => n.id === ids.get(ref));
@@ -62,7 +82,14 @@ export function applyOps(graph: PathwayGraph, ops: GraphOps, by: "me" | "agent",
       by,
       status: "open",
       ...(n.missed ? { missed: true } : {}),
-      ...(n.research?.trim() ? { research: { question: n.research.trim(), status: "suggested" as const } } : {}),
+      ...(n.research?.trim()
+        ? {
+            research: {
+              question: n.research.trim(),
+              status: "suggested" as const,
+            },
+          }
+        : {}),
     });
   }
 
@@ -87,7 +114,10 @@ export function applyOps(graph: PathwayGraph, ops: GraphOps, by: "me" | "agent",
       continue;
     }
     next.nodes = next.nodes.filter((n) => n.id !== drop);
-    next.edges = next.edges.map((e) => ({ from: e.from === drop ? keep : e.from, to: e.to === drop ? keep : e.to }));
+    next.edges = next.edges.map((e) => ({
+      from: e.from === drop ? keep : e.from,
+      to: e.to === drop ? keep : e.to,
+    }));
     ids.set(m.drop, keep);
     const kept = node(m.keep);
     if (kept && m.title) kept.title = m.title;
@@ -106,7 +136,8 @@ export function applyOps(graph: PathwayGraph, ops: GraphOps, by: "me" | "agent",
   for (const a of ops.appendNotes ?? []) {
     const n = node(a.id);
     if (!n) miss(a.id);
-    else if (a.text.trim()) n.note = n.note ? `${n.note}\n${a.text.trim()}` : a.text.trim();
+    else if (a.text.trim())
+      n.note = n.note ? `${n.note}\n${a.text.trim()}` : a.text.trim();
   }
 
   for (const u of ops.update ?? []) {
@@ -139,15 +170,25 @@ export function applyOps(graph: PathwayGraph, ops: GraphOps, by: "me" | "agent",
   const seen = new Set<string>();
   next.edges = next.edges.filter((e) => {
     const k = `${e.from}>${e.to}`;
-    if (e.from === e.to || seen.has(k) || !live.has(e.from) || !live.has(e.to)) return false;
+    if (e.from === e.to || seen.has(k) || !live.has(e.from) || !live.has(e.to))
+      return false;
     seen.add(k);
     return true;
   });
-  return { graph: next, added: [...new Set(added)].filter((id) => live.has(id)), dropped, skipped };
+  return {
+    graph: next,
+    added: [...new Set(added)].filter((id) => live.has(id)),
+    dropped,
+    skipped,
+  };
 }
 
 /** `undefined` leaves the field alone; `null` clears it. */
-function setOptional<K extends "weight" | "feedback" | "research">(n: PathwayNode, key: K, value: PathwayNode[K] | null | undefined) {
+function setOptional<K extends "weight" | "feedback" | "research">(
+  n: PathwayNode,
+  key: K,
+  value: PathwayNode[K] | null | undefined,
+) {
   if (value === undefined) return;
   if (value === null) delete n[key];
   else n[key] = value;
