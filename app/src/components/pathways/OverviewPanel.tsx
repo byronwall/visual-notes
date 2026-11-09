@@ -16,7 +16,11 @@ const question = css({
   "&[data-open=true]": { color: "fg.default", fontWeight: "semibold" },
 });
 
-/** The side panel when no card is selected: goals, feedback, and whole-map agent actions. */
+/**
+ * The side panel when no card is selected: your goals, and indexes into the
+ * map (where paths meet, important, research). Whole-map agent actions live
+ * in the header (MapAgentMenu).
+ */
 export function OverviewPanel() {
   const s = usePathway();
   const nodes = () => s.record().graph.nodes;
@@ -114,45 +118,6 @@ export function OverviewPanel() {
             better · {votes().notes} notes
           </Show>
         </p>
-        <AutoText
-          key="map:steer"
-          value={s.steer()}
-          delay={0}
-          placeholder="Steer it (optional): what to change or keep in mind"
-          onSave={(v) => s.setSteer(v)}
-          onSubmit={(v) => {
-            s.setSteer(v);
-            queueMicrotask(() => run(anyFeedback() ? "improve" : "options"));
-          }}
-        />
-        <ActionButton
-          primary
-          label="Improve from feedback"
-          shortcut={anyFeedback() ? "⌘↵" : undefined}
-          what="Drops what you rejected, replaces what you want better, and extends what you liked."
-          disabled={!!s.busy() || !anyFeedback()}
-          busy={s.busy() === "map"}
-          onClick={() => run("improve")}
-        />
-        <ActionButton
-          label="Fresh map from feedback"
-          what="Builds a new version as a separate map. This one stays as it is."
-          disabled={!!s.busy()}
-          onClick={() => run("regenerate")}
-        />
-        <ActionButton
-          label="Where do paths meet?"
-          what="Merges duplicate cards and adds shared outcomes, so you see which choices end up in the same place."
-          disabled={!!s.busy()}
-          onClick={() => run("converge")}
-        />
-        <ActionButton
-          label="What am I missing?"
-          shortcut={anyFeedback() ? undefined : "⌘↵"}
-          what="Adds answers to the main question that are not on the map yet."
-          disabled={!!s.busy()}
-          onClick={() => run("options")}
-        />
       </div>
 
       <Show when={important().length}>

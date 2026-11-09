@@ -405,9 +405,11 @@ export function PathwayGraph() {
         >
           Fit
         </button>
-        <span>
-          Drag to pan · ⌘/Ctrl + scroll to zoom · double-click a card to edit it
+        <span class="legend">
+          <i data-kind="option" /> option <i data-kind="step" /> step{" "}
+          <i data-kind="outcome" /> outcome <i data-kind="meet" /> paths meet
         </span>
+        <span>Drag to pan · ⌘ scroll to zoom · double-click to edit</span>
       </div>
     </div>
   );

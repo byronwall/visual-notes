@@ -234,6 +234,19 @@ export const viewport = css({
   },
   "& .peek-note": { mt: "1.5", fontSize: "sm", color: "fg.muted" },
 
+  "& .legend": { display: "flex", alignItems: "center", gap: "1" },
+  "& .legend i": {
+    display: "inline-block",
+    w: "2.5",
+    h: "2.5",
+    ml: "2",
+    borderRadius: "sm",
+    borderWidth: "2px",
+    borderColor: "gray.8",
+  },
+  "& .legend i[data-kind=option]": { borderColor: "blue.9", bg: "blue.2" },
+  "& .legend i[data-kind=outcome]": { borderColor: "green.9", bg: "green.2" },
+  "& .legend i[data-kind=meet]": { borderColor: "amber.9", bg: "amber.3" },
   "& .view-tools": {
     position: "absolute",
     left: "3",

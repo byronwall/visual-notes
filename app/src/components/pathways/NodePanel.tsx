@@ -116,28 +116,18 @@ export function NodePanel(props: { n: PathwayNode }) {
 
   return (
     <>
+      {/* Most used first: what the card says, your take, then the agent. */}
       <div class={section}>
-        <Show
-          when={n().kind !== "root"}
-          fallback={<span class={label}>Question</span>}
-        >
-          <div class={row}>
-            <select
-              class={select}
-              value={n().kind}
-              onChange={(e) =>
-                s.updateNode(n().id, {
-                  kind: e.currentTarget.value as Exclude<NodeKind, "root">,
-                })
-              }
-            >
-              <For each={KINDS}>{(k) => <option value={k}>{k}</option>}</For>
-            </select>
+        <div class={row}>
+          <span class={label} style={{ "margin-top": "0" }}>
+            {n().kind === "root" ? "Question" : n().kind}
+          </span>
+          <Show when={n().kind !== "root"}>
             <div class={seg} style={{ "margin-left": "auto" }}>
               <For each={STATUSES}>
                 {(st) => (
                   <button
-                    data-on={String(!!(n().status === st))}
+                    data-on={String(n().status === st)}
                     onClick={() => s.updateNode(n().id, { status: st })}
                   >
                     {st}
@@ -145,8 +135,8 @@ export function NodePanel(props: { n: PathwayNode }) {
                 )}
               </For>
             </div>
-          </div>
-        </Show>
+          </Show>
+        </div>
         <AutoText
           class={titleField}
           key={`${n().id}:title`}
@@ -178,7 +168,7 @@ export function NodePanel(props: { n: PathwayNode }) {
             <For each={VOTES}>
               {(v) => (
                 <button
-                  data-on={String(!!(n().feedback?.vote === v.vote))}
+                  data-on={String(n().feedback?.vote === v.vote)}
                   data-tone={v.vote}
                   title={`Key ${v.key}`}
                   onClick={() => {
@@ -208,7 +198,7 @@ export function NodePanel(props: { n: PathwayNode }) {
             <For each={WEIGHTS}>
               {(w) => (
                 <button
-                  data-on={String(!!(n().weight === w.weight))}
+                  data-on={String(n().weight === w.weight)}
                   title={w.key ? `Key ${w.key}` : ""}
                   onClick={() =>
                     s.updateNode(n().id, { weight: w.weight ?? null })
@@ -223,7 +213,7 @@ export function NodePanel(props: { n: PathwayNode }) {
       </Show>
 
       <div class={section}>
-        <span class={label}>Ask the agent</span>
+        <span class={label}>Ask the agent about this card</span>
         <AutoText
           key={`${n().id}:steer`}
           value={s.steer()}
@@ -261,7 +251,23 @@ export function NodePanel(props: { n: PathwayNode }) {
       <ResearchSection n={n()} />
 
       <div class={section}>
-        <span class={label}>Edit by hand</span>
+        <Show when={parents().length}>
+          <span class={label}>Comes from</span>
+          <EdgeList
+            ids={parents()}
+            title={title}
+            onRemove={(id) => s.unlink(id, n().id)}
+          />
+        </Show>
+        <Show when={children().length}>
+          <span class={label}>Leads to</span>
+          <EdgeList
+            ids={children()}
+            title={title}
+            onRemove={(id) => s.unlink(n().id, id)}
+          />
+        </Show>
+        {/* Rare edits: one compact row at the bottom. */}
         <div class={wrap}>
           <button
             class={smallButton}
@@ -283,12 +289,24 @@ export function NodePanel(props: { n: PathwayNode }) {
           </button>
           <button
             class={smallButton}
-            data-on={String(!!(s.linkFrom() === n().id))}
+            data-on={String(s.linkFrom() === n().id)}
             onClick={() => s.setLinkFrom(s.linkFrom() ? null : n().id)}
           >
             {s.linkFrom() === n().id ? "Click a target…" : "Leads to…"}
           </button>
-          <Show when={n().id !== "root"}>
+          <Show when={n().kind !== "root"}>
+            <select
+              class={select}
+              title="Card type"
+              value={n().kind}
+              onChange={(e) =>
+                s.updateNode(n().id, {
+                  kind: e.currentTarget.value as Exclude<NodeKind, "root">,
+                })
+              }
+            >
+              <For each={KINDS}>{(k) => <option value={k}>{k}</option>}</For>
+            </select>
             <button
               class={smallButton}
               data-danger="true"
@@ -298,22 +316,6 @@ export function NodePanel(props: { n: PathwayNode }) {
             </button>
           </Show>
         </div>
-        <Show when={parents().length}>
-          <span class={label}>Comes from</span>
-          <EdgeList
-            ids={parents()}
-            title={title}
-            onRemove={(id) => s.unlink(id, n().id)}
-          />
-        </Show>
-        <Show when={children().length}>
-          <span class={label}>Leads to</span>
-          <EdgeList
-            ids={children()}
-            title={title}
-            onRemove={(id) => s.unlink(n().id, id)}
-          />
-        </Show>
       </div>
     </>
   );

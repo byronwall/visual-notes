@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { css } from "styled-system/css";
 import type { PathwayView as PathwayRecord } from "~/server/pathways/pathway-tasks";
+import { MapAgentMenu } from "./MapAgentMenu";
 import { NextSteps } from "./NextSteps";
 import { PathwayGraph } from "./PathwayGraph";
 import { PathwayPanel } from "./PathwayPanel";
@@ -127,6 +128,7 @@ export function PathwayPage(props: { record: PathwayRecord }) {
               Click the card this leads to · Esc to cancel
             </span>
           </Show>
+          <MapAgentMenu />
           <div class={seg}>
             <button
               data-on={String(!!(s.view() === "map"))}
