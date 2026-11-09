@@ -45,8 +45,8 @@ export async function callLLM(opts: {
   /** JSON schema for Structured Outputs; the output is then that JSON text. */
   schema?: { name: string; schema: Record<string, unknown> };
 }) {
-  // GPT-5 reasoning models reject sampling parameters.
-  const supportsSampling = !opts.model.startsWith("gpt-5");
+  // Reasoning models (GPT-5 and later, o-series) reject sampling parameters.
+  const supportsSampling = !/^(gpt-([5-9]|\d{2,})|o\d)/.test(opts.model);
   const temperature = supportsSampling ? opts.temperature ?? 0.2 : undefined;
   const topP = supportsSampling ? opts.top_p : undefined;
 
