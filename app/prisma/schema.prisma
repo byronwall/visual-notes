@@ -1433,6 +1433,8 @@ model AnnotationMessage {
   annotation Annotation @relation(fields: [annotationId], references: [id], onDelete: Cascade)
 
   @@index([annotationId, createdAt])
+}
+
 /// A decision map: options, the steps they lead to, and outcomes, plus the
 /// person's goals and a plan of next steps. The JSON shapes are typed in
 /// src/lib/pathways/types.ts. Every write saves a PathwayRevision first.
