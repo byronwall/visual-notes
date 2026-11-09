@@ -1385,6 +1385,11 @@ model Annotation {
   quote       String?
   /// Where the quote starts in the block's text, to pick between repeats.
   quoteStart  Int?
+  /// The block where a passage that spans blocks ends; null when it ends in
+  /// blockId. The quote then holds each block's text joined by newlines.
+  endBlockId  String?
+  /// Where the passage ends in the end block's text (exclusive).
+  endOffset   Int?
   /// Set when the passage was deleted; the annotation stays in the rail.
   detachedAt  DateTime?
   /// Request state when the type is For AI: open, claimed, ready, closed.

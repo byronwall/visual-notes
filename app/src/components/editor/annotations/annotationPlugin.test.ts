@@ -29,6 +29,8 @@ const ann = (over: Partial<AnnotationView>): AnnotationView => ({
   blockId: "b",
   quote: "the cat",
   quoteStart: 0,
+  endBlockId: null,
+  endOffset: null,
   detached: false,
   createdAt: "",
   updatedAt: "1",
@@ -73,7 +75,7 @@ describe("annotation anchors", () => {
     state = state.apply(state.tr.insertText("big ", range.from + 4));
     expect(textOf(state, "n1")).toBe("the big cat");
     expect(anchorChanges(state)).toEqual([
-      { id: "n1", blockId: "b", quote: "the big cat", quoteStart: 0, detached: false },
+      { id: "n1", blockId: "b", quote: "the big cat", quoteStart: 0, endBlockId: null, endOffset: null, detached: false },
     ]);
   });
 
@@ -83,6 +85,21 @@ describe("annotation anchors", () => {
     state = state.apply(state.tr.delete(range.from, range.to));
     expect(annotationRanges(state).has("n1")).toBe(false);
     expect(anchorChanges(state)[0]).toMatchObject({ id: "n1", detached: true });
+  });
+
+  it("reads a selection across blocks as one passage and draws it again after a reload", () => {
+    const state = setup([]);
+    // From "line" in block a (offset 6) to "the cat" at the start of block b.
+    const selected = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 7, 20)));
+    const passage = selectionPassage(selected)!;
+    expect(passage).toMatchObject({ blockId: "a", quoteStart: 6, endBlockId: "b", endOffset: 7, quote: "line\nthe cat" });
+
+    const reloaded = setup([ann({ blockId: "a", quote: passage.quote, quoteStart: 6, endBlockId: "b", endOffset: 7 })]);
+    const range = annotationRanges(reloaded).get("n1")!;
+    expect([range.from, range.to]).toEqual([7, 20]);
+    // Typing inside the span keeps one passage and reports the new end.
+    const typed = reloaded.apply(reloaded.tr.insertText("tabby ", 17));
+    expect(anchorChanges(typed)[0]).toMatchObject({ quote: "line\nthe tabby cat", endBlockId: "b", endOffset: 13 });
   });
 
   it("reads the selected passage with its block and offset", () => {

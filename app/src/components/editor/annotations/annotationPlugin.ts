@@ -1,20 +1,19 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { locateQuote } from "~/lib/annotations/anchor";
 import type {
   AnchorUpdate,
   AnnotationColor,
   AnnotationView,
 } from "~/lib/annotations/types";
-import { findBlock } from "../proposals/proposalTransaction";
-import { blockText } from "./blockText";
+import { passageAt, resolvePassage, type Range } from "./passage";
 
-// Draws passage annotations as colored highlights. A highlight follows edits
-// through the transaction mapping. Deleting the passage loses it; a remote
-// version makes the plugin look for the quoted text again.
+// Draws passage annotations as colored highlights; a passage may span
+// blocks. A highlight follows edits through the transaction mapping.
+// Deleting the passage loses it; a remote version makes the plugin look for
+// the quoted text again.
 
-export type Range = { from: number; to: number };
+export type { Range };
 
 type State = {
   annotations: AnnotationView[];
@@ -34,16 +33,6 @@ export type AnnotationLayerInput = {
 
 export const annotationKey = new PluginKey<State>("vnAnnotations");
 const SET_META = "vnSetAnnotations";
-
-function resolve(doc: PMNode, annotation: AnnotationView): Range | null {
-  if (!annotation.blockId || !annotation.quote || annotation.detached) return null;
-  const block = findBlock(doc, annotation.blockId);
-  if (!block || !block.node.isTextblock) return null;
-  const text = blockText(block.node, block.pos);
-  const start = locateQuote(text.text, annotation.quote, annotation.quoteStart);
-  if (start === null) return null;
-  return { from: text.posAt(start), to: text.posAt(start + annotation.quote.length) };
-}
 
 function decorate(doc: PMNode, state: Omit<State, "decorations">): DecorationSet {
   const decorations: Decoration[] = [];
@@ -89,9 +78,7 @@ export function createAnnotationPlugin(handlers: { select: (id: string) => void 
           if (old && tr.docChanged) {
             const from = tr.mapping.map(old.from, 1);
             const to = tr.mapping.map(old.to, -1);
-            if (to > from && next.doc.resolve(from).parent === next.doc.resolve(to).parent) {
-              range = { from, to };
-            }
+            if (to > from) range = { from, to };
           } else if (old && before.get(annotation.id)?.updatedAt === annotation.updatedAt) {
             // Unchanged on the server: keep the live range, which may be ahead
             // of the stored anchor until the next save.
@@ -102,7 +89,7 @@ export function createAnnotationPlugin(handlers: { select: (id: string) => void 
           // for the quote again before giving up.
           const remote = tr.getMeta("preventUpdate") === true;
           if (!range && (!old || !tr.docChanged || remote)) {
-            range = resolve(next.doc, annotation);
+            range = resolvePassage(next.doc, annotation);
           }
           if (range) {
             ranges.set(annotation.id, range);
@@ -128,7 +115,9 @@ export function createAnnotationPlugin(handlers: { select: (id: string) => void 
         if (!state) return false;
         for (const [id, range] of state.ranges) {
           if (pos >= range.from && pos <= range.to) {
-            handlers.select(id);
+            // Redrawing the highlight during the click would drop the caret
+            // the click just placed, so mark it active once the click is done.
+            setTimeout(() => handlers.select(id), 0);
             break;
           }
         }
@@ -155,20 +144,25 @@ export function anchorChanges(state: EditorState): AnchorUpdate[] {
     if (!annotation.blockId) continue;
     const range = plugin.ranges.get(annotation.id);
     if (range) {
-      const $from = state.doc.resolve(range.from);
-      const block = $from.parent;
-      const blockId = block.attrs?.id;
-      if (typeof blockId !== "string") continue;
-      const text = blockText(block, $from.before());
-      const quote = text.text.slice(text.offsetAt(range.from), text.offsetAt(range.to));
-      const quoteStart = text.offsetAt(range.from);
+      const now = passageAt(state.doc, range.from, range.to);
+      if (!now) continue;
       if (
-        blockId !== annotation.blockId ||
-        quote !== annotation.quote ||
-        quoteStart !== annotation.quoteStart ||
+        now.blockId !== annotation.blockId ||
+        now.quote !== annotation.quote ||
+        now.quoteStart !== annotation.quoteStart ||
+        now.endBlockId !== annotation.endBlockId ||
+        now.endOffset !== annotation.endOffset ||
         annotation.detached
       ) {
-        updates.push({ id: annotation.id, blockId, quote, quoteStart, detached: false });
+        updates.push({
+          id: annotation.id,
+          blockId: now.blockId,
+          quote: now.quote,
+          quoteStart: now.quoteStart,
+          endBlockId: now.endBlockId,
+          endOffset: now.endOffset,
+          detached: false,
+        });
       }
     } else if (plugin.lost.has(annotation.id) && !annotation.detached) {
       updates.push({
@@ -176,6 +170,8 @@ export function anchorChanges(state: EditorState): AnchorUpdate[] {
         blockId: annotation.blockId,
         quote: annotation.quote ?? "",
         quoteStart: annotation.quoteStart ?? 0,
+        endBlockId: annotation.endBlockId,
+        endOffset: annotation.endOffset,
         detached: true,
       });
     }
@@ -183,18 +179,9 @@ export function anchorChanges(state: EditorState): AnchorUpdate[] {
   return updates;
 }
 
-/** The passage under the selection, when it sits inside one block with an id. */
+/** The passage under the selection, across as many blocks as it covers. */
 export function selectionPassage(state: EditorState) {
   const { from, to, empty } = state.selection;
   if (empty) return null;
-  const $from = state.doc.resolve(from);
-  const $to = state.doc.resolve(to);
-  if ($from.parent !== $to.parent || !$from.parent.isTextblock) return null;
-  const blockId = $from.parent.attrs?.id;
-  if (typeof blockId !== "string" || !blockId) return null;
-  const text = blockText($from.parent, $from.before());
-  const quoteStart = text.offsetAt(from);
-  const quote = text.text.slice(quoteStart, text.offsetAt(to));
-  if (!quote.trim()) return null;
-  return { blockId, quote, quoteStart, from, to };
+  return passageAt(state.doc, from, to);
 }

@@ -69,7 +69,14 @@ export async function readAgentInbox(input: { since?: Date; links: InboxLinks })
             appUrl: input.links.note(r.doc.id) + (r.blockId ? `#b-${r.blockId}` : ""),
           }
         : {}),
-      ...(r.blockId ? { blockId: r.blockId, passage: r.quote, passageRemoved: r.detachedAt !== null } : {}),
+      ...(r.blockId
+        ? {
+            blockId: r.blockId,
+            ...(r.endBlockId ? { endBlockId: r.endBlockId } : {}),
+            passage: r.quote,
+            passageRemoved: r.detachedAt !== null,
+          }
+        : {}),
       ...(r.task
         ? {
             taskId: r.task.id,

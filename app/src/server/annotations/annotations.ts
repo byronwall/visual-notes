@@ -14,7 +14,7 @@ import { AnnotationError } from "./errors";
 
 export const BODY_MAX = 4_000;
 export const withMessages = { messages: { orderBy: { createdAt: "asc" as const } } };
-const QUOTE_MAX = 1_000;
+const QUOTE_MAX = 4_000;
 
 type AnnotationRow = {
   id: string;
@@ -29,6 +29,8 @@ type AnnotationRow = {
   blockId: string | null;
   quote: string | null;
   quoteStart: number | null;
+  endBlockId: string | null;
+  endOffset: number | null;
   detachedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -52,10 +54,18 @@ export const toAnnotationView = (row: AnnotationRow): AnnotationView => ({
   blockId: row.blockId,
   quote: row.quote,
   quoteStart: row.quoteStart,
+  endBlockId: row.endBlockId,
+  endOffset: row.endOffset,
   detached: row.detachedAt !== null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
+
+/** A passage that ends in its own block stores no end. */
+const spanEnd = (blockId: string | null, endBlockId: string | null, endOffset: number | null) =>
+  endBlockId && endBlockId !== blockId
+    ? { endBlockId, endOffset: endOffset ?? 0 }
+    : { endBlockId: null, endOffset: null };
 
 export async function listNoteAnnotations(docId: string): Promise<AnnotationView[]> {
   const rows = await prisma.annotation.findMany({
@@ -75,6 +85,8 @@ export async function createAnnotation(input: {
   blockId?: string | null;
   quote?: string | null;
   quoteStart?: number | null;
+  endBlockId?: string | null;
+  endOffset?: number | null;
   context?: LogActionEventInput["context"];
 }): Promise<AnnotationView> {
   const target = await loadTarget(input);
@@ -94,6 +106,7 @@ export async function createAnnotation(input: {
       blockId: input.blockId ?? null,
       quote,
       quoteStart: input.blockId ? (input.quoteStart ?? 0) : null,
+      ...spanEnd(input.blockId ?? null, input.endBlockId ?? null, input.endOffset ?? null),
       status: type.forAi ? "open" : null,
       lastAgentAt: author === "you" ? null : new Date(),
     },
@@ -186,6 +199,7 @@ export async function saveAnchors(docId: string, updates: AnchorUpdate[]): Promi
           blockId: update.blockId,
           quote: update.quote.slice(0, QUOTE_MAX),
           quoteStart: update.quoteStart,
+          ...spanEnd(update.blockId, update.endBlockId, update.endOffset),
           detachedAt: update.detached ? now : null,
         },
       }),

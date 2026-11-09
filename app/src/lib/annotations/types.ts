@@ -58,6 +58,9 @@ export type AnnotationView = {
   blockId: string | null;
   quote: string | null;
   quoteStart: number | null;
+  /** Set when the passage ends in another block. */
+  endBlockId: string | null;
+  endOffset: number | null;
   detached: boolean;
   createdAt: string;
   updatedAt: string;
@@ -69,5 +72,7 @@ export type AnchorUpdate = {
   blockId: string;
   quote: string;
   quoteStart: number;
+  endBlockId: string | null;
+  endOffset: number | null;
   detached: boolean;
 };

@@ -34,6 +34,8 @@ export const createNoteAnnotation = action(
     blockId?: string | null;
     quote?: string | null;
     quoteStart?: number | null;
+    endBlockId?: string | null;
+    endOffset?: number | null;
   }) => {
     "use server";
     const input = z
@@ -42,8 +44,10 @@ export const createNoteAnnotation = action(
         typeId: id.optional(),
         body: z.string().max(4000).optional(),
         blockId: id.nullable().optional(),
-        quote: z.string().max(1000).nullable().optional(),
+        quote: z.string().max(4000).nullable().optional(),
         quoteStart: z.number().int().min(0).nullable().optional(),
+        endBlockId: id.nullable().optional(),
+        endOffset: z.number().int().min(0).nullable().optional(),
       })
       .parse(payload);
     const { createAnnotation } = await import("~/server/annotations/annotations");
@@ -81,8 +85,10 @@ export const saveAnnotationAnchors = action(
           z.object({
             id,
             blockId: id,
-            quote: z.string().max(1000),
+            quote: z.string().max(4000),
             quoteStart: z.number().int().min(0),
+            endBlockId: id.nullable(),
+            endOffset: z.number().int().min(0).nullable(),
             detached: z.boolean(),
           }),
         ),

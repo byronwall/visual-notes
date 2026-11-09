@@ -49,7 +49,7 @@ describe.skipIf(!enabled)("annotations (database)", () => {
     const types = await listAnnotationTypes();
     expect(created.typeId).toBe(types.find((t) => t.isDefault)!.id);
 
-    await saveAnchors(doc.id, [{ id: created.id, blockId: "p1", quote: "cat", quoteStart: 4, detached: true }]);
+    await saveAnchors(doc.id, [{ id: created.id, blockId: "p1", quote: "cat", quoteStart: 4, endBlockId: null, endOffset: null, detached: true }]);
     expect((await listNoteAnnotations(doc.id))[0].detached).toBe(true);
   });
 

@@ -108,7 +108,8 @@ async function inboxStep() {
       const annotated = await agent("notes_annotate", {
         noteId,
         blockId: request.blockId,
-        quote: request.passage,
+        // A passage across blocks: point at its first line.
+        quote: String(request.passage).split("\n")[0],
         requestId: request.id,
         comment: "Still true for most 2025 cold-climate models: they keep 70-80% at 5°F, per the NEEP list.",
       });

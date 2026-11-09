@@ -5,7 +5,7 @@ The agent inbox lets you leave work for MCP agents while you read, and see what 
 ## What the user does
 
 - **Note to AI.** Use the button in the note header (next to the microphone), or the **Note to AI** button in the task editor and the task sheet. It adds a request on the whole note or task, with the built-in **Request** type.
-- **Highlights.** Select text in one block and click **Annotate**. Then pick a type and write a comment. The highlight is drawn over the text. The rail left of the note lists the annotations in note order. A narrow window gets an **N annotations** button that opens the list as a sheet.
+- **Highlights.** Select text and click **Annotate**, or press ⌘⌥M (Ctrl+Alt+M). Then pick a type and write a comment. A selection may span paragraphs and list items; it becomes one annotation drawn over the whole range. The rail left of the note lists the annotations in note order. A narrow window gets an **N annotations** button that opens the list as a sheet. Escape or a click outside closes the form.
 - **Types.** **Types** (in the rail or the composer) manages types: a name, a color (`amber`, `green`, `blue`, `red`, or `gray`), a **For AI** flag, and the default. **Note** (the default), **Request** (For AI), and **From AI** (agent-written) always exist. Request and From AI cannot be deleted. Deleting another type moves its annotations to the default.
 - **Suggested edits.** An agent's proposed edit shows inline: the old block is struck through, and a card holds the new blocks with **Accept** and **Reject**. **Accept** applies the edit in the open editor, so autosave writes it as your edit.
 - **Inbox.** `/inbox` and the sidebar **Inbox** count. See [Inbox page](#inbox-page).
@@ -39,7 +39,7 @@ open → claimed (an agent took it) → ready (the agent is done) → closed (on
 
 ## Anchoring
 
-A passage is stored as the block id plus the quoted text and where it started (`quoteStart`). Text counts only text nodes, joined (`blockText` in the editor, `nodeText` on the server).
+A passage is stored as its start block and offset (`blockId`, `quoteStart`), its end block and offset when it ends in another block (`endBlockId`, `endOffset`), and the quoted text: each block's part joined by newlines. Text counts only text nodes, joined (`blockText` in the editor, `nodeText` on the server). `components/editor/annotations/passage.ts` builds a passage from a range and finds it again; when the text between the stored offsets changed, it looks up the first and last lines near them.
 
 - In the editor, `annotationPlugin.ts` maps each highlight through every transaction, so typing elsewhere or inside the passage keeps it in place.
 - A typed edit that deletes the passage loses it. A remote version (applied with `preventUpdate`) makes the plugin look for the quote in the block again.
