@@ -17,10 +17,10 @@ export function Graph() {
   // Hover peek: below full detail, show the hovered card's full text at screen size.
   const Peek = () => {
     const info = createMemo(() => {
-      const id = hover();
+      const id = peekId();
       const l = layout();
       const v = view();
-      if (!id || !l || v.k >= 0.9 || panning()) return null;
+      if (!id || !l || v.k >= 0.9 || panning() || moving()) return null;
       const n = map()?.nodes.find((x) => x.id === id);
       const b = l.boxes.get(id);
       if (!n || !b) return null;
@@ -84,6 +84,18 @@ export function Graph() {
     });
   };
   const degree = createMemo(() => (map() ? inDegree(map()!) : new Map<string, number>()));
+  // The peek waits until the pointer rests on a card and the view is still,
+  // so it does not flicker in and out while zooming or panning.
+  const [peekId, setPeekId] = createSignal<string | null>(null);
+  let peekTimer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(() => {
+    const id = hover();
+    const still = !moving() && !panning();
+    clearTimeout(peekTimer);
+    setPeekId(null);
+    if (id && still) peekTimer = setTimeout(() => setPeekId(id), 350);
+  });
+  onCleanup(() => clearTimeout(peekTimer));
   const focus = createMemo(() => {
     const m = map();
     const id = (panning() ? null : hover()) ?? selected();
