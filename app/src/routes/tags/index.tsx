@@ -1,9 +1,10 @@
 import { A } from "@solidjs/router";
-import { For, Show, createResource } from "solid-js";
+import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { Text } from "~/components/ui/text";
 import { ViewPageShell } from "~/components/views/ViewPageShell";
 import { fetchTags } from "~/services/note-views.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const chipClass = css({
   display: "inline-flex",
@@ -21,7 +22,8 @@ const chipClass = css({
 });
 
 export default function TagsIndexRoute() {
-  const [tags] = createResource(() => fetchTags());
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const tags = createKeptAsync(() => fetchTags());
   const list = () => tags.latest ?? [];
   return (
     <ViewPageShell

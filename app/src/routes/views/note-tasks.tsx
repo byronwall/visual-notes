@@ -1,9 +1,10 @@
 import { A } from "@solidjs/router";
-import { Show, createResource } from "solid-js";
+import { Show } from "solid-js";
 import { css } from "styled-system/css";
 import { NoteGroupList, rowLinkClass } from "~/components/views/NoteGroupList";
 import { ViewPageShell } from "~/components/views/ViewPageShell";
 import { fetchOpenNoteTasks } from "~/services/note-views.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const boxClass = css({
   mt: "0.2em",
@@ -16,7 +17,8 @@ const boxClass = css({
 });
 
 export default function OpenNoteTasksRoute() {
-  const [groups] = createResource(() => fetchOpenNoteTasks());
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const groups = createKeptAsync(() => fetchOpenNoteTasks());
   const count = () =>
     (groups.latest ?? []).reduce((sum, g) => sum + g.items.length, 0);
   return (
@@ -24,8 +26,8 @@ export default function OpenNoteTasksRoute() {
       title="Open tasks in notes"
       subtitle={
         <>
-          {count()} open {count() === 1 ? "task" : "tasks"} written inline in notes · they also
-          live in your <A href="/tasks">Inbox list</A>
+          {count()} open {count() === 1 ? "task" : "tasks"} written inline in
+          notes · they also live in your <A href="/tasks">Inbox list</A>
         </>
       }
     >
@@ -38,9 +40,17 @@ export default function OpenNoteTasksRoute() {
             class={rowLinkClass}
           >
             <span class={boxClass} aria-hidden="true" />
-            <span class={css({ flex: "1", minW: "0" })}>{task.description}</span>
+            <span class={css({ flex: "1", minW: "0" })}>
+              {task.description}
+            </span>
             <Show when={task.dueDate}>
-              <span class={css({ fontSize: "xs", color: "fg.muted", flexShrink: "0" })}>
+              <span
+                class={css({
+                  fontSize: "xs",
+                  color: "fg.muted",
+                  flexShrink: "0",
+                })}
+              >
                 {task.dueDate}
               </span>
             </Show>

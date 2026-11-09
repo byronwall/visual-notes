@@ -1,19 +1,31 @@
 import { Meta, Title } from "@solidjs/meta";
-import { Show, Suspense, createResource } from "solid-js";
+import { Show, Suspense } from "solid-js";
 import { Box, Container } from "styled-system/jsx";
 import { CollectionsIndex } from "~/components/collections/CollectionsIndex";
 import { Skeleton } from "~/components/ui/skeleton";
 import { fetchCollections } from "~/services/collections/collections.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 export default function CollectionsRoute() {
-  const [items] = createResource(() => fetchCollections());
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const items = createKeptAsync(() => fetchCollections());
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Title>Collections • Visual Notes</Title>
-      <Meta name="description" content="Typed collections of notes, as tables, boards, galleries, and calendars." />
-      <Container maxW="6xl" pt={{ base: "4", md: "6" }} pb="24" px={{ base: "4", md: "8" }}>
+      <Meta
+        name="description"
+        content="Typed collections of notes, as tables, boards, galleries, and calendars."
+      />
+      <Container
+        maxW="6xl"
+        pt={{ base: "4", md: "6" }}
+        pb="24"
+        px={{ base: "4", md: "8" }}
+      >
         <Suspense fallback={<Skeleton h="9" w="12rem" />}>
-          <Show when={items.latest}>{(list) => <CollectionsIndex items={list()} />}</Show>
+          <Show when={items.latest}>
+            {(list) => <CollectionsIndex items={list()} />}
+          </Show>
         </Suspense>
       </Container>
     </Box>

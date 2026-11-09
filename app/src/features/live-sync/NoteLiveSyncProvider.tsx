@@ -1,4 +1,3 @@
-import { revalidate } from "@solidjs/router";
 import {
   createContext,
   onCleanup,
@@ -16,12 +15,15 @@ import {
   type NotesChangedEvent,
 } from "~/lib/note-events";
 import { createSocketClient, type SocketStatus } from "~/lib/socket-client";
+import { forgetQuery } from "./forget-query";
 import {
   APP_LIVE_QUERY_KEYS,
   NOTE_LIVE_DEBOUNCE_MS,
+  NOTE_LIVE_MAX_WAIT_MS,
   NOTE_LIVE_QUERY_KEYS,
   NOTE_LIVE_STALE_AFTER_HIDDEN_MS,
 } from "./note-live-keys";
+import { createRefreshBatcher } from "./refresh-batcher";
 
 type NotesChangedListener = (event: NotesChangedEvent) => void;
 type AppChangedListener = (event: AppChangedEvent) => void;
@@ -38,8 +40,6 @@ const NoteLiveSyncContext = createContext<NoteLiveSyncContextValue>();
 export const NoteLiveSyncProvider: ParentComponent = (props) => {
   const listeners = new Set<NotesChangedListener>();
   const appListeners = new Set<AppChangedListener>();
-  const pendingKeys = new Set<string>();
-  let refreshTimer: number | undefined;
 
   const emit = (event: NotesChangedEvent) => {
     for (const listener of listeners) {
@@ -51,16 +51,18 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
     }
   };
 
-  const scheduleRefresh = (keys: readonly string[]) => {
-    for (const key of keys) pendingKeys.add(key);
-    window.clearTimeout(refreshTimer);
-    refreshTimer = window.setTimeout(() => {
-      const due = [...pendingKeys];
-      pendingKeys.clear();
-      console.debug("[note-live] revalidating queries", { keys: due });
-      void revalidate(due);
-    }, NOTE_LIVE_DEBOUNCE_MS);
-  };
+  // forgetQuery, not plain revalidate: a query first read after this event
+  // (a menu opened later, a lazily mounted panel) would otherwise get the
+  // server-rendered payload, which no longer lists the new note.
+  const batcher = createRefreshBatcher({
+    debounceMs: NOTE_LIVE_DEBOUNCE_MS,
+    maxWaitMs: NOTE_LIVE_MAX_WAIT_MS,
+    flush: (keys) => {
+      console.debug("[note-live] revalidating queries", { keys });
+      void forgetQuery(keys);
+    },
+  });
+  const scheduleRefresh = (keys: readonly string[]) => batcher.add(keys);
   const scheduleListRefresh = () => scheduleRefresh(NOTE_LIVE_QUERY_KEYS);
 
   const handleAppChanged = (event: AppChangedEvent) => {
@@ -146,7 +148,7 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
     document.addEventListener("visibilitychange", handleVisibility);
     onCleanup(() => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.clearTimeout(refreshTimer);
+      batcher.cancel();
       client.close();
     });
   });

@@ -1,9 +1,9 @@
 import { A, useParams } from "@solidjs/router";
-import { createResource } from "solid-js";
 import { css } from "styled-system/css";
 import { NoteGroupList, rowLinkClass } from "~/components/views/NoteGroupList";
 import { ViewPageShell } from "~/components/views/ViewPageShell";
 import { fetchTagBlocks } from "~/services/note-views.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const textClass = css({
   flex: "1",
@@ -15,7 +15,10 @@ const textClass = css({
 export default function TagRoute() {
   const params = useParams();
   const tag = () => decodeURIComponent(params.tag ?? "").toLowerCase();
-  const [groups] = createResource(tag, fetchTagBlocks);
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const groups = createKeptAsync(async () =>
+    tag() ? fetchTagBlocks(tag()) : [],
+  );
   const count = () =>
     (groups.latest ?? []).reduce((sum, g) => sum + g.items.length, 0);
 
@@ -33,7 +36,10 @@ export default function TagRoute() {
         groups={groups.latest ?? []}
         empty="No blocks carry this tag."
         renderItem={(block) => (
-          <A href={`/docs/${block.docId}#b-${block.blockId}`} class={rowLinkClass}>
+          <A
+            href={`/docs/${block.docId}#b-${block.blockId}`}
+            class={rowLinkClass}
+          >
             <span class={textClass}>{block.text || "(empty block)"}</span>
           </A>
         )}
