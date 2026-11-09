@@ -76,27 +76,49 @@ export async function exportPlanTasks(
   const picked = p.plan.tasks.filter(
     (t) => planTaskIds.includes(t.id) && !t.taskId,
   );
-  const made: { planTaskId: string; taskId: string; nodeIds: string[] }[] = [];
-  for (const t of picked) {
-    const created = await tasks.createTask({
-      listId: target,
-      description: t.title,
-      durationMinutes: t.minutes,
-      meta: {
-        "pathway.why": t.why.slice(0, 4000),
-        "pathway.doneWhen": t.doneWhen.slice(0, 4000),
-      },
+  // One export at a time per pathway. A step that already has a link (from
+  // an export running at the same time, or one kept through an undo) gets
+  // that task back instead of a second one.
+  const made = await prisma.$transaction(async (tx) => {
+    await store.lockPathway(tx, pathwayId);
+    const links = await tx.pathwayTaskLink.findMany({
+      where: { pathwayId, planTaskId: { in: picked.map((t) => t.id) } },
+      select: { planTaskId: true, taskId: true },
     });
-    await prisma.pathwayTaskLink.create({
-      data: {
-        pathwayId,
-        taskId: created.id,
-        nodeIds: t.nodeIds,
-        planTaskId: t.id,
-      },
+    const out = links.map((l) => ({
+      planTaskId: l.planTaskId!,
+      taskId: l.taskId,
+    }));
+    let order = await tx.taskItem.count({
+      where: { listId: target, parentTaskId: null },
     });
-    made.push({ planTaskId: t.id, taskId: created.id, nodeIds: t.nodeIds });
-  }
+    for (const t of picked) {
+      if (out.some((m) => m.planTaskId === t.id)) continue;
+      const created = await tx.taskItem.create({
+        data: {
+          listId: target,
+          description: t.title.trim(),
+          durationMinutes: t.minutes,
+          meta: {
+            "pathway.why": t.why.trim().slice(0, 4000),
+            "pathway.doneWhen": t.doneWhen.trim().slice(0, 4000),
+          },
+          sortOrder: order++,
+        },
+        select: { id: true },
+      });
+      await tx.pathwayTaskLink.create({
+        data: {
+          pathwayId,
+          taskId: created.id,
+          nodeIds: t.nodeIds,
+          planTaskId: t.id,
+        },
+      });
+      out.push({ planTaskId: t.id, taskId: created.id });
+    }
+    return out;
+  });
   const { record } = await store.writePathway(
     pathwayId,
     "you: export to tasks",
@@ -149,14 +171,36 @@ export async function updatePlanTask(
 /**
  * Sets an exported step's real task to match a status set on the map. A task
  * that already reads as that status keeps its own (started stays started).
+ * With `from`, only a task that still reads as `from` changes.
  */
-export async function mirrorStatus(taskId: string, status: PlanTask["status"]) {
+export async function mirrorStatus(
+  taskId: string,
+  status: PlanTask["status"],
+  from?: PlanTask["status"],
+) {
   const real = await prisma.taskItem.findUnique({
     where: { id: taskId },
     select: { status: true },
   });
   if (!real || fromTask(real.status) === status) return;
+  if (from && fromTask(real.status) !== from) return;
   await tasks.updateTask({ id: taskId, status: toTask(status) });
+}
+
+/**
+ * Undo that takes exported steps' tasks along. When the undone write changed
+ * a step's status, its task goes back too, unless the task was changed on
+ * the Tasks page since: then the task keeps the person's status.
+ */
+export async function undoWithTasks(pathwayId: string) {
+  const r = await store.undoPathway(pathwayId);
+  if (!r) return null;
+  for (const t of r.record.plan?.tasks ?? []) {
+    const was = r.before?.tasks.find((x) => x.id === t.id)?.status;
+    if (t.taskId && was && was !== t.status)
+      await mirrorStatus(t.taskId, t.status, was);
+  }
+  return r;
 }
 
 /** Pathways that a task belongs to, for links on task rows. */

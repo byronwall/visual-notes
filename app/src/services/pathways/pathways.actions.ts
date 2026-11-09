@@ -6,6 +6,7 @@ import type { PathwayAgentAction } from "~/server/pathways/agent-prompts";
 import * as store from "~/server/pathways/pathway-store";
 import {
   exportPlanTasks,
+  undoWithTasks,
   updatePlanTask,
   withLinkedStatus,
 } from "~/server/pathways/pathway-tasks";
@@ -146,7 +147,7 @@ export async function setPathwayContext(input: {
 
 export async function undoPathwayFn(pathwayId: string) {
   "use server";
-  const r = await store.undoPathway(id.parse(pathwayId));
+  const r = await undoWithTasks(id.parse(pathwayId));
   return r ? withLinkedStatus(r.record) : null;
 }
 

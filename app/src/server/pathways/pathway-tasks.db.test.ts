@@ -112,4 +112,73 @@ describe.skipIf(!enabled)("pathway tasks (database)", () => {
     expect(redone).toBeTruthy();
     expect(redone).not.toBe(task.id);
   });
+
+  it("never exports a step twice, through undo or at the same time", async () => {
+    const graph = emptyGraph("Which bike?");
+    const p = await store.createPathway({
+      title: "Which bike?",
+      graph,
+      plan: replacePlan(graph, null, "", [
+        { title: "Test ride", why: "", doneWhen: "", minutes: 60, nodeIds: [] },
+        {
+          title: "Check racks",
+          why: "",
+          doneWhen: "",
+          minutes: 10,
+          nodeIds: [],
+        },
+      ]),
+    });
+    const [first, second] = p.plan!.tasks;
+    const count = (planTaskId: string) =>
+      prisma().pathwayTaskLink.count({
+        where: { pathwayId: p.id, planTaskId },
+      });
+    try {
+      // Two exports at once make one task.
+      await Promise.all([
+        links.exportPlanTasks(p.id, [first.id], listId),
+        links.exportPlanTasks(p.id, [first.id], listId),
+      ]);
+      expect(await count(first.id)).toBe(1);
+
+      // Undo of the export keeps the link, so exporting again reuses it.
+      const [link] = await prisma().pathwayTaskLink.findMany({
+        where: { pathwayId: p.id },
+      });
+      await links.undoWithTasks(p.id);
+      const view = await links.withLinkedStatus(
+        (await store.getPathway(p.id))!,
+      );
+      expect(view.plan!.tasks.find((t) => t.id === first.id)!.taskId).toBe(
+        link.taskId,
+      );
+      await links.exportPlanTasks(p.id, [first.id, second.id], listId);
+      expect(await count(first.id)).toBe(1);
+      expect(await count(second.id)).toBe(1);
+
+      // Undo of a check-off reopens the real task.
+      await links.updatePlanTask(p.id, first.id, { status: "done" });
+      const status = async () =>
+        (
+          await prisma().taskItem.findUniqueOrThrow({
+            where: { id: link.taskId },
+          })
+        ).status;
+      expect(await status()).toBe("complete");
+      await links.undoWithTasks(p.id);
+      expect(await status()).toBe("waiting");
+
+      // A task changed on the Tasks page after the check-off keeps its status.
+      await links.updatePlanTask(p.id, first.id, { status: "done" });
+      await prisma().taskItem.update({
+        where: { id: link.taskId },
+        data: { status: "cancelled" },
+      });
+      await links.undoWithTasks(p.id);
+      expect(await status()).toBe("cancelled");
+    } finally {
+      await prisma().pathway.delete({ where: { id: p.id } });
+    }
+  });
 });

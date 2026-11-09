@@ -11,6 +11,7 @@ import { logActionEvent } from "~/server/events/action-events";
 import * as store from "~/server/pathways/pathway-store";
 import {
   mirrorStatus,
+  undoWithTasks,
   withLinkedStatus,
 } from "~/server/pathways/pathway-tasks";
 import {
@@ -564,7 +565,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
       input: { id: z.string().min(1) },
     },
     async ({ id }) => {
-      const r = await store.undoPathway(id);
+      const r = await undoWithTasks(id);
       if (!r) throw new ConnectorError("invalid", "Nothing to undo");
       await log("pathway.undone", id, { label: r.label });
       return { undid: r.label, appUrl: appLink(ctx, `/pathways/${id}`) };
