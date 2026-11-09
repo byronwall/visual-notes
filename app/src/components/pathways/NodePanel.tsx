@@ -8,6 +8,7 @@ import type {
 } from "~/lib/pathways/types";
 import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
+import { Markdown } from "./Markdown";
 import { usePathway, type PathwayState } from "./pathway-state";
 import {
   cardLink,
@@ -80,15 +81,12 @@ const select = css({
   color: "fg.default",
 });
 const wrap = css({ display: "flex", flexWrap: "wrap", gap: "1.5" });
-const findings = css({
-  whiteSpace: "pre-wrap",
+const sources = css({
+  display: "flex",
+  flexWrap: "wrap",
+  columnGap: "3",
+  rowGap: "1",
   fontSize: "xs",
-  lineHeight: "1.5",
-  p: "2",
-  borderWidth: "1px",
-  borderColor: "border",
-  borderRadius: "md",
-  bg: "bg.subtle",
 });
 
 export function NodePanel(props: { n: PathwayNode }) {
@@ -218,7 +216,7 @@ export function NodePanel(props: { n: PathwayNode }) {
           key={`${n().id}:steer`}
           value={s.steer()}
           delay={0}
-          placeholder="Steer it (optional): “I have 2 weeks”, “cheap only”…"
+          placeholder="Steer (optional): “2 weeks”, “cheap only”…"
           onSave={(v) => s.setSteer(v)}
           onSubmit={(v) => {
             s.setSteer(v);
@@ -333,6 +331,7 @@ function ResearchSection(props: { n: PathwayNode }) {
         fallback={
           <button
             class={smallButton}
+            style={{ "align-self": "flex-start" }}
             onClick={() =>
               s.setResearch(id(), {
                 question: `What do I need to know to act on: ${props.n.title}?`,
@@ -394,24 +393,25 @@ function ResearchSection(props: { n: PathwayNode }) {
           </button>
         </div>
         <Show when={r()!.findings}>
-          <div class={findings}>{r()!.findings}</div>
+          <Markdown text={r()!.findings!} />
           <Show when={r()!.sources?.length}>
-            <ul class={linkList}>
+            <div class={sources}>
+              <span class={help}>Sources</span>
               <For each={r()!.sources}>
                 {(src) => (
-                  <li>
-                    <a
-                      class={cardLink}
-                      href={src.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {src.title || src.url}
-                    </a>
-                  </li>
+                  <a
+                    class={cardLink}
+                    style={{ "max-width": "100%" }}
+                    href={src.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={src.url}
+                  >
+                    {src.title || hostOf(src.url)}
+                  </a>
                 )}
               </For>
-            </ul>
+            </div>
           </Show>
           <p class={help}>
             From {r()!.by ?? "research"}. The agent reads these findings.
@@ -421,6 +421,14 @@ function ResearchSection(props: { n: PathwayNode }) {
     </div>
   );
 }
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
 
 export function EdgeList(props: {
   ids: string[];

@@ -44,6 +44,8 @@ export function AutoText(props: {
   delay?: number;
   onSubmit?: (value: string) => void;
   autofocus?: boolean;
+  /** After the field saves on blur. */
+  onBlur?: () => void;
   /** Each change focuses the field and selects its text. */
   focusTick?: number;
   ref?: (el: HTMLTextAreaElement) => void;
@@ -148,7 +150,10 @@ export function AutoText(props: {
         if (props.delay === 0) flush();
         else timer = setTimeout(flush, props.delay ?? 500);
       }}
-      onBlur={flush}
+      onBlur={() => {
+        flush();
+        props.onBlur?.();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.preventDefault();
