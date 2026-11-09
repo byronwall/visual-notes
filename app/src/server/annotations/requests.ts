@@ -29,7 +29,18 @@ async function loadRequest(id: string) {
   return row;
 }
 
-const logRequest = (
+/** The note title or task text, so the activity line names the place. */
+async function titleOf(row: { docId: string | null; taskId: string | null }) {
+  if (row.taskId) {
+    const task = await prisma.taskItem.findUnique({ where: { id: row.taskId }, select: { description: true } });
+    return task?.description ?? null;
+  }
+  if (!row.docId) return null;
+  const doc = await prisma.doc.findUnique({ where: { id: row.docId }, select: { title: true } });
+  return doc?.title ?? null;
+}
+
+const logRequest = async (
   eventType: string,
   row: { id: string; docId: string | null; taskId: string | null },
   payload: Record<string, string | boolean | null>,
@@ -40,7 +51,7 @@ const logRequest = (
     entityType: row.taskId ? "task" : "doc",
     entityId: row.taskId ?? row.docId,
     relatedDocId: row.docId,
-    payload: { annotationId: row.id, ...payload },
+    payload: { annotationId: row.id, title: await titleOf(row), ...payload },
     context,
   });
 

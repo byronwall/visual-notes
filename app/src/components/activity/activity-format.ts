@@ -71,6 +71,8 @@ export const activityDomainOf = (eventType: string): ActivityDomain => {
   if (domain === "archive") return "archive";
   if (domain === "event") return "event";
   if (domain === "mcp") return "mcp";
+  // Annotations, requests, and suggested edits sit on notes.
+  if (domain === "annotation") return "doc";
   if (
     domain === "doc" ||
     domain === "research" ||
@@ -366,6 +368,31 @@ const describeMcpCall = (
   };
 };
 
+const ANNOTATION_VERBS: Record<string, string> = {
+  "annotation.create": "Annotated",
+  "annotation.request": "Sent a note to AI on",
+  "annotation.request_claimed": "Took a request on",
+  "annotation.reply": "Replied on",
+  "annotation.request_ready": "Finished a request on",
+  "annotation.request_closed": "Closed a request on",
+  "annotation.propose": "Suggested edits to",
+  "annotation.proposal_accepted": "Accepted suggested edits in",
+  "annotation.proposal_rejected": "Rejected suggested edits in",
+};
+
+const describeAnnotation = (
+  event: ActionEventItem,
+  base: ActivityDescription,
+): ActivityDescription => {
+  const body = str(event.payload, "body");
+  const passage = str(event.payload, "quote");
+  return {
+    ...base,
+    verb: ANNOTATION_VERBS[event.eventType] ?? base.verb,
+    detail: body ? quote(body) : passage ? quote(passage) : null,
+  };
+};
+
 export const describeActivityEvent = (
   event: ActionEventItem,
 ): ActivityDescription => {
@@ -392,6 +419,8 @@ export const describeActivityEvent = (
   if (domain === "archive") return describeArchive(event, base);
   if (domain === "event") return describeEvent(event, base);
   if (domain === "mcp") return describeMcpCall(event, base);
+
+  if (event.eventType.startsWith("annotation.")) return describeAnnotation(event, base);
 
   switch (event.eventType) {
     case "doc.view":

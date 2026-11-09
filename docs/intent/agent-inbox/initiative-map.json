@@ -4,11 +4,11 @@
     "title": "Agent inbox: notes to AI, annotations, and replies",
     "slug": "agent-inbox",
     "scale": "capability",
-    "current_phase": "plan",
+    "current_phase": "execution",
     "last_updated": "2026-11-08",
     "summary": "Let Byron leave requests and text annotations on notes for polling MCP agents, let agents annotate and reply, and show the whole back-and-forth in one central inbox.",
-    "status": "planned",
-    "next_action": "Start m1: notes_propose_edits plus inline accept in the editor."
+    "status": "active",
+    "next_action": "Byron: review stack #300-#304 and layer 5, merge, deploy, then run the live scheduled-task check in app/docs/agent-inbox.md."
   },
   "artifacts": {
     "intent_brief": {
@@ -606,8 +606,10 @@
         "proof": "Vitest on proposalToTransaction; db test for notes_propose_edits; Playwright one-off accepting while typing in another block.",
         "valid_intermediate_state": "Agents can propose; suggestions visible in notes; no inbox yet.",
         "rollback": "AGENT_INBOX=off hides tool and decorations; tables stay.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #300; tmp/inbox-l1.mjs accept while typing kept text through autosave; proposalTransaction.test.ts, proposals.db.test.ts. First-proof decision: editor-side accept holds; no fallback needed."
+        ]
       },
       {
         "id": "m2",
@@ -617,8 +619,10 @@
         "proof": "Anchor resolver unit tests; db test that content and searchText do not change; Playwright at 1280, 783, 390 px.",
         "valid_intermediate_state": "Personal annotations work with no agent involvement.",
         "rollback": "AGENT_INBOX=off hides rail; annotation rows stay.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #301; tmp/inbox-l2.mjs highlights survive reload and edits, Passage removed; annotationPlugin.test.ts, annotations.db.test.ts"
+        ]
       },
       {
         "id": "m3",
@@ -628,8 +632,10 @@
         "proof": "agent-inbox-smoke.ts two-agent run; db tests for claim race, expiry, reopen.",
         "valid_intermediate_state": "Full loop visible per note; no central inbox yet.",
         "rollback": "AGENT_INBOX=off unregisters tools.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #303; agent-inbox-smoke.ts full loop on note and task; requests.db.test.ts claim race and lapse"
+        ]
       },
       {
         "id": "m4",
@@ -639,8 +645,10 @@
         "proof": "Playwright route, item click, dismiss, badge; screenshots.",
         "valid_intermediate_state": "Feature complete locally.",
         "rollback": "AGENT_INBOX=off returns 404 and hides nav entry.",
-        "status": "planned",
-        "evidence": []
+        "status": "completed",
+        "evidence": [
+          "PR #304; tmp/inbox-l4.mjs needs-you reasons, live badge, close and dismiss; user-inbox.db.test.ts"
+        ]
       },
       {
         "id": "m5",
@@ -652,8 +660,10 @@
         "proof": "MCP tab shows inbox_get, inbox_claim, inbox_reply from a ChatGPT client.",
         "valid_intermediate_state": "Docs updated; switch on in prod.",
         "rollback": "AGENT_INBOX=off.",
-        "status": "planned",
-        "evidence": []
+        "status": "active",
+        "evidence": [
+          "PR (layer 5): app/docs/agent-inbox.md with live-check steps, mcp-connector.md, mcp-parity.md, activity descriptions. Live scheduled-task run waits on Byron."
+        ]
       }
     ],
     "cut_line": [
@@ -826,6 +836,10 @@
     {
       "date": "2026-11-08",
       "change": "Completed dependency record to schema; implementation status current."
+    },
+    {
+      "date": "2026-11-08",
+      "change": "Built layers 1-5 as a gh stack; status active; m1-m4 completed with evidence; m5 waits on the live run."
     }
   ],
   "closure": null
