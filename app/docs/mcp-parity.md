@@ -93,6 +93,19 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `reorderTaskLists`                    | human-only          | Rail order is layout                      |
 | `deleteTask`, `deleteTaskList`        | human-only          | Deletes; agents set `cancelled`           |
 
+## Pathways
+
+| Action / query                     | MCP                        | Notes                                                                             |
+| ---------------------------------- | -------------------------- | --------------------------------------------------------------------------------- |
+| `fetchPathways`                    | `pathways_list`            |                                                                                   |
+| `fetchPathway`                     | `pathways_get`             |                                                                                   |
+| `createPathwayFn`                  | `pathways_create`          | Also from a task, a note, or an import                                            |
+| `editPathway`, `setPathwayContext` | `pathways_edit`            | Same edit batches; goals and goal questions                                       |
+| `undoPathwayFn`                    | `pathways_undo`            |                                                                                   |
+| `runPathwayAgentFn`                | the chat agent itself      | Claude reads `pathways_get` and writes with `pathways_edit` / `pathways_set_plan` |
+| `runPathwayResearchFn`             | `pathways_report_research` | The chat agent searches; the page uses OpenAI web search                          |
+| `archivePathwayFn`                 | human-only                 |                                                                                   |
+
 ## Collections
 
 | Action / query                                                    | MCP                                                       | Notes                                             |

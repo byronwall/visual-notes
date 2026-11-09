@@ -1,7 +1,8 @@
 // Largest font size at which a title, wrapped at word breaks, fits a box.
 // Measures with a canvas in the card's real font, so the fill is tight.
 
-const FAMILY = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
+const FAMILY =
+  'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
 const LINE = 1.2;
 let ctx: CanvasRenderingContext2D | null = null;
 const cache = new Map<string, number>();
@@ -23,7 +24,12 @@ function refWidth(word: string, weight: number) {
   return w;
 }
 
-function lineCount(words: number[], space: number, size: number, width: number) {
+function lineCount(
+  words: number[],
+  space: number,
+  size: number,
+  width: number,
+) {
   const k = size / REF;
   const sp = space * k;
   let lines = 1;
@@ -46,11 +52,20 @@ function lineCount(words: number[], space: number, size: number, width: number) 
 }
 
 /** Largest size in px (to 0.5px) whose wrapped lines fit width x height. */
-export function fitText(text: string, width: number, height: number, weight = 600, max = 120) {
+export function fitText(
+  text: string,
+  width: number,
+  height: number,
+  weight = 600,
+  max = 120,
+) {
   const key = `${text}|${Math.round(width)}|${Math.round(height)}|${weight}|${max}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const words = text.split(/\s+/).filter(Boolean).map((w) => refWidth(w, weight));
+  const words = text
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => refWidth(w, weight));
   const space = refWidth(" ", weight);
   let lo = 4;
   let hi = Math.max(lo, Math.min(max, height / LINE));

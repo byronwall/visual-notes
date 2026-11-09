@@ -1,7 +1,13 @@
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { createContext, createMemo, createSignal, useContext } from "solid-js";
 import { applyOps, newNodeId, type GraphOps } from "~/lib/pathways/graph-ops";
-import type { NodeKind, PathwayContext, PathwayNode, PlanTask, Research } from "~/lib/pathways/types";
+import type {
+  NodeKind,
+  PathwayContext,
+  PathwayNode,
+  PlanTask,
+  Research,
+} from "~/lib/pathways/types";
 import type { PathwayRecord } from "~/server/pathways/pathway-store";
 import type { PathwayAgentAction } from "~/server/pathways/agent-prompts";
 import {
@@ -37,12 +43,25 @@ const ACTION_LABEL: Record<PathwayAgentAction, string> = {
   plan: "Plan next steps",
   absorb: "Update map from what happened",
 };
-const MAP_WIDE: PathwayAgentAction[] = ["converge", "questions", "improve", "regenerate", "plan", "absorb"];
+const MAP_WIDE: PathwayAgentAction[] = [
+  "converge",
+  "questions",
+  "improve",
+  "regenerate",
+  "plan",
+  "absorb",
+];
 
 const edgeKey = (e: { from: string; to: string }) => `${e.from}>${e.to}`;
 
 /** Compares two versions of a map for the "what changed" card. */
-function diff(before: PathwayRecord, after: PathwayRecord, label: string, summary: string, ms?: number): Change {
+function diff(
+  before: PathwayRecord,
+  after: PathwayRecord,
+  label: string,
+  summary: string,
+  ms?: number,
+): Change {
   const old = new Map(before.graph.nodes.map((n) => [n.id, n]));
   const now = new Set(after.graph.nodes.map((n) => n.id));
   const oldEdges = new Set(before.graph.edges.map(edgeKey));
@@ -54,7 +73,9 @@ function diff(before: PathwayRecord, after: PathwayRecord, label: string, summar
     added: after.graph.nodes.filter((n) => !old.has(n.id)).map((n) => n.id),
     // Existing cards a new edge now reaches: this is where paths meet.
     joined: [...new Set(newEdges.map((e) => e.to).filter((id) => old.has(id)))],
-    removed: before.graph.nodes.filter((n) => !now.has(n.id)).map((n) => n.title),
+    removed: before.graph.nodes
+      .filter((n) => !now.has(n.id))
+      .map((n) => n.title),
     newEdges: newEdges.map(edgeKey),
   };
 }
@@ -66,7 +87,10 @@ function diff(before: PathwayRecord, after: PathwayRecord, label: string, summar
  */
 export function createPathwayState(initial: PathwayRecord) {
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams<{ node?: string; view?: string }>();
+  const [params, setParams] = useSearchParams<{
+    node?: string;
+    view?: string;
+  }>();
   const [record, setRecord] = createSignal(initial);
   const [linkFrom, setLinkFrom] = createSignal<string | null>(null);
   /** Card id the agent works on, "research:<id>", or "map" for a whole-map action. */
@@ -89,59 +113,72 @@ export function createPathwayState(initial: PathwayRecord) {
     setParams({ view: v === "next" ? "next" : undefined }, { replace: true });
   };
 
-  const freshNodes = createMemo(() => new Set([...(change()?.added ?? []), ...(change()?.joined ?? [])]));
+  const freshNodes = createMemo(
+    () => new Set([...(change()?.added ?? []), ...(change()?.joined ?? [])]),
+  );
   const freshEdges = createMemo(() => new Set(change()?.newEdges ?? []));
-  const fail = (err: unknown) => setError(err instanceof Error ? err.message : String(err));
+  const fail = (err: unknown) =>
+    setError(err instanceof Error ? err.message : String(err));
 
   /** Saves through the server and swaps in its record (the local copy already shows the edit). */
   const save = (p: Promise<PathwayRecord | null>) =>
     p.then((r) => r && setRecord(r)).catch(fail);
 
-  const edit = (ops: GraphOps) => {
+  /** `coalesce` names a text field, so a typing burst is one undo step. */
+  const edit = (ops: GraphOps, coalesce?: string) => {
     setRecord((r) => ({ ...r, graph: applyOps(r.graph, ops, "me").graph }));
-    save(editPathway({ id: record().id, ops }));
+    save(editPathway({ id: record().id, ops, coalesce }));
   };
-  const updateNode = (id: string, patch: NonNullable<GraphOps["update"]>[number] extends infer U ? Omit<U, "id"> : never) =>
-    edit({ update: [{ id, ...patch }] });
+  type NodePatch = Omit<NonNullable<GraphOps["update"]>[number], "id">;
+  const updateNode = (id: string, patch: NodePatch, coalesce?: string) =>
+    edit({ update: [{ id, ...patch }] }, coalesce);
 
-  const setContext = (fn: (c: PathwayContext) => void) => {
+  const setContext = (fn: (c: PathwayContext) => void, coalesce?: string) => {
     const next = structuredClone(record().context ?? { notes: "", qa: [] });
     fn(next);
     setRecord((r) => ({ ...r, context: next }));
-    save(setPathwayContext({ id: record().id, context: next }));
+    save(setPathwayContext({ id: record().id, context: next, coalesce }));
   };
 
   const addChild = (parent: string, kind: Exclude<NodeKind, "root">) => {
-    const title = kind === "option" ? "New option" : kind === "outcome" ? "New outcome" : "New step";
-    // Pick the id here so the new card can be selected right away.
+    const title =
+      kind === "option"
+        ? "New option"
+        : kind === "outcome"
+          ? "New outcome"
+          : "New step";
+    // The id is picked here and sent along, so the card can be selected at once.
     const id = newNodeId();
-    setRecord((r) => {
-      const g = structuredClone(r.graph);
-      g.nodes.push({ id, kind, title, note: "", by: "me", status: "open" });
-      g.edges.push({ from: parent, to: id });
-      return { ...r, graph: g };
-    });
-    save(editPathway({ id: record().id, ops: { nodes: [{ ref: "n", kind, title }], edges: [{ from: parent, to: "n" }] } })).then(
-      () => {
-        // The server picked its own id; select the card it made.
-        const made = record().graph.edges.find((e) => e.from === parent && !record().graph.nodes.some((n) => n.id === id) && e.to);
-        const target = record().graph.nodes.find((n) => n.id === made?.to && n.title === title);
-        if (target) setSelected(target.id);
-      },
-    );
+    const ops: GraphOps = {
+      nodes: [{ ref: "n", kind, title }],
+      edges: [{ from: parent, to: "n" }],
+    };
+    setRecord((r) => ({
+      ...r,
+      graph: applyOps(r.graph, ops, "me", () => id).graph,
+    }));
+    save(editPathway({ id: record().id, ops, newIds: [id] }));
     setSelected(id);
+    setTitleFocus((t) => t + 1);
   };
 
-  const link = (from: string, to: string) => from !== to && edit({ edges: [{ from, to }] });
-  const unlink = (from: string, to: string) => edit({ removeEdges: [{ from, to }] });
+  const link = (from: string, to: string) =>
+    from !== to && edit({ edges: [{ from, to }] });
+  const unlink = (from: string, to: string) =>
+    edit({ removeEdges: [{ from, to }] });
   const removeNode = (id: string) => {
     if (id === "root") return;
     edit({ remove: [id] });
     setSelected(null);
   };
-  const setResearch = (id: string, research: Research | undefined) => edit({ update: [{ id, research: research ?? null }] });
+  const setResearch = (id: string, research: Research | undefined) =>
+    edit({ update: [{ id, research: research ?? null }] });
 
-  const runAgent = async (action: PathwayAgentAction, nodeId: string, hint = steer()) => {
+  const runAgent = async (
+    action: PathwayAgentAction,
+    nodeId: string,
+    hint = steer(),
+  ) => {
     const cur = record();
     if (busy()) return;
     setBusy(MAP_WIDE.includes(action) ? "map" : nodeId);
@@ -150,7 +187,9 @@ export function createPathwayState(initial: PathwayRecord) {
     try {
       const res = await runPathwayAgentFn({ id: cur.id, action, nodeId, hint });
       const target = cur.graph.nodes.find((n) => n.id === nodeId)?.title ?? "";
-      const label = MAP_WIDE.includes(action) ? ACTION_LABEL[action] : `${ACTION_LABEL[action]} · ${target}`;
+      const label = MAP_WIDE.includes(action)
+        ? ACTION_LABEL[action]
+        : `${ACTION_LABEL[action]} · ${target}`;
       if (res.record.id !== cur.id) {
         // A fresh map is a new map: open it.
         navigate(`/pathways/${res.record.id}`);
@@ -159,8 +198,12 @@ export function createPathwayState(initial: PathwayRecord) {
       const c = diff(cur, res.record, label, res.summary, res.ms);
       c.dropped = res.dropped;
       if (hint.trim()) c.steer = hint.trim();
-      if (action === "questions") c.questions = (res.record.context?.qa.length ?? 0) - (cur.context?.qa.length ?? 0);
-      if (action === "plan") c.planned = res.record.plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
+      if (action === "questions")
+        c.questions =
+          (res.record.context?.qa.length ?? 0) - (cur.context?.qa.length ?? 0);
+      if (action === "plan")
+        c.planned =
+          res.record.plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
       setRecord(res.record);
       setChange(c);
       setSteer("");
@@ -257,5 +300,8 @@ export function usePathway() {
   return s;
 }
 
-export const nodeById = (s: PathwayState, id: string | null | undefined): PathwayNode | undefined =>
+export const nodeById = (
+  s: PathwayState,
+  id: string | null | undefined,
+): PathwayNode | undefined =>
   id ? s.record().graph.nodes.find((n) => n.id === id) : undefined;

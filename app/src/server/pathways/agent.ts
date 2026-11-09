@@ -31,7 +31,14 @@ export type AgentRun = {
 
 type MapReply = {
   summary: string;
-  nodes: { ref: string; kind: Exclude<NodeKind, "root">; title: string; note: string; missed: boolean; research: string }[];
+  nodes: {
+    ref: string;
+    kind: Exclude<NodeKind, "root">;
+    title: string;
+    note: string;
+    missed: boolean;
+    research: string;
+  }[];
   edges: { from: string; to: string }[];
   merges: { keep: string; drop: string; title: string | null }[];
   drops: string[];
@@ -39,13 +46,22 @@ type MapReply = {
   appendNotes: { id: string; text: string }[];
 };
 
-const FEEDBACK_TEXT = { like: "likes this", no: "does not want this", more: "wants better options here" };
+const FEEDBACK_TEXT = {
+  like: "likes this",
+  no: "does not want this",
+  more: "wants better options here",
+};
 
 function contextText(p: store.PathwayRecord) {
   const c = p.context;
   if (!c) return "";
-  const qa = c.qa.filter((x) => x.a.trim()).map((x) => `- Q: ${x.q}\n  A: ${x.a.trim()}`);
-  const parts = [c.notes.trim() && `In their words: ${c.notes.trim()}`, qa.length && `Answers:\n${qa.join("\n")}`];
+  const qa = c.qa
+    .filter((x) => x.a.trim())
+    .map((x) => `- Q: ${x.q}\n  A: ${x.a.trim()}`);
+  const parts = [
+    c.notes.trim() && `In their words: ${c.notes.trim()}`,
+    qa.length && `Answers:\n${qa.join("\n")}`,
+  ];
   const body = parts.filter(Boolean).join("\n");
   return body ? `The person's goals and context:\n${body}\n\n` : "";
 }
@@ -54,27 +70,53 @@ function contextText(p: store.PathwayRecord) {
 export function outline(p: store.PathwayRecord) {
   const nodes = p.graph.nodes
     .map((n) => {
-      const weight = n.weight === "key" ? "important to the person" : n.weight === "noise" ? "noise to the person" : "";
-      const flags = [n.kind, n.status !== "open" ? n.status : "", weight].filter(Boolean).join(", ");
-      const found = n.research?.findings ? `\n  Research (${n.research.question}): ${n.research.findings.replace(/\n+/g, " ")}` : "";
-      const vote = n.feedback?.vote ? `\n  Person's reaction: ${FEEDBACK_TEXT[n.feedback.vote]}` : "";
-      const said = n.feedback?.comment.trim() ? `\n  Person's note: "${n.feedback.comment.trim()}"` : "";
+      const weight =
+        n.weight === "key"
+          ? "important to the person"
+          : n.weight === "noise"
+            ? "noise to the person"
+            : "";
+      const flags = [n.kind, n.status !== "open" ? n.status : "", weight]
+        .filter(Boolean)
+        .join(", ");
+      const found = n.research?.findings
+        ? `\n  Research (${n.research.question}): ${n.research.findings.replace(/\n+/g, " ")}`
+        : "";
+      const vote = n.feedback?.vote
+        ? `\n  Person's reaction: ${FEEDBACK_TEXT[n.feedback.vote]}`
+        : "";
+      const said = n.feedback?.comment.trim()
+        ? `\n  Person's note: "${n.feedback.comment.trim()}"`
+        : "";
       return `- ${n.id} [${flags}] ${n.title}${n.note ? ` — ${n.note}` : ""}${found}${vote}${said}`;
     })
     .join("\n");
   const edges = p.graph.edges.map((e) => `- ${e.from} -> ${e.to}`).join("\n");
   const tasks = (p.plan?.tasks ?? [])
     .map((t) => {
-      const got = t.result.trim() ? `\n  What happened: ${t.result.trim()}` : "";
+      const got = t.result.trim()
+        ? `\n  What happened: ${t.result.trim()}`
+        : "";
       return `- [${t.status}${t.absorbed ? ", already on the map" : ""}] ${t.title} (cards: ${t.nodeIds.join(", ") || "none"})${got}`;
     })
     .join("\n");
   const plan = tasks ? `\n\nNext steps the person planned:\n${tasks}` : "";
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
   return `Today is ${today}.\n\n${contextText(p)}Question: ${p.title}\n\nNodes:\n${nodes}\n\nEdges:\n${edges || "(none)"}${plan}`;
 }
 
-async function ask<T>(trigger: string, system: string, user: string, schema: Record<string, unknown>, tools?: unknown[]) {
+async function ask<T>(
+  trigger: string,
+  system: string,
+  user: string,
+  schema: Record<string, unknown>,
+  tools?: unknown[],
+) {
   const { output } = await callLLM({
     model: MODEL,
     system,
@@ -88,16 +130,24 @@ async function ask<T>(trigger: string, system: string, user: string, schema: Rec
   return JSON.parse(output) as T;
 }
 
-const steerText = (hint: string) => (hint.trim() ? `\n\nThe person adds: ${hint.trim()}` : "");
+const steerText = (hint: string) =>
+  hint.trim() ? `\n\nThe person adds: ${hint.trim()}` : "";
 
-export async function runPathwayAgent(id: string, action: PathwayAgentAction, nodeId: string, hint: string): Promise<AgentRun> {
+export async function runPathwayAgent(
+  id: string,
+  action: PathwayAgentAction,
+  nodeId: string,
+  hint: string,
+): Promise<AgentRun> {
   const t0 = Date.now();
   const p = await store.getPathway(id);
   if (!p) throw new Error(`Pathway ${id} not found`);
   console.info(`${LOG} ${action} on ${id}/${nodeId} (${MODEL})`);
   const done = (r: Omit<AgentRun, "ms">): AgentRun => {
     const ms = Date.now() - t0;
-    console.info(`${LOG} ${action} on ${id} done in ${(ms / 1000).toFixed(1)}s`);
+    console.info(
+      `${LOG} ${action} on ${id} done in ${(ms / 1000).toFixed(1)}s`,
+    );
     return { ...r, ms };
   };
 
@@ -146,7 +196,12 @@ In summary, say in one or two sentences what this set of actions achieves and wh
     return done({ record, summary: reply.summary, added: [], dropped: [] });
   }
 
-  const reply = await ask<MapReply>(`pathways:${action}`, SYSTEM, `${outline(p)}\n\n${ACTIONS[action](nodeId)}${steerText(hint)}`, MAP_SCHEMA);
+  const reply = await ask<MapReply>(
+    `pathways:${action}`,
+    SYSTEM,
+    `${outline(p)}\n\n${ACTIONS[action](nodeId)}${steerText(hint)}`,
+    MAP_SCHEMA,
+  );
   const ops: GraphOps = {
     nodes: reply.nodes.map((n) => ({ ...n, missed: n.missed || undefined })),
     edges: reply.edges,
@@ -165,31 +220,54 @@ In summary, say in one or two sentences what this set of actions achieves and wh
       sourceTaskId: p.sourceTaskId,
       sourceDocId: p.sourceDocId,
     });
-    const { record, result } = await store.writePathway(fresh.id, "agent: fresh map", (d) => {
-      const r = applyOps(d.graph, ops, "agent");
-      d.graph = r.graph;
-      return r;
+    const { record, result } = await store.writePathway(
+      fresh.id,
+      "agent: fresh map",
+      (d) => {
+        const r = applyOps(d.graph, ops, "agent");
+        d.graph = r.graph;
+        return r;
+      },
+    );
+    return done({
+      record,
+      summary: reply.summary,
+      added: result.added,
+      dropped: result.dropped,
     });
-    return done({ record, summary: reply.summary, added: result.added, dropped: result.dropped });
   }
 
-  const { record, result } = await store.writePathway(id, `agent: ${action}`, (d) => {
-    const r = applyOps(d.graph, ops, "agent");
-    d.graph = r.graph;
-    // Requests for better options are handled once the agent has acted on them.
-    if (action === "improve") for (const x of d.graph.nodes) if (x.feedback?.vote === "more") delete x.feedback.vote;
-    // Results are on the map now; the next plan builds on them instead of re-reading them.
-    if (action === "absorb") for (const t of d.plan?.tasks ?? []) if (t.status !== "todo") t.absorbed = true;
-    return r;
+  const { record, result } = await store.writePathway(
+    id,
+    `agent: ${action}`,
+    (d) => {
+      const r = applyOps(d.graph, ops, "agent");
+      d.graph = r.graph;
+      // Requests for better options are handled once the agent has acted on them.
+      if (action === "improve")
+        for (const x of d.graph.nodes)
+          if (x.feedback?.vote === "more") delete x.feedback.vote;
+      // Results are on the map now; the next plan builds on them instead of re-reading them.
+      if (action === "absorb")
+        for (const t of d.plan?.tasks ?? [])
+          if (t.status !== "todo") t.absorbed = true;
+      return r;
+    },
+  );
+  return done({
+    record,
+    summary: reply.summary,
+    added: result.added,
+    dropped: result.dropped,
   });
-  return done({ record, summary: reply.summary, added: result.added, dropped: result.dropped });
 }
 
 /** Answers a card's research question with OpenAI's web search tool. */
 export async function runPathwayResearch(id: string, nodeId: string) {
   const p = await store.getPathway(id);
   const node = p?.graph.nodes.find((n) => n.id === nodeId);
-  if (!p || !node?.research) throw new Error("This card has no research question");
+  if (!p || !node?.research)
+    throw new Error("This card has no research question");
   const t0 = Date.now();
   const reply = await ask<{ findings: string; sources: Source[] }>(
     "pathways:research",
@@ -202,10 +280,18 @@ Search the web. Write findings as 3 to 6 short markdown bullets with concrete na
     RESEARCH_SCHEMA,
     [{ type: "web_search" }],
   );
-  console.info(`${LOG} research on ${id}/${nodeId} done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.info(
+    `${LOG} research on ${id}/${nodeId} done in ${((Date.now() - t0) / 1000).toFixed(1)}s`,
+  );
   const { record } = await store.writePathway(id, "agent: research", (d) => {
     const n = d.graph.nodes.find((x) => x.id === nodeId);
-    if (n?.research) n.research = { ...n.research, ...reply, status: "done", by: "in-app web search" };
+    if (n?.research)
+      n.research = {
+        ...n.research,
+        ...reply,
+        status: "done",
+        by: "in-app web search",
+      };
   });
   return record;
 }

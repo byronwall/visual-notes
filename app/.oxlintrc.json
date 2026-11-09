@@ -5,6 +5,7 @@
   "env": { "browser": true, "node": true, "es2022": true },
   "categories": { "correctness": "error" },
   "ignorePatterns": [
+    "src/components/pathways/engine/",
     "dist/",
     ".output/",
     ".vinxi/",

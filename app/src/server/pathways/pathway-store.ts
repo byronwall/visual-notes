@@ -141,6 +141,14 @@ export async function writePathway<T = void>(
   id: string,
   label: string,
   edit: (draft: PathwayDraft) => T,
+  opts: {
+    /**
+     * Saves of one text field while someone types: when the newest revision
+     * has the same key and is under 30s old, this write adds no revision, so
+     * one undo takes back the whole edit.
+     */
+    coalesce?: string;
+  } = {},
 ): Promise<{ record: PathwayRecord; result: T }> {
   const out = await prisma.$transaction(async (tx) => {
     await lockPathway(tx, id);
@@ -154,17 +162,30 @@ export async function writePathway<T = void>(
       exportListId: current.exportListId,
     });
     const result = edit(draft);
-    await tx.pathwayRevision.create({
-      data: {
-        pathwayId: id,
-        label,
-        snapshot: {
-          graph: current.graph,
-          context: current.context,
-          plan: current.plan,
-        } as unknown as Prisma.InputJsonValue,
-      },
-    });
+    const revLabel = opts.coalesce ? `${label} · ${opts.coalesce}` : label;
+    const newest = opts.coalesce
+      ? await tx.pathwayRevision.findFirst({
+          where: { pathwayId: id },
+          orderBy: { createdAt: "desc" },
+          select: { label: true, createdAt: true },
+        })
+      : null;
+    const sameBurst =
+      !!newest &&
+      newest.label === revLabel &&
+      Date.now() - newest.createdAt.getTime() < 30_000;
+    if (!sameBurst)
+      await tx.pathwayRevision.create({
+        data: {
+          pathwayId: id,
+          label: revLabel,
+          snapshot: {
+            graph: current.graph,
+            context: current.context,
+            plan: current.plan,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
     const title =
       draft.graph.nodes.find((n) => n.id === ROOT_ID)?.title ?? current.title;
     const updated = await tx.pathway.update({

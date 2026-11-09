@@ -18,7 +18,11 @@ export interface RouteEdgeInput {
   from: string;
   to: string;
   directed?: boolean;
-  cfg: { flow?: "right" | "down" };
+  cfg: {
+    flow?: "right" | "down";
+    fromSide?: Side | "auto";
+    toSide?: Side | "auto";
+  };
 }
 
 export interface Route {
@@ -33,7 +37,15 @@ export interface Route {
 
 export const RouteLab: {
   compute(
-    input: { nodes: RouteNodeInput[]; groups: never[]; edges: RouteEdgeInput[] },
-    options?: { direction?: "right" | "down"; quick?: boolean; cornerRadius?: number },
+    input: {
+      nodes: RouteNodeInput[];
+      groups: never[];
+      edges: RouteEdgeInput[];
+    },
+    options?: {
+      direction?: "right" | "down";
+      quick?: boolean;
+      cornerRadius?: number;
+    },
   ): { routes: Route[]; report: { crossings: number; milliseconds: number } };
 };
