@@ -68,7 +68,9 @@ export async function exportPlanTasks(
   planTaskIds: string[],
   listId: string | null,
 ) {
-  const p = await store.getPathway(pathwayId);
+  const raw = await store.getPathway(pathwayId);
+  // Linked status drops links to deleted tasks, so those steps can go again.
+  const p = raw && (await withLinkedStatus(raw));
   if (!p?.plan) throw new Error(`Pathway ${pathwayId} has no Next steps`);
   const target = listId ?? (await ensureInboxList());
   const picked = p.plan.tasks.filter(
@@ -140,17 +142,21 @@ export async function updatePlanTask(
     },
     { coalesce },
   );
-  if (patch.status && taskId) {
-    const exists = await prisma.taskItem.findUnique({
-      where: { id: taskId },
-      select: { listId: true },
-    });
-    if (exists) {
-      await tasks.updateTask({ id: taskId, status: toTask(patch.status) });
-      publishAppChange("tasks", [exists.listId]);
-    }
-  }
+  if (patch.status && taskId) await mirrorStatus(taskId, patch.status);
   return withLinkedStatus(record);
+}
+
+/**
+ * Sets an exported step's real task to match a status set on the map. A task
+ * that already reads as that status keeps its own (started stays started).
+ */
+export async function mirrorStatus(taskId: string, status: PlanTask["status"]) {
+  const real = await prisma.taskItem.findUnique({
+    where: { id: taskId },
+    select: { status: true },
+  });
+  if (!real || fromTask(real.status) === status) return;
+  await tasks.updateTask({ id: taskId, status: toTask(status) });
 }
 
 /** Pathways that a task belongs to, for links on task rows. */

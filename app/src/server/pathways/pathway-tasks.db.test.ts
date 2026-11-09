@@ -104,5 +104,12 @@ describe.skipIf(!enabled)("pathway tasks (database)", () => {
       (await prisma().taskItem.findUniqueOrThrow({ where: { id: task.id } }))
         .status,
     ).toBe("waiting");
+
+    // Deleted on the Tasks page: the step can be exported again.
+    await prisma().taskItem.delete({ where: { id: task.id } });
+    const again = await links.exportPlanTasks(p.id, [first.id], listId);
+    const redone = again.plan!.tasks.find((t) => t.id === first.id)!.taskId;
+    expect(redone).toBeTruthy();
+    expect(redone).not.toBe(task.id);
   });
 });

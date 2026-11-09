@@ -9,7 +9,10 @@ import {
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import * as store from "~/server/pathways/pathway-store";
-import { withLinkedStatus } from "~/server/pathways/pathway-tasks";
+import {
+  mirrorStatus,
+  withLinkedStatus,
+} from "~/server/pathways/pathway-tasks";
 import {
   agentContext,
   appLink,
@@ -493,12 +496,19 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
           }
         },
       );
+      // An exported step's real task holds its status; set it there too.
+      for (const u of updates ?? []) {
+        const taskId = record.plan?.tasks.find(
+          (t) => t.id === u.taskId,
+        )?.taskId;
+        if (u.status && taskId) await mirrorStatus(taskId, u.status);
+      }
       await log("pathway.planned", id, {
         tasks: tasks?.length ?? 0,
         updates: updates?.length ?? 0,
       });
       return {
-        nextSteps: record.plan,
+        nextSteps: (await withLinkedStatus(record)).plan,
         appUrl: appLink(ctx, `/pathways/${id}?view=next`),
       };
     },
@@ -522,9 +532,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
             "3-6 short markdown bullets with names, numbers, and dates",
           ),
         sources: z
-          .array(
-            z.object({ title: z.string().max(300), url: webUrl }),
-          )
+          .array(z.object({ title: z.string().max(300), url: webUrl }))
           .max(20),
       },
     },
