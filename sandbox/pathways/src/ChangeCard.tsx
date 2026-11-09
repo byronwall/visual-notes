@@ -34,6 +34,9 @@ export function ChangeCard() {
           <Show when={c().summary}>
             <p class="change-summary">{c().summary}</p>
           </Show>
+          <Show when={c().steer}>
+            <p class="muted">Steered by: “{c().steer}”</p>
+          </Show>
           <Show
             when={c().added.length || c().joined.length || c().removed.length || c().dropped?.length || c().questions}
             fallback={<p class="help">Nothing on the map changed.</p>}

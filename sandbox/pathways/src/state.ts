@@ -11,6 +11,11 @@ export const [linkFrom, setLinkFrom] = createSignal<string | null>(null);
 /** Node id the agent is working on, "research:<id>" for web research, or "map" for a whole-map action. */
 export const [busy, setBusy] = createSignal<string | null>(null);
 export const [error, setError] = createSignal("");
+/**
+ * Steer text for the next agent run. It belongs to the current selection:
+ * Panel clears it when the selection changes, and a run clears it once used.
+ */
+export const [steer, setSteer] = createSignal("");
 export const [fitTick, setFitTick] = createSignal(0);
 /** Bump to put the cursor in the selected node's title field. */
 export const [titleFocus, setTitleFocus] = createSignal(0);
@@ -19,6 +24,8 @@ export const [titleFocus, setTitleFocus] = createSignal(0);
 export type Change = {
   label: string;
   summary: string;
+  /** The steer text the run used, if any. */
+  steer?: string;
   ms?: number;
   added: string[];
   joined: string[];
@@ -136,8 +143,8 @@ export function removeNode(id: string) {
 }
 
 const ACTION_LABEL: Record<AgentAction, string> = {
-  options: "What are my options?",
-  forward: "Play it forward",
+  options: "More choices from here",
+  forward: "What happens next",
   converge: "Where do paths meet?",
   questions: "Ask me about my goals",
   improve: "Improve from feedback",
@@ -146,7 +153,7 @@ const ACTION_LABEL: Record<AgentAction, string> = {
 
 const MAP_WIDE: AgentAction[] = ["converge", "questions", "improve", "regenerate"];
 
-export async function runAgent(action: AgentAction, nodeId: string, hint: string) {
+export async function runAgent(action: AgentAction, nodeId: string, hint = steer()) {
   const cur = map();
   if (!cur || busy()) return;
   setBusy(MAP_WIDE.includes(action) ? "map" : nodeId);
@@ -160,6 +167,8 @@ export async function runAgent(action: AgentAction, nodeId: string, hint: string
     const base = res.map.id === cur.id ? cur : { ...res.map, nodes: res.map.nodes.filter((n) => n.id === "root"), edges: [] };
     const c = diff(base, res.map, label, res.summary, res.ms);
     c.dropped = res.dropped ?? [];
+    if (hint.trim()) c.steer = hint.trim();
+    setSteer("");
     if (res.map.id !== cur.id) {
       setSelected(null);
       localStorage.setItem("pathways:last", res.map.id);

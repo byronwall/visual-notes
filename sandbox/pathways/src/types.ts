@@ -17,8 +17,8 @@ export type Research = {
   by?: string;
 };
 
-/** The person's reaction while evaluating the map. */
-export type Feedback = { vote: "like" | "no" | "more"; comment: string };
+/** The person's take on a card: an optional quick reaction and/or free text. */
+export type Feedback = { vote?: "like" | "no" | "more"; comment: string };
 
 export type PNode = {
   id: string;

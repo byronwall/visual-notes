@@ -382,12 +382,11 @@ function Card(props: {
             <Show when={n.status === "chosen"}>
               <span class="badge chosen">chosen</span>
             </Show>
-            <Show when={n.feedback}>
-              {(f) => (
-                <span class={`badge vote vote-${f().vote}`} title={f().comment || undefined}>
-                  {VOTE_LABEL[f().vote]}
-                </span>
-              )}
+            <Show when={n.feedback?.vote}>
+              {(v) => <span class={`badge vote vote-${v()}`}>{VOTE_LABEL[v()]}</span>}
+            </Show>
+            <Show when={n.feedback?.comment.trim()}>
+              <span class="badge note">✎ note</span>
             </Show>
             <span class="by" title={n.by === "agent" ? "Added by the agent" : "Added by you"}>
               {n.by === "agent" ? "✦" : ""}

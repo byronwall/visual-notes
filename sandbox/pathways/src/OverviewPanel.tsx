@@ -1,19 +1,21 @@
 import { createMemo, For, Index, Show } from "solid-js";
 import { inDegree } from "./layout";
+import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
-import { busy, map, runAgent, setSelected, updateContext } from "./state";
+import { busy, map, runAgent, setSelected, setSteer, steer, updateContext } from "./state";
 import type { PNode } from "./types";
 
 /** Side panel when no node is selected: goals, feedback, and whole-map agent actions. */
-export function OverviewPanel(props: { hint: string; setHint: (v: string) => void }) {
+export function OverviewPanel() {
   const nodes = () => map()?.nodes ?? [];
   const ctx = () => map()?.context ?? { notes: "", qa: [] };
   const votes = createMemo(() => ({
     like: nodes().filter((n) => n.feedback?.vote === "like").length,
     no: nodes().filter((n) => n.feedback?.vote === "no").length,
     more: nodes().filter((n) => n.feedback?.vote === "more").length,
+    notes: nodes().filter((n) => n.feedback?.comment.trim()).length,
   }));
-  const anyFeedback = () => votes().like + votes().no + votes().more > 0;
+  const anyFeedback = () => votes().like + votes().no + votes().more + votes().notes > 0;
   const meets = createMemo(() => {
     const m = map();
     if (!m) return [];
@@ -22,7 +24,7 @@ export function OverviewPanel(props: { hint: string; setHint: (v: string) => voi
   });
   const important = createMemo(() => nodes().filter((n) => n.weight === "key"));
   const research = createMemo(() => nodes().filter((n) => n.research && n.research.status !== "done"));
-  const run = (a: "converge" | "options" | "questions" | "improve" | "regenerate") => runAgent(a, "root", props.hint);
+  const run = (a: "converge" | "options" | "questions" | "improve" | "regenerate") => runAgent(a, "root");
 
   return (
     <>
@@ -60,46 +62,61 @@ export function OverviewPanel(props: { hint: string; setHint: (v: string) => voi
             </div>
           )}
         </Index>
-        <div class="agent-buttons">
-          <button disabled={!!busy()} onClick={() => run("questions")}>
-            {busy() === "map" ? "Thinking…" : ctx().qa.length ? "Ask me more" : "Ask me about my goals"}
-          </button>
-        </div>
-        <p class="help">Every agent action reads these answers.</p>
+        <ActionButton
+          label={ctx().qa.length ? "Ask me more" : "Ask me about my goals"}
+          what="Adds 3–4 questions about what you want. Every agent action reads your answers."
+          disabled={!!busy()}
+          onClick={() => run("questions")}
+        />
       </div>
 
       <div class="panel-section">
         <h3>Your feedback</h3>
         <p class="help">
-          <Show when={anyFeedback()} fallback="Select a node and react: 1 like · 2 not for me · 3 want better · 4 important · 5 noise.">
-            {votes().like} liked · {votes().no} not for me · {votes().more} want better
+          <Show when={anyFeedback()} fallback="Select a card to react (1 like · 2 not for me · 3 want better · 4 important · 5 noise) or write your thoughts on it.">
+            {votes().like} liked · {votes().no} not for me · {votes().more} want better · {votes().notes} notes
           </Show>
         </p>
         <AutoText
-          value={props.hint}
-          placeholder={`Steer it (optional). ⌘↵ runs ${anyFeedback() ? "Improve from feedback" : "What am I missing?"}`}
+          key="map:steer"
+          value={steer()}
+          placeholder="Steer it (optional): what to change or keep in mind"
           delay={0}
-          onSave={props.setHint}
+          onSave={(v) => setSteer(v)}
           onSubmit={(v) => {
-            props.setHint(v);
+            setSteer(v);
             queueMicrotask(() => run(anyFeedback() ? "improve" : "options"));
           }}
         />
-        <div class="agent-buttons">
-          <button class="primary" disabled={!!busy() || !anyFeedback()} onClick={() => run("improve")}>
-            Improve from feedback
-          </button>
-          <button disabled={!!busy()} onClick={() => run("regenerate")} title="Builds a new version as a separate map; this one stays">
-            Fresh map from feedback
-          </button>
-        </div>
-        <div class="agent-buttons">
-          <button disabled={!!busy()} onClick={() => run("converge")}>
-            Where do paths meet?
-          </button>
-          <button disabled={!!busy()} onClick={() => run("options")}>
-            What am I missing?
-          </button>
+        <div class="actions">
+          <ActionButton
+            primary
+            label="Improve from feedback"
+            shortcut={anyFeedback() ? "⌘↵" : undefined}
+            what="Drops what you rejected, replaces what you want better, and extends what you liked."
+            disabled={!!busy() || !anyFeedback()}
+            busy={busy() === "map"}
+            onClick={() => run("improve")}
+          />
+          <ActionButton
+            label="Fresh map from feedback"
+            what="Builds a new version as a separate map. This one stays as it is."
+            disabled={!!busy()}
+            onClick={() => run("regenerate")}
+          />
+          <ActionButton
+            label="Where do paths meet?"
+            what="Merges duplicate cards and adds shared outcomes, so you see which choices end up in the same place."
+            disabled={!!busy()}
+            onClick={() => run("converge")}
+          />
+          <ActionButton
+            label="What am I missing?"
+            shortcut={anyFeedback() ? undefined : "⌘↵"}
+            what="Adds answers to the main question that are not on the map yet."
+            disabled={!!busy()}
+            onClick={() => run("options")}
+          />
         </div>
       </div>
 

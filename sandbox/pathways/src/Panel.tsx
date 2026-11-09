@@ -1,19 +1,19 @@
-import { createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, on, Show } from "solid-js";
 import { ChangeCard } from "./ChangeCard";
 import { NodePanel } from "./NodePanel";
 import { OverviewPanel } from "./OverviewPanel";
-import { map, selected } from "./state";
+import { map, selected, setSteer } from "./state";
 
 export function Panel() {
-  // One steer box value, shared by the node and whole-map views.
-  const [hint, setHint] = createSignal("");
   const node = createMemo(() => map()?.nodes.find((n) => n.id === selected()) ?? null);
+  // Steer text is about what was selected when you typed it.
+  createEffect(on(selected, () => setSteer(""), { defer: true }));
 
   return (
     <aside class="panel">
       <ChangeCard />
-      <Show when={node()} fallback={<OverviewPanel hint={hint()} setHint={setHint} />}>
-        {(n) => <NodePanel n={n()} hint={hint()} setHint={setHint} />}
+      <Show when={node()} fallback={<OverviewPanel />}>
+        {(n) => <NodePanel n={n()} />}
       </Show>
     </aside>
   );

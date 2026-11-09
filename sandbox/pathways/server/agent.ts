@@ -38,6 +38,8 @@ Write short, concrete titles (under 12 words, plain words, no fluff). Use note f
 
 Research: when acting on a new node needs facts you do not have and that a web search could find (names of companies or people, prices, dates, availability, how something works), put one specific research question in its research field. Otherwise use an empty string. Never invent those facts yourself.
 
+A "Person's note" on a node is the person's own words about it; follow it in everything you add after that node.
+
 Nodes marked "important to the person" deserve the most thought; do not expand nodes marked "noise" or "dropped".
 
 The person's goals and context, when given, come first: prefer options and steps that fit them, and say so in the note when a node conflicts with them.
@@ -45,7 +47,8 @@ The person's goals and context, when given, come first: prefer options and steps
 In your response, refer to existing nodes by their id. Give each new node a ref like "n1", "n2" and use those refs in edges. Leave merges and drops empty unless the task asks for them.`;
 
 const ACTIONS: Record<Exclude<AgentAction, "questions">, (id: string) => string> = {
-  improve: () => `Task: improve the map using the person's reactions (marked "Person's reaction" above).
+  improve: () => `Task: improve the map using the person's reactions and notes (marked "Person's reaction" and "Person's note" above).
+- A note is the person's own words about that card. Follow it: it may ask for a change, add a fact, or set a direction for what comes after the card.
 - "does not want this": put the node id in drops (it is marked dropped, not deleted). Also drop steps that only that node leads to.
 - "wants better options here": add 2 to 4 better alternatives as siblings (edges from the same parents), and use the comment to aim them. Make them clearly different from what is there.
 - "likes this": if the node has nothing after it, play it forward 1 or 2 steps. Add at most one new option elsewhere in the same spirit.
@@ -130,9 +133,9 @@ function outline(map: PMap) {
       const weight = n.weight === "key" ? "important to the person" : n.weight === "noise" ? "noise to the person" : "";
       const flags = [n.kind, n.status !== "open" ? n.status : "", weight].filter(Boolean).join(", ");
       const found = n.research?.findings ? `\n  Research (${n.research.question}): ${n.research.findings.replace(/\n+/g, " ")}` : "";
-      const fb = n.feedback
-        ? `\n  Person's reaction: ${FEEDBACK_TEXT[n.feedback.vote]}${n.feedback.comment.trim() ? ` — "${n.feedback.comment.trim()}"` : ""}`
-        : "";
+      const vote = n.feedback?.vote ? `\n  Person's reaction: ${FEEDBACK_TEXT[n.feedback.vote]}` : "";
+      const said = n.feedback?.comment.trim() ? `\n  Person's note: "${n.feedback.comment.trim()}"` : "";
+      const fb = vote + said;
       return `- ${n.id} [${flags}] ${n.title}${n.note ? ` — ${n.note}` : ""}${found}${fb}`;
     })
     .join("\n");

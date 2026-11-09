@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
 import {
   addChild,
@@ -12,6 +13,8 @@ import {
   setLinkFrom,
   setResearch,
   setSelected,
+  setSteer,
+  steer as steerText,
   unlink,
   updateNode,
 } from "./state";
@@ -31,18 +34,22 @@ export const WEIGHTS: { weight: PNode["weight"]; label: string; key: string }[] 
 ];
 
 export const setVote = (n: PNode, vote: Feedback["vote"]) =>
-  updateNode(n.id, { feedback: n.feedback?.vote === vote ? undefined : { vote, comment: n.feedback?.comment ?? "" } });
+  updateNode(n.id, { feedback: take(n.feedback?.vote === vote ? undefined : vote, n.feedback?.comment ?? "") });
+
+/** A take with no reaction and no text is no take at all. */
+const take = (vote: Feedback["vote"], comment: string): Feedback | undefined =>
+  vote || comment.trim() ? { ...(vote ? { vote } : {}), comment } : undefined;
 export const setWeight = (n: PNode, weight: PNode["weight"]) =>
   updateNode(n.id, { weight: n.weight === weight ? undefined : weight });
 
-export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) => void }) {
+export function NodePanel(props: { n: PNode }) {
   const n = () => props.n;
   const title = (id: string) => map()?.nodes.find((x) => x.id === id)?.title ?? id;
   const parents = createMemo(() => map()?.edges.filter((e) => e.to === n().id).map((e) => e.from) ?? []);
   const children = createMemo(() => map()?.edges.filter((e) => e.from === n().id).map((e) => e.to) ?? []);
   // Clicking a reaction puts the cursor in its "why" box. Keys 1–3 do not, so they stay fast.
   const [commentFocus, setCommentFocus] = createSignal(0);
-  const steer = (action: "options" | "forward") => runAgent(action, n().id, props.hint);
+  const steer = (action: "options" | "forward") => runAgent(action, n().id);
   // Saves go to the node the text was typed for, found by the field key "<id>:<field>".
   const nodeOf = (key?: string) => map()?.nodes.find((x) => x.id === key?.split(":")[0]);
 
@@ -101,18 +108,17 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
               )}
             </For>
           </div>
-          <Show when={n().feedback}>
-            <AutoText
-              key={`${n().id}:comment`}
-              value={n().feedback!.comment}
-              focusTick={commentFocus()}
-              placeholder="Why? The agent reads this."
-              onSave={(v, k) => {
-                const t = nodeOf(k);
-                if (t?.feedback) updateNode(t.id, { feedback: { ...t.feedback, comment: v } });
-              }}
-            />
-          </Show>
+          <AutoText
+            key={`${n().id}:comment`}
+            minRows={2}
+            value={n().feedback?.comment ?? ""}
+            focusTick={commentFocus()}
+            placeholder="Your thoughts on this, in your own words. The agent reads them."
+            onSave={(v, k) => {
+              const t = nodeOf(k);
+              if (t) updateNode(t.id, { feedback: take(t.feedback?.vote, v) });
+            }}
+          />
           <div class="seg wide">
             <For each={WEIGHTS}>
               {(w) => (
@@ -128,22 +134,38 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
       <div class="panel-section">
         <h3>Ask the agent</h3>
         <AutoText
-          value={props.hint}
-          placeholder="Steer it (optional): “I have 2 weeks”, “cheap only”… ⌘↵ asks for options"
+          key={`${n().id}:steer`}
+          value={steerText()}
+          placeholder="Steer it (optional): “I have 2 weeks”, “cheap only”…"
           delay={0}
-          onSave={props.setHint}
+          onSave={(v) => setSteer(v)}
           onSubmit={(v) => {
-            props.setHint(v);
+            setSteer(v);
             queueMicrotask(() => steer("options"));
           }}
         />
-        <div class="agent-buttons">
-          <button class="primary" disabled={!!busy()} onClick={() => steer("options")}>
-            {busy() === n().id ? "Thinking…" : "What are my options?"}
-          </button>
-          <button disabled={!!busy() || n().kind === "root"} onClick={() => steer("forward")}>
-            Play it forward
-          </button>
+        <div class="actions">
+          <ActionButton
+            primary
+            label="More choices from here"
+            shortcut="⌘↵"
+            what={
+              n().kind === "root"
+                ? "Adds 2–5 answers to the question that are not on the map yet, including ones you may not have thought of."
+                : "Adds 2–5 different choices that could follow from this card, including ones you may not have thought of."
+            }
+            busy={busy() === n().id}
+            disabled={!!busy()}
+            onClick={() => steer("options")}
+          />
+          <Show when={n().kind !== "root"}>
+            <ActionButton
+              label="What happens next"
+              what="Adds the likely next 1–3 steps if you go this way, and links to cards already on the map where paths meet."
+              disabled={!!busy()}
+              onClick={() => steer("forward")}
+            />
+          </Show>
         </div>
       </div>
 

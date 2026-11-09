@@ -28,12 +28,14 @@ Select a node, then press a key (or use the panel):
 | 4 | Important: bigger card, kept in the middle |
 | 5 | Noise: one faint line at the edge of its column (nothing is deleted) |
 
-Add a comment to a reaction to tell the agent why. **Goals & vibes** (shown when nothing is selected) holds your own words and the agent's questions about your goals. Every agent prompt includes them.
+Write your thoughts on any card in its **Your take** box, with or without a reaction; the card gets a ✎ note badge. Every agent action reads these notes, and **Improve from feedback** follows them. **Goals & vibes** (shown when nothing is selected) holds your own words and the agent's questions about your goals. Every agent prompt includes them.
 
 ### Agent actions (OpenAI)
 
-- **What are my options?** adds missing options at a node, with "new angle" ones you may not have considered.
-- **Play it forward** adds the next 1 to 3 steps, and links to existing nodes where paths meet.
+- **More choices from here** adds 2–5 different choices that could follow from a card, with "new angle" ones you may not have considered.
+- **What happens next** adds the likely next 1–3 steps if you go that way, and links to cards already on the map where paths meet.
+
+The steer box belongs to what is selected: it clears when you select something else or when a run uses it. The result card shows the steer that run used.
 - **Where do paths meet?** merges duplicate nodes and adds shared outcomes.
 - **Ask me about my goals** adds 3 or 4 questions to Goals & vibes.
 - **Improve from feedback** drops what you rejected, adds better options where you asked, and extends what you liked.
