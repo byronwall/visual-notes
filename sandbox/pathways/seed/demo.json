@@ -1,0 +1,28 @@
+{
+  "id": "demo",
+  "title": "Where should the pathways idea live in Visual Notes?",
+  "nodes": [
+    { "id": "root", "kind": "root", "title": "Where should the pathways idea live in Visual Notes?", "note": "", "by": "me", "status": "open" },
+    { "id": "o1", "kind": "option", "title": "Add a map view to the tasks page", "note": "Closest to where I get stuck.", "by": "me", "status": "open" },
+    { "id": "o2", "kind": "option", "title": "Make it a research topic board", "note": "Research already has options and streams.", "by": "me", "status": "open" },
+    { "id": "o3", "kind": "option", "title": "New canvas note type", "note": "Most freedom, most new code.", "by": "me", "status": "open" },
+    { "id": "s1", "kind": "step", "title": "Store option and next-step links between tasks", "note": "", "by": "me", "status": "open" },
+    { "id": "s2", "kind": "step", "title": "Add edges between research cards", "note": "", "by": "me", "status": "open" },
+    { "id": "s3", "kind": "step", "title": "Build a node and edge editor", "note": "", "by": "me", "status": "open" },
+    { "id": "out1", "kind": "outcome", "title": "A small graph store for decisions and steps", "note": "Every option needs this first, so the real choice is only where the view lives.", "by": "me", "status": "open" },
+    { "id": "s4", "kind": "step", "title": "Expose MCP tools so an agent can write options", "note": "", "by": "me", "status": "open" }
+  ],
+  "edges": [
+    { "from": "root", "to": "o1" },
+    { "from": "root", "to": "o2" },
+    { "from": "root", "to": "o3" },
+    { "from": "o1", "to": "s1" },
+    { "from": "o2", "to": "s2" },
+    { "from": "o3", "to": "s3" },
+    { "from": "s1", "to": "out1" },
+    { "from": "s2", "to": "out1" },
+    { "from": "s3", "to": "out1" },
+    { "from": "out1", "to": "s4" }
+  ],
+  "updatedAt": "2026-11-08T00:00:00.000Z"
+}
