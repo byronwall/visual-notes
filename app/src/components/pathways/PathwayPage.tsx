@@ -71,7 +71,10 @@ export function PathwayPage(props: { record: PathwayRecord }) {
   // The map measures text on a canvas and routes edges in a Web Worker, so it
   // renders after hydration; the server sends the panel and an empty map area.
   const [mounted, setMounted] = createSignal(false);
-  onMount(() => setMounted(true));
+  onMount(() => {
+    setMounted(true);
+    s.draftOnOpen();
+  });
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {

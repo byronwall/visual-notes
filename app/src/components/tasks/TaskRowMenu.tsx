@@ -3,6 +3,7 @@ import {
   ChevronRightIcon,
   EllipsisIcon,
   ListPlusIcon,
+  SignpostIcon,
   SquarePenIcon,
   Trash2Icon,
 } from "lucide-solid";
@@ -27,6 +28,8 @@ type Props = {
   onStatus: (status: TaskStatus) => void;
   onEditDetails: () => void;
   onAddSubtask: () => void;
+  /** Opens this task's decision map, or starts one. */
+  onMapOut: () => void;
   onDelete: () => void;
   /** Lists the task can move to; the submenu hides when there are none. */
   otherLists: { id: string; name: string }[];
@@ -102,6 +105,12 @@ export const TaskRowMenu = (props: Props) => {
               <HStack gap="2" flex="1">
                 <ListPlusIcon size={14} />
                 Add subtask
+              </HStack>
+            </Menu.Item>
+            <Menu.Item value="map-out" onSelect={() => props.onMapOut()}>
+              <HStack gap="2" flex="1">
+                <SignpostIcon size={14} />
+                Map this out
               </HStack>
             </Menu.Item>
             <Show when={props.otherLists.length > 0}>

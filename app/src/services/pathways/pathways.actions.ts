@@ -10,6 +10,7 @@ import {
   updatePlanTask,
   withLinkedStatus,
 } from "~/server/pathways/pathway-tasks";
+import { startFromNote, startFromTask } from "~/server/pathways/pathway-start";
 
 // Plain server functions: the map page calls them and swaps in the record
 // each one returns, so the view never waits on a refetch. Each write is one
@@ -243,4 +244,16 @@ export async function exportPlanTasksFn(input: {
     })
     .parse(input);
   return exportPlanTasks(p.id, p.planTaskIds, p.listId);
+}
+
+/** "Map this out" on a task: opens its map, or starts one with the task as the question. */
+export async function startPathwayFromTask(taskId: string) {
+  "use server";
+  return startFromTask(id.parse(taskId));
+}
+
+/** "Explore as pathway" on a note: opens its map, or starts one that reads the note. */
+export async function startPathwayFromNote(docId: string) {
+  "use server";
+  return startFromNote(id.parse(docId));
 }

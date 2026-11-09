@@ -1,5 +1,7 @@
+import { useNavigate } from "@solidjs/router";
 import { Show, type JSX, type VoidComponent } from "solid-js";
 import { NoteToAiButton } from "~/components/annotations/NoteToAiButton";
+import { startPathwayFromNote } from "~/services/pathways/pathways.actions";
 import { CleanupChip } from "~/components/cleanup/CleanupChip";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { DocActivitySummaryPopover } from "../DocActivitySummaryPopover";
@@ -48,6 +50,7 @@ export const DocHeaderBar: VoidComponent<{
   onAddEventDates?: () => void;
   trailing?: JSX.Element;
 }> = (props) => {
+  const navigate = useNavigate();
   const properties = () => (
     <DocPropertiesCompactEditors
       docId={props.doc.id}
@@ -100,6 +103,10 @@ export const DocHeaderBar: VoidComponent<{
         onUseHeadingTitle={props.onUseHeadingTitle}
         onAddToCollection={props.onAddToCollection}
         onAddEventDates={props.onAddEventDates}
+        onExploreAsPathway={async () => {
+          const p = await startPathwayFromNote(props.doc.id);
+          navigate(`/pathways/${p.id}${p.created ? "?draft=1" : ""}`);
+        }}
       />
       {props.trailing}
     </HStack>

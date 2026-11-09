@@ -92,6 +92,7 @@ export function createPathwayState(initial: PathwayRecord) {
   const [params, setParams] = useSearchParams<{
     node?: string;
     view?: string;
+    draft?: string;
   }>();
   const [record, setRecord] = createSignal(initial);
   const [linkFrom, setLinkFrom] = createSignal<string | null>(null);
@@ -119,8 +120,18 @@ export function createPathwayState(initial: PathwayRecord) {
     () => new Set([...(change()?.added ?? []), ...(change()?.joined ?? [])]),
   );
   const freshEdges = createMemo(() => new Set(change()?.newEdges ?? []));
-  const fail = (err: unknown) =>
-    setError(err instanceof Error ? err.message : String(err));
+  const fail = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[pathways] action failed", msg);
+    // The agent's provider errors arrive as raw JSON; say what it means.
+    if (/OpenAI 401/.test(msg))
+      return setError("The agent can't run: OpenAI rejected the API key.");
+    if (/OpenAI (429|5\d\d)/.test(msg))
+      return setError(
+        "The agent can't run right now: OpenAI is busy or down. Try again in a minute.",
+      );
+    setError(msg);
+  };
 
   /** Saves through the server and swaps in its record (the local copy already shows the edit). */
   // Only the newest save's reply is taken: an older reply that arrives later
@@ -305,9 +316,20 @@ export function createPathwayState(initial: PathwayRecord) {
     }
   };
 
+  /**
+   * A map just started from a task or note opens with ?draft=1: the agent
+   * drafts the first options once, then the flag leaves the URL.
+   */
+  const draftOnOpen = () => {
+    if (params.draft !== "1") return;
+    setParams({ draft: undefined }, { replace: true });
+    if (record().graph.nodes.length === 1) void runAgent("options", "root");
+  };
+
   return {
     record,
     receive,
+    draftOnOpen,
     selected,
     setSelected,
     view,
