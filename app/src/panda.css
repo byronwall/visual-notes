@@ -475,6 +475,15 @@
     border-radius: 2px;
   }
 
+  @keyframes recentRowFlash {
+    from {
+      background-color: var(--colors-blue-a4);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
   @keyframes taskRowFlash {
     from {
       background-color: var(--colors-amber-a4);

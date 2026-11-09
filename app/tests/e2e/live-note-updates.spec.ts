@@ -69,6 +69,33 @@ test("a note created elsewhere appears in the open notes list", async ({
   });
 });
 
+test("a note created elsewhere appears in the sidebar Recent list", async ({
+  page,
+  browser,
+}) => {
+  // A note page has no notes list, so Recent is the only place it can show.
+  const targetId = await createNoteFixture(page, {
+    title: `Live target ${uniqueSuffix()}`,
+    markdown: "Open while an agent writes.",
+  });
+  await openNote(page, targetId);
+
+  const elsewhere = await openContext(browser, "/login");
+  const title = `Live recent ${uniqueSuffix()}`;
+  try {
+    await createNoteFixture(elsewhere.page, {
+      title,
+      markdown: "Created in another context.",
+    });
+  } finally {
+    await elsewhere.close();
+  }
+
+  await expect(
+    page.getByRole("region", { name: "Recent" }).getByText(title),
+  ).toBeVisible({ timeout: 5_000 });
+});
+
 test.describe("open note", () => {
   let noteId: string;
 

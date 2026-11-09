@@ -1,10 +1,10 @@
 import { A } from "@solidjs/router";
-import { For, Show, createResource, type VoidComponent } from "solid-js";
+import { For, Show, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, Stack } from "styled-system/jsx";
 import { Text } from "~/components/ui/text";
 import { fetchBacklinks } from "~/services/note-links.queries";
-import { keepOnFailedRead } from "~/utils/kept-async";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const rowLink = css({
   display: "block",
@@ -19,10 +19,9 @@ const rowLink = css({
 
 /** "Linked from" list under a note: every note that links here, with context. */
 export const BacklinksSection: VoidComponent<{ docId: string }> = (props) => {
-  const [backlinks] = createResource(
-    () => props.docId,
-    (id) => keepOnFailedRead(undefined, () => fetchBacklinks(id)),
-  );
+  // A query read, so a note that starts linking here (an agent's new note)
+  // shows up when the live refresh revalidates `note-backlinks`.
+  const backlinks = createKeptAsync(() => fetchBacklinks(props.docId));
   const items = () => backlinks.latest ?? [];
 
   return (

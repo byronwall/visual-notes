@@ -6,7 +6,7 @@ Open tabs refresh when a note is written somewhere else: an agent through [MCP](
 
 1. **Publish.** A Prisma query extension on `Doc` (`src/server/note-change-extension.ts`, applied in `src/server/db.ts`) publishes a `notes:changed` event after every successful write. The event carries `{ id, updatedAt?, deleted? }[]`. Bulk writes send `null`, which means "refresh everything". The event never carries note content.
 2. **Fan out.** `src/server/broadcast-bus.ts` delivers the event in-process. It keeps one listener set per thread on `globalThis`, because the Nitro WebSocket routes and the app bundle can load it separately. The `/ws/notes` route (`src/ws/notes.ts`) sends the event to each signed-in socket.
-3. **Refresh.** `NoteLiveSyncProvider` (`src/features/live-sync/`) is mounted in the signed-in shell. It debounces events by 250 ms, then calls `revalidate(["docs-", "activity-"])`. After a reconnect, or when a tab returns from being hidden more than 5 minutes, it does one catch-up refresh.
+3. **Refresh.** `NoteLiveSyncProvider` (`src/features/live-sync/`) is mounted in the signed-in shell. It debounces events by 250 ms, but waits at most 1 s while events keep arriving (`refresh-batcher.ts`), so an agent that writes without pause still shows up. Then it calls `forgetQuery(NOTE_LIVE_QUERY_KEYS)`: `docs-*`, `note-*`, `activity-*`, `doc-revisions`, and the sidebar's Recent list (`sidebar-recent-items`). `forgetQuery` also drops the server-rendered payload for those keys, so a query first read later does not show the page-load copy. After a reconnect, when a tab returns from being hidden more than 5 minutes, or when a tab becomes visible while the socket is down, it does one catch-up refresh.
 4. **Open note.** `DocumentEditor` runs `checkRemote` when an event names its note, plus a 15s version poll as a fallback. An idle editor adopts the newer version with `applyRemoteContent`, a minimal diff that waits while the cursor is inside a changed block. A dirty draft is left alone: its next save sends the base version, and the server merges per block (`server/notes/note-write.ts`). A same-block conflict keeps the incoming save and stores the other version in Versions, with a toast. An event that arrives mid-save is checked once the save settles. The tab's own save echoing back is skipped by `updatedAt`. `useLiveNoteResource` keeps the note page and side panel headers current.
 
 ## Other areas
@@ -15,7 +15,8 @@ The same socket carries `app:changed` events for areas that are not notes: `rese
 
 ## Adding a note view
 
-- Views that read through `query()` + `createAsync` under a `docs-*` or `activity-*` key refresh automatically.
+- Views that read through `query()` + `createAsync` under a key in `NOTE_LIVE_QUERY_KEYS` (`note-live-keys.ts`) refresh automatically. A query with another prefix that lists notes must be added there, or it goes stale: the sidebar's Recent list did, so an agent's new note needed a reload.
+- `createResource(() => someQuery())` does not refresh: `revalidate` reruns only tracked query reads, and a resource fetcher is untracked. Use `createAsync` (or `createKeptAsync` beside an editor) for lists.
 - A view that holds a note in `createResource` needs `useLiveNoteResource` (or `useRemoteNoteChanges` for custom handling). Swap data with `mutate`, never `refetch`. A refetch suspends, and Suspense unmounts the editor beneath it.
 - Read the server's copy with `fetchDocLatest`, not `fetchDoc`. A server-rendered note page leaves the `docs-get` query entry unread, so `fetchDoc` can return the stale SSR payload even after `revalidate`.
 - Swap a resource only when the fields it shows changed. A new note object on every save steals the editor's focus.
@@ -43,6 +44,7 @@ The same socket carries `app:changed` events for areas that are not notes: `rese
 ## Checking it
 
 - Unit: `cd app && pnpm test src/server/note-change-extension src/server/broadcast-bus src/server/note-events src/features/live-sync src/lib/socket-client`
+- MCP in the browser: `tmp/` checks with the [browser-check kit](browser-checks.md) can call `/mcp` with `@modelcontextprotocol/sdk` and the launcher's `MCP_DEV_TOKEN` (start the harness with `MCP_CONNECTOR_ENABLED=true MCP_DEV_TOKEN=<any>`), then wait for the note in each open view.
 - Socket and MCP smoke: run this against a local or disposable database.
 
   ```sh

@@ -3,9 +3,11 @@ import {
   For,
   Show,
   Suspense,
+  createMemo,
   createSignal,
   onCleanup,
   onMount,
+  untrack,
 } from "solid-js";
 import { createAsync, revalidate, useLocation } from "@solidjs/router";
 import { Box, Stack } from "styled-system/jsx";
@@ -61,6 +63,42 @@ const listClass = css({
   maskImage: "linear-gradient(to bottom, black calc(100% - 24px), transparent)",
 });
 
+// A row that arrives or moves up after the first load flashes once, so a
+// note an agent just wrote is easy to spot. The row remounts on each refresh,
+// so the animation plays only for the refresh that changed it.
+const freshRowClass = css({
+  borderRadius: "l2",
+  "&[data-fresh=true]": { animation: "recentRowFlash 1.8s ease-out" },
+  _motionReduce: { "&[data-fresh=true]": { animation: "none" } },
+});
+
+const itemKey = (item: RecentItem) => `${item.kind}:${item.id}`;
+
+/**
+ * Keys of rows that are new or newer than the last list. The first list
+ * marks nothing, and neither does the open page: its own saves would flash.
+ */
+const createFreshKeys = (
+  list: () => RecentItem[],
+  isCurrent: (item: RecentItem) => boolean,
+) => {
+  let seen: Map<string, string> | null = null;
+  const fresh = createMemo(() => {
+    const items = list();
+    const prev = seen;
+    seen = new Map(items.map((item) => [itemKey(item), item.at]));
+    if (!prev) return new Set<string>();
+    return new Set(
+      items
+        .filter((item) => prev.get(itemKey(item)) !== item.at)
+        // Untracked: navigating must not rerun this and drop a flash.
+        .filter((item) => !untrack(() => isCurrent(item)))
+        .map(itemKey),
+    );
+  });
+  return fresh;
+};
+
 /** Re-renders relative times every 30s; the sidebar outlives navigation. */
 const createClock = () => {
   const [now, setNow] = createSignal(Date.now());
@@ -102,21 +140,39 @@ const RecentList = () => {
           </Box>
         }
       >
-        <Stack as="ul" gap="0.5" m="0" p="0" listStyle="none" class={listClass}>
-          <For each={items()}>
-            {(item) => (
-              <li>
-                <RecentRow
-                  item={item}
-                  now={now()}
-                  current={isCurrent(item)}
-                />
-              </li>
-            )}
-          </For>
-        </Stack>
+        <RecentRows items={items() ?? []} now={now()} isCurrent={isCurrent} />
       </Show>
     </Suspense>
+  );
+};
+
+/** The list itself; a child so its memo reads the list under the Suspense above. */
+const RecentRows = (props: {
+  items: RecentItem[];
+  now: number;
+  isCurrent: (item: RecentItem) => boolean;
+}) => {
+  const fresh = createFreshKeys(
+    () => props.items,
+    (item) => props.isCurrent(item),
+  );
+  return (
+    <Stack as="ul" gap="0.5" m="0" p="0" listStyle="none" class={listClass}>
+      <For each={props.items}>
+        {(item) => (
+          <li
+            class={freshRowClass}
+            data-fresh={fresh().has(itemKey(item)) ? "true" : undefined}
+          >
+            <RecentRow
+              item={item}
+              now={props.now}
+              current={props.isCurrent(item)}
+            />
+          </li>
+        )}
+      </For>
+    </Stack>
   );
 };
 
