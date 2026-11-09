@@ -237,6 +237,7 @@ model Doc {
   inlineTasks          TaskItem[]
   audioRecordings      DocAudio[]
   editProposals        EditProposal[]
+  annotations          Annotation[]
   cleanupAssessment    NoteAssessment?
   cleanupPairsA        NotePairAssessment[] @relation("CleanupPairA")
   cleanupPairsB        NotePairAssessment[] @relation("CleanupPairB")
@@ -1340,4 +1341,49 @@ model EditProposal {
 
   @@index([docId, resolvedAt])
   @@index([resolvedAt, createdAt])
+}
+
+/// A kind of annotation: its highlight color and whether agents act on it.
+model AnnotationType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// Palette token name: amber, green, blue, red, or gray.
+  color     String
+  /// Agents act on annotations of this type; other types are context only.
+  forAi     Boolean  @default(false)
+  /// The type a new highlight starts with. Exactly one type has it.
+  isDefault Boolean  @default(false)
+  /// "request" or "from-ai" for the two types the app relies on.
+  builtIn   String?  @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  annotations Annotation[]
+}
+
+/// A comment on a note, either on a passage (blockId + quote) or on the
+/// whole note. It is drawn over the text, never stored in the note body.
+model Annotation {
+  id         String    @id @default(cuid())
+  docId      String?
+  typeId     String
+  body       String    @default("")
+  /// "you", or the MCP client name of the agent that wrote it.
+  author     String    @default("you")
+  /// The block holding the passage; null for a whole-note annotation.
+  blockId    String?
+  /// The highlighted text, matched again when the note loads.
+  quote      String?
+  /// Where the quote starts in the block's text, to pick between repeats.
+  quoteStart Int?
+  /// Set when the passage was deleted; the annotation stays in the rail.
+  detachedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  doc  Doc?           @relation(fields: [docId], references: [id], onDelete: Cascade)
+  type AnnotationType @relation(fields: [typeId], references: [id])
+
+  @@index([docId])
+  @@index([typeId])
 }

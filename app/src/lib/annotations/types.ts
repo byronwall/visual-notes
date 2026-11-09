@@ -21,3 +21,39 @@ export type EditProposalView = {
   createdAt: string;
   ops: ProposalOp[];
 };
+
+/** Palette tokens an annotation type can use. */
+export const ANNOTATION_COLORS = ["amber", "green", "blue", "red", "gray"] as const;
+export type AnnotationColor = (typeof ANNOTATION_COLORS)[number];
+
+export type AnnotationTypeView = {
+  id: string;
+  name: string;
+  color: AnnotationColor;
+  forAi: boolean;
+  isDefault: boolean;
+  builtIn: string | null;
+};
+
+export type AnnotationView = {
+  id: string;
+  docId: string | null;
+  typeId: string;
+  body: string;
+  author: string;
+  blockId: string | null;
+  quote: string | null;
+  quoteStart: number | null;
+  detached: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Where a passage annotation sits now, as the editor last saw it. */
+export type AnchorUpdate = {
+  id: string;
+  blockId: string;
+  quote: string;
+  quoteStart: number;
+  detached: boolean;
+};
