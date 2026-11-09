@@ -36,6 +36,14 @@ import {
 
 const LOG_PREFIX = "[annotations]";
 
+/** Annotation ids on a highlight span; overlapping highlights share one. */
+const annotationIdsOf = (el: Element | null | undefined) =>
+  el
+    ? [...el.classList]
+        .filter((c) => c.startsWith("vn-a-"))
+        .map((c) => c.slice(5))
+    : [];
+
 export const AnnotationLayer: VoidComponent<{
   docId: string;
   editor: Editor | undefined;
@@ -43,10 +51,17 @@ export const AnnotationLayer: VoidComponent<{
   onFlushReady?: (flush: () => Promise<void>) => void;
 }> = (props) => {
   const typesData = createKeptAsync(() => fetchAnnotationTypes(), onDemand);
-  const notesData = createKeptAsync(() => fetchNoteAnnotations(props.docId), onDemand);
+  const notesData = createKeptAsync(
+    () => fetchNoteAnnotations(props.docId),
+    onDemand,
+  );
   const runSaveAnchors = useAction(saveAnnotationAnchors);
   const [activeId, setActiveId] = createSignal<string | null>(null);
-  const [ranges, setRanges] = createSignal(new Map<string, Range>(), { equals: false });
+  const [hoverId, setHoverId] = createSignal<string | null>(null);
+  const [focusType, setFocusType] = createSignal<string | null>(null);
+  const [ranges, setRanges] = createSignal(new Map<string, Range>(), {
+    equals: false,
+  });
   const [typesOpen, setTypesOpen] = createSignal(false);
 
   const types = () => typesData.latest ?? [];
@@ -56,8 +71,10 @@ export const AnnotationLayer: VoidComponent<{
     for (const type of types()) out[type.id] = type.color;
     return out;
   });
-  const editor = () => (props.editor && !props.editor.isDestroyed ? props.editor : undefined);
-  const refresh = () => void revalidate(fetchNoteAnnotations.keyFor(props.docId));
+  const editor = () =>
+    props.editor && !props.editor.isDestroyed ? props.editor : undefined;
+  const refresh = () =>
+    void revalidate(fetchNoteAnnotations.keyFor(props.docId));
 
   createEffect(() => {
     const ed = editor();
@@ -73,12 +90,60 @@ export const AnnotationLayer: VoidComponent<{
     });
   });
 
+  // Hovering a highlight lights up its rail entry. Delegated on the editor,
+  // so it costs nothing per highlight.
   createEffect(() => {
     const ed = editor();
-    const input = { annotations: annotations(), colors: colors(), activeId: activeId() };
+    if (!ed) return;
+    const onOver = (event: MouseEvent) => {
+      const el = (event.target as Element | null)?.closest?.(".vn-annotation");
+      setHoverId(annotationIdsOf(el)[0] ?? null);
+    };
+    const onLeave = () => setHoverId(null);
+    // A click in the note away from any highlight lets go of the active one.
+    const onDown = (event: MouseEvent) => {
+      if (!(event.target as Element | null)?.closest?.(".vn-annotation"))
+        setActiveId(null);
+    };
+    ed.view.dom.addEventListener("mouseover", onOver);
+    ed.view.dom.addEventListener("mouseleave", onLeave);
+    ed.view.dom.addEventListener("mousedown", onDown);
+    onCleanup(() => {
+      ed.view.dom.removeEventListener("mouseover", onOver);
+      ed.view.dom.removeEventListener("mouseleave", onLeave);
+      ed.view.dom.removeEventListener("mousedown", onDown);
+    });
+  });
+
+  // Active, hovered, and filtered highlights restyle through CSS, so the
+  // editor never redraws (a redraw would disturb a selection in progress).
+  const stateCss = createMemo(() => {
+    const byId = new Map(annotations().map((a) => [a.id, a]));
+    const strong = (id: string | null) => {
+      const a = id ? byId.get(id) : undefined;
+      if (!a) return "";
+      const c = colors()[a.typeId] ?? "amber";
+      return `.vn-a-${a.id}{background-color:var(--colors-${c}-a7)!important;box-shadow:inset 0 -2px 0 var(--colors-${c}-a11)!important;}`;
+    };
+    const focus = focusType();
+    const dim = focus
+      ? `.vn-annotation:not(.vn-t-${focus}){background-color:transparent!important;box-shadow:none!important;cursor:text!important;}`
+      : "";
+    return dim + strong(activeId()) + strong(hoverId());
+  });
+
+  createEffect(() => {
+    const ed = editor();
+    const input = {
+      annotations: annotations(),
+      colors: colors(),
+      activeId: null,
+    };
     if (!ed) return;
     const [meta, value] = setAnnotationsMeta(input);
-    ed.view.dispatch(ed.state.tr.setMeta(meta, value).setMeta("addToHistory", false));
+    ed.view.dispatch(
+      ed.state.tr.setMeta(meta, value).setMeta("addToHistory", false),
+    );
   });
 
   const flush = async () => {
@@ -114,6 +179,10 @@ export const AnnotationLayer: VoidComponent<{
     ranges,
     activeId,
     setActive: setActiveId,
+    hoverId,
+    setHover: setHoverId,
+    focusType,
+    setFocusType,
     reveal,
     refresh,
     openTypes: () => setTypesOpen(true),
@@ -121,9 +190,13 @@ export const AnnotationLayer: VoidComponent<{
 
   return (
     <AnnotationLayerContext.Provider value={api}>
+      <style>{stateCss()}</style>
       <AnnotationComposer />
       <AnnotationRail />
-      <AnnotationTypesDialog open={typesOpen()} onClose={() => setTypesOpen(false)} />
+      <AnnotationTypesDialog
+        open={typesOpen()}
+        onClose={() => setTypesOpen(false)}
+      />
     </AnnotationLayerContext.Provider>
   );
 };

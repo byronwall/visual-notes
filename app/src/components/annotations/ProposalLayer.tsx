@@ -39,7 +39,10 @@ export const ProposalLayer: VoidComponent<{
       await runResolve({ proposalId, indexes: [index], state });
     } catch (error) {
       console.warn(`${LOG_PREFIX} resolve failed`, error);
-      toaster.create({ title: "Could not record that decision", type: "error" });
+      toaster.create({
+        title: "Could not record that decision",
+        type: "error",
+      });
     }
     void revalidate(fetchNoteProposals.keyFor(props.docId));
   };
@@ -52,7 +55,8 @@ export const ProposalLayer: VoidComponent<{
       const tr = proposalTransaction(ed.state, op);
       if (!tr) {
         toaster.create({
-          title: "That part of the note changed, so the suggestion no longer fits",
+          title:
+            "That part of the note changed, so the suggestion no longer fits",
           type: "info",
         });
         return;

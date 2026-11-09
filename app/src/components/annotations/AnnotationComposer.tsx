@@ -25,7 +25,9 @@ type Passage = NonNullable<ReturnType<typeof selectionPassage>>;
 type Spot = { top: number; left: number };
 
 const shortcutLabel = () =>
-  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘⌥M" : "Ctrl+Alt+M";
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? "⌘⌥M"
+    : "Ctrl+Alt+M";
 
 const floatClass = css({
   position: "absolute",
@@ -56,7 +58,10 @@ export const AnnotationComposer: VoidComponent = () => {
     setPassage(found);
     if (!found || !ed) return setSpot(null);
     const end = ed.view.coordsAtPos(found.to);
-    setSpot({ top: end.bottom + window.scrollY + 6, left: end.left + window.scrollX });
+    setSpot({
+      top: end.bottom + window.scrollY + 6,
+      left: end.left + window.scrollX,
+    });
   };
 
   createEffect(() => {
@@ -65,7 +70,12 @@ export const AnnotationComposer: VoidComponent = () => {
     const onBlur = () => queueMicrotask(place);
     // ⌘⌥M / Ctrl+Alt+M, as in Google Docs, opens the form for the selection.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || !event.altKey || event.code !== "KeyM") return;
+      if (
+        !(event.metaKey || event.ctrlKey) ||
+        !event.altKey ||
+        event.code !== "KeyM"
+      )
+        return;
       event.preventDefault();
       place();
       if (passage()) return start();
@@ -107,7 +117,8 @@ export const AnnotationComposer: VoidComponent = () => {
     setPassage(null);
     setSpot(null);
     const ed = layer.editor();
-    if (restoreCaret && ed && end !== undefined) ed.chain().setTextSelection(end).focus().run();
+    if (restoreCaret && ed && end !== undefined)
+      ed.chain().setTextSelection(end).focus().run();
   };
 
   createEffect(() => {
@@ -115,11 +126,17 @@ export const AnnotationComposer: VoidComponent = () => {
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Element | null;
       // The type picker's list renders in a portal of its own.
-      if (formEl?.contains(target) || target?.closest("[data-scope=select]")) return;
+      if (formEl?.contains(target) || target?.closest("[data-scope=select]"))
+        return;
       close(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.target instanceof Element && event.target.closest("[data-scope=select]")) return;
+      if (
+        event.key !== "Escape" ||
+        (event.target instanceof Element &&
+          event.target.closest("[data-scope=select]"))
+      )
+        return;
       event.preventDefault();
       close();
     };
@@ -173,10 +190,21 @@ export const AnnotationComposer: VoidComponent = () => {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={start}
               >
-                <HStack gap="1.5" px="2.5" py="1" fontSize="sm" fontWeight="medium">
+                <HStack
+                  gap="1.5"
+                  px="2.5"
+                  py="1"
+                  fontSize="sm"
+                  fontWeight="medium"
+                >
                   <MessageSquarePlusIcon size={14} />
                   Annotate
-                  <Box as="span" color="fg.subtle" fontSize="xs" fontFamily="mono">
+                  <Box
+                    as="span"
+                    color="fg.subtle"
+                    fontSize="xs"
+                    fontFamily="mono"
+                  >
                     {shortcutLabel()}
                   </Box>
                 </HStack>
@@ -190,15 +218,24 @@ export const AnnotationComposer: VoidComponent = () => {
               w="80"
               maxW="calc(100vw - 32px)"
               data-testid="annotation-composer"
-              style={{ top: `${at().top}px`, left: `${Math.min(at().left, window.innerWidth - 340)}px` }}
+              style={{
+                top: `${at().top}px`,
+                left: `${Math.min(at().left, window.innerWidth - 340)}px`,
+              }}
               ref={formEl}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void save();
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey))
+                  void save();
               }}
             >
               <SimpleSelect
                 size="sm"
-                items={layer.types().map((t) => ({ label: t.forAi ? `${t.name} · for AI` : t.name, value: t.id }))}
+                items={layer
+                  .types()
+                  .map((t) => ({
+                    label: t.forAi ? `${t.name} · for AI` : t.name,
+                    value: t.id,
+                  }))}
                 value={typeId()}
                 onChange={setTypeId}
                 sameWidth
@@ -212,14 +249,22 @@ export const AnnotationComposer: VoidComponent = () => {
                 onInput={(event) => setBody(event.currentTarget.value)}
               />
               <HStack justify="space-between">
-                <Button size="xs" variant="plain" onClick={() => layer.openTypes()}>
+                <Button
+                  size="xs"
+                  variant="plain"
+                  onClick={() => layer.openTypes()}
+                >
                   Edit types
                 </Button>
                 <HStack gap="2">
                   <Button size="xs" variant="outline" onClick={() => close()}>
                     Cancel
                   </Button>
-                  <Button size="xs" loading={saving()} onClick={() => void save()}>
+                  <Button
+                    size="xs"
+                    loading={saving()}
+                    onClick={() => void save()}
+                  >
                     Save
                   </Button>
                 </HStack>

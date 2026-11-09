@@ -16,6 +16,12 @@ export type AnnotationLayerApi = {
   ranges: Accessor<Map<string, Range>>;
   activeId: Accessor<string | null>;
   setActive: (id: string | null) => void;
+  /** The annotation under the pointer, in the rail or the note. */
+  hoverId: Accessor<string | null>;
+  setHover: (id: string | null) => void;
+  /** A type picked in the legend: only its annotations show. */
+  focusType: Accessor<string | null>;
+  setFocusType: (id: string | null) => void;
   /** Scrolls the note to an annotation's highlight and marks it active. */
   reveal: (id: string) => void;
   refresh: () => void;
@@ -31,6 +37,6 @@ export const useAnnotationLayer = () => {
 };
 
 /** Inline style for a type's color dot or bar. */
-export const swatchStyle = (color: string, step = 9) => ({
+export const swatchStyle = (color: string, step: number | string = 9) => ({
   "background-color": `var(--colors-${color}-${step})`,
 });

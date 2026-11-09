@@ -40,13 +40,15 @@ function decorate(doc: PMNode, state: Omit<State, "decorations">): DecorationSet
     const range = state.ranges.get(annotation.id);
     if (!range || range.to <= range.from) continue;
     const color = state.colors[annotation.typeId] ?? "amber";
-    const active = annotation.id === state.activeId;
+    // Active, hover, and filter styles come from a stylesheet the layer
+    // writes, so they never redraw the note.
     decorations.push(
+      // Classes, not data attributes: highlights on the same words merge
+      // into one span, and only classes keep every annotation and type.
       Decoration.inline(range.from, range.to, {
-        class: "vn-annotation",
+        class: `vn-annotation vn-a-${annotation.id} vn-t-${annotation.typeId}`,
         "data-annotation-id": annotation.id,
-        "data-active": String(active),
-        style: `background-color: var(--colors-${color}-a${active ? 6 : 4}); box-shadow: inset 0 -2px 0 var(--colors-${color}-a9); border-radius: 2px; cursor: pointer;`,
+        style: `background-color: var(--colors-${color}-a4); box-shadow: inset 0 -2px 0 var(--colors-${color}-a9); border-radius: 2px; cursor: pointer; transition: background-color 140ms ease-out;`,
       }),
     );
   }

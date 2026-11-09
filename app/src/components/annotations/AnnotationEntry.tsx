@@ -1,50 +1,70 @@
 import { useAction } from "@solidjs/router";
-import { Trash2Icon } from "lucide-solid";
-import { createEffect, createSignal, Show, type VoidComponent } from "solid-js";
+import { BotIcon, MessageSquareIcon } from "lucide-solid";
+import { createSignal, Show, type JSX, type VoidComponent } from "solid-js";
 import { css } from "styled-system/css";
 import { Box, HStack } from "styled-system/jsx";
-import { IconButton } from "~/components/ui/icon-button";
-import { SimpleSelect } from "~/components/ui/simple-select";
 import { Textarea } from "~/components/ui/textarea";
 import type { AnnotationView } from "~/lib/annotations/types";
 import {
   deleteNoteAnnotation,
   updateNoteAnnotation,
 } from "~/services/annotations/annotations.actions";
+import { AnnotationEntryMenu } from "./AnnotationEntryMenu";
 import { swatchStyle, useAnnotationLayer } from "./annotation-context";
 import { RequestStatusBadge, RequestThread } from "./RequestThread";
 
-// One annotation in the rail: its type, the quoted passage (click to jump
-// there), and the comment, which edits in place.
+// One margin note: a type line, the passage in its highlight color, and the
+// comment. Inactive notes stay short; the active one opens its thread and
+// lets you edit. Change type and Delete live in the ⋯ menu.
+
+const rowClass = css({
+  position: "relative",
+  px: "2",
+  py: "1.5",
+  borderRadius: "l2",
+  cursor: "pointer",
+  transitionProperty: "background-color, box-shadow",
+  transitionDuration: "140ms",
+  transitionTimingFunction: "ease-out",
+  _motionReduce: { transition: "none" },
+  "& [data-reveal]": { opacity: 0, transition: "opacity 140ms ease-out" },
+  "&:hover [data-reveal], &[data-active] [data-reveal], &:focus-within [data-reveal]":
+    { opacity: 1 },
+});
 
 const quoteClass = css({
   fontSize: "xs",
-  color: "fg.muted",
-  fontStyle: "italic",
-  lineClamp: "3",
+  lineHeight: "1.45",
   whiteSpace: "pre-line",
-  cursor: "pointer",
-  textAlign: "left",
-  _hover: { color: "fg.default" },
+  borderRadius: "l1",
+  px: "1",
+  mx: "-1",
+  boxDecorationBreak: "clone",
 });
 
-export const AnnotationEntry: VoidComponent<{ annotation: AnnotationView }> = (props) => {
+export const AnnotationEntry: VoidComponent<{
+  annotation: AnnotationView;
+  /** Beside its passage in the margin, so the quote would only repeat it. */
+  aligned?: boolean;
+  ref?: (el: HTMLDivElement) => void;
+  style?: JSX.CSSProperties;
+}> = (props) => {
   const layer = useAnnotationLayer();
   const runUpdate = useAction(updateNoteAnnotation);
   const runDelete = useAction(deleteNoteAnnotation);
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal("");
-  let el: HTMLDivElement | undefined;
 
-  const type = () => layer.types().find((t) => t.id === props.annotation.typeId);
+  const type = () =>
+    layer.types().find((t) => t.id === props.annotation.typeId);
   const color = () => type()?.color ?? "gray";
   const active = () => layer.activeId() === props.annotation.id;
+  const hovered = () => layer.hoverId() === props.annotation.id;
   const placed = () => layer.ranges().has(props.annotation.id);
-  const missing = () => Boolean(props.annotation.blockId) && !placed();
-
-  createEffect(() => {
-    if (active()) el?.scrollIntoView({ block: "nearest" });
-  });
+  const fromAgent = () => props.annotation.author !== "you";
+  // In the margin the passage is right beside the note, so its quote shows
+  // only when the note is open or has no place in the text.
+  const showQuote = () => !props.aligned || active() || !placed();
 
   const commit = async () => {
     setEditing(false);
@@ -59,113 +79,163 @@ export const AnnotationEntry: VoidComponent<{ annotation: AnnotationView }> = (p
   };
 
   const remove = async () => {
+    if (active()) layer.setActive(null);
     await runDelete(props.annotation.id);
     layer.refresh();
   };
 
+  const select = () => {
+    if (active()) return;
+    if (placed()) layer.reveal(props.annotation.id);
+    else layer.setActive(props.annotation.id);
+  };
+
+  const startEdit = (event: MouseEvent) => {
+    if (!active()) return;
+    event.stopPropagation();
+    setDraft(props.annotation.body);
+    setEditing(true);
+  };
+
   return (
-    <Box
-      ref={el}
+    <div
+      ref={props.ref}
+      class={rowClass}
+      style={{
+        ...props.style,
+        ...(active()
+          ? {
+              "background-color": `var(--colors-${color()}-a2)`,
+              "box-shadow": `inset 0 0 0 1px var(--colors-${color()}-a6)`,
+            }
+          : hovered()
+            ? { "background-color": "var(--colors-gray-a3)" }
+            : {}),
+      }}
       data-testid="annotation-entry"
-      data-active={active() ? "true" : undefined}
-      position="relative"
-      borderWidth="1px"
-      borderColor={active() ? "border.emphasized" : "border"}
-      borderRadius="l2"
-      bg="bg.default"
-      pl="3"
-      pr="2"
-      py="2"
-      boxShadow={active() ? "sm" : undefined}
-      onClick={() => layer.setActive(props.annotation.id)}
+      data-annotation-id={props.annotation.id}
+      data-active={active() ? "" : undefined}
+      onMouseEnter={() => layer.setHover(props.annotation.id)}
+      onMouseLeave={() => layer.setHover(null)}
+      onClick={select}
     >
-      <Box position="absolute" left="0" top="0" bottom="0" w="1" borderLeftRadius="l2" style={swatchStyle(color())} />
-      <HStack gap="1" justify="space-between">
-        <SimpleSelect
-          size="xs"
-          items={layer.types().map((t) => ({ label: t.name, value: t.id }))}
-          value={props.annotation.typeId}
-          onChange={(typeId) => void retype(typeId)}
+      <HStack gap="1.5" fontSize="xs" minH="5">
+        <Box
+          w="2"
+          h="2"
+          borderRadius="full"
+          flexShrink="0"
+          style={swatchStyle(color())}
         />
-        <HStack gap="1" fontSize="xs" color="fg.muted" minW="0">
-          <Show when={props.annotation.author !== "you"}>
+        <Box fontWeight="semibold" color="fg.default" whiteSpace="nowrap">
+          {type()?.name ?? "Note"}
+        </Box>
+        <Show when={fromAgent()}>
+          <HStack gap="0.5" color="fg.muted" minW="0">
+            <BotIcon size={12} />
             <Box truncate>{props.annotation.author}</Box>
-          </Show>
-          <IconButton
-            size="2xs"
-            variant="plain"
-            aria-label="Delete annotation"
-            onClick={(event) => {
-              event.stopPropagation();
-              void remove();
-            }}
-          >
-            <Trash2Icon />
-          </IconButton>
-        </HStack>
+          </HStack>
+        </Show>
+        <Show when={props.annotation.status}>
+          <Box minW="0" overflow="hidden">
+            <RequestStatusBadge request={props.annotation} short />
+          </Box>
+        </Show>
+        <Box flex="1" />
+        <Show when={!active() && props.annotation.messages.length > 0}>
+          <HStack gap="0.5" color="fg.muted" flexShrink="0" title="Replies">
+            <MessageSquareIcon size={11} />
+            {props.annotation.messages.length}
+          </HStack>
+        </Show>
+        <Box data-reveal="">
+          <AnnotationEntryMenu
+            types={layer.types()}
+            typeId={props.annotation.typeId}
+            onType={(id) => void retype(id)}
+            onDelete={() => void remove()}
+            onEditTypes={() => layer.openTypes()}
+          />
+        </Box>
       </HStack>
-      <Show when={props.annotation.status}>
+
+      <Show when={showQuote()}>
         <Box mt="1">
-          <RequestStatusBadge request={props.annotation} />
-        </Box>
-      </Show>
-      <Show when={!props.annotation.blockId}>
-        <Box fontSize="xs" color="fg.muted">
-          Whole note
-        </Box>
-      </Show>
-      <Show when={props.annotation.quote}>
-        {(quote) => (
-          <button
-            type="button"
-            class={quoteClass}
-            disabled={!placed()}
-            onClick={() => layer.reveal(props.annotation.id)}
+          <Show
+            when={props.annotation.quote}
+            fallback={
+              <Box fontSize="xs" color="fg.muted">
+                On the whole note
+              </Box>
+            }
           >
-            “{quote()}”
-          </button>
-        )}
-      </Show>
-      <Show when={missing()}>
-        <Box fontSize="xs" color="fg.subtle" data-testid="annotation-missing">
-          {props.annotation.detached ? "Passage removed" : "Passage not found"}
+            {(quote) => (
+              <Box lineClamp={active() ? undefined : "2"}>
+                <span
+                  class={quoteClass}
+                  style={{ "background-color": `var(--colors-${color()}-a3)` }}
+                >
+                  {quote()}
+                </span>
+              </Box>
+            )}
+          </Show>
+          <Show when={props.annotation.blockId && !placed()}>
+            <Box
+              fontSize="xs"
+              color="fg.subtle"
+              data-testid="annotation-missing"
+            >
+              {props.annotation.detached
+                ? "Passage removed"
+                : "Passage not found"}
+            </Box>
+          </Show>
         </Box>
       </Show>
+
       <Show
         when={editing()}
         fallback={
-          <Box
-            mt="1"
-            fontSize="sm"
-            whiteSpace="pre-wrap"
-            color={props.annotation.body ? "fg.default" : "fg.subtle"}
-            cursor="text"
-            onClick={() => {
-              setDraft(props.annotation.body);
-              setEditing(true);
-            }}
-          >
-            {props.annotation.body || "Add a comment"}
-          </Box>
+          <Show when={props.annotation.body || active()}>
+            <Box
+              mt="0.5"
+              fontSize="sm"
+              lineHeight="1.45"
+              whiteSpace="pre-wrap"
+              lineClamp={active() ? undefined : "2"}
+              color={props.annotation.body ? "fg.default" : "fg.subtle"}
+              cursor={active() ? "text" : undefined}
+              onClick={startEdit}
+            >
+              {props.annotation.body || "Add a comment"}
+            </Box>
+          </Show>
         }
       >
         <Textarea
           mt="1"
           size="sm"
-          rows={3}
-          autofocus
+          rows={2}
+          autoresize
+          ref={(el: HTMLTextAreaElement) =>
+            requestAnimationFrame(() => el.focus())
+          }
           value={draft()}
+          onClick={(event) => event.stopPropagation()}
           onInput={(event) => setDraft(event.currentTarget.value)}
           onBlur={() => void commit()}
           onKeyDown={(event) => {
             if (event.key === "Escape") setEditing(false);
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) void commit();
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey))
+              void commit();
           }}
         />
       </Show>
-      <Show when={props.annotation.status}>
+
+      <Show when={props.annotation.status && active()}>
         <RequestThread request={props.annotation} onChanged={layer.refresh} />
       </Show>
-    </Box>
+    </div>
   );
 };
