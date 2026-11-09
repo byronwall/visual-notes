@@ -36,6 +36,7 @@ export type Change = {
 };
 
 const ACTION_LABEL: Record<PathwayAgentAction, string> = {
+  start: "First map",
   options: "More choices from here",
   forward: "What happens next",
   converge: "Where do paths meet?",

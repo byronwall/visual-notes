@@ -1,14 +1,20 @@
-import { applyOps, type GraphOps } from "~/lib/pathways/graph-ops";
+import { applyOps } from "~/lib/pathways/graph-ops";
 import { replacePlan, type NewPlanTask } from "~/lib/pathways/plan";
-import type { NodeKind, Source } from "~/lib/pathways/types";
+import type { Source } from "~/lib/pathways/types";
 import { callLLM } from "~/server/lib/ai";
 import {
-  ACTIONS,
+  contextText,
+  firstAction,
+  mapPrompt,
+  outline,
+  replyToOps,
+  type MapReply,
+} from "./agent-input";
+import {
   MAP_SCHEMA,
   PLAN_SCHEMA,
   QUESTION_SCHEMA,
   RESEARCH_SCHEMA,
-  SYSTEM,
   type PathwayAgentAction,
 } from "./agent-prompts";
 import * as store from "./pathway-store";
@@ -18,7 +24,12 @@ import { withLinkedStatus } from "./pathway-tasks";
 // structured reply, and writes the reply back through the store as one
 // revision ("agent: <action>"), applied to a fresh read of the map.
 
-const MODEL = process.env.PATHWAYS_MODEL || "gpt-5.4-mini";
+// Picked with `pnpm eval:pathways` (see app/docs/pathways-agent.md): Terra
+// does every action well; Sol at low effort builds clearly better whole maps,
+// which happens about once per map.
+const MODEL = process.env.PATHWAYS_MODEL || "gpt-6.1-terra";
+const MAP_MODEL = process.env.PATHWAYS_MAP_MODEL || "gpt-6.1-sol";
+const WHOLE_MAP: PathwayAgentAction[] = ["start", "regenerate"];
 const LOG = "[pathways-agent]";
 
 export type AgentRun = {
@@ -30,101 +41,20 @@ export type AgentRun = {
   ms: number;
 };
 
-type MapReply = {
-  summary: string;
-  nodes: {
-    ref: string;
-    kind: Exclude<NodeKind, "root">;
-    title: string;
-    note: string;
-    missed: boolean;
-    research: string;
-  }[];
-  edges: { from: string; to: string }[];
-  merges: { keep: string; drop: string; title: string | null }[];
-  drops: string[];
-  chosen: string[];
-  appendNotes: { id: string; text: string }[];
-};
-
-const FEEDBACK_TEXT = {
-  like: "likes this",
-  no: "does not want this",
-  more: "wants better options here",
-};
-
-function contextText(p: store.PathwayRecord) {
-  const c = p.context;
-  if (!c) return "";
-  const qa = c.qa
-    .filter((x) => x.a.trim())
-    .map((x) => `- Q: ${x.q}\n  A: ${x.a.trim()}`);
-  const parts = [
-    c.notes.trim() && `In their words: ${c.notes.trim()}`,
-    qa.length && `Answers:\n${qa.join("\n")}`,
-  ];
-  const body = parts.filter(Boolean).join("\n");
-  return body ? `The person's goals and context:\n${body}\n\n` : "";
-}
-
-/** The map as the model reads it. */
-export function outline(p: store.PathwayRecord) {
-  const nodes = p.graph.nodes
-    .map((n) => {
-      const weight =
-        n.weight === "key"
-          ? "important to the person"
-          : n.weight === "noise"
-            ? "noise to the person"
-            : "";
-      const flags = [n.kind, n.status !== "open" ? n.status : "", weight]
-        .filter(Boolean)
-        .join(", ");
-      const found = n.research?.findings
-        ? `\n  Research (${n.research.question}): ${n.research.findings.replace(/\n+/g, " ")}`
-        : "";
-      const vote = n.feedback?.vote
-        ? `\n  Person's reaction: ${FEEDBACK_TEXT[n.feedback.vote]}`
-        : "";
-      const said = n.feedback?.comment.trim()
-        ? `\n  Person's note: "${n.feedback.comment.trim()}"`
-        : "";
-      return `- ${n.id} [${flags}] ${n.title}${n.note ? ` — ${n.note}` : ""}${found}${vote}${said}`;
-    })
-    .join("\n");
-  const edges = p.graph.edges.map((e) => `- ${e.from} -> ${e.to}`).join("\n");
-  const tasks = (p.plan?.tasks ?? [])
-    .map((t) => {
-      const got = t.result.trim()
-        ? `\n  What happened: ${t.result.trim()}`
-        : "";
-      return `- [${t.status}${t.absorbed ? ", already on the map" : ""}] ${t.title} (cards: ${t.nodeIds.join(", ") || "none"})${got}`;
-    })
-    .join("\n");
-  const plan = tasks ? `\n\nNext steps the person planned:\n${tasks}` : "";
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  return `Today is ${today}.\n\n${contextText(p)}Question: ${p.title}\n\nNodes:\n${nodes}\n\nEdges:\n${edges || "(none)"}${plan}`;
-}
-
 async function ask<T>(
   trigger: string,
   system: string,
   user: string,
   schema: Record<string, unknown>,
-  tools?: unknown[],
+  opts: { tools?: unknown[]; wholeMap?: boolean } = {},
 ) {
   const { output } = await callLLM({
-    model: MODEL,
+    model: opts.wholeMap ? MAP_MODEL : MODEL,
     system,
     user,
     trigger,
-    effort: "medium",
-    tools,
+    effort: opts.wholeMap ? "low" : "medium",
+    tools: opts.tools,
     schema: { name: "pathways", schema },
   });
   if (!output) throw new Error("The model returned no text");
@@ -145,7 +75,7 @@ export async function runPathwayAgent(
   if (!raw) throw new Error(`Pathway ${id} not found`);
   // Exported steps read their real task's status (done on the Tasks page counts).
   const p = await withLinkedStatus(raw);
-  console.info(`${LOG} ${action} on ${id}/${nodeId} (${MODEL})`);
+  console.info(`${LOG} ${action} on ${id}/${nodeId}`);
   const done = (r: Omit<AgentRun, "ms">): AgentRun => {
     const ms = Date.now() - t0;
     console.info(
@@ -199,20 +129,16 @@ In summary, say in one or two sentences what this set of actions achieves and wh
     return done({ record, summary: reply.summary, added: [], dropped: [] });
   }
 
+  const run = firstAction(action, p.graph, nodeId);
+  const prompt = mapPrompt(run, p, nodeId, hint);
   const reply = await ask<MapReply>(
-    `pathways:${action}`,
-    SYSTEM,
-    `${outline(p)}\n\n${ACTIONS[action](nodeId)}${steerText(hint)}`,
+    `pathways:${run}`,
+    prompt.system,
+    prompt.user,
     MAP_SCHEMA,
+    { wholeMap: WHOLE_MAP.includes(run) },
   );
-  const ops: GraphOps = {
-    nodes: reply.nodes.map((n) => ({ ...n, missed: n.missed || undefined })),
-    edges: reply.edges,
-    merges: reply.merges,
-    drops: reply.drops,
-    chosen: reply.chosen,
-    appendNotes: reply.appendNotes,
-  };
+  const ops = replyToOps(reply);
 
   if (action === "regenerate") {
     // A fresh version is a new map, so the old one stays as it was.
@@ -242,7 +168,7 @@ In summary, say in one or two sentences what this set of actions achieves and wh
 
   const { record, result } = await store.writePathway(
     id,
-    `agent: ${action}`,
+    `agent: ${run}`,
     (d) => {
       const r = applyOps(d.graph, ops, "agent");
       d.graph = r.graph;
@@ -289,7 +215,7 @@ Research question: ${node.research.question}
 
 Search the web. Write findings as 3 to 6 short markdown bullets with concrete names, numbers, and dates. Say plainly what you could not find. List the pages you used in sources.`,
     RESEARCH_SCHEMA,
-    [{ type: "web_search" }],
+    { tools: [{ type: "web_search" }] },
   );
   console.info(
     `${LOG} research on ${id}/${nodeId} done in ${((Date.now() - t0) / 1000).toFixed(1)}s`,

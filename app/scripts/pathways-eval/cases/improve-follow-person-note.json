@@ -1,0 +1,151 @@
+{
+  "name": "improve-follow-person-note",
+  "source": "Improve from reactions and notes",
+  "action": "improve",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "record": {
+    "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+    "context": {
+      "notes": "From the note “Hackathon weekend: contacts and follow-ups”:\n\nHackathon weekend: contacts and follow-ups\nCaptured November 9, 2026, the day after the Circle City Build hackathon. Our team built Seedling, a demo that turns a photo of a garden bed into a planting plan. We placed second.\nContacts\nDana Ruiz · Crossroads Capital (seed fund, Indianapolis). Judge. Said the demo was the most polished of the weekend. Asked what I am working on next.\nLeo Park · Mentor. Spent an hour with us Saturday on scoping. Gave advice about cutting the onboarding flow; details are fuzzy.\nPriya Nair · Attendee. Product designer at a health-tech startup. Wanted to see the demo again.\nSam Ortiz · Teammate. Junior developer, between jobs, did most of the image pipeline.\nPossible intros for Sam: Mei Chen (engineering manager, Stripe), Tom Hale (design lead, Figma). I told Sam I would introduce him.\nEvents\nFountain Square Dev Breakfast, November 20, 2026, 8–10 a.m., Hotel Tango. Not RSVPed.\nMe\nI am looking for my next role (staff engineer or founding engineer). Seedling is a side project; I do not plan to turn it into a company.",
+      "qa": []
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "o1",
+          "kind": "option",
+          "title": "Validate Seedling with Dana",
+          "note": "Ask Dana one focused question about who would pay for Seedling.",
+          "by": "me",
+          "status": "open",
+          "weight": "key",
+          "feedback": {
+            "comment": "The goal with Dana is really an introduction to companies she has invested in. She liked Seedling, but it was a demo of what I can do. Seedling is not going anywhere with her."
+          }
+        },
+        {
+          "id": "s1",
+          "kind": "step",
+          "title": "Pick one assumption to test",
+          "note": "Choose who needs it or when they would use it.",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "s2",
+          "kind": "step",
+          "title": "Send Dana a short validation ask",
+          "note": "Link the demo and ask what evidence would make the assumption credible.",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "x1",
+          "kind": "outcome",
+          "title": "A testable validation direction",
+          "note": "A sharper audience or one suggested test.",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "o2",
+          "kind": "option",
+          "title": "Introduce Sam to Mei and Tom",
+          "note": "I promised Sam intros.",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "s3",
+          "kind": "step",
+          "title": "Ask Sam what he wants from the intros",
+          "note": "Role, team, or advice; and which samples to share.",
+          "by": "me",
+          "status": "open",
+          "feedback": {
+            "vote": "like",
+            "comment": ""
+          }
+        },
+        {
+          "id": "x2",
+          "kind": "outcome",
+          "title": "Sam has two warm conversations",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "o3",
+          "kind": "option",
+          "title": "Go to the Nov 20 Dev Breakfast",
+          "note": "Low-pressure way to meet local engineers.",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "s4",
+          "kind": "step",
+          "title": "Bring a two-minute Seedling demo",
+          "note": "Practice one flow and one question.",
+          "by": "me",
+          "status": "open",
+          "feedback": {
+            "vote": "no",
+            "comment": "The breakfast is just to meet people, not to demo."
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "root",
+          "to": "o1"
+        },
+        {
+          "from": "o1",
+          "to": "s1"
+        },
+        {
+          "from": "s1",
+          "to": "s2"
+        },
+        {
+          "from": "s2",
+          "to": "x1"
+        },
+        {
+          "from": "root",
+          "to": "o2"
+        },
+        {
+          "from": "o2",
+          "to": "s3"
+        },
+        {
+          "from": "s3",
+          "to": "x2"
+        },
+        {
+          "from": "root",
+          "to": "o3"
+        },
+        {
+          "from": "o3",
+          "to": "s4"
+        }
+      ]
+    },
+    "plan": null
+  },
+  "goodLooksLike": "Reads the note on o1 as a change of direction for that card: retitles or replaces 'Validate Seedling with Dana' with an intro-focused route, puts new steps (ask Dana for 2-3 portfolio intros, research her portfolio for fits) AFTER o1 rather than as siblings at root, and drops the now-wrong validation chain s1/s2/x1. Drops s4 and adds a meet-people step under o3. Plays s3 forward one step (liked). Does not add unrelated new options at root."
+}

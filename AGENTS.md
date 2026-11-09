@@ -21,6 +21,7 @@ focused skills listed under [Skills](#skills).
 | Note files (attachment cards, `/api/doc-files`, drop/paste/`/file`, safe serving) | [app/docs/note-files.md](app/docs/note-files.md) |
 | MCP connector (`/mcp` tools, ownership rules, smoke script) and what each app action maps to | [app/docs/mcp-connector.md](app/docs/mcp-connector.md), [app/docs/mcp-parity.md](app/docs/mcp-parity.md) |
 | Agent inbox (Note to AI, typed highlights, suggested edits, `/inbox`, `inbox_*` tools, fake-agent script) | [app/docs/agent-inbox.md](app/docs/agent-inbox.md) |
+| Pathways agent (prompts, model choice, `pnpm eval:pathways` evals) | [app/docs/pathways-agent.md](app/docs/pathways-agent.md) |
 | Note cleanup (decision-model triage, `NoteAssessment`, Jev / OpenAI / heuristic providers) | [app/docs/note-cleanup.md](app/docs/note-cleanup.md) |
 | Formatting cleanup | `cd app && pnpm run fix:unstaged` |
 

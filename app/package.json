@@ -20,6 +20,7 @@
     "audit:fixtures": "node --experimental-strip-types scripts/audit-fixtures.ts",
     "audit:run": "node --experimental-strip-types scripts/audit-run.ts",
     "audit:shoot": "node scripts/audit-shoot.mjs",
+    "eval:pathways": "vite-node --config vitest.config.ts scripts/pathways-eval.ts --",
     "audit:db": "node --experimental-strip-types scripts/audit-db.ts",
     "audit:seed-scale": "vite-node --config vitest.config.ts scripts/audit-seed-scale.ts --",
     "audit:seed-cleanup": "vite-node --config vitest.config.ts scripts/audit-seed-cleanup.ts --",

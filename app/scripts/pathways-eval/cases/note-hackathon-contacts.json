@@ -1,0 +1,30 @@
+{
+  "name": "note-hackathon-contacts",
+  "source": "Start from a note (app: Map this out on a note)",
+  "action": "options",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "record": {
+    "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+    "context": {
+      "notes": "From the note “Hackathon weekend: contacts and follow-ups”:\n\nHackathon weekend: contacts and follow-ups\nCaptured November 9, 2026, the day after the Circle City Build hackathon. Our team built Seedling, a demo that turns a photo of a garden bed into a planting plan. We placed second.\nContacts\nDana Ruiz · Crossroads Capital (seed fund, Indianapolis). Judge. Said the demo was the most polished of the weekend. Asked what I am working on next.\nLeo Park · Mentor. Spent an hour with us Saturday on scoping. Gave advice about cutting the onboarding flow; details are fuzzy.\nPriya Nair · Attendee. Product designer at a health-tech startup. Wanted to see the demo again.\nSam Ortiz · Teammate. Junior developer, between jobs, did most of the image pipeline.\nPossible intros for Sam: Mei Chen (engineering manager, Stripe), Tom Hale (design lead, Figma). I told Sam I would introduce him.\nEvents\nFountain Square Dev Breakfast, November 20, 2026, 8–10 a.m., Hotel Tango. Not RSVPed.\nMe\nI am looking for my next role (staff engineer or founding engineer). Seedling is a side project; I do not plan to turn it into a company.",
+      "qa": []
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        }
+      ],
+      "edges": []
+    },
+    "plan": null
+  },
+  "goodLooksLike": "Routes organized around what the person wants (next role, keeping promises, relationships), not around listing contacts. Uses Dana, Leo, Priya, Sam, Mei, Tom, and the Nov 20 breakfast by name. Sees that Dana asked what is next and the person wants a role, so Dana's best use is intros to portfolio companies, not validating Seedling. Keeps the promise to introduce Sam. Each route has 1-2 concrete steps and an honest outcome. No meta options like 'list each person' or 'make a plan'. No invented facts about what people said."
+}
