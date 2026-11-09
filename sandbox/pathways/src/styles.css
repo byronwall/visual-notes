@@ -792,8 +792,10 @@ textarea {
   border-radius: 0.3em;
 }
 
+.node.lod-mid .title,
 .node.lod-far .title {
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .node.lod-mid,

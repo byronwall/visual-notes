@@ -1,10 +1,12 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { FAR_K, inDegree, isFaint, layoutMap, lineage } from "./layout";
+import { inDegree, isFaint, layoutMap, lineage } from "./layout";
+import { fitText } from "./textfit";
 import { busy, fitTick, freshEdges, freshNodes, link, linkFrom, map, selected, setLinkFrom, setSelected } from "./state";
 import type { PNode } from "./types";
 
 const KIND_LABEL = { root: "Question", option: "Option", step: "Step", outcome: "Outcome" };
-const TITLE_PX = 14;
+const MIN_PX = 12;
+const BADGE_PX = 10;
 const FAR_IN = 0.7;
 const FAR_OUT = 0.85;
 const VOTE_LABEL = { like: "♥ like", no: "✕ not for me", more: "↻ want better" };
@@ -253,34 +255,34 @@ function Card(props: {
 }) {
   const n = props.n;
   // Level of detail by zoom. Below full detail the type label and note hide,
-  // and the title grows to stay about TITLE_PX tall on screen, in as many
+  // and the title grows to fill the card (see fitText), in as many
   // lines as the card's fixed height allows. Layout never changes with zoom.
   const lod = () => (props.far ? "far" : props.k >= 0.9 ? "full" : "mid");
   const fit = createMemo(() => {
     const b = props.box;
     if (!b || lod() === "full") return null;
     const k = props.k;
-    const pad = lod() === "far" ? 6 : 10;
-    const badgeF = Math.min(10 / k, 22);
+    const pad = lod() === "far" ? 6 : 8;
     const badges = freshNodes().has(n.id) || props.paths > 1 || !!n.feedback || !!n.research || n.missed || n.status === "chosen";
-    const headH = badges ? badgeF * 1.45 + 4 : 0;
-    const room = b.h - 2 * pad - headH;
-    // Shrink up to 25% before the title gets cut off. 0.55em is an average glyph width.
-    const target = Math.min(TITLE_PX / k, 36);
-    const textW = b.w - 2 * (pad + 2);
-    let size = target;
-    let lines = Math.floor(room / (size * 1.2));
-    for (let s = target; s >= target * 0.75; s *= 0.95) {
-      const fits = Math.floor(room / (s * 1.2));
-      const need = Math.ceil((n.title.length * s * 0.55) / textW);
-      size = s;
-      lines = fits;
-      if (need <= fits) break;
+    // Content box: card minus padding and borders (4-6px left rail, 1-2px others), with 3% slack.
+    const textW = (b.w - 2 * (pad + 2) - 8) * 0.97;
+    // Fill the card: the largest title that fits, never under MIN_PX on screen.
+    // Badges scale with the title (half its size, at least BADGE_PX on screen).
+    const floor = MIN_PX / k;
+    const solve = (badgeF: number) => {
+      const headH = badges ? badgeF * 1.4 + 4 : 0;
+      const room = Math.max(8, b.h - 2 * pad - headH - 4);
+      return { headH, room, size: fitText(n.title, textW, room, 650, 64 / k) };
+    };
+    let badgeF = BADGE_PX / k;
+    let r = solve(badgeF);
+    if (badges && r.size * 0.5 > badgeF) {
+      badgeF = r.size * 0.5;
+      r = solve(badgeF);
     }
-    if (lines < 1) {
-      size = Math.max(8, room / 1.2);
-      lines = 1;
-    }
+    const { headH, room } = r;
+    const size = Math.max(r.size, Math.min(floor, room / 1.2));
+    const lines = Math.max(1, Math.floor(room / (size * 1.2)));
     return { pad, badgeF, headH, size, lines, badges };
   });
   return (
