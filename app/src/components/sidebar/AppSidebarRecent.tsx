@@ -9,7 +9,7 @@ import {
   onMount,
   untrack,
 } from "solid-js";
-import { createAsync, revalidate, useLocation } from "@solidjs/router";
+import { createAsyncStore, revalidate, useLocation } from "@solidjs/router";
 import { Box, Stack } from "styled-system/jsx";
 import { css } from "styled-system/css";
 import { fetchRecentItems } from "~/services/recents/recents.queries";
@@ -113,7 +113,11 @@ const createClock = () => {
 const RecentList = () => {
   const location = useLocation();
   const now = createClock();
-  const items = createAsync(() => fetchRecentItems(30));
+  // A store reconciled by href: a refresh keeps unchanged rows (and an open
+  // hover preview) mounted instead of remounting every row.
+  const items = createAsyncStore(() => fetchRecentItems(30), {
+    reconcile: { key: "href" },
+  });
   const isCurrent = (item: RecentItem) =>
     safeDecode(location.pathname) === safeDecode(item.href);
 

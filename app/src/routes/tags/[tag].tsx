@@ -16,7 +16,9 @@ export default function TagRoute() {
   const params = useParams();
   const tag = () => decodeURIComponent(params.tag ?? "").toLowerCase();
   // A query read, so live sync refreshes it; a failed refresh keeps the list.
-  const groups = createKeptAsync(() => fetchTagBlocks(tag()));
+  const groups = createKeptAsync(async () =>
+    tag() ? fetchTagBlocks(tag()) : [],
+  );
   const count = () =>
     (groups.latest ?? []).reduce((sum, g) => sum + g.items.length, 0);
 
