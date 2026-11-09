@@ -18,6 +18,7 @@ import {
 } from "./notes-context-tools";
 import { NOTE_INSTRUCTIONS, registerNoteTools } from "./notes-tools";
 import { registerNoteFileTools } from "./note-files-tools";
+import { PATHWAY_INSTRUCTIONS, registerPathwayTools } from "./pathways-tools";
 import { registerResearchTools, RESEARCH_INSTRUCTIONS } from "./research-tools";
 import type { ConnectorContext } from "./shared";
 import { registerTaskTools, TASK_INSTRUCTIONS } from "./tasks-tools";
@@ -31,14 +32,15 @@ import { createToolRegistrar } from "./tool-registry";
 // `<area>_<verb>[_<object>]`; `search` is the one cross-area entry point.
 
 const SERVER_INSTRUCTIONS = [
-  "Visual Notes is the user's knowledge base: markdown notes filed by dot path (`work.visual-notes.canvas`), plus research topics, task lists, collections, a time-blocks calendar, events, and a web archive.",
-  "Tools are named <area>_<verb>: notes_, research_, tasks_, collections_, time_blocks_, events_, places_, archive_, activity_, inbox_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
+  "Visual Notes is the user's knowledge base: markdown notes filed by dot path (`work.visual-notes.canvas`), plus research topics, task lists, decision maps (pathways), collections, a time-blocks calendar, events, and a web archive.",
+  "Tools are named <area>_<verb>: notes_, research_, tasks_, pathways_, collections_, time_blocks_, events_, places_, archive_, activity_, inbox_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
   NOTE_INSTRUCTIONS,
   "Rules: change the body, title, or path only of notes you created (notes_get says editable). For the user's notes, create a new note that links to the original. Metadata (note meta, task status and dates, collection values, event decisions) can change on any record. Deleting is the user's: cancel tasks and shows, hide research cards, or remove notes from a collection instead.",
   "Saving well: before you report a save, check it against what the user asked for. Keep product, source, and buying links, evidence dates, and what is still unverified. Name the one record that holds the current decision; label other copies 'snapshot as of <date>' with a link to it, and when the user changes a premise, update or relabel the records you made. Record confirmed inputs and channel preferences (such as 'online forms, not email') where later turns will read them. Say exactly what happened: request submitted, price shown, quote saved, verified, or waiting on the user.",
   NOTE_CONTEXT_INSTRUCTIONS,
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
+  PATHWAY_INSTRUCTIONS,
   COLLECTION_INSTRUCTIONS,
   TIME_BLOCK_INSTRUCTIONS,
   EVENT_INSTRUCTIONS,
@@ -63,6 +65,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerNoteContextTools(tools);
   registerResearchTools(tools);
   registerTaskTools(tools);
+  registerPathwayTools(tools);
   registerCollectionTools(tools);
   registerTimeBlockTools(tools);
   registerEventTools(tools);
