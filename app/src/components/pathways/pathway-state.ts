@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { createContext, createMemo, createSignal, useContext } from "solid-js";
 import { applyOps, newNodeId, type GraphOps } from "~/lib/pathways/graph-ops";
+import { ROOT_ID } from "~/lib/pathways/types";
 import type {
   NodeKind,
   PathwayContext,
@@ -36,6 +37,7 @@ export type Change = {
 };
 
 const ACTION_LABEL: Record<PathwayAgentAction, string> = {
+  start: "First map",
   options: "More choices from here",
   forward: "What happens next",
   converge: "Where do paths meet?",
@@ -198,11 +200,17 @@ export function createPathwayState(initial: PathwayRecord) {
     edit({ update: [{ id, research: research ?? null }] });
 
   const runAgent = async (
-    action: PathwayAgentAction,
+    asked: PathwayAgentAction,
     nodeId: string,
     hint = steer(),
   ) => {
     const cur = record();
+    // A map that is only its question gets a whole first map (the server
+    // makes the same call); name the run for what it does.
+    const action =
+      asked === "options" && nodeId === ROOT_ID && cur.graph.nodes.length === 1
+        ? "start"
+        : asked;
     if (busy()) return;
     setBusy(MAP_WIDE.includes(action) ? "map" : nodeId);
     setError("");
@@ -318,12 +326,12 @@ export function createPathwayState(initial: PathwayRecord) {
 
   /**
    * A map just started from a task or note opens with ?draft=1: the agent
-   * drafts the first options once, then the flag leaves the URL.
+   * drafts the first map once, then the flag leaves the URL.
    */
   const draftOnOpen = () => {
     if (params.draft !== "1") return;
     setParams({ draft: undefined }, { replace: true });
-    if (record().graph.nodes.length === 1) void runAgent("options", "root");
+    if (record().graph.nodes.length === 1) void runAgent("start", "root");
   };
 
   return {

@@ -1,0 +1,27 @@
+{
+  "name": "task-sparse-anniversary",
+  "source": "Start from a bare task, no goals",
+  "action": "options",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "record": {
+    "title": "Plan our 10th anniversary weekend in late March",
+    "context": null,
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "Plan our 10th anniversary weekend in late March",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        }
+      ],
+      "edges": []
+    },
+    "plan": null
+  },
+  "goodLooksLike": "Distinct kinds of weekends (stay home and do something special, drive-to getaway, fly somewhere, re-create the first date or wedding place, an experience gift) with concrete first steps (book childcare, pick a date, set a budget). Does not invent the couple's location, budget, or history; uses research questions or asks instead. Shared prerequisite steps (lock the date, line up childcare) converge."
+}

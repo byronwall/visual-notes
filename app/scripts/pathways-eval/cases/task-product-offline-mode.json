@@ -1,0 +1,30 @@
+{
+  "name": "task-product-offline-mode",
+  "source": "Start from a task with goals filled in (software decision)",
+  "action": "options",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "record": {
+    "title": "Should my notes app work offline on my phone?",
+    "context": {
+      "notes": "Personal SolidStart notes app, one user (me), Postgres on a home server behind Coolify. I use it on my phone in the subway and at my kid's swim lessons where signal is bad; I lose quick captures. Notes are TipTap JSON with block ids. There is already a websocket for live note updates. I have maybe 3 evenings a week. I do not want to maintain a sync engine forever.",
+      "qa": []
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "Should my notes app work offline on my phone?",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        }
+      ],
+      "edges": []
+    },
+    "plan": null
+  },
+  "goodLooksLike": "Options sized to the real problem (losing quick captures): an offline capture queue only, a read-only cache, full offline editing with sync (named as costly), a native share-sheet / shortcut to a capture endpoint, or use another app for capture and import. Steps reference the stack (service worker, IndexedDB queue, existing websocket, block ids). Outcomes say what maintenance burden each leaves. No generic 'research offline sync' fluff."
+}

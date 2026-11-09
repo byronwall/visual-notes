@@ -1,0 +1,39 @@
+{
+  "name": "task-car-repair-or-replace",
+  "source": "Start from a task with goals filled in",
+  "action": "options",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "record": {
+    "title": "Decide whether to replace the 2017 Outback before winter",
+    "context": {
+      "notes": "128k miles. The CVT whines above 40 mph. Dealer quoted $3,800 to replace the CVT; an independent shop has not looked at it yet. Car is otherwise solid, paid off. Family of four, one other car (a 2020 minivan). My commute is 25 miles each way, three days a week. Budget for a replacement is about $25k without a loan. Curious about a hybrid but not set on it.",
+      "qa": [
+        {
+          "q": "What would make you regret this choice in a year?",
+          "a": "Sinking $4k into a car that dies anyway, or getting stuck in a loan."
+        },
+        {
+          "q": "Hard limits?",
+          "a": "Must be done before mid-December when the snow starts. No car payments."
+        }
+      ]
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "Decide whether to replace the 2017 Outback before winter",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        }
+      ],
+      "edges": []
+    },
+    "plan": null
+  },
+  "goodLooksLike": "Options like repair at an independent shop after a second opinion, replace with a used hybrid under $25k cash, sell as-is and buy, drive it carefully until spring, or go down to one car. A cheap information step (independent diagnosis / CVT fluid service, trade-in quotes) that several paths share. Research questions for prices and reliability instead of invented numbers. Respects no-loan and mid-December limits. Outcomes converge (e.g. 'reliable car by mid-December, no loan')."
+}

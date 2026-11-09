@@ -20,11 +20,11 @@ vi.mock("~/server/db", () => ({
 }));
 vi.mock("~/server/events/action-events", () => ({ logActionEvent: vi.fn() }));
 vi.mock("~/features/docs-index/data/docs.queries.search", () => ({
-  searchDocs: vi.fn(),
+  searchDocs: vi.fn(async () => []),
 }));
 vi.mock("./semantic", () => ({
   scheduleEmbeddingRefresh: vi.fn(),
-  semanticSearch: vi.fn(),
+  semanticSearch: vi.fn(async () => null),
 }));
 
 const { createNotesMcpServer } = await import("./tools");
@@ -89,6 +89,15 @@ describe.skipIf(!enabled)("pathway tools (database)", () => {
     pathwayIds.push(id);
     expect(created.json!.title).toBe("Decide where Pathways should live");
     expect(created.json!.sourceTaskId).toBe(task.id);
+
+    // An agent holding only the id finds the map, even from the wrong tool.
+    const found = await call(client, "search", {
+      query: id,
+      include: ["pathways"],
+    });
+    expect(found.json!.pathways.map((m: Json) => m.id)).toEqual([id]);
+    const wrong = await call(client, "research_get_topic", { topic: id });
+    expect(wrong.text).toContain("Use pathways_get");
 
     const edit = await call(client, "pathways_edit", {
       id,

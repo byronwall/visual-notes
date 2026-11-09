@@ -4,6 +4,7 @@ import {
   batchPayload,
   logResearchEvent,
 } from "~/services/research/research.activity";
+import { prisma } from "~/server/db";
 import type { IngestResult } from "~/services/research/research.ingest";
 import {
   loadTopicGraph,
@@ -43,21 +44,29 @@ export const batchKeyArg = z
 export const topicAppUrl = (ctx: ConnectorContext, slug: string) =>
   appLink(ctx, `/research/${slug}`);
 
-const noTopic = (topic: string) =>
-  new ConnectorError(
+/** Agents mix up research topics and decision maps; point them to the right tool. */
+async function noTopic(topic: string) {
+  const map = await prisma.pathway.findUnique({
+    where: { id: topic },
+    select: { id: true },
+  });
+  return new ConnectorError(
     "not_found",
-    `No topic "${topic}". Use research_list_topics.`,
+    map
+      ? `"${topic}" is a decision map, not a research topic. Use pathways_get.`
+      : `No topic "${topic}". Use research_list_topics.`,
   );
+}
 
 export async function requireTopic(topic: string): Promise<Topic> {
   const found = await resolveTopic(topic);
-  if (!found) throw noTopic(topic);
+  if (!found) throw await noTopic(topic);
   return found;
 }
 
 export async function requireGraph(topic: string) {
   const graph = await loadTopicGraph(topic);
-  if (!graph) throw noTopic(topic);
+  if (!graph) throw await noTopic(topic);
   return graph;
 }
 

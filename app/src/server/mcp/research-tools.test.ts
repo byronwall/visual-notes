@@ -12,7 +12,9 @@ vi.mock("./notes-read", () => ({
   searchNotes: vi.fn(),
   MAX_NOTES_PER_GET: 10,
 }));
-vi.mock("~/server/db", () => ({ prisma: {} }));
+vi.mock("~/server/db", () => ({
+  prisma: { pathway: { findUnique: vi.fn(async () => null) } },
+}));
 vi.mock("~/server/events/action-events", () => ({ logActionEvent: vi.fn() }));
 vi.mock("./semantic", () => ({
   scheduleEmbeddingRefresh: vi.fn(),

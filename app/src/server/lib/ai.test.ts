@@ -18,7 +18,7 @@ const reply = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Responses sampling parameters", () => {
-  it.each(["gpt-5", "gpt-5-mini", "gpt-5-nano"])(
+  it.each(["gpt-5", "gpt-5-mini", "gpt-6.1-terra", "gpt-6-luna", "o3"])(
     "omits unsupported sampling settings for %s",
     async (model) => {
       const fetchMock = vi.fn<typeof fetch>(

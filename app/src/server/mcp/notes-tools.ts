@@ -19,7 +19,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // notes-context-tools.ts.
 
 export const NOTE_INSTRUCTIONS = [
-  "Find: `search` with a few keywords (retry with synonyms; add include for research, tasks, or archive), notes_query for time-based questions, then notes_get for full content.",
+  "Find: `search` with a few keywords (retry with synonyms; add include for research, tasks, pathways, or archive), notes_query for time-based questions, then notes_get for full content.",
   "Save: reuse a path you already know (from search, notes_get, or earlier in the chat); call notes_list_paths only when unsure, then notes_create with the best existing path or a sensible new sub-path. Tell the user the title, path, and appUrl.",
   "Edit: notes_get ends each block with a ` ^blockId` tag (on the next line for code blocks and tables). Use notes_edit_blocks with those ids to change only those blocks. Never send ^id tags back.",
   "Files: to put a file the user gave you (PDF, spreadsheet, document, zip, image, ...) on a note, call notes_attach_file with it in files and the note's id; it works on any note, the user's included, and only adds a block. Without a note id it returns markdown like [report.pdf](/api/doc-files/…) to place on its own line in notes_create, notes_append, or notes_edit_blocks. notes_get lists a note's attachments with a url that downloads each one.",
@@ -50,7 +50,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Search",
       description:
-        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; semantic says whether meaning-based matches were used (loading: retry shortly for them), and truncated says more notes matched than limit. Use notes_get for full content. include adds research cards, tasks, and/or archived pages matched by the same words, each under its own key.",
+        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; semantic says whether meaning-based matches were used (loading: retry shortly for them), and truncated says more notes matched than limit. Use notes_get for full content. include adds research cards, tasks, decision maps (pathways, also matched by id), and/or archived pages matched by the same words, each under its own key.",
       input: {
         query: z.string().min(1).describe("Keywords to look for"),
         path: z
@@ -60,7 +60,9 @@ export function registerNoteTools(tools: ToolRegistrar): void {
         include: z
           .array(z.enum(SEARCH_KINDS))
           .optional()
-          .describe("Also search research cards, tasks, and/or archived pages"),
+          .describe(
+            "Also search research cards, tasks, decision maps (pathways), and/or archived pages",
+          ),
         limit: limitArg(25, 10).describe(
           "Per kind; at most 25, defaults to 10",
         ),
