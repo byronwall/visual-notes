@@ -4,6 +4,11 @@ import type { PathwayContext } from "~/lib/pathways/types";
 import { runPathwayAgent, runPathwayResearch } from "~/server/pathways/agent";
 import type { PathwayAgentAction } from "~/server/pathways/agent-prompts";
 import * as store from "~/server/pathways/pathway-store";
+import {
+  exportPlanTasks,
+  updatePlanTask,
+  withLinkedStatus,
+} from "~/server/pathways/pathway-tasks";
 
 // Plain server functions: the map page calls them and swaps in the record
 // each one returns, so the view never waits on a refetch. Each write is one
@@ -77,7 +82,7 @@ export async function createPathwayFn(input: {
       sourceDocId: id.optional(),
     })
     .parse(input);
-  return store.createPathway(p);
+  return withLinkedStatus(await store.createPathway(p));
 }
 
 /**
@@ -110,7 +115,7 @@ export async function editPathway(input: {
     },
     { coalesce },
   );
-  return record;
+  return withLinkedStatus(record);
 }
 
 export async function setPathwayContext(input: {
@@ -136,12 +141,13 @@ export async function setPathwayContext(input: {
     },
     { coalesce },
   );
-  return record;
+  return withLinkedStatus(record);
 }
 
 export async function undoPathwayFn(pathwayId: string) {
   "use server";
-  return store.undoPathway(id.parse(pathwayId));
+  const r = await store.undoPathway(id.parse(pathwayId));
+  return r ? withLinkedStatus(r.record) : null;
 }
 
 export async function archivePathwayFn(input: {
@@ -181,7 +187,8 @@ export async function runPathwayAgentFn(input: {
       hint: z.string().max(4000),
     })
     .parse(input);
-  return runPathwayAgent(p.id, p.action, p.nodeId || "root", p.hint);
+  const run = await runPathwayAgent(p.id, p.action, p.nodeId || "root", p.hint);
+  return { ...run, record: await withLinkedStatus(run.record) };
 }
 
 export async function runPathwayResearchFn(input: {
@@ -189,5 +196,50 @@ export async function runPathwayResearchFn(input: {
   nodeId: string;
 }) {
   "use server";
-  return runPathwayResearch(id.parse(input.id), id.parse(input.nodeId));
+  return withLinkedStatus(
+    await runPathwayResearch(id.parse(input.id), id.parse(input.nodeId)),
+  );
+}
+
+/** Check off, skip, or write what happened on one Next steps entry. */
+export async function updatePlanTaskFn(input: {
+  id: string;
+  taskId: string;
+  status?: "todo" | "done" | "skipped";
+  result?: string;
+  coalesce?: string;
+}) {
+  "use server";
+  const p = z
+    .object({
+      id,
+      taskId: id,
+      status: z.enum(["todo", "done", "skipped"]).optional(),
+      result: z.string().max(4000).optional(),
+      coalesce: z.string().max(80).optional(),
+    })
+    .parse(input);
+  return updatePlanTask(
+    p.id,
+    p.taskId,
+    { status: p.status, result: p.result },
+    p.coalesce,
+  );
+}
+
+/** Turns chosen Next steps into real tasks in one list. */
+export async function exportPlanTasksFn(input: {
+  id: string;
+  planTaskIds: string[];
+  listId: string | null;
+}) {
+  "use server";
+  const p = z
+    .object({
+      id,
+      planTaskIds: z.array(id).min(1).max(20),
+      listId: id.nullable(),
+    })
+    .parse(input);
+  return exportPlanTasks(p.id, p.planTaskIds, p.listId);
 }

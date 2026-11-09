@@ -12,6 +12,7 @@ import {
   type PathwayAgentAction,
 } from "./agent-prompts";
 import * as store from "./pathway-store";
+import { withLinkedStatus } from "./pathway-tasks";
 
 // The in-app agent. It reads the whole map as text, asks the model for a
 // structured reply, and writes the reply back through the store as one
@@ -140,8 +141,10 @@ export async function runPathwayAgent(
   hint: string,
 ): Promise<AgentRun> {
   const t0 = Date.now();
-  const p = await store.getPathway(id);
-  if (!p) throw new Error(`Pathway ${id} not found`);
+  const raw = await store.getPathway(id);
+  if (!raw) throw new Error(`Pathway ${id} not found`);
+  // Exported steps read their real task's status (done on the Tasks page counts).
+  const p = await withLinkedStatus(raw);
   console.info(`${LOG} ${action} on ${id}/${nodeId} (${MODEL})`);
   const done = (r: Omit<AgentRun, "ms">): AgentRun => {
     const ms = Date.now() - t0;
@@ -248,9 +251,17 @@ In summary, say in one or two sentences what this set of actions achieves and wh
         for (const x of d.graph.nodes)
           if (x.feedback?.vote === "more") delete x.feedback.vote;
       // Results are on the map now; the next plan builds on them instead of re-reading them.
-      if (action === "absorb")
-        for (const t of d.plan?.tasks ?? [])
-          if (t.status !== "todo") t.absorbed = true;
+      if (action === "absorb") {
+        const finished = new Map(
+          (p.plan?.tasks ?? [])
+            .filter((t) => t.status !== "todo")
+            .map((t) => [t.id, t.status]),
+        );
+        for (const t of d.plan?.tasks ?? []) {
+          const status = finished.get(t.id);
+          if (status) Object.assign(t, { status, absorbed: true });
+        }
+      }
       return r;
     },
   );

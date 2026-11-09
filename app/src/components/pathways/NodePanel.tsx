@@ -137,7 +137,7 @@ export function NodePanel(props: { n: PathwayNode }) {
               <For each={STATUSES}>
                 {(st) => (
                   <button
-                    data-on={n().status === st || undefined}
+                    data-on={String(!!(n().status === st))}
                     onClick={() => s.updateNode(n().id, { status: st })}
                   >
                     {st}
@@ -178,7 +178,7 @@ export function NodePanel(props: { n: PathwayNode }) {
             <For each={VOTES}>
               {(v) => (
                 <button
-                  data-on={n().feedback?.vote === v.vote || undefined}
+                  data-on={String(!!(n().feedback?.vote === v.vote))}
                   data-tone={v.vote}
                   title={`Key ${v.key}`}
                   onClick={() => {
@@ -208,7 +208,7 @@ export function NodePanel(props: { n: PathwayNode }) {
             <For each={WEIGHTS}>
               {(w) => (
                 <button
-                  data-on={n().weight === w.weight || undefined}
+                  data-on={String(!!(n().weight === w.weight))}
                   title={w.key ? `Key ${w.key}` : ""}
                   onClick={() =>
                     s.updateNode(n().id, { weight: w.weight ?? null })
@@ -283,7 +283,7 @@ export function NodePanel(props: { n: PathwayNode }) {
           </button>
           <button
             class={smallButton}
-            data-on={s.linkFrom() === n().id || undefined}
+            data-on={String(!!(s.linkFrom() === n().id))}
             onClick={() => s.setLinkFrom(s.linkFrom() ? null : n().id)}
           >
             {s.linkFrom() === n().id ? "Click a target…" : "Leads to…"}
@@ -291,7 +291,7 @@ export function NodePanel(props: { n: PathwayNode }) {
           <Show when={n().id !== "root"}>
             <button
               class={smallButton}
-              data-danger
+              data-danger="true"
               onClick={() => s.removeNode(n().id)}
             >
               Delete
@@ -370,7 +370,7 @@ function ResearchSection(props: { n: PathwayNode }) {
           </button>
           <button
             class={smallButton}
-            data-on={r()!.status === "queued" || undefined}
+            data-on={String(!!(r()!.status === "queued"))}
             title="Leave it for Claude or ChatGPT: pathways_get lists the research queue"
             onClick={() =>
               s.setResearch(id(), {

@@ -6,7 +6,7 @@ import { PathwayPage } from "~/components/pathways/PathwayPage";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
-import type { PathwayRecord } from "~/server/pathways/pathway-store";
+import type { PathwayView as PathwayRecord } from "~/server/pathways/pathway-tasks";
 import { fetchPathway } from "~/services/pathways/pathways.queries";
 import { keepOnFailedRead } from "~/utils/kept-async";
 
@@ -30,6 +30,8 @@ export default function PathwayRoute() {
     () => setRefresh((n) => n + 1),
     (id) => id === params.id,
   );
+  // A task checked off on the Tasks page shows as done in Next steps.
+  useAppChanges("tasks", () => setRefresh((n) => n + 1));
 
   return (
     <Suspense fallback={<Skeleton h="9" w="18rem" m="8" />}>

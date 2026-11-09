@@ -16,7 +16,9 @@ export async function createInlineTask(input: {
     .object({ description: z.string().max(2000), docId: z.string().nullish() })
     .parse(input);
   const listId = await ensureInboxList();
-  const count = await prisma.taskItem.count({ where: { listId, parentTaskId: null } });
+  const count = await prisma.taskItem.count({
+    where: { listId, parentTaskId: null },
+  });
   const docExists = parsed.docId
     ? await prisma.doc.count({ where: { id: parsed.docId } })
     : 0;
@@ -36,9 +38,14 @@ export async function createInlineTask(input: {
 }
 
 /** Checks or unchecks an inline task. */
-export async function setInlineTaskDone(input: { taskId: string; done: boolean }) {
+export async function setInlineTaskDone(input: {
+  taskId: string;
+  done: boolean;
+}) {
   "use server";
-  const parsed = z.object({ taskId: z.string().min(1), done: z.boolean() }).parse(input);
+  const parsed = z
+    .object({ taskId: z.string().min(1), done: z.boolean() })
+    .parse(input);
   const task = await prisma.taskItem.update({
     where: { id: parsed.taskId },
     data: { status: parsed.done ? "complete" : "waiting" },

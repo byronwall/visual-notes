@@ -13,8 +13,8 @@ export const viewport = css({
   touchAction: "none",
   userSelect: "none",
   bg: "bg.subtle",
-  "&[data-linking]": { cursor: "crosshair" },
-  "&[data-panning], &[data-panning] .node": { cursor: "grabbing" },
+  "&[data-linking=true]": { cursor: "crosshair" },
+  "&[data-panning=true], &[data-panning=true] .node": { cursor: "grabbing" },
 
   "& .canvas": {
     position: "absolute",
@@ -22,7 +22,7 @@ export const viewport = css({
     top: "0",
     transformOrigin: "0 0",
   },
-  "& .canvas[data-moving]": { willChange: "transform" },
+  "& .canvas[data-moving=true]": { willChange: "transform" },
   "& .edges": {
     position: "absolute",
     left: "0",
@@ -45,17 +45,17 @@ export const viewport = css({
     stroke: "gray.a7",
     strokeWidth: "calc(1.4px / min(1, max(var(--k, 1), 0.35)))",
   },
-  "& .edge[data-lit] .edge-line": {
+  "& .edge[data-lit=true] .edge-line": {
     stroke: "fg.default",
     strokeWidth: "calc(1.8px / min(1, max(var(--k, 1), 0.45)))",
   },
-  "& .edge[data-fresh] .edge-line": {
+  "& .edge[data-fresh=true] .edge-line": {
     stroke: "blue.9",
     strokeWidth: "calc(1.8px / min(1, max(var(--k, 1), 0.45)))",
   },
-  "& .edge[data-dim]": { opacity: 0.25 },
-  "& .edge[data-faint] .edge-line": { strokeDasharray: "3 4" },
-  "& .edge[data-faint]:not([data-lit])": { opacity: 0.45 },
+  "& .edge[data-dim=true]": { opacity: 0.25 },
+  "& .edge[data-faint=true] .edge-line": { strokeDasharray: "3 4" },
+  "& .edge[data-faint=true]:not([data-lit=true])": { opacity: 0.45 },
   "& .arrow": {
     fill: "none",
     stroke: "gray.a7",
@@ -100,57 +100,57 @@ export const viewport = css({
     color: "inherit",
     opacity: 0.7,
   },
-  "& .node[data-converge]": {
+  "& .node[data-converge=true]": {
     borderColor: "amber.9",
     boxShadow: "0 0 0 3px {colors.amber.a4}",
   },
   "& .node.status-chosen": { borderWidth: "2px", borderLeftWidth: "4px" },
   "& .node.status-dropped .title": { textDecoration: "line-through" },
-  "& .node[data-key]": {
+  "& .node[data-key=true]": {
     borderWidth: "2px",
     borderLeftWidth: "6px",
     boxShadow: "md",
   },
-  "& .node[data-key] .title": {
+  "& .node[data-key=true] .title": {
     fontSize: "md",
     lineHeight: "21px",
     fontWeight: "bold",
   },
-  "& .node[data-faint]": {
+  "& .node[data-faint=true]": {
     p: "2",
     pl: "2.5",
     borderLeftWidth: "2px",
     opacity: 0.55,
     bg: "bg.default",
   },
-  "& .node[data-faint] .node-head": { h: "3", fontSize: "2xs" },
-  "& .node[data-faint] .title": {
+  "& .node[data-faint=true] .node-head": { h: "3", fontSize: "2xs" },
+  "& .node[data-faint=true] .title": {
     fontSize: "xs",
     lineHeight: "17px",
     fontWeight: "normal",
     lineClamp: "1",
   },
-  "& .node[data-faint] .note, & .node[data-faint] .badge-missed": {
+  "& .node[data-faint=true] .note, & .node[data-faint=true] .badge-missed": {
     display: "none",
   },
-  "& .node[data-dim]": { opacity: 0.3 },
-  "& .node[data-faint][data-dim]": { opacity: 0.2 },
-  "& .node[data-selected]": {
+  "& .node[data-dim=true]": { opacity: 0.3 },
+  "& .node[data-faint=true][data-dim=true]": { opacity: 0.2 },
+  "& .node[data-selected=true]": {
     outline: "2px solid",
     outlineColor: "fg.default",
     outlineOffset: "2px",
   },
-  "& .node[data-fresh]": {
+  "& .node[data-fresh=true]": {
     outline: "2px solid",
     outlineColor: "blue.9",
     outlineOffset: "2px",
   },
-  "& .node[data-link-source]": {
+  "& .node[data-link-source=true]": {
     outline: "2px dashed",
     outlineColor: "blue.9",
     outlineOffset: "2px",
   },
-  "& .node[data-busy]::after": {
+  "& .node[data-busy=true]::after": {
     content: '""',
     position: "absolute",
     left: "0",
@@ -207,7 +207,7 @@ export const viewport = css({
   "& .badge-missed": { bg: "blue.3", color: "blue.11" },
   "& .badge-converge": { bg: "amber.3", color: "amber.11" },
   "& .badge-research": { bg: "gray.3", color: "gray.11" },
-  "& .badge-research[data-done]": { bg: "green.3", color: "green.11" },
+  "& .badge-research[data-done=true]": { bg: "green.3", color: "green.11" },
   "& .badge-chosen": { bg: "fg.default", color: "bg.default" },
   "& .badge-like": { bg: "green.3", color: "green.11" },
   "& .badge-no": { bg: "red.3", color: "red.11" },

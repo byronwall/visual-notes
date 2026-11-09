@@ -9,6 +9,7 @@ import {
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
 import * as store from "~/server/pathways/pathway-store";
+import { withLinkedStatus } from "~/server/pathways/pathway-tasks";
 import {
   agentContext,
   appLink,
@@ -285,7 +286,8 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
     async ({ id }) => {
       const p = await store.getPathway(id);
       if (!p) throw new ConnectorError("not_found", `Pathway ${id} not found`);
-      return mapView(ctx, p);
+      // Exported steps show their real task's status.
+      return mapView(ctx, await withLinkedStatus(p));
     },
   );
 

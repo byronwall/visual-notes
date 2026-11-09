@@ -44,22 +44,23 @@ export const seg = css({
     _first: { borderLeftRadius: "md", ml: "0" },
     _last: { borderRightRadius: "md" },
   },
-  "& > button[data-on]": {
+  "& > button[data-on=true]": {
     bg: "fg.default",
     color: "bg.default",
     borderColor: "fg.default",
+    _hover: { bg: "fg.default", opacity: 0.9 },
   },
-  "& > button[data-on][data-tone=like]": {
+  "& > button[data-on=true][data-tone=like]": {
     bg: "green.9",
     borderColor: "green.9",
     color: "white",
   },
-  "& > button[data-on][data-tone=no]": {
+  "& > button[data-on=true][data-tone=no]": {
     bg: "red.9",
     borderColor: "red.9",
     color: "white",
   },
-  "& > button[data-on][data-tone=more]": {
+  "& > button[data-on=true][data-tone=more]": {
     bg: "amber.9",
     borderColor: "amber.9",
     color: "white",
@@ -103,12 +104,13 @@ export const smallButton = css({
   transition: "background-color 140ms",
   _hover: { bg: "bg.hover" },
   _disabled: { opacity: 0.5, cursor: "default" },
-  "&[data-on]": {
+  "&[data-on=true]": {
     bg: "fg.default",
     color: "bg.default",
     borderColor: "fg.default",
+    _hover: { bg: "fg.default", opacity: 0.9 },
   },
-  "&[data-danger]": { color: "red.11" },
+  "&[data-danger=true]": { color: "red.11" },
 });
 
 export const iconX = css({

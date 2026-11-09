@@ -91,18 +91,18 @@ export function PathwayCard(props: {
         <div
           data-id={n().id}
           class={`node kind-${n().kind} status-${n().status} lod-${lod()}`}
-          data-selected={s.selected() === n().id || undefined}
-          data-dim={!props.lit || undefined}
-          data-converge={props.paths > 1 || undefined}
-          data-fresh={fresh() || undefined}
+          data-selected={String(!!(s.selected() === n().id))}
+          data-dim={String(!props.lit)}
+          data-converge={String(!!(props.paths > 1))}
+          data-fresh={String(!!fresh())}
           data-busy={
             s.busy() === n().id ||
             s.busy() === `research:${n().id}` ||
             undefined
           }
-          data-link-source={s.linkFrom() === n().id || undefined}
-          data-key={n().weight === "key" || undefined}
-          data-faint={isFaint(n()) || undefined}
+          data-link-source={String(!!(s.linkFrom() === n().id))}
+          data-key={String(!!(n().weight === "key"))}
+          data-faint={String(isFaint(n()))}
           style={{
             left: `${box().x}px`,
             top: `${box().y}px`,
@@ -157,7 +157,7 @@ export function PathwayCard(props: {
               {(r) => (
                 <span
                   class="badge badge-research"
-                  data-done={r().status === "done" || undefined}
+                  data-done={String(!!(r().status === "done"))}
                   title={r().question}
                 >
                   {RESEARCH_LABEL[r().status]}

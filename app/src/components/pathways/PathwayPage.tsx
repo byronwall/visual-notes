@@ -8,12 +8,13 @@ import {
   Show,
 } from "solid-js";
 import { css } from "styled-system/css";
-import type { PathwayRecord } from "~/server/pathways/pathway-store";
+import type { PathwayView as PathwayRecord } from "~/server/pathways/pathway-tasks";
+import { NextSteps } from "./NextSteps";
 import { PathwayGraph } from "./PathwayGraph";
 import { PathwayPanel } from "./PathwayPanel";
 import { createPathwayState, PathwayStateContext } from "./pathway-state";
 import { setVote, setWeight, VOTES, WEIGHTS } from "./NodePanel";
-import { cardLink, iconX, smallButton } from "./styles";
+import { cardLink, iconX, seg, smallButton } from "./styles";
 
 const page = css({
   display: "flex",
@@ -56,6 +57,8 @@ const graphSpace = css({ flex: "1", bg: "bg.subtle" });
 
 export function PathwayPage(props: { record: PathwayRecord }) {
   const s = createPathwayState(props.record);
+  const openTasks = () =>
+    s.record().plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
   // A fresher copy from a refetch (agent over MCP, another tab) replaces ours.
   createEffect(
     on(
@@ -121,6 +124,21 @@ export function PathwayPage(props: { record: PathwayRecord }) {
               Click the card this leads to · Esc to cancel
             </span>
           </Show>
+          <div class={seg}>
+            <button
+              data-on={String(!!(s.view() === "map"))}
+              onClick={() => s.setView("map")}
+            >
+              Map
+            </button>
+            <button
+              data-on={String(!!(s.view() === "next"))}
+              onClick={() => s.setView("next")}
+            >
+              Next steps
+              <Show when={openTasks()}> ({openTasks()})</Show>
+            </button>
+          </div>
           <button
             class={smallButton}
             onClick={() => s.undo()}
@@ -137,11 +155,21 @@ export function PathwayPage(props: { record: PathwayRecord }) {
             </button>
           </div>
         </Show>
-        <div class={body}>
+        {/* Both views stay mounted, so the map keeps its zoom and routes across switches. */}
+        <div
+          class={body}
+          style={{ display: s.view() === "map" ? undefined : "none" }}
+        >
           <Show when={mounted()} fallback={<div class={graphSpace} />}>
             <PathwayGraph />
           </Show>
           <PathwayPanel />
+        </div>
+        <div
+          class={body}
+          style={{ display: s.view() === "next" ? undefined : "none" }}
+        >
+          <NextSteps />
         </div>
       </div>
     </PathwayStateContext.Provider>

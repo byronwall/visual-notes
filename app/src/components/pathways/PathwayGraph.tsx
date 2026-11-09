@@ -161,6 +161,8 @@ export function PathwayGraph() {
   onMount(() => {
     const ro = new ResizeObserver(() => {
       const r = viewport.getBoundingClientRect();
+      // Hidden (Next steps is showing): keep the current view for when it comes back.
+      if (!r.width || !r.height) return;
       const w = Math.round(r.width / 40) * 40;
       const h = Math.round(r.height / 40) * 40;
       if (w && h && (w !== size().w || h !== size().h)) {
@@ -276,8 +278,8 @@ export function PathwayGraph() {
     <div
       ref={viewport}
       class={viewportClass}
-      data-linking={!!s.linkFrom() || undefined}
-      data-panning={panning() || undefined}
+      data-linking={String(!!s.linkFrom())}
+      data-panning={String(panning())}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -294,7 +296,7 @@ export function PathwayGraph() {
     >
       <div
         class="canvas"
-        data-moving={moving() || undefined}
+        data-moving={String(moving())}
         style={{
           width: `${layout().width}px`,
           height: `${layout().height}px`,
@@ -343,10 +345,10 @@ export function PathwayGraph() {
                   {(d) => (
                     <g
                       class="edge"
-                      data-lit={on() || undefined}
-                      data-dim={(!!focus() && !on()) || undefined}
-                      data-fresh={s.freshEdges().has(key) || undefined}
-                      data-faint={faint() || undefined}
+                      data-lit={String(on())}
+                      data-dim={String(!!(!!focus() && !on()))}
+                      data-fresh={String(s.freshEdges().has(key))}
+                      data-faint={String(faint())}
                     >
                       <path d={d()} class="edge-halo" />
                       <path

@@ -19,7 +19,7 @@ const button = css({
   transition: "background-color 140ms, border-color 140ms",
   _hover: { bg: "bg.hover" },
   _disabled: { opacity: 0.5, cursor: "default", _hover: { bg: "bg.default" } },
-  "&[data-primary]": {
+  "&[data-primary=true]": {
     bg: "blue.9",
     borderColor: "blue.9",
     color: "white",
@@ -38,7 +38,7 @@ const what = css({
   fontSize: "xs",
   lineHeight: "1.35",
   color: "fg.muted",
-  "[data-primary] &": { color: "white", opacity: 0.85 },
+  "[data-primary=true] &": { color: "white", opacity: 0.85 },
 });
 const kbd = css({
   ml: "auto",
@@ -60,7 +60,7 @@ export function ActionButton(props: {
   return (
     <button
       class={button}
-      data-primary={props.primary || undefined}
+      data-primary={String(!!props.primary)}
       disabled={props.disabled}
       onClick={() => props.onClick()}
     >

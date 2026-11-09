@@ -31,6 +31,8 @@ export type TaskItem = {
   sortOrder: number;
   /** Note block this task was written in, when it lives inline in a note. */
   source?: { docId: string; blockId: string | null; title: string } | null;
+  /** Pathways this task was exported from. */
+  pathways?: { id: string; title: string }[];
   createdAt: string;
   updatedAt: string;
 };

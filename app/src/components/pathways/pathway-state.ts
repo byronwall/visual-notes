@@ -8,10 +8,12 @@ import type {
   PlanTask,
   Research,
 } from "~/lib/pathways/types";
-import type { PathwayRecord } from "~/server/pathways/pathway-store";
+import type { PathwayView as PathwayRecord } from "~/server/pathways/pathway-tasks";
 import type { PathwayAgentAction } from "~/server/pathways/agent-prompts";
 import {
   editPathway,
+  exportPlanTasksFn,
+  updatePlanTaskFn,
   runPathwayAgentFn,
   runPathwayResearchFn,
   setPathwayContext,
@@ -241,7 +243,7 @@ export function createPathwayState(initial: PathwayRecord) {
   const undo = async () => {
     try {
       const r = await undoPathwayFn(record().id);
-      if (r) setRecord(r.record);
+      if (r) setRecord(r);
       else setError("Nothing to undo");
       setChange(null);
     } catch (err) {
@@ -262,16 +264,45 @@ export function createPathwayState(initial: PathwayRecord) {
     }
     // Pending saves bring back the server's copy themselves.
     if (busy() || inFlight) return;
-    if (fresh.updatedAt.getTime() <= cur.updatedAt.getTime()) return;
+    if (fresh.updatedAt.getTime() <= cur.updatedAt.getTime()) {
+      // Same map, but a linked task changed on the Tasks page: take its status.
+      if (JSON.stringify(fresh.linked) !== JSON.stringify(cur.linked))
+        setRecord((r) => ({ ...r, plan: fresh.plan, linked: fresh.linked }));
+      return;
+    }
     const c = diff(cur, fresh, "Changed elsewhere", "");
     if (c.added.length || c.newEdges.length || c.removed.length) setChange(c);
     setRecord(fresh);
   };
 
-  const updatePlanTask = (taskId: string, patch: Partial<PlanTask>) => {
-    void taskId;
-    void patch;
-    // Next steps (and task export) arrive in the next layer.
+  /** Check off, skip, or record what happened. `coalesce` names a text field. */
+  const updatePlanTask = (
+    taskId: string,
+    patch: Partial<Pick<PlanTask, "status" | "result">>,
+    coalesce?: string,
+  ) => {
+    setRecord((r) => {
+      if (!r.plan) return r;
+      const tasks = r.plan.tasks.map((t) =>
+        t.id === taskId ? { ...t, ...patch, absorbed: false } : t,
+      );
+      return { ...r, plan: { ...r.plan, tasks } };
+    });
+    save(updatePlanTaskFn({ id: record().id, taskId, ...patch, coalesce }));
+  };
+
+  /** Turns chosen Next steps into real tasks in one list. */
+  const exportTasks = async (planTaskIds: string[], listId: string | null) => {
+    setError("");
+    try {
+      setRecord(
+        await exportPlanTasksFn({ id: record().id, planTaskIds, listId }),
+      );
+      return true;
+    } catch (err) {
+      fail(err);
+      return false;
+    }
   };
 
   return {
@@ -308,6 +339,7 @@ export function createPathwayState(initial: PathwayRecord) {
     runResearch,
     undo,
     updatePlanTask,
+    exportTasks,
   };
 }
 

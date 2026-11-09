@@ -13,7 +13,7 @@ const question = css({
   gap: "1.5",
   fontSize: "xs",
   color: "fg.muted",
-  "&[data-open]": { color: "fg.default", fontWeight: "semibold" },
+  "&[data-open=true]": { color: "fg.default", fontWeight: "semibold" },
 });
 
 /** The side panel when no card is selected: goals, feedback, and whole-map agent actions. */
@@ -70,7 +70,7 @@ export function OverviewPanel() {
                 gap: "1",
               })}
             >
-              <div class={question} data-open={!qa().a.trim() || undefined}>
+              <div class={question} data-open={String(!qa().a.trim())}>
                 <span style={{ flex: "1" }}>{qa().q}</span>
                 <button
                   class={iconX}

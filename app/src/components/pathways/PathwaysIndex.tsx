@@ -112,7 +112,7 @@ export function PathwaysIndex(props: { pathways: PathwaySummary[] }) {
           <span style={{ flex: "1" }} />
           <button
             class={smallButton}
-            data-on
+            data-on="true"
             disabled={!question().trim() || busy()}
             onClick={create}
           >
