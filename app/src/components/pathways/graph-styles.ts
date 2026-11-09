@@ -100,10 +100,6 @@ export const viewport = css({
     color: "inherit",
     opacity: 0.7,
   },
-  "& .node[data-converge=true]": {
-    borderColor: "amber.9",
-    boxShadow: "0 0 0 3px {colors.amber.a4}",
-  },
   "& .node.status-chosen": { borderWidth: "2px", borderLeftWidth: "4px" },
   "& .node.status-dropped .title": { textDecoration: "line-through" },
   "& .node[data-key=true]": {
@@ -205,7 +201,6 @@ export const viewport = css({
   "& .badge-next": { bg: "blue.9", color: "white" },
   "& .badge-new": { bg: "blue.3", color: "blue.11" },
   "& .badge-missed": { bg: "blue.3", color: "blue.11" },
-  "& .badge-converge": { bg: "amber.3", color: "amber.11" },
   "& .badge-research": { bg: "gray.3", color: "gray.11" },
   "& .badge-research[data-done=true]": { bg: "green.3", color: "green.11" },
   "& .badge-chosen": { bg: "fg.default", color: "bg.default" },
@@ -246,7 +241,6 @@ export const viewport = css({
   },
   "& .legend i[data-kind=option]": { borderColor: "blue.9", bg: "blue.2" },
   "& .legend i[data-kind=outcome]": { borderColor: "green.9", bg: "green.2" },
-  "& .legend i[data-kind=meet]": { borderColor: "amber.9", bg: "amber.3" },
   "& .view-tools": {
     position: "absolute",
     left: "3",

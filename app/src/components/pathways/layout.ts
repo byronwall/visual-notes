@@ -16,24 +16,22 @@ export function nodeWidth(n: PNode, far = false) {
 
 /**
  * Far-zoom cards hold the title only, sized for about 14px on screen at
- * FAR_K zoom. Cards with badges keep room for one badge row.
+ * FAR_K zoom, in two to four lines. Cards with badges keep room for one
+ * badge row.
  */
 export const FAR_K = 0.4;
-export function farHeight(n: PNode, paths: number) {
+export function farHeight(n: PNode) {
   const pad = 6;
   if (isFaint(n)) return 2 * pad + (14 / FAR_K) * 0.8 * 1.2;
   const size = (n.weight === "key" ? 16 : 14) / FAR_K;
   const textW = nodeWidth(n, true) - 2 * (pad + 2);
+  // At least two lines, so short titles get the same text size as their neighbours.
   const lines = Math.min(
     4,
-    Math.max(1, Math.ceil((n.title.length * size * 0.55) / textW)),
+    Math.max(2, Math.ceil((n.title.length * size * 0.55) / textW)),
   );
   const badges =
-    paths > 1 ||
-    !!n.feedback ||
-    !!n.research ||
-    !!n.missed ||
-    n.status === "chosen";
+    !!n.feedback || !!n.research || !!n.missed || n.status === "chosen";
   const head = badges ? (10 / FAR_K) * 1.45 + 4 : 0;
   return 2 * pad + head + lines * size * 1.2;
 }
@@ -79,11 +77,10 @@ export type Placed = {
 const placeCache = new Map<string, Placed>();
 
 export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
-  const deg = inDegree(map);
   const sizes = map.nodes.map((n) => ({
     n,
     w: nodeWidth(n, far),
-    h: far ? farHeight(n, deg.get(n.id) ?? 0) : nodeHeight(n),
+    h: far ? farHeight(n) : nodeHeight(n),
     faint: isFaint(n),
   }));
   const sig = [
@@ -330,10 +327,4 @@ export function lineage(map: PMap, id: string) {
   up.add(id);
   down.add(id);
   return { up, down };
-}
-
-export function inDegree(map: PMap) {
-  const deg = new Map<string, number>();
-  for (const e of map.edges) deg.set(e.to, (deg.get(e.to) ?? 0) + 1);
-  return deg;
 }
