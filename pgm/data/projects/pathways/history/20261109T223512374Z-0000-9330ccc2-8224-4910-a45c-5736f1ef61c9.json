@@ -1,0 +1,16 @@
+{
+  "id": "9330ccc2-8224-4910-a45c-5736f1ef61c9",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:35:12.374Z",
+  "summary": "Added 1 images to \"Ensure the various like/improve tags are visible in some way at all zoom levels\".",
+  "nodeIds": [
+    "page-ensure-the-various-like-improve-tags-are-visible-in-some-way-at-all-1enf86"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "790b3c75-327b-479e-adfb-9f484874e760"
+  }
+}

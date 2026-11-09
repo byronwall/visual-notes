@@ -1,0 +1,16 @@
+{
+  "id": "3a058efc-ec34-4aa1-8c09-e1b266520224",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:44:18.035Z",
+  "summary": "Added 1 images to \"All of this UI is oddly large buttons and other things\".",
+  "nodeIds": [
+    "page-all-of-this-ui-is-oddly-large-buttons-and-other-things"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "ac916983-1c11-4882-837c-1ee30f5cc97e"
+  }
+}

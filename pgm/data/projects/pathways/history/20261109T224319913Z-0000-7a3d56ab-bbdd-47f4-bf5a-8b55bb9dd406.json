@@ -1,0 +1,16 @@
+{
+  "id": "7a3d56ab-bbdd-47f4-bf5a-8b55bb9dd406",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:43:19.913Z",
+  "summary": "Created \"Layout needs to fill viewport better\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-layout-needs-to-fill-viewport-better",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "0753c981-ea10-4904-98f4-bad7866560db"
+  }
+}

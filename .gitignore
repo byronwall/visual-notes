@@ -8,3 +8,6 @@ tmp/
 # Claude Code worktrees and local launch config
 .claude/worktrees/
 .claude/launch.json
+
+# Product Grid (pgm) local server state: holds a session token.
+pgm/data/.pgm-local-runtime.json

@@ -1,0 +1,16 @@
+{
+  "id": "9fa94042-73b7-491a-ba82-f192a340ae17",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:35:10.381Z",
+  "summary": "Created \"Ensure the various like/improve tags are visible in some way at all zoom levels\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-ensure-the-various-like-improve-tags-are-visible-in-some-way-at-all-1enf86",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "4a28b9cc-9300-4c0d-9826-e50b91903634"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "e8afb623-efb0-4ac5-bc53-b27ad476b128",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:44:17.712Z",
+  "summary": "Created \"All of this UI is oddly large buttons and other things\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-all-of-this-ui-is-oddly-large-buttons-and-other-things",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "bbdee0cb-1e45-4c12-b072-4630db114f76"
+  }
+}

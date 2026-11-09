@@ -1,0 +1,16 @@
+{
+  "id": "1c38501e-e22e-4e34-b813-fb19417528ae",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:42:55.441Z",
+  "summary": "Created \"UI is quite amateur\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-ui-is-quite-amateur",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "ec90eafd-8bc0-4b69-8e12-be059edc2b56"
+  }
+}

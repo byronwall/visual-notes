@@ -1,0 +1,16 @@
+{
+  "id": "d1c609dc-bc20-448e-bb57-08159261a5d4",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:45:38.210Z",
+  "summary": "Created \"Might help if we can layout into some \"lanes\" of related things\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-might-help-if-we-can-layout-into-some-lanes-of-related-things",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "7fa058f7-312e-4400-acce-31afebc4b4b0"
+  }
+}
