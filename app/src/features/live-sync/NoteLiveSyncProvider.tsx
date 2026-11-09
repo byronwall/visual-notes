@@ -135,10 +135,6 @@ export const NoteLiveSyncProvider: ParentComponent = (props) => {
       hiddenAt = null;
       if (status === "closed" || status === "error") {
         // Skip the backoff wait; "idle" means the server turned sync off.
-        // Refresh now too: the socket may stay down (a proxy that drops
-        // upgrades, a server restart), and the reconnect's own catch-up
-        // folds into this one.
-        catchUp("visible without a socket");
         client.connect();
       } else if (
         status === "open" &&

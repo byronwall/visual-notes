@@ -1,14 +1,14 @@
 import { Meta, Title } from "@solidjs/meta";
-import { createAsync } from "@solidjs/router";
 import { Show, Suspense } from "solid-js";
 import { Box, Container } from "styled-system/jsx";
 import { CollectionsIndex } from "~/components/collections/CollectionsIndex";
 import { Skeleton } from "~/components/ui/skeleton";
 import { fetchCollections } from "~/services/collections/collections.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 export default function CollectionsRoute() {
-  // createAsync, so a live collections change refreshes it.
-  const items = createAsync(() => fetchCollections());
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const items = createKeptAsync(() => fetchCollections());
   return (
     <Box as="main" minH="100vh" bg="bg.default" color="fg.default">
       <Title>Collections • Visual Notes</Title>

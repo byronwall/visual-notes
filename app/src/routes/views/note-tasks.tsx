@@ -1,9 +1,10 @@
-import { A, createAsync } from "@solidjs/router";
+import { A } from "@solidjs/router";
 import { Show } from "solid-js";
 import { css } from "styled-system/css";
 import { NoteGroupList, rowLinkClass } from "~/components/views/NoteGroupList";
 import { ViewPageShell } from "~/components/views/ViewPageShell";
 import { fetchOpenNoteTasks } from "~/services/note-views.queries";
+import { createKeptAsync } from "~/utils/kept-async";
 
 const boxClass = css({
   mt: "0.2em",
@@ -16,8 +17,8 @@ const boxClass = css({
 });
 
 export default function OpenNoteTasksRoute() {
-  // createAsync, so a live note or task change refreshes it.
-  const groups = createAsync(() => fetchOpenNoteTasks());
+  // A query read, so live sync refreshes it; a failed refresh keeps the list.
+  const groups = createKeptAsync(() => fetchOpenNoteTasks());
   const count = () =>
     (groups.latest ?? []).reduce((sum, g) => sum + g.items.length, 0);
   return (
