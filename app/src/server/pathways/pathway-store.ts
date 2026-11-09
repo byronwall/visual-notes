@@ -60,7 +60,7 @@ const graphJson = (g: PathwayGraph) => g as unknown as Prisma.InputJsonValue;
  * the agent, MCP) run one after the other instead of the later one dropping
  * the earlier one's edit.
  */
-const lockPathway = (tx: Prisma.TransactionClient, id: string) =>
+export const lockPathway = (tx: Prisma.TransactionClient, id: string) =>
   tx.$executeRaw`SELECT 1 FROM "Pathway" WHERE "id" = ${id} FOR UPDATE`;
 
 export async function getPathway(id: string) {
