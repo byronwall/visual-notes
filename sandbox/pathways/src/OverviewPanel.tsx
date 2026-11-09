@@ -1,5 +1,6 @@
 import { createMemo, For, Index, Show } from "solid-js";
 import { inDegree } from "./layout";
+import { AutoText } from "./AutoText";
 import { busy, map, runAgent, setSelected, updateContext } from "./state";
 import type { PNode } from "./types";
 
@@ -27,27 +28,36 @@ export function OverviewPanel(props: { hint: string; setHint: (v: string) => voi
     <>
       <div class="panel-section">
         <h3>Goals &amp; vibes</h3>
-        <textarea
-          rows={3}
+        <AutoText
+          key={`${map()?.id}:notes`}
+          minRows={3}
+          maxHeight={360}
           placeholder="What matters to you here? What would a good month look like? What feels heavy?"
           value={ctx().notes}
-          onChange={(e) => updateContext((c) => (c.notes = e.currentTarget.value))}
+          onSave={(v, k) => k === `${map()?.id}:notes` && updateContext((c) => (c.notes = v))}
         />
         <Index each={ctx().qa}>
           {(qa, i) => (
-            <label class="qa">
-              <span>{qa().q}</span>
-              <div class="panel-row">
-                <input
-                  placeholder="Your answer"
-                  value={qa().a}
-                  onChange={(e) => updateContext((c) => (c.qa[i].a = e.currentTarget.value))}
-                />
+            <div class="qa" classList={{ open: !qa().a.trim() }}>
+              <div class="qa-q">
+                <span>{qa().q}</span>
                 <button class="x" title="Remove this question" onClick={() => updateContext((c) => c.qa.splice(i, 1))}>
                   ×
                 </button>
               </div>
-            </label>
+              <AutoText
+                key={`${map()?.id}:qa:${qa().q}`}
+                maxHeight={240}
+                placeholder="Your answer"
+                value={qa().a}
+                onSave={(v, k) =>
+                  updateContext((c) => {
+                    const hit = c.qa.find((x) => `${map()?.id}:qa:${x.q}` === k);
+                    if (hit) hit.a = v;
+                  })
+                }
+              />
+            </div>
           )}
         </Index>
         <div class="agent-buttons">
@@ -65,7 +75,16 @@ export function OverviewPanel(props: { hint: string; setHint: (v: string) => voi
             {votes().like} liked · {votes().no} not for me · {votes().more} want better
           </Show>
         </p>
-        <input placeholder="Steer it (optional)" value={props.hint} onInput={(e) => props.setHint(e.currentTarget.value)} />
+        <AutoText
+          value={props.hint}
+          placeholder={`Steer it (optional). ⌘↵ runs ${anyFeedback() ? "Improve from feedback" : "What am I missing?"}`}
+          delay={0}
+          onSave={props.setHint}
+          onSubmit={(v) => {
+            props.setHint(v);
+            queueMicrotask(() => run(anyFeedback() ? "improve" : "options"));
+          }}
+        />
         <div class="agent-buttons">
           <button class="primary" disabled={!!busy() || !anyFeedback()} onClick={() => run("improve")}>
             Improve from feedback

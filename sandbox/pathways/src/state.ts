@@ -12,6 +12,8 @@ export const [linkFrom, setLinkFrom] = createSignal<string | null>(null);
 export const [busy, setBusy] = createSignal<string | null>(null);
 export const [error, setError] = createSignal("");
 export const [fitTick, setFitTick] = createSignal(0);
+/** Bump to put the cursor in the selected node's title field. */
+export const [titleFocus, setTitleFocus] = createSignal(0);
 
 /** What the last agent run (or outside edit) changed. Stays until the next change or dismiss. */
 export type Change = {
@@ -69,8 +71,9 @@ export async function openMap(id: string) {
   localStorage.setItem("pathways:last", id);
 }
 
-export async function createMap(title: string) {
+export async function createMap(title: string, notes = "") {
   const m = await api.create(title);
+  if (notes.trim()) await api.save({ ...m, context: { notes: notes.trim(), qa: [] } });
   await refreshList();
   await openMap(m.id);
   setSelected("root");

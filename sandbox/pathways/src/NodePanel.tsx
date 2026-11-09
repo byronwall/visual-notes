@@ -1,4 +1,5 @@
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { AutoText } from "./AutoText";
 import {
   addChild,
   busy,
@@ -6,6 +7,7 @@ import {
   map,
   removeNode,
   runAgent,
+  titleFocus,
   runResearch,
   setLinkFrom,
   setResearch,
@@ -38,6 +40,11 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
   const title = (id: string) => map()?.nodes.find((x) => x.id === id)?.title ?? id;
   const parents = createMemo(() => map()?.edges.filter((e) => e.to === n().id).map((e) => e.from) ?? []);
   const children = createMemo(() => map()?.edges.filter((e) => e.from === n().id).map((e) => e.to) ?? []);
+  // Clicking a reaction puts the cursor in its "why" box. Keys 1–3 do not, so they stay fast.
+  const [commentFocus, setCommentFocus] = createSignal(0);
+  const steer = (action: "options" | "forward") => runAgent(action, n().id, props.hint);
+  // Saves go to the node the text was typed for, found by the field key "<id>:<field>".
+  const nodeOf = (key?: string) => map()?.nodes.find((x) => x.id === key?.split(":")[0]);
 
   return (
     <>
@@ -58,13 +65,22 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
             </div>
           </Show>
         </div>
-        <textarea class="title-input" rows={2} value={n().title} onChange={(e) => updateNode(n().id, { title: e.currentTarget.value })} />
-        <textarea
+        <AutoText
+          class="title-input"
+          key={`${n().id}:title`}
+          singleLine
+          value={n().title}
+          focusTick={titleFocus()}
+          placeholder="Title"
+          onSave={(v, k) => v.trim() && nodeOf(k) && updateNode(nodeOf(k)!.id, { title: v.trim() })}
+        />
+        <AutoText
           class="note-input"
-          rows={2}
-          placeholder="Why, cost, tradeoff…"
+          key={`${n().id}:note`}
+          minRows={2}
           value={n().note}
-          onChange={(e) => updateNode(n().id, { note: e.currentTarget.value })}
+          placeholder="Why, cost, tradeoff…"
+          onSave={(v, k) => nodeOf(k) && updateNode(nodeOf(k)!.id, { note: v })}
         />
       </div>
 
@@ -74,17 +90,27 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
           <div class="seg wide">
             <For each={VOTES}>
               {(v) => (
-                <button classList={{ on: n().feedback?.vote === v.vote, [`vote-${v.vote}`]: true }} onClick={() => setVote(n(), v.vote)} title={`Key ${v.key}`}>
+                <button classList={{ on: n().feedback?.vote === v.vote, [`vote-${v.vote}`]: true }} onClick={() => {
+                    setVote(n(), v.vote);
+                    if (n().feedback?.vote !== v.vote) setCommentFocus((t) => t + 1);
+                  }}
+                  title={`Key ${v.key}`}
+                >
                   {v.label}
                 </button>
               )}
             </For>
           </div>
           <Show when={n().feedback}>
-            <input
-              placeholder="Why? (the agent reads this)"
+            <AutoText
+              key={`${n().id}:comment`}
               value={n().feedback!.comment}
-              onChange={(e) => updateNode(n().id, { feedback: { ...n().feedback!, comment: e.currentTarget.value } })}
+              focusTick={commentFocus()}
+              placeholder="Why? The agent reads this."
+              onSave={(v, k) => {
+                const t = nodeOf(k);
+                if (t?.feedback) updateNode(t.id, { feedback: { ...t.feedback, comment: v } });
+              }}
             />
           </Show>
           <div class="seg wide">
@@ -101,16 +127,21 @@ export function NodePanel(props: { n: PNode; hint: string; setHint: (v: string) 
 
       <div class="panel-section">
         <h3>Ask the agent</h3>
-        <input
-          placeholder="Steer it (optional): “I have 2 weeks”, “cheap only”…"
+        <AutoText
           value={props.hint}
-          onInput={(e) => props.setHint(e.currentTarget.value)}
+          placeholder="Steer it (optional): “I have 2 weeks”, “cheap only”… ⌘↵ asks for options"
+          delay={0}
+          onSave={props.setHint}
+          onSubmit={(v) => {
+            props.setHint(v);
+            queueMicrotask(() => steer("options"));
+          }}
         />
         <div class="agent-buttons">
-          <button class="primary" disabled={!!busy()} onClick={() => runAgent("options", n().id, props.hint)}>
+          <button class="primary" disabled={!!busy()} onClick={() => steer("options")}>
             {busy() === n().id ? "Thinking…" : "What are my options?"}
           </button>
-          <button disabled={!!busy() || n().kind === "root"} onClick={() => runAgent("forward", n().id, props.hint)}>
+          <button disabled={!!busy() || n().kind === "root"} onClick={() => steer("forward")}>
             Play it forward
           </button>
         </div>
@@ -160,10 +191,15 @@ function ResearchSection(props: { n: PNode }) {
           </button>
         }
       >
-        <textarea
-          rows={2}
+        <AutoText
+          key={`${id()}:research`}
           value={r()!.question}
-          onChange={(e) => setResearch(id(), { ...r()!, question: e.currentTarget.value })}
+          placeholder="What do you need to find out?"
+          onSave={(v, k) => {
+            const t = map()?.nodes.find((x) => `${x.id}:research` === k);
+            if (t?.research && v.trim()) setResearch(t.id, { ...t.research, question: v.trim() });
+          }}
+          onSubmit={() => queueMicrotask(() => runResearch(id()))}
         />
         <div class="agent-buttons">
           <button class="primary" disabled={!!busy()} onClick={() => runResearch(id())} title="OpenAI web search, about 20–60 seconds">

@@ -14,12 +14,15 @@ import {
   setError,
   setLinkFrom,
   setSelected,
+  setTitleFocus,
   undo,
 } from "./state";
+import { AutoText } from "./AutoText";
 import { setVote, setWeight, VOTES, WEIGHTS } from "./NodePanel";
 
 export function App() {
-  const [draft, setDraft] = createSignal<string | null>(null);
+  // New-map popover: the question plus optional context that seeds Goals & vibes.
+  const [draft, setDraft] = createSignal<{ q: string; notes: string } | null>(null);
 
   onMount(async () => {
     await refreshList();
@@ -30,6 +33,12 @@ export function App() {
 
   const onKey = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement).closest("input, textarea, select")) return;
+    if (e.key === "Escape" && draft()) return void setDraft(null);
+    if (e.key === "Enter" && selected() && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      setTitleFocus((t) => t + 1);
+      return;
+    }
     if (e.key === "Escape") {
       if (linkFrom()) setLinkFrom(null);
       else setSelected(null);
@@ -51,9 +60,10 @@ export function App() {
   onCleanup(() => window.removeEventListener("keydown", onKey));
 
   const submitDraft = async () => {
-    const t = draft()?.trim();
+    const d = draft();
+    if (!d?.q.trim()) return;
     setDraft(null);
-    if (t) await createMap(t);
+    await createMap(d.q.trim(), d.notes);
   };
 
   return (
@@ -63,25 +73,52 @@ export function App() {
         <select value={map()?.id ?? ""} onChange={(e) => openMap(e.currentTarget.value)}>
           <For each={maps()}>{(m) => <option value={m.id}>{m.title}</option>}</For>
         </select>
-        <Show
-          when={draft() !== null}
-          fallback={<button onClick={() => setDraft("")}>New map</button>}
-        >
-          <input
-            class="new-map"
-            autofocus
-            placeholder="What are you deciding?"
-            value={draft()!}
-            onInput={(e) => setDraft(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void submitDraft();
-              if (e.key === "Escape") setDraft(null);
-            }}
-          />
-          <button class="primary" onClick={submitDraft}>
-            Create
+        <div class="new-map-anchor">
+          <button classList={{ on: !!draft() }} onClick={() => setDraft(draft() ? null : { q: "", notes: "" })}>
+            New map
           </button>
-        </Show>
+          <Show when={draft()}>
+            {(d) => (
+              <div class="new-map-pop">
+                <label>What are you deciding?</label>
+                <AutoText
+                  class="title-input"
+                  singleLine
+                  autofocus
+                  delay={0}
+                  value={d().q}
+                  placeholder="Where should I spend my next two weekends?"
+                  onSave={(v) => setDraft((x) => x && { ...x, q: v })}
+                  onSubmit={(v) => {
+                    setDraft((x) => x && { ...x, q: v });
+                    void submitDraft();
+                  }}
+                />
+                <label>Context (optional)</label>
+                <AutoText
+                  minRows={3}
+                  maxHeight={320}
+                  delay={0}
+                  value={d().notes}
+                  placeholder="What matters to you, what you have tried, what feels stuck. Goes into Goals & vibes."
+                  onSave={(v) => setDraft((x) => x && { ...x, notes: v })}
+                  onSubmit={(v) => {
+                    setDraft((x) => x && { ...x, notes: v });
+                    void submitDraft();
+                  }}
+                />
+                <div class="panel-row">
+                  <span class="muted">⌘↵ to create · Esc twice to cancel</span>
+                  <span class="spacer" />
+                  <button onClick={() => setDraft(null)}>Cancel</button>
+                  <button class="primary" disabled={!d().q.trim()} onClick={submitDraft}>
+                    Create
+                  </button>
+                </div>
+              </div>
+            )}
+          </Show>
+        </div>
         <button onClick={undo} title="Undo the last change (⌘Z), including agent changes">
           Undo
         </button>

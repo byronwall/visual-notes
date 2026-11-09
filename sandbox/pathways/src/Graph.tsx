@@ -1,7 +1,8 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { inDegree, isFaint, layoutMap, lineage } from "./layout";
 import { fitText } from "./textfit";
-import { busy, fitTick, freshEdges, freshNodes, link, linkFrom, map, selected, setLinkFrom, setSelected } from "./state";
+import { useRoutes } from "./useRoutes";
+import { busy, fitTick, freshEdges, freshNodes, link, linkFrom, map, selected, setLinkFrom, setSelected, setTitleFocus } from "./state";
 import type { PNode } from "./types";
 
 const KIND_LABEL = { root: "Question", option: "Option", step: "Step", outcome: "Outcome" };
@@ -60,6 +61,28 @@ export function Graph() {
     const m = map();
     return m ? layoutMap(m, size().w, size().h, far()) : null;
   });
+  const paths = useRoutes(layout, map);
+  // Zoom in ~9% steps for text fitting and stroke widths, so a wheel tick
+  // does not refit every card.
+  const kb = createMemo(() => 2 ** (Math.round(Math.log2(view().k) * 8) / 8));
+  // While moving, the canvas gets its own compositor layer; at rest it re-rasterizes crisp.
+  const [moving, setMoving] = createSignal(false);
+  let stillTimer: ReturnType<typeof setTimeout> | undefined;
+  // One view update per frame, however many wheel or pointer events arrive.
+  let queued: { x: number; y: number; k: number } | null = null;
+  let raf = 0;
+  const current = () => queued ?? view();
+  const schedule = (v: { x: number; y: number; k: number }) => {
+    queued = v;
+    setMoving(true);
+    clearTimeout(stillTimer);
+    stillTimer = setTimeout(() => setMoving(false), 160);
+    raf ||= requestAnimationFrame(() => {
+      raf = 0;
+      if (queued) setView(queued);
+      queued = null;
+    });
+  };
   const degree = createMemo(() => (map() ? inDegree(map()!) : new Map<string, number>()));
   const focus = createMemo(() => {
     const m = map();
@@ -114,8 +137,10 @@ export function Graph() {
     const el = e.target as HTMLElement;
     if (e.button !== 0 || el.closest(".view-tools")) return;
     e.preventDefault();
+    // preventDefault stops the browser's own blur, so save any open text field here.
+    (document.activeElement as HTMLElement | null)?.blur?.();
     const node = (el.closest(".node") as HTMLElement | null)?.dataset.id ?? null;
-    drag = { x: e.clientX, y: e.clientY, vx: view().x, vy: view().y, moved: false, node };
+    drag = { x: e.clientX, y: e.clientY, vx: current().x, vy: current().y, moved: false, node };
     viewport.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: PointerEvent) => {
@@ -125,7 +150,7 @@ export function Graph() {
     if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
     drag.moved = true;
     setPanning(true);
-    setView((v) => ({ ...v, x: drag!.vx + dx, y: drag!.vy + dy }));
+    schedule({ ...current(), x: drag.vx + dx, y: drag.vy + dy });
   };
   const onPointerUp = () => {
     if (drag && !drag.moved) {
@@ -140,7 +165,7 @@ export function Graph() {
   };
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    const v = view();
+    const v = current();
     if (e.ctrlKey || e.metaKey) {
       const r = viewport.getBoundingClientRect();
       const px = e.clientX - r.left;
@@ -149,7 +174,7 @@ export function Graph() {
       const next = { k, x: px - ((px - v.x) * k) / v.k, y: py - ((py - v.y) * k) / v.k };
       const toFar = !far() && k < FAR_IN;
       const toNear = far() && k > FAR_OUT;
-      if (!toFar && !toNear) return void setView(next);
+      if (!toFar && !toNear) return void schedule(next);
       // Switch layouts and keep the card nearest the cursor under the cursor.
       const before = layout()!;
       const cx = (px - v.x) / v.k;
@@ -166,10 +191,9 @@ export function Graph() {
       setFar(toFar);
       // Same zoom, so the far layout's bigger cards read larger; the map spreads out to match.
       const now = layout()!.boxes.get(anchor);
-      if (now) setView({ k, x: px - (now.x + fx * now.w) * k, y: py - (now.y + fy * now.h) * k });
-      else setView(next);
+      schedule(now ? { k, x: px - (now.x + fx * now.w) * k, y: py - (now.y + fy * now.h) * k } : next);
     } else {
-      setView({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY });
+      schedule({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY });
     }
   };
 
@@ -191,17 +215,24 @@ export function Graph() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onDblClick={(e) => {
+        const id = ((e.target as HTMLElement).closest(".node") as HTMLElement | null)?.dataset.id;
+        if (!id) return;
+        setSelected(id);
+        queueMicrotask(() => setTitleFocus((t) => t + 1));
+      }}
       onWheel={onWheel}
     >
       <Show when={layout()}>
         {(l) => (
           <div
             class="canvas"
+            classList={{ moving: moving() }}
             style={{
               width: `${l().width}px`,
               height: `${l().height}px`,
               transform: `translate(${view().x}px, ${view().y}px) scale(${view().k})`,
-              "--k": String(view().k),
+              "--k": String(kb()),
             }}
           >
             <svg class="edges" width={l().width} height={l().height}>
@@ -215,7 +246,7 @@ export function Graph() {
               </defs>
               <For each={map()!.edges}>
                 {(e) => {
-                  const d = () => l().paths.get(`${e.from}>${e.to}`);
+                  const d = () => paths().get(`${e.from}>${e.to}`);
                   const on = () => edgeLit(e.from, e.to);
                   const faint = () => map()!.nodes.some((n) => (n.id === e.from || n.id === e.to) && isFaint(n));
                   return (
@@ -229,7 +260,7 @@ export function Graph() {
                 }}
               </For>
             </svg>
-            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={view().k} far={far()} onHover={setHover} />}</For>
+            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={kb()} far={far()} onHover={setHover} />}</For>
           </div>
         )}
       </Show>

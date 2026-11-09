@@ -1,5 +1,5 @@
 import dagre from "@dagrejs/dagre";
-import { RouteLab, type Point } from "./engines/routing-engine.js";
+import type { Point } from "./engines/routing-engine.js";
 import type { PMap, PNode } from "./types";
 
 /** Noise and dropped nodes shrink to one line; important nodes grow. Nothing is hidden. */
@@ -48,16 +48,35 @@ const MARGIN = 48;
  * layer and order. A tall layer then wraps into extra sub-columns, at the
  * column height that gives the largest scale for a vw x vh viewport.
  */
-export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false) {
+export type Placed = { boxes: Map<string, Box>; width: number; height: number; sig: string };
+
+// Placements by geometry signature: an edit that changes no card size or
+// edge (a vote, a note in the far layout) reuses the last placement.
+const placeCache = new Map<string, Placed>();
+
+export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
   const deg = inDegree(map);
+  const sizes = map.nodes.map((n) => ({
+    n,
+    w: nodeWidth(n, far),
+    h: far ? farHeight(n, deg.get(n.id) ?? 0) : nodeHeight(n),
+    faint: isFaint(n),
+  }));
+  const sig = [
+    far ? "far" : "near",
+    vw,
+    vh,
+    sizes.map((x) => `${x.n.id}:${x.w}:${Math.round(x.h)}:${x.faint ? 1 : 0}`).join(","),
+    map.edges.map((e) => `${e.from}>${e.to}`).join(","),
+  ].join("|");
+  const hit = placeCache.get(sig);
+  if (hit) return hit;
+
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: ROW_GAP, ranksep: RANK_GAP });
   g.setDefaultEdgeLabel(() => ({}));
-  for (const n of map.nodes) {
-    const h = far ? farHeight(n, deg.get(n.id) ?? 0) : nodeHeight(n);
-    g.setNode(n.id, { width: nodeWidth(n, far), height: h });
-  }
-  const faint = new Set(map.nodes.filter(isFaint).map((n) => n.id));
+  for (const x of sizes) g.setNode(x.n.id, { width: x.w, height: x.h });
+  const faint = new Set(sizes.filter((x) => x.faint).map((x) => x.n.id));
   for (const e of map.edges) if (g.hasNode(e.from) && g.hasNode(e.to)) g.setEdge(e.from, e.to);
   dagre.layout(g);
 
@@ -133,24 +152,43 @@ export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false) {
     }
     x += RANK_GAP - SUB_GAP;
   }
-  const graph = { width: bestSize.width, height: bestSize.height };
+  const placed = { boxes, width: bestSize.width, height: bestSize.height, sig };
+  if (placeCache.size > 50) placeCache.clear();
+  placeCache.set(sig, placed);
+  return placed;
+}
 
-  // Orthogonal routes that go around cards (Draftably's router).
-  const edges = map.edges.filter((e) => boxes.has(e.from) && boxes.has(e.to));
-  const { routes } = RouteLab.compute(
-    {
-      nodes: [...boxes].map(([id, b]) => ({ id, ...b, shape: "box" as const })),
-      groups: [],
-      edges: edges.map((e) => ({ id: `${e.from}>${e.to}`, from: e.from, to: e.to, directed: true, cfg: { flow: "right" } })),
-    },
-    { direction: "right" },
+/** Router input for the worker (see route.worker.ts). */
+export function routeInput(placed: Placed, map: PMap) {
+  return {
+    nodes: [...placed.boxes].map(([id, b]) => ({ id, ...b, shape: "box" as const })),
+    groups: [] as never[],
+    edges: map.edges
+      .filter((e) => placed.boxes.has(e.from) && placed.boxes.has(e.to))
+      .map((e) => ({ id: `${e.from}>${e.to}`, from: e.from, to: e.to, directed: true, cfg: { flow: "right" as const } })),
+  };
+}
+
+/** Instant stand-in while the worker routes: right side, across, down, into the left side. */
+export function elbowPath(a: Box, b: Box) {
+  const sx = a.x + a.w;
+  const sy = a.y + a.h / 2;
+  const tx = b.x;
+  const ty = b.y + b.h / 2;
+  const mx = tx > sx ? (sx + tx) / 2 : sx + 24;
+  return roundedPath(
+    [
+      { x: sx, y: sy },
+      { x: mx, y: sy },
+      { x: mx, y: ty },
+      { x: tx, y: ty },
+    ],
+    8,
   );
-  const paths = new Map(routes.map((r) => [r.id, roundedPath(r.points, 8)]));
-  return { boxes, paths, width: graph.width ?? 0, height: graph.height ?? 0 };
 }
 
 /** SVG path through orthogonal points with rounded corners. */
-function roundedPath(points: Point[], radius: number) {
+export function roundedPath(points: Point[], radius: number) {
   if (!points.length) return "";
   const dist = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   let d = `M${points[0].x},${points[0].y}`;
