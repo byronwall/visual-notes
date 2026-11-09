@@ -227,7 +227,10 @@ export function layoutMap(
       );
       const subs = Math.max(0, ...[...lanesHere.values()].map((c) => c.length));
       const widths = Array.from({ length: subs }, (_, j) =>
-        Math.max(0, ...[...lanesHere.values()].map((c) => colWidth(c[j] ?? []))),
+        Math.max(
+          0,
+          ...[...lanesHere.values()].map((c) => colWidth(c[j] ?? [])),
+        ),
       );
       return { span, lanesHere, widths };
     });
@@ -296,7 +299,13 @@ export function layoutMap(
   }
 
   const boxes = new Map<string, Box>();
-  const placeCol = (col: Item[], x: number, cw: number, y0: number, h: number) => {
+  const placeCol = (
+    col: Item[],
+    x: number,
+    cw: number,
+    y0: number,
+    h: number,
+  ) => {
     let y = y0 + (h - colHeight(col)) / 2;
     for (const n of col) {
       boxes.set(n.id, { x: x + (cw - n.w) / 2, y, w: n.w, h: n.h });

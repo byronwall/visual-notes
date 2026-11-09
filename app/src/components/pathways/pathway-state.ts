@@ -36,7 +36,7 @@ export type Change = {
   planned?: number;
 };
 
-const ACTION_LABEL: Record<PathwayAgentAction, string> = {
+export const ACTION_LABEL: Record<PathwayAgentAction, string> = {
   start: "First map",
   options: "More choices from here",
   forward: "What happens next",
@@ -55,6 +55,8 @@ const MAP_WIDE: PathwayAgentAction[] = [
   "plan",
   "absorb",
 ];
+
+export type PanelTab = "map" | "next" | "activity";
 
 const edgeKey = (e: { from: string; to: string }) => `${e.from}>${e.to}`;
 
@@ -112,10 +114,18 @@ export function createPathwayState(initial: PathwayRecord) {
     if (id !== selected()) setSteer("");
     setParams({ node: id ?? undefined }, { replace: true });
   };
-  const view = () => (params.view === "next" ? "next" : "map");
-  const setView = (v: "map" | "next") => {
+  /** Selects a card and shows it in the side panel, in one URL update. */
+  const openCard = (id: string) => {
+    if (id !== selected()) setSteer("");
+    setParams({ node: id, view: undefined }, { replace: true });
+  };
+  /** The side panel's tab: the selected card (or overview), Next steps, or Activity. */
+  const view = (): PanelTab =>
+    params.view === "next" || params.view === "activity" ? params.view : "map";
+  const setView = (v: PanelTab) => {
+    if (v === view()) return;
     setSteer("");
-    setParams({ view: v === "next" ? "next" : undefined }, { replace: true });
+    setParams({ view: v === "map" ? undefined : v }, { replace: true });
   };
 
   const freshNodes = createMemo(
@@ -340,6 +350,7 @@ export function createPathwayState(initial: PathwayRecord) {
     draftOnOpen,
     selected,
     setSelected,
+    openCard,
     view,
     setView,
     linkFrom,

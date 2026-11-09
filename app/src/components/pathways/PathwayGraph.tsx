@@ -73,8 +73,7 @@ export function PathwayGraph() {
     on(layout, () => {
       const g = graph();
       const t = setTimeout(
-        () =>
-          prefetch(layoutMap(g, size().w, size().h, !far(), lanes()), g),
+        () => prefetch(layoutMap(g, size().w, size().h, !far(), lanes()), g),
         600,
       );
       onCleanup(() => clearTimeout(t));
@@ -262,7 +261,7 @@ export function PathwayGraph() {
           s.link(from, drag.node);
           s.setLinkFrom(null);
         }
-        s.setSelected(drag.node);
+        s.openCard(drag.node);
       } else {
         s.setSelected(null);
         s.setLinkFrom(null);
@@ -343,7 +342,7 @@ export function PathwayGraph() {
           (e.target as HTMLElement).closest(".node") as HTMLElement | null
         )?.dataset.id;
         if (!id) return;
-        s.setSelected(id);
+        s.openCard(id);
         queueMicrotask(() => s.setTitleFocus((t) => t + 1));
       }}
       onWheel={onWheel}
