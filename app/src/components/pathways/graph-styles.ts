@@ -23,6 +23,32 @@ export const viewport = css({
     transformOrigin: "0 0",
   },
   "& .canvas[data-moving=true]": { willChange: "transform" },
+  // Lane bands sit under the edges and cards.
+  "& .lane": {
+    position: "absolute",
+    borderRadius: "xl",
+    bg: "gray.a2",
+    pointerEvents: "none",
+  },
+  "& .lane[data-shared=true]": {
+    bg: "transparent",
+    borderWidth: "calc(1px / min(1, var(--k, 1)))",
+    borderStyle: "dashed",
+    borderColor: "gray.a6",
+  },
+  "& .lane-label": {
+    position: "absolute",
+    // About 11px on screen at any zoom, inside the room the layout leaves.
+    left: "calc(10px / min(1, var(--k, 1)))",
+    top: "calc(5px / min(1, var(--k, 1)))",
+    fontSize: "calc(11px / min(1, var(--k, 1)))",
+    lineHeight: "1",
+    fontWeight: "semibold",
+    textTransform: "uppercase",
+    letterSpacing: "wide",
+    color: "fg.muted",
+    whiteSpace: "nowrap",
+  },
   "& .edges": {
     position: "absolute",
     left: "0",
@@ -129,6 +155,19 @@ export const viewport = css({
   "& .node[data-faint=true] .note, & .node[data-faint=true] .badge-missed": {
     display: "none",
   },
+  // Your reaction as a stripe on the right edge, about 5px on screen at any
+  // zoom, so it shows even when the badge row hides.
+  "& .node[data-vote]::before": {
+    content: '""',
+    position: "absolute",
+    right: "0",
+    top: "0",
+    bottom: "0",
+    w: "calc(5px / min(1, var(--k, 1)))",
+  },
+  "& .node[data-vote=like]::before": { bg: "green.9" },
+  "& .node[data-vote=no]::before": { bg: "red.9" },
+  "& .node[data-vote=more]::before": { bg: "amber.9" },
   "& .node[data-dim=true]": { opacity: 0.3 },
   "& .node[data-faint=true][data-dim=true]": { opacity: 0.2 },
   "& .node[data-selected=true]": {
@@ -239,16 +278,37 @@ export const viewport = css({
     borderWidth: "2px",
     borderColor: "gray.8",
   },
+  "& .legend b": {
+    display: "inline-block",
+    w: "1",
+    h: "3",
+    ml: "2",
+    borderRadius: "xs",
+  },
+  "& .legend b[data-vote=like]": { bg: "green.9" },
+  "& .legend b[data-vote=no]": { bg: "red.9" },
+  "& .legend b[data-vote=more]": { bg: "amber.9" },
   "& .legend i[data-kind=option]": { borderColor: "blue.9", bg: "blue.2" },
   "& .legend i[data-kind=outcome]": { borderColor: "green.9", bg: "green.2" },
   "& .view-tools": {
     position: "absolute",
     left: "3",
+    right: "3",
     bottom: "3",
     display: "flex",
     alignItems: "center",
     gap: "2.5",
     fontSize: "xs",
     color: "fg.muted",
+    whiteSpace: "nowrap",
+    pointerEvents: "none",
+  },
+  "& .view-tools > *": { flexShrink: 0, pointerEvents: "auto" },
+  // The hint gives way first when the map is narrow.
+  "& .view-tools > .hint": {
+    flexShrink: 1,
+    minW: "0",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 });
