@@ -20,6 +20,8 @@
   --missed: #8a3ffc;
   --missed-bg: #f3ecff;
   --danger: #b42318;
+  --research: #0b6e8a;
+  --research-bg: #e2f3f8;
   color-scheme: light;
 }
 
@@ -46,6 +48,8 @@
     --missed: #b48cff;
     --missed-bg: #2a2140;
     --danger: #f97066;
+  --research: #5cc8e6;
+  --research-bg: #142c33;
     color-scheme: dark;
   }
 }
@@ -237,6 +241,13 @@ textarea {
   overflow: hidden;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.viewport.panning,
+.viewport.panning .node {
+  cursor: grabbing;
 }
 
 .viewport.linking {
@@ -259,13 +270,27 @@ textarea {
 }
 
 .edge {
-  fill: none;
-  stroke: var(--edge);
-  stroke-width: 1.5;
-  transition: opacity 120ms, stroke 120ms;
+  transition: opacity 120ms;
 }
 
-.edge.lit {
+.edge path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Background-colored halo so crossings read as over/under. */
+.edge-halo {
+  stroke: var(--bg);
+  stroke-width: 5;
+}
+
+.edge-line {
+  stroke: var(--edge);
+  stroke-width: 1.4;
+}
+
+.edge.lit .edge-line {
   stroke: var(--edge-lit);
   stroke-width: 2;
 }
@@ -275,7 +300,15 @@ textarea {
 }
 
 .arrow {
-  fill: var(--edge);
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.arrow.lit {
+  stroke: var(--edge-lit);
 }
 
 .node {
@@ -562,4 +595,183 @@ textarea {
   color: var(--converge);
   font-size: 12px;
   font-weight: 600;
+}
+
+.badge.research {
+  background: var(--research-bg);
+  color: var(--research);
+}
+
+.badge.research.r-done {
+  background: var(--outcome-bg);
+  color: var(--outcome);
+}
+
+/* Weight: important cards stand out; noise and dropped cards shrink to one faint line. */
+.node.key {
+  border-width: 2px;
+  border-left-width: 6px;
+  box-shadow: 0 3px 14px rgb(0 0 0 / 0.1);
+}
+
+.node.key .title {
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 650;
+}
+
+.node.faint {
+  padding: 8px 10px;
+  border-left-width: 2px;
+  opacity: 0.55;
+  background: var(--surface);
+}
+
+.node.faint .node-head {
+  height: 12px;
+  font-size: 10px;
+}
+
+.node.faint .title {
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 450;
+  -webkit-line-clamp: 1;
+}
+
+.node.faint .note,
+.node.faint .badge.missed {
+  display: none;
+}
+
+.node.faint.dim {
+  opacity: 0.2;
+}
+
+.edge.faint .edge-line {
+  stroke-dasharray: 3 4;
+}
+
+.edge.faint:not(.lit) {
+  opacity: 0.45;
+}
+
+/* What the last agent run changed: stays until the next change. */
+.node.fresh {
+  outline: 2px solid var(--missed);
+  outline-offset: 2px;
+}
+
+.node.fresh.selected {
+  outline-color: var(--accent);
+}
+
+.edge.fresh .edge-line {
+  stroke: var(--missed);
+  stroke-width: 2.2;
+}
+
+.badge.new {
+  background: var(--missed);
+  color: #fff;
+}
+
+.badge.vote-like {
+  background: var(--outcome-bg);
+  color: var(--outcome);
+}
+
+.badge.vote-no {
+  background: #fde8e7;
+  color: var(--danger);
+}
+
+.badge.vote-more {
+  background: var(--converge-bg);
+  color: var(--converge);
+}
+
+.change-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  border-left: 4px solid var(--missed);
+  background: var(--missed-bg);
+}
+
+.change-card h3 {
+  margin: 4px 0 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.change-card .panel-row strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-summary {
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.seg.wide {
+  margin-left: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+.seg button.on.vote-like {
+  background: var(--outcome);
+  border-color: var(--outcome);
+}
+
+.seg button.on.vote-no {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.seg button.on.vote-more {
+  background: var(--converge);
+  border-color: var(--converge);
+}
+
+.qa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.findings {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.sources {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+}
+
+.sources a {
+  color: var(--accent);
+  word-break: break-word;
 }

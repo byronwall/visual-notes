@@ -11,13 +11,41 @@ Open http://localhost:5174.
 ## What it does
 
 - A map starts from a question (the root). Options, steps, and outcomes grow to the right.
+- The layout packs layers to fit the window: a tall layer wraps into extra columns. Edges route around cards (the router is copied from Diagram Studio / Draftably).
 - Paths can meet. A node with more than one incoming edge gets an amber ring and a "N paths meet" badge.
-- Hover a node to trace every path through it.
-- The in-app agent (OpenAI) has three actions:
-  - **What are my options?** adds missing options at a node, including "new angle" ones you may not have considered.
-  - **Play it forward** adds the next 1 to 3 steps, and links to existing nodes where paths meet.
-  - **Where do paths meet?** merges duplicate nodes and adds shared outcomes.
-- **Undo** (⌘Z) steps back through every change, agent changes included.
+- Hover a node to trace every path through it. Drag anywhere to pan; ⌘/Ctrl + scroll zooms.
+
+### Tell it what you think
+
+Select a node, then press a key (or use the panel):
+
+| Key | Meaning |
+| --- | --- |
+| 1 | Like |
+| 2 | Not for me |
+| 3 | Want better options here |
+| 4 | Important: bigger card, kept in the middle |
+| 5 | Noise: one faint line at the edge of its column (nothing is deleted) |
+
+Add a comment to a reaction to tell the agent why. **Goals & vibes** (shown when nothing is selected) holds your own words and the agent's questions about your goals. Every agent prompt includes them.
+
+### Agent actions (OpenAI)
+
+- **What are my options?** adds missing options at a node, with "new angle" ones you may not have considered.
+- **Play it forward** adds the next 1 to 3 steps, and links to existing nodes where paths meet.
+- **Where do paths meet?** merges duplicate nodes and adds shared outcomes.
+- **Ask me about my goals** adds 3 or 4 questions to Goals & vibes.
+- **Improve from feedback** drops what you rejected, adds better options where you asked, and extends what you liked.
+- **Fresh map from feedback** builds a new version ("· v2") as a separate map. The old map stays.
+
+After each run, the panel shows what changed (added, joined existing paths, dropped, merged) and how long the call took. The new nodes and edges stay outlined until the next change. **Undo** (⌘Z) steps back through every change, agent changes included.
+
+### Research
+
+The agent puts a research question on a node when acting on it needs facts from the web. You can add one by hand with **Needs research…**. Then:
+
+- **Research now** runs an OpenAI web search (about 30–60 seconds) and saves findings and sources on the node. Later agent prompts read them.
+- **Queue for an agent** leaves it for an outside agent. `GET /api/research` lists the queue across maps. The agent reports back with `POST /api/maps/:id/research` and `{ "nodeId", "findings", "sources": [{ "title", "url" }], "by" }`.
 
 The agent uses `OPENAI_API_KEY` from the shell, or else from the main checkout's `app/.env`. Set `PATHWAYS_MODEL` (default `gpt-5.4-mini`) or `PATHWAYS_EFFORT` (default `medium`) to change it.
 
@@ -45,4 +73,6 @@ File shape (see `src/types.ts`):
 - `missed: true` marks an option the person probably had not considered.
 - Edges point forward in time. To show that two paths arrive at the same place, point both at one node.
 
-HTTP API: `GET/POST /api/maps`, `GET/PUT /api/maps/:id`, `POST /api/maps/:id/undo`, `POST /api/maps/:id/agent` with `{ "action": "options" | "forward" | "converge", "nodeId": "...", "hint": "..." }`.
+HTTP API: `GET/POST /api/maps`, `GET/PUT /api/maps/:id`, `POST /api/maps/:id/undo`, `POST /api/maps/:id/agent` with `{ "action": "options" | "forward" | "converge" | "questions" | "improve" | "regenerate", "nodeId": "...", "hint": "..." }`, `POST /api/maps/:id/research`, and `GET /api/research`.
+
+Optional node fields: `feedback: { vote: "like" | "no" | "more", comment }`, `weight: "key" | "noise"`, `research: { question, status, findings, sources, by }`. Optional map field: `context: { notes, qa: [{ q, a }] }`.

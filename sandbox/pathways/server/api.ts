@@ -2,12 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import type { AgentAction, PMap } from "../src/types";
-import { runAgent } from "./agent";
+import type { AgentAction, PMap, QueuedResearch, Source } from "../src/types";
+import { runAgent, runResearch } from "./agent";
 import { createStore } from "./store";
 
 // Dev-server API: /api/maps, /api/maps/:id, /api/maps/:id/undo,
-// /api/maps/:id/agent. A change to any map file (from this API or from an
+// /api/maps/:id/agent, /api/maps/:id/research, /api/research (queue). A change to any map file (from this API or from an
 // outside agent editing the JSON) is pushed to the page over Vite's socket.
 
 const body = async (req: IncomingMessage) => {
@@ -46,6 +46,16 @@ export function pathwaysApi(): Plugin {
         const url = (req.url ?? "").split("?")[0];
         const [, maps, id, verb] = url.split("/");
         try {
+          // Research waiting for an outside agent, across all maps.
+          if (maps === "research" && req.method === "GET") {
+            const queue: QueuedResearch[] = store.list().flatMap((info) => {
+              const m = store.get(info.id)!;
+              return m.nodes
+                .filter((n) => n.research?.status === "queued")
+                .map((n) => ({ mapId: m.id, mapTitle: m.title, nodeId: n.id, title: n.title, question: n.research!.question }));
+            });
+            return send(res, 200, queue);
+          }
           if (maps !== "maps") return send(res, 404, { error: "not found" });
 
           if (!id) {
@@ -80,9 +90,39 @@ export function pathwaysApi(): Plugin {
             };
             const map = store.get(id);
             if (!map) return send(res, 404, { error: "no map" });
+            if (action === "regenerate") {
+              // A fresh version is a new map, so the old one stays as it was.
+              const n = (map.title.match(/ · v(\d+)$/)?.[1] ?? "1") as string;
+              const title = `${map.title.replace(/ · v\d+$/, "")} · v${Number(n) + 1}`;
+              const fresh = store.create(title);
+              fresh.context = structuredClone(map.context);
+              const result = await runAgent(map, action, "root", hint ?? "", fresh);
+              store.save(result.map);
+              return send(res, 200, result);
+            }
             const result = await runAgent(map, action, nodeId ?? "root", hint ?? "");
             store.save(result.map);
             return send(res, 200, result);
+          }
+
+          // With findings in the body, an outside agent is reporting back.
+          // Without them, the in-app agent searches the web.
+          if (id && verb === "research" && req.method === "POST") {
+            const { nodeId, findings, sources, by } = (await body(req)) as {
+              nodeId: string;
+              findings?: string;
+              sources?: Source[];
+              by?: string;
+            };
+            const map = store.get(id);
+            const node = map?.nodes.find((n) => n.id === nodeId);
+            if (!map || !node?.research) return send(res, 404, { error: "no research question on that node" });
+            const found = findings ? { findings, sources: sources ?? [] } : await runResearch(map, nodeId);
+            const fresh = store.get(id)!;
+            const target = fresh.nodes.find((n) => n.id === nodeId);
+            if (!target?.research) return send(res, 409, { error: "node changed while researching" });
+            target.research = { ...target.research, ...found, status: "done", by: by ?? (findings ? "outside agent" : "in-app web search") };
+            return send(res, 200, { map: store.save(fresh) });
           }
 
           send(res, 405, { error: "method not allowed" });

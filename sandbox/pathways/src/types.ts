@@ -3,6 +3,23 @@
 export type Kind = "root" | "option" | "step" | "outcome";
 export type Status = "open" | "chosen" | "dropped";
 
+export type Source = { title: string; url: string };
+
+/**
+ * Facts a node needs from outside the map. "suggested" comes from the agent;
+ * "queued" waits for an outside agent (GET /api/research lists these).
+ */
+export type Research = {
+  question: string;
+  status: "suggested" | "queued" | "running" | "done";
+  findings?: string;
+  sources?: Source[];
+  by?: string;
+};
+
+/** The person's reaction while evaluating the map. */
+export type Feedback = { vote: "like" | "no" | "more"; comment: string };
+
 export type PNode = {
   id: string;
   kind: Kind;
@@ -12,20 +29,33 @@ export type PNode = {
   status: Status;
   /** The agent thinks you probably had not considered this. */
   missed?: boolean;
+  research?: Research;
+  feedback?: Feedback;
+  /** How much the node matters to the person. Noise shrinks and moves to the edges; nothing is lost. */
+  weight?: "key" | "noise";
 };
 
 export type PEdge = { from: string; to: string };
+
+/** Map-wide goals and vibes. Every agent prompt includes them. */
+export type MapContext = {
+  notes: string;
+  qa: { q: string; a: string }[];
+};
 
 export type PMap = {
   id: string;
   title: string;
   nodes: PNode[];
   edges: PEdge[];
+  context?: MapContext;
   updatedAt: string;
 };
 
 export type MapInfo = { id: string; title: string; updatedAt: string };
 
-export type AgentAction = "options" | "forward" | "converge";
+export type AgentAction = "options" | "forward" | "converge" | "questions" | "improve" | "regenerate";
 
-export type AgentResult = { map: PMap; summary: string; added: string[] };
+export type AgentResult = { map: PMap; summary: string; added: string[]; ms: number; dropped?: string[] };
+
+export type QueuedResearch = { mapId: string; mapTitle: string; nodeId: string; title: string; question: string };

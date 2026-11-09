@@ -19,4 +19,5 @@ export const api = {
   undo: (id: string) => call<PMap>(`/api/maps/${id}/undo`, "POST"),
   agent: (id: string, action: AgentAction, nodeId: string, hint: string) =>
     call<AgentResult>(`/api/maps/${id}/agent`, "POST", { action, nodeId, hint }),
+  research: (id: string, nodeId: string) => call<{ map: PMap }>(`/api/maps/${id}/research`, "POST", { nodeId }),
 };

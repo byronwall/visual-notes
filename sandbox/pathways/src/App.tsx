@@ -13,10 +13,10 @@ import {
   selected,
   setError,
   setLinkFrom,
-  setSummary,
-  summary,
+  setSelected,
   undo,
 } from "./state";
+import { setVote, setWeight, VOTES, WEIGHTS } from "./NodePanel";
 
 export function App() {
   const [draft, setDraft] = createSignal<string | null>(null);
@@ -30,7 +30,17 @@ export function App() {
 
   const onKey = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement).closest("input, textarea, select")) return;
-    if (e.key === "Escape") setLinkFrom(null);
+    if (e.key === "Escape") {
+      if (linkFrom()) setLinkFrom(null);
+      else setSelected(null);
+    }
+    const node = map()?.nodes.find((n) => n.id === selected());
+    if (node && node.kind !== "root" && !e.metaKey && !e.ctrlKey) {
+      const vote = VOTES.find((v) => v.key === e.key);
+      const weight = WEIGHTS.find((w) => w.key && w.key === e.key);
+      if (vote) setVote(node, vote.vote);
+      if (weight) setWeight(node, weight.weight);
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === "z") {
       e.preventDefault();
       void undo();
@@ -84,16 +94,10 @@ export function App() {
           <i class="sw converge" /> paths meet
         </span>
       </header>
-      <Show when={summary() || error()}>
-        <div class="message" classList={{ error: !!error() }}>
-          <span>{error() || `✦ ${summary()}`}</span>
-          <button
-            class="x"
-            onClick={() => {
-              setSummary("");
-              setError("");
-            }}
-          >
+      <Show when={error()}>
+        <div class="message error">
+          <span>{error()}</span>
+          <button class="x" onClick={() => setError("")}>
             ×
           </button>
         </div>

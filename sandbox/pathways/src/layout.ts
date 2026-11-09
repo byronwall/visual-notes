@@ -1,42 +1,154 @@
 import dagre from "@dagrejs/dagre";
+import { RouteLab, type Point } from "./engines/routing-engine.js";
 import type { PMap, PNode } from "./types";
 
-export const NODE_W = 232;
-const CHARS_PER_LINE = 28;
+/** Noise and dropped nodes shrink to one line; important nodes grow. Nothing is hidden. */
+export const isFaint = (n: PNode) => n.weight === "noise" || n.status === "dropped";
+
+export function nodeWidth(n: PNode) {
+  return n.weight === "key" ? 288 : isFaint(n) ? 184 : 232;
+}
 
 /** Card height from text length. The card uses this fixed height, so layout and render agree. */
 export function nodeHeight(n: PNode) {
-  const titleLines = Math.min(3, Math.max(1, Math.ceil(n.title.length / CHARS_PER_LINE)));
-  const noteLines = n.note ? Math.min(2, Math.ceil(n.note.length / 36)) : 0;
-  return 12 + 16 + titleLines * 19 + (noteLines ? 6 + noteLines * 16 : 0) + 12;
+  if (isFaint(n)) return 8 + 12 + 17 + 8;
+  const key = n.weight === "key";
+  const lineH = key ? 21 : 19;
+  const titleLines = Math.min(3, Math.max(1, Math.ceil(n.title.length / (key ? 30 : 28))));
+  const noteLines = n.note ? Math.min(2, Math.ceil(n.note.length / (key ? 44 : 36))) : 0;
+  return 12 + 16 + titleLines * lineH + (noteLines ? 6 + noteLines * 16 : 0) + 12;
 }
 
 export type Box = { x: number; y: number; w: number; h: number };
 
-export function layoutMap(map: PMap) {
+const RANK_GAP = 96;
+const SUB_GAP = 48;
+const ROW_GAP = 24;
+const MARGIN = 48;
+
+/**
+ * Layered left-to-right layout, packed to the viewport. Dagre sets each node's
+ * layer and order. A tall layer then wraps into extra sub-columns, at the
+ * column height that gives the largest scale for a vw x vh viewport.
+ */
+export function layoutMap(map: PMap, vw = 1200, vh = 800) {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 16, ranksep: 72, marginx: 48, marginy: 48 });
+  g.setGraph({ rankdir: "LR", nodesep: ROW_GAP, ranksep: RANK_GAP });
   g.setDefaultEdgeLabel(() => ({}));
-  for (const n of map.nodes) g.setNode(n.id, { width: NODE_W, height: nodeHeight(n) });
+  for (const n of map.nodes) g.setNode(n.id, { width: nodeWidth(n), height: nodeHeight(n) });
+  const faint = new Set(map.nodes.filter(isFaint).map((n) => n.id));
   for (const e of map.edges) if (g.hasNode(e.from) && g.hasNode(e.to)) g.setEdge(e.from, e.to);
   dagre.layout(g);
 
-  const boxes = new Map<string, Box>();
+  // Layers by dagre x, each in dagre's top-to-bottom order.
+  // Faint nodes go to the top and bottom of their layer, so the rest sits in the middle.
+  type Item = { id: string; y: number; w: number; h: number };
+  const byRank = new Map<number, Item[]>();
   for (const id of g.nodes()) {
-    const n = g.node(id);
-    boxes.set(id, { x: n.x - n.width / 2, y: n.y - n.height / 2, w: n.width, h: n.height });
+    const n = g.node(id) as { x: number; y: number; width: number; height: number; rank?: number };
+    const r = n.rank ?? Math.round(n.x);
+    if (!byRank.has(r)) byRank.set(r, []);
+    byRank.get(r)!.push({ id, y: n.y, w: n.width, h: n.height });
   }
-  const graph = g.graph();
-  return { boxes, width: graph.width ?? 0, height: graph.height ?? 0 };
+  const ranks = [...byRank.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, r]) => {
+      const sorted = r.sort((a, b) => a.y - b.y);
+      const core = sorted.filter((n) => !faint.has(n.id));
+      const edge = sorted.filter((n) => faint.has(n.id));
+      const half = Math.ceil(edge.length / 2);
+      return [...edge.slice(0, half), ...core, ...edge.slice(half)];
+    });
+
+  const pack = (limit: number) =>
+    ranks.map((rank) => {
+      const cols: Item[][] = [[]];
+      let used = 0;
+      for (const n of rank) {
+        if (cols.at(-1)!.length && used + ROW_GAP + n.h > limit) {
+          cols.push([]);
+          used = 0;
+        }
+        used += (cols.at(-1)!.length ? ROW_GAP : 0) + n.h;
+        cols.at(-1)!.push(n);
+      }
+      return cols;
+    });
+  const colHeight = (c: { h: number }[]) => c.reduce((s, n) => s + n.h, 0) + ROW_GAP * Math.max(0, c.length - 1);
+  const colWidth = (c: { w: number }[]) => Math.max(0, ...c.map((n) => n.w));
+  const measure = (packed: Item[][][]) => {
+    const cols = packed.reduce((s, r) => s + r.length, 0);
+    const widths = packed.flat().reduce((s, c) => s + colWidth(c), 0);
+    const width = widths + (packed.length - 1) * RANK_GAP + (cols - packed.length) * SUB_GAP + 2 * MARGIN;
+    const height = Math.max(...packed.flat().map(colHeight)) + 2 * MARGIN;
+    return { width, height, scale: Math.min(vw / width, vh / height) };
+  };
+
+  // Try column-height limits from one card up to the tallest layer.
+  const tallest = Math.max(1, ...ranks.map(colHeight));
+  const tallestCard = Math.max(1, ...ranks.flat().map((n) => n.h));
+  let best = pack(tallest);
+  let bestSize = measure(best);
+  for (let limit = tallestCard; limit < tallest; limit += 40) {
+    const packed = pack(limit);
+    const size = measure(packed);
+    if (size.scale > bestSize.scale + 0.01) {
+      best = packed;
+      bestSize = size;
+    }
+  }
+
+  const boxes = new Map<string, Box>();
+  let x = MARGIN;
+  for (const rank of best) {
+    for (const col of rank) {
+      let y = MARGIN + (bestSize.height - 2 * MARGIN - colHeight(col)) / 2;
+      const cw = colWidth(col);
+      for (const n of col) {
+        boxes.set(n.id, { x: x + (cw - n.w) / 2, y, w: n.w, h: n.h });
+        y += n.h + ROW_GAP;
+      }
+      x += cw + SUB_GAP;
+    }
+    x += RANK_GAP - SUB_GAP;
+  }
+  const graph = { width: bestSize.width, height: bestSize.height };
+
+  // Orthogonal routes that go around cards (Draftably's router).
+  const edges = map.edges.filter((e) => boxes.has(e.from) && boxes.has(e.to));
+  const { routes } = RouteLab.compute(
+    {
+      nodes: [...boxes].map(([id, b]) => ({ id, ...b, shape: "box" as const })),
+      groups: [],
+      edges: edges.map((e) => ({ id: `${e.from}>${e.to}`, from: e.from, to: e.to, directed: true, cfg: { flow: "right" } })),
+    },
+    { direction: "right" },
+  );
+  const paths = new Map(routes.map((r) => [r.id, roundedPath(r.points, 8)]));
+  return { boxes, paths, width: graph.width ?? 0, height: graph.height ?? 0 };
 }
 
-export function edgePath(a: Box, b: Box) {
-  const sx = a.x + a.w;
-  const sy = a.y + a.h / 2;
-  const tx = b.x;
-  const ty = b.y + b.h / 2;
-  const dx = Math.max(36, Math.abs(tx - sx) / 2);
-  return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+/** SVG path through orthogonal points with rounded corners. */
+function roundedPath(points: Point[], radius: number) {
+  if (!points.length) return "";
+  const dist = (a: Point, b: Point) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  let d = `M${points[0].x},${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const p = points[i];
+    const b = points[i + 1];
+    const r = b ? Math.min(radius, dist(a, p) / 2, dist(p, b) / 2) : 0;
+    if (!b || r === 0) {
+      d += `L${p.x},${p.y}`;
+      continue;
+    }
+    const x1 = p.x + Math.sign(a.x - p.x) * r;
+    const y1 = p.y + Math.sign(a.y - p.y) * r;
+    const x2 = p.x + Math.sign(b.x - p.x) * r;
+    const y2 = p.y + Math.sign(b.y - p.y) * r;
+    d += `L${x1},${y1}Q${p.x},${p.y} ${x2},${y2}`;
+  }
+  return d;
 }
 
 /** Ids upstream and downstream of a node, for path highlighting. */
