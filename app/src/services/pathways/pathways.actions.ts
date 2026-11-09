@@ -10,7 +10,11 @@ import {
   updatePlanTask,
   withLinkedStatus,
 } from "~/server/pathways/pathway-tasks";
-import { startFromNote, startFromTask } from "~/server/pathways/pathway-start";
+import {
+  splitFromCard,
+  startFromNote,
+  startFromTask,
+} from "~/server/pathways/pathway-start";
 
 // Plain server functions: the map page calls them and swaps in the record
 // each one returns, so the view never waits on a refetch. Each write is one
@@ -54,7 +58,10 @@ const opsInput = z.object({
               .array(
                 z.object({
                   title: z.string().max(300),
-                  url: z.string().regex(/^https?:\/\//i).max(2000),
+                  url: z
+                    .string()
+                    .regex(/^https?:\/\//i)
+                    .max(2000),
                 }),
               )
               .max(20)
@@ -245,6 +252,12 @@ export async function exportPlanTasksFn(input: {
     })
     .parse(input);
   return exportPlanTasks(p.id, p.planTaskIds, p.listId);
+}
+
+/** "Split into a new map" on a card: a new map with the card as its question. */
+export async function splitPathwayFn(input: { id: string; nodeId: string }) {
+  "use server";
+  return splitFromCard(id.parse(input.id), id.parse(input.nodeId));
 }
 
 /** "Map this out" on a task: opens its map, or starts one with the task as the question. */

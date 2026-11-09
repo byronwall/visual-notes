@@ -1,3 +1,4 @@
+import { splitGraph } from "~/lib/pathways/split";
 import { emptyGraph } from "~/lib/pathways/types";
 import { prisma } from "~/server/db";
 import { noteMarkdown } from "~/server/notes/note-store";
@@ -53,4 +54,28 @@ export async function startFromNote(docId: string) {
     context: { notes: `From the note “${doc.title}”:\n\n${text}`, qa: [] },
   });
   return { id: p.id, created: true };
+}
+
+/**
+ * A new map from one card of another: the card becomes the question and the
+ * cards after it come along. Goals carry over, with a link back. The source
+ * map stays as it is.
+ */
+export async function splitFromCard(pathwayId: string, nodeId: string) {
+  const src = await store.getPathway(pathwayId);
+  if (!src) throw new Error(`Pathway ${pathwayId} not found`);
+  const graph = splitGraph(src.graph, nodeId);
+  const from = `Split from the map [${src.title}](/pathways/${src.id}).`;
+  const p = await store.createPathway({
+    title: graph.nodes[0].title,
+    graph,
+    context: {
+      notes: src.context?.notes.trim()
+        ? `${from}\n\n${src.context.notes}`
+        : from,
+      qa: src.context?.qa ?? [],
+    },
+  });
+  console.info("[pathways] split %s:%s into %s", src.id, nodeId, p.id);
+  return { id: p.id };
 }

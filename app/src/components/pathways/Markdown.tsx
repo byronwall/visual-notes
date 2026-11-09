@@ -67,11 +67,12 @@ const prose = css({
 });
 
 export function Markdown(props: { text: string; class?: string }) {
-  // Links open in a new tab, never in place of the map.
+  // Web links open in a new tab, never in place of the map. App links
+  // (another map) stay in this tab.
   const html = createMemo(() =>
-    normalizeMarkdownToHtml(props.text).replaceAll(
-      "<a ",
-      '<a target="_blank" rel="noreferrer" ',
+    normalizeMarkdownToHtml(props.text).replace(
+      /<a href="(https?:)/g,
+      '<a target="_blank" rel="noreferrer" href="$1',
     ),
   );
   return <div class={cx(prose, props.class)} innerHTML={html()} />;

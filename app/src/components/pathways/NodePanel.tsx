@@ -307,6 +307,14 @@ export function NodePanel(props: { n: PathwayNode }) {
             </select>
             <button
               class={smallButton}
+              disabled={!!s.busy()}
+              title="Start a new map with this card as the question and the cards after it. This map stays as it is."
+              onClick={() => s.split(n().id)}
+            >
+              Split into new map
+            </button>
+            <button
+              class={smallButton}
               data-danger="true"
               onClick={() => s.removeNode(n().id)}
             >

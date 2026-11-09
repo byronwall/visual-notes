@@ -18,6 +18,7 @@ import {
   runPathwayAgentFn,
   runPathwayResearchFn,
   setPathwayContext,
+  splitPathwayFn,
   undoPathwayFn,
 } from "~/services/pathways/pathways.actions";
 
@@ -269,6 +270,19 @@ export function createPathwayState(initial: PathwayRecord) {
     }
   };
 
+  /** Opens a new map with this card as its question; this map stays as it is. */
+  const split = async (nodeId: string) => {
+    setBusy(nodeId);
+    try {
+      const r = await splitPathwayFn({ id: record().id, nodeId });
+      navigate(`/pathways/${r.id}`);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const undo = async () => {
     try {
       const r = await undoPathwayFn(record().id);
@@ -351,6 +365,7 @@ export function createPathwayState(initial: PathwayRecord) {
     selected,
     setSelected,
     openCard,
+    split,
     view,
     setView,
     linkFrom,
