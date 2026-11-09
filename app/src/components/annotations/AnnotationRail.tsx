@@ -1,4 +1,4 @@
-import { MessageSquareTextIcon } from "lucide-solid";
+import { XIcon } from "lucide-solid";
 import {
   createEffect,
   createMemo,
@@ -9,23 +9,31 @@ import {
   Show,
   type VoidComponent,
 } from "solid-js";
+import { Portal } from "solid-js/web";
 import { Box, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
 import { AnnotationEntry } from "./AnnotationEntry";
+import { AnnotationLegend } from "./AnnotationLegend";
 import { useAnnotationLayer } from "./annotation-context";
 
-// The list of a note's annotations. With room left of the note it is a rail
-// beside the text; otherwise a count button opens it as a sheet. Entries
-// follow note order; ones without a place in the text come first.
+// The list of a note's annotations. With a gutter left of the note it is a
+// rail beside the text, sized to the gutter. Without one, a legend pill opens
+// it as a floating panel that leaves the note usable; phones get a sheet.
+// Entries follow note order; ones without a place in the text come first.
 
-const RAIL_WIDTH = 240;
-const RAIL_GAP = 24;
+const RAIL_MIN = 200;
+const RAIL_MAX = 300;
+const RAIL_GAP = 16;
+/** Space kept between the rail and whatever sits left of the note. */
+const EDGE = 8;
 
 export const AnnotationRail: VoidComponent = () => {
   const layer = useAnnotationLayer();
-  const [room, setRoom] = createSignal(false);
-  const [sheetOpen, setSheetOpen] = createSignal(false);
+  const [railWidth, setRailWidth] = createSignal(0);
+  const [phone, setPhone] = createSignal(false);
+  const [panelOpen, setPanelOpen] = createSignal(false);
   let anchor: HTMLDivElement | undefined;
 
   const ordered = createMemo(() => {
@@ -33,15 +41,16 @@ export const AnnotationRail: VoidComponent = () => {
     const pos = (id: string) => ranges.get(id)?.from ?? -1;
     return [...layer.annotations()].sort((a, b) => pos(a.id) - pos(b.id));
   });
+  const room = () => railWidth() >= RAIL_MIN;
 
-  // The rail sits left of the note; it needs a gutter that clears the app
-  // sidebar. Measured, since the gutter depends on the window and sidebar.
+  // The gutter depends on the window and the app sidebar, so measure it.
   const measure = () => {
     if (!anchor) return;
     const left = anchor.getBoundingClientRect().left;
     const main = anchor.closest("main") ?? document.body;
     const bound = Math.max(0, main.getBoundingClientRect().left);
-    setRoom(left - bound >= RAIL_WIDTH + RAIL_GAP + 8);
+    setRailWidth(Math.min(RAIL_MAX, Math.floor(left - bound - RAIL_GAP - EDGE)));
+    setPhone(window.matchMedia("(max-width: 767px)").matches);
   };
   onMount(() => {
     measure();
@@ -50,11 +59,20 @@ export const AnnotationRail: VoidComponent = () => {
     onCleanup(() => observer.disconnect());
   });
 
-  // A highlight clicked while the rail is hidden opens the sheet.
+  // A highlight clicked while the rail is hidden opens the panel.
   createEffect(() => {
     if (layer.activeId() && !room() && layer.annotations().some((a) => a.id === layer.activeId())) {
-      setSheetOpen(true);
+      setPanelOpen(true);
     }
+  });
+
+  createEffect(() => {
+    if (!panelOpen() || phone()) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPanelOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    onCleanup(() => document.removeEventListener("keydown", onKeyDown));
   });
 
   const list = () => (
@@ -63,57 +81,102 @@ export const AnnotationRail: VoidComponent = () => {
     </Stack>
   );
 
+  const header = (close?: () => void) => (
+    <Stack gap="1.5" mb="2">
+      <HStack justify="space-between" fontSize="xs" color="fg.muted">
+        <Box fontWeight="semibold" color="fg.default">
+          Annotations
+        </Box>
+        <HStack gap="0.5">
+          <Button size="2xs" variant="plain" onClick={() => layer.openTypes()}>
+            Types
+          </Button>
+          <Show when={close}>
+            <IconButton size="2xs" variant="plain" aria-label="Close annotations" onClick={() => close?.()}>
+              <XIcon />
+            </IconButton>
+          </Show>
+        </HStack>
+      </HStack>
+      <AnnotationLegend wrap />
+    </Stack>
+  );
+
   return (
     <>
       <Box ref={anchor} position="absolute" top="0" left="0" w="0" h="0" aria-hidden="true" />
       <Show when={layer.annotations().length > 0}>
-        <Show
-          when={room()}
-          fallback={
-            <Button
-              position="fixed"
-              bottom="4"
-              right="4"
-              zIndex="docked"
-              size="sm"
-              variant="outline"
-              bg="bg.default"
-              boxShadow="md"
-              data-testid="annotation-sheet-button"
-              onClick={() => setSheetOpen(true)}
-            >
-              <MessageSquareTextIcon />
-              {layer.annotations().length} annotations
-            </Button>
-          }
-        >
+        <Show when={room()}>
           <Box
             position="absolute"
             top="0"
             bottom="0"
-            style={{ right: `calc(100% + ${RAIL_GAP}px)`, width: `${RAIL_WIDTH}px` }}
+            style={{ right: `calc(100% + ${RAIL_GAP}px)`, width: `${railWidth()}px` }}
             data-testid="annotation-rail"
           >
             <Box position="sticky" top="4" maxH="calc(100vh - 32px)" overflowY="auto" pb="2">
-              <HStack justify="space-between" mb="2" fontSize="xs" color="fg.muted">
-                <Box fontWeight="semibold">Annotations</Box>
-                <Button size="2xs" variant="plain" onClick={() => layer.openTypes()}>
-                  Types
-                </Button>
-              </HStack>
+              {header()}
               {list()}
             </Box>
           </Box>
         </Show>
-        <SimpleDialog
-          open={sheetOpen() && !room()}
-          onClose={() => setSheetOpen(false)}
-          title="Annotations"
-          phoneSheet
-          maxW="28rem"
-        >
-          {list()}
-        </SimpleDialog>
+
+        <Show when={!room()}>
+          <Portal>
+            <Show
+              when={panelOpen() && !phone()}
+              fallback={
+                <Button
+                  position="fixed"
+                  bottom="4"
+                  right="4"
+                  zIndex="popover"
+                  size="sm"
+                  variant="outline"
+                  bg="bg.default"
+                  boxShadow="md"
+                  data-testid="annotation-sheet-button"
+                  aria-label={`${layer.annotations().length} annotations`}
+                  onClick={() => setPanelOpen(true)}
+                >
+                  <AnnotationLegend />
+                </Button>
+              }
+            >
+              <Box
+                position="fixed"
+                bottom="4"
+                right="4"
+                zIndex="popover"
+                w="80"
+                maxW="calc(100vw - 32px)"
+                maxH="min(70vh, 640px)"
+                overflowY="auto"
+                p="3"
+                bg="bg.default"
+                borderWidth="1px"
+                borderColor="border"
+                borderRadius="l3"
+                boxShadow="lg"
+                data-testid="annotation-panel"
+              >
+                {header(() => setPanelOpen(false))}
+                {list()}
+              </Box>
+            </Show>
+          </Portal>
+          <SimpleDialog
+            open={panelOpen() && phone()}
+            onClose={() => setPanelOpen(false)}
+            title="Annotations"
+            phoneSheet
+          >
+            <Stack gap="2">
+              <AnnotationLegend wrap />
+              {list()}
+            </Stack>
+          </SimpleDialog>
+        </Show>
       </Show>
     </>
   );
