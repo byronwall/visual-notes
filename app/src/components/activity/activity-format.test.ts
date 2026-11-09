@@ -76,6 +76,25 @@ describe("describeActivityEvent", () => {
     expect(d.domain).toBe("search");
   });
 
+  it("describes an agent finishing a request on a note", () => {
+    const d = describeActivityEvent(
+      event({
+        eventType: "annotation.request_ready",
+        actorType: "chatgpt",
+        relatedDocId: "doc-1",
+        relatedDocTitle: "Heat pump sizing",
+        payload: { body: "Added two sources.", agent: "ChatGPT" },
+      }),
+    );
+    expect(d).toMatchObject({
+      domain: "doc",
+      verb: "Finished a request on",
+      docTitle: "Heat pump sizing",
+      detail: "“Added two sources.”",
+      via: "ChatGPT",
+    });
+  });
+
   it("calls a title-only update a rename and links the note", () => {
     const d = describeActivityEvent(
       event({

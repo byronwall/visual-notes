@@ -1,5 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildCommit } from "~/server/build-info";
+import {
+  ANNOTATION_INSTRUCTIONS,
+  registerAnnotationTools,
+} from "./annotations-tools";
+import { agentInboxEnabled } from "~/server/annotations/switch";
 import { ACTIVITY_INSTRUCTIONS, registerActivityTools } from "./activity-tools";
 import { ARCHIVE_INSTRUCTIONS, registerArchiveTools } from "./archive-tools";
 import {
@@ -27,7 +32,7 @@ import { createToolRegistrar } from "./tool-registry";
 
 const SERVER_INSTRUCTIONS = [
   "Visual Notes is the user's knowledge base: markdown notes filed by dot path (`work.visual-notes.canvas`), plus research topics, task lists, collections, a time-blocks calendar, events, and a web archive.",
-  "Tools are named <area>_<verb>: notes_, research_, tasks_, collections_, time_blocks_, events_, places_, archive_, activity_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
+  "Tools are named <area>_<verb>: notes_, research_, tasks_, collections_, time_blocks_, events_, places_, archive_, activity_, inbox_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
   NOTE_INSTRUCTIONS,
   "Rules: change the body, title, or path only of notes you created (notes_get says editable). For the user's notes, create a new note that links to the original. Metadata (note meta, task status and dates, collection values, event decisions) can change on any record. Deleting is the user's: cancel tasks and shows, hide research cards, or remove notes from a collection instead.",
   "Saving well: before you report a save, check it against what the user asked for. Keep product, source, and buying links, evidence dates, and what is still unverified. Name the one record that holds the current decision; label other copies 'snapshot as of <date>' with a link to it, and when the user changes a premise, update or relabel the records you made. Record confirmed inputs and channel preferences (such as 'online forms, not email') where later turns will read them. Say exactly what happened: request submitted, price shown, quote saved, verified, or waiting on the user.",
@@ -39,12 +44,18 @@ const SERVER_INSTRUCTIONS = [
   EVENT_INSTRUCTIONS,
   ARCHIVE_INSTRUCTIONS,
   ACTIVITY_INSTRUCTIONS,
-].join("\n");
+];
+
+const serverInstructions = () =>
+  (agentInboxEnabled()
+    ? [...SERVER_INSTRUCTIONS, ANNOTATION_INSTRUCTIONS]
+    : SERVER_INSTRUCTIONS
+  ).join("\n");
 
 export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   const server = new McpServer(
     { name: "visual-notes", version: `2.0.0+${buildCommit.slice(0, 12)}` },
-    { instructions: SERVER_INSTRUCTIONS },
+    { instructions: serverInstructions() },
   );
   const tools = createToolRegistrar(server, ctx);
   registerNoteTools(tools);
@@ -57,5 +68,6 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerEventTools(tools);
   registerArchiveTools(tools);
   registerActivityTools(tools);
+  if (agentInboxEnabled()) registerAnnotationTools(tools);
   return server;
 }

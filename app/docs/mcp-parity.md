@@ -164,6 +164,21 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `fetchDocActivitySummary`, `recomputeDocActivitySnapshots` | human-only                     | View counters and their maintenance |
 | `logDocViewEvent`, `logSearchResultOpened`                 | human-only                     | They record the user's own views    |
 
+## Agent inbox
+
+| Action / query                                                                      | MCP                                       | Notes                                                        |
+| ----------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| `createAiRequest` (Note to AI on a note or task)                                    | human-only                                | The user asks; agents answer with `inbox_reply`              |
+| `createNoteAnnotation`                                                              | `notes_annotate`                          | Agents always write the **From AI** type                     |
+| `updateNoteAnnotation`, `deleteNoteAnnotation`, `saveAnnotationAnchors`             | human-only                                | The user's own annotations; anchors follow the user's editor |
+| `replyToRequestAction`                                                              | `inbox_reply`                             | An agent reply can mark the request ready                    |
+| `closeRequestAction`                                                                | human-only                                | Only the user closes a request                               |
+| `resolveProposal` (accept or reject a suggested edit)                               | human-only                                | Agents propose with `notes_propose_edits`                    |
+| Annotation type actions (`createAnnotationTypeAction`, …)                           | human-only                                | Layout-like settings                                         |
+| `dismissInboxItemAction`                                                            | human-only                                | The user's own inbox                                         |
+| `fetchNoteAnnotations`, `fetchTaskAnnotations`, `fetchUserInbox`, `fetchInboxCount` | `inbox_get` (requests with their context) | Agents read open requests; your inbox view is the user's     |
+| Claiming a request                                                                  | `inbox_claim`                             | Agent-only                                                   |
+
 ## AI chat and prompts
 
 | Action / query                                                                                                                                | MCP        | Notes                                                  |

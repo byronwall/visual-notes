@@ -64,7 +64,7 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 65;
+const EXPECTED_TOOL_COUNT = 73;
 const FAMILIES = [
   "notes_",
   "research_",
@@ -75,6 +75,7 @@ const FAMILIES = [
   "places_",
   "archive_",
   "activity_",
+  "inbox_",
 ];
 const tools = await client.listTools();
 const toolNames = tools.tools.map((t) => t.name);

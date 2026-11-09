@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { TaskRequests } from "~/components/annotations/TaskRequests";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-solid";
 import { Grid, HStack, Stack } from "styled-system/jsx";
 import { Button } from "~/components/ui/button";
@@ -355,6 +356,10 @@ export const TaskEditorDialog = (props: Props) => {
             </Collapsible.Content>
           </Stack>
         </Collapsible.Root>
+
+        <Show when={props.mode === "edit" && props.task?.id}>
+          {(taskId) => <TaskRequests taskId={taskId()} />}
+        </Show>
 
         <Show when={error()}>
           {(message) => <Field.ErrorText>{message()}</Field.ErrorText>}

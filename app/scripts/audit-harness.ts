@@ -252,6 +252,7 @@ function makeChildEnv(
     "MCP_CONNECTOR_ENABLED",
     "MCP_DEV_TOKEN",
     "CLEANUP_DECIDER",
+    "AGENT_INBOX",
   ] as const) {
     const value = process.env[key] ?? source[key];
     if (value) childEnv[key] = value;

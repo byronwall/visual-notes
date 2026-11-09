@@ -1,4 +1,6 @@
 import { useAction, useNavigate } from "@solidjs/router";
+import { ProposalLayer } from "~/components/annotations/ProposalLayer";
+import { AnnotationLayer } from "~/components/annotations/AnnotationLayer";
 import {
   type JSX,
   Show,
@@ -143,8 +145,11 @@ const DocumentViewer: VoidComponent<{
     }
   });
 
+  // Annotation anchors follow the saved text, so they save right after it.
+  let flushAnnotations: (() => Promise<void>) | undefined;
   const handleContentSaved = (result: { id: string; updatedAt: string }) => {
     if (props.doc.id !== result.id) return;
+    void flushAnnotations?.();
     setSavedUpdatedAt((current) =>
       Date.parse(current || "") >= Date.parse(result.updatedAt)
         ? current
@@ -379,6 +384,18 @@ const DocumentViewer: VoidComponent<{
         }}
         onSaved={handleContentSaved}
       />
+      <Show when={props.doc.id} keyed>
+        {(docId) => (
+          <>
+            <ProposalLayer docId={docId} editor={editorApi()?.editor()} />
+            <AnnotationLayer
+              docId={docId}
+              editor={editorApi()?.editor()}
+              onFlushReady={(flush) => (flushAnnotations = flush)}
+            />
+          </>
+        )}
+      </Show>
       <BacklinksSection docId={props.doc.id} />
       <AddToCollectionDialog
         open={addToCollectionOpen()}

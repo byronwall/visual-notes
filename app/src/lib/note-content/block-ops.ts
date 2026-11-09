@@ -27,7 +27,7 @@ function locate(node: NoteNode, blockId: string): Location | null {
 }
 
 /** Shapes parsed blocks to fit where they go (list items inside lists). */
-function adaptForParent(parent: NoteNode, blocks: NoteNode[]): NoteNode[] {
+export function adaptForParent(parent: NoteNode, blocks: NoteNode[]): NoteNode[] {
   if (!LIST_TYPES.has(parent.type)) return blocks;
   const items: NoteNode[] = [];
   let loose: NoteNode[] = [];

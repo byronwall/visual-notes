@@ -1,4 +1,5 @@
 import { XIcon } from "lucide-solid";
+import { TaskRequests } from "~/components/annotations/TaskRequests";
 import { createEffect, createSignal, Match, Show, Switch } from "solid-js";
 import { Portal } from "solid-js/web";
 import { css } from "styled-system/css";
@@ -102,6 +103,9 @@ const SheetBody = (props: { task: TaskItem }) => {
             onShowSubtask={() => setView("subtask")}
             onShowLists={() => setView("lists")}
           />
+          <div class={css({ mt: "3" })}>
+            <TaskRequests taskId={props.task.id} />
+          </div>
         </Match>
       </Switch>
     </div>
