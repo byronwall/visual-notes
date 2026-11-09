@@ -14,7 +14,7 @@ Open http://localhost:5174.
 - The layout packs layers to fit the window: a tall layer wraps into extra columns. Edges route around cards (the router is copied from Diagram Studio / Draftably).
 - Paths can meet. A node with more than one incoming edge gets an amber ring and a "N paths meet" badge.
 - Hover a node to trace every path through it. Drag anywhere to pan; ⌘/Ctrl + scroll zooms.
-- Detail follows zoom. Below about 90% the type label and note hide, and titles grow to stay readable on screen. Hover a card while zoomed out to see its full text.
+- Detail follows zoom. Below 70% zoom the map switches to a title-only layout with bigger cards; above 85% it switches back to full cards with notes. The card under the cursor stays in place across the switch. Fit picks the layout that reads best. Hover a card while zoomed out to see its full text.
 
 ### Tell it what you think
 

@@ -1,10 +1,12 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { inDegree, isFaint, layoutMap, lineage } from "./layout";
+import { FAR_K, inDegree, isFaint, layoutMap, lineage } from "./layout";
 import { busy, fitTick, freshEdges, freshNodes, link, linkFrom, map, selected, setLinkFrom, setSelected } from "./state";
 import type { PNode } from "./types";
 
 const KIND_LABEL = { root: "Question", option: "Option", step: "Step", outcome: "Outcome" };
 const TITLE_PX = 14;
+const FAR_IN = 0.7;
+const FAR_OUT = 0.85;
 const VOTE_LABEL = { like: "♥ like", no: "✕ not for me", more: "↻ want better" };
 const RESEARCH_LABEL = { suggested: "needs research", queued: "queued", running: "researching…", done: "researched" };
 
@@ -49,9 +51,12 @@ export function Graph() {
   // Viewport size in 40px steps, so the packed layout does not redo on every pixel.
   const [size, setSize] = createSignal({ w: 1200, h: 800 });
 
+  // Below FAR_IN zoom the map switches to a title-only layout with bigger
+  // cards; above FAR_OUT it switches back. The gap stops it flapping.
+  const [far, setFar] = createSignal(false);
   const layout = createMemo(() => {
     const m = map();
-    return m ? layoutMap(m, size().w, size().h) : null;
+    return m ? layoutMap(m, size().w, size().h, far()) : null;
   });
   const degree = createMemo(() => (map() ? inDegree(map()!) : new Map<string, number>()));
   const focus = createMemo(() => {
@@ -72,11 +77,16 @@ export function Graph() {
   // A fit asked for before the viewport has a size waits for the resize observer.
   let fitPending = false;
   const fit = () => {
-    const l = layout();
+    const m = map();
     const r = viewport?.getBoundingClientRect();
-    if (!l || !r?.width || !r.height) return void (fitPending = true);
+    if (!m || !r?.width || !r.height) return void (fitPending = true);
     fitPending = false;
-    const k = Math.min(1.1, r.width / l.width, r.height / l.height);
+    const scale = (l: { width: number; height: number }) => Math.min(1.1, r.width / l.width, r.height / l.height);
+    // Use the detailed layout when it fits at a readable zoom, else the far one.
+    const near = layoutMap(m, size().w, size().h, false);
+    setFar(scale(near) < FAR_IN);
+    const l = layout()!;
+    const k = scale(l);
     setView({ k, x: (r.width - l.width * k) / 2, y: (r.height - l.height * k) / 2 });
   };
   createEffect(on(fitTick, () => queueMicrotask(fit), { defer: true }));
@@ -133,8 +143,29 @@ export function Graph() {
       const r = viewport.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
-      const k = Math.min(2, Math.max(0.2, v.k * Math.exp(-e.deltaY * 0.01)));
-      setView({ k, x: px - ((px - v.x) * k) / v.k, y: py - ((py - v.y) * k) / v.k });
+      const k = Math.min(2, Math.max(0.1, v.k * Math.exp(-e.deltaY * 0.01)));
+      const next = { k, x: px - ((px - v.x) * k) / v.k, y: py - ((py - v.y) * k) / v.k };
+      const toFar = !far() && k < FAR_IN;
+      const toNear = far() && k > FAR_OUT;
+      if (!toFar && !toNear) return void setView(next);
+      // Switch layouts and keep the card nearest the cursor under the cursor.
+      const before = layout()!;
+      const cx = (px - v.x) / v.k;
+      const cy = (py - v.y) / v.k;
+      let anchor = "";
+      let best = Infinity;
+      for (const [id, b] of before.boxes) {
+        const d = Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy);
+        if (d < best) [best, anchor] = [d, id];
+      }
+      const old = before.boxes.get(anchor)!;
+      const fx = (cx - old.x) / old.w;
+      const fy = (cy - old.y) / old.h;
+      setFar(toFar);
+      // Same zoom, so the far layout's bigger cards read larger; the map spreads out to match.
+      const now = layout()!.boxes.get(anchor);
+      if (now) setView({ k, x: px - (now.x + fx * now.w) * k, y: py - (now.y + fy * now.h) * k });
+      else setView(next);
     } else {
       setView({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY });
     }
@@ -196,7 +227,7 @@ export function Graph() {
                 }}
               </For>
             </svg>
-            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={view().k} onHover={setHover} />}</For>
+            <For each={map()!.nodes}>{(n) => <Card n={n} box={l().boxes.get(n.id)} paths={degree().get(n.id) ?? 0} lit={lit(n.id)} k={view().k} far={far()} onHover={setHover} />}</For>
           </div>
         )}
       </Show>
@@ -217,13 +248,14 @@ function Card(props: {
   paths: number;
   lit: boolean;
   k: number;
+  far: boolean;
   onHover: (id: string | null) => void;
 }) {
   const n = props.n;
   // Level of detail by zoom. Below full detail the type label and note hide,
   // and the title grows to stay about TITLE_PX tall on screen, in as many
   // lines as the card's fixed height allows. Layout never changes with zoom.
-  const lod = () => (props.k >= 0.9 ? "full" : props.k >= 0.5 ? "mid" : "far");
+  const lod = () => (props.far ? "far" : props.k >= 0.9 ? "full" : "mid");
   const fit = createMemo(() => {
     const b = props.box;
     if (!b || lod() === "full") return null;

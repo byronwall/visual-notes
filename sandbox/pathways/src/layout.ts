@@ -5,8 +5,25 @@ import type { PMap, PNode } from "./types";
 /** Noise and dropped nodes shrink to one line; important nodes grow. Nothing is hidden. */
 export const isFaint = (n: PNode) => n.weight === "noise" || n.status === "dropped";
 
-export function nodeWidth(n: PNode) {
+export function nodeWidth(n: PNode, far = false) {
+  if (far) return n.weight === "key" ? 440 : isFaint(n) ? 260 : 360;
   return n.weight === "key" ? 288 : isFaint(n) ? 184 : 232;
+}
+
+/**
+ * Far-zoom cards hold the title only, sized for about 14px on screen at
+ * FAR_K zoom. Cards with badges keep room for one badge row.
+ */
+export const FAR_K = 0.4;
+export function farHeight(n: PNode, paths: number) {
+  const pad = 6;
+  if (isFaint(n)) return 2 * pad + (14 / FAR_K) * 0.8 * 1.2;
+  const size = (n.weight === "key" ? 16 : 14) / FAR_K;
+  const textW = nodeWidth(n, true) - 2 * (pad + 2);
+  const lines = Math.min(4, Math.max(1, Math.ceil((n.title.length * size * 0.55) / textW)));
+  const badges = paths > 1 || !!n.feedback || !!n.research || !!n.missed || n.status === "chosen";
+  const head = badges ? (10 / FAR_K) * 1.45 + 4 : 0;
+  return 2 * pad + head + lines * size * 1.2;
 }
 
 /** Card height from text length. The card uses this fixed height, so layout and render agree. */
@@ -31,11 +48,15 @@ const MARGIN = 48;
  * layer and order. A tall layer then wraps into extra sub-columns, at the
  * column height that gives the largest scale for a vw x vh viewport.
  */
-export function layoutMap(map: PMap, vw = 1200, vh = 800) {
+export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false) {
+  const deg = inDegree(map);
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: ROW_GAP, ranksep: RANK_GAP });
   g.setDefaultEdgeLabel(() => ({}));
-  for (const n of map.nodes) g.setNode(n.id, { width: nodeWidth(n), height: nodeHeight(n) });
+  for (const n of map.nodes) {
+    const h = far ? farHeight(n, deg.get(n.id) ?? 0) : nodeHeight(n);
+    g.setNode(n.id, { width: nodeWidth(n, far), height: h });
+  }
   const faint = new Set(map.nodes.filter(isFaint).map((n) => n.id));
   for (const e of map.edges) if (g.hasNode(e.from) && g.hasNode(e.to)) g.setEdge(e.from, e.to);
   dagre.layout(g);
