@@ -61,7 +61,17 @@ export function Graph() {
     const m = map();
     return m ? layoutMap(m, size().w, size().h, far()) : null;
   });
-  const paths = useRoutes(layout, map);
+  const { paths, prefetch } = useRoutes(layout, map);
+  // Once this layout is up, route the other zoom layout in the background,
+  // so crossing the zoom switch shows finished edges right away.
+  createEffect(
+    on(layout, () => {
+      const m = map();
+      if (!m) return;
+      const t = setTimeout(() => prefetch(layoutMap(m, size().w, size().h, !far()), m), 600);
+      onCleanup(() => clearTimeout(t));
+    }),
+  );
   // Zoom in ~9% steps for text fitting and stroke widths, so a wheel tick
   // does not refit every card.
   const kb = createMemo(() => 2 ** (Math.round(Math.log2(view().k) * 8) / 8));

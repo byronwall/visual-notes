@@ -165,26 +165,46 @@ export function routeInput(placed: Placed, map: PMap) {
     groups: [] as never[],
     edges: map.edges
       .filter((e) => placed.boxes.has(e.from) && placed.boxes.has(e.to))
-      .map((e) => ({ id: `${e.from}>${e.to}`, from: e.from, to: e.to, directed: true, cfg: { flow: "right" as const } })),
+      .map((e) => {
+        // Forward edges leave the right side and enter the left side, like the elbows.
+        const forward = placed.boxes.get(e.to)!.x > placed.boxes.get(e.from)!.x + placed.boxes.get(e.from)!.w;
+        const cfg = forward ? { flow: "right" as const, fromSide: "right" as const, toSide: "left" as const } : { flow: "right" as const };
+        return { id: `${e.from}>${e.to}`, from: e.from, to: e.to, directed: true, cfg };
+      }),
   };
 }
 
-/** Instant stand-in while the worker routes: right side, across, down, into the left side. */
-export function elbowPath(a: Box, b: Box) {
-  const sx = a.x + a.w;
-  const sy = a.y + a.h / 2;
-  const tx = b.x;
-  const ty = b.y + b.h / 2;
-  const mx = tx > sx ? (sx + tx) / 2 : sx + 24;
-  return roundedPath(
-    [
-      { x: sx, y: sy },
-      { x: mx, y: sy },
-      { x: mx, y: ty },
-      { x: tx, y: ty },
-    ],
-    8,
-  );
+/**
+ * Instant stand-ins while the worker routes: right side, across, down, into
+ * the left side. Edges leaving the same column each get their own vertical
+ * lane in the gap, so they never stack on one line.
+ */
+export function elbowPaths(placed: Placed, map: PMap) {
+  const edges = map.edges
+    .map((e) => ({ e, a: placed.boxes.get(e.from), b: placed.boxes.get(e.to) }))
+    .filter((x): x is { e: (typeof map.edges)[number]; a: Box; b: Box } => !!x.a && !!x.b);
+  // Group by the gap an edge turns in: the right edge of its source column.
+  const gaps = new Map<number, typeof edges>();
+  for (const x of edges) {
+    const key = Math.round(x.a.x + x.a.w);
+    if (!gaps.has(key)) gaps.set(key, []);
+    gaps.get(key)!.push(x);
+  }
+  const out = new Map<string, string>();
+  for (const [sx, group] of gaps) {
+    const right = Math.min(...group.map((x) => x.b.x).filter((tx) => tx > sx));
+    const width = Number.isFinite(right) ? right - sx : 48;
+    // Top-to-bottom by where the edge ends, so lanes cross as little as possible.
+    group.sort((p, q) => p.b.y + p.b.h / 2 - (q.b.y + q.b.h / 2) || p.a.y - q.a.y);
+    group.forEach((x, i) => {
+      const sy = x.a.y + x.a.h / 2;
+      const tx = x.b.x;
+      const ty = x.b.y + x.b.h / 2;
+      const mx = tx > sx ? sx + 10 + ((width - 20) * (i + 1)) / (group.length + 1) : sx + 24;
+      out.set(`${x.e.from}>${x.e.to}`, roundedPath([{ x: sx, y: sy }, { x: mx, y: sy }, { x: mx, y: ty }, { x: tx, y: ty }], 6));
+    });
+  }
+  return out;
 }
 
 /** SVG path through orthogonal points with rounded corners. */

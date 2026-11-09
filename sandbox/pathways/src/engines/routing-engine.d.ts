@@ -18,7 +18,7 @@ export interface RouteEdgeInput {
   from: string;
   to: string;
   directed?: boolean;
-  cfg: { flow?: "right" | "down" };
+  cfg: { flow?: "right" | "down"; fromSide?: Side | "auto"; toSide?: Side | "auto" };
 }
 
 export interface Route {
