@@ -190,7 +190,10 @@ export async function writePathway<T = void>(
   });
 }
 
-/** Restores the newest revision. Returns null when there is nothing to undo. */
+/**
+ * Restores the newest revision. Returns null when there is nothing to undo.
+ * Exported steps keep their links to real tasks.
+ */
 export async function undoPathway(id: string) {
   return prisma.$transaction(async (tx) => {
     await lockPathway(tx, id);
@@ -203,6 +206,20 @@ export async function undoPathway(id: string) {
       PathwayDraft,
       "graph" | "context" | "plan"
     >;
+    const before = await tx.pathway.findUnique({
+      where: { id },
+      select: { plan: true },
+    });
+    // Undo does not delete real tasks, so a step exported after this
+    // snapshot keeps its task.
+    const links = await tx.pathwayTaskLink.findMany({
+      where: { pathwayId: id, planTaskId: { not: null } },
+      select: { planTaskId: true, taskId: true },
+    });
+    for (const t of snap.plan?.tasks ?? []) {
+      const link = links.find((l) => l.planTaskId === t.id);
+      if (link) t.taskId = link.taskId;
+    }
     const title = snap.graph.nodes.find((n) => n.id === ROOT_ID)?.title;
     const row = await tx.pathway.update({
       where: { id },
@@ -215,7 +232,12 @@ export async function undoPathway(id: string) {
       select,
     });
     await tx.pathwayRevision.delete({ where: { id: rev.id } });
-    return { record: toRecord(row), label: rev.label };
+    return {
+      record: toRecord(row),
+      label: rev.label,
+      /** The plan the undo replaced. */
+      before: (before?.plan as unknown as PathwayPlan | null) ?? null,
+    };
   });
 }
 
