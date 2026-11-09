@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "~/server/db";
+import { publishAppChange } from "~/server/note-events";
 import {
   emptyGraph,
   ROOT_ID,
@@ -128,6 +129,7 @@ export async function createPathway(input: {
     select,
   });
   console.info("[pathways] created %s", row.id);
+  publishAppChange("pathways", [row.id]);
   return toRecord(row);
 }
 
@@ -140,7 +142,7 @@ export async function writePathway<T = void>(
   label: string,
   edit: (draft: PathwayDraft) => T,
 ): Promise<{ record: PathwayRecord; result: T }> {
-  return prisma.$transaction(async (tx) => {
+  const out = await prisma.$transaction(async (tx) => {
     await lockPathway(tx, id);
     const row = await tx.pathway.findUnique({ where: { id }, select });
     if (!row) throw new Error(`Pathway ${id} not found`);
@@ -188,6 +190,8 @@ export async function writePathway<T = void>(
       });
     return { record: toRecord(updated), result };
   });
+  publishAppChange("pathways", [id]);
+  return out;
 }
 
 /**
@@ -195,7 +199,7 @@ export async function writePathway<T = void>(
  * Exported steps keep their links to real tasks.
  */
 export async function undoPathway(id: string) {
-  return prisma.$transaction(async (tx) => {
+  const out = await prisma.$transaction(async (tx) => {
     await lockPathway(tx, id);
     const rev = await tx.pathwayRevision.findFirst({
       where: { pathwayId: id },
@@ -239,6 +243,8 @@ export async function undoPathway(id: string) {
       before: (before?.plan as unknown as PathwayPlan | null) ?? null,
     };
   });
+  if (out) publishAppChange("pathways", [id]);
+  return out;
 }
 
 export async function setPathwayArchived(id: string, archived: boolean) {

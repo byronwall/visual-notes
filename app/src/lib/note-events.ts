@@ -25,6 +25,7 @@ export const APP_AREAS = [
   "archive",
   "events",
   "inbox",
+  "pathways",
 ] as const;
 export type AppArea = (typeof APP_AREAS)[number];
 
