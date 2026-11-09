@@ -1,4 +1,5 @@
 import { useAction, useNavigate } from "@solidjs/router";
+import { ProposalLayer } from "~/components/annotations/ProposalLayer";
 import {
   type JSX,
   Show,
@@ -379,6 +380,11 @@ const DocumentViewer: VoidComponent<{
         }}
         onSaved={handleContentSaved}
       />
+      <Show when={props.doc.id} keyed>
+        {(docId) => (
+          <ProposalLayer docId={docId} editor={editorApi()?.editor()} />
+        )}
+      </Show>
       <BacklinksSection docId={props.doc.id} />
       <AddToCollectionDialog
         open={addToCollectionOpen()}

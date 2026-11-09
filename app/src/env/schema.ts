@@ -38,6 +38,9 @@ export const serverScheme = z.object({
   // "false" turns off live note updates: /ws/notes tells tabs to stop
   // listening, and they fall back to refreshing on navigation as before.
   NOTE_LIVE_SYNC: z.string().optional(),
+  // "false" turns off the agent inbox: annotations, proposed edits, the
+  // inbox page, and their MCP tools. Stored rows stay.
+  AGENT_INBOX: z.string().optional(),
 });
 
 export const clientScheme = z.object({

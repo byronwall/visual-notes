@@ -55,6 +55,8 @@ export type DocumentEditorApi = {
   dirty: () => boolean;
   error: () => string | undefined;
   focus: () => void;
+  /** The live TipTap editor, once mounted. */
+  editor: () => Editor | undefined;
 };
 
 // Quiet period after the last keystroke before an autosave fires.
@@ -772,6 +774,7 @@ const DocumentEditor: VoidComponent<{
   if (props.apiRef) {
     props.apiRef({
       save: onSave,
+      editor,
       appendBlocks: (blocks) => {
         const ed = editor();
         if (!ed) return;

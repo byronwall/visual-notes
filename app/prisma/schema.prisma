@@ -236,6 +236,7 @@ model Doc {
   incomingLinks        DocLink[]              @relation("DocLinkTarget")
   inlineTasks          TaskItem[]
   audioRecordings      DocAudio[]
+  editProposals        EditProposal[]
   cleanupAssessment    NoteAssessment?
   cleanupPairsA        NotePairAssessment[] @relation("CleanupPairA")
   cleanupPairsB        NotePairAssessment[] @relation("CleanupPairB")
@@ -1316,4 +1317,27 @@ model NotePairAssessment {
 
   @@unique([aId, bId])
   @@index([betterTogether])
+}
+
+/// Block edits an agent proposes on a note. They wait, drawn inline in the
+/// editor, until the user accepts or rejects each op. Accepted ops are
+/// applied by the editor, so autosave writes them as the user's own edit.
+model EditProposal {
+  id         String    @id @default(cuid())
+  docId      String
+  /// MCP client name of the agent that proposed it.
+  author     String
+  /// One line on what the change does, shown above the suggestions.
+  summary    String?
+  /// [{ op, blockId, blocks, baseHash, state }]; state is pending,
+  /// accepted, or rejected.
+  ops        Json
+  createdAt  DateTime  @default(now())
+  /// Set once no op is pending.
+  resolvedAt DateTime?
+
+  doc Doc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@index([docId, resolvedAt])
+  @@index([resolvedAt, createdAt])
 }

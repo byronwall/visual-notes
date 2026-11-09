@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { type z, ZodError } from "zod";
 import { ResearchIngestError } from "~/services/research/research.ingest";
 import { runInEventScope } from "~/server/events/event-scope";
+import { AnnotationError } from "~/server/annotations/errors";
 import { TimeBlockInputError } from "~/server/time-blocks/time-block-store";
 import {
   type McpCallOutcome,
@@ -83,6 +84,9 @@ export function toRefusal(error: unknown): ConnectorError | null {
   }
   if (error instanceof ResearchIngestError) {
     return new ConnectorError("invalid", nothingWritten(error.issues));
+  }
+  if (error instanceof AnnotationError) {
+    return new ConnectorError("invalid", error.message);
   }
   if (error instanceof TimeBlockInputError) {
     return new ConnectorError("invalid", error.message);

@@ -1,5 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildCommit } from "~/server/build-info";
+import {
+  ANNOTATION_INSTRUCTIONS,
+  registerAnnotationTools,
+} from "./annotations-tools";
+import { agentInboxEnabled } from "~/server/annotations/switch";
 import { ACTIVITY_INSTRUCTIONS, registerActivityTools } from "./activity-tools";
 import { ARCHIVE_INSTRUCTIONS, registerArchiveTools } from "./archive-tools";
 import {
@@ -39,12 +44,18 @@ const SERVER_INSTRUCTIONS = [
   EVENT_INSTRUCTIONS,
   ARCHIVE_INSTRUCTIONS,
   ACTIVITY_INSTRUCTIONS,
-].join("\n");
+];
+
+const serverInstructions = () =>
+  (agentInboxEnabled()
+    ? [...SERVER_INSTRUCTIONS, ANNOTATION_INSTRUCTIONS]
+    : SERVER_INSTRUCTIONS
+  ).join("\n");
 
 export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   const server = new McpServer(
     { name: "visual-notes", version: `2.0.0+${buildCommit.slice(0, 12)}` },
-    { instructions: SERVER_INSTRUCTIONS },
+    { instructions: serverInstructions() },
   );
   const tools = createToolRegistrar(server, ctx);
   registerNoteTools(tools);
@@ -57,5 +68,6 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerEventTools(tools);
   registerArchiveTools(tools);
   registerActivityTools(tools);
+  if (agentInboxEnabled()) registerAnnotationTools(tools);
   return server;
 }
