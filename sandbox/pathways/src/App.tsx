@@ -30,7 +30,10 @@ export function App() {
 
   onMount(async () => {
     await refreshList();
-    const last = localStorage.getItem("pathways:last");
+    // ?map=<id>&view=next opens a map directly (handy for links and screenshots).
+    const params = new URLSearchParams(location.search);
+    if (params.get("view") === "next" || params.get("view") === "map") setView(params.get("view") as "map" | "next");
+    const last = params.get("map") ?? localStorage.getItem("pathways:last");
     const id = maps().find((m) => m.id === last)?.id ?? maps()[0]?.id;
     if (id) await openMap(id);
   });
