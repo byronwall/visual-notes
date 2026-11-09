@@ -121,8 +121,18 @@ export function createPathwayState(initial: PathwayRecord) {
     setError(err instanceof Error ? err.message : String(err));
 
   /** Saves through the server and swaps in its record (the local copy already shows the edit). */
-  const save = (p: Promise<PathwayRecord | null>) =>
-    p.then((r) => r && setRecord(r)).catch(fail);
+  // Only the newest save's reply is taken: an older reply that arrives later
+  // would put back a map without the edits made since.
+  let saves = 0;
+  let inFlight = 0;
+  const save = (p: Promise<PathwayRecord | null>) => {
+    const n = ++saves;
+    inFlight++;
+    return p
+      .then((r) => r && n === saves && setRecord(r))
+      .catch(fail)
+      .finally(() => inFlight--);
+  };
 
   /** `coalesce` names a text field, so a typing burst is one undo step. */
   const edit = (ops: GraphOps, coalesce?: string) => {
@@ -242,7 +252,17 @@ export function createPathwayState(initial: PathwayRecord) {
   /** A newer copy arrived (agent over MCP, another tab): show what it changed. */
   const receive = (fresh: PathwayRecord) => {
     const cur = record();
-    if (busy() || fresh.updatedAt.getTime() <= cur.updatedAt.getTime()) return;
+    // Another map (Back after "Fresh map"): show it, whatever its age.
+    if (fresh.id !== cur.id) {
+      setChange(null);
+      setLinkFrom(null);
+      setRecord(fresh);
+      setFitTick((t) => t + 1);
+      return;
+    }
+    // Pending saves bring back the server's copy themselves.
+    if (busy() || inFlight) return;
+    if (fresh.updatedAt.getTime() <= cur.updatedAt.getTime()) return;
     const c = diff(cur, fresh, "Changed elsewhere", "");
     if (c.added.length || c.newEdges.length || c.removed.length) setChange(c);
     setRecord(fresh);

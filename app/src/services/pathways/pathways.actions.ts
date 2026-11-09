@@ -11,6 +11,57 @@ import * as store from "~/server/pathways/pathway-store";
 
 const id = z.string().min(1).max(64);
 
+// The edits the page sends. Parsed here, so a client can't write any JSON
+// (a non-string title, an unknown status, a huge or odd feedback object)
+// into the stored graph.
+const kind = z.enum(["option", "step", "outcome"]);
+const edge = z.object({ from: id, to: id });
+const opsInput = z.object({
+  nodes: z
+    .array(z.object({ ref: id, kind, title: z.string().max(300) }))
+    .max(40)
+    .optional(),
+  edges: z.array(edge).max(80).optional(),
+  removeEdges: z.array(edge).max(80).optional(),
+  update: z
+    .array(
+      z.object({
+        id,
+        title: z.string().max(300).optional(),
+        note: z.string().max(8000).optional(),
+        kind: kind.optional(),
+        status: z.enum(["open", "chosen", "dropped"]).optional(),
+        weight: z.enum(["key", "noise"]).nullish(),
+        feedback: z
+          .object({
+            vote: z.enum(["like", "no", "more"]).optional(),
+            comment: z.string().max(4000),
+          })
+          .nullish(),
+        research: z
+          .object({
+            question: z.string().max(500),
+            status: z.enum(["suggested", "queued", "done"]),
+            findings: z.string().max(8000).optional(),
+            sources: z
+              .array(
+                z.object({
+                  title: z.string().max(300),
+                  url: z.string().regex(/^https?:\/\//i).max(2000),
+                }),
+              )
+              .max(20)
+              .optional(),
+            by: z.string().max(200).optional(),
+          })
+          .nullish(),
+      }),
+    )
+    .max(40)
+    .optional(),
+  remove: z.array(id).max(40).optional(),
+}) satisfies z.ZodType<GraphOps>;
+
 export async function createPathwayFn(input: {
   title: string;
   notes?: string;
@@ -45,13 +96,14 @@ export async function editPathway(input: {
     .max(40)
     .parse(input.newIds ?? []);
   const coalesce = z.string().max(80).optional().parse(input.coalesce);
+  const ops = opsInput.parse(input.ops);
   const { record } = await store.writePathway(
     id.parse(input.id),
     "you",
     (d) => {
       d.graph = applyOps(
         d.graph,
-        input.ops,
+        ops,
         "me",
         () => ids.shift() ?? newNodeId(),
       ).graph;
@@ -97,7 +149,10 @@ export async function archivePathwayFn(input: {
   archived: boolean;
 }) {
   "use server";
-  return store.setPathwayArchived(id.parse(input.id), input.archived);
+  return store.setPathwayArchived(
+    id.parse(input.id),
+    z.boolean().parse(input.archived),
+  );
 }
 
 const actions = [
