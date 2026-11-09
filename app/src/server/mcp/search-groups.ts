@@ -7,7 +7,12 @@ import { appLink, noteRef, type ConnectorContext } from "./shared";
 // The other kinds `search` can include beside notes, each matched by plain
 // words (case-insensitive) and returned as its own labeled group.
 
-export const SEARCH_KINDS = ["research", "tasks", "archive"] as const;
+export const SEARCH_KINDS = [
+  "research",
+  "tasks",
+  "pathways",
+  "archive",
+] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
 
 async function searchResearchCards(
@@ -69,6 +74,29 @@ async function searchTasks(ctx: ConnectorContext, text: string, limit: number) {
   }));
 }
 
+/** Decision maps by title words, or by exact id. */
+async function searchPathways(
+  ctx: ConnectorContext,
+  text: string,
+  limit: number,
+) {
+  const maps = await prisma.pathway.findMany({
+    where: {
+      archivedAt: null,
+      OR: [{ id: text }, { title: { contains: text, mode: "insensitive" } }],
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: { id: true, title: true, updatedAt: true },
+  });
+  return maps.map((m) => ({
+    id: m.id,
+    title: m.title,
+    updatedAt: m.updatedAt.toISOString(),
+    appUrl: appLink(ctx, `/pathways/${m.id}`),
+  }));
+}
+
 async function searchArchive(
   ctx: ConnectorContext,
   text: string,
@@ -90,6 +118,7 @@ export async function searchOtherKinds(
   const run: Record<SearchKind, () => Promise<unknown[]>> = {
     research: () => searchResearchCards(ctx, text, input.limit),
     tasks: () => searchTasks(ctx, text, input.limit),
+    pathways: () => searchPathways(ctx, text, input.limit),
     archive: () => searchArchive(ctx, text, input.limit),
   };
   const kinds = Array.from(new Set(input.include));
