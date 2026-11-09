@@ -8,7 +8,10 @@ export type NewPlanTask = Pick<
 
 /**
  * A new plan: fresh open tasks, plus finished tasks from the old plan as
- * history. Card ids that are not on the map are dropped from each task.
+ * history. Steps exported to real tasks stay too: the stored status of an
+ * exported step can be stale (the real task's status wins), and the step is
+ * the map's only link to that task. Card ids that are not on the map are
+ * dropped from each task.
  */
 export function replacePlan(
   graph: PathwayGraph,
@@ -31,7 +34,7 @@ export function replacePlan(
         status: "todo" as const,
         result: "",
       })),
-      ...(old?.tasks ?? []).filter((t) => t.status !== "todo"),
+      ...(old?.tasks ?? []).filter((t) => t.status !== "todo" || t.taskId),
     ],
   };
 }

@@ -5,7 +5,6 @@ import {
   ROOT_ID,
   type PathwayContext,
   type PathwayGraph,
-  type PathwayPlan,
 } from "~/lib/pathways/types";
 import { prisma } from "~/server/db";
 import { logActionEvent } from "~/server/events/action-events";
@@ -28,6 +27,11 @@ export const PATHWAY_INSTRUCTIONS =
 
 const kindArg = z.enum(["option", "step", "outcome"]);
 const statusArg = z.enum(["open", "chosen", "dropped"]);
+// Source links render as <a href> on the page, so only web addresses.
+const webUrl = z
+  .string()
+  .url()
+  .refine((u) => /^https?:\/\//i.test(u), "Use an http(s) address");
 const idArg = z
   .string()
   .min(1)
@@ -203,7 +207,7 @@ const graphImport = z.object({
             status: z.enum(["suggested", "queued", "done"]),
             findings: z.string().optional(),
             sources: z
-              .array(z.object({ title: z.string(), url: z.string() }))
+              .array(z.object({ title: z.string(), url: webUrl }))
               .optional(),
             by: z.string().optional(),
           })
@@ -212,6 +216,26 @@ const graphImport = z.object({
     )
     .min(1),
   edges: z.array(z.object({ from: z.string(), to: z.string() })),
+});
+
+const planImport = z.object({
+  createdAt: z.string().default(() => new Date().toISOString()),
+  summary: z.string().max(1000).default(""),
+  tasks: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(64),
+        title: z.string().min(1).max(200),
+        why: z.string().max(500).default(""),
+        doneWhen: z.string().max(300).default(""),
+        minutes: z.number().min(1).max(1440).default(30),
+        nodeIds: z.array(z.string()).default([]),
+        status: z.enum(["todo", "done", "skipped"]).default("todo"),
+        result: z.string().max(4000).default(""),
+        absorbed: z.boolean().optional(),
+      }),
+    )
+    .max(50),
 });
 
 export function registerPathwayTools(tools: ToolRegistrar): void {
@@ -293,8 +317,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
                 qa: z.array(z.object({ q: z.string(), a: z.string() })),
               })
               .optional(),
-            nextSteps: z
-              .unknown()
+            nextSteps: planImport
               .optional()
               .describe("A plan object as pathways_get returns it"),
           })
@@ -333,7 +356,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
 
       let graph: PathwayGraph | undefined;
       if (args.import) {
-        graph = args.import.graph as PathwayGraph;
+        graph = applyOps(args.import.graph as PathwayGraph, {}, "me").graph;
         if (!graph.nodes.some((n) => n.id === ROOT_ID))
           throw new ConnectorError(
             "invalid",
@@ -348,7 +371,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
         graph,
         context:
           (args.import?.goals as PathwayContext | undefined) ?? undefined,
-        plan: (args.import?.nextSteps as PathwayPlan | undefined) ?? undefined,
+        plan: args.import?.nextSteps ?? undefined,
       });
       await log("pathway.created", p.id, {
         title: p.title,
@@ -498,7 +521,7 @@ export function registerPathwayTools(tools: ToolRegistrar): void {
           ),
         sources: z
           .array(
-            z.object({ title: z.string().max(300), url: z.string().url() }),
+            z.object({ title: z.string().max(300), url: webUrl }),
           )
           .max(20),
       },
