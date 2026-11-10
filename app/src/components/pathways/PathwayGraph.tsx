@@ -161,7 +161,11 @@ export function PathwayGraph() {
   });
 
   const focus = createMemo(() => {
-    const id = (panning() ? null : hover()) ?? s.selected();
+    // A card that just left the map (marked done) keeps no focus: its
+    // element is gone without a pointerleave, so hover can still hold its id.
+    const shown = (id: string | null) =>
+      id && graph().nodes.some((n) => n.id === id) ? id : null;
+    const id = shown(panning() ? null : hover()) ?? shown(s.selected());
     return id ? lineage(graph(), id) : null;
   });
   const lit = (id: string) => {
