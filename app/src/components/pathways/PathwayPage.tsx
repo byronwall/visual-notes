@@ -103,6 +103,10 @@ export function PathwayPage(props: { record: PathwayRecord }) {
       if (e.key === "Delete" || e.key === "Backspace")
         return s.removeNode(node.id);
       if (node.kind === "root") return;
+      if (e.key === "d")
+        return s.updateNode(node.id, {
+          status: node.status === "done" ? "open" : "done",
+        });
       const vote = VOTES.find((v) => v.key === e.key);
       const weight = WEIGHTS.find((w) => w.key && w.key === e.key);
       if (vote) setVote(s, node, vote.vote);

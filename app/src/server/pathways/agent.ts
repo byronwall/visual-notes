@@ -113,7 +113,7 @@ In summary, say in one sentence why these questions matter for this map.`,
       `${outline(p)}
 
 Task: pick the 3 to 7 best next actions the person can do in the next few days.
-- Fit their goals and context. Favor cards marked important or liked, and follow their notes. Skip anything dropped, noise, or "does not want this".
+- Fit their goals and context. Favor cards marked important or liked, and follow their notes. Skip anything done, dropped, noise, or "does not want this".
 - Do first what keeps the most good paths open: shared prerequisites where paths meet, cheap ways to get information that would settle a choice, and quick outreach that others must answer.
 - Each action is one sitting of work: verb first, specific (names, places, what to send), under 12 words.
 - why: one sentence on which path it moves and why now.

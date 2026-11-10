@@ -1,0 +1,162 @@
+{
+  "name": "regenerate-with-done",
+  "source": "Fresh map for a map with finished steps",
+  "action": "regenerate",
+  "nodeId": "root",
+  "hint": "",
+  "now": "2026-11-11T15:00:00Z",
+  "record": {
+    "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+    "context": {
+      "notes": "From the note “Hackathon weekend: contacts and follow-ups”:\n\nHackathon weekend: contacts and follow-ups\nCaptured November 9, 2026, the day after the Circle City Build hackathon. Our team built Seedling, a demo that turns a photo of a garden bed into a planting plan. We placed second.\nContacts\nDana Ruiz · Crossroads Capital (seed fund, Indianapolis). Judge. Said the demo was the most polished of the weekend. Asked what I am working on next.\nLeo Park · Mentor. Spent an hour with us Saturday on scoping. Gave advice about cutting the onboarding flow; details are fuzzy.\nPriya Nair · Attendee. Product designer at a health-tech startup. Wanted to see the demo again.\nSam Ortiz · Teammate. Junior developer, between jobs, did most of the image pipeline.\nPossible intros for Sam: Mei Chen (engineering manager, Stripe), Tom Hale (design lead, Figma). I told Sam I would introduce him.\nEvents\nFountain Square Dev Breakfast, November 20, 2026, 8–10 a.m., Hotel Tango. Not RSVPed.\nMe\nI am looking for my next role (staff engineer or founding engineer). Seedling is a side project; I do not plan to turn it into a company.",
+      "qa": []
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "What do I do with “Hackathon weekend: contacts and follow-ups”?",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "o1",
+          "kind": "option",
+          "title": "Ask Dana for portfolio intros",
+          "note": "Dana's fund backs seed-stage startups; an intro could lead to a founding-engineer role.",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "s1",
+          "kind": "step",
+          "title": "Research Crossroads Capital's portfolio for fits",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "s2",
+          "kind": "step",
+          "title": "Email Dana asking for 2-3 portfolio intros",
+          "note": "Nov 10: Dana will intro me to Harbor Health (Series A, hiring a founding engineer) and asked for a short bio first.",
+          "by": "agent",
+          "status": "done"
+        },
+        {
+          "id": "x1",
+          "kind": "outcome",
+          "title": "Two intro calls with portfolio companies",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "o2",
+          "kind": "option",
+          "title": "Introduce Sam to Mei and Tom",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "s3",
+          "kind": "step",
+          "title": "Ask Sam what he wants from the intros",
+          "note": "Nov 10: Sam wants backend roles. Tom at Figma is not a fit; Mei at Stripe is.",
+          "by": "agent",
+          "status": "done"
+        },
+        {
+          "id": "s4",
+          "kind": "step",
+          "title": "Send Mei and Tom a double-opt-in note about Sam",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "x2",
+          "kind": "outcome",
+          "title": "Sam has two warm conversations",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "o3",
+          "kind": "option",
+          "title": "Go to the Nov 20 Dev Breakfast",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "s5",
+          "kind": "step",
+          "title": "RSVP for the Fountain Square Dev Breakfast",
+          "note": "Nov 10: RSVPed.",
+          "by": "agent",
+          "status": "done"
+        },
+        {
+          "id": "x3",
+          "kind": "outcome",
+          "title": "Three new local engineering contacts",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        }
+      ],
+      "edges": [
+        {
+          "from": "root",
+          "to": "o1"
+        },
+        {
+          "from": "o1",
+          "to": "s1"
+        },
+        {
+          "from": "s1",
+          "to": "s2"
+        },
+        {
+          "from": "s2",
+          "to": "x1"
+        },
+        {
+          "from": "root",
+          "to": "o2"
+        },
+        {
+          "from": "o2",
+          "to": "s3"
+        },
+        {
+          "from": "s3",
+          "to": "s4"
+        },
+        {
+          "from": "s4",
+          "to": "x2"
+        },
+        {
+          "from": "root",
+          "to": "o3"
+        },
+        {
+          "from": "o3",
+          "to": "s5"
+        },
+        {
+          "from": "s5",
+          "to": "x3"
+        }
+      ]
+    }
+  },
+  "goodLooksLike": "A fresh map whose routes start from where the person is now: Dana already agreed to intro Harbor Health and wants a bio; Sam wants backend roles, so only Mei fits; the breakfast RSVP is done. No card repeats a done card (emailing Dana for intros, asking Sam what he wants, RSVPing). Options are distinct routes toward a staff or founding-engineer role and following through for Sam."
+}

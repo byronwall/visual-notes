@@ -136,15 +136,15 @@ A task that is a line in a note the user wrote (`textEditable: false`) keeps its
 
 Decision maps: a root question, options, steps, and outcomes, with the person's goals, reactions, notes, weights, research, and Next steps. Tools share the page's store (`server/pathways/pathway-store.ts`) and edit format (`lib/pathways/graph-ops.ts`), and every write saves a revision first.
 
-| Tool                       | Kind  | Notes                                                                                                                                                       |
-| -------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pathways_list`            | read  | Maps by last change, with card and open Next steps counts                                                                                                   |
-| `pathways_get`             | read  | Goals and Q&A, cards (reactions, notes, weights, research), edges, where paths meet, research queue, Next steps                                             |
-| `pathways_create`          | write | From a question, a task (`fromTaskId`), or a note (`fromNoteId`); `import` copies a whole map                                                               |
-| `pathways_edit`            | write | One batch: new cards by ref, edges, merges, drops, chosen, dated notes, updates, removes; goals text and goal questions. Unknown ids come back in `skipped` |
-| `pathways_set_plan`        | write | Replaces open Next steps (finished ones stay); `updates` marks tasks done or skipped with what happened                                                     |
-| `pathways_report_research` | write | Findings and sources for a card's research question                                                                                                         |
-| `pathways_undo`            | write | Restores the map to before its last write, whoever made it                                                                                                  |
+| Tool                       | Kind  | Notes                                                                                                                                                             |
+| -------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pathways_list`            | read  | Maps by last change, with card and open Next steps counts                                                                                                         |
+| `pathways_get`             | read  | Goals and Q&A, cards (reactions, notes, weights, research), edges, where paths meet, research queue, Next steps                                                   |
+| `pathways_create`          | write | From a question, a task (`fromTaskId`), or a note (`fromNoteId`); `import` copies a whole map                                                                     |
+| `pathways_edit`            | write | One batch: new cards by ref, edges, merges, drops, chosen, done, dated notes, updates, removes; goals text and goal questions. Unknown ids come back in `skipped` |
+| `pathways_set_plan`        | write | Replaces open Next steps (finished ones stay); `updates` marks tasks done or skipped with what happened                                                           |
+| `pathways_report_research` | write | Findings and sources for a card's research question                                                                                                               |
+| `pathways_undo`            | write | Restores the map to before its last write, whoever made it                                                                                                        |
 
 Exporting Next steps to real tasks stays with the person on the page. Writes log `pathway.*` events.
 
