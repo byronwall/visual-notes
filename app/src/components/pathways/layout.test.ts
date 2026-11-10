@@ -29,10 +29,26 @@ describe("assignLanes", () => {
       ],
     );
     const lanes = assignLanes(m, (id) => ["a", "b"].indexOf(id))!;
-    expect(lanes.order).toEqual(["a", "b", "shared"]);
+    expect(lanes.order).toEqual(["a", "b", "shared", "loose"]);
     expect(lanes.lane.get("a1")).toBe("a");
     expect(lanes.lane.get("b1")).toBe("b");
     expect(lanes.lane.get("both")).toBe("shared");
+  });
+
+  it("keeps a first choice in its own lane when another links to it", () => {
+    const m = map(
+      ["root", "a", "b", "b1", "lone"],
+      [
+        ["root", "a"],
+        ["root", "b"],
+        ["a", "b"],
+        ["b", "b1"],
+      ],
+    );
+    const lanes = assignLanes(m, (id) => ["a", "b"].indexOf(id))!;
+    expect(lanes.lane.get("b")).toBe("b");
+    expect(lanes.lane.get("b1")).toBe("b");
+    expect(lanes.lane.get("lone")).toBe("loose");
   });
 
   it("keeps lane cards inside their band, with no overlaps", () => {

@@ -93,6 +93,8 @@ const placeCache = new Map<string, Placed>();
 
 const SPAN = "span";
 const SHARED = "shared";
+/** Cards no first-level option reaches: their own band, with no label. */
+const LOOSE = "loose";
 
 /** Lane key per card, or null when the map has fewer than two first-level options. */
 export function assignLanes(map: PMap, y: (id: string) => number) {
@@ -100,13 +102,16 @@ export function assignLanes(map: PMap, y: (id: string) => number) {
     ...new Set(map.edges.filter((e) => e.from === ROOT_ID).map((e) => e.to)),
   ].sort((a, b) => y(a) - y(b));
   if (heads.length < 2) return null;
+  const headSet = new Set(heads);
   const out = new Map<string, Set<string>>();
   for (const h of heads) {
     const stack = [h];
     const seen = new Set<string>();
     while (stack.length) {
       const id = stack.pop()!;
-      if (seen.has(id) || id === ROOT_ID) continue;
+      // Another first-level option keeps its own lane, even when this one links to it.
+      if (seen.has(id) || id === ROOT_ID || (id !== h && headSet.has(id)))
+        continue;
       seen.add(id);
       if (!out.has(id)) out.set(id, new Set());
       out.get(id)!.add(h);
@@ -118,10 +123,10 @@ export function assignLanes(map: PMap, y: (id: string) => number) {
     if (n.id === ROOT_ID) lane.set(n.id, SPAN);
     else {
       const o = out.get(n.id);
-      lane.set(n.id, o?.size === 1 ? [...o][0] : SHARED);
+      lane.set(n.id, !o ? LOOSE : o.size === 1 ? [...o][0] : SHARED);
     }
   }
-  return { lane, order: [...heads, SHARED] };
+  return { lane, order: [...heads, SHARED, LOOSE] };
 }
 
 export function layoutMap(
