@@ -13,7 +13,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { applyOps } from "~/lib/pathways/graph-ops";
-import type { PathwayGraph } from "~/lib/pathways/types";
+import { emptyGraph, type PathwayGraph } from "~/lib/pathways/types";
 import {
   firstAction,
   mapPrompt,
@@ -146,7 +146,7 @@ export function renderTree(before: PathwayGraph, after: PathwayGraph) {
     const n = byId.get(id);
     if (!n) return;
     const pad = "  ".repeat(depth);
-    const mark = `${old.has(id) ? "" : "*"}${n.status === "dropped" ? "~" : ""}`;
+    const mark = `${old.has(id) ? "" : "*"}${n.status === "dropped" ? "~" : ""}${n.status === "done" ? "✓" : ""}`;
     if (seen.has(id)) {
       lines.push(`${pad}- ↪ joins ${mark}${n.title}`);
       return;
@@ -183,13 +183,16 @@ async function runCase(c: Case, spec: string): Promise<Result> {
       input: `${prompt.system}\n\n${prompt.user}`,
       schema: MAP_SCHEMA,
     });
-    const r = applyOps(c.record.graph, replyToOps(data), "agent");
+    // Like the app, a fresh map starts from an empty graph, not the old one.
+    const from =
+      action === "regenerate" ? emptyGraph(c.record.title) : c.record.graph;
+    const r = applyOps(from, replyToOps(data), "agent");
     return {
       ...base,
       ms: Date.now() - t0,
       tokens,
       summary: data.summary,
-      tree: renderTree(c.record.graph, r.graph),
+      tree: renderTree(from, r.graph),
       added: r.added.length,
       dropped: r.dropped.length,
     };
@@ -242,7 +245,7 @@ ${mapPrompt(r.action as MapAction, c.record, c.nodeId, c.hint, new Date(c.now)).
 What a great answer does here:
 ${c.goodLooksLike}
 
-The map after the assistant acted (* = card it added, ~ = dropped, ↪ joins = edge into a card shown earlier):
+The map after the assistant acted (* = card it added, ~ = dropped, ✓ = done (finished; hidden from the person's map), ↪ joins = edge into a card shown earlier):
 ${r.tree}
 
 Its summary: ${r.summary}

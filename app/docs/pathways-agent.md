@@ -51,3 +51,14 @@ pnpm eval:pathways -- --rejudge tmp/pathways-eval/<run>
 | New prompts, `gpt-5.5` medium                         | 8.6        |
 
 On `start`, Sol low scored 8.8 and Terra 8.4. On `improve`, both scored 8.5.
+
+### Done cards, November 11, 2026 (`gpt-6.1-terra` medium, 8 cases)
+
+Three cases use done cards: `absorb-done-steps`, `forward-after-done`, and `regenerate-with-done`.
+
+| Prompts                  | Overall/10, mean | `absorb-done-steps`                                       |
+| ------------------------ | ---------------- | --------------------------------------------------------- |
+| Before done cards (main) | 8.4              | Marked nothing done or chosen                             |
+| With done cards          | 8.6              | Marked the 3 finished steps done; left the todo step open |
+
+No run, old or new, added a card that repeats a done card. The eval scores `regenerate` on an empty graph, as the app does. Before, it put the fresh cards on top of the old map, and the judge blamed the agent for the old cards.
