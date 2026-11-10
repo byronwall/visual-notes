@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import type { PathwayNode } from "~/lib/pathways/types";
+import type { MapNode } from "~/lib/pathways/frontier";
 import type { CardFit } from "./card-fit";
 import { isFaint } from "./layout";
 import { usePathway } from "./pathway-state";
@@ -22,7 +22,7 @@ const RESEARCH_LABEL = {
 };
 
 export function PathwayCard(props: {
-  n: PathwayNode;
+  n: MapNode;
   box?: { x: number; y: number; w: number; h: number };
   lit: boolean;
   /** Zoom, in ~9% steps. */
@@ -115,6 +115,20 @@ export function PathwayCard(props: {
             </Show>
             <Show when={n().status === "chosen"}>
               <span class="badge badge-chosen">chosen</span>
+            </Show>
+            <Show when={n().status === "done"}>
+              <span class="badge badge-done">✓ done</span>
+            </Show>
+            <Show when={n().after}>
+              {(a) => (
+                <span
+                  class="badge badge-after"
+                  title={`Done before this:\n${a().join("\n")}`}
+                >
+                  ✓ {a()[0]}
+                  {a().length > 1 ? ` +${a().length - 1}` : ""}
+                </span>
+              )}
             </Show>
             <Show when={n().feedback?.vote}>
               {(v) => (

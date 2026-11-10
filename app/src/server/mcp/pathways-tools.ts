@@ -28,10 +28,10 @@ import type { ToolRegistrar } from "./tool-registry";
 // edit batches and store the page uses, so every write can be undone.
 
 export const PATHWAY_INSTRUCTIONS =
-  "Pathways are decision maps: a root question, options (choices), steps (what happens after a choice), and outcomes (where you end up), with edges pointing forward in time. The point is to show where different choices lead to the same place: link to an existing card instead of adding a near-duplicate. pathways_get returns the map with the person's goals, reactions (like / not for me / want better), notes, weights (important / noise), research, and Next steps; respect all of them, and do not expand noise or dropped cards. pathways_edit changes cards and edges in one batch; pathways_set_plan writes the Next steps list (3-7 concrete actions, cheapest information first); pathways_report_research answers a card's queued research question. Every write is undoable with pathways_undo. Export to real tasks is the person's choice, made on the page.";
+  "Pathways are decision maps: a root question, options (choices), steps (what happens after a choice), and outcomes (where you end up), with edges pointing forward in time. The point is to show where different choices lead to the same place: link to an existing card instead of adding a near-duplicate. pathways_get returns the map with the person's goals, reactions (like / not for me / want better), notes, weights (important / noise), research, and Next steps; respect all of them, do not expand noise or dropped cards, and do not suggest done cards again (they are finished and hidden from the map). pathways_edit changes cards and edges in one batch; pathways_set_plan writes the Next steps list (3-7 concrete actions, cheapest information first); pathways_report_research answers a card's queued research question. Every write is undoable with pathways_undo. Export to real tasks is the person's choice, made on the page.";
 
 const kindArg = z.enum(["option", "step", "outcome"]);
-const statusArg = z.enum(["open", "chosen", "dropped"]);
+const statusArg = z.enum(["open", "chosen", "done", "dropped"]);
 // Source links render as <a href> on the page, so only web addresses.
 const webUrl = z
   .string()
@@ -100,7 +100,14 @@ const opsArg = z.object({
     .array(idArg)
     .max(40)
     .optional()
-    .describe("Mark cards the person chose or acted on"),
+    .describe("Mark cards the person committed to; they stay on the map"),
+  done: z
+    .array(idArg)
+    .max(40)
+    .optional()
+    .describe(
+      "Mark cards the person finished. The map hides them and joins their parents to their children. Do not suggest them again",
+    ),
   appendNotes: z
     .array(z.object({ id: idArg, text: z.string().min(1).max(1000) }))
     .max(40)

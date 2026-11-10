@@ -2,6 +2,16 @@
 
 The in-app pathway agent (`src/server/pathways/agent.ts`) reads a map as text and asks an OpenAI model for a structured edit. `agent-input.ts` builds the text, and `agent-prompts.ts` holds the prompts and the reply schema. Both have no database code, so the eval script sends the same prompts as the app.
 
+## Done cards
+
+The map shows the frontier: what is still open. A card has one of four statuses: `open`, `chosen` (committed, still shown), `done` (finished), or `dropped` (not wanted).
+
+- The map hides done cards. `frontier()` in `src/lib/pathways/frontier.ts` joins each done card's parents to its children, so a path stays whole when a step in the middle is done. Dropped cards still cut the path.
+- The card after a done card shows a "✓ <title>" badge. Below full zoom, the hover peek lists the done cards instead.
+- "Show N done" draws the done cards again, faded.
+- Mark a card done with the status control in the side panel, or select it and press `d`. Earlier steps stay open. Mark each one done yourself.
+- The agent still reads done cards in the outline. The prompts tell it not to suggest them again. "Update map from what happened" puts finished work in `done` and committed work in `chosen`.
+
 ## Models
 
 | Setting              | Default                        | Used for                                               |

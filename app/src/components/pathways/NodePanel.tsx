@@ -23,7 +23,7 @@ import {
 } from "./styles";
 
 const KINDS: Exclude<NodeKind, "root">[] = ["option", "step", "outcome"];
-const STATUSES: NodeStatus[] = ["open", "chosen", "dropped"];
+const STATUSES: NodeStatus[] = ["open", "chosen", "done", "dropped"];
 export const VOTES: {
   vote: NonNullable<Feedback["vote"]>;
   label: string;
@@ -126,6 +126,11 @@ export function NodePanel(props: { n: PathwayNode }) {
                 {(st) => (
                   <button
                     data-on={String(n().status === st)}
+                    title={
+                      st === "done"
+                        ? "Finished: hide it and join the cards around it (d)"
+                        : undefined
+                    }
                     onClick={() => s.updateNode(n().id, { status: st })}
                   >
                     {st}

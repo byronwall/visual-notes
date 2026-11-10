@@ -8,6 +8,8 @@ import {
   onMount,
   Show,
 } from "solid-js";
+import { frontier } from "~/lib/pathways/frontier";
+import type { NodeStatus } from "~/lib/pathways/types";
 import { fitCards } from "./card-fit";
 import { viewport as viewportClass } from "./graph-styles";
 import { isFaint, layoutMap, lineage } from "./layout";
@@ -36,23 +38,17 @@ type View = { x: number; y: number; k: number };
  */
 export function PathwayGraph() {
   const s = usePathway();
-  // Dropped cards (and their edges) hide unless the toggle shows them.
+  // Done and dropped cards hide unless their toggle shows them. The map
+  // joins a done card's parents to its children (see frontier).
   const [showDropped, setShowDropped] = createSignal(false);
-  const dropped = createMemo(
-    () => s.record().graph.nodes.filter((n) => n.status === "dropped").length,
+  const [showDone, setShowDone] = createSignal(false);
+  const count = (status: NodeStatus) =>
+    s.record().graph.nodes.filter((n) => n.status === status).length;
+  const dropped = createMemo(() => count("dropped"));
+  const done = createMemo(() => count("done"));
+  const graph = createMemo(() =>
+    frontier(s.record().graph, { done: showDone(), dropped: showDropped() }),
   );
-  const graph = createMemo(() => {
-    const g = s.record().graph;
-    if (showDropped() || !dropped()) return g;
-    const hidden = new Set(
-      g.nodes.filter((n) => n.status === "dropped").map((n) => n.id),
-    );
-    return {
-      ...g,
-      nodes: g.nodes.filter((n) => !hidden.has(n.id)),
-      edges: g.edges.filter((e) => !hidden.has(e.from) && !hidden.has(e.to)),
-    };
-  });
   let viewport!: HTMLDivElement;
   const [view, setView] = createSignal<View>({ x: 0, y: 0, k: 1 });
   const [hover, setHover] = createSignal<string | null>(null);
@@ -130,7 +126,9 @@ export function PathwayGraph() {
         !!n.feedback ||
         !!n.research ||
         !!n.missed ||
-        n.status === "chosen";
+        !!n.after ||
+        n.status === "chosen" ||
+        n.status === "done";
       return [{ n, box, badges }];
     });
     return fitCards(cards, k, far());
@@ -465,6 +463,13 @@ export function PathwayGraph() {
             <Show when={p().n.feedback?.comment}>
               <div class="peek-note">Your take: {p().n.feedback!.comment}</div>
             </Show>
+            <Show when={p().n.after}>
+              {(a) => (
+                <div class="peek-note">
+                  ✓ Done before this: {a().join(" · ")}
+                </div>
+              )}
+            </Show>
           </div>
         )}
       </Show>
@@ -499,6 +504,19 @@ export function PathwayGraph() {
             title="Dropped cards are hidden from the map"
           >
             {showDropped() ? "Hide dropped" : `Show ${dropped()} dropped`}
+          </button>
+        </Show>
+        <Show when={done()}>
+          <button
+            class={smallButton}
+            aria-pressed={showDone()}
+            onClick={() => {
+              setShowDone((v) => !v);
+              queueMicrotask(fit);
+            }}
+            title="Done cards are hidden; the map joins the cards around them"
+          >
+            {showDone() ? "Hide done" : `Show ${done()} done`}
           </button>
         </Show>
         <span class="legend">

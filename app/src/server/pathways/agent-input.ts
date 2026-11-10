@@ -131,6 +131,7 @@ export type MapReply = {
   merges: { keep: string; drop: string; title: string | null }[];
   drops: string[];
   chosen: string[];
+  done: string[];
   appendNotes: { id: string; text: string }[];
   updates: { id: string; title: string; note: string }[];
 };
@@ -141,6 +142,7 @@ export const replyToOps = (r: MapReply): GraphOps => ({
   merges: r.merges,
   drops: r.drops,
   chosen: r.chosen,
+  done: r.done,
   appendNotes: r.appendNotes,
   // The root card is the person's question; the agent does not rewrite it.
   update: r.updates

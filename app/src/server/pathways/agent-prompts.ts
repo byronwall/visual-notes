@@ -38,9 +38,11 @@ A "Person's note" on a node is the person's own words about it; follow it in eve
 
 Nodes marked "important to the person" deserve the most thought; do not expand nodes marked "noise" or "dropped".
 
+Nodes marked "done" are finished, and the map hides them. Treat each one as a fact the person has already achieved. Never add a card that repeats or restates a done card. What comes next can build on what it achieved.
+
 The person's goals and context, when given, come first: prefer options and steps that fit them, and say so in the note when a node conflicts with them.
 
-In your response, refer to existing nodes by their id. Give each new node a ref like "n1", "n2" and use those refs in edges. Leave merges, drops, chosen, appendNotes, and updates empty unless the task asks for them.`;
+In your response, refer to existing nodes by their id. Give each new node a ref like "n1", "n2" and use those refs in edges. Leave merges, drops, chosen, done, appendNotes, and updates empty unless the task asks for them.`;
 
 /** Actions that edit the map's cards and edges. */
 export type MapAction = Exclude<PathwayAgentAction, "questions" | "plan">;
@@ -56,7 +58,8 @@ export const ACTIONS: Record<MapAction, (id: string) => string> = {
 In summary, say in one or two sentences what the real choice is, as you see it.`,
   absorb:
     () => `Task: the person went and did things (see "Next steps" above, with what happened). Update the map so it matches reality now.
-- Put cards the person acted on, or committed to, in chosen.
+- Put cards the person finished in done. The map hides them.
+- Put cards the person committed to, but has not finished, in chosen.
 - Put paths that the results ruled out in drops.
 - Add steps or outcomes for new facts, new options, or new problems the results revealed, linked where they belong. Reuse existing cards where paths meet.
 - In appendNotes, add one short dated line ("Nov 9: ...") to each card a result changed, saying what happened.
@@ -125,6 +128,7 @@ export const MAP_SCHEMA = obj({
   },
   drops: { type: "array", items: { type: "string" } },
   chosen: { type: "array", items: { type: "string" } },
+  done: { type: "array", items: { type: "string" } },
   appendNotes: {
     type: "array",
     items: obj({ id: { type: "string" }, text: { type: "string" } }),

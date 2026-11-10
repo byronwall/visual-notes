@@ -2,7 +2,8 @@
 // the page, the in-app agent, and the MCP tools.
 
 export type NodeKind = "root" | "option" | "step" | "outcome";
-export type NodeStatus = "open" | "chosen" | "dropped";
+/** "chosen": committed, still on the map. "done": finished, hidden from the map. */
+export type NodeStatus = "open" | "chosen" | "done" | "dropped";
 
 export type Source = { title: string; url: string };
 

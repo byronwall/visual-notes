@@ -41,7 +41,7 @@ const opsInput = z.object({
         title: z.string().max(300).optional(),
         note: z.string().max(8000).optional(),
         kind: kind.optional(),
-        status: z.enum(["open", "chosen", "dropped"]).optional(),
+        status: z.enum(["open", "chosen", "done", "dropped"]).optional(),
         weight: z.enum(["key", "noise"]).nullish(),
         feedback: z
           .object({

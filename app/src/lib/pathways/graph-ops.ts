@@ -29,6 +29,8 @@ export type GraphOps = {
   /** Mark dropped (kept on the map, faded). */
   drops?: string[];
   chosen?: string[];
+  /** Mark finished (hidden from the map; its parents join its children). */
+  done?: string[];
   /** Append a line to a card's note, e.g. "Nov 9: Matt replied". */
   appendNotes?: { id: string; text: string }[];
   update?: {
@@ -132,6 +134,7 @@ export function applyOps(
   };
   for (const ref of ops.drops ?? []) setStatus(ref, "dropped");
   for (const ref of ops.chosen ?? []) setStatus(ref, "chosen");
+  for (const ref of ops.done ?? []) setStatus(ref, "done");
 
   for (const a of ops.appendNotes ?? []) {
     const n = node(a.id);

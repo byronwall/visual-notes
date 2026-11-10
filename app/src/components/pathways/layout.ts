@@ -1,5 +1,6 @@
 import dagre from "@dagrejs/dagre";
 import type { Point } from "./engine/routing-engine.js";
+import type { MapNode } from "~/lib/pathways/frontier";
 import {
   ROOT_ID,
   type PathwayGraph as PMap,
@@ -8,7 +9,7 @@ import {
 
 /** Noise and dropped nodes shrink to one line; important nodes grow. Nothing is hidden. */
 export const isFaint = (n: PNode) =>
-  n.weight === "noise" || n.status === "dropped";
+  n.weight === "noise" || n.status === "dropped" || n.status === "done";
 
 export function nodeWidth(n: PNode, far = false) {
   if (far) return n.weight === "key" ? 440 : isFaint(n) ? 260 : 360;
@@ -21,7 +22,7 @@ export function nodeWidth(n: PNode, far = false) {
  * badge row.
  */
 export const FAR_K = 0.4;
-export function farHeight(n: PNode) {
+export function farHeight(n: MapNode) {
   const pad = 6;
   if (isFaint(n)) return 2 * pad + (14 / FAR_K) * 0.8 * 1.2;
   const size = (n.weight === "key" ? 16 : 14) / FAR_K;
@@ -32,7 +33,12 @@ export function farHeight(n: PNode) {
     Math.max(2, Math.ceil((n.title.length * size * 0.55) / textW)),
   );
   const badges =
-    !!n.feedback || !!n.research || !!n.missed || n.status === "chosen";
+    !!n.feedback ||
+    !!n.research ||
+    !!n.missed ||
+    !!n.after ||
+    n.status === "chosen" ||
+    n.status === "done";
   const head = badges ? (10 / FAR_K) * 1.45 + 4 : 0;
   return 2 * pad + head + lines * size * 1.2;
 }
