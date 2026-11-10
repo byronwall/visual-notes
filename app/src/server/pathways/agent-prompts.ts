@@ -11,7 +11,8 @@ export type PathwayAgentAction =
   | "improve"
   | "regenerate"
   | "plan"
-  | "absorb";
+  | "absorb"
+  | "fromResearch";
 
 export const SYSTEM = `You help a person get unstuck on a decision by mapping it as a choose-your-own-adventure graph.
 
@@ -86,6 +87,18 @@ In summary, say in one sentence what kind of options you added.`,
   ) => `Task: play forward from node ${id}, 1 to 3 steps ahead along the most likely path.
 Return a short chain of step nodes, with at most one fork where the path really splits. End with an outcome node when the end state is clear. Before you create each node, check the whole map: if it matches an existing node, add an edge to that id instead (this is how paths converge). The first new edge starts at ${id}. Set missed=false.
 In summary, say in one sentence where this path leads, and name any existing node it joins.`,
+  fromResearch: (
+    id,
+  ) => `Task: put the research on node ${id} into the map. Its findings and numbered sources are below.
+- For each finding that changes what the person could do, add cards. Add steps after ${id} that act on it.
+- Where a finding opens a new use, audience, or version of ${id}, add an option with an edge from ${id}. Where it opens a different answer to the whole question, add an option with an edge from root. Never put an option after a step. Play each new option forward 1 or 2 steps.
+- End a path in an outcome when the result is clear, or join an existing outcome.
+- Use the names, numbers, dates, and places from the findings in titles and notes. Add nothing the findings do not support; put an open fact in the card's research question.
+- In each new card's sources, list the numbers of the sources it relies on. Use an empty list when none fits.
+- When a finding changes an existing card (a competitor, a price, a limit), add one short dated line to that card in appendNotes ("Nov 9: research found ..."). Do not drop, merge, rewrite, or change the status of any card.
+- Skip findings the map already shows. Reuse existing cards where paths meet.
+- Add 2 to 8 cards.
+In summary, say in one or two sentences what the research changed about the map.`,
   converge:
     () => `Task: find where different paths arrive at the same practical state.
 1. Return merges for nodes that are duplicates or near-duplicates (keep one id, drop the other, give the merged title). Never drop root. Do not merge two options at the same decision point unless they lead to the exact same next state.
@@ -101,48 +114,59 @@ const obj = (properties: Record<string, unknown>) => ({
   properties,
 });
 
-export const MAP_SCHEMA = obj({
-  summary: { type: "string" },
-  nodes: {
-    type: "array",
-    items: obj({
-      ref: { type: "string" },
-      kind: { type: "string", enum: ["option", "step", "outcome"] },
-      title: { type: "string" },
-      note: { type: "string" },
-      missed: { type: "boolean" },
-      research: { type: "string" },
-    }),
-  },
-  edges: {
-    type: "array",
-    items: obj({ from: { type: "string" }, to: { type: "string" } }),
-  },
-  merges: {
-    type: "array",
-    items: obj({
-      keep: { type: "string" },
-      drop: { type: "string" },
-      title: nullable("string"),
-    }),
-  },
-  drops: { type: "array", items: { type: "string" } },
-  chosen: { type: "array", items: { type: "string" } },
-  done: { type: "array", items: { type: "string" } },
-  appendNotes: {
-    type: "array",
-    items: obj({ id: { type: "string" }, text: { type: "string" } }),
-  },
-  /** Rewrites of existing cards; an empty string keeps that field. */
-  updates: {
-    type: "array",
-    items: obj({
-      id: { type: "string" },
-      title: { type: "string" },
-      note: { type: "string" },
-    }),
-  },
+const NODE = {
+  ref: { type: "string" },
+  kind: { type: "string", enum: ["option", "step", "outcome"] },
+  title: { type: "string" },
+  note: { type: "string" },
+  missed: { type: "boolean" },
+  research: { type: "string" },
+};
+
+const mapSchema = (node: Record<string, unknown>) =>
+  obj({
+    summary: { type: "string" },
+    nodes: { type: "array", items: obj(node) },
+    edges: {
+      type: "array",
+      items: obj({ from: { type: "string" }, to: { type: "string" } }),
+    },
+    merges: {
+      type: "array",
+      items: obj({
+        keep: { type: "string" },
+        drop: { type: "string" },
+        title: nullable("string"),
+      }),
+    },
+    drops: { type: "array", items: { type: "string" } },
+    chosen: { type: "array", items: { type: "string" } },
+    done: { type: "array", items: { type: "string" } },
+    appendNotes: {
+      type: "array",
+      items: obj({ id: { type: "string" }, text: { type: "string" } }),
+    },
+    /** Rewrites of existing cards; an empty string keeps that field. */
+    updates: {
+      type: "array",
+      items: obj({
+        id: { type: "string" },
+        title: { type: "string" },
+        note: { type: "string" },
+      }),
+    },
+  });
+
+export const MAP_SCHEMA = mapSchema(NODE);
+
+/** "Add research to map" also says which sources each new card relies on. */
+const RESEARCH_MAP_SCHEMA = mapSchema({
+  ...NODE,
+  sources: { type: "array", items: { type: "integer" } },
 });
+
+export const schemaFor = (action: MapAction) =>
+  action === "fromResearch" ? RESEARCH_MAP_SCHEMA : MAP_SCHEMA;
 
 export const PLAN_SCHEMA = obj({
   summary: { type: "string" },

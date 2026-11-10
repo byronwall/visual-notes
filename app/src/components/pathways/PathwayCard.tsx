@@ -54,6 +54,7 @@ export function PathwayCard(props: {
           data-busy={
             s.busy() === n().id ||
             s.busy() === `research:${n().id}` ||
+            s.busy() === `research-map:${n().id}` ||
             undefined
           }
           data-link-source={String(!!(s.linkFrom() === n().id))}
@@ -110,6 +111,19 @@ export function PathwayCard(props: {
                   title={r().question}
                 >
                   {RESEARCH_LABEL[r().status]}
+                </span>
+              )}
+            </Show>
+            <Show when={n().fromResearch}>
+              {(b) => (
+                <span
+                  class="badge badge-from-research"
+                  title={`Built from research on: ${
+                    s.record().graph.nodes.find((x) => x.id === b().nodeId)
+                      ?.title ?? "a deleted card"
+                  }`}
+                >
+                  from research
                 </span>
               )}
             </Show>

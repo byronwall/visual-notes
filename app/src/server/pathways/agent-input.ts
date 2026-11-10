@@ -95,10 +95,21 @@ export function mapPrompt(
   hint: string,
   now?: Date,
 ) {
+  const found = action === "fromResearch" ? researchText(p, nodeId) : "";
   return {
     system: SYSTEM,
-    user: `${outline(p, now)}\n\n${ACTIONS[action](nodeId)}${steerText(hint)}`,
+    user: `${outline(p, now)}\n\n${ACTIONS[action](nodeId)}${found}${steerText(hint)}`,
   };
+}
+
+/** One card's findings with numbered sources, for "Add research to map". */
+function researchText(p: MapInput, nodeId: string) {
+  const r = p.graph.nodes.find((n) => n.id === nodeId)?.research;
+  if (!r?.findings) return "";
+  const sources = (r.sources ?? [])
+    .map((s, i) => `${i + 1}. ${s.title || s.url} (${s.url})`)
+    .join("\n");
+  return `\n\nResearch question: ${r.question}\nFindings:\n${r.findings.trim()}\n\nSources:\n${sources || "(none)"}`;
 }
 
 /**
@@ -126,6 +137,8 @@ export type MapReply = {
     note: string;
     missed: boolean;
     research: string;
+    /** "Add research to map" only: 1-based source numbers. */
+    sources?: number[];
   }[];
   edges: { from: string; to: string }[];
   merges: { keep: string; drop: string; title: string | null }[];
@@ -136,7 +149,25 @@ export type MapReply = {
   updates: { id: string; title: string; note: string }[];
 };
 
-export const replyToOps = (r: MapReply): GraphOps => ({
+/**
+ * `fromResearch` is the researched card for "Add research to map": every new
+ * card records it, and the reply may only add cards and note lines.
+ */
+export function replyToOps(r: MapReply, fromResearch?: string): GraphOps {
+  const ops = toOps(r);
+  if (!fromResearch) return ops;
+  return {
+    nodes: r.nodes.map((n) => ({
+      ...n,
+      missed: n.missed || undefined,
+      fromResearch: { nodeId: fromResearch, sources: n.sources },
+    })),
+    edges: ops.edges,
+    appendNotes: ops.appendNotes,
+  };
+}
+
+const toOps = (r: MapReply): GraphOps => ({
   nodes: r.nodes.map((n) => ({ ...n, missed: n.missed || undefined })),
   edges: r.edges,
   merges: r.merges,

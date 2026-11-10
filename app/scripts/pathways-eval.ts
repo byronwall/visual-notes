@@ -20,7 +20,7 @@ import {
   replyToOps,
   type MapInput,
 } from "~/server/pathways/agent-input";
-import { MAP_SCHEMA, type MapAction } from "~/server/pathways/agent-prompts";
+import { schemaFor, type MapAction } from "~/server/pathways/agent-prompts";
 
 type Case = {
   name: string;
@@ -155,8 +155,11 @@ export function renderTree(before: PathwayGraph, after: PathwayGraph) {
     const research = n.research?.question
       ? ` [research: ${n.research.question}]`
       : "";
+    const basis = n.fromResearch
+      ? ` [from research on ${n.fromResearch.nodeId}; sources: ${n.fromResearch.sources.map((s) => s.title).join(", ") || "none"}]`
+      : "";
     lines.push(
-      `${pad}- ${mark}[${n.kind}] ${n.title}${n.note ? ` — ${n.note}` : ""}${research}`,
+      `${pad}- ${mark}[${n.kind}] ${n.title}${n.note ? ` — ${n.note}` : ""}${research}${basis}`,
     );
     for (const k of kids.get(id) ?? []) walk(k, depth + 1);
   };
@@ -181,12 +184,16 @@ async function runCase(c: Case, spec: string): Promise<Result> {
       model,
       effort,
       input: `${prompt.system}\n\n${prompt.user}`,
-      schema: MAP_SCHEMA,
+      schema: schemaFor(action),
     });
     // Like the app, a fresh map starts from an empty graph, not the old one.
     const from =
       action === "regenerate" ? emptyGraph(c.record.title) : c.record.graph;
-    const r = applyOps(from, replyToOps(data), "agent");
+    const r = applyOps(
+      from,
+      replyToOps(data, action === "fromResearch" ? c.nodeId : undefined),
+      "agent",
+    );
     return {
       ...base,
       ms: Date.now() - t0,

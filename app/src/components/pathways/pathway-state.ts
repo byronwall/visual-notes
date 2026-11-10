@@ -47,6 +47,7 @@ export const ACTION_LABEL: Record<PathwayAgentAction, string> = {
   regenerate: "Fresh map from feedback",
   plan: "Plan next steps",
   absorb: "Update map from what happened",
+  fromResearch: "Add research to map",
 };
 const MAP_WIDE: PathwayAgentAction[] = [
   "converge",
@@ -101,7 +102,7 @@ export function createPathwayState(initial: PathwayRecord) {
   }>();
   const [record, setRecord] = createSignal(initial);
   const [linkFrom, setLinkFrom] = createSignal<string | null>(null);
-  /** Card id the agent works on, "research:<id>", or "map" for a whole-map action. */
+  /** Card id the agent works on, "research:<id>" (web search), "research-map:<id>" (findings to cards), or "map". */
   const [busy, setBusy] = createSignal<string | null>(null);
   const [error, setError] = createSignal("");
   const [change, setChange] = createSignal<Change | null>(null);
@@ -223,7 +224,13 @@ export function createPathwayState(initial: PathwayRecord) {
         ? "start"
         : asked;
     if (busy()) return;
-    setBusy(MAP_WIDE.includes(action) ? "map" : nodeId);
+    setBusy(
+      MAP_WIDE.includes(action)
+        ? "map"
+        : action === "fromResearch"
+          ? `research-map:${nodeId}`
+          : nodeId,
+    );
     setError("");
     setChange(null);
     try {

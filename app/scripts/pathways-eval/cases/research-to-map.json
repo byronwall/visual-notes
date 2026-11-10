@@ -1,0 +1,88 @@
+{
+  "name": "research-to-map",
+  "source": "Add a card's web research findings to the map",
+  "action": "fromResearch",
+  "nodeId": "o1",
+  "hint": "",
+  "now": "2026-11-09T15:00:00Z",
+  "goodLooksLike": "Turns the findings on o1 into cards. Adds steps after o1 that act on them (for example, compare against Peak Apps and Blocklayer, add tiled 1:1 PDF printing, add a clay shrinkage setting). Adds new options at root or after o1 for the other uses the findings name (slab-built pottery, sheet-metal funnels and ductwork). Every new card names concrete tools, numbers, or uses from the findings and cites the matching sources. Appends a short dated note to o1 about the existing competition. Does not drop, merge, rewrite, or change the status of any card, and invents no facts beyond the findings.",
+  "record": {
+    "title": "Which small web tool should I build next?",
+    "context": {
+      "notes": "I build small single-page tools on weekends and post them on my site. I want one that real people use, not just a demo. Nights and weekends only, about 6 hours a week.",
+      "qa": []
+    },
+    "graph": {
+      "nodes": [
+        {
+          "id": "root",
+          "kind": "root",
+          "title": "Which small web tool should I build next?",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "o1",
+          "kind": "option",
+          "title": "Build the cone and frustum maker",
+          "note": "Prints a flat template you cut and roll into a cone or lampshade.",
+          "by": "me",
+          "status": "open",
+          "research": {
+            "question": "What do I need to know to act on: Build the cone and frustum maker? I am interested in what other applications involve rolling or folding flat stock into something 3D",
+            "status": "done",
+            "by": "in-app web search",
+            "findings": "- **Existing competition:** Peak Apps already generates true-size cone and frustum templates for lampshades, party hats and planters, with glue tabs and free PDF, SVG and PNG downloads. Multi-page printing is a paid feature.\n- **A practical first version:** Accept top and bottom diameters and vertical height; preview the flat pattern; offer an optional join tab and 1:1 PDF. Blocklayer already supports these features, so test whether a simpler workflow is useful rather than assuming the idea is novel.\n- **Pottery is a promising application:** A ceramic artist used a cone-template generator for slab-built vessels, including a 4-inch bottom, 3.25-inch top and 8-inch height. Her November 2024 guide notes that fired clay shrinks and recommends printing tiled pages at 100% scale.\n- **Sheet-metal applications** include funnels, ductwork, hoppers and chutes. Onshape's August 2025 guide shows simultaneous 3D and flat views; industrial tools also add bend allowance for material thickness.",
+            "sources": [
+              { "title": "Peak Apps cone template", "url": "https://peakappsstudio.com/cone-template" },
+              { "title": "Blocklayer cone calculator", "url": "https://www.blocklayer.com/cone" },
+              { "title": "Slab-built vessels with cone templates", "url": "https://ceramicartsnetwork.org/cone-templates" },
+              { "title": "Sheet metal flat patterns", "url": "https://www.onshape.com/sheet-metal-guide" }
+            ]
+          }
+        },
+        {
+          "id": "s1",
+          "kind": "step",
+          "title": "Sketch the input form and flat-pattern preview",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "x1",
+          "kind": "outcome",
+          "title": "A cone maker people link to from craft forums",
+          "note": "If nobody uses it, it is still a good portfolio piece.",
+          "by": "agent",
+          "status": "open"
+        },
+        {
+          "id": "o2",
+          "kind": "option",
+          "title": "Build a sourdough feeding-schedule calculator",
+          "note": "",
+          "by": "me",
+          "status": "open"
+        },
+        {
+          "id": "x2",
+          "kind": "outcome",
+          "title": "A baking tool shared in bread groups",
+          "note": "",
+          "by": "agent",
+          "status": "open"
+        }
+      ],
+      "edges": [
+        { "from": "root", "to": "o1" },
+        { "from": "o1", "to": "s1" },
+        { "from": "s1", "to": "x1" },
+        { "from": "root", "to": "o2" },
+        { "from": "o2", "to": "x2" }
+      ]
+    },
+    "plan": null
+  }
+}

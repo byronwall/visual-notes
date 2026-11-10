@@ -8,11 +8,10 @@ import type {
 } from "~/lib/pathways/types";
 import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
-import { Markdown } from "./Markdown";
 import { usePathway, type PathwayState } from "./pathway-state";
+import { ResearchBasisSection, ResearchSection } from "./ResearchSection";
 import {
   cardLink,
-  help,
   iconX,
   label,
   linkList,
@@ -81,13 +80,6 @@ const select = css({
   color: "fg.default",
 });
 const wrap = css({ display: "flex", flexWrap: "wrap", gap: "1.5" });
-const sources = css({
-  display: "flex",
-  flexWrap: "wrap",
-  columnGap: "3",
-  rowGap: "1",
-  fontSize: "xs",
-});
 
 export function NodePanel(props: { n: PathwayNode }) {
   const s = usePathway();
@@ -163,6 +155,10 @@ export function NodePanel(props: { n: PathwayNode }) {
           }
         />
       </div>
+
+      <Show when={n().fromResearch}>
+        <ResearchBasisSection n={n()} />
+      </Show>
 
       <Show when={n().kind !== "root"}>
         <div class={section}>
@@ -331,117 +327,6 @@ export function NodePanel(props: { n: PathwayNode }) {
     </>
   );
 }
-
-function ResearchSection(props: { n: PathwayNode }) {
-  const s = usePathway();
-  const r = () => props.n.research;
-  const id = () => props.n.id;
-  return (
-    <div class={section}>
-      <span class={label}>Research</span>
-      <Show
-        when={r()}
-        fallback={
-          <button
-            class={smallButton}
-            style={{ "align-self": "flex-start" }}
-            onClick={() =>
-              s.setResearch(id(), {
-                question: `What do I need to know to act on: ${props.n.title}?`,
-                status: "suggested",
-              })
-            }
-          >
-            Needs research…
-          </button>
-        }
-      >
-        <AutoText
-          key={`${id()}:research`}
-          value={r()!.question}
-          placeholder="What do you need to find out?"
-          onSave={(v, k) => {
-            const t = s
-              .record()
-              .graph.nodes.find((x) => `${x.id}:research` === k);
-            if (t?.research && v.trim())
-              s.setResearch(t.id, { ...t.research, question: v.trim() });
-          }}
-          onSubmit={() => queueMicrotask(() => s.runResearch(id()))}
-        />
-        <div class={wrap}>
-          <button
-            class={smallButton}
-            disabled={!!s.busy()}
-            onClick={() => s.runResearch(id())}
-            title="OpenAI web search, about 30–60 seconds"
-          >
-            {s.busy() === `research:${id()}`
-              ? "Searching the web…"
-              : r()!.status === "done"
-                ? "Research again"
-                : "Research now"}
-          </button>
-          <button
-            class={smallButton}
-            data-on={String(!!(r()!.status === "queued"))}
-            title="Leave it for Claude or ChatGPT: pathways_get lists the research queue"
-            onClick={() =>
-              s.setResearch(id(), {
-                ...r()!,
-                status: r()!.status === "queued" ? "suggested" : "queued",
-              })
-            }
-          >
-            {r()!.status === "queued"
-              ? "Queued for an agent"
-              : "Queue for an agent"}
-          </button>
-          <button
-            class={iconX}
-            title="Remove the research question"
-            onClick={() => s.setResearch(id(), undefined)}
-          >
-            ×
-          </button>
-        </div>
-        <Show when={r()!.findings}>
-          <Markdown text={r()!.findings!} />
-          <Show when={r()!.sources?.length}>
-            <div class={sources}>
-              <span class={help}>Sources</span>
-              <For each={r()!.sources}>
-                {(src) => (
-                  <a
-                    class={cardLink}
-                    style={{ "max-width": "100%" }}
-                    href={src.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={src.url}
-                  >
-                    {src.title || hostOf(src.url)}
-                  </a>
-                )}
-              </For>
-            </div>
-          </Show>
-          <p class={help}>
-            From {r()!.by ?? "research"}. The agent reads these findings.
-          </p>
-        </Show>
-      </Show>
-    </div>
-  );
-}
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).host.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 
 export function EdgeList(props: {
   ids: string[];
