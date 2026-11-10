@@ -19,6 +19,9 @@ export type Research = {
   by?: string;
 };
 
+/** The card whose findings a card came from, and the pages it relies on. */
+export type ResearchBasis = { nodeId: string; sources: Source[] };
+
 /** The person's take on a card: an optional quick reaction and/or free text. */
 export type Feedback = { vote?: "like" | "no" | "more"; comment: string };
 
@@ -32,6 +35,8 @@ export type PathwayNode = {
   /** The agent thinks the person had not considered this. */
   missed?: boolean;
   research?: Research;
+  /** Built by "Add research to map" (or an outside agent) from another card's findings. */
+  fromResearch?: ResearchBasis;
   feedback?: Feedback;
   /** Noise shrinks and moves to the edges; nothing is lost. */
   weight?: "key" | "noise";

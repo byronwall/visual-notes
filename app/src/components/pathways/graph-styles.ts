@@ -242,6 +242,12 @@ export const viewport = css({
   "& .badge-missed": { bg: "blue.3", color: "blue.11" },
   "& .badge-research": { bg: "gray.3", color: "gray.11" },
   "& .badge-research[data-done=true]": { bg: "green.3", color: "green.11" },
+  // Outlined, so it reads apart from the filled "researched" badge.
+  "& .badge-from-research": {
+    bg: "transparent",
+    color: "green.11",
+    boxShadow: "inset 0 0 0 1px token(colors.green.7)",
+  },
   "& .badge-chosen": { bg: "fg.default", color: "bg.default" },
   "& .badge-done": { bg: "green.3", color: "green.11" },
   "& .badge-after": {

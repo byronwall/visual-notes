@@ -12,6 +12,16 @@ The map shows the frontier: what is still open. A card has one of four statuses:
 - Mark a card done with the status control in the side panel, or select it and press `d`. Earlier steps stay open. Mark each one done yourself.
 - The agent still reads done cards in the outline. The prompts tell it not to suggest them again. "Update map from what happened" puts finished work in `done` and committed work in `chosen`.
 
+## Research to map
+
+A card's research findings stay in the side panel until you act on them. "Add findings to map" (under the findings) runs the `fromResearch` action on that card.
+
+- The agent adds steps after the card, options after the card for new uses it found, and options after root for other answers to the whole question.
+- It may add a dated line to existing cards that a finding changes. It never drops, merges, rewrites, or changes the status of a card. `replyToOps` throws away any other edits.
+- Each new card stores `fromResearch: { nodeId, sources }`. The model names sources by number; `applyOps` resolves them against the researched card's sources.
+- A card built from research shows a "from research" badge on the map. Its side panel links back to the researched card and lists its sources. The researched card lists every card built from it.
+- Outside agents set the same field through `pathways_edit` (`fromResearch` on a new card).
+
 ## Models
 
 | Setting              | Default                        | Used for                                               |
@@ -51,6 +61,10 @@ pnpm eval:pathways -- --rejudge tmp/pathways-eval/<run>
 | New prompts, `gpt-5.5` medium                         | 8.6        |
 
 On `start`, Sol low scored 8.8 and Terra 8.4. On `improve`, both scored 8.5.
+
+### Research to map, November 9, 2026 (`gpt-6.1-terra` medium, `research-to-map`)
+
+The case puts web findings about a cone and frustum maker into the map. Three runs scored 8/10. The first run put the pottery and sheet-metal options after a build step. The prompt now says where a new option goes, and later runs put them after the researched card.
 
 ### Done cards, November 11, 2026 (`gpt-6.1-terra` medium, 8 cases)
 

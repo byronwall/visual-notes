@@ -12,10 +12,10 @@ import {
   type MapReply,
 } from "./agent-input";
 import {
-  MAP_SCHEMA,
   PLAN_SCHEMA,
   QUESTION_SCHEMA,
   RESEARCH_SCHEMA,
+  schemaFor,
   type PathwayAgentAction,
 } from "./agent-prompts";
 import * as store from "./pathway-store";
@@ -131,15 +131,20 @@ In summary, say in one or two sentences what this set of actions achieves and wh
   }
 
   const run = firstAction(action, p.graph, nodeId);
+  if (
+    run === "fromResearch" &&
+    !p.graph.nodes.find((n) => n.id === nodeId)?.research?.findings
+  )
+    throw new Error("This card has no research findings yet");
   const prompt = mapPrompt(run, p, nodeId, hint);
   const reply = await ask<MapReply>(
     `pathways:${run}`,
     prompt.system,
     prompt.user,
-    MAP_SCHEMA,
+    schemaFor(run),
     { wholeMap: WHOLE_MAP.includes(run) },
   );
-  const ops = replyToOps(reply);
+  const ops = replyToOps(reply, run === "fromResearch" ? nodeId : undefined);
 
   if (action === "regenerate") {
     // A fresh version is a new map, so the old one stays as it was.

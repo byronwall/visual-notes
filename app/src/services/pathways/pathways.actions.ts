@@ -180,6 +180,7 @@ const actions = [
   "regenerate",
   "plan",
   "absorb",
+  "fromResearch",
 ] as const;
 
 export async function runPathwayAgentFn(input: {

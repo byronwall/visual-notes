@@ -122,4 +122,44 @@ describe("applyOps", () => {
     });
     expect(r.graph.nodes.find((n) => n.id === "a")?.feedback).toBeUndefined();
   });
+
+  it("a card built from research keeps the sources it names, by number", () => {
+    const g = base();
+    const docs = { title: "Docs", url: "https://a.test" };
+    const blog = { title: "Blog", url: "https://b.test" };
+    g.nodes[1].research = {
+      question: "Who else does this?",
+      status: "done",
+      findings: "- Two tools exist",
+      sources: [docs, blog],
+    };
+    const r = applyOps(
+      g,
+      {
+        nodes: [
+          {
+            ref: "n1",
+            kind: "step",
+            title: "Try the blog's method",
+            fromResearch: { nodeId: "a", sources: [2, 2, 9] },
+          },
+          {
+            ref: "n2",
+            kind: "step",
+            title: "Card with no research behind it",
+            fromResearch: { nodeId: "out" },
+          },
+        ],
+      },
+      "agent",
+      ids(),
+    );
+    expect(r.graph.nodes.find((n) => n.id === "id1")?.fromResearch).toEqual({
+      nodeId: "a",
+      sources: [blog],
+    });
+    expect(
+      r.graph.nodes.find((n) => n.id === "id2")?.fromResearch,
+    ).toBeUndefined();
+  });
 });

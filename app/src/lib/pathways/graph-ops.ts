@@ -6,6 +6,7 @@ import {
   type PathwayGraph,
   type PathwayNode,
   type Research,
+  type ResearchBasis,
 } from "./types";
 
 /**
@@ -21,6 +22,11 @@ export type GraphOps = {
     note?: string;
     missed?: boolean;
     research?: string;
+    /**
+     * The card whose research this card is built on. `sources` are 1-based
+     * numbers into that card's research sources.
+     */
+    fromResearch?: { nodeId: string; sources?: number[] };
   }[];
   edges?: { from: string; to: string }[];
   removeEdges?: { from: string; to: string }[];
@@ -73,6 +79,7 @@ export function applyOps(
 
   for (const n of ops.nodes ?? []) {
     if (!n.title.trim()) continue;
+    const basis = n.fromResearch && researchBasis(next, n.fromResearch);
     const id = makeId();
     ids.set(n.ref, id);
     added.push(id);
@@ -92,6 +99,7 @@ export function applyOps(
             },
           }
         : {}),
+      ...(basis ? { fromResearch: basis } : {}),
     });
   }
 
@@ -184,6 +192,19 @@ export function applyOps(
     dropped,
     skipped,
   };
+}
+
+/** Resolves source numbers against the researched card; unknown cards give nothing. */
+function researchBasis(
+  graph: PathwayGraph,
+  from: { nodeId: string; sources?: number[] },
+): ResearchBasis | undefined {
+  const r = graph.nodes.find((x) => x.id === from.nodeId)?.research;
+  if (!r) return undefined;
+  const sources = [...new Set(from.sources ?? [])]
+    .map((i) => r.sources?.[i - 1])
+    .filter((x) => !!x);
+  return { nodeId: from.nodeId, sources };
 }
 
 /** `undefined` leaves the field alone; `null` clears it. */

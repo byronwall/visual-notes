@@ -68,6 +68,19 @@ const opsArg = z.object({
           .max(500)
           .optional()
           .describe("A question a web search could answer before acting"),
+        fromResearch: z
+          .object({
+            nodeId: z.string().min(1),
+            sources: z
+              .array(z.number().int().min(1))
+              .max(20)
+              .optional()
+              .describe("1-based numbers into that card's research sources"),
+          })
+          .optional()
+          .describe(
+            "The card whose research findings this card is built on; the page shows the link and sources",
+          ),
       }),
     )
     .max(40)
@@ -159,6 +172,7 @@ const nodeView = (graph: PathwayGraph) =>
       : {}),
     ...(n.missed ? { newAngle: true } : {}),
     ...(n.research ? { research: n.research } : {}),
+    ...(n.fromResearch ? { fromResearch: n.fromResearch } : {}),
   }));
 
 function mapView(ctx: ConnectorContext, p: store.PathwayRecord) {
