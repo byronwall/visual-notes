@@ -15,3 +15,8 @@ export const fetchPathway = query(async (id: string) => {
   const p = await store.getPathway(id);
   return p ? withLinkedStatus(p) : null;
 }, "pathway-get");
+
+export const fetchPathwayActivity = query(async (id: string) => {
+  "use server";
+  return store.listActivity(id);
+}, "pathway-activity");

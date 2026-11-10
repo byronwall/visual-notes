@@ -1,0 +1,16 @@
+{
+  "id": "94f2948e-1db5-40c2-a268-ecce2dcad3fe",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:44:47.083Z",
+  "summary": "Added 1 images to \"Research is rendered poorly\".",
+  "nodeIds": [
+    "page-research-is-rendered-poorly"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "4a3d653e-d36a-475a-9191-6eb98b552899"
+  }
+}

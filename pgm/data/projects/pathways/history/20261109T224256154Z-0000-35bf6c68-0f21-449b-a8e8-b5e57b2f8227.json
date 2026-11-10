@@ -1,0 +1,16 @@
+{
+  "id": "35bf6c68-0f21-449b-a8e8-b5e57b2f8227",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:42:56.154Z",
+  "summary": "Added 1 images to \"UI is quite amateur\".",
+  "nodeIds": [
+    "page-ui-is-quite-amateur"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "07b5740a-ed82-4369-82eb-cc33724c7765"
+  }
+}

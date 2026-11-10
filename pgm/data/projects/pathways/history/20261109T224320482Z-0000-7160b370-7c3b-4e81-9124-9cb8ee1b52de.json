@@ -1,0 +1,16 @@
+{
+  "id": "7160b370-7c3b-4e81-9124-9cb8ee1b52de",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:43:20.482Z",
+  "summary": "Added 1 images to \"Layout needs to fill viewport better\".",
+  "nodeIds": [
+    "page-layout-needs-to-fill-viewport-better"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "df75f4ff-227d-45f3-b245-6388e06032fc"
+  }
+}

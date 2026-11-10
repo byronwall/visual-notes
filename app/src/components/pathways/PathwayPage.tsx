@@ -9,13 +9,13 @@ import {
 } from "solid-js";
 import { css } from "styled-system/css";
 import type { PathwayView as PathwayRecord } from "~/server/pathways/pathway-tasks";
+import { ChangeToast } from "./ChangeToast";
 import { MapAgentMenu } from "./MapAgentMenu";
-import { NextSteps } from "./NextSteps";
 import { PathwayGraph } from "./PathwayGraph";
 import { PathwayPanel } from "./PathwayPanel";
 import { createPathwayState, PathwayStateContext } from "./pathway-state";
 import { setVote, setWeight, VOTES, WEIGHTS } from "./NodePanel";
-import { cardLink, iconX, seg, smallButton } from "./styles";
+import { cardLink, iconX, smallButton } from "./styles";
 
 const page = css({
   display: "flex",
@@ -53,13 +53,16 @@ const errorBar = css({
   borderBottomWidth: "1px",
   borderColor: "border",
 });
-const body = css({ flex: "1", minH: "0", display: "flex" });
+const body = css({
+  position: "relative",
+  flex: "1",
+  minH: "0",
+  display: "flex",
+});
 const graphSpace = css({ flex: "1", bg: "bg.subtle" });
 
 export function PathwayPage(props: { record: PathwayRecord }) {
   const s = createPathwayState(props.record);
-  const openTasks = () =>
-    s.record().plan?.tasks.filter((t) => t.status === "todo").length ?? 0;
   // A fresher copy from a refetch (agent over MCP, another tab) replaces ours.
   createEffect(
     on(
@@ -129,21 +132,6 @@ export function PathwayPage(props: { record: PathwayRecord }) {
             </span>
           </Show>
           <MapAgentMenu />
-          <div class={seg}>
-            <button
-              data-on={String(!!(s.view() === "map"))}
-              onClick={() => s.setView("map")}
-            >
-              Map
-            </button>
-            <button
-              data-on={String(!!(s.view() === "next"))}
-              onClick={() => s.setView("next")}
-            >
-              Next steps
-              <Show when={openTasks()}> ({openTasks()})</Show>
-            </button>
-          </div>
           <button
             class={smallButton}
             onClick={() => s.undo()}
@@ -160,21 +148,12 @@ export function PathwayPage(props: { record: PathwayRecord }) {
             </button>
           </div>
         </Show>
-        {/* Both views stay mounted, so the map keeps its zoom and routes across switches. */}
-        <div
-          class={body}
-          style={{ display: s.view() === "map" ? undefined : "none" }}
-        >
+        <div class={body}>
           <Show when={mounted()} fallback={<div class={graphSpace} />}>
             <PathwayGraph />
           </Show>
           <PathwayPanel />
-        </div>
-        <div
-          class={body}
-          style={{ display: s.view() === "next" ? undefined : "none" }}
-        >
-          <NextSteps />
+          <ChangeToast />
         </div>
       </div>
     </PathwayStateContext.Provider>

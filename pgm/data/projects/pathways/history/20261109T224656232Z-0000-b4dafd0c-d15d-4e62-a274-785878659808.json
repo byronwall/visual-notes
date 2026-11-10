@@ -1,0 +1,16 @@
+{
+  "id": "b4dafd0c-d15d-4e62-a274-785878659808",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:46:56.232Z",
+  "summary": "Created \"The \"what's new\" content is way too big and causes a layout shift\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-the-what-s-new-content-is-way-too-big-and-causes-a-layout-shift",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "2b80d272-de34-43a5-8218-160dc93b84ed"
+  }
+}

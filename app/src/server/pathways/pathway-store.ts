@@ -276,3 +276,72 @@ export async function setPathwayArchived(id: string, archived: boolean) {
   });
   return toRecord(row);
 }
+
+/** One change in the Activity timeline: who made it and what it did to the map. */
+export type PathwayActivity = {
+  id: string;
+  /** "you", "agent: options", "mcp: pathways_edit", ... */
+  label: string;
+  at: Date;
+  added: string[];
+  removed: string[];
+  edited: string[];
+  linked: number;
+  unlinked: number;
+  goals: boolean;
+  plan: boolean;
+};
+
+type Snap = Pick<PathwayDraft, "graph" | "context" | "plan">;
+
+/** What changed between two versions of a map, in card titles. */
+export function diffSnapshots(before: Snap, after: Snap) {
+  const old = new Map(before.graph.nodes.map((n) => [n.id, n]));
+  const now = new Map(after.graph.nodes.map((n) => [n.id, n]));
+  const edgeKeys = (s: Snap) =>
+    new Set(s.graph.edges.map((e) => `${e.from}>${e.to}`));
+  const oldEdges = edgeKeys(before);
+  const newEdges = edgeKeys(after);
+  return {
+    added: after.graph.nodes.filter((n) => !old.has(n.id)).map((n) => n.title),
+    removed: before.graph.nodes
+      .filter((n) => !now.has(n.id))
+      .map((n) => n.title),
+    edited: after.graph.nodes
+      .filter(
+        (n) =>
+          old.has(n.id) && JSON.stringify(old.get(n.id)) !== JSON.stringify(n),
+      )
+      .map((n) => n.title),
+    linked: [...newEdges].filter((k) => !oldEdges.has(k)).length,
+    unlinked: [...oldEdges].filter((k) => !newEdges.has(k)).length,
+    goals: JSON.stringify(before.context) !== JSON.stringify(after.context),
+    plan: JSON.stringify(before.plan) !== JSON.stringify(after.plan),
+  };
+}
+
+/**
+ * The newest changes, newest first. Each revision holds the map before its
+ * change; the next revision (or the current map) holds the map after it.
+ */
+export async function listActivity(
+  id: string,
+  limit = 40,
+): Promise<PathwayActivity[]> {
+  const [current, revs] = await Promise.all([
+    getPathway(id),
+    prisma.pathwayRevision.findMany({
+      where: { pathwayId: id },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    }),
+  ]);
+  if (!current) return [];
+  let after: Snap = current;
+  return revs.map((r) => {
+    const before = r.snapshot as unknown as Snap;
+    const d = diffSnapshots(before, after);
+    after = before;
+    return { id: r.id, label: r.label.split(" · ")[0], at: r.createdAt, ...d };
+  });
+}

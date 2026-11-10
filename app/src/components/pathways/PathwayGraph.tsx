@@ -60,9 +60,11 @@ export function PathwayGraph() {
   // Viewport size in 40px steps, so the packed layout does not redo on every pixel.
   const [size, setSize] = createSignal({ w: 1200, h: 800 });
   const [far, setFar] = createSignal(false);
+  // Lanes group each first-level option with what follows only from it.
+  const [lanes, setLanes] = createSignal(true);
 
   const layout = createMemo(() =>
-    layoutMap(graph(), size().w, size().h, far()),
+    layoutMap(graph(), size().w, size().h, far(), lanes()),
   );
   const { paths, prefetch } = useRoutes(layout, graph);
   // Once this layout is up, route the other zoom layout in the background,
@@ -71,7 +73,7 @@ export function PathwayGraph() {
     on(layout, () => {
       const g = graph();
       const t = setTimeout(
-        () => prefetch(layoutMap(g, size().w, size().h, !far()), g),
+        () => prefetch(layoutMap(g, size().w, size().h, !far(), lanes()), g),
         600,
       );
       onCleanup(() => clearTimeout(t));
@@ -185,7 +187,9 @@ export function PathwayGraph() {
     const scale = (l: { width: number; height: number }) =>
       Math.min(1.1, r.width / l.width, r.height / l.height);
     // Use the detailed layout when it fits at a readable zoom, else the far one.
-    setFar(scale(layoutMap(graph(), size().w, size().h, false)) < FAR_IN);
+    setFar(
+      scale(layoutMap(graph(), size().w, size().h, false, lanes())) < FAR_IN,
+    );
     const l = layout();
     const k = scale(l);
     setView({
@@ -257,7 +261,7 @@ export function PathwayGraph() {
           s.link(from, drag.node);
           s.setLinkFrom(null);
         }
-        s.setSelected(drag.node);
+        s.openCard(drag.node);
       } else {
         s.setSelected(null);
         s.setLinkFrom(null);
@@ -321,6 +325,7 @@ export function PathwayGraph() {
   };
 
   const node = (id: string) => graph().nodes.find((n) => n.id === id)!;
+  const votes = createMemo(() => graph().nodes.some((n) => n.feedback?.vote));
 
   return (
     <div
@@ -337,7 +342,7 @@ export function PathwayGraph() {
           (e.target as HTMLElement).closest(".node") as HTMLElement | null
         )?.dataset.id;
         if (!id) return;
-        s.setSelected(id);
+        s.openCard(id);
         queueMicrotask(() => s.setTitleFocus((t) => t + 1));
       }}
       onWheel={onWheel}
@@ -352,6 +357,24 @@ export function PathwayGraph() {
           "--k": String(kb()),
         }}
       >
+        <For each={layout().lanes}>
+          {(lane) => (
+            <div
+              class="lane"
+              data-shared={String(lane.shared)}
+              style={{
+                left: `${layout().laneX[0]}px`,
+                width: `${layout().laneX[1] - layout().laneX[0]}px`,
+                top: `${lane.y}px`,
+                height: `${lane.h}px`,
+              }}
+            >
+              <Show when={lane.shared}>
+                <span class="lane-label">Where paths meet</span>
+              </Show>
+            </div>
+          )}
+        </For>
         <svg class="edges" width={layout().width} height={layout().height}>
           <defs>
             <marker
@@ -453,6 +476,18 @@ export function PathwayGraph() {
         >
           Fit
         </button>
+        <button
+          class={smallButton}
+          aria-pressed={lanes()}
+          data-on={String(lanes())}
+          onClick={() => {
+            setLanes((v) => !v);
+            queueMicrotask(fit);
+          }}
+          title="Group each first choice with the cards that follow only from it"
+        >
+          Lanes
+        </button>
         <Show when={dropped()}>
           <button
             class={smallButton}
@@ -469,8 +504,14 @@ export function PathwayGraph() {
         <span class="legend">
           <i data-kind="option" /> option <i data-kind="step" /> step{" "}
           <i data-kind="outcome" /> outcome
+          <Show when={votes()}>
+            <b data-vote="like" /> like <b data-vote="no" /> not for me{" "}
+            <b data-vote="more" /> want better
+          </Show>
         </span>
-        <span>Drag to pan · scroll to zoom · double-click to edit</span>
+        <span class="hint">
+          Drag to pan · scroll to zoom · double-click to edit
+        </span>
       </div>
     </div>
   );

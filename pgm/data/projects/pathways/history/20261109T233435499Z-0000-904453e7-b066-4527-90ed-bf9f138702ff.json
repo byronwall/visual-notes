@@ -1,0 +1,17 @@
+{
+  "id": "904453e7-b066-4527-90ed-bf9f138702ff",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1b948",
+    "label": "Agent token ...e1b948"
+  },
+  "createdAt": "2026-11-09T23:34:35.499Z",
+  "summary": "Updated status, metadata.implementation on \"Ensure the various like/improve tags are visible in some way at all zoom levels\".",
+  "nodeIds": [
+    "page-ensure-the-various-like-improve-tags-are-visible-in-some-way-at-all-1enf86"
+  ],
+  "metadata": {
+    "fields": "status,metadata.implementation"
+  }
+}

@@ -3,38 +3,25 @@ import { css } from "styled-system/css";
 import type { PlanTask } from "~/lib/pathways/types";
 import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
-import { ChangeCard } from "./ChangeCard";
 import { ExportPicker } from "./ExportPicker";
 import { usePathway } from "./pathway-state";
-import { cardLink, label, smallButton } from "./styles";
+import { cardLink, label, smallButton, textButton } from "./styles";
 
-const scroller = css({
-  flex: "1",
-  minH: "0",
-  overflowY: "auto",
-  bg: "bg.default",
-});
 const col = css({
-  maxW: "820px",
-  mx: "auto",
-  px: "5",
-  pt: "5",
-  pb: "16",
+  p: "3",
+  pb: "10",
   display: "flex",
   flexDirection: "column",
-  gap: "3",
+  gap: "2.5",
 });
-const lede = css({ m: "0", fontSize: "md", lineHeight: "1.45" });
-const actions = css({
-  display: "grid",
-  gridTemplateColumns: { base: "1fr", md: "1fr 1fr" },
-  gap: "2",
-});
+const lede = css({ m: "0", fontSize: "sm", lineHeight: "1.45" });
+const actions = css({ display: "flex", flexDirection: "column" });
 const listHead = css({
   display: "flex",
-  alignItems: "baseline",
-  justifyContent: "space-between",
-  mt: "2",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "2",
+  mt: "1",
 });
 const list = css({
   listStyle: "none",
@@ -45,19 +32,19 @@ const list = css({
 });
 const task = css({
   display: "grid",
-  gridTemplateColumns: "32px 1fr auto",
-  gap: "3",
+  gridTemplateColumns: "24px 1fr",
+  gap: "2.5",
   alignItems: "start",
-  px: "2.5",
-  py: "3.5",
+  py: "2.5",
   borderBottomWidth: "1px",
   borderColor: "border",
   transition: "background-color 200ms",
   "&[data-done=true]": { bg: "green.2" },
 });
 const check = css({
-  w: "8",
-  h: "8",
+  w: "6",
+  h: "6",
+  fontSize: "xs",
   borderRadius: "full",
   borderWidth: "1px",
   borderColor: "border",
@@ -74,8 +61,8 @@ const check = css({
   },
 });
 const titleText = css({
-  fontSize: "lg",
-  lineHeight: "1.3",
+  fontSize: "sm",
+  lineHeight: "1.35",
   fontWeight: "semibold",
   "[data-done=true] &, [data-skipped=true] &": { color: "fg.muted" },
   "[data-skipped=true] &": { textDecoration: "line-through" },
@@ -117,131 +104,114 @@ export function NextSteps() {
   };
 
   return (
-    <div class={scroller}>
-      <div class={col}>
-        <div>
-          <h2
-            class={css({
-              m: "0",
-              mb: "1",
-              fontSize: "2xl",
-              fontWeight: "bold",
-            })}
-          >
-            Next steps
-          </h2>
-          <Show
-            when={plan()}
-            fallback={
-              <p class={lede}>
-                The map is for exploring. This list is for doing: the agent
-                picks the few actions most worth doing now from your goals,
-                likes, notes, and where paths meet.
+    <div class={col}>
+      <div>
+        <Show
+          when={plan()}
+          fallback={
+            <p class={lede}>
+              The map is for exploring. This list is for doing: the agent picks
+              the few actions most worth doing now from your goals, likes,
+              notes, and where paths meet.
+            </p>
+          }
+        >
+          {(p) => (
+            <>
+              <p class={lede}>{p().summary}</p>
+              <p class={meta}>
+                {open().length} to do · about {Math.round(minutes() / 5) * 5}{" "}
+                min · planned{" "}
+                {new Date(p().createdAt).toLocaleString(undefined, {
+                  weekday: "short",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
               </p>
-            }
-          >
-            {(p) => (
-              <>
-                <p class={lede}>{p().summary}</p>
-                <p class={meta}>
-                  {open().length} to do · about {Math.round(minutes() / 5) * 5}{" "}
-                  min · planned{" "}
-                  {new Date(p().createdAt).toLocaleString(undefined, {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </>
-            )}
-          </Show>
-        </div>
-
-        {/* A plan run's summary is already the lede; show the card for map updates only. */}
-        <Show when={s.change() && !s.change()!.planned}>
-          <ChangeCard />
+            </>
+          )}
         </Show>
+      </div>
 
-        <AutoText
-          key="plan:steer"
-          value={s.steer()}
-          delay={0}
-          placeholder="Steer the plan (optional): “only things I can do from home”, “two hours this week”"
-          onSave={(v) => s.setSteer(v)}
+      <AutoText
+        key="plan:steer"
+        value={s.steer()}
+        delay={0}
+        placeholder="Steer the plan (optional): “from home”, “2 hours”…"
+        onSave={(v) => s.setSteer(v)}
+      />
+      <div class={actions}>
+        <ActionButton
+          primary={!fresh().length}
+          label={plan() ? "Plan again" : "Plan next steps"}
+          what="Picks the 3–7 best actions to do now. Finished tasks stay as history."
+          busy={s.busy() === "map"}
+          disabled={!!s.busy()}
+          onClick={() => s.runAgent("plan", "root")}
         />
-        <div class={actions}>
-          <ActionButton
-            primary={!fresh().length}
-            label={plan() ? "Plan again" : "Plan next steps"}
-            what="Picks the 3–7 best actions to do now. Finished tasks stay as history."
-            busy={s.busy() === "map"}
-            disabled={!!s.busy()}
-            onClick={() => s.runAgent("plan", "root")}
-          />
-          <ActionButton
-            primary={fresh().length > 0}
-            label="Update map from what happened"
-            what={
-              fresh().length
-                ? `Reads ${fresh().length} finished ${fresh().length === 1 ? "task" : "tasks"} and updates the map: chosen paths, ruled-out paths, new facts.`
-                : "Check off tasks and say what happened first."
-            }
-            disabled={!!s.busy() || !fresh().length}
-            onClick={() => s.runAgent("absorb", "root")}
-          />
-        </div>
+        <ActionButton
+          primary={fresh().length > 0}
+          label="Update map from what happened"
+          what={
+            fresh().length
+              ? `Reads ${fresh().length} finished ${fresh().length === 1 ? "task" : "tasks"} and updates the map: chosen paths, ruled-out paths, new facts.`
+              : "Check off tasks and say what happened first."
+          }
+          disabled={!!s.busy() || !fresh().length}
+          onClick={() => s.runAgent("absorb", "root")}
+        />
+      </div>
 
-        <Show when={current().length}>
-          <div class={listHead}>
-            <span class={label}>
-              {open().length} to do · {fresh().length} done or skipped
-            </span>
-            <div class={css({ display: "flex", gap: "1.5" })}>
-              <button
-                class={smallButton}
-                data-on={String(exporting())}
-                onClick={() => setExporting(!exporting())}
-              >
-                Export to tasks…
-              </button>
-              <button
-                class={smallButton}
-                onClick={copy}
-                title="Copy the open tasks as a Markdown checklist"
-              >
-                {copied() ? "✓ Copied" : "Copy as checklist"}
-              </button>
-            </div>
+      <Show when={current().length}>
+        <div class={listHead}>
+          <span class={label} style={{ flex: "1", "margin-top": "0" }}>
+            {open().length} to do · {fresh().length} done
+          </span>
+          <div class={css({ display: "flex", gap: "1.5" })}>
+            <button
+              class={smallButton}
+              data-on={String(exporting())}
+              onClick={() => setExporting(!exporting())}
+            >
+              Export…
+            </button>
+            <button
+              class={smallButton}
+              onClick={copy}
+              title="Copy the open tasks as a Markdown checklist"
+            >
+              {copied() ? "✓ Copied" : "Copy"}
+            </button>
           </div>
-          <Show when={exporting()}>
-            <ExportPicker tasks={open()} onDone={() => setExporting(false)} />
-          </Show>
+        </div>
+        <Show when={exporting()}>
+          <ExportPicker tasks={open()} onDone={() => setExporting(false)} />
+        </Show>
+        <ol class={list}>
+          {/* Keyed by id: every save clones the map, and object keys would rebuild the rows mid-typing. */}
+          <For each={current().map((t) => t.id)}>
+            {(id, i) => <TaskRow id={id} n={i() + 1} />}
+          </For>
+        </ol>
+      </Show>
+
+      <Show when={earlier().length}>
+        <button
+          class={cardLink}
+          style={{ "margin-top": "8px" }}
+          onClick={() => setShowEarlier(!showEarlier())}
+        >
+          {showEarlier() ? "Hide" : "Show"} {earlier().length} earlier{" "}
+          {earlier().length === 1 ? "task" : "tasks"} already on the map
+        </button>
+        <Show when={showEarlier()}>
           <ol class={list}>
-            {/* Keyed by id: every save clones the map, and object keys would rebuild the rows mid-typing. */}
-            <For each={current().map((t) => t.id)}>
-              {(id, i) => <TaskRow id={id} n={i() + 1} />}
+            <For each={earlier().map((t) => t.id)}>
+              {(id) => <TaskRow id={id} />}
             </For>
           </ol>
         </Show>
-
-        <Show when={earlier().length}>
-          <button
-            class={cardLink}
-            style={{ "margin-top": "8px" }}
-            onClick={() => setShowEarlier(!showEarlier())}
-          >
-            {showEarlier() ? "Hide" : "Show"} {earlier().length} earlier{" "}
-            {earlier().length === 1 ? "task" : "tasks"} already on the map
-          </button>
-          <Show when={showEarlier()}>
-            <ol class={list}>
-              <For each={earlier().map((t) => t.id)}>
-                {(id) => <TaskRow id={id} />}
-              </For>
-            </ol>
-          </Show>
-        </Show>
-      </div>
+      </Show>
     </div>
   );
 }
@@ -295,8 +265,27 @@ function TaskRow(props: { id: string; n?: number }) {
           minW: "0",
         })}
       >
-        <div class={titleText}>{t().title}</div>
-        <div class={css({ fontSize: "sm", lineHeight: "1.4" })}>{t().why}</div>
+        <div class={css({ display: "flex", alignItems: "baseline", gap: "2" })}>
+          <div class={titleText} style={{ flex: "1" }}>
+            {t().title}
+          </div>
+          <button
+            class={textButton}
+            title={
+              t().status === "skipped"
+                ? "Put back on the list"
+                : "Skip: not doing this"
+            }
+            onClick={() =>
+              s.updatePlanTask(t().id, {
+                status: t().status === "skipped" ? "todo" : "skipped",
+              })
+            }
+          >
+            {t().status === "skipped" ? "Undo skip" : "Skip"}
+          </button>
+        </div>
+        <div class={css({ fontSize: "xs", lineHeight: "1.45" })}>{t().why}</div>
         <div class={meta}>
           ~{t().minutes} min · Done when: {t().doneWhen}
           <Show when={linked()}>{(l) => <> · In tasks: {l().list}</>}</Show>
@@ -311,10 +300,8 @@ function TaskRow(props: { id: string; n?: number }) {
                   <button
                     class={cardLink}
                     style={{ "font-size": "inherit" }}
-                    onClick={() => {
-                      s.setView("map");
-                      s.setSelected(n.id);
-                    }}
+                    title="Show this card on the map"
+                    onClick={() => s.setSelected(n.id)}
                   >
                     {n.title}
                   </button>
@@ -337,21 +324,6 @@ function TaskRow(props: { id: string; n?: number }) {
           }
         />
       </div>
-      <button
-        class={smallButton}
-        title={
-          t().status === "skipped"
-            ? "Put back on the list"
-            : "Skip: not doing this"
-        }
-        onClick={() =>
-          s.updatePlanTask(t().id, {
-            status: t().status === "skipped" ? "todo" : "skipped",
-          })
-        }
-      >
-        {t().status === "skipped" ? "Undo skip" : "Skip"}
-      </button>
     </li>
   );
 }

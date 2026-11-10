@@ -1,0 +1,16 @@
+{
+  "id": "6e22a83a-7080-4953-bc22-0103875bcd68",
+  "kind": "node.images.added",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:46:06.016Z",
+  "summary": "Added 1 images to \"Next steps on a dedicated tab is an odd choice\".",
+  "nodeIds": [
+    "page-next-steps-on-a-dedicated-tab-is-an-odd-choice"
+  ],
+  "metadata": {
+    "imageCount": "1",
+    "clientMutationId": "455457db-db97-4161-83b5-e5b1eedf308a"
+  }
+}

@@ -1,8 +1,9 @@
 import dagre from "@dagrejs/dagre";
 import type { Point } from "./engine/routing-engine.js";
-import type {
-  PathwayGraph as PMap,
-  PathwayNode as PNode,
+import {
+  ROOT_ID,
+  type PathwayGraph as PMap,
+  type PathwayNode as PNode,
 } from "~/lib/pathways/types";
 
 /** Noise and dropped nodes shrink to one line; important nodes grow. Nothing is hidden. */
@@ -58,25 +59,83 @@ export type Box = { x: number; y: number; w: number; h: number };
 const RANK_GAP = 96;
 const SUB_GAP = 48;
 const ROW_GAP = 24;
+const LANE_GAP = 40;
 const MARGIN = 48;
+/** A lane's band reaches this far past its cards. */
+const BAND_PAD = 14;
+/** Room above the shared band's cards for its label (about 11px on screen). */
+const sharedHead = (far: boolean) => (far ? 16 / FAR_K : 22);
+
+/** A horizontal band of related cards: one first-level option and what follows only from it. */
+export type Lane = { y: number; h: number; shared: boolean };
 
 /**
  * Layered left-to-right layout, packed to the viewport. Dagre sets each node's
- * layer and order. A tall layer then wraps into extra sub-columns, at the
- * column height that gives the largest scale for a vw x vh viewport.
+ * layer and order. With lanes, each first-level option and the cards that
+ * follow only from it share a horizontal band; cards reached from several
+ * options go to a last "where paths meet" band. A tall cell then wraps into
+ * extra sub-columns, at the column height that gives the largest scale for a
+ * vw x vh viewport.
  */
 export type Placed = {
   boxes: Map<string, Box>;
   width: number;
   height: number;
   sig: string;
+  lanes: Lane[];
+  /** Left and right edge of the lane bands. */
+  laneX: [number, number];
 };
 
 // Placements by geometry signature: an edit that changes no card size or
 // edge (a vote, a note in the far layout) reuses the last placement.
 const placeCache = new Map<string, Placed>();
 
-export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
+const SPAN = "span";
+const SHARED = "shared";
+/** Cards no first-level option reaches: their own band, with no label. */
+const LOOSE = "loose";
+
+/** Lane key per card, or null when the map has fewer than two first-level options. */
+export function assignLanes(map: PMap, y: (id: string) => number) {
+  const heads = [
+    ...new Set(map.edges.filter((e) => e.from === ROOT_ID).map((e) => e.to)),
+  ].sort((a, b) => y(a) - y(b));
+  if (heads.length < 2) return null;
+  const headSet = new Set(heads);
+  const out = new Map<string, Set<string>>();
+  for (const h of heads) {
+    const stack = [h];
+    const seen = new Set<string>();
+    while (stack.length) {
+      const id = stack.pop()!;
+      // Another first-level option keeps its own lane, even when this one links to it.
+      if (seen.has(id) || id === ROOT_ID || (id !== h && headSet.has(id)))
+        continue;
+      seen.add(id);
+      if (!out.has(id)) out.set(id, new Set());
+      out.get(id)!.add(h);
+      for (const e of map.edges) if (e.from === id) stack.push(e.to);
+    }
+  }
+  const lane = new Map<string, string>();
+  for (const n of map.nodes) {
+    if (n.id === ROOT_ID) lane.set(n.id, SPAN);
+    else {
+      const o = out.get(n.id);
+      lane.set(n.id, !o ? LOOSE : o.size === 1 ? [...o][0] : SHARED);
+    }
+  }
+  return { lane, order: [...heads, SHARED, LOOSE] };
+}
+
+export function layoutMap(
+  map: PMap,
+  vw = 1200,
+  vh = 800,
+  far = false,
+  lanes = true,
+): Placed {
   const sizes = map.nodes.map((n) => ({
     n,
     w: nodeWidth(n, far),
@@ -85,6 +144,7 @@ export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
   }));
   const sig = [
     far ? "far" : "near",
+    lanes ? "lanes" : "flat",
     vw,
     vh,
     sizes
@@ -104,11 +164,8 @@ export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
     if (g.hasNode(e.from) && g.hasNode(e.to)) g.setEdge(e.from, e.to);
   dagre.layout(g);
 
-  // Layers by dagre x, each in dagre's top-to-bottom order.
-  // Faint nodes go to the top and bottom of their layer, so the rest sits in the middle.
-  type Item = { id: string; y: number; w: number; h: number };
-  const byRank = new Map<number, Item[]>();
-  for (const id of g.nodes()) {
+  type Item = { id: string; y: number; w: number; h: number; rank: number };
+  const items: Item[] = g.nodes().map((id) => {
     const n = g.node(id) as {
       x: number;
       y: number;
@@ -116,78 +173,180 @@ export function layoutMap(map: PMap, vw = 1200, vh = 800, far = false): Placed {
       height: number;
       rank?: number;
     };
-    const r = n.rank ?? Math.round(n.x);
-    if (!byRank.has(r)) byRank.set(r, []);
-    byRank.get(r)!.push({ id, y: n.y, w: n.width, h: n.height });
-  }
-  const ranks = [...byRank.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, r]) => {
-      const sorted = r.sort((a, b) => a.y - b.y);
+    return { id, y: n.y, w: n.width, h: n.height, rank: n.rank ?? n.x };
+  });
+  const yOf = new Map(items.map((i) => [i.id, i.y]));
+  const laned = lanes ? assignLanes(map, (id) => yOf.get(id) ?? 0) : null;
+  const laneOf = (id: string) => laned?.lane.get(id) ?? "all";
+  const laneKeys = laned ? laned.order : ["all"];
+
+  // Cells: one per layer and lane, in dagre's top-to-bottom order.
+  // Faint nodes go to the top and bottom of their cell, so the rest sits in the middle.
+  const rankKeys = [...new Set(items.map((i) => i.rank))].sort((a, b) => a - b);
+  const cells = rankKeys.map((r) => {
+    const byLane = new Map<string, Item[]>();
+    for (const i of items.filter((x) => x.rank === r)) {
+      const l = laneOf(i.id);
+      if (!byLane.has(l)) byLane.set(l, []);
+      byLane.get(l)!.push(i);
+    }
+    for (const [l, list] of byLane) {
+      const sorted = list.sort((a, b) => a.y - b.y);
       const core = sorted.filter((n) => !faint.has(n.id));
       const edge = sorted.filter((n) => faint.has(n.id));
       const half = Math.ceil(edge.length / 2);
-      return [...edge.slice(0, half), ...core, ...edge.slice(half)];
-    });
+      byLane.set(l, [...edge.slice(0, half), ...core, ...edge.slice(half)]);
+    }
+    return byLane;
+  });
 
-  const pack = (limit: number) =>
-    ranks.map((rank) => {
-      const cols: Item[][] = [[]];
-      let used = 0;
-      for (const n of rank) {
-        if (cols.at(-1)!.length && used + ROW_GAP + n.h > limit) {
-          cols.push([]);
-          used = 0;
-        }
-        used += (cols.at(-1)!.length ? ROW_GAP : 0) + n.h;
-        cols.at(-1)!.push(n);
-      }
-      return cols;
-    });
   const colHeight = (c: { h: number }[]) =>
     c.reduce((s, n) => s + n.h, 0) + ROW_GAP * Math.max(0, c.length - 1);
   const colWidth = (c: { w: number }[]) => Math.max(0, ...c.map((n) => n.w));
-  const measure = (packed: Item[][][]) => {
-    const cols = packed.reduce((s, r) => s + r.length, 0);
-    const widths = packed.flat().reduce((s, c) => s + colWidth(c), 0);
-    const width =
-      widths +
-      (packed.length - 1) * RANK_GAP +
-      (cols - packed.length) * SUB_GAP +
-      2 * MARGIN;
-    const height = Math.max(...packed.flat().map(colHeight)) + 2 * MARGIN;
-    return { width, height, scale: Math.min(vw / width, vh / height) };
+  const wrap = (cell: Item[], limit: number) => {
+    const cols: Item[][] = [[]];
+    let used = 0;
+    for (const n of cell) {
+      if (cols.at(-1)!.length && used + ROW_GAP + n.h > limit) {
+        cols.push([]);
+        used = 0;
+      }
+      used += (cols.at(-1)!.length ? ROW_GAP : 0) + n.h;
+      cols.at(-1)!.push(n);
+    }
+    return cols;
   };
 
-  // Try column-height limits from one card up to the tallest layer.
-  const tallest = Math.max(1, ...ranks.map(colHeight));
-  const tallestCard = Math.max(1, ...ranks.flat().map((n) => n.h));
+  const pack = (limit: number) => {
+    const ranks = cells.map((byLane) => {
+      const span = byLane.get(SPAN) ?? [];
+      const lanesHere = new Map(
+        [...byLane]
+          .filter(([l]) => l !== SPAN)
+          .map(([l, cell]) => [l, wrap(cell, limit)]),
+      );
+      const subs = Math.max(0, ...[...lanesHere.values()].map((c) => c.length));
+      const widths = Array.from({ length: subs }, (_, j) =>
+        Math.max(
+          0,
+          ...[...lanesHere.values()].map((c) => colWidth(c[j] ?? [])),
+        ),
+      );
+      return { span, lanesHere, widths };
+    });
+    const laneH = new Map(
+      laneKeys.map((l) => [
+        l,
+        Math.max(
+          0,
+          ...ranks.flatMap((r) => (r.lanesHere.get(l) ?? []).map(colHeight)),
+        ),
+      ]),
+    );
+    const active = laneKeys.filter((l) => laneH.get(l)! > 0);
+    const lanesTotal =
+      active.reduce((s, l) => s + laneH.get(l)!, 0) +
+      LANE_GAP * Math.max(0, active.length - 1) +
+      (active.length > 1 && active.includes(SHARED) ? sharedHead(far) : 0);
+    const contentH = Math.max(
+      lanesTotal,
+      ...ranks.map((r) => colHeight(r.span)),
+    );
+    const width =
+      ranks.reduce((s, r) => {
+        const cols = r.widths.length + (r.span.length ? 1 : 0);
+        const w =
+          r.widths.reduce((a, b) => a + b, 0) +
+          (r.span.length ? colWidth(r.span) : 0);
+        return s + w + SUB_GAP * Math.max(0, cols - 1);
+      }, 0) +
+      RANK_GAP * Math.max(0, ranks.length - 1) +
+      2 * MARGIN;
+    const height = contentH + 2 * MARGIN;
+    return {
+      ranks,
+      laneH,
+      active,
+      contentH,
+      lanesTotal,
+      width,
+      height,
+      scale: Math.min(vw / width, vh / height),
+    };
+  };
+
+  // Try column-height limits from one card up to the tallest cell.
+  const allCells = cells.flatMap((c) =>
+    [...c].filter(([l]) => l !== SPAN).map(([, cell]) => cell),
+  );
+  const tallest = Math.max(1, ...allCells.map(colHeight));
+  const tallestCard = Math.max(1, ...items.map((n) => n.h));
   let best = pack(tallest);
-  let bestSize = measure(best);
   for (let limit = tallestCard; limit < tallest; limit += 40) {
     const packed = pack(limit);
-    const size = measure(packed);
-    if (size.scale > bestSize.scale + 0.01) {
-      best = packed;
-      bestSize = size;
-    }
+    if (packed.scale > best.scale + 0.01) best = packed;
+  }
+
+  // Lanes stack top to bottom, centred as a block when a spanning card is taller.
+  const laneTop = new Map<string, number>();
+  let top = MARGIN + (best.contentH - best.lanesTotal) / 2;
+  const head = (l: string) =>
+    l === SHARED && best.active.length > 1 ? sharedHead(far) : 0;
+  for (const l of best.active) {
+    top += head(l);
+    laneTop.set(l, top);
+    top += best.laneH.get(l)! + LANE_GAP;
   }
 
   const boxes = new Map<string, Box>();
+  const placeCol = (
+    col: Item[],
+    x: number,
+    cw: number,
+    y0: number,
+    h: number,
+  ) => {
+    let y = y0 + (h - colHeight(col)) / 2;
+    for (const n of col) {
+      boxes.set(n.id, { x: x + (cw - n.w) / 2, y, w: n.w, h: n.h });
+      y += n.h + ROW_GAP;
+    }
+  };
   let x = MARGIN;
-  for (const rank of best) {
-    for (const col of rank) {
-      let y = MARGIN + (bestSize.height - 2 * MARGIN - colHeight(col)) / 2;
-      const cw = colWidth(col);
-      for (const n of col) {
-        boxes.set(n.id, { x: x + (cw - n.w) / 2, y, w: n.w, h: n.h });
-        y += n.h + ROW_GAP;
-      }
+  let bandL = Infinity;
+  let bandR = -Infinity;
+  for (const r of best.ranks) {
+    if (r.span.length) {
+      const cw = colWidth(r.span);
+      placeCol(r.span, x, cw, MARGIN, best.contentH);
       x += cw + SUB_GAP;
     }
+    r.widths.forEach((cw, j) => {
+      for (const [l, cols] of r.lanesHere) {
+        if (!cols[j]?.length) continue;
+        placeCol(cols[j], x, cw, laneTop.get(l)!, best.laneH.get(l)!);
+        bandL = Math.min(bandL, x);
+        bandR = Math.max(bandR, x + cw);
+      }
+      x += cw + SUB_GAP;
+    });
     x += RANK_GAP - SUB_GAP;
   }
-  const placed = { boxes, width: bestSize.width, height: bestSize.height, sig };
+
+  const placed: Placed = {
+    boxes,
+    width: best.width,
+    height: best.height,
+    sig,
+    lanes: laned
+      ? best.active.map((l) => ({
+          y: laneTop.get(l)! - BAND_PAD - head(l),
+          h: best.laneH.get(l)! + 2 * BAND_PAD + head(l),
+          shared: l === SHARED,
+        }))
+      : [],
+    laneX: [bandL - BAND_PAD, bandR + BAND_PAD],
+  };
   if (placeCache.size > 50) placeCache.clear();
   placeCache.set(sig, placed);
   return placed;

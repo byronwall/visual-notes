@@ -1,0 +1,46 @@
+{
+  "format": "product-grid-project",
+  "formatVersion": 2,
+  "id": "pathways",
+  "name": "Pathways",
+  "description": "Blank project ready for grid editing and structure mapping.",
+  "createdAt": "2026-11-09T22:34:39.696Z",
+  "nodeMetadataSchema": [
+    {
+      "key": "purpose",
+      "label": "Purpose",
+      "defaultValue": "Loose context, notes, and markdown content that needs a home in the map."
+    },
+    {
+      "key": "implementation",
+      "label": "Implementation",
+      "defaultValue": "Freeform markdown note stored directly on the node for AI or human editing."
+    }
+  ],
+  "nodeTypeSchema": [
+    {
+      "name": "page",
+      "color": "#92bedd"
+    },
+    {
+      "name": "area",
+      "color": "#92ddb1"
+    },
+    {
+      "name": "assembly",
+      "color": "#ddc692"
+    },
+    {
+      "name": "module",
+      "color": "#dd9c92"
+    },
+    {
+      "name": "component",
+      "color": "#ae92dd"
+    },
+    {
+      "name": "note",
+      "color": "#92d8dd"
+    }
+  ]
+}

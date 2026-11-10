@@ -1,0 +1,17 @@
+{
+  "id": "6a97b3b4-b01e-4cc9-bc55-c09745df44fd",
+  "kind": "node.updated",
+  "actor": {
+    "kind": "agent",
+    "id": "token:e1b948",
+    "label": "Agent token ...e1b948"
+  },
+  "createdAt": "2026-11-09T23:34:35.590Z",
+  "summary": "Updated status, metadata.implementation on \"Next steps on a dedicated tab is an odd choice\".",
+  "nodeIds": [
+    "page-next-steps-on-a-dedicated-tab-is-an-odd-choice"
+  ],
+  "metadata": {
+    "fields": "status,metadata.implementation"
+  }
+}

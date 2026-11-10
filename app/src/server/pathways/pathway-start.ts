@@ -1,6 +1,7 @@
+import { splitGraph } from "~/lib/pathways/split";
 import { emptyGraph } from "~/lib/pathways/types";
 import { prisma } from "~/server/db";
-import { noteText } from "~/server/notes/note-store";
+import { noteMarkdown } from "~/server/notes/note-store";
 import * as store from "./pathway-store";
 
 // Starting a map from somewhere else in the app. Each source opens its
@@ -43,7 +44,8 @@ export async function startFromNote(docId: string) {
     select: { title: true, content: true, html: true, markdown: true },
   });
   if (!doc) throw new Error(`Note ${docId} not found`);
-  const text = noteText(doc).trim().slice(0, 6000);
+  // Markdown, so Goals & vibes keeps the note's headings and lists.
+  const text = noteMarkdown(doc).trim().slice(0, 6000);
   const title = `What do I do with “${doc.title.trim() || "this note"}”?`;
   const p = await store.createPathway({
     title,
@@ -52,4 +54,30 @@ export async function startFromNote(docId: string) {
     context: { notes: `From the note “${doc.title}”:\n\n${text}`, qa: [] },
   });
   return { id: p.id, created: true };
+}
+
+/**
+ * A new map from one card of another: the card becomes the question and the
+ * cards after it come along. Goals carry over, with a link back. The source
+ * map stays as it is.
+ */
+export async function splitFromCard(pathwayId: string, nodeId: string) {
+  const src = await store.getPathway(pathwayId);
+  if (!src) throw new Error(`Pathway ${pathwayId} not found`);
+  const graph = splitGraph(src.graph, nodeId);
+  // Escape brackets so a title like "Pick a [new] job" stays one link.
+  const name = src.title.replace(/[[\]\\]/g, "\\$&");
+  const from = `Split from the map [${name}](/pathways/${src.id}).`;
+  const p = await store.createPathway({
+    title: graph.nodes[0].title,
+    graph,
+    context: {
+      notes: src.context?.notes.trim()
+        ? `${from}\n\n${src.context.notes}`
+        : from,
+      qa: src.context?.qa ?? [],
+    },
+  });
+  console.info("[pathways] split %s:%s into %s", src.id, nodeId, p.id);
+  return { id: p.id };
 }

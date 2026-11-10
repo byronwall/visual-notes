@@ -59,6 +59,7 @@ export function PathwayCard(props: {
           data-link-source={String(!!(s.linkFrom() === n().id))}
           data-key={String(!!(n().weight === "key"))}
           data-faint={String(isFaint(n()))}
+          data-vote={n().feedback?.vote}
           style={{
             left: `${box().x}px`,
             top: `${box().y}px`,

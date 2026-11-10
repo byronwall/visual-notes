@@ -124,3 +124,16 @@ export const iconX = css({
   borderRadius: "sm",
   _hover: { bg: "bg.hover", color: "fg.default" },
 });
+
+/** A quiet text-only button for secondary actions in a label row. */
+export const textButton = css({
+  p: "0",
+  border: "none",
+  bg: "transparent",
+  fontSize: "xs",
+  color: "fg.link",
+  cursor: "pointer",
+  transition: "color 140ms",
+  _hover: { color: "fg.linkHover" },
+  _disabled: { opacity: 0.5, cursor: "default" },
+});

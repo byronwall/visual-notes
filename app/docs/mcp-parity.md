@@ -105,6 +105,7 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `runPathwayAgentFn`                | the chat agent itself      | Claude reads `pathways_get` and writes with `pathways_edit` / `pathways_set_plan` |
 | `runPathwayResearchFn`             | `pathways_report_research` | The chat agent searches; the page uses OpenAI web search                          |
 | `archivePathwayFn`                 | human-only                 |                                                                                   |
+| `splitPathwayFn`                   | `pathways_create`          | `import` with the card's subtree as `graph`, the card as the root                 |
 
 ## Collections
 

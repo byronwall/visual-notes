@@ -1,0 +1,16 @@
+{
+  "id": "44f93e47-60f4-4278-bc80-8aeda39dcaba",
+  "kind": "node.created",
+  "actor": {
+    "kind": "human"
+  },
+  "createdAt": "2026-11-09T22:46:05.673Z",
+  "summary": "Created \"Next steps on a dedicated tab is an odd choice\" under \"Nov 9 feedback\".",
+  "nodeIds": [
+    "page-next-steps-on-a-dedicated-tab-is-an-odd-choice",
+    "page-nov-9-feedback"
+  ],
+  "metadata": {
+    "clientMutationId": "566cb621-12d1-446d-b350-4f2a2dd6efbd"
+  }
+}
