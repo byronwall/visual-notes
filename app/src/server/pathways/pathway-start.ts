@@ -65,7 +65,9 @@ export async function splitFromCard(pathwayId: string, nodeId: string) {
   const src = await store.getPathway(pathwayId);
   if (!src) throw new Error(`Pathway ${pathwayId} not found`);
   const graph = splitGraph(src.graph, nodeId);
-  const from = `Split from the map [${src.title}](/pathways/${src.id}).`;
+  // Escape brackets so a title like "Pick a [new] job" stays one link.
+  const name = src.title.replace(/[[\]\\]/g, "\\$&");
+  const from = `Split from the map [${name}](/pathways/${src.id}).`;
   const p = await store.createPathway({
     title: graph.nodes[0].title,
     graph,
