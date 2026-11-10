@@ -2,6 +2,7 @@ import { createResource, createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import type { PathwayActivity } from "~/server/pathways/pathway-store";
 import { fetchPathwayActivity } from "~/services/pathways/pathways.queries";
+import { forgetQuery } from "~/features/live-sync/forget-query";
 import { onDemand } from "~/utils/kept-async";
 import { ACTION_LABEL, usePathway } from "./pathway-state";
 import { help, textButton } from "./styles";
@@ -84,9 +85,11 @@ const time = (d: Date) => {
 export function ActivityPanel() {
   const s = usePathway();
   // Refetches whenever the map changes, so a new run shows at the top.
+  // Forget the cached list first: the router reuses a read from the last 5s.
   const [rows] = createResource(
     () => ({ id: s.record().id, at: String(s.record().updatedAt) }),
-    (k) => fetchPathwayActivity(k.id),
+    (k) =>
+      forgetQuery(["pathway-activity"]).then(() => fetchPathwayActivity(k.id)),
     onDemand,
   );
   return (
