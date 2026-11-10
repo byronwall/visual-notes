@@ -4,7 +4,7 @@ import type { PathwayNode, Source } from "~/lib/pathways/types";
 import { ActionButton } from "./ActionButton";
 import { AutoText } from "./AutoText";
 import { Markdown } from "./Markdown";
-import { EdgeList } from "./NodePanel";
+import { EdgeList } from "./EdgeList";
 import { usePathway } from "./pathway-state";
 import { cardLink, help, iconX, label, section, smallButton } from "./styles";
 
@@ -57,7 +57,12 @@ export function ResearchSection(props: { n: PathwayNode }) {
   const graph = () => s.record().graph;
   const built = createMemo(() =>
     graph()
-      .nodes.filter((x) => x.fromResearch?.nodeId === id())
+      // Done and dropped cards are hidden from the map, so they are not listed.
+      .nodes.filter(
+        (x) =>
+          x.fromResearch?.nodeId === id() &&
+          (x.status === "open" || x.status === "chosen"),
+      )
       .map((x) => x.id),
   );
   const title = (cardId: string) =>
@@ -140,7 +145,7 @@ export function ResearchSection(props: { n: PathwayNode }) {
             what="Adds steps and options built on these findings, and notes the findings on cards they change. Each new card links back here."
             busy={s.busy() === `research-map:${id()}`}
             disabled={!!s.busy()}
-            onClick={() => s.runAgent("fromResearch", id())}
+            onClick={() => s.runAgent("fromResearch", id(), "")}
           />
           <Show when={built().length}>
             <span class={help}>

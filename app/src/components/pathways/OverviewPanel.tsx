@@ -1,7 +1,7 @@
 import { createMemo, Show } from "solid-js";
 import { meetingPoints } from "~/lib/pathways/plan";
 import { GoalsSection } from "./GoalsSection";
-import { EdgeList } from "./NodePanel";
+import { EdgeList } from "./EdgeList";
 import { usePathway } from "./pathway-state";
 import { help, label, section } from "./styles";
 

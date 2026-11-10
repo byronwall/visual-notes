@@ -156,13 +156,15 @@ export type MapReply = {
 export function replyToOps(r: MapReply, fromResearch?: string): GraphOps {
   const ops = toOps(r);
   if (!fromResearch) return ops;
+  const refs = new Set(r.nodes.map((n) => n.ref));
   return {
     nodes: r.nodes.map((n) => ({
       ...n,
       missed: n.missed || undefined,
       fromResearch: { nodeId: fromResearch, sources: n.sources },
     })),
-    edges: ops.edges,
+    // New cards hang off and join existing ones; existing cards are not rewired.
+    edges: r.edges.filter((e) => refs.has(e.from) || refs.has(e.to)),
     appendNotes: ops.appendNotes,
   };
 }
