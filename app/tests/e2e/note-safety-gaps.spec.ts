@@ -122,9 +122,9 @@ test("a failed note load keeps the panel's unsaved editor", async ({
 
   await page.unroute("**/_server*", block);
   await expect(failed).toBeHidden({ timeout: 35_000 });
+  // The open record is in the URL (?row=), so the reload reopens its panel.
   await page.reload();
   await waitForAppReady(page);
-  await rowName(page, "First row").click();
   await expect(editor).toContainText("kept through a failed load");
 });
 
