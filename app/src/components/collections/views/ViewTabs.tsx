@@ -211,8 +211,8 @@ export const ViewTabs = (props: {
                       <Dynamic component={VIEW_ICONS[view.type]} size={14} />
                     }
                     onClick={() => {
-                      setMoreOpen(false);
                       props.onSelect(view.id);
+                      setMoreOpen(false);
                     }}
                   >
                     {view.name}
