@@ -23,8 +23,13 @@ const root = css({
   "@media (hover: none)": { "& [data-rename]": { display: "none" } },
 });
 // The name is the row's link: it opens the record in the peek panel.
+// A button so assistive tech and tests can reach it; out of the tab order,
+// since the cell is the grid's tab stop and Enter there opens the record.
 const title = css({
+  display: "block",
   minW: "0",
+  maxW: "full",
+  textAlign: "left",
   fontSize: "sm",
   fontWeight: "medium",
   overflow: "hidden",
@@ -138,14 +143,18 @@ export const TitleCell = (props: {
         }
       }}
     >
-      <span
+      <button
+        type="button"
         class={title}
+        tabIndex={-1}
         data-title-link=""
         data-untitled={untitled() ? "" : undefined}
+        // Keep focus where it is; the peek panel takes it next.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => !editing() && openRow(props.row.id)}
       >
         {untitled() ? "Untitled" : props.row.title}
-      </span>
+      </button>
       <button
         type="button"
         class={renameBtn}

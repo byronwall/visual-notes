@@ -69,6 +69,10 @@ test("restore waits for a failed flush", async ({ page }) => {
   await expect(editor).not.toContainText("draft text");
 });
 
+/** The row's name button, which opens the record in the peek panel. */
+const rowName = (page: Page, row: string) =>
+  page.locator("[data-row-id]").getByRole("button", { name: row, exact: true });
+
 test("a failed note load keeps the panel's unsaved editor", async ({
   page,
 }) => {
@@ -90,12 +94,10 @@ test("a failed note load keeps the panel's unsaved editor", async ({
       .click();
     await page.getByLabel("Edit name").fill(row);
     await page.getByLabel("Edit name").press("Enter");
-    await expect(
-      page.getByRole("button", { name: `Open ${row}` }),
-    ).toBeVisible();
+    await expect(rowName(page, row)).toBeVisible();
   }
 
-  await page.getByRole("button", { name: "Open First row" }).click();
+  await rowName(page, "First row").click();
   const editor = page.locator("[data-side-panel-scroll] .ProseMirror");
   await editor.waitFor();
   await editor.click();
@@ -109,9 +111,9 @@ test("a failed note load keeps the panel's unsaved editor", async ({
   await page.route("**/_server*", block);
 
   // The panel's backdrop covers the row, so this click skips it.
-  await page
-    .getByRole("button", { name: "Open Second row" })
-    .evaluate((button: HTMLElement) => button.click());
+  await rowName(page, "Second row").evaluate((button: HTMLElement) =>
+    button.click(),
+  );
   await expect(
     page.getByRole("dialog", { name: "This note didn't save" }),
   ).toBeVisible();
@@ -122,7 +124,7 @@ test("a failed note load keeps the panel's unsaved editor", async ({
   await expect(failed).toBeHidden({ timeout: 35_000 });
   await page.reload();
   await waitForAppReady(page);
-  await page.getByRole("button", { name: "Open First row" }).click();
+  await rowName(page, "First row").click();
   await expect(editor).toContainText("kept through a failed load");
 });
 
