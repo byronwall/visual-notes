@@ -1,0 +1,54 @@
+{
+  "format": "product-grid-project",
+  "formatVersion": 2,
+  "id": "collections-usability",
+  "name": "Collections usability audit",
+  "description": "Mobile and laptop usability findings, likely ideal design, and repeatable reassessment. Source baseline 25c7a864947994b8f321ceab73e6b8eae14e3107. No application fixes in this project.",
+  "createdAt": "2026-11-11T09:30:00.000Z",
+  "nodeMetadataSchema": [
+    {
+      "key": "purpose",
+      "label": "Purpose",
+      "defaultValue": ""
+    },
+    {
+      "key": "implementation",
+      "label": "Proposed work",
+      "defaultValue": ""
+    },
+    {
+      "key": "priority",
+      "label": "Priority",
+      "defaultValue": ""
+    },
+    {
+      "key": "evidenceLevel",
+      "label": "Evidence level",
+      "defaultValue": ""
+    },
+    {
+      "key": "auditId",
+      "label": "Audit ID",
+      "defaultValue": ""
+    },
+    {
+      "key": "retest",
+      "label": "Reassessment tests",
+      "defaultValue": ""
+    }
+  ],
+  "nodeTypeSchema": [
+    {
+      "name": "page",
+      "color": "#92bedd"
+    },
+    {
+      "name": "area",
+      "color": "#92ddb1"
+    },
+    {
+      "name": "problem",
+      "color": "#dd9c92"
+    }
+  ]
+}

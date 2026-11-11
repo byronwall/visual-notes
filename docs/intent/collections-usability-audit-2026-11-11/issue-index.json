@@ -1,0 +1,177 @@
+{
+  "baseline": "25c7a864947994b8f321ceab73e6b8eae14e3107",
+  "canonical": "PGM node bodies and status",
+  "issues": [
+    {
+      "id": "CU-01",
+      "title": "Make the narrow table usable without sacrificing row identity",
+      "priority": "P1",
+      "area": "layout",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-01.md",
+      "retest": "R01 R02"
+    },
+    {
+      "id": "CU-02",
+      "title": "Bound saved-view navigation as the collection grows",
+      "priority": "P1",
+      "area": "layout",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-02.md",
+      "retest": "R01 R03"
+    },
+    {
+      "id": "CU-03",
+      "title": "Read and edit full long-text properties in record detail",
+      "priority": "P1",
+      "area": "editing",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-03.md",
+      "retest": "R04 R08"
+    },
+    {
+      "id": "CU-04",
+      "title": "Make opening a record an obvious primary action",
+      "priority": "P1",
+      "area": "editing",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-04.md",
+      "retest": "R02 R04"
+    },
+    {
+      "id": "CU-05",
+      "title": "Let keyboard users enter and leave the grid predictably",
+      "priority": "P1",
+      "area": "accessibility",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-05.md",
+      "retest": "R05"
+    },
+    {
+      "id": "CU-06",
+      "title": "Make rating and secondary targets comfortable and semantic",
+      "priority": "P1",
+      "area": "accessibility",
+      "evidence": "Source verified; browser follow-up required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-06.md",
+      "retest": "R06"
+    },
+    {
+      "id": "CU-07",
+      "title": "Keep selection and bulk actions reachable on narrow screens",
+      "priority": "P1",
+      "area": "layout",
+      "evidence": "Component observed + source verified",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-07.md",
+      "retest": "R07"
+    },
+    {
+      "id": "CU-08",
+      "title": "Explain when view changes are saved and recover failed saves",
+      "priority": "P2",
+      "area": "trust",
+      "evidence": "Source verified; failure effects need integration test",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-08.md",
+      "retest": "R08 R09"
+    },
+    {
+      "id": "CU-09",
+      "title": "Verify property edits survive overlapping failures and navigation",
+      "priority": "P1",
+      "area": "trust",
+      "evidence": "Source risk; not a demonstrated data-loss incident",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-09.md",
+      "retest": "R08"
+    },
+    {
+      "id": "CU-10",
+      "title": "Keep virtualized keyboard focus inside the table scroller",
+      "priority": "P1",
+      "area": "accessibility",
+      "evidence": "Source risk; large-data browser test required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-10.md",
+      "retest": "R05 R10"
+    },
+    {
+      "id": "CU-11",
+      "title": "Give calendar a usable narrow-screen presentation",
+      "priority": "P2",
+      "area": "alternate-views",
+      "evidence": "Source verified; browser follow-up required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-11.md",
+      "retest": "R11"
+    },
+    {
+      "id": "CU-12",
+      "title": "Separate touch scrolling from drag-to-move gestures",
+      "priority": "P1",
+      "area": "alternate-views",
+      "evidence": "Source risk; real-device gesture test required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-12.md",
+      "retest": "R12"
+    },
+    {
+      "id": "CU-13",
+      "title": "Show meaningful labels and missing review fields on cards",
+      "priority": "P2",
+      "area": "alternate-views",
+      "evidence": "Source verified; browser follow-up required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-13.md",
+      "retest": "R13"
+    },
+    {
+      "id": "CU-14",
+      "title": "Preserve review position and support sequential record review",
+      "priority": "P2",
+      "area": "editing",
+      "evidence": "Source verified capability gap; full navigation needs testing",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-14.md",
+      "retest": "R04 R08 R14"
+    },
+    {
+      "id": "CU-15",
+      "title": "Make result counts and empty states explain what happened",
+      "priority": "P2",
+      "area": "trust",
+      "evidence": "Source verified; browser follow-up required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-15.md",
+      "retest": "R09 R13"
+    },
+    {
+      "id": "CU-16",
+      "title": "Separate editing a record from changing the collection schema",
+      "priority": "P2",
+      "area": "editing",
+      "evidence": "Source verified design risk",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-16.md",
+      "retest": "R15"
+    },
+    {
+      "id": "CU-17",
+      "title": "Reflow collection creation and note-import forms",
+      "priority": "P2",
+      "area": "layout",
+      "evidence": "Source risk; browser dialog test required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-17.md",
+      "retest": "R16"
+    },
+    {
+      "id": "CU-18",
+      "title": "Expose keyboard and touch alternatives for column sizing",
+      "priority": "P2",
+      "area": "accessibility",
+      "evidence": "Source verified capability gap",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-18.md",
+      "retest": "R02 R06"
+    },
+    {
+      "id": "CU-19",
+      "title": "Keep invalid numeric input visible with a clear error",
+      "priority": "P1",
+      "area": "trust",
+      "evidence": "Source verified; browser follow-up required",
+      "node": "pgm/data/projects/collections-usability/nodes/cu-19.md",
+      "retest": "R08 R17"
+    }
+  ]
+}

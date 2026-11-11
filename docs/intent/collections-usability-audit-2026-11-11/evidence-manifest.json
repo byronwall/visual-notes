@@ -1,0 +1,230 @@
+{
+  "auditDate": "2026-11-11",
+  "sourceCommit": "25c7a864947994b8f321ceab73e6b8eae14e3107",
+  "captureMode": "Actual components; synthetic data; mocked backend; global app shell omitted; isolated PropertyList replaces full RowPeekPanel",
+  "screenshots": [
+    {
+      "id": "laptop-1280-default",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1280-default.jpg",
+      "filename": "laptop-1280-default.jpg",
+      "mimeType": "image/jpeg",
+      "size": 128843,
+      "sha256": "45cb536097a48b086d35dbc4c0743d04daa7a8ecff19c5bff7a527a86a6b56e1",
+      "pixelWidth": 1280,
+      "pixelHeight": 856,
+      "createdAt": "2026-11-11T14:31:29.467Z",
+      "cssViewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "laptop-1280-long-text-edit",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1280-long-text-edit.jpg",
+      "filename": "laptop-1280-long-text-edit.jpg",
+      "mimeType": "image/jpeg",
+      "size": 58653,
+      "sha256": "9c4d49f5dec422bbe1a552bebf37597f8a736b0403906492636d7b0e2fce9daa",
+      "pixelWidth": 1280,
+      "pixelHeight": 856,
+      "createdAt": "2026-11-11T14:34:30.539Z",
+      "cssViewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "scenario": "isolated-property-list"
+    },
+    {
+      "id": "laptop-1280-property-list",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1280-property-list.jpg",
+      "filename": "laptop-1280-property-list.jpg",
+      "mimeType": "image/jpeg",
+      "size": 57674,
+      "sha256": "698619d4e112ef3018148eb9b054986c4de672bca5136f5d03c46c68b18a3721",
+      "pixelWidth": 1280,
+      "pixelHeight": 856,
+      "createdAt": "2026-11-11T14:34:29.987Z",
+      "cssViewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "scenario": "isolated-property-list"
+    },
+    {
+      "id": "laptop-1280-tab-trap",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1280-tab-trap.jpg",
+      "filename": "laptop-1280-tab-trap.jpg",
+      "mimeType": "image/jpeg",
+      "size": 166526,
+      "sha256": "cbbdb9787ccd85177b90e33ccb4fdc02a78d80601c8804cdf8db3d31c6fb785c",
+      "pixelWidth": 1280,
+      "pixelHeight": 856,
+      "createdAt": "2026-11-11T14:31:38.916Z",
+      "cssViewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "laptop-1366-default",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1366-default.jpg",
+      "filename": "laptop-1366-default.jpg",
+      "mimeType": "image/jpeg",
+      "size": 136185,
+      "sha256": "384e971c7672921a4df8f9b1ba5f111406281c7c7e6846719fe47e6578db1794",
+      "pixelWidth": 1366,
+      "pixelHeight": 824,
+      "createdAt": "2026-11-11T14:34:41.603Z",
+      "cssViewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "laptop-1440-default",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/laptop-1440-default.jpg",
+      "filename": "laptop-1440-default.jpg",
+      "mimeType": "image/jpeg",
+      "size": 165447,
+      "sha256": "4fe2767d434362c81a34ab35abfec0d3ce9a9ea090dc548a3d4968bf35795db2",
+      "pixelWidth": 1440,
+      "pixelHeight": 956,
+      "createdAt": "2026-11-11T14:35:26.124Z",
+      "cssViewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "phone-390-long-text-edit",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-long-text-edit.jpg",
+      "filename": "phone-390-long-text-edit.jpg",
+      "mimeType": "image/jpeg",
+      "size": 35173,
+      "sha256": "189f49c60ae39956b52794c23bf281ed9455e1299412d1fb17a2b8e679bf0fe8",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:33:54.206Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "isolated-property-list"
+    },
+    {
+      "id": "phone-390-one-view",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-one-view.jpg",
+      "filename": "phone-390-one-view.jpg",
+      "mimeType": "image/jpeg",
+      "size": 36963,
+      "sha256": "bfea31808ec45c103022cbf9c6c89c047b84044de556c14e30391a29f28b5372",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:33:29.266Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "one-view-five-rows"
+    },
+    {
+      "id": "phone-390-property-list",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-property-list.jpg",
+      "filename": "phone-390-property-list.jpg",
+      "mimeType": "image/jpeg",
+      "size": 34378,
+      "sha256": "c89be5c213c1c0dae142fa160b6bfbfe48ce0cc9993f34667590b9bec5c3df5d",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:33:40.086Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "isolated-property-list"
+    },
+    {
+      "id": "phone-390-selection",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-selection.jpg",
+      "filename": "phone-390-selection.jpg",
+      "mimeType": "image/jpeg",
+      "size": 59306,
+      "sha256": "24f7a6dddef7f17dd5a789822808a8c4da06ca004c8b6c713f997d3d4f9e4d30",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:32:46.905Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "phone-390-table",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-table.jpg",
+      "filename": "phone-390-table.jpg",
+      "mimeType": "image/jpeg",
+      "size": 55716,
+      "sha256": "42637836cfdfb22358a5eadb50864c8428e6e4e4867a8bbc678dc2ee4b568ef9",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:32:36.152Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "phone-390-tabs",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-tabs.jpg",
+      "filename": "phone-390-tabs.jpg",
+      "mimeType": "image/jpeg",
+      "size": 47798,
+      "sha256": "70eedcb96a40b75a3a4647288a2a9cae3129eee650633303eef6d1357f8658f8",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:30:50.738Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "fifteen-views-110-rows"
+    },
+    {
+      "id": "phone-390-title-edit",
+      "path": "pgm/data/projects/collections-usability/images/collections-audit/phone-390-title-edit.jpg",
+      "filename": "phone-390-title-edit.jpg",
+      "mimeType": "image/jpeg",
+      "size": 37979,
+      "sha256": "df3a1f0b507a46541f65685adc0c0fbe6841f7f68c1843a02548091ad967bbb4",
+      "pixelWidth": 390,
+      "pixelHeight": 922,
+      "createdAt": "2026-11-11T14:33:29.650Z",
+      "cssViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scenario": "one-view-five-rows"
+    }
+  ],
+  "limitations": [
+    "No authenticated deployed UI",
+    "No real database or persistent writes",
+    "No full note editor or save-guard execution",
+    "No SSR/hydration proof",
+    "No real phone keyboard/gesture or assistive-technology proof",
+    "Default synthetic view configs, not production saved widths"
+  ],
+  "fixturePortabilityEdit": "Absolute paths and host binding changed, and formatting normalized, for the checked-in fixture. Capture bytes are unchanged. The 1440 geometry was rechecked after a path portability edit; the committed formatted copy was not recaptured.",
+  "browser": {
+    "name": "Chromium",
+    "version": "156.0.8078.79",
+    "os": "Debian 13",
+    "emulation": "CSS iframe sizing only; no touch emulation"
+  }
+}
