@@ -1,4 +1,4 @@
-import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, sharedConfig } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionView } from "~/lib/collections/types";
 import { CollectionTable } from "../table/CollectionTable";
@@ -6,6 +6,8 @@ import { CollectionList } from "./CollectionList";
 import { LIST_MAX_WIDTH, type ListModeState } from "./useListMode";
 
 const NARROW = "@container colbody (max-width: 639.98px)";
+/** The last measured layout, shared by every table view on the page. */
+let lastNarrow: boolean | null = null;
 
 const frame = css({
   containerType: "inline-size",
@@ -30,9 +32,15 @@ export const TableOrList = (props: {
   addRef?: (add: () => void) => void;
 }) => {
   let frameEl: HTMLDivElement | undefined;
-  const [narrow, setNarrow] = createSignal<boolean | null>(null);
+  // Hydration must match the server, so it starts unknown. A later mount (a
+  // view switch) starts from the last width seen, so it builds only the pane
+  // it shows; the observer below corrects a wrong guess before paint.
+  const [narrow, setNarrow] = createSignal<boolean | null>(
+    sharedConfig.context ? null : lastNarrow,
+  );
   onMount(() => {
-    const measure = () => setNarrow(frameEl!.clientWidth < LIST_MAX_WIDTH);
+    const measure = () =>
+      setNarrow((lastNarrow = frameEl!.clientWidth < LIST_MAX_WIDTH));
     const observer = new ResizeObserver(measure);
     observer.observe(frameEl!);
     measure();
