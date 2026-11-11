@@ -19,7 +19,7 @@ export const RecordPreview = (props: {
   name: string;
   children: JSX.Element;
 }) => (
-  <div data-part="preview">
+  <div data-record-preview>
     <div class={title}>{props.name}</div>
     {props.children}
   </div>

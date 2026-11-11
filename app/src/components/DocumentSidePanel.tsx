@@ -68,7 +68,8 @@ const PreviewFrame = (props: {
           onClose={props.onClose}
         />
       </HStack>
-      <Box h="7" mt="1" />
+      {/* The path row wraps to two lines on a phone-width panel. */}
+      <Box h={{ base: "16", sm: "10" }} mt={{ base: "2", sm: "1" }} />
     </Box>
     {props.children}
     <Stack gap="2.5" pt="6" aria-label="Loading note">
