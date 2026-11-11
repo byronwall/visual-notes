@@ -4,11 +4,11 @@ import {
   batch,
   createEffect,
   createMemo,
+  createRoot,
   createSignal,
   getOwner,
   on,
   onCleanup,
-  runWithOwner,
 } from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import { type Cell, createWriteLog } from "~/lib/collections/optimistic";
@@ -235,11 +235,29 @@ export function createCollectionStore(
 
   // One filtered, searched, sorted list per view, shared by the page count,
   // the view body, and the record panel's Previous/Next.
+  // Each memo lives in its own root, so a view that leaves the collection
+  // stops recomputing on every edit.
   const owner = getOwner();
-  const viewRowsCache = new WeakMap<
-    CollectionView,
-    Accessor<CollectionRow[]>
+  const viewRowsCache = new Map<
+    string,
+    {
+      view: CollectionView;
+      rows: Accessor<CollectionRow[]>;
+      dispose: () => void;
+    }
   >();
+  const dropViewRows = (id: string) => {
+    viewRowsCache.get(id)?.dispose();
+    viewRowsCache.delete(id);
+  };
+  createEffect(() => {
+    const ids = new Set(state.views.map((v) => v.id));
+    for (const id of [...viewRowsCache.keys()])
+      if (!ids.has(id)) dropViewRows(id);
+  });
+  onCleanup(() => {
+    for (const id of [...viewRowsCache.keys()]) dropViewRows(id);
+  });
 
   const api = {
     state,
@@ -561,10 +579,11 @@ export function createCollectionStore(
 
     /** The view's rows after its filter, search, and sort. */
     viewRows(view: CollectionView): CollectionRow[] {
-      let rows = viewRowsCache.get(view);
-      if (!rows) {
-        rows = runWithOwner(owner, () => {
-          const memo = createMemo(() =>
+      let hit = viewRowsCache.get(view.id);
+      if (hit?.view !== view) {
+        dropViewRows(view.id);
+        hit = createRoot((dispose) => {
+          const rows = createMemo(() =>
             applyView(
               state.rows,
               state.properties,
@@ -573,11 +592,11 @@ export function createCollectionStore(
               textsOf,
             ),
           );
-          return memo;
-        })!;
-        viewRowsCache.set(view, rows);
+          return { view, rows, dispose };
+        }, owner);
+        viewRowsCache.set(view.id, hit);
       }
-      return rows();
+      return hit.rows();
     },
 
     /** The view's saved config plus its transient search. */
