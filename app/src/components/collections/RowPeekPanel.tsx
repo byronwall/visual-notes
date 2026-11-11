@@ -4,57 +4,108 @@ import type { DocumentEditorApi } from "~/components/DocumentEditor";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useCollection } from "./CollectionContext";
 import { PropertyList } from "./PropertyList";
+import { isCoarsePointer } from "./touch";
 
-// How long a close waits for its save before it asks. A working network lands
+// How long a move waits for its save before it asks. A working network lands
 // well inside this, so a normal close never shows the prompt.
 const SAVE_GRACE_MS = 400;
 
-/** Side panel for one row: its properties above the full note editor. */
+/** Puts focus back on the row's title cell, if the view still renders it. */
+const returnFocus = (rowId: string) =>
+  requestAnimationFrame(() =>
+    document
+      .querySelector<HTMLElement>(
+        `[data-row-id="${CSS.escape(rowId)}"] [data-property-id="title"]`,
+      )
+      ?.focus({ preventScroll: true }),
+  );
+
+/**
+ * Side panel for one row: its properties above the full note editor. The host
+ * owns which row is open. Before the panel asks the host to move or close, it
+ * gives the note's save a moment to land.
+ */
 export const RowPeekPanel = (props: {
   rowId: string | null;
   onClose: () => void;
+  /** Opens another row in place. */
+  onMove?: (rowId: string) => void;
+  /**
+   * The host moves by router navigation. The editor's own leave guard then
+   * asks before unsaved text is lost, on these moves and on browser Back.
+   */
+  routed?: boolean;
 }) => {
   const { store, embedded } = useCollection();
   const [editor, setEditor] = createSignal<{
     id: string;
     api: DocumentEditorApi;
   }>();
-  const [guardOpen, setGuardOpen] = createSignal(false);
+  // A move that waits on the "Leave without saving?" prompt.
+  const [pending, setPending] = createSignal<{ id: string | null }>();
   const row = () => store.state.rows.find((r) => r.id === props.rowId);
 
-  const close = () => {
-    setGuardOpen(false);
-    store.bumpContent();
-    props.onClose();
+  const commit = (id: string | null) => {
+    setPending(undefined);
+    if (id) props.onMove?.(id);
+    else props.onClose();
   };
 
-  // Closing unmounts the editor, which cancels its autosave and retries.
-  const requestClose = async () => {
+  // True when nothing unsaved is at risk. Leaving unmounts the editor, which
+  // cancels its autosave and retries.
+  const settle = async () => {
     const api = editor()?.api;
-    if (!api?.dirty()) return close();
+    if (!api?.dirty()) return true;
     if (!api.error()) {
       await Promise.race([
         api.save(),
         new Promise((done) => setTimeout(done, SAVE_GRACE_MS)),
       ]);
-      if (!api.dirty()) return close();
+      if (!api.dirty()) return true;
     }
-    setGuardOpen(true);
+    return false;
   };
 
+  let ticket = 0;
+  const go = async (id: string | null) => {
+    if (pending() || id === props.rowId) return;
+    const mine = ++ticket;
+    const safe = await settle();
+    // A later move won while this one saved.
+    if (mine !== ticket) return;
+    if (safe || props.routed) commit(id);
+    else setPending({ id });
+  };
+
+  // Every row change, whatever started it: refresh the previews of the row
+  // that was open, and on close put focus back where the user left the view.
+  createEffect(
+    on(
+      () => props.rowId,
+      (id, left) => {
+        if (!left) return;
+        store.bumpContent();
+        if (!id) returnFocus(left);
+      },
+      { defer: true },
+    ),
+  );
+
   // A save can land while the prompt is open. Nothing is at risk any more, so
-  // finish the close the user asked for.
+  // finish the move the user asked for.
   createEffect(() => {
-    if (guardOpen() && !editor()?.api.dirty()) close();
+    const move = pending();
+    if (move && !editor()?.api.dirty()) commit(move.id);
   });
 
   // A new row opens with its name ready to type, as the table does. The title
-  // field offers no focus API, so this presses its hidden edit trigger.
+  // field offers no focus API, so this presses its hidden edit trigger. Touch
+  // skips it: focus there opens the keyboard over the record.
   createEffect(
     on(
       () => editor()?.id,
       (id) => {
-        if (!id || row()?.title !== "Untitled") return;
+        if (!id || row()?.title !== "Untitled" || isCoarsePointer()) return;
         document
           .querySelector<HTMLElement>(
             '[data-side-panel-scroll] [data-scope="editable"][data-part="edit-trigger"]',
@@ -69,7 +120,7 @@ export const RowPeekPanel = (props: {
       <DocumentSidePanel
         open={Boolean(props.rowId)}
         docId={props.rowId ?? undefined}
-        onClose={() => void requestClose()}
+        onClose={() => void go(null)}
         width="min(720px, 100vw)"
         onDeleted={(docId) => {
           store.replaceRows(store.state.rows.filter((r) => r.id !== docId));
@@ -90,10 +141,10 @@ export const RowPeekPanel = (props: {
         }
       />
       {/* Mounted on demand so its portal lands above the panel's. */}
-      <Show when={guardOpen()}>
+      <Show when={pending()}>
         <ConfirmDialog
           open
-          onOpenChange={setGuardOpen}
+          onOpenChange={(open) => !open && setPending(undefined)}
           title={
             editor()?.api.error()
               ? "This note didn't save"
@@ -106,7 +157,7 @@ export const RowPeekPanel = (props: {
           }
           confirmLabel="Leave"
           cancelLabel="Stay"
-          onConfirm={close}
+          onConfirm={() => commit(pending()?.id ?? null)}
         />
       </Show>
     </>
