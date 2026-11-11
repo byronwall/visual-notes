@@ -319,7 +319,11 @@ export const CollectionBoard = (props: {
                         }
                       >
                         <span class={cardTitle}>{row.title || "Untitled"}</span>
-                        <CardFields row={row} properties={cardProperties()} />
+                        <CardFields
+                          row={row}
+                          properties={cardProperties()}
+                          showEmpty={Boolean(props.view.config.cardProperties)}
+                        />
                       </div>
                     </>
                   )}

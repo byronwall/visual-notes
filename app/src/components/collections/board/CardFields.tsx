@@ -7,50 +7,76 @@ import type {
 import { isEmptyValue, readValue } from "~/lib/collections/values";
 import { ValueDisplay } from "../values/ValueDisplay";
 
+// Two columns so values line up under each other across a card.
 const list = css({
-  display: "flex",
-  flexDirection: "column",
-  gap: "1",
+  display: "grid",
+  gridTemplateColumns: "minmax(0, max-content) minmax(0, 1fr)",
+  columnGap: "2",
+  rowGap: "0.5",
   fontSize: "xs",
   color: "fg.muted",
   minW: "0",
 });
-const line = css({
+const label = css({
+  color: "fg.subtle",
+  maxW: "7rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  alignSelf: "center",
+});
+const value = css({
   display: "flex",
   alignItems: "center",
   minW: "0",
   minH: "5",
+  "&[data-full]": { gridColumn: "1 / -1" },
 });
 
-/** The chosen properties on a board or gallery card; empty values are skipped. */
+/** Chips name their own value, so they read clearly without a label. */
+const selfDescribing = (p: CollectionProperty) =>
+  p.kind === "status" || p.kind === "select";
+
+/**
+ * The chosen properties on a board or gallery card, each with a muted label.
+ * With `showEmpty` (the view picked its card fields), empty values show "—"
+ * so missing data stays visible; otherwise empty values are skipped.
+ */
 export const CardFields = (props: {
   row: CollectionRow;
   properties: CollectionProperty[];
-}) => (
-  <Show
-    when={props.properties.some(
-      (p) => !isEmptyValue(readValue(props.row, p)) || p.kind === "checkbox",
-    )}
-  >
-    <div class={list}>
-      <For each={props.properties}>
-        {(property) => (
-          <Show
-            when={
-              !isEmptyValue(readValue(props.row, property)) ||
-              property.kind === "checkbox"
-            }
-          >
-            <div class={line} title={property.name}>
-              <ValueDisplay
-                property={property}
-                value={readValue(props.row, property)}
-                wrap
-              />
-            </div>
-          </Show>
-        )}
-      </For>
-    </div>
-  </Show>
-);
+  showEmpty?: boolean;
+}) => {
+  const empty = (p: CollectionProperty) =>
+    isEmptyValue(readValue(props.row, p)) && p.kind !== "checkbox";
+  const shown = () =>
+    props.showEmpty
+      ? props.properties
+      : props.properties.filter((p) => !empty(p));
+  return (
+    <Show when={shown().length > 0}>
+      <div class={list}>
+        <For each={shown()}>
+          {(property) => {
+            const labelled = () => !selfDescribing(property) || empty(property);
+            return (
+              <>
+                <Show when={labelled()}>
+                  <span class={label}>{property.name}</span>
+                </Show>
+                <div class={value} data-full={labelled() ? undefined : ""}>
+                  <ValueDisplay
+                    property={property}
+                    value={readValue(props.row, property)}
+                    placeholder="—"
+                    wrap
+                  />
+                </div>
+              </>
+            );
+          }}
+        </For>
+      </div>
+    </Show>
+  );
+};
