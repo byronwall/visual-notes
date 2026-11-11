@@ -1,8 +1,7 @@
-import { Match, Switch } from "solid-js";
+import { type JSX, Match, Show, Switch } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionView } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
-import { CollectionTable } from "./table/CollectionTable";
 import { CollectionToolbar } from "./views/CollectionToolbar";
 import { CollectionBoard } from "./board/CollectionBoard";
 import {
@@ -13,12 +12,22 @@ import {
 } from "./views/ViewSettings";
 import { CollectionGallery } from "./gallery/CollectionGallery";
 import { CollectionCalendar } from "./calendar/CollectionCalendar";
+import { ListModeToggle } from "./list/ListModeToggle";
+import { TableOrList } from "./list/TableOrList";
+import { createListMode } from "./list/useListMode";
 
 const stack = css({ display: "flex", flexDirection: "column", gap: "2" });
 
 /** Toolbar plus the view body, by type. Shared by collection pages and note embeds. */
-export const CollectionViewHost = (props: { view: CollectionView }) => {
+export const CollectionViewHost = (props: {
+  view: CollectionView;
+  /** Passed to the toolbar's slot before New (save state, layout toggle). */
+  toolbarTrailing?: JSX.Element;
+}) => {
   const { store, openRow } = useCollection();
+  const listMode = createListMode();
+  const isTable = () =>
+    !["board", "gallery", "calendar"].includes(props.view.type);
   // The table and board take the new name in place. Gallery and calendar have
   // no name field, so their row opens in the peek panel.
   let addInView: (() => void) | undefined;
@@ -35,6 +44,14 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
       <CollectionToolbar
         view={props.view}
         onNew={() => void onNew()}
+        trailing={
+          <>
+            {props.toolbarTrailing}
+            <Show when={isTable()}>
+              <ListModeToggle state={listMode} />
+            </Show>
+          </>
+        }
         settings={
           <Switch>
             <Match when={props.view.type === "board"}>
@@ -56,18 +73,13 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
       />
       <Switch
         fallback={
-          <CollectionTable
+          <TableOrList
             view={props.view}
+            state={listMode}
             addRef={(add) => (addInView = add)}
           />
         }
       >
-        <Match when={props.view.type === "table"}>
-          <CollectionTable
-            view={props.view}
-            addRef={(add) => (addInView = add)}
-          />
-        </Match>
         <Match when={props.view.type === "board"}>
           <CollectionBoard
             view={props.view}

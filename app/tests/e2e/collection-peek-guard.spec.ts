@@ -23,8 +23,12 @@ const openGuardedRow = async (page: Page) => {
   await page.getByLabel("Edit name").press("Enter");
 };
 
+/** The row's name button, which opens the record in the peek panel. */
+const rowName = (page: Page, row: string) =>
+  page.locator("[data-row-id]").getByRole("button", { name: row, exact: true });
+
 const openPeek = async (page: Page) => {
-  await page.getByRole("button", { name: "Open Guarded row" }).click();
+  await rowName(page, "Guarded row").click();
   const editor = page.locator("[data-side-panel-scroll] .ProseMirror");
   await editor.waitFor();
   return editor;

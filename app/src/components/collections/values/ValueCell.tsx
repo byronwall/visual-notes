@@ -1,7 +1,15 @@
 import { ChevronDownIcon } from "lucide-solid";
-import { Match, Show, Switch, createEffect, createSignal, on } from "solid-js";
+import {
+  Match,
+  Show,
+  Switch,
+  createEffect,
+  createSignal,
+  on,
+  onCleanup,
+} from "solid-js";
 import { css, cx } from "styled-system/css";
-import { SimplePopover } from "~/components/ui/simple-popover";
+import { LazyPopover } from "../LazyPopover";
 import type {
   CollectionProperty,
   CollectionRow,
@@ -11,16 +19,26 @@ import type {
 import {
   isComputedKind,
   isDateValue,
-  parseLooseText,
+  numberDraft,
+  parseNumberDraft,
   readValue,
 } from "~/lib/collections/values";
 import type { CollectionStore } from "../store/createCollectionStore";
 import { DateEditor } from "./DateEditor";
+import { type EditEnd, InlineEditor } from "./InlineEditor";
 import { OptionPicker } from "./OptionPicker";
 import { RatingStars } from "./RatingStars";
 import { ValueDisplay } from "./ValueDisplay";
+import {
+  emptyPrompt,
+  isInlineKind,
+  isPlainText,
+  isPopoverKind,
+  isRating,
+} from "./valueKinds";
 import { fitContent } from "../popover-styles";
-import { noAutofill } from "~/components/ui/no-autofill";
+
+const INVALID_FLASH_MS = 2000;
 
 const base = css({
   display: "flex",
@@ -31,32 +49,43 @@ const base = css({
   outline: "none",
   cursor: "default",
   position: "relative",
+  transitionProperty: "background-color, border-color, box-shadow",
+  transitionDuration: "140ms",
 });
-const cellVariant = css({ px: "2", minH: "8", fontSize: "sm" });
-// Fields read as form inputs: a soft resting fill sized to the value, an
-// outline on hover, and the full column while typing.
-const fieldVariant = css({
-  gap: "1.5",
-  w: "fit-content",
-  minW: "44",
-  maxW: "full",
+const cellVariant = css({
   px: "2",
   minH: "8",
+  fontSize: "sm",
+  "&[data-invalid]": {
+    bg: "red.a2",
+    boxShadow: "inset 0 0 0 2px token(colors.red.a7)",
+  },
+});
+// Fields read as form inputs: a soft resting fill across the value column,
+// an outline on hover, and an accent outline while typing.
+const fieldVariant = css({
+  gap: "1.5",
+  px: "2",
+  minH: "8",
+  h: "auto",
   fontSize: "sm",
   borderRadius: "l2",
   borderWidth: "1px",
   borderColor: "transparent",
   bg: "gray.a2",
-  transitionProperty: "background-color, border-color",
-  transitionDuration: "140ms",
   "[data-property-line]:hover &": { bg: "bg.default", borderColor: "border" },
   "&[data-readonly]": { bg: "transparent", borderColor: "transparent" },
   _focusVisible: { bg: "bg.default", borderColor: "border.accent" },
   "&[data-open]": { bg: "bg.default", borderColor: "border" },
-  "&[data-editing]": { w: "full", maxW: "28rem" },
-  // Narrow lists (phones, the peek panel): fields fill the value column.
-  "@container (max-width: 30rem)": { w: "full", minW: "0" },
+  "&[data-multiline][data-editing]": {
+    bg: "bg.default",
+    borderColor: "border.accent",
+  },
+  "&[data-invalid]": { bg: "red.a2", borderColor: "red.a7" },
   "&:focus-visible [data-chevron]": { opacity: "1" },
+  // Touch screens edit at 16px (see global-css), so values show at 16px too
+  // and nothing reflows when editing starts.
+  "@media (pointer: coarse)": { fontSize: "md" },
 });
 // Spans the field's padding so pickers line up with its outer edge.
 const fieldAnchor = css({
@@ -74,57 +103,14 @@ const chevron = css({
   transitionProperty: "opacity",
   transitionDuration: "140ms",
   "[data-property-line]:hover &": { opacity: "1" },
+  "@media (hover: none)": { opacity: "1" },
 });
 const editable = css({ cursor: "pointer" });
-const inlineInput = css({
-  position: "absolute",
-  inset: "0",
-  w: "full",
-  px: "2",
-  fontSize: "sm",
-  bg: "bg.default",
-  outline: "none",
-  boxShadow: "inset 0 0 0 2px token(colors.border.accent)",
-  borderRadius: "l1",
-  zIndex: "1",
-});
-
-const isPopoverKind = (property: CollectionProperty) =>
-  property.kind === "select" ||
-  property.kind === "status" ||
-  property.kind === "multi_select" ||
-  property.kind === "date";
-
-/** What an empty field offers to do, so blank values still read as inputs. */
-const emptyPrompt = (property: CollectionProperty) => {
-  if (isComputedKind(property.kind)) return "—";
-  switch (property.kind) {
-    case "select":
-    case "status":
-      return "Choose…";
-    case "multi_select":
-      return "Add…";
-    case "date":
-      return "Pick a date";
-    case "number":
-      return property.config.format === "currency"
-        ? "Add amount"
-        : "Add number";
-    default:
-      if (property.config.format === "url") return "Add link";
-      if (property.config.format === "email") return "Add email";
-      if (property.config.format === "phone") return "Add phone";
-      return "Add text";
-  }
-};
-
-const isInlineKind = (property: CollectionProperty) =>
-  (property.kind === "text" || property.kind === "number") &&
-  property.config.format !== "rating";
 
 /**
  * One editable value: a table cell (`cell`) or a property-list field
  * (`field`). Text and numbers edit in place; options and dates open a picker.
+ * With `wrap`, a field shows plain text on as many lines as it needs.
  */
 export const ValueCell = (props: {
   property: CollectionProperty;
@@ -140,69 +126,72 @@ export const ValueCell = (props: {
 }) => {
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal("");
+  const [error, setError] = createSignal<string | null>(null);
+  const [flash, setFlash] = createSignal(false);
   let root: HTMLDivElement | undefined;
+  let flashTimer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(flashTimer));
+
   const value = () => readValue(props.row, props.property);
   const readOnly = () => isComputedKind(props.property.kind);
+  const isField = () => props.variant === "field";
+  const multiline = () =>
+    isField() && Boolean(props.wrap) && isPlainText(props.property);
 
   const save = (next: PropertyValue) =>
     void props.store.setValues([props.row.id], { [props.property.id]: next });
 
+  const shownText = () =>
+    props.property.kind === "number"
+      ? numberDraft(props.property.config, value())
+      : String(value() ?? "");
+
   const start = (initial?: string) => {
-    if (readOnly()) return;
+    if (readOnly() || isRating(props.property)) return;
     if (props.property.kind === "checkbox") {
       save(value() === true ? null : true);
       return;
     }
-    if (
-      props.property.kind === "number" &&
-      props.property.config.format === "rating"
-    )
-      return;
-    if (isInlineKind(props.property)) {
-      const current = value();
-      const shown =
-        props.property.kind === "number" && typeof current === "number"
-          ? String(
-              props.property.config.format === "percent" ||
-                props.property.config.format === "progress"
-                ? Number((current * 100).toFixed(6))
-                : current,
-            )
-          : String(current ?? "");
-      setDraft(initial ?? shown);
-    }
+    if (isInlineKind(props.property)) setDraft(initial ?? shownText());
+    setError(null);
     setEditing(true);
   };
 
-  // `refocus` is false when the user clicked elsewhere: focus belongs there.
-  const finish = (
-    reason: "commit" | "cancel" | "tab" | "shift-tab",
-    refocus = true,
-  ) => {
+  const flashInvalid = () => {
+    clearTimeout(flashTimer);
+    setFlash(true);
+    flashTimer = setTimeout(() => setFlash(false), INVALID_FLASH_MS);
+  };
+
+  // A blur means the user clicked elsewhere, so focus stays where it went.
+  const finish = (reason: EditEnd) => {
     if (!editing()) return;
-    setEditing(false);
+    const blur = reason === "blur";
+    let next: { value: PropertyValue } | null = null;
     if (reason !== "cancel" && isInlineKind(props.property)) {
       const text = draft();
       if (props.property.kind === "number") {
-        const pct =
-          props.property.config.format === "percent" ||
-          props.property.config.format === "progress";
-        const parsed = parseLooseText(props.property, text);
-        if (!parsed.failed) {
-          const next =
-            typeof parsed.value === "number" &&
-            pct &&
-            !text.trim().endsWith("%")
-              ? parsed.value / 100
-              : parsed.value;
-          if (next !== value()) save(next);
+        const parsed = parseNumberDraft(props.property, text);
+        if ("error" in parsed) {
+          // Keep the editor open so the user can fix it. A blur cannot keep
+          // focus, so it reverts and marks the cell instead.
+          if (!blur) return void setError(parsed.error);
+          setEditing(false);
+          setError(null);
+          flashInvalid();
+          props.onEditEnd?.("cancel");
+          return;
         }
+        if (parsed.value !== value()) next = { value: parsed.value };
       } else if (text !== (value() ?? "")) {
-        save(text.trim() ? text : null);
+        next = { value: text.trim() ? text : null };
       }
     }
-    if (refocus) queueMicrotask(() => root?.focus());
-    props.onEditEnd?.(reason);
+    setEditing(false);
+    setError(null);
+    if (next) save(next.value);
+    if (!blur) queueMicrotask(() => root?.focus());
+    props.onEditEnd?.(blur ? "commit" : reason);
   };
 
   createEffect(
@@ -237,9 +226,10 @@ export const ValueCell = (props: {
       !e.altKey &&
       isInlineKind(props.property)
     ) {
-      // Typing on a focused cell replaces its value, like a spreadsheet.
+      // Typing on a focused cell replaces its value, like a spreadsheet. A
+      // field adds to its value instead, so a stray key keeps long text.
       e.preventDefault();
-      start(e.key);
+      start(isField() ? shownText() + e.key : e.key);
     }
   };
 
@@ -252,22 +242,17 @@ export const ValueCell = (props: {
           property={props.property}
           value={value()}
           wrap={props.wrap}
-          placeholder={
-            props.variant === "field" ? emptyPrompt(props.property) : undefined
-          }
-          linkOpens={props.variant === "field" ? "button" : "text"}
+          multiline={multiline()}
+          placeholder={isField() ? emptyPrompt(props.property) : undefined}
+          linkOpens={isField() ? "button" : "text"}
         />
       }
     >
-      <Match
-        when={
-          props.property.kind === "number" &&
-          props.property.config.format === "rating"
-        }
-      >
+      <Match when={isRating(props.property)}>
         <RatingStars
           value={Number(value()) || 0}
           max={props.property.config.ratingMax ?? 5}
+          label={props.property.name}
           onChange={(n) => save(n)}
         />
       </Match>
@@ -282,7 +267,7 @@ export const ValueCell = (props: {
       }}
       class={cx(
         base,
-        props.variant === "field" ? fieldVariant : cellVariant,
+        isField() ? fieldVariant : cellVariant,
         !readOnly() && editable,
       )}
       tabIndex={0}
@@ -290,6 +275,8 @@ export const ValueCell = (props: {
       data-editing={editing() && isInlineKind(props.property) ? "" : undefined}
       data-open={editing() ? "" : undefined}
       data-readonly={readOnly() ? "" : undefined}
+      data-multiline={multiline() ? "" : undefined}
+      data-invalid={flash() ? "" : undefined}
       data-property-id={props.property.id}
       aria-label={props.property.name}
       onKeyDown={onKeyDown}
@@ -297,10 +284,13 @@ export const ValueCell = (props: {
         if (!editing()) start();
       }}
     >
-      <Show when={isPopoverKind(props.property)} fallback={display()}>
-        <SimplePopover
+      <Show
+        when={isPopoverKind(props.property)}
+        fallback={<Show when={!(editing() && multiline())}>{display()}</Show>}
+      >
+        <LazyPopover
           open={editing()}
-          onClose={() => finish("commit", false)}
+          onClose={() => finish("blur")}
           placement="bottom-start"
           offset={4}
           class={fitContent}
@@ -312,12 +302,12 @@ export const ValueCell = (props: {
               alignItems: "center",
               minH: "6",
             }),
-            props.variant === "field" && fieldAnchor,
+            isField() && fieldAnchor,
           )}
           anchor={
             <>
               {display()}
-              <Show when={props.variant === "field"}>
+              <Show when={isField()}>
                 <ChevronDownIcon size={14} class={chevron} data-chevron="" />
               </Show>
             </>
@@ -344,13 +334,13 @@ export const ValueCell = (props: {
               onDone={() => finish("commit")}
             />
           </Show>
-        </SimplePopover>
+        </LazyPopover>
       </Show>
       <Show when={editing() && isInlineKind(props.property)}>
-        <input
-          {...noAutofill}
-          class={inlineInput}
+        <InlineEditor
           value={draft()}
+          multiline={multiline()}
+          label={props.property.name}
           inputMode={
             props.property.kind === "number"
               ? "decimal"
@@ -358,33 +348,14 @@ export const ValueCell = (props: {
                 ? "email"
                 : undefined
           }
-          placeholder={
-            props.variant === "field" ? emptyPrompt(props.property) : undefined
-          }
-          aria-label={`Edit ${props.property.name}`}
-          ref={(el) =>
-            queueMicrotask(() => {
-              el.focus();
-              const end = el.value.length;
-              el.setSelectionRange(end, end);
-            })
-          }
-          onClick={(e) => e.stopPropagation()}
-          onInput={(e) => setDraft(e.currentTarget.value)}
-          onBlur={() => finish("commit", false)}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") {
-              e.preventDefault();
-              finish("commit");
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              finish("cancel");
-            } else if (e.key === "Tab") {
-              e.preventDefault();
-              finish(e.shiftKey ? "shift-tab" : "tab");
-            }
+          placeholder={isField() ? emptyPrompt(props.property) : undefined}
+          error={error()}
+          anchor={root}
+          onInput={(text) => {
+            setDraft(text);
+            setError(null);
           }}
+          onEnd={finish}
         />
       </Show>
     </div>

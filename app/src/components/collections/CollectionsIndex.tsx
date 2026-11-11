@@ -7,12 +7,16 @@ import { useToasts } from "~/components/Toast";
 import { createCollection } from "~/services/collections/collections.actions";
 import type { CollectionListItem } from "~/services/collections/collections.queries";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { isCoarsePointer } from "./touch";
 
+// Wraps on phones: the create form drops under the heading at full width.
 const header = css({
   display: "flex",
+  flexWrap: "wrap",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "3",
+  columnGap: "3",
+  rowGap: "2",
   mb: "5",
 });
 const title = css({ fontSize: "2xl", fontWeight: "bold" });
@@ -51,6 +55,7 @@ const emptyState = css({
   borderColor: "border",
   borderRadius: "l3",
   maxW: "32rem",
+  "& form": { w: "full" },
 });
 const nameInput = css({
   h: "9",
@@ -60,11 +65,18 @@ const nameInput = css({
   borderRadius: "l2",
   bg: "bg.default",
   fontSize: "sm",
-  minW: "14rem",
+  flex: "1",
+  minW: "0",
   outline: "none",
   _focus: { borderColor: "border.accent" },
 });
-const form = css({ display: "flex", gap: "2", alignItems: "center" });
+const form = css({
+  display: "flex",
+  gap: "2",
+  alignItems: "center",
+  flex: "1 1 20rem",
+  maxW: "28rem",
+});
 
 /** The /collections page: every collection, plus creating a new one. */
 export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
@@ -103,7 +115,11 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
         placeholder="Collection name, e.g. Reading"
         aria-label="New collection name"
         value={name()}
-        ref={(el) => queueMicrotask(() => el.focus())}
+        // Only after "New collection", never on load, and never on touch,
+        // where focus opens the keyboard.
+        ref={(el) =>
+          creating() && !isCoarsePointer() && queueMicrotask(() => el.focus())
+        }
         onInput={(e) => setName(e.currentTarget.value)}
         onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
       />

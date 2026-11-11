@@ -1,5 +1,5 @@
-import { PanelRightOpenIcon } from "lucide-solid";
-import { Show, createSignal, untrack } from "solid-js";
+import { PencilIcon } from "lucide-solid";
+import { Show, createEffect, createSignal, on } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
@@ -15,36 +15,48 @@ const root = css({
   minH: "8",
   px: "2",
   outline: "none",
-  cursor: "text",
-  "& [data-open]": { opacity: "0" },
-  "&:hover [data-open], &:focus-within [data-open]": { opacity: "1" },
+  cursor: "default",
+  "& [data-rename]": { opacity: "0" },
+  "&:hover [data-rename], &:focus-within [data-rename]": { opacity: "1" },
+  // Touch screens view and navigate; a tap opens the record, so renaming
+  // happens in the peek panel and the pencil is hidden.
+  "@media (hover: none)": { "& [data-rename]": { display: "none" } },
 });
+// The name is the row's link: it opens the record in the peek panel.
+// A button so assistive tech and tests can reach it; out of the tab order,
+// since the cell is the grid's tab stop and Enter there opens the record.
 const title = css({
-  flex: "1",
+  display: "block",
   minW: "0",
+  maxW: "full",
+  textAlign: "left",
   fontSize: "sm",
   fontWeight: "medium",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+  cursor: "pointer",
+  transition: "color 140ms",
+  "@media (hover: hover)": {
+    _hover: { color: "fg.link" },
+    "&[data-untitled]:hover": { color: "fg.link" },
+  },
   "&[data-untitled]": { color: "fg.subtle", fontWeight: "normal" },
 });
-const openBtn = css({
+const renameBtn = css({
   display: "inline-flex",
   alignItems: "center",
-  gap: "1",
+  justifyContent: "center",
   flexShrink: "0",
+  ml: "auto",
+  w: "6",
   h: "6",
-  px: "1.5",
   borderRadius: "l1",
-  borderWidth: "1px",
-  borderColor: "border",
-  bg: "bg.default",
-  color: "fg.muted",
-  fontSize: "xs",
+  color: "fg.subtle",
   cursor: "pointer",
-  transition: "opacity 120ms",
+  transition: "opacity 140ms, color 140ms, background-color 140ms",
   _hover: { color: "fg.default", bg: "bg.muted" },
+  _active: { bg: "bg.emphasized" },
 });
 const input = css({
   position: "absolute",
@@ -59,7 +71,10 @@ const input = css({
   zIndex: "1",
 });
 
-/** The row's note title, editable in place, with an "Open" button for the peek panel. */
+/**
+ * The row's note title. Clicking it or pressing Enter opens the record; F2,
+ * typing, or the pencil button renames it in place.
+ */
 export const TitleCell = (props: {
   row: CollectionRow;
   autoEdit?: boolean;
@@ -67,15 +82,8 @@ export const TitleCell = (props: {
   onEditEnd?: (reason: "commit" | "cancel" | "tab" | "shift-tab") => void;
 }) => {
   const { store, openRow } = useCollection();
-  // Initial values only: a new row opens straight into editing its name.
-  const [editing, setEditing] = createSignal(
-    untrack(() => Boolean(props.autoEdit)),
-  );
-  const [draft, setDraft] = createSignal(
-    untrack(() =>
-      props.row.title === "Untitled" && props.autoEdit ? "" : props.row.title,
-    ),
-  );
+  const [editing, setEditing] = createSignal(false);
+  const [draft, setDraft] = createSignal("");
   let root$: HTMLDivElement | undefined;
   const untitled = () =>
     props.row.title === "Untitled" || !props.row.title.trim();
@@ -84,6 +92,16 @@ export const TitleCell = (props: {
     setDraft(initial ?? (untitled() ? "" : props.row.title));
     setEditing(true);
   };
+  // A new row opens straight into editing its name. The row can already be
+  // on screen when the table marks it, so react to the flag turning on.
+  createEffect(
+    on(
+      () => props.autoEdit,
+      (auto) => {
+        if (auto && !editing()) start();
+      },
+    ),
+  );
   const finish = (
     reason: "commit" | "cancel" | "tab" | "shift-tab",
     refocus = true,
@@ -106,13 +124,12 @@ export const TitleCell = (props: {
       data-cell=""
       data-property-id="title"
       aria-label="Name"
-      onClick={() => !editing() && start()}
       onKeyDown={(e) => {
-        if (editing()) return;
-        if (e.key === "Enter" || e.key === "F2") {
+        if (editing() || e.target !== e.currentTarget) return;
+        if (e.key === "F2") {
           e.preventDefault();
           start();
-        } else if (e.key === " " && e.shiftKey) {
+        } else if (e.key === "Enter" || (e.key === " " && e.shiftKey)) {
           e.preventDefault();
           openRow(props.row.id);
         } else if (
@@ -126,21 +143,31 @@ export const TitleCell = (props: {
         }
       }}
     >
-      <span class={title} data-untitled={untitled() ? "" : undefined}>
-        {untitled() ? "Untitled" : props.row.title}
-      </span>
       <button
         type="button"
-        class={openBtn}
-        data-open=""
-        aria-label={`Open ${props.row.title}`}
+        class={title}
+        tabIndex={-1}
+        data-title-link=""
+        data-untitled={untitled() ? "" : undefined}
+        // Keep focus where it is; the peek panel takes it next.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => !editing() && openRow(props.row.id)}
+      >
+        {untitled() ? "Untitled" : props.row.title}
+      </button>
+      <button
+        type="button"
+        class={renameBtn}
+        data-rename=""
+        tabIndex={-1}
+        aria-label={`Rename ${untitled() ? "Untitled" : props.row.title}`}
+        title="Rename (F2)"
         onClick={(e) => {
           e.stopPropagation();
-          openRow(props.row.id);
+          start();
         }}
       >
-        <PanelRightOpenIcon size={12} />
-        Open
+        <PencilIcon size={13} />
       </button>
       <Show when={editing()}>
         <input

@@ -1,24 +1,24 @@
 import { KanbanIcon, PlusIcon } from "lucide-solid";
 import { For, Index, Show, createMemo, createSignal } from "solid-js";
-import { css } from "styled-system/css";
+import { css, cx } from "styled-system/css";
 import {
   canGroupBy,
   groupRows,
   rankForDrop,
   type BoardGroup,
 } from "~/lib/collections/group";
-import {
-  applyView,
-  hasActiveSort,
-  orderedProperties,
-} from "~/lib/collections/query";
+import { hasActiveSort, orderedProperties } from "~/lib/collections/query";
 import type { CollectionRow, CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
-import { startPointerDrag } from "../drag/startPointerDrag";
+import { draggable, startPointerDrag } from "../drag/startPointerDrag";
 import { OptionChip } from "../values/OptionChip";
 import { CardFields } from "./CardFields";
+import { CardMenu, NONE } from "./CardMenu";
 import { noAutofill } from "~/components/ui/no-autofill";
 
+/** Below this container width a column fills most of it and snaps. */
+const NARROW = "@container (max-width: 639px)";
+const boardWrap = css({ containerType: "inline-size" });
 const board = css({
   display: "flex",
   gap: "3",
@@ -26,9 +26,12 @@ const board = css({
   pb: "3",
   alignItems: "flex-start",
   minH: "40",
+  [NARROW]: { scrollSnapType: "x mandatory", gap: "2" },
 });
 const column = css({
   flex: "0 0 17rem",
+  // On a phone the next column peeks in at the right edge.
+  [NARROW]: { flexBasis: "85cqi", scrollSnapAlign: "start" },
   display: "flex",
   flexDirection: "column",
   gap: "1.5",
@@ -46,6 +49,9 @@ const columnHead = css({
   fontSize: "sm",
 });
 const countCls = css({ color: "fg.subtle", fontSize: "xs" });
+// The "…" menu is a sibling of the card: a button inside role="button"
+// would be hidden from assistive tech.
+const cardShell = css({ position: "relative" });
 const card = css({
   display: "flex",
   flexDirection: "column",
@@ -57,11 +63,12 @@ const card = css({
   borderColor: "border",
   boxShadow: "xs",
   cursor: "pointer",
-  touchAction: "none",
   textAlign: "left",
   _hover: { borderColor: "border.emphasized" },
 });
 const cardTitle = css({
+  // Room for the "…" menu button in the corner.
+  pr: "6",
   fontSize: "sm",
   fontWeight: "medium",
   lineHeight: "1.35",
@@ -117,7 +124,6 @@ const primaryBtn = css({
   cursor: "pointer",
 });
 
-const NONE = "__none__";
 /** Cards rendered per column before "Show more" (large collections stay fast). */
 const COLUMN_PAGE = 50;
 
@@ -133,6 +139,7 @@ export const CollectionBoard = (props: {
   );
   const [draggingId, setDraggingId] = createSignal<string | null>(null);
   const [addingTo, setAddingTo] = createSignal<string | null>(null);
+  const [menuFor, setMenuFor] = createSignal<string | null>(null);
   const [limits, setLimits] = createSignal<Record<string, number>>({});
   const limitFor = (key: string) => limits()[key] ?? COLUMN_PAGE;
 
@@ -153,14 +160,7 @@ export const CollectionBoard = (props: {
     if (chosen) return all.filter((p) => chosen.includes(p.id));
     return all.filter((p) => p.id !== groupProperty()?.id).slice(0, 3);
   });
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const groups = createMemo<BoardGroup[]>(() => {
     const property = groupProperty();
     if (!property) return [];
@@ -220,6 +220,34 @@ export const CollectionBoard = (props: {
     void store.moveRow(row.id, after, before, patch);
   };
 
+  const columnOf = (key: string) =>
+    groups().find((g) => (g.key ?? NONE) === key)?.rows ?? [];
+
+  /** Menu "Move to": the card lands at the top of the target column. */
+  const moveTo = (row: CollectionRow, key: string) => {
+    const property = groupProperty();
+    if (!property) return;
+    const value = key === NONE ? null : key;
+    if ((row.properties[property.id] ?? null) === value) return;
+    const patch = { [property.id]: value };
+    if (hasActiveSort(props.view.config)) {
+      void store.setValues([row.id], patch);
+      return;
+    }
+    const { after, before } = rankForDrop(columnOf(key), 0);
+    void store.moveRow(row.id, after, before, patch);
+  };
+
+  /** Menu "Move up/down" within the card's column. */
+  const shift = (row: CollectionRow, key: string, delta: -1 | 1) => {
+    const col = columnOf(key);
+    const index = col.findIndex((r) => r.id === row.id) + delta;
+    const rest = col.filter((r) => r.id !== row.id);
+    if (index < 0 || index > rest.length) return;
+    const { after, before } = rankForDrop(rest, index);
+    void store.moveRow(row.id, after, before);
+  };
+
   const createIn = async (group: BoardGroup, title: string) => {
     const property = groupProperty();
     const last = group.rows[group.rows.length - 1];
@@ -253,143 +281,176 @@ export const CollectionBoard = (props: {
         </div>
       }
     >
-      <div class={board} data-board={props.view.id}>
-        <Index each={groups()}>
-          {(groupAt) => {
-            const group = () => groupAt();
-            const key = () => groupAt().key ?? NONE;
-            return (
-              <div
-                class={column}
-                data-board-column={key()}
-                data-over={drop()?.key === key() ? "" : undefined}
-              >
-                <div class={columnHead}>
-                  <Show
-                    when={group().option}
-                    fallback={
-                      <span class={countCls}>
-                        No {groupProperty()!.name.toLowerCase()}
-                      </span>
-                    }
-                  >
-                    {(option) => (
-                      <OptionChip
-                        option={option()}
-                        showDot={groupProperty()!.kind === "status"}
-                      />
-                    )}
-                  </Show>
-                  <span class={countCls}>{group().rows.length}</span>
-                </div>
-                <For each={group().rows.slice(0, limitFor(key()))}>
-                  {(row, i) => (
-                    <>
-                      <Show
-                        when={
-                          drop()?.key === key() &&
-                          drop()?.index === i() &&
-                          draggingId() !== row.id
-                        }
-                      >
-                        <div class={marker} />
-                      </Show>
-                      <div
-                        class={card}
-                        data-card-id={row.id}
-                        role="button"
-                        tabIndex={0}
-                        onPointerDown={(e) =>
-                          startPointerDrag(e, e.currentTarget, {
-                            onStart: () => {
-                              setDraggingId(row.id);
-                            },
-                            onMove: (x, y) => setDrop(locate(x, y)),
-                            onDrop: (x, y) => finishDrop(row, x, y),
-                            onCancel: () => {
-                              setDrop(null);
-                              setDraggingId(null);
-                            },
-                          })
-                        }
-                        onClick={() => openRow(row.id)}
-                        onKeyDown={(e) =>
-                          (e.key === "Enter" || e.key === " ") &&
-                          (e.preventDefault(), openRow(row.id))
-                        }
-                      >
-                        <span class={cardTitle}>{row.title || "Untitled"}</span>
-                        <CardFields row={row} properties={cardProperties()} />
-                      </div>
-                    </>
-                  )}
-                </For>
-                <Show
-                  when={
-                    drop()?.key === key() &&
-                    drop()!.index >=
-                      group()
-                        .rows.slice(0, limitFor(key()))
-                        .filter((r) => r.id !== draggingId()).length
-                  }
+      <div class={boardWrap}>
+        <div class={board} data-board={props.view.id}>
+          <Index each={groups()}>
+            {(groupAt) => {
+              const group = () => groupAt();
+              const key = () => groupAt().key ?? NONE;
+              return (
+                <div
+                  class={column}
+                  data-board-column={key()}
+                  data-over={drop()?.key === key() ? "" : undefined}
                 >
-                  <div class={marker} />
-                </Show>
-                <Show when={group().rows.length > limitFor(key())}>
-                  <button
-                    type="button"
-                    class={addBtn}
-                    onClick={() =>
-                      setLimits((l) => ({
-                        ...l,
-                        [key()]: limitFor(key()) + COLUMN_PAGE,
-                      }))
+                  <div class={columnHead}>
+                    <Show
+                      when={group().option}
+                      fallback={
+                        <span class={countCls}>
+                          No {groupProperty()!.name.toLowerCase()}
+                        </span>
+                      }
+                    >
+                      {(option) => (
+                        <OptionChip
+                          option={option()}
+                          showDot={groupProperty()!.kind === "status"}
+                        />
+                      )}
+                    </Show>
+                    <span class={countCls}>{group().rows.length}</span>
+                  </div>
+                  <For each={group().rows.slice(0, limitFor(key()))}>
+                    {(row, i) => (
+                      <>
+                        <Show
+                          when={
+                            drop()?.key === key() &&
+                            drop()?.index === i() &&
+                            draggingId() !== row.id
+                          }
+                        >
+                          <div class={marker} />
+                        </Show>
+                        <div
+                          class={cardShell}
+                          data-card-id={row.id}
+                          data-dragging={
+                            draggingId() === row.id ? "" : undefined
+                          }
+                        >
+                          <div
+                            class={cx(card, draggable)}
+                            role="button"
+                            tabIndex={0}
+                            onPointerDown={(e) =>
+                              startPointerDrag(e, e.currentTarget, {
+                                onStart: () => {
+                                  setDraggingId(row.id);
+                                },
+                                onMove: (x, y) => setDrop(locate(x, y)),
+                                onDrop: (x, y) => finishDrop(row, x, y),
+                                onCancel: () => {
+                                  setDrop(null);
+                                  setDraggingId(null);
+                                },
+                                onLongPress: () => setMenuFor(row.id),
+                              })
+                            }
+                            onClick={() => openRow(row.id)}
+                            onKeyDown={(e) =>
+                              (e.key === "Enter" || e.key === " ") &&
+                              (e.preventDefault(), openRow(row.id))
+                            }
+                          >
+                            <span class={cardTitle}>
+                              {row.title || "Untitled"}
+                            </span>
+                            <CardFields
+                              row={row}
+                              properties={cardProperties()}
+                              showEmpty={Boolean(
+                                props.view.config.cardProperties,
+                              )}
+                            />
+                          </div>
+                          <CardMenu
+                            open={menuFor() === row.id}
+                            onOpenChange={(open) =>
+                              setMenuFor(open ? row.id : null)
+                            }
+                            groups={groups()}
+                            property={groupProperty()!}
+                            currentKey={key()}
+                            canReorder={!hasActiveSort(props.view.config)}
+                            isFirst={i() === 0}
+                            isLast={i() === group().rows.length - 1}
+                            onOpenRow={() => openRow(row.id)}
+                            onMoveTo={(k) => moveTo(row, k)}
+                            onShift={(d) => shift(row, key(), d)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </For>
+                  <Show
+                    when={
+                      drop()?.key === key() &&
+                      drop()!.index >=
+                        group()
+                          .rows.slice(0, limitFor(key()))
+                          .filter((r) => r.id !== draggingId()).length
                     }
                   >
-                    Show{" "}
-                    {Math.min(
-                      COLUMN_PAGE,
-                      group().rows.length - limitFor(key()),
-                    )}{" "}
-                    more
-                  </button>
-                </Show>
-                <Show
-                  when={addingTo() === key()}
-                  fallback={
+                    <div class={marker} />
+                  </Show>
+                  <Show when={group().rows.length > limitFor(key())}>
                     <button
                       type="button"
                       class={addBtn}
-                      onClick={() => setAddingTo(key())}
+                      onClick={() =>
+                        setLimits((l) => ({
+                          ...l,
+                          [key()]: limitFor(key()) + COLUMN_PAGE,
+                        }))
+                      }
                     >
-                      <PlusIcon size={14} /> New
+                      Show{" "}
+                      {Math.min(
+                        COLUMN_PAGE,
+                        group().rows.length - limitFor(key()),
+                      )}{" "}
+                      more
                     </button>
-                  }
-                >
-                  <input
-                    {...noAutofill}
-                    class={newInput}
-                    placeholder="Name, then Enter"
-                    aria-label="New card name"
-                    ref={(el) => queueMicrotask(() => el.focus())}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                  </Show>
+                  <Show
+                    when={addingTo() === key()}
+                    fallback={
+                      <button
+                        type="button"
+                        class={addBtn}
+                        onClick={() => setAddingTo(key())}
+                      >
+                        <PlusIcon size={14} /> New
+                      </button>
+                    }
+                  >
+                    <input
+                      {...noAutofill}
+                      class={newInput}
+                      placeholder="Name, then Enter"
+                      aria-label="New card name"
+                      ref={(el) => queueMicrotask(() => el.focus())}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const title = e.currentTarget.value.trim();
+                          e.currentTarget.value = "";
+                          if (title) void createIn(group(), title);
+                        } else if (e.key === "Escape") setAddingTo(null);
+                      }}
+                      onBlur={(e) => {
                         const title = e.currentTarget.value.trim();
-                        e.currentTarget.value = "";
                         if (title) void createIn(group(), title);
-                      } else if (e.key === "Escape") setAddingTo(null);
-                    }}
-                    onBlur={(e) => {
-                      const title = e.currentTarget.value.trim();
-                      if (title) void createIn(group(), title);
-                      setAddingTo(null);
-                    }}
-                  />
-                </Show>
-              </div>
-            );
-          }}
-        </Index>
+                        setAddingTo(null);
+                      }}
+                    />
+                  </Show>
+                </div>
+              );
+            }}
+          </Index>
+        </div>
       </div>
     </Show>
   );

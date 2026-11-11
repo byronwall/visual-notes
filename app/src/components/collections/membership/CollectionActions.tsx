@@ -4,6 +4,7 @@ import {
   EllipsisIcon,
   FilePlusIcon,
   HistoryIcon,
+  PencilIcon,
   Trash2Icon,
 } from "lucide-solid";
 import { Show, createSignal } from "solid-js";
@@ -20,6 +21,7 @@ import { AddNotesDialog } from "./AddNotesDialog";
 const bar = css({
   display: "inline-flex",
   alignItems: "center",
+  flexShrink: "0",
   gap: "1",
   ml: "auto",
 });
@@ -32,15 +34,22 @@ const btn = css({
   borderRadius: "l2",
   fontSize: "sm",
   color: "fg.muted",
+  whiteSpace: "nowrap",
   cursor: "pointer",
+  transition: "color 140ms, background-color 140ms",
   _hover: { bg: "bg.muted", color: "fg.default" },
+  // Narrow page: icon only; the name stays in aria-label and title.
+  "@container colpage (max-width: 35rem)": {
+    px: "2",
+    "& [data-label]": { display: "none" },
+  },
 });
 
 /**
  * Page-level collection actions: add existing notes, always list rows in
  * Recent and on the notes index, delete the collection.
  */
-export const CollectionActions = () => {
+export const CollectionActions = (props: { onRename: () => void }) => {
   const { store } = useCollection();
   const navigate = useNavigate();
   const runDelete = useAction(deleteCollection);
@@ -51,8 +60,15 @@ export const CollectionActions = () => {
 
   return (
     <div class={bar}>
-      <button type="button" class={btn} onClick={() => setAdding(true)}>
-        <FilePlusIcon size={14} /> Add notes
+      <button
+        type="button"
+        class={btn}
+        aria-label="Add notes"
+        title="Add notes"
+        onClick={() => setAdding(true)}
+      >
+        <FilePlusIcon size={14} />
+        <span data-label>Add notes</span>
       </button>
       <SimplePopover
         class={fitContent}
@@ -64,6 +80,7 @@ export const CollectionActions = () => {
             type="button"
             class={btn}
             aria-label="Collection actions"
+            title="Collection actions"
             onClick={() => setMenu((v) => !v)}
           >
             <EllipsisIcon size={16} />
@@ -71,6 +88,15 @@ export const CollectionActions = () => {
         }
       >
         <div class={menuPanel}>
+          <MenuItem
+            icon={<PencilIcon size={14} />}
+            onClick={() => {
+              setMenu(false);
+              props.onRename();
+            }}
+          >
+            Rename collection
+          </MenuItem>
           <MenuItem
             icon={<HistoryIcon size={14} />}
             aria-pressed={store.state.collection.showRowsInRecent}

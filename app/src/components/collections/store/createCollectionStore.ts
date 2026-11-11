@@ -1,6 +1,18 @@
 import { useAction } from "@solidjs/router";
-import { batch, createEffect, createSignal, on } from "solid-js";
+import {
+  type Accessor,
+  batch,
+  createEffect,
+  createMemo,
+  createRoot,
+  createSignal,
+  getOwner,
+  on,
+  onCleanup,
+} from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
+import { type Cell, createWriteLog } from "~/lib/collections/optimistic";
+import { applyView, searchTexts } from "~/lib/collections/query";
 import { rankBetween } from "~/lib/collections/rank";
 import { useToasts } from "~/components/Toast";
 import type {
@@ -15,6 +27,7 @@ import type {
   ViewConfig,
   ViewType,
 } from "~/lib/collections/types";
+import { TITLE_PROPERTY_ID } from "~/lib/collections/types";
 import {
   createProperty,
   createRow,
@@ -32,6 +45,8 @@ import {
   updateProperty,
   updateView,
 } from "~/services/collections/collections.actions";
+
+export type ViewSaveState = "idle" | "saving" | "saved" | "error";
 
 export type CollectionState = {
   collection: CollectionBundle["collection"];
@@ -99,6 +114,27 @@ export function createCollectionStore(
       type: "error",
     });
   };
+  /** An error toast whose Retry button repeats the failed write. */
+  const retryToast = (title: string, message: string, retry: () => void) =>
+    show({
+      title,
+      message,
+      type: "error",
+      timeoutMs: 10000,
+      actionLabel: "Retry",
+      onClick: retry,
+    });
+  const fieldNames = (fields: string[]) => {
+    const names = fields.map((f) =>
+      f === TITLE_PROPERTY_ID
+        ? "Name"
+        : state.properties.find((p) => p.id === f)?.name ?? "the change",
+    );
+    return names.length > 2
+      ? `${names.length} properties`
+      : names.join(" and ");
+  };
+  const writes = createWriteLog();
 
   const run = {
     setValues: useAction(setRowProperties),
@@ -119,6 +155,11 @@ export function createCollectionStore(
   };
 
   const rowIndex = (id: string) => state.rows.findIndex((r) => r.id === id);
+  const rowById = (id: string) => state.rows.find((r) => r.id === id);
+  const valueAt = (rowId: string, field: string) =>
+    rowById(rowId)?.properties[field];
+  const titleAt = (rowId: string) => rowById(rowId)?.title;
+  const rankAt = (rowId: string) => rowById(rowId)?.rank;
   const snapshotRows = (ids: string[]) =>
     ids
       .map((id) => state.rows.find((r) => r.id === id))
@@ -137,18 +178,105 @@ export function createCollectionStore(
     );
 
   const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const [viewSaves, setViewSaves] = createSignal<Record<string, ViewSaveState>>(
+    {},
+  );
+  const setViewSave = (viewId: string, value: ViewSaveState) =>
+    setViewSaves((prev) => ({ ...prev, [viewId]: value }));
+  // Only the newest save of a view may set its state.
+  const viewSaveSeq = new Map<string, number>();
+  const saveViewConfig = async (viewId: string) => {
+    viewSaveTimers.delete(viewId);
+    const view = state.views.find((v) => v.id === viewId);
+    if (!view) return;
+    const seq = (viewSaveSeq.get(viewId) ?? 0) + 1;
+    viewSaveSeq.set(viewId, seq);
+    const latest = () =>
+      viewSaveSeq.get(viewId) === seq && !viewSaveTimers.has(viewId);
+    setViewSave(viewId, "saving");
+    try {
+      await run.updateView({ id: viewId, config: clone(view.config) });
+      if (!latest()) return;
+      setViewSave(viewId, "saved");
+      setTimeout(() => {
+        if (latest() && viewSaves()[viewId] === "saved")
+          setViewSave(viewId, "idle");
+      }, 1600);
+    } catch (error) {
+      console.warn("[collections] view save failed", error);
+      if (latest()) setViewSave(viewId, "error");
+    }
+  };
+  // Leaving the page must not drop a change still waiting to save.
+  onCleanup(() => {
+    for (const viewId of [...viewSaveTimers.keys()]) {
+      clearTimeout(viewSaveTimers.get(viewId));
+      void saveViewConfig(viewId);
+    }
+  });
   // Quick search is per view and per visit; it is not saved with the view.
   const [searches, setSearches] = createSignal<Record<string, string>>({});
   // Bumped when a row's note body may have changed (e.g. the peek closed), so
   // card covers and previews refetch.
   const [contentVersion, setContentVersion] = createSignal(0);
 
+  // While any view is searched, each row's searchable text is formatted once
+  // and reused by every keystroke. An edit rebuilds it.
+  const searching = createMemo(() => Object.values(searches()).some(Boolean));
+  const texts = createMemo(() =>
+    searching()
+      ? new Map(
+          state.rows.map((r) => [r, searchTexts(r, state.properties)] as const),
+        )
+      : null,
+  );
+  const textsOf = (row: CollectionRow, properties: CollectionProperty[]) =>
+    texts()?.get(row) ?? searchTexts(row, properties);
+
+  // One filtered, searched, sorted list per view, shared by the page count,
+  // the view body, and the record panel's Previous/Next.
+  // Each memo lives in its own root, so a view that leaves the collection
+  // stops recomputing on every edit.
+  const owner = getOwner();
+  const viewRowsCache = new Map<
+    string,
+    {
+      view: CollectionView;
+      rows: Accessor<CollectionRow[]>;
+      dispose: () => void;
+    }
+  >();
+  const dropViewRows = (id: string) => {
+    viewRowsCache.get(id)?.dispose();
+    viewRowsCache.delete(id);
+  };
+  createEffect(() => {
+    const ids = new Set(state.views.map((v) => v.id));
+    for (const id of [...viewRowsCache.keys()])
+      if (!ids.has(id)) dropViewRows(id);
+  });
+  onCleanup(() => {
+    for (const id of [...viewRowsCache.keys()]) dropViewRows(id);
+  });
+
   const api = {
     state,
 
     async setValues(rowIds: string[], patch: Record<string, PropertyValue>) {
       if (!rowIds.length) return;
-      const snap = snapshotRows(rowIds);
+      const cells: Cell<PropertyValue>[] = [];
+      for (const id of rowIds) {
+        const row = state.rows.find((r) => r.id === id);
+        if (!row) continue;
+        for (const [field, value] of Object.entries(patch))
+          cells.push({
+            rowId: id,
+            field,
+            prev: clone(row.properties[field]),
+            next: value ?? undefined,
+          });
+      }
+      const seq = writes.begin(cells);
       setState(
         produce((s) => {
           for (const row of s.rows) {
@@ -175,8 +303,40 @@ export function createCollectionStore(
           }),
         );
       } catch (error) {
-        restoreRows(snap);
-        fail("Couldn't save the change", error);
+        const undo = writes.rollback(seq, cells, valueAt);
+        console.warn("[collections] value save failed", error);
+        if (!undo.length) return;
+        setState(
+          produce((s) => {
+            for (const c of undo) {
+              const row = s.rows.find((r) => r.id === c.rowId);
+              if (!row) continue;
+              if (c.prev === undefined) delete row.properties[c.field];
+              else row.properties[c.field] = c.prev;
+            }
+          }),
+        );
+        // Retry only what was undone, so it can't overwrite a newer edit.
+        const fields = [...new Set(undo.map((c) => c.field))];
+        const rows = [...new Set(undo.map((c) => c.rowId))];
+        // Each row resends only its own undone fields: another row's field
+        // may have a newer edit that this retry must not overwrite.
+        const retry = () => {
+          for (const rowId of rows) {
+            const own = undo.filter((c) => c.rowId === rowId);
+            void api.setValues(
+              [rowId],
+              Object.fromEntries(own.map((c) => [c.field, patch[c.field]!])),
+            );
+          }
+        };
+        retryToast(
+          `Couldn't save ${fieldNames(fields)}`,
+          rows.length > 1
+            ? `${rows.length} rows went back to their earlier values.`
+            : "It went back to its earlier value.",
+          retry,
+        );
       }
     },
 
@@ -186,13 +346,22 @@ export function createCollectionStore(
       const previous = state.rows[i]!.title;
       const next = title.trim() || "Untitled";
       if (next === previous) return;
+      const cells = [{ rowId, field: TITLE_PROPERTY_ID, prev: previous, next }];
+      const seq = writes.begin(cells);
       setState("rows", i, "title", next);
       try {
         const result = await run.setTitle({ docId: rowId, title: next });
         setState("rows", (r) => r.id === rowId, "updatedAt", result.updatedAt);
       } catch (error) {
+        console.warn("[collections] title save failed", error);
+        const undo = writes.rollback(seq, cells, titleAt);
+        if (!undo.length) return;
         setState("rows", (r) => r.id === rowId, "title", previous);
-        fail("Couldn't rename the row", error);
+        retryToast(
+          "Couldn't rename the row",
+          `It went back to “${previous}”.`,
+          () => void api.setTitle(rowId, next),
+        );
       }
     },
 
@@ -252,7 +421,7 @@ export function createCollectionStore(
       beforeRank: string | null,
       patch?: Record<string, PropertyValue>,
     ) {
-      const snap = snapshotRows([rowId]);
+      const previous = state.rows.find((r) => r.id === rowId)?.rank;
       let rank: string;
       try {
         rank = rankBetween(afterRank, beforeRank);
@@ -260,6 +429,8 @@ export function createCollectionStore(
         rank = rankBetween(afterRank, null);
         beforeRank = null;
       }
+      const cells = [{ rowId, field: "@rank", prev: previous, next: rank }];
+      const seq = writes.begin(cells);
       setState("rows", (r) => r.id === rowId, "rank", rank);
       if (patch) void api.setValues([rowId], patch);
       try {
@@ -269,10 +440,12 @@ export function createCollectionStore(
           afterRank,
           beforeRank,
         });
-        if (result.rank !== rank)
+        if (result.rank !== rank && rankAt(rowId) === rank)
           setState("rows", (r) => r.id === rowId, "rank", result.rank);
       } catch (error) {
-        restoreRows(snap);
+        // A newer move owns the rank now, so this failure changed nothing.
+        if (!previous || !writes.rollback(seq, cells, rankAt).length) return;
+        setState("rows", (r) => r.id === rowId, "rank", previous);
         fail("Couldn't move the row", error);
       }
     },
@@ -404,44 +577,81 @@ export function createCollectionStore(
       setSearches((prev) => ({ ...prev, [viewId]: value }));
     },
 
+    /** The view's rows after its filter, search, and sort. */
+    viewRows(view: CollectionView): CollectionRow[] {
+      let hit = viewRowsCache.get(view.id);
+      if (hit?.view !== view) {
+        dropViewRows(view.id);
+        hit = createRoot((dispose) => {
+          const rows = createMemo(() =>
+            applyView(
+              state.rows,
+              state.properties,
+              api.effectiveConfig(view),
+              state.today,
+              textsOf,
+            ),
+          );
+          return { view, rows, dispose };
+        }, owner);
+        viewRowsCache.set(view.id, hit);
+      }
+      return hit.rows();
+    },
+
     /** The view's saved config plus its transient search. */
     effectiveConfig(view: CollectionView): ViewConfig {
       const search = searches()[view.id];
       return search ? { ...view.config, search } : view.config;
     },
 
-    /** Updates a view's config locally now and saves it shortly after. */
+    /**
+     * Updates a view's config locally now and saves it shortly after. The
+     * toolbar shows the save state; a failed save keeps the local config.
+     */
     patchViewConfig(viewId: string, patch: Partial<ViewConfig>) {
       const i = state.views.findIndex((v) => v.id === viewId);
       if (i < 0) return;
       setState("views", i, "config", (config) => ({ ...config, ...patch }));
+      setViewSave(viewId, "saving");
       clearTimeout(viewSaveTimers.get(viewId));
       viewSaveTimers.set(
         viewId,
-        setTimeout(() => {
-          const view = state.views.find((v) => v.id === viewId);
-          if (!view) return;
-          run
-            .updateView({ id: viewId, config: clone(view.config) })
-            .catch((error) => fail("Couldn't save the view", error));
-        }, 400),
+        setTimeout(() => void saveViewConfig(viewId), 400),
       );
     },
 
+    /** "saving" also covers the short wait before the save starts. */
+    viewSaveState(viewId: string): ViewSaveState {
+      return viewSaves()[viewId] ?? "idle";
+    },
+
+    /** Saves the view's latest local config now. */
+    retryViewSave(viewId: string) {
+      clearTimeout(viewSaveTimers.get(viewId));
+      void saveViewConfig(viewId);
+    },
+
     async renameView(viewId: string, name: string) {
+      const previous = api.view(viewId)?.name;
       setState("views", (v) => v.id === viewId, "name", name);
       try {
         await run.updateView({ id: viewId, name });
       } catch (error) {
+        if (previous !== undefined && api.view(viewId)?.name === name)
+          setState("views", (v) => v.id === viewId, "name", previous);
         fail("Couldn't rename the view", error);
       }
     },
 
     async setViewType(viewId: string, type: ViewType) {
+      const previous = api.view(viewId)?.type;
       setState("views", (v) => v.id === viewId, "type", type);
       try {
         await run.updateView({ id: viewId, type });
       } catch (error) {
+        if (previous && api.view(viewId)?.type === type)
+          setState("views", (v) => v.id === viewId, "type", previous);
         fail("Couldn't change the view", error);
       }
     },

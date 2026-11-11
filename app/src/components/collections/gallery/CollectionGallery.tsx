@@ -1,7 +1,7 @@
-import { ImageIcon, PlusIcon } from "lucide-solid";
+import { PlusIcon } from "lucide-solid";
 import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import { applyView, orderedProperties } from "~/lib/collections/query";
+import { orderedProperties } from "~/lib/collections/query";
 import type { CollectionRow, CollectionView } from "~/lib/collections/types";
 import { fetchNoteSummaries } from "~/services/collections/collections.queries";
 import { CardFields } from "../board/CardFields";
@@ -13,6 +13,8 @@ const grid = css({
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(15rem, 1fr))",
   gap: "3",
+  // Text-first cards keep their own height next to cards with covers.
+  alignItems: "start",
 });
 const card = css({
   display: "flex",
@@ -61,6 +63,7 @@ const preview = css({
   color: "fg.muted",
   lineHeight: "1.45",
   lineClamp: "3",
+  "&[data-long]": { lineClamp: "6" },
 });
 const newCard = css({
   display: "flex",
@@ -107,14 +110,7 @@ export const CollectionGallery = (props: { view: CollectionView }) => {
     });
     return chosen ? all.filter((p) => chosen.includes(p.id)) : all.slice(0, 2);
   });
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
 
   const coverFor = (row: CollectionRow): string | null => {
     if (coverSource() === "none") return null;
@@ -147,18 +143,27 @@ export const CollectionGallery = (props: { view: CollectionView }) => {
               (e.preventDefault(), openRow(row.id))
             }
           >
-            <Show when={coverSource() !== "none"}>
-              <div class={cover}>
-                <Show when={coverFor(row)} fallback={<ImageIcon size={20} />}>
-                  {(src) => <img src={src()} alt="" loading="lazy" />}
-                </Show>
-              </div>
+            {/* No cover: a text-first card, with no empty image block. */}
+            <Show when={coverFor(row)}>
+              {(src) => (
+                <div class={cover}>
+                  <img src={src()} alt="" loading="lazy" />
+                </div>
+              )}
             </Show>
             <div class={body}>
               <span class={title}>{row.title || "Untitled"}</span>
-              <CardFields row={row} properties={cardProperties()} />
+              <CardFields
+                row={row}
+                properties={cardProperties()}
+                showEmpty={Boolean(props.view.config.cardProperties)}
+              />
               <Show when={summaries.latest?.[row.id]?.preview}>
-                {(text) => <p class={preview}>{text()}</p>}
+                {(text) => (
+                  <p class={preview} data-long={coverFor(row) ? undefined : ""}>
+                    {text()}
+                  </p>
+                )}
               </Show>
             </div>
           </div>

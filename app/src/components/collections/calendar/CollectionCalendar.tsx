@@ -2,17 +2,10 @@ import {
   CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  PlusIcon,
 } from "lucide-solid";
-import { For, Index, Show, createMemo, createSignal } from "solid-js";
+import { Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import {
-  layoutWeek,
-  monthGrid,
-  moveDate,
-  shiftMonth,
-} from "~/lib/collections/group";
-import { applyView } from "~/lib/collections/query";
+import { monthGrid, moveDate, shiftMonth } from "~/lib/collections/group";
 import type {
   CollectionProperty,
   CollectionRow,
@@ -27,11 +20,12 @@ import {
 import { optionColorVars } from "~/lib/collections/colors";
 import { useCollection } from "../CollectionContext";
 import { startPointerDrag } from "../drag/startPointerDrag";
+import { agendaDays } from "./agenda";
+import { CalendarAgenda } from "./CalendarAgenda";
+import { DateMenu, type DateMenuTarget } from "./DateMenu";
+import { MonthGrid } from "./MonthGrid";
+import { UndatedTray } from "./UndatedTray";
 
-const LANE_HEIGHT = 24;
-const DAY_HEADER = 26;
-const MIN_LANES = 3;
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
   "January",
   "February",
@@ -46,19 +40,31 @@ const MONTHS = [
   "November",
   "December",
 ];
+/** Below this container width the month grid becomes an agenda. */
+const NARROW = "@container (max-width: 639px)";
+const WIDE = "@container (min-width: 640px)";
 
-const shell = css({ display: "flex", flexDirection: "column", gap: "2" });
+const shell = css({
+  containerType: "inline-size",
+  display: "flex",
+  flexDirection: "column",
+  gap: "2",
+});
 const nav = css({ display: "flex", alignItems: "center", gap: "1" });
 const monthLabel = css({
   fontSize: "lg",
   fontWeight: "semibold",
   mr: "2",
+  // Fixed width so the arrows stay put as month names change.
   minW: "11rem",
+  whiteSpace: "nowrap",
+  [NARROW]: { fontSize: "md", minW: "8.5rem", mr: "0" },
 });
 const navBtn = css({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+  flexShrink: "0",
   h: "7",
   minW: "7",
   px: "1.5",
@@ -68,110 +74,46 @@ const navBtn = css({
   cursor: "pointer",
   _hover: { bg: "bg.muted", color: "fg.default" },
 });
-const grid = css({
-  borderWidth: "1px",
-  borderColor: "border",
-  borderRadius: "l2",
-  overflow: "hidden",
-});
-const weekdayRow = css({
-  display: "grid",
-  gridTemplateColumns: "repeat(7, 1fr)",
-  bg: "bg.subtle",
-  borderBottomWidth: "1px",
-  borderColor: "border",
-  "& > span": { px: "2", py: "1", fontSize: "xs", color: "fg.muted" },
-});
-const week = css({
-  position: "relative",
-  display: "grid",
-  gridTemplateColumns: "repeat(7, 1fr)",
-  "&:not(:last-child)": { borderBottomWidth: "1px", borderColor: "border" },
-});
-const day = css({
-  position: "relative",
-  borderRightWidth: "1px",
-  borderColor: "border",
-  "&:last-child": { borderRightWidth: "0" },
-  "&[data-out]": { bg: "bg.subtle" },
-  "&[data-over]": { bg: "blue.a3" },
-  "& [data-add]": { opacity: "0" },
-  "&:hover [data-add]": { opacity: "1" },
-});
-const dayNum = css({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  h: `${DAY_HEADER}px`,
-  px: "1.5",
-  fontSize: "xs",
+const undatedPill = css({
+  ml: "auto",
+  flexShrink: "0",
+  h: "7",
+  px: "2.5",
+  borderRadius: "full",
+  bg: "bg.muted",
   color: "fg.muted",
-  "&[data-today] span:first-child": {
-    bg: "red.9",
-    color: "white",
-    borderRadius: "full",
-    minW: "5",
-    h: "5",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "semibold",
-  },
-});
-const addBtn = css({
-  display: "inline-flex",
-  p: "0.5",
-  borderRadius: "l1",
-  color: "fg.subtle",
-  cursor: "pointer",
-  _hover: { bg: "bg.muted", color: "fg.default" },
-});
-const bar = css({
-  position: "absolute",
-  h: `${LANE_HEIGHT - 4}px`,
-  display: "flex",
-  alignItems: "center",
-  gap: "1",
-  px: "1.5",
-  borderRadius: "l1",
-  fontSize: "xs",
-  fontWeight: "medium",
-  overflow: "hidden",
+  fontSize: "sm",
   whiteSpace: "nowrap",
-  textOverflow: "ellipsis",
   cursor: "pointer",
-  touchAction: "none",
-  bg: "var(--chip-bg)",
-  color: "var(--chip-fg)",
-  _dark: { bg: "var(--chip-bg-dark)", color: "var(--chip-fg-dark)" },
-  _hover: { filter: "brightness(0.96)" },
-  "&[data-clip-start]": { borderLeftRadius: "0" },
-  "&[data-clip-end]": { borderRightRadius: "0" },
+  transitionProperty: "color, background-color",
+  transitionDuration: "140ms",
+  _hover: { color: "fg.default", bg: "bg.emphasized" },
+  "&[aria-expanded=true]": { bg: "bg.emphasized", color: "fg.default" },
 });
-const tray = css({
+// The tray sits beside the grid when there is room, so rows drag onto days.
+const body = css({
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  gap: "3",
+  alignItems: "start",
+  [WIDE]: { "&[data-tray]": { gridTemplateColumns: "minmax(0, 1fr) 17rem" } },
+});
+const trayCell = css({ [WIDE]: { gridColumn: "2", gridRow: "1" } });
+const mainCell = css({ minW: "0", [WIDE]: { gridColumn: "1", gridRow: "1" } });
+const onlyWide = css({ [NARROW]: { display: "none" } });
+const onlyNarrow = css({ [WIDE]: { display: "none" } });
+const emptyBox = css({
   display: "flex",
   flexDirection: "column",
-  gap: "1",
-  p: "2",
+  gap: "2",
+  p: "3",
   borderWidth: "1px",
   borderColor: "border",
   borderRadius: "l2",
   bg: "bg.subtle",
+  fontSize: "xs",
+  color: "fg.subtle",
 });
-const trayItem = css({
-  display: "flex",
-  alignItems: "center",
-  h: "7",
-  px: "2",
-  borderRadius: "l1",
-  bg: "bg.default",
-  borderWidth: "1px",
-  borderColor: "border",
-  fontSize: "sm",
-  cursor: "grab",
-  touchAction: "none",
-});
-const hint = css({ fontSize: "xs", color: "fg.subtle" });
 
 const dateProperties = (properties: CollectionProperty[]) =>
   properties.filter(
@@ -181,7 +123,10 @@ const dateProperties = (properties: CollectionProperty[]) =>
       p.kind === "updated_time",
   );
 
-/** Month grid placing rows by a date property; ranges span days, drag to reschedule. */
+/**
+ * Rows placed by a date property. Laptop widths show a month grid where
+ * ranges span days and rows drag to reschedule; phone widths show an agenda.
+ */
 export const CollectionCalendar = (props: { view: CollectionView }) => {
   const { store, openRow } = useCollection();
   const [month, setMonth] = createSignal(
@@ -189,6 +134,7 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
   );
   const [overDay, setOverDay] = createSignal<string | null>(null);
   const [trayOpen, setTrayOpen] = createSignal(false);
+  const [menu, setMenu] = createSignal<DateMenuTarget | null>(null);
 
   const property = createMemo(() => {
     const all = dateProperties(store.state.properties);
@@ -200,23 +146,18 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
   });
   const editable = () =>
     Boolean(property() && !isComputedKind(property()!.kind));
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const undated = createMemo(() => {
     const p = property();
     return p ? rows().filter((r) => !isDateValue(readValue(r, p))) : [];
   });
   const weeks = createMemo(() => monthGrid(month(), store.state.today));
-  const label = () => {
-    const [y, m] = month().split("-").map(Number);
-    return `${MONTHS[(m ?? 1) - 1]} ${y}`;
-  };
+  const days = createMemo(() => {
+    const p = property();
+    return p ? agendaDays(rows(), p, month(), store.state.today) : [];
+  });
+  const monthName = () => MONTHS[Number(month().slice(5, 7)) - 1] ?? "";
+  const label = () => `${monthName()} ${month().slice(0, 4)}`;
 
   const colorFor = (row: CollectionRow) => {
     // Tint bars by the first status/select value so boards and calendars agree.
@@ -251,12 +192,18 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
     void store.setValues([row.id], { [p.id]: next });
   };
 
-  const drag = (row: CollectionRow) => (e: PointerEvent) => {
+  const openMenu = (row: CollectionRow, el: HTMLElement) => {
+    if (editable()) setMenu({ rowId: row.id, el });
+  };
+
+  const drag = (row: CollectionRow, e: PointerEvent) => {
     if (!editable()) return;
-    startPointerDrag(e, e.currentTarget as HTMLElement, {
+    const el = e.currentTarget as HTMLElement;
+    startPointerDrag(e, el, {
       onMove: (x, y) => setOverDay(dayAt(x, y)),
       onDrop: (x, y) => reschedule(row, dayAt(x, y)),
       onCancel: () => setOverDay(null),
+      onLongPress: () => openMenu(row, el),
     });
   };
 
@@ -272,11 +219,9 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
     <Show
       when={property()}
       fallback={
-        <div class={tray}>
-          <span class={hint}>
-            A calendar places rows by a Date property. This collection has none
-            yet.
-          </span>
+        <div class={emptyBox}>
+          A calendar places rows by a Date property. This collection has none
+          yet.
           <button
             type="button"
             class={navBtn}
@@ -321,115 +266,66 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
             >
               <ChevronRightIcon size={16} />
             </button>
-            <span style={{ flex: "1" }} />
             <button
               type="button"
-              class={navBtn}
+              class={undatedPill}
               aria-expanded={trayOpen()}
+              title={`Rows with no ${p().name.toLowerCase()}`}
               onClick={() => setTrayOpen((v) => !v)}
             >
-              No {p().name.toLowerCase()} · {undated().length}
+              {undated().length} undated
             </button>
           </div>
 
-          <Show when={trayOpen()}>
-            <div class={tray}>
-              <span class={hint}>
-                {editable()
-                  ? "Drag a row onto a day to schedule it."
-                  : `${p().name} is set automatically.`}
-              </span>
-              <For
-                each={undated().slice(0, 100)}
-                fallback={<span class={hint}>Every row has a date.</span>}
-              >
-                {(row) => (
-                  <div
-                    class={trayItem}
-                    onPointerDown={drag(row)}
-                    onClick={() => openRow(row.id)}
-                  >
-                    {row.title || "Untitled"}
-                  </div>
-                )}
-              </For>
+          <div class={body} data-tray={trayOpen() ? "" : undefined}>
+            <Show when={trayOpen()}>
+              <div class={trayCell}>
+                <UndatedTray
+                  rows={undated()}
+                  property={p()}
+                  editable={editable()}
+                  onPointerDown={drag}
+                  onOpen={(row) => openRow(row.id)}
+                  onDateMenu={openMenu}
+                />
+              </div>
+            </Show>
+            <div class={mainCell}>
+              {/* Both render on the server; a container query picks one. */}
+              <div class={onlyWide}>
+                <MonthGrid
+                  viewId={props.view.id}
+                  weeks={weeks()}
+                  rows={rows()}
+                  property={p()}
+                  overDay={overDay()}
+                  colorFor={colorFor}
+                  onEventPointerDown={drag}
+                  onEventMenu={openMenu}
+                  onOpen={(row) => openRow(row.id)}
+                  onCreate={(date) => void createOn(date)}
+                />
+              </div>
+              <div class={onlyNarrow}>
+                <CalendarAgenda
+                  days={days()}
+                  property={p()}
+                  monthName={monthName()}
+                  today={store.state.today}
+                  editable={editable()}
+                  colorFor={colorFor}
+                  onOpen={(row) => openRow(row.id)}
+                  onCreate={(date) => void createOn(date)}
+                  onDateMenu={openMenu}
+                />
+              </div>
             </div>
-          </Show>
-
-          <div class={grid} data-calendar={props.view.id}>
-            <div class={weekdayRow}>
-              <For each={WEEKDAYS}>{(d) => <span>{d}</span>}</For>
-            </div>
-            <Index each={weeks()}>
-              {(w) => {
-                const spans = createMemo(() =>
-                  layoutWeek(rows(), p(), w()[0]!.date),
-                );
-                const lanes = () =>
-                  Math.max(MIN_LANES, ...spans().map((s) => s.lane + 1));
-                return (
-                  <div
-                    class={week}
-                    style={{
-                      height: `${DAY_HEADER + lanes() * LANE_HEIGHT + 6}px`,
-                    }}
-                  >
-                    <Index each={w()}>
-                      {(d) => (
-                        <div
-                          class={day}
-                          data-cal-day={d().date}
-                          data-out={d().inMonth ? undefined : ""}
-                          data-over={overDay() === d().date ? "" : undefined}
-                        >
-                          <div
-                            class={dayNum}
-                            data-today={d().isToday ? "" : undefined}
-                          >
-                            <span>{Number(d().date.slice(8, 10))}</span>
-                            <button
-                              type="button"
-                              class={addBtn}
-                              data-add
-                              aria-label={`New row on ${d().date}`}
-                              onClick={() => void createOn(d().date)}
-                            >
-                              <PlusIcon size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </Index>
-                    <For each={spans()}>
-                      {(s) => (
-                        <div
-                          class={bar}
-                          role="button"
-                          tabIndex={0}
-                          title={s.row.title}
-                          data-clip-start={s.clippedStart ? "" : undefined}
-                          data-clip-end={s.clippedEnd ? "" : undefined}
-                          style={{
-                            ...colorFor(s.row),
-                            left: `calc(${(s.startCol / 7) * 100}% + 3px)`,
-                            width: `calc(${(s.span / 7) * 100}% - 6px)`,
-                            top: `${DAY_HEADER + s.lane * LANE_HEIGHT}px`,
-                          }}
-                          onPointerDown={drag(s.row)}
-                          onClick={() => openRow(s.row.id)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && openRow(s.row.id)
-                          }
-                        >
-                          {s.row.title || "Untitled"}
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                );
-              }}
-            </Index>
           </div>
+          <DateMenu
+            target={menu()}
+            property={p()}
+            onClose={() => setMenu(null)}
+          />
         </div>
       )}
     </Show>

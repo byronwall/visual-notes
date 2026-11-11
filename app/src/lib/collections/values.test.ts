@@ -4,7 +4,9 @@ import {
   coerceValue,
   formatValueText,
   isEmptyValue,
+  numberDraft,
   parseLooseText,
+  parseNumberDraft,
   validateValue,
 } from "./values";
 
@@ -182,5 +184,25 @@ describe("isEmptyValue", () => {
       [null, "", false, [], undefined].every((v) => isEmptyValue(v as never)),
     ).toBe(true);
     expect(isEmptyValue(0)).toBe(false);
+  });
+});
+
+describe("parseNumberDraft", () => {
+  const plain = prop("number");
+  const pct = prop("number", { format: "percent" });
+  it("reads numbers with currency and thousands marks", () => {
+    expect(parseNumberDraft(plain, " $1,250.5 ")).toEqual({ value: 1250.5 });
+  });
+  it("clears on empty text", () => {
+    expect(parseNumberDraft(plain, "  ")).toEqual({ value: null });
+  });
+  it("rejects text that is not a number", () => {
+    expect(parseNumberDraft(plain, "abc")).toEqual({ error: "Enter a number" });
+    expect(parseNumberDraft(pct, "12x")).toEqual({ error: "Enter a percent" });
+  });
+  it("takes whole percents with or without the sign", () => {
+    expect(parseNumberDraft(pct, "45")).toEqual({ value: 0.45 });
+    expect(parseNumberDraft(pct, "45%")).toEqual({ value: 0.45 });
+    expect(numberDraft(pct.config, 0.45)).toBe("45");
   });
 });

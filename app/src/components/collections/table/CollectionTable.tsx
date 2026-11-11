@@ -1,57 +1,49 @@
-import { PlusIcon } from "lucide-solid";
-import {
-  For,
-  Show,
-  createMemo,
-  createSignal,
-  onCleanup,
-  onMount,
-} from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import {
-  applyView,
-  orderedProperties,
-  TITLE_PROPERTY,
-} from "~/lib/collections/query";
-import type {
-  Aggregation,
-  CollectionProperty,
-  CollectionView,
-} from "~/lib/collections/types";
-import { TITLE_PROPERTY_ID } from "~/lib/collections/types";
+import type { CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
-import { AddPropertyMenu } from "../menu/AddPropertyMenu";
-import { ValueCell } from "../values/ValueCell";
 import { BulkBar } from "./BulkBar";
-import { FooterCell } from "./FooterCell";
-import { TableHeaderCell } from "./TableHeaderCell";
-import { TitleCell } from "./TitleCell";
+import { TableActions } from "./TableActions";
+import { TableFooterRow } from "./TableFooterRow";
+import { TableHeaderRow } from "./TableHeaderRow";
+import { TableRow } from "./TableRow";
+import { useColumns } from "./useColumns";
+import { useGridKeys } from "./useGridKeys";
+import { useRowSelection } from "./useRowSelection";
+import { useScrollerFit } from "./useScrollerFit";
+import { useTouchTaps } from "./useTouchTaps";
 import {
   ROW_HEIGHT,
   WINDOW_THRESHOLD,
   useWindowedRows,
 } from "./useWindowedRows";
 
-const DEFAULT_WIDTH = 180;
-const TITLE_WIDTH = 280;
-const SELECT_COLUMN = 32;
-const ADD_COLUMN = 44;
 const EMBED_ROW_LIMIT = 25;
 
-const scroller = css({
-  overflowX: "auto",
-  overflowY: "visible",
+const scrollerBase = {
   borderTopWidth: "1px",
   borderColor: "border",
+  // The grid's name column and the empty state size against this width.
+  containerType: "inline-size",
+} as const;
+const scroller = css({
+  ...scrollerBase,
+  overflowX: "auto",
+  overflowY: "visible",
 });
 // On a collection page the table scrolls inside itself so the header and
 // footer can stick; horizontal overflow would otherwise defeat vertical sticky.
+// The max height is measured after mount; this fallback covers the first paint.
 const pageScroller = css({
+  ...scrollerBase,
   overflow: "auto",
   maxH: "calc(100dvh - 12rem)",
-  borderTopWidth: "1px",
-  borderColor: "border",
   overscrollBehavior: "contain",
+  // Momentum scrolling on iOS; vertical and sideways pans both stay inside.
+  WebkitOverflowScrolling: "touch",
+  // Windowing swaps rows and spacers itself; browser scroll anchoring would
+  // fight it and jump the scroll position.
+  overflowAnchor: "none",
 });
 // Says that more columns sit past the right edge, mainly on a phone.
 const edgeFade = css({
@@ -73,94 +65,19 @@ const grid = css({
   minW: "max-content",
   fontSize: "sm",
   position: "relative",
-});
-const headerRow = css({
-  display: "contents",
-  "& > *": {
-    position: "sticky",
-    top: "0",
-    zIndex: "2",
-    bg: "bg.default",
-    borderBottomWidth: "1px",
-    borderColor: "border",
+  "--title-col": "var(--title-saved)",
+  // A finger drag scrolls the table; it should not start a text selection
+  // or flash a tap highlight on the cells it crosses.
+  "@media (hover: none)": {
+    userSelect: "none",
+    WebkitTouchCallout: "none",
+    WebkitTapHighlightColor: "transparent",
   },
-});
-const row = css({
-  display: "contents",
-  "& > *": {
-    borderBottomWidth: "1px",
-    borderColor: "border",
-    minW: "0",
-    bg: "bg.default",
-    height: `${ROW_HEIGHT}px`,
+  // Keep in step with useColumns.widthOf: a narrow table gives the name
+  // column at most 40% of its width so the data stays readable.
+  "@container (max-width: 639.98px)": {
+    "--title-col": "min(var(--title-saved), max(120px, 40cqw))",
   },
-  "&:hover > *": { bg: "bg.subtle" },
-  "&[data-selected] > *, &[data-selected]:hover > *": { bg: "bg.selected" },
-  "& [data-select-box]": { opacity: "0" },
-  "&:hover [data-select-box], &[data-selected] [data-select-box]": {
-    opacity: "1",
-  },
-});
-const bodyCell = css({
-  borderRightWidth: "1px",
-  borderColor: "border",
-  display: "flex",
-  alignItems: "stretch",
-  minW: "0",
-  overflow: "hidden",
-  "&:focus-within": {
-    boxShadow: "inset 0 0 0 2px token(colors.border.accent)",
-  },
-});
-// The checkbox and name columns stay put while the table scrolls sideways.
-const stickySelect = css({ position: "sticky", left: "0", zIndex: "1" });
-const stickyTitle = css({
-  position: "sticky",
-  zIndex: "1",
-  boxShadow: "1px 0 0 token(colors.border)",
-});
-const selectCell = css({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-});
-const selectBox = css({
-  cursor: "pointer",
-  accentColor: "currentColor",
-  transition: "opacity 100ms",
-});
-const footerRow = css({
-  display: "contents",
-  "& > *": {
-    position: "sticky",
-    bottom: "0",
-    zIndex: "2",
-    borderBottomWidth: "1px",
-    borderColor: "border",
-    bg: "bg.default",
-    minW: "0",
-  },
-});
-const newRowBtn = css({
-  display: "flex",
-  alignItems: "center",
-  gap: "1.5",
-  h: "9",
-  px: "2",
-  color: "fg.subtle",
-  cursor: "pointer",
-  w: "full",
-  textAlign: "left",
-  borderBottomWidth: "1px",
-  borderColor: "border",
-  _hover: { bg: "bg.subtle", color: "fg.default" },
-});
-const empty = css({
-  px: "3",
-  py: "8",
-  color: "fg.muted",
-  fontSize: "sm",
-  textAlign: "center",
 });
 
 /** Spreadsheet-style view: one row per note, one column per property. */
@@ -174,44 +91,24 @@ export const CollectionTable = (props: {
   const [limit, setLimit] = createSignal(
     embedded ? EMBED_ROW_LIMIT : Number.POSITIVE_INFINITY,
   );
-  const [selected, setSelected] = createSignal<Set<string>>(new Set());
-  const [lastClicked, setLastClicked] = createSignal<string | null>(null);
-  const [liveWidths, setLiveWidths] = createSignal<Record<string, number>>({});
-  const [dragId, setDragId] = createSignal<string | null>(null);
-  const [drop, setDrop] = createSignal<{
-    id: string;
-    side: "before" | "after";
-  } | null>(null);
-  const [moreRight, setMoreRight] = createSignal(false);
   let bodyStart: HTMLDivElement | undefined;
   let scrollEl: HTMLDivElement | undefined;
   let gridEl: HTMLDivElement | undefined;
+  // A note embed scrolls with the page; a page table scrolls inside itself.
+  const vScroller = () => (embedded ? undefined : scrollEl);
 
-  const measureRightEdge = () => {
-    if (!scrollEl) return;
-    const { scrollWidth, clientWidth, scrollLeft } = scrollEl;
-    setMoreRight(scrollWidth - clientWidth - scrollLeft > 1);
-  };
-  onMount(() => {
-    const observer = new ResizeObserver(measureRightEdge);
-    observer.observe(scrollEl!);
-    observer.observe(gridEl!);
-    onCleanup(() => observer.disconnect());
+  const fit = useScrollerFit({
+    scroller: () => scrollEl,
+    grid: () => gridEl,
+    fitHeight: !embedded,
   });
-
-  const config = () => store.effectiveConfig(props.view);
-  const columns = createMemo<CollectionProperty[]>(() => [
-    TITLE_PROPERTY,
-    ...orderedProperties(store.state.properties, props.view.config),
-  ]);
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      config(),
-      store.state.today,
-    ),
-  );
+  const cols = useColumns({
+    store,
+    view: () => props.view,
+    scrollerWidth: fit.width,
+  });
+  const rows = createMemo(() => store.viewRows(props.view));
+  const selection = useRowSelection(() => rows());
   const limitedRows = createMemo(() => {
     const all = rows();
     const shown = all.slice(0, limit());
@@ -222,134 +119,33 @@ export const CollectionTable = (props: {
     }
     return shown;
   });
-  const windowed = useWindowedRows(
-    () => limitedRows().length,
-    () => bodyStart,
-  );
+  const insetOf = (attr: string) =>
+    gridEl?.querySelector<HTMLElement>(`[${attr}] > *`)?.offsetHeight ?? 0;
+  const windowed = useWindowedRows({
+    count: () => limitedRows().length,
+    body: () => bodyStart,
+    scroller: vScroller,
+    insets: () => ({
+      top: insetOf("data-table-head"),
+      bottom: insetOf("data-table-foot"),
+    }),
+  });
+  // Keyed by the store's row objects, so rows that stay in the window keep
+  // their DOM (and focus) when the window moves.
   const visible = createMemo(() => {
     const { start, end } = windowed.bounds();
-    return limitedRows()
-      .slice(start, end)
-      .map((r, i) => ({ row: r, index: start + i }));
+    return limitedRows().slice(start, end);
   });
-
-  const widthOf = (id: string) =>
-    liveWidths()[id] ??
-    props.view.config.columnWidths?.[id] ??
-    (id === TITLE_PROPERTY_ID ? TITLE_WIDTH : DEFAULT_WIDTH);
-  const template = () =>
-    `${SELECT_COLUMN}px ${columns()
-      .map((c) => `${widthOf(c.id)}px`)
-      .join(" ")} ${ADD_COLUMN}px`;
-  const aggregationOf = (id: string): Aggregation =>
-    props.view.config.aggregations?.[id] ??
-    (id === TITLE_PROPERTY_ID ? "count" : "none");
-
-  const resize = (id: string, width: number, done: boolean) => {
-    setLiveWidths((w) => ({ ...w, [id]: width }));
-    if (done) {
-      store.patchViewConfig(props.view.id, {
-        columnWidths: {
-          ...(props.view.config.columnWidths ?? {}),
-          [id]: width,
-        },
-      });
-      setLiveWidths((w) => {
-        const next = { ...w };
-        delete next[id];
-        return next;
-      });
-    }
-  };
-
-  const finishDrag = () => {
-    const from = dragId();
-    const target = drop();
-    setDragId(null);
-    setDrop(null);
-    if (
-      !from ||
-      !target ||
-      from === target.id ||
-      target.id === TITLE_PROPERTY_ID
-    )
-      return;
-    const ids = orderedProperties(store.state.properties, props.view.config, {
-      includeHidden: true,
-    })
-      .map((p) => p.id)
-      .filter((id) => id !== from);
-    const at = ids.indexOf(target.id) + (target.side === "after" ? 1 : 0);
-    ids.splice(at, 0, from);
-    store.patchViewConfig(props.view.id, { propertyOrder: ids });
-  };
-
-  const toggleRow = (id: string, shift: boolean) => {
-    const next = new Set(selected());
-    const anchor = lastClicked();
-    if (shift && anchor) {
-      const ids = rows().map((r) => r.id);
-      const [a, b] = [ids.indexOf(anchor), ids.indexOf(id)].sort(
-        (x, y) => x - y,
-      );
-      for (const rid of ids.slice(a, b + 1)) next.add(rid);
-    } else if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-    setLastClicked(id);
-  };
-  const allSelected = () =>
-    rows().length > 0 && rows().every((r) => selected().has(r.id));
-  const selectedIds = () =>
-    rows()
-      .filter((r) => selected().has(r.id))
-      .map((r) => r.id);
-
-  const focusCell = (rowIndex: number, colIndex: number) => {
-    const n = limitedRows().length;
-    if (n === 0) return;
-    const r = Math.max(0, Math.min(n - 1, rowIndex));
-    const c = Math.max(0, Math.min(columns().length - 1, colIndex));
-    windowed.reveal(r);
-    queueMicrotask(() => {
-      const target = document.querySelector<HTMLElement>(
-        `[data-grid="${props.view.id}"] [data-row-index="${r}"][data-col-index="${c}"] [data-cell]`,
-      );
-      target?.focus();
-    });
-  };
-
-  const onGridKeyDown = (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    if (!target.matches("[data-cell]")) return;
-    const holder = target.closest<HTMLElement>("[data-row-index]");
-    if (!holder) return;
-    const r = Number(holder.dataset.rowIndex);
-    const c = Number(holder.dataset.colIndex);
-    const moves: Record<string, [number, number]> = {
-      ArrowUp: [r - 1, c],
-      ArrowDown: [r + 1, c],
-      ArrowLeft: [r, c - 1],
-      ArrowRight: [r, c + 1],
-    };
-    const move = moves[e.key];
-    if (move) {
-      e.preventDefault();
-      focusCell(move[0], move[1]);
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      focusCell(r, c + (e.shiftKey ? -1 : 1));
-    } else if (e.key === "Escape" && selected().size) {
-      setSelected(new Set<string>());
-    }
-  };
-
-  const onEditEnd =
-    (rowIndex: number, colIndex: number) =>
-    (reason: "commit" | "cancel" | "tab" | "shift-tab") => {
-      if (reason === "tab") focusCell(rowIndex, colIndex + 1);
-      else if (reason === "shift-tab") focusCell(rowIndex, colIndex - 1);
-    };
+  const touch = useTouchTaps(openRow, () => gridEl);
+  const keys = useGridKeys({
+    viewId: () => props.view.id,
+    rowCount: () => limitedRows().length,
+    colCount: () => cols.columns().length,
+    scroller: () => scrollEl,
+    frozenWidth: cols.frozenWidth,
+    reveal: windowed.reveal,
+    onEscape: () => selection.count() && selection.clear(),
+  });
 
   const addRow = async () => {
     const created = await store.addRow();
@@ -360,99 +156,49 @@ export const CollectionTable = (props: {
     );
     // A filter or search can hide the new row, and a window change remounts
     // rows and ends the edit. In both cases the name opens in the panel.
-    if (index < 0 || limitedRows().length > WINDOW_THRESHOLD) {
+    // On touch, inline rename would raise the software keyboard over the table.
+    if (
+      index < 0 ||
+      limitedRows().length > WINDOW_THRESHOLD ||
+      touch.isTouch()
+    ) {
       openRow(created.id);
       return;
     }
-    // The page table scrolls inside itself; a note embed scrolls with the page.
-    if (!embedded && scrollEl)
-      scrollEl.scrollTop = index * ROW_HEIGHT - scrollEl.clientHeight / 2;
     windowed.reveal(index);
     setAutoEditRowId(created.id);
   };
   props.addRef?.(() => void addRow());
 
-  const stickyTitleStyle = { left: `${SELECT_COLUMN}px` };
-
   return (
     <div style={{ position: "relative" }}>
-      <Show when={selectedIds().length > 0}>
-        <BulkBar
-          selected={selectedIds()}
-          onClear={() => setSelected(new Set<string>())}
-        />
+      <Show when={selection.selectedIds().length > 0}>
+        <BulkBar selected={selection.selectedIds()} onClear={selection.clear} />
       </Show>
       <div
         ref={scrollEl}
         class={embedded ? scroller : pageScroller}
-        onScroll={measureRightEdge}
+        style={
+          fit.maxHeight() === null
+            ? undefined
+            : { "max-height": `${fit.maxHeight()}px` }
+        }
+        onScroll={fit.measureEdge}
       >
         <div
           ref={gridEl}
           class={grid}
-          style={{ "grid-template-columns": template() }}
+          style={cols.gridVars()}
           role="grid"
           aria-rowcount={rows().length + 1}
           data-grid={props.view.id}
-          onKeyDown={onGridKeyDown}
+          onKeyDown={keys.onKeyDown}
         >
-          <div class={headerRow} role="row">
-            <div
-              class={`${selectCell} ${stickySelect}`}
-              style={{ "z-index": 3 }}
-            >
-              <input
-                type="checkbox"
-                class={selectBox}
-                style={{ opacity: selected().size ? 1 : 0.35 }}
-                aria-label="Select all rows"
-                checked={allSelected()}
-                onChange={() =>
-                  setSelected(
-                    allSelected()
-                      ? new Set<string>()
-                      : new Set(rows().map((r) => r.id)),
-                  )
-                }
-              />
-            </div>
-            <For each={columns()}>
-              {(property) => (
-                <div
-                  class={
-                    property.id === TITLE_PROPERTY_ID ? stickyTitle : undefined
-                  }
-                  style={
-                    property.id === TITLE_PROPERTY_ID
-                      ? { ...stickyTitleStyle, "z-index": 3 }
-                      : undefined
-                  }
-                >
-                  <TableHeaderCell
-                    property={property}
-                    viewId={props.view.id}
-                    width={widthOf(property.id)}
-                    dropSide={
-                      dragId() && drop()?.id === property.id
-                        ? drop()!.side
-                        : null
-                    }
-                    onResize={(w, done) => resize(property.id, w, done)}
-                    onDragStart={setDragId}
-                    onDragOver={(id, side) => setDrop({ id, side })}
-                    onDrop={finishDrag}
-                    onDragEnd={() => {
-                      setDragId(null);
-                      setDrop(null);
-                    }}
-                  />
-                </div>
-              )}
-            </For>
-            <div role="columnheader">
-              <AddPropertyMenu />
-            </div>
-          </div>
+          <TableHeaderRow
+            viewId={props.view.id}
+            cols={cols}
+            selection={selection}
+          />
 
           <div
             ref={bodyStart}
@@ -464,63 +210,21 @@ export const CollectionTable = (props: {
           />
 
           <For each={visible()}>
-            {(entry) => (
-              <div
-                class={row}
-                role="row"
-                data-row-id={entry.row.id}
-                data-selected={selected().has(entry.row.id) ? "" : undefined}
-              >
-                <div class={`${selectCell} ${stickySelect}`}>
-                  <input
-                    type="checkbox"
-                    class={selectBox}
-                    data-select-box
-                    aria-label={`Select ${entry.row.title}`}
-                    checked={selected().has(entry.row.id)}
-                    onClick={(e) => toggleRow(entry.row.id, e.shiftKey)}
-                  />
-                </div>
-                <For each={columns()}>
-                  {(property, colIndex) => (
-                    <div
-                      class={`${bodyCell} ${property.id === TITLE_PROPERTY_ID ? stickyTitle : ""}`}
-                      style={
-                        property.id === TITLE_PROPERTY_ID
-                          ? stickyTitleStyle
-                          : undefined
-                      }
-                      role="gridcell"
-                      data-row-index={entry.index}
-                      data-col-index={colIndex()}
-                    >
-                      <Show
-                        when={property.id !== TITLE_PROPERTY_ID}
-                        fallback={
-                          <TitleCell
-                            row={entry.row}
-                            autoEdit={autoEditRowId() === entry.row.id}
-                            onEditEnd={(reason) => {
-                              if (autoEditRowId() === entry.row.id)
-                                setAutoEditRowId(null);
-                              onEditEnd(entry.index, colIndex())(reason);
-                            }}
-                          />
-                        }
-                      >
-                        <ValueCell
-                          property={property}
-                          row={entry.row}
-                          store={store}
-                          onEditEnd={onEditEnd(entry.index, colIndex())}
-                        />
-                      </Show>
-                    </div>
-                  )}
-                </For>
-                <div />
-              </div>
-            )}
+            {(row, i) => {
+              const index = () => windowed.bounds().start + i();
+              return (
+                <TableRow
+                  row={row}
+                  index={index()}
+                  columns={cols.columns()}
+                  selected={selection.isSelected(row.id)}
+                  autoEdit={autoEditRowId() === row.id}
+                  onToggle={(shift) => selection.toggle(row.id, shift)}
+                  onAutoEditDone={() => setAutoEditRowId(null)}
+                  onEditEnd={(c) => keys.onEditEnd(index(), c)}
+                />
+              );
+            }}
           </For>
 
           <div
@@ -531,67 +235,26 @@ export const CollectionTable = (props: {
             aria-hidden="true"
           />
 
-          <div style={{ "grid-column": "1 / -1" }}>
-            <Show when={limitedRows().length < rows().length}>
-              <button
-                type="button"
-                class={newRowBtn}
-                onClick={() => setLimit(Number.POSITIVE_INFINITY)}
-              >
-                Show all {rows().length} rows
-              </button>
-            </Show>
-            <Show when={rows().length === 0 && store.state.rows.length > 0}>
-              <div class={empty}>No rows match this view.</div>
-            </Show>
-            <button
-              type="button"
-              class={newRowBtn}
-              onClick={() => void addRow()}
-            >
-              <PlusIcon size={14} />
-              New
-            </button>
-          </div>
+          <TableActions
+            view={props.view}
+            total={rows().length}
+            shown={limitedRows().length}
+            empty={rows().length === 0 && store.state.rows.length > 0}
+            onShowAll={() => setLimit(Number.POSITIVE_INFINITY)}
+            onAdd={() => void addRow()}
+          />
 
-          <div class={footerRow} role="row">
-            <div class={stickySelect} />
-            <For each={columns()}>
-              {(property) => (
-                <div
-                  class={
-                    property.id === TITLE_PROPERTY_ID ? stickyTitle : undefined
-                  }
-                  style={
-                    property.id === TITLE_PROPERTY_ID
-                      ? stickyTitleStyle
-                      : undefined
-                  }
-                >
-                  <FooterCell
-                    property={property}
-                    rows={rows()}
-                    aggregation={aggregationOf(property.id)}
-                    onChange={(aggregation) =>
-                      store.patchViewConfig(props.view.id, {
-                        aggregations: {
-                          ...(props.view.config.aggregations ?? {}),
-                          [property.id]: aggregation,
-                        },
-                      })
-                    }
-                  />
-                </div>
-              )}
-            </For>
-            <div />
-          </div>
+          <TableFooterRow
+            view={props.view}
+            columns={cols.columns()}
+            rows={rows()}
+          />
         </div>
       </div>
       <div
         class={edgeFade}
         data-scroll-fade=""
-        data-on={moreRight() ? "" : undefined}
+        data-on={fit.moreRight() ? "" : undefined}
         aria-hidden="true"
       />
     </div>

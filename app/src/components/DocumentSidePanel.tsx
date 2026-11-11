@@ -9,7 +9,7 @@ import {
   on,
   type VoidComponent,
 } from "solid-js";
-import { Box, Stack } from "styled-system/jsx";
+import { Box, HStack, Stack } from "styled-system/jsx";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
@@ -53,6 +53,33 @@ const PanelSkeleton: VoidComponent = () => (
   </Stack>
 );
 
+/** A host's preview under the panel actions, then a loading note body. */
+const PreviewFrame = (props: {
+  fullPageHref: string;
+  onClose: () => void;
+  children: JSX.Element;
+}) => (
+  <Box aria-busy="true">
+    {/* Same height as the note header: actions row, then the path row. */}
+    <Box pt="3" pb="2" mb="1">
+      <HStack class="not-prose" h="7" gap="0.5" justify="flex-end">
+        <DocPanelActions
+          fullPageHref={props.fullPageHref}
+          onClose={props.onClose}
+        />
+      </HStack>
+      {/* The path row wraps to two lines on a phone-width panel. */}
+      <Box h={{ base: "16", sm: "10" }} mt={{ base: "2", sm: "1" }} />
+    </Box>
+    {props.children}
+    <Stack gap="2.5" pt="6" aria-label="Loading note">
+      <Skeleton h="4" w="full" />
+      <Skeleton h="4" w="full" />
+      <Skeleton h="4" w="85%" />
+    </Stack>
+  </Box>
+);
+
 /**
  * A note beside the page (Canvas, a collection row peek). It renders the
  * same header, title, and body as the full note page, plus close and
@@ -75,6 +102,15 @@ export const DocumentSidePanel: VoidComponent<{
   header?: JSX.Element;
   /** Called after the note's title is saved. */
   onTitleChange?: (docId: string, title: string) => void;
+  /** Host controls pinned at the top left, level with the header actions. */
+  nav?: JSX.Element;
+  /** Pinned to the bottom of the panel, such as phone navigation. */
+  footer?: JSX.Element;
+  /**
+   * What the host already knows about a note, shown while it loads. With it,
+   * switching notes shows this at once instead of dimming the previous note.
+   */
+  preview?: (docId: string) => JSX.Element;
 }> = (props) => {
   const [doc, { mutate }] = createResource(
     () => props.docId,
@@ -116,7 +152,7 @@ export const DocumentSidePanel: VoidComponent<{
         : undefined;
     }
     if (loaded?.id === props.docId) return loaded;
-    return reopened ? undefined : prev;
+    return reopened || props.preview ? undefined : prev;
   });
   const shownId = createMemo(() => shown()?.id);
   const loadFailed = () => doc.state === "errored" && !!shownId();
@@ -140,6 +176,14 @@ export const DocumentSidePanel: VoidComponent<{
         modal={props.modal}
         width={props.width}
       >
+        <Show when={props.nav}>
+          {/* Zero height, so the note's header row lays out as before. */}
+          <Box position="sticky" top="0" h="0" zIndex="dropdown">
+            <Box position="absolute" top="3" left="5" display="inline-flex">
+              {props.nav}
+            </Box>
+          </Box>
+        </Show>
         <Box
           ref={bodyEl}
           px="5"
@@ -158,7 +202,25 @@ export const DocumentSidePanel: VoidComponent<{
             when={shownId()}
             keyed
             fallback={
-              <Show when={doc.error} fallback={<PanelSkeleton />}>
+              <Show
+                when={doc.error}
+                fallback={
+                  <Show
+                    when={props.preview && props.docId}
+                    keyed
+                    fallback={<PanelSkeleton />}
+                  >
+                    {(id) => (
+                      <PreviewFrame
+                        fullPageHref={`/docs/${id}`}
+                        onClose={props.onClose}
+                      >
+                        {props.preview!(id)}
+                      </PreviewFrame>
+                    )}
+                  </Show>
+                }
+              >
                 <Text pt="4" fontSize="sm" color="fg.muted">
                   Couldn't load this note.
                 </Text>
@@ -171,7 +233,14 @@ export const DocumentSidePanel: VoidComponent<{
               let last = shown()!;
               const current = () => (last = shown() ?? last);
               return (
-                <Box animation="fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1)">
+                <Box
+                  // A preview stands in for the note, so it swaps in place.
+                  animation={
+                    props.preview
+                      ? undefined
+                      : "fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1)"
+                  }
+                >
                   {/* A new viewer fetches its own parts, as the note page does. */}
                   <Suspense fallback={<PanelSkeleton />}>
                     <DocumentViewer
@@ -203,6 +272,7 @@ export const DocumentSidePanel: VoidComponent<{
             }}
           </Show>
         </Box>
+        {props.footer}
       </SidePanel>
       {/* Mounted on demand so its portal lands above the panel's. */}
       <Show when={guardOpen()}>

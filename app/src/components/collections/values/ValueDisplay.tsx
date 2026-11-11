@@ -14,11 +14,22 @@ import { OptionChip } from "./OptionChip";
 import { RatingStars } from "./RatingStars";
 
 const muted = css({ color: "fg.subtle" });
+// Shown instead of the prompt when a list is read-only (see PropertyList).
+const readPrompt = css({ display: "none" });
 const truncate = css({
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
   minW: "0",
+});
+// Long text in a field: every line, breaking long words instead of overflowing.
+const multilineText = css({
+  display: "block",
+  w: "full",
+  py: "1.5",
+  lineHeight: "1.25rem",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
 });
 const chips = css({
   display: "flex",
@@ -101,7 +112,8 @@ const displayUrl = (text: string) =>
   text.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
 
 /**
- * Read-only rendering of a value; `wrap` lets chips and text use more lines.
+ * Read-only rendering of a value; `wrap` lets chips use more lines, and
+ * `multiline` shows plain text in full.
  * `linkOpens: "button"` keeps link text clickable for editing and opens the
  * link from a trailing icon instead.
  */
@@ -109,6 +121,7 @@ export const ValueDisplay = (props: {
   property: CollectionProperty;
   value: PropertyValue;
   wrap?: boolean;
+  multiline?: boolean;
   placeholder?: string;
   linkOpens?: "text" | "button";
 }) => {
@@ -126,7 +139,12 @@ export const ValueDisplay = (props: {
       when={!empty() || props.property.kind === "checkbox"}
       fallback={
         <Show when={props.placeholder}>
-          <span class={muted}>{props.placeholder}</span>
+          <span class={muted}>
+            <span data-edit-prompt="">{props.placeholder}</span>
+            <span class={readPrompt} data-read-prompt="">
+              —
+            </span>
+          </span>
         </Show>
       }
     >
@@ -137,6 +155,9 @@ export const ValueDisplay = (props: {
           </span>
         }
       >
+        <Match when={props.multiline && props.property.kind === "text"}>
+          <span class={multilineText}>{String(props.value)}</span>
+        </Match>
         <Match when={props.property.kind === "checkbox"}>
           <span
             class={checkboxBox}
