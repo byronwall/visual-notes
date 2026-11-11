@@ -31,12 +31,15 @@ import { fitContent } from "../popover-styles";
 import { noAutofill } from "~/components/ui/no-autofill";
 
 const scroll = css({ maxH: "min(70vh, 34rem)", overflowY: "auto" });
+const headerAnchor = css({ minW: "0", flex: "1", display: "flex", h: "full" });
 
 /** Column header menu: rename, format, options, sort, hide, change type, delete. */
 export const PropertyMenu = (props: {
   property: CollectionProperty;
   viewId?: string;
   anchor: (open: () => void) => JSX.Element;
+  /** Class for the anchor wrapper; by default it fills a header cell. */
+  anchorClass?: string;
 }) => {
   const { store } = useCollection();
   const [open, setOpen] = createSignal(false);
@@ -86,7 +89,7 @@ export const PropertyMenu = (props: {
         placement="bottom-start"
         offset={2}
         anchor={props.anchor(() => setOpen(true))}
-        anchorClass={css({ minW: "0", flex: "1", display: "flex", h: "full" })}
+        anchorClass={props.anchorClass ?? headerAnchor}
       >
         <div
           class={`${menuPanel} ${scroll}`}

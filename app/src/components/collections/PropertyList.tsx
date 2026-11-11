@@ -1,5 +1,6 @@
+import { Settings2Icon } from "lucide-solid";
 import { For, Show, createSignal } from "solid-js";
-import { css, cx } from "styled-system/css";
+import { css } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
 import { AddPropertyMenu } from "./menu/AddPropertyMenu";
@@ -16,41 +17,65 @@ const list = css({
   // adapts to its own width rather than the viewport.
   containerType: "inline-size",
 });
+// Labels sit at the top of their line, so they stay put beside long text.
 const line = css({
   display: "grid",
-  gridTemplateColumns: "minmax(7rem, 10rem) minmax(0, 1fr)",
-  alignItems: "center",
+  gridTemplateColumns: "10rem minmax(0, 1fr)",
+  alignItems: "start",
   gap: "2",
   "@container (max-width: 30rem)": {
-    gridTemplateColumns: "minmax(0, 7.5rem) minmax(0, 1fr)",
+    gridTemplateColumns: "7.5rem minmax(0, 1fr)",
     gap: "1",
   },
 });
+const labelCell = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5",
+  minW: "0",
+  h: "8",
+});
+// Plain text: a click edits the value next to it, like a form label.
 const label = css({
   display: "flex",
   alignItems: "center",
   gap: "1.5",
+  flex: "1",
   minW: "0",
-  h: "8",
+  h: "full",
   px: "1",
-  w: "full",
   color: "fg.muted",
   fontSize: "sm",
-  textAlign: "left",
-  borderRadius: "l2",
-  cursor: "pointer",
-  transitionProperty: "color, background-color",
-  transitionDuration: "140ms",
-  _hover: { color: "fg.default", bg: "gray.a2" },
+  cursor: "default",
+  userSelect: "none",
   "& span": {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
 });
-const staticLabel = css({
-  cursor: "default",
-  _hover: { color: "fg.muted", bg: "transparent" },
+const settings = css({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: "0",
+  boxSize: "6",
+  borderRadius: "l1",
+  color: "fg.subtle",
+  cursor: "pointer",
+  opacity: "0",
+  transitionProperty: "opacity, color, background-color",
+  transitionDuration: "140ms",
+  "[data-property-line]:hover &, [data-property-line]:focus-within &": {
+    opacity: "1",
+  },
+  _focusVisible: {
+    opacity: "1",
+    outline: "2px solid token(colors.border.accent)",
+  },
+  "&[data-open]": { opacity: "1", color: "fg.default", bg: "bg.hover" },
+  _hover: { color: "fg.default", bg: "bg.hover" },
+  "@media (hover: none)": { opacity: "1" },
 });
 const addBtn = css({
   display: "inline-flex",
@@ -65,6 +90,15 @@ const addBtn = css({
   _hover: { color: "fg.default", bg: "bg.muted" },
 });
 
+/** Starts editing a value as if it were clicked; stars take focus instead. */
+const activate = (cell: HTMLElement | undefined) => {
+  if (!cell) return;
+  const star = cell.querySelector<HTMLElement>('[role="radio"][tabindex="0"]');
+  if (star) return star.focus();
+  cell.focus();
+  cell.click();
+};
+
 /** A row's properties as label/value lines, shown above its note body. */
 export const PropertyList = (props: {
   row: CollectionRow;
@@ -77,42 +111,45 @@ export const PropertyList = (props: {
   return (
     <div class={list} aria-label="Properties">
       <For each={store.state.properties}>
-        {(property) => (
-          <div class={line} data-property-line="">
-            <Show
-              when={props.allowSchemaEdits !== false}
-              fallback={
-                <div class={cx(label, staticLabel)}>
+        {(property) => {
+          let cell: HTMLDivElement | undefined;
+          return (
+            <div class={line} data-property-line="">
+              <div class={labelCell}>
+                {/* Pointer shortcut only: the value itself is the control. */}
+                <div class={label} onClick={() => activate(cell)}>
                   <PropertyKindIcon property={property} />
                   <span>{property.name}</span>
                 </div>
-              }
-            >
-              <PropertyMenu
+                <Show when={props.allowSchemaEdits !== false}>
+                  <PropertyMenu
+                    property={property}
+                    anchorClass={css({ display: "inline-flex" })}
+                    anchor={(open) => (
+                      <button
+                        type="button"
+                        class={settings}
+                        aria-label={`${property.name} property settings`}
+                        onClick={open}
+                      >
+                        <Settings2Icon size={14} />
+                      </button>
+                    )}
+                  />
+                </Show>
+              </div>
+              <ValueCell
+                ref={(el) => (cell = el)}
+                autoEdit={justAdded() === property.id}
                 property={property}
-                anchor={(open) => (
-                  <button
-                    type="button"
-                    class={label}
-                    aria-label={`${property.name} property settings`}
-                    onClick={open}
-                  >
-                    <PropertyKindIcon property={property} />
-                    <span>{property.name}</span>
-                  </button>
-                )}
+                row={props.row}
+                store={store}
+                variant="field"
+                wrap
               />
-            </Show>
-            <ValueCell
-              autoEdit={justAdded() === property.id}
-              property={property}
-              row={props.row}
-              store={store}
-              variant="field"
-              wrap
-            />
-          </div>
-        )}
+            </div>
+          );
+        }}
       </For>
       <Show when={props.allowSchemaEdits !== false}>
         <div>
