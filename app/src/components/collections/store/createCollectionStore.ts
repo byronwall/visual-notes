@@ -1,5 +1,5 @@
 import { useAction } from "@solidjs/router";
-import { batch, createEffect, createSignal, on } from "solid-js";
+import { batch, createEffect, createSignal, on, onCleanup } from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import { type Cell, createWriteLog } from "~/lib/collections/optimistic";
 import { rankBetween } from "~/lib/collections/rank";
@@ -34,6 +34,8 @@ import {
   updateProperty,
   updateView,
 } from "~/services/collections/collections.actions";
+
+export type ViewSaveState = "idle" | "saving" | "saved" | "error";
 
 export type CollectionState = {
   collection: CollectionBundle["collection"];
@@ -165,6 +167,42 @@ export function createCollectionStore(
     );
 
   const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const [viewSaves, setViewSaves] = createSignal<
+    Record<string, ViewSaveState>
+  >({});
+  const setViewSave = (viewId: string, value: ViewSaveState) =>
+    setViewSaves((prev) => ({ ...prev, [viewId]: value }));
+  // Only the newest save of a view may set its state.
+  const viewSaveSeq = new Map<string, number>();
+  const saveViewConfig = async (viewId: string) => {
+    viewSaveTimers.delete(viewId);
+    const view = state.views.find((v) => v.id === viewId);
+    if (!view) return;
+    const seq = (viewSaveSeq.get(viewId) ?? 0) + 1;
+    viewSaveSeq.set(viewId, seq);
+    const latest = () =>
+      viewSaveSeq.get(viewId) === seq && !viewSaveTimers.has(viewId);
+    setViewSave(viewId, "saving");
+    try {
+      await run.updateView({ id: viewId, config: clone(view.config) });
+      if (!latest()) return;
+      setViewSave(viewId, "saved");
+      setTimeout(() => {
+        if (latest() && viewSaves()[viewId] === "saved")
+          setViewSave(viewId, "idle");
+      }, 1600);
+    } catch (error) {
+      console.warn("[collections] view save failed", error);
+      if (latest()) setViewSave(viewId, "error");
+    }
+  };
+  // Leaving the page must not drop a change still waiting to save.
+  onCleanup(() => {
+    for (const viewId of [...viewSaveTimers.keys()]) {
+      clearTimeout(viewSaveTimers.get(viewId));
+      void saveViewConfig(viewId);
+    }
+  });
   // Quick search is per view and per visit; it is not saved with the view.
   const [searches, setSearches] = createSignal<Record<string, string>>({});
   // Bumped when a row's note body may have changed (e.g. the peek closed), so
@@ -484,38 +522,53 @@ export function createCollectionStore(
       return search ? { ...view.config, search } : view.config;
     },
 
-    /** Updates a view's config locally now and saves it shortly after. */
+    /**
+     * Updates a view's config locally now and saves it shortly after. The
+     * toolbar shows the save state; a failed save keeps the local config.
+     */
     patchViewConfig(viewId: string, patch: Partial<ViewConfig>) {
       const i = state.views.findIndex((v) => v.id === viewId);
       if (i < 0) return;
       setState("views", i, "config", (config) => ({ ...config, ...patch }));
+      setViewSave(viewId, "saving");
       clearTimeout(viewSaveTimers.get(viewId));
       viewSaveTimers.set(
         viewId,
-        setTimeout(() => {
-          const view = state.views.find((v) => v.id === viewId);
-          if (!view) return;
-          run
-            .updateView({ id: viewId, config: clone(view.config) })
-            .catch((error) => fail("Couldn't save the view", error));
-        }, 400),
+        setTimeout(() => void saveViewConfig(viewId), 400),
       );
     },
 
+    /** "saving" also covers the short wait before the save starts. */
+    viewSaveState(viewId: string): ViewSaveState {
+      return viewSaves()[viewId] ?? "idle";
+    },
+
+    /** Saves the view's latest local config now. */
+    retryViewSave(viewId: string) {
+      clearTimeout(viewSaveTimers.get(viewId));
+      void saveViewConfig(viewId);
+    },
+
     async renameView(viewId: string, name: string) {
+      const previous = api.view(viewId)?.name;
       setState("views", (v) => v.id === viewId, "name", name);
       try {
         await run.updateView({ id: viewId, name });
       } catch (error) {
+        if (previous !== undefined && api.view(viewId)?.name === name)
+          setState("views", (v) => v.id === viewId, "name", previous);
         fail("Couldn't rename the view", error);
       }
     },
 
     async setViewType(viewId: string, type: ViewType) {
+      const previous = api.view(viewId)?.type;
       setState("views", (v) => v.id === viewId, "type", type);
       try {
         await run.updateView({ id: viewId, type });
       } catch (error) {
+        if (previous && api.view(viewId)?.type === type)
+          setState("views", (v) => v.id === viewId, "type", previous);
         fail("Couldn't change the view", error);
       }
     },

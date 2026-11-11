@@ -16,6 +16,7 @@ import { useCollection } from "../CollectionContext";
 import { fitContent } from "../popover-styles";
 import { FilterEditor } from "./FilterEditor";
 import { PropertiesMenu } from "./PropertiesMenu";
+import { SaveState } from "./SaveState";
 import { SortEditor } from "./SortEditor";
 import { ToolbarSearch } from "./ToolbarSearch";
 import { toolbarBtn } from "./toolbar-styles";
@@ -198,6 +199,7 @@ export const CollectionToolbar = (props: {
         <span class={settingsSlot}>{props.settings}</span>
         <span class={spacer} />
         <span class={trailingSlot} data-toolbar-trailing>
+          <SaveState viewId={props.view.id} />
           {props.trailing}
         </span>
         <Show when={props.onNew}>

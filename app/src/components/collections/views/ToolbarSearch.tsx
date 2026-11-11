@@ -62,7 +62,10 @@ export const ToolbarSearch = (props: { viewId: string }) => {
       >
         <SearchIcon size={14} />
       </button>
-      <label class={box}>
+      <label
+        class={box}
+        title="Search is for this visit only. It isn't saved with the view."
+      >
         <SearchIcon size={14} />
         <input
           {...noAutofill}
