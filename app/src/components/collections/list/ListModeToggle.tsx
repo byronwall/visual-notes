@@ -35,8 +35,9 @@ const seg = css({
     color: "fg.default",
     boxShadow: "xs",
   },
-  // A very narrow toolbar keeps the icons; the names stay in aria-label.
-  "@container coltoolbar (max-width: 22rem)": {
+  // On a phone the icons alone leave search its room; the names stay in
+  // aria-label and title.
+  "@container coltoolbar (max-width: 28rem)": {
     "& [data-label]": { display: "none" },
   },
 });
