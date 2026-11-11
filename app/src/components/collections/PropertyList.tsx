@@ -6,6 +6,7 @@ import { useCollection } from "./CollectionContext";
 import { AddPropertyMenu } from "./menu/AddPropertyMenu";
 import { PropertyMenu } from "./menu/PropertyMenu";
 import { PropertyKindIcon } from "./PropertyKindIcon";
+import { useTouchReadGuard } from "./touchRead";
 import { ValueCell } from "./values/ValueCell";
 
 const list = css({
@@ -16,6 +17,46 @@ const list = css({
   // The list sits in note columns and the narrow peek panel alike, so it
   // adapts to its own width rather than the viewport.
   containerType: "inline-size",
+  // Touch screens read first: plain values, roomy lines, no prompts, and no
+  // schema controls until Edit. CSS only, so the server render matches.
+  "@media (hover: none)": {
+    "&[data-touch-mode=read]": {
+      gap: "0.5",
+      "& [data-property-line] > [data-cell]": {
+        bg: "transparent",
+        borderColor: "transparent",
+        cursor: "default",
+        lineHeight: "1.5",
+      },
+      "& [data-multiline] > span": { lineHeight: "1.5" },
+      "& [data-chevron], & [data-edit-prompt], & [data-schema-control]": {
+        display: "none",
+      },
+      "& [data-read-prompt]": { display: "inline" },
+    },
+  },
+});
+// Touch only: the switch between reading and editing.
+const modeBar = css({
+  display: "none",
+  justifyContent: "flex-end",
+  "@media (hover: none)": { display: "flex" },
+});
+const modeButton = css({
+  display: "inline-flex",
+  alignItems: "center",
+  h: "8",
+  px: "3",
+  fontSize: "sm",
+  fontWeight: "medium",
+  color: "fg.default",
+  borderRadius: "l2",
+  bg: "gray.a3",
+  cursor: "pointer",
+  transitionProperty: "background-color",
+  transitionDuration: "140ms",
+  _active: { bg: "gray.a5" },
+  "&[data-on]": { bg: "fg.default", color: "bg.default" },
 });
 // Labels sit at the top of their line, so they stay put beside long text.
 const line = css({
@@ -77,6 +118,7 @@ const settings = css({
   _hover: { color: "fg.default", bg: "bg.hover" },
   "@media (hover: none)": { opacity: "1" },
 });
+const schemaAnchor = css({ display: "inline-flex" });
 const addBtn = css({
   display: "inline-flex",
   alignItems: "center",
@@ -108,8 +150,28 @@ export const PropertyList = (props: {
   const { store } = useCollection();
   // A property added here opens its editor right away.
   const [justAdded, setJustAdded] = createSignal<string>();
+  // Touch screens start read-only; mouse and keyboard always edit.
+  const [touchEdit, setTouchEdit] = createSignal(false);
+  let root: HTMLDivElement | undefined;
+  useTouchReadGuard(() => root, touchEdit);
   return (
-    <div class={list} aria-label="Properties">
+    <div
+      ref={root}
+      class={list}
+      aria-label="Properties"
+      data-touch-mode={touchEdit() ? "edit" : "read"}
+    >
+      <div class={modeBar}>
+        <button
+          type="button"
+          class={modeButton}
+          data-on={touchEdit() ? "" : undefined}
+          data-touch-allow=""
+          onClick={() => setTouchEdit(!touchEdit())}
+        >
+          {touchEdit() ? "Done" : "Edit"}
+        </button>
+      </div>
       <For each={store.state.properties}>
         {(property) => {
           let cell: HTMLDivElement | undefined;
@@ -124,11 +186,12 @@ export const PropertyList = (props: {
                 <Show when={props.allowSchemaEdits !== false}>
                   <PropertyMenu
                     property={property}
-                    anchorClass={css({ display: "inline-flex" })}
+                    anchorClass={schemaAnchor}
                     anchor={(open) => (
                       <button
                         type="button"
                         class={settings}
+                        data-schema-control=""
                         aria-label={`${property.name} property settings`}
                         onClick={open}
                       >
@@ -152,7 +215,7 @@ export const PropertyList = (props: {
         }}
       </For>
       <Show when={props.allowSchemaEdits !== false}>
-        <div>
+        <div data-schema-control="">
           <AddPropertyMenu
             class={addBtn}
             label="Add a property"

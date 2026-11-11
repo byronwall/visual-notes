@@ -14,6 +14,8 @@ import { OptionChip } from "./OptionChip";
 import { RatingStars } from "./RatingStars";
 
 const muted = css({ color: "fg.subtle" });
+// Shown instead of the prompt when a list is read-only (see PropertyList).
+const readPrompt = css({ display: "none" });
 const truncate = css({
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -137,7 +139,12 @@ export const ValueDisplay = (props: {
       when={!empty() || props.property.kind === "checkbox"}
       fallback={
         <Show when={props.placeholder}>
-          <span class={muted}>{props.placeholder}</span>
+          <span class={muted}>
+            <span data-edit-prompt="">{props.placeholder}</span>
+            <span class={readPrompt} data-read-prompt="">
+              —
+            </span>
+          </span>
         </Show>
       }
     >
