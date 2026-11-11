@@ -1,5 +1,5 @@
 import { PencilIcon } from "lucide-solid";
-import { Show, createSignal, untrack } from "solid-js";
+import { Show, createEffect, createSignal, on } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionRow } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
@@ -74,15 +74,8 @@ export const TitleCell = (props: {
   onEditEnd?: (reason: "commit" | "cancel" | "tab" | "shift-tab") => void;
 }) => {
   const { store, openRow } = useCollection();
-  // Initial values only: a new row opens straight into editing its name.
-  const [editing, setEditing] = createSignal(
-    untrack(() => Boolean(props.autoEdit)),
-  );
-  const [draft, setDraft] = createSignal(
-    untrack(() =>
-      props.row.title === "Untitled" && props.autoEdit ? "" : props.row.title,
-    ),
-  );
+  const [editing, setEditing] = createSignal(false);
+  const [draft, setDraft] = createSignal("");
   let root$: HTMLDivElement | undefined;
   const untitled = () =>
     props.row.title === "Untitled" || !props.row.title.trim();
@@ -91,6 +84,16 @@ export const TitleCell = (props: {
     setDraft(initial ?? (untitled() ? "" : props.row.title));
     setEditing(true);
   };
+  // A new row opens straight into editing its name. The row can already be
+  // on screen when the table marks it, so react to the flag turning on.
+  createEffect(
+    on(
+      () => props.autoEdit,
+      (auto) => {
+        if (auto && !editing()) start();
+      },
+    ),
+  );
   const finish = (
     reason: "commit" | "cancel" | "tab" | "shift-tab",
     refocus = true,
