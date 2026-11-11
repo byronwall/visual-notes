@@ -24,35 +24,65 @@ import { RatingStars } from "../values/RatingStars";
 import { fitContent } from "../popover-styles";
 import { noAutofill } from "~/components/ui/no-autofill";
 
-// Overlays the toolbar row above the table so selecting never shifts rows.
+const NARROW = "@container colbulk (max-width: 35rem)";
+
+// Covers the toolbar row exactly (h 8, then the view's gap 2 above the table)
+// so selecting never shifts rows. One line at every width.
 const bar = css({
   position: "absolute",
   left: "0",
   right: "0",
-  bottom: "calc(100% + 2px)",
+  bottom: "calc(100% + var(--spacing-2))",
   zIndex: "5",
+  containerType: "inline-size",
+  containerName: "colbulk",
+  h: "8",
+  borderRadius: "l2",
+  // bg.selected is translucent; lay it over the page color so the toolbar
+  // underneath never shows through.
+  background:
+    "linear-gradient(var(--colors-bg-selected), var(--colors-bg-selected)), var(--colors-bg-default)",
+  color: "fg.selected",
+  fontSize: "sm",
+});
+const row = css({
   display: "flex",
   alignItems: "center",
   gap: "1",
-  h: "9",
+  h: "full",
   px: "2",
-  borderRadius: "l2",
-  bg: "bg.selected",
-  color: "fg.selected",
-  fontSize: "sm",
+  [NARROW]: { gap: "0.5", px: "1" },
 });
 const btn = css({
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   gap: "1.5",
+  flexShrink: "0",
   h: "7",
+  minW: "7",
   px: "2",
   borderRadius: "l1",
+  whiteSpace: "nowrap",
   cursor: "pointer",
+  transition: "background-color 140ms",
   _hover: { bg: "bg.selectedHover" },
   "&[data-danger]": { color: "fg.error" },
+  // Narrow: icon only; aria-label and title keep the name.
+  [NARROW]: { px: "1.5", "& [data-label]": { display: "none" } },
 });
-const count = css({ fontWeight: "semibold", mr: "2" });
+const count = css({
+  flexShrink: "1",
+  minW: "0",
+  mr: "2",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontWeight: "semibold",
+  fontVariantNumeric: "tabular-nums",
+  [NARROW]: { mr: "1" },
+});
+const clear = css({ ml: "auto" });
 const applyRow = css({ display: "flex", gap: "2", px: "2", pb: "2" });
 const applyBtn = css({
   h: "7",
@@ -186,78 +216,98 @@ export const BulkBar = (props: { selected: string[]; onClear: () => void }) => {
 
   return (
     <div class={bar} role="toolbar" aria-label="Selected rows">
-      <span class={count}>{props.selected.length} selected</span>
-      <SimplePopover
-        class={fitContent}
-        open={open()}
-        onClose={close}
-        anchor={
-          <button type="button" class={btn} onClick={() => setOpen((v) => !v)}>
-            <PencilIcon size={13} /> Set property
-          </button>
-        }
-      >
-        <div class={menuPanel} style={{ width: "17rem" }}>
-          <Show
-            when={property()}
-            fallback={
-              <>
-                <div class={menuSection}>
-                  Set a value on {props.selected.length} rows
-                </div>
-                <For each={editable()}>
-                  {(p) => (
-                    <MenuItem
-                      icon={<PropertyKindIcon property={p} />}
-                      onClick={() => setProperty(p)}
-                    >
-                      {p.name}
-                    </MenuItem>
-                  )}
-                </For>
-              </>
-            }
-          >
-            {(p) => (
-              <>
-                <MenuItem
-                  icon={<ChevronLeftIcon size={14} />}
-                  onClick={() => setProperty(null)}
-                >
-                  {p().name}
-                </MenuItem>
-                <BulkValueEditor
-                  property={p()}
-                  onApply={(value) =>
-                    void store.setValues(props.selected, { [p().id]: value })
-                  }
-                  onDone={close}
-                />
-              </>
-            )}
-          </Show>
-        </div>
-      </SimplePopover>
-      <button type="button" class={btn} onClick={() => setConfirm("remove")}>
-        <UnlinkIcon size={13} /> Remove from collection
-      </button>
-      <button
-        type="button"
-        class={btn}
-        data-danger
-        onClick={() => setConfirm("delete")}
-      >
-        <Trash2Icon size={13} /> Delete
-      </button>
-      <button
-        type="button"
-        class={btn}
-        style={{ "margin-left": "auto" }}
-        aria-label="Clear selection"
-        onClick={() => props.onClear()}
-      >
-        <XIcon size={13} />
-      </button>
+      <div class={row}>
+        <span class={count}>{props.selected.length} selected</span>
+        <SimplePopover
+          class={fitContent}
+          open={open()}
+          onClose={close}
+          anchor={
+            <button
+              type="button"
+              class={btn}
+              aria-label="Set property"
+              title="Set property"
+              aria-expanded={open()}
+              onClick={() => setOpen((v) => !v)}
+            >
+              <PencilIcon size={13} />
+              <span data-label>Set property</span>
+            </button>
+          }
+        >
+          <div class={menuPanel} style={{ width: "17rem" }}>
+            <Show
+              when={property()}
+              fallback={
+                <>
+                  <div class={menuSection}>
+                    Set a value on {props.selected.length} rows
+                  </div>
+                  <For each={editable()}>
+                    {(p) => (
+                      <MenuItem
+                        icon={<PropertyKindIcon property={p} />}
+                        onClick={() => setProperty(p)}
+                      >
+                        {p.name}
+                      </MenuItem>
+                    )}
+                  </For>
+                </>
+              }
+            >
+              {(p) => (
+                <>
+                  <MenuItem
+                    icon={<ChevronLeftIcon size={14} />}
+                    onClick={() => setProperty(null)}
+                  >
+                    {p().name}
+                  </MenuItem>
+                  <BulkValueEditor
+                    property={p()}
+                    onApply={(value) =>
+                      void store.setValues(props.selected, { [p().id]: value })
+                    }
+                    onDone={close}
+                  />
+                </>
+              )}
+            </Show>
+          </div>
+        </SimplePopover>
+        <button
+          type="button"
+          class={btn}
+          aria-label="Remove from collection"
+          title="Remove from collection (keeps the notes)"
+          onClick={() => setConfirm("remove")}
+        >
+          <UnlinkIcon size={13} />
+          <span data-label>Remove from collection</span>
+        </button>
+        <button
+          type="button"
+          class={btn}
+          data-danger
+          aria-label="Delete notes"
+          title="Delete notes"
+          onClick={() => setConfirm("delete")}
+        >
+          <Trash2Icon size={13} />
+          <span data-label>Delete</span>
+        </button>
+        <button
+          type="button"
+          class={`${btn} ${clear}`}
+          aria-label="Clear selection"
+          title="Clear selection (Esc)"
+          onClick={() => props.onClear()}
+        >
+          <XIcon size={14} />
+        </button>
+      </div>
       <ConfirmDialog
         open={confirm() !== null}
         onOpenChange={(o) => !o && setConfirm(null)}

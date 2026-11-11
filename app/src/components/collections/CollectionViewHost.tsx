@@ -1,4 +1,4 @@
-import { Match, Switch } from "solid-js";
+import { type JSX, Match, Switch } from "solid-js";
 import { css } from "styled-system/css";
 import type { CollectionView } from "~/lib/collections/types";
 import { useCollection } from "./CollectionContext";
@@ -17,7 +17,11 @@ import { CollectionCalendar } from "./calendar/CollectionCalendar";
 const stack = css({ display: "flex", flexDirection: "column", gap: "2" });
 
 /** Toolbar plus the view body, by type. Shared by collection pages and note embeds. */
-export const CollectionViewHost = (props: { view: CollectionView }) => {
+export const CollectionViewHost = (props: {
+  view: CollectionView;
+  /** Passed to the toolbar's slot before New (save state, layout toggle). */
+  toolbarTrailing?: JSX.Element;
+}) => {
   const { store, openRow } = useCollection();
   // The table and board take the new name in place. Gallery and calendar have
   // no name field, so their row opens in the peek panel.
@@ -35,6 +39,7 @@ export const CollectionViewHost = (props: { view: CollectionView }) => {
       <CollectionToolbar
         view={props.view}
         onNew={() => void onNew()}
+        trailing={props.toolbarTrailing}
         settings={
           <Switch>
             <Match when={props.view.type === "board"}>

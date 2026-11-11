@@ -2,7 +2,12 @@ import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { noAutofill } from "~/components/ui/no-autofill";
 
+const narrow = "@container colpage (max-width: 35rem)";
 const heading = css({
+  minW: "0",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
   fontSize: "3xl",
   fontWeight: "bold",
   lineHeight: "1.15",
@@ -11,6 +16,7 @@ const heading = css({
   borderRadius: "l2",
   cursor: "text",
   _hover: { bg: "bg.muted" },
+  [narrow]: { fontSize: "2xl" },
 });
 const input = css({
   fontSize: "3xl",
@@ -21,7 +27,10 @@ const input = css({
   borderRadius: "l2",
   bg: "bg.muted",
   outline: "none",
-  minW: "16rem",
+  flex: "1",
+  minW: "0",
+  w: "full",
+  [narrow]: { fontSize: "2xl" },
 });
 
 /** Collection name; click to rename. Renders the same heading on server and client. */
@@ -43,6 +52,7 @@ export const CollectionTitle = (props: {
         <h1
           class={heading}
           tabIndex={0}
+          title={props.name || undefined}
           onClick={() => setEditing(true)}
           onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
         >
