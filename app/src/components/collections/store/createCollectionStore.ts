@@ -269,13 +269,23 @@ export function createCollectionStore(
         // Retry only what was undone, so it can't overwrite a newer edit.
         const fields = [...new Set(undo.map((c) => c.field))];
         const rows = [...new Set(undo.map((c) => c.rowId))];
-        const retry = Object.fromEntries(fields.map((f) => [f, patch[f]!]));
+        // Each row resends only its own undone fields: another row's field
+        // may have a newer edit that this retry must not overwrite.
+        const retry = () => {
+          for (const rowId of rows) {
+            const own = undo.filter((c) => c.rowId === rowId);
+            void api.setValues(
+              [rowId],
+              Object.fromEntries(own.map((c) => [c.field, patch[c.field]!])),
+            );
+          }
+        };
         retryToast(
           `Couldn't save ${fieldNames(fields)}`,
           rows.length > 1
             ? `${rows.length} rows went back to their earlier values.`
             : "It went back to its earlier value.",
-          () => void api.setValues(rows, retry),
+          retry,
         );
       }
     },
@@ -383,8 +393,9 @@ export function createCollectionStore(
         if (result.rank !== rank && rankAt(rowId) === rank)
           setState("rows", (r) => r.id === rowId, "rank", result.rank);
       } catch (error) {
-        if (previous && writes.rollback(seq, cells, rankAt).length)
-          setState("rows", (r) => r.id === rowId, "rank", previous);
+        // A newer move owns the rank now, so this failure changed nothing.
+        if (!previous || !writes.rollback(seq, cells, rankAt).length) return;
+        setState("rows", (r) => r.id === rowId, "rank", previous);
         fail("Couldn't move the row", error);
       }
     },
