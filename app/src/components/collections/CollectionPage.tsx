@@ -58,17 +58,19 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
     const views = store.state.views;
     return views.find((v) => v.id === params.view) ?? views[0];
   });
-  // Rows the active view shows after its filter and search, for the count.
-  const shownCount = createMemo(() => {
+  // Row ids the active view shows, in its order after filter, sort and
+  // search: the header count and the panel's Previous/Next.
+  const shownIds = createMemo(() => {
     const view = activeView();
-    if (!view) return store.state.rows.length;
+    if (!view) return store.state.rows.map((r) => r.id);
     return applyView(
       store.state.rows,
       store.state.properties,
       store.effectiveConfig(store.view(view.id) ?? view),
       store.state.today,
-    ).length;
+    ).map((r) => r.id);
   });
+  const shownCount = () => shownIds().length;
   // The open record lives in `?row=` so a link or reload reopens it. Opening
   // pushes history, so Back closes the panel; moving between rows replaces.
   const rowParam = () => {
@@ -133,6 +135,7 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
         onClose={closeRow}
         onMove={openRow}
         routed
+        order={shownIds}
       />
     </CollectionProvider>
   );

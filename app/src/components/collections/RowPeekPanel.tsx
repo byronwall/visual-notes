@@ -4,7 +4,13 @@ import type { DocumentEditorApi } from "~/components/DocumentEditor";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useCollection } from "./CollectionContext";
 import { PropertyList } from "./PropertyList";
+import type { CollectionRow } from "~/lib/collections/types";
 import { isCoarsePointer } from "./touch";
+import { fetchDoc } from "~/services/docs.service";
+import { RecordNavBar, RecordNavInline } from "./detail/RecordNav";
+import { OutOfViewNotice, RecordPreview } from "./detail/RecordPreview";
+import { useRecordGestures } from "./detail/useRecordGestures";
+import { useRecordPosition } from "./detail/useRecordPosition";
 
 // How long a move waits for its save before it asks. A working network lands
 // well inside this, so a normal close never shows the prompt.
@@ -35,6 +41,8 @@ export const RowPeekPanel = (props: {
    * asks before unsaved text is lost, on these moves and on browser Back.
    */
   routed?: boolean;
+  /** Row ids in the active view's order (filter, sort, search): Previous/Next. */
+  order?: () => readonly string[];
 }) => {
   const { store, embedded } = useCollection();
   const [editor, setEditor] = createSignal<{
@@ -76,6 +84,46 @@ export const RowPeekPanel = (props: {
     if (safe || props.routed) commit(id);
     else setPending({ id });
   };
+
+  const pos = useRecordPosition(
+    () => props.rowId,
+    () => props.order?.() ?? [],
+  );
+  const step = (id: string | undefined) => id && void go(id);
+  const prev = () => step(pos.prevId());
+  const next = () => step(pos.nextId());
+  useRecordGestures({
+    active: () => Boolean(props.order && props.rowId) && !pending(),
+    prev,
+    next,
+  });
+
+  // Load the neighbors ahead, so the next record's note is ready when asked.
+  // Reading the query here also keeps its cached entry alive while open.
+  createEffect(() => {
+    if (!props.order || !props.rowId) return;
+    for (const id of [pos.prevId(), pos.nextId()])
+      if (id) void fetchDoc(id).catch(() => undefined);
+  });
+
+  const outOfView = () => Boolean(props.order && props.rowId) && !pos.inView();
+  const properties = (r: CollectionRow) => (
+    <>
+      <Show when={outOfView()}>
+        <OutOfViewNotice />
+      </Show>
+      <PropertyList row={r} allowSchemaEdits={!embedded} />
+    </>
+  );
+  const nav = (Nav: typeof RecordNavBar) => (
+    <Show when={props.order}>
+      <Nav
+        label={pos.label()}
+        onPrev={pos.prevId() ? prev : undefined}
+        onNext={pos.nextId() ? next : undefined}
+      />
+    </Show>
+  );
 
   // Every row change, whatever started it: refresh the previews of the row
   // that was open, and on close put focus back where the user left the view.
@@ -136,9 +184,18 @@ export const RowPeekPanel = (props: {
         onTitleChange={(docId, title) => store.applyLocalTitle(docId, title)}
         header={
           <Show when={row()} keyed>
-            {(r) => <PropertyList row={r} allowSchemaEdits={!embedded} />}
+            {(r) => properties(r)}
           </Show>
         }
+        preview={(docId) => (
+          <Show when={store.state.rows.find((r) => r.id === docId)} keyed>
+            {(r) => (
+              <RecordPreview name={r.title}>{properties(r)}</RecordPreview>
+            )}
+          </Show>
+        )}
+        nav={nav(RecordNavInline)}
+        footer={nav(RecordNavBar)}
       />
       {/* Mounted on demand so its portal lands above the panel's. */}
       <Show when={pending()}>
