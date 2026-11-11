@@ -1,6 +1,7 @@
 import { useAction } from "@solidjs/router";
 import { batch, createEffect, createSignal, on } from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
+import { type Cell, createWriteLog } from "~/lib/collections/optimistic";
 import { rankBetween } from "~/lib/collections/rank";
 import { useToasts } from "~/components/Toast";
 import type {
@@ -15,6 +16,7 @@ import type {
   ViewConfig,
   ViewType,
 } from "~/lib/collections/types";
+import { TITLE_PROPERTY_ID } from "~/lib/collections/types";
 import {
   createProperty,
   createRow,
@@ -99,6 +101,27 @@ export function createCollectionStore(
       type: "error",
     });
   };
+  /** An error toast whose Retry button repeats the failed write. */
+  const retryToast = (title: string, message: string, retry: () => void) =>
+    show({
+      title,
+      message,
+      type: "error",
+      timeoutMs: 10000,
+      actionLabel: "Retry",
+      onClick: retry,
+    });
+  const fieldNames = (fields: string[]) => {
+    const names = fields.map((f) =>
+      f === TITLE_PROPERTY_ID
+        ? "Name"
+        : (state.properties.find((p) => p.id === f)?.name ?? "the change"),
+    );
+    return names.length > 2
+      ? `${names.length} properties`
+      : names.join(" and ");
+  };
+  const writes = createWriteLog();
 
   const run = {
     setValues: useAction(setRowProperties),
@@ -119,6 +142,11 @@ export function createCollectionStore(
   };
 
   const rowIndex = (id: string) => state.rows.findIndex((r) => r.id === id);
+  const rowById = (id: string) => state.rows.find((r) => r.id === id);
+  const valueAt = (rowId: string, field: string) =>
+    rowById(rowId)?.properties[field];
+  const titleAt = (rowId: string) => rowById(rowId)?.title;
+  const rankAt = (rowId: string) => rowById(rowId)?.rank;
   const snapshotRows = (ids: string[]) =>
     ids
       .map((id) => state.rows.find((r) => r.id === id))
@@ -148,7 +176,19 @@ export function createCollectionStore(
 
     async setValues(rowIds: string[], patch: Record<string, PropertyValue>) {
       if (!rowIds.length) return;
-      const snap = snapshotRows(rowIds);
+      const cells: Cell<PropertyValue>[] = [];
+      for (const id of rowIds) {
+        const row = state.rows.find((r) => r.id === id);
+        if (!row) continue;
+        for (const [field, value] of Object.entries(patch))
+          cells.push({
+            rowId: id,
+            field,
+            prev: clone(row.properties[field]),
+            next: value ?? undefined,
+          });
+      }
+      const seq = writes.begin(cells);
       setState(
         produce((s) => {
           for (const row of s.rows) {
@@ -175,8 +215,30 @@ export function createCollectionStore(
           }),
         );
       } catch (error) {
-        restoreRows(snap);
-        fail("Couldn't save the change", error);
+        const undo = writes.rollback(seq, cells, valueAt);
+        console.warn("[collections] value save failed", error);
+        if (!undo.length) return;
+        setState(
+          produce((s) => {
+            for (const c of undo) {
+              const row = s.rows.find((r) => r.id === c.rowId);
+              if (!row) continue;
+              if (c.prev === undefined) delete row.properties[c.field];
+              else row.properties[c.field] = c.prev;
+            }
+          }),
+        );
+        // Retry only what was undone, so it can't overwrite a newer edit.
+        const fields = [...new Set(undo.map((c) => c.field))];
+        const rows = [...new Set(undo.map((c) => c.rowId))];
+        const retry = Object.fromEntries(fields.map((f) => [f, patch[f]!]));
+        retryToast(
+          `Couldn't save ${fieldNames(fields)}`,
+          rows.length > 1
+            ? `${rows.length} rows went back to their earlier values.`
+            : "It went back to its earlier value.",
+          () => void api.setValues(rows, retry),
+        );
       }
     },
 
@@ -186,13 +248,22 @@ export function createCollectionStore(
       const previous = state.rows[i]!.title;
       const next = title.trim() || "Untitled";
       if (next === previous) return;
+      const cells = [{ rowId, field: TITLE_PROPERTY_ID, prev: previous, next }];
+      const seq = writes.begin(cells);
       setState("rows", i, "title", next);
       try {
         const result = await run.setTitle({ docId: rowId, title: next });
         setState("rows", (r) => r.id === rowId, "updatedAt", result.updatedAt);
       } catch (error) {
+        console.warn("[collections] title save failed", error);
+        const undo = writes.rollback(seq, cells, titleAt);
+        if (!undo.length) return;
         setState("rows", (r) => r.id === rowId, "title", previous);
-        fail("Couldn't rename the row", error);
+        retryToast(
+          "Couldn't rename the row",
+          `It went back to “${previous}”.`,
+          () => void api.setTitle(rowId, next),
+        );
       }
     },
 
@@ -252,7 +323,7 @@ export function createCollectionStore(
       beforeRank: string | null,
       patch?: Record<string, PropertyValue>,
     ) {
-      const snap = snapshotRows([rowId]);
+      const previous = state.rows.find((r) => r.id === rowId)?.rank;
       let rank: string;
       try {
         rank = rankBetween(afterRank, beforeRank);
@@ -260,6 +331,8 @@ export function createCollectionStore(
         rank = rankBetween(afterRank, null);
         beforeRank = null;
       }
+      const cells = [{ rowId, field: "@rank", prev: previous, next: rank }];
+      const seq = writes.begin(cells);
       setState("rows", (r) => r.id === rowId, "rank", rank);
       if (patch) void api.setValues([rowId], patch);
       try {
@@ -269,10 +342,11 @@ export function createCollectionStore(
           afterRank,
           beforeRank,
         });
-        if (result.rank !== rank)
+        if (result.rank !== rank && rankAt(rowId) === rank)
           setState("rows", (r) => r.id === rowId, "rank", result.rank);
       } catch (error) {
-        restoreRows(snap);
+        if (previous && writes.rollback(seq, cells, rankAt).length)
+          setState("rows", (r) => r.id === rowId, "rank", previous);
         fail("Couldn't move the row", error);
       }
     },
