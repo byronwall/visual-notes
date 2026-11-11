@@ -41,10 +41,20 @@ export const TableOrList = (props: {
   onMount(() => {
     const measure = () =>
       setNarrow((lastNarrow = frameEl!.clientWidth < LIST_MAX_WIDTH));
-    const observer = new ResizeObserver(measure);
+    // Switching panes resizes the observed frame. Doing it inside the
+    // observer callback would trip the browser's ResizeObserver loop error,
+    // so a resize switches on the next frame.
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    });
     observer.observe(frameEl!);
     measure();
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    });
   });
   const listMode = () => props.state.mode() === "list";
   const showList = () => listMode() && narrow() !== false;
