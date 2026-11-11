@@ -47,6 +47,9 @@ const bodyCell = css({
   "&:focus-within": {
     boxShadow: "inset 0 0 0 2px token(colors.border.accent)",
   },
+  // A tap opens the record instead of selecting a cell, so the ring left on
+  // the tapped cell is noise on touch screens.
+  "@media (hover: none)": { "&:focus-within": { boxShadow: "none" } },
 });
 
 /** One record in the table: a checkbox, its name, and a cell per property. */
