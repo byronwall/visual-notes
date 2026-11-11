@@ -53,8 +53,10 @@ const columnHead = css({
   fontSize: "sm",
 });
 const countCls = css({ color: "fg.subtle", fontSize: "xs" });
+// The "…" menu is a sibling of the card: a button inside role="button"
+// would be hidden from assistive tech.
+const cardShell = css({ position: "relative" });
 const card = css({
-  position: "relative",
   display: "flex",
   flexDirection: "column",
   gap: "1.5",
@@ -333,33 +335,47 @@ export const CollectionBoard = (props: {
                           <div class={marker} />
                         </Show>
                         <div
-                          class={cx(card, draggable)}
+                          class={cardShell}
                           data-card-id={row.id}
-                          role="button"
-                          tabIndex={0}
-                          onPointerDown={(e) =>
-                            startPointerDrag(e, e.currentTarget, {
-                              onStart: () => {
-                                setDraggingId(row.id);
-                              },
-                              onMove: (x, y) => setDrop(locate(x, y)),
-                              onDrop: (x, y) => finishDrop(row, x, y),
-                              onCancel: () => {
-                                setDrop(null);
-                                setDraggingId(null);
-                              },
-                              onLongPress: () => setMenuFor(row.id),
-                            })
-                          }
-                          onClick={() => openRow(row.id)}
-                          onKeyDown={(e) =>
-                            (e.key === "Enter" || e.key === " ") &&
-                            (e.preventDefault(), openRow(row.id))
+                          data-dragging={
+                            draggingId() === row.id ? "" : undefined
                           }
                         >
-                          <span class={cardTitle}>
-                            {row.title || "Untitled"}
-                          </span>
+                          <div
+                            class={cx(card, draggable)}
+                            role="button"
+                            tabIndex={0}
+                            onPointerDown={(e) =>
+                              startPointerDrag(e, e.currentTarget, {
+                                onStart: () => {
+                                  setDraggingId(row.id);
+                                },
+                                onMove: (x, y) => setDrop(locate(x, y)),
+                                onDrop: (x, y) => finishDrop(row, x, y),
+                                onCancel: () => {
+                                  setDrop(null);
+                                  setDraggingId(null);
+                                },
+                                onLongPress: () => setMenuFor(row.id),
+                              })
+                            }
+                            onClick={() => openRow(row.id)}
+                            onKeyDown={(e) =>
+                              (e.key === "Enter" || e.key === " ") &&
+                              (e.preventDefault(), openRow(row.id))
+                            }
+                          >
+                            <span class={cardTitle}>
+                              {row.title || "Untitled"}
+                            </span>
+                            <CardFields
+                              row={row}
+                              properties={cardProperties()}
+                              showEmpty={Boolean(
+                                props.view.config.cardProperties,
+                              )}
+                            />
+                          </div>
                           <CardMenu
                             open={menuFor() === row.id}
                             onOpenChange={(open) =>
@@ -374,13 +390,6 @@ export const CollectionBoard = (props: {
                             onOpenRow={() => openRow(row.id)}
                             onMoveTo={(k) => moveTo(row, k)}
                             onShift={(d) => shift(row, key(), d)}
-                          />
-                          <CardFields
-                            row={row}
-                            properties={cardProperties()}
-                            showEmpty={Boolean(
-                              props.view.config.cardProperties,
-                            )}
                           />
                         </div>
                       </>

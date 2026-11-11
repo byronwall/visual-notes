@@ -44,14 +44,22 @@ const iconBtn = css({
 const eventRow = css({
   display: "flex",
   alignItems: "center",
-  gap: "2.5",
-  minH: "11",
-  pl: "1",
   borderRadius: "l2",
-  cursor: "pointer",
   transitionProperty: "background-color",
   transitionDuration: "140ms",
   _hover: { bg: "bg.muted" },
+});
+const eventMain = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2.5",
+  flex: "1",
+  minW: "0",
+  minH: "11",
+  pl: "1",
+  borderRadius: "l2",
+  textAlign: "left",
+  cursor: "pointer",
   _focusVisible: {
     outline: "2px solid token(colors.border.accent)",
     outlineOffset: "-2px",
@@ -143,39 +151,31 @@ export const CalendarAgenda = (props: {
             fallback={<div class={hint}>Nothing scheduled</div>}
           >
             {(ev) => (
-              <div
-                class={eventRow}
-                role="button"
-                tabIndex={0}
-                style={props.colorFor(ev.row)}
-                onClick={() => props.onOpen(ev.row)}
-                onKeyDown={(e) =>
-                  (e.key === "Enter" || e.key === " ") &&
-                  (e.preventDefault(), props.onOpen(ev.row))
-                }
-              >
-                <span class={dot} />
-                <span class={text}>
-                  <span class={title}>
-                    <Show when={ev.time}>
-                      <span class={time}>{ev.time}</span>
+              <div class={eventRow} style={props.colorFor(ev.row)}>
+                <button
+                  type="button"
+                  class={eventMain}
+                  onClick={() => props.onOpen(ev.row)}
+                >
+                  <span class={dot} />
+                  <span class={text}>
+                    <span class={title}>
+                      <Show when={ev.time}>
+                        <span class={time}>{ev.time}</span>
+                      </Show>
+                      {ev.row.title || "Untitled"}
+                    </span>
+                    <Show when={ev.end !== ev.start}>
+                      <span class={meta}>{rangeLabel(ev.start, ev.end)}</span>
                     </Show>
-                    {ev.row.title || "Untitled"}
                   </span>
-                  <Show when={ev.end !== ev.start}>
-                    <span class={meta}>{rangeLabel(ev.start, ev.end)}</span>
-                  </Show>
-                </span>
+                </button>
                 <Show when={props.editable}>
                   <button
                     type="button"
                     class={iconBtn}
                     aria-label={`Change date of ${ev.row.title || "Untitled"}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      props.onDateMenu(ev.row, e.currentTarget);
-                    }}
-                    onKeyDown={(e) => e.stopPropagation()}
+                    onClick={(e) => props.onDateMenu(ev.row, e.currentTarget)}
                   >
                     <CalendarClockIcon size={15} />
                   </button>

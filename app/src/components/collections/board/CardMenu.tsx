@@ -40,6 +40,7 @@ const trigger = css({
   "[data-card-id]:hover &": { opacity: "1" },
   "[data-card-id]:focus-within &": { opacity: "1" },
   "&[data-open]": { opacity: "1" },
+  "[data-dragging] &": { visibility: "hidden" },
   "@media (hover: none)": { opacity: "1" },
 });
 

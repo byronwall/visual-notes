@@ -40,6 +40,8 @@ const itemTitle = css({
   flex: "1",
   minW: "0",
   py: "1",
+  textAlign: "left",
+  cursor: "pointer",
   lineHeight: "1.35",
   wordBreak: "break-word",
 });
@@ -91,19 +93,21 @@ export const UndatedTray = (props: {
           <div
             class={cx(item, draggable)}
             onPointerDown={(e) => props.onPointerDown(row, e)}
-            onClick={() => props.onOpen(row)}
           >
-            <span class={itemTitle}>{row.title || "Untitled"}</span>
+            <button
+              type="button"
+              class={itemTitle}
+              onClick={() => props.onOpen(row)}
+            >
+              {row.title || "Untitled"}
+            </button>
             <Show when={props.editable}>
               <button
                 type="button"
                 class={iconBtn}
                 aria-label={`Set date of ${row.title || "Untitled"}`}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.onDateMenu(row, e.currentTarget);
-                }}
+                onClick={(e) => props.onDateMenu(row, e.currentTarget)}
               >
                 <CalendarPlusIcon size={15} />
               </button>
