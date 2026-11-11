@@ -10,8 +10,10 @@ import {
 /** Every body row is exactly this tall (TableRow sets the same literal). */
 export const ROW_HEIGHT = 33;
 /** Rows rendered before any measurement, identical on server and client. */
-const INITIAL_WINDOW = 60;
+const INITIAL_WINDOW = 40;
 const OVERSCAN = 15;
+/** Rows of overscan that may scroll past before the window moves again. */
+const SLACK = 5;
 /** Below this, every row renders and nothing is windowed. */
 export const WINDOW_THRESHOLD = 150;
 /** Space kept between a revealed row and the window edge in a note embed. */
@@ -53,9 +55,17 @@ export function useWindowedRows(opts: {
     const bodyTop = el.getBoundingClientRect().top;
     const first = Math.floor(Math.max(0, band.top - bodyTop) / rowH());
     const shown = Math.ceil(Math.max(0, band.bottom - band.top) / rowH());
+    const prev = range();
+    // Keep the window while the rows on screen sit at least SLACK rows inside
+    // it. Each window change lays out the whole grid again, so moving it every
+    // few rows instead of every row saves most of the work while scrolling.
+    const top = Math.max(0, Math.min(n, first) - SLACK);
+    const bottom = Math.min(n, first + shown + SLACK);
+    const fits = prev.end - prev.start <= shown + 2 * OVERSCAN;
+    if (fits && prev.start <= top && prev.end >= bottom && prev.end <= n)
+      return;
     const start = Math.max(0, Math.min(n, first) - OVERSCAN);
     const end = Math.min(n, first + shown + OVERSCAN);
-    const prev = range();
     if (prev.start !== start || prev.end !== end) setRange({ start, end });
   };
 
