@@ -50,8 +50,6 @@ const bulkAnchor = css({
   h: "0",
 });
 
-const fmt = (n: number) => n.toLocaleString("en-US");
-
 /** Row count and Select; while selecting, the bulk actions and Done. */
 export const ListHeader = (props: {
   total: number;
@@ -69,8 +67,8 @@ export const ListHeader = (props: {
         <>
           <span class={count} data-list-count>
             {props.matched === props.total
-              ? `${fmt(props.total)} ${props.total === 1 ? "row" : "rows"}`
-              : `${fmt(props.matched)} shown · ${fmt(props.total)} total`}
+              ? `${props.total} ${props.total === 1 ? "row" : "rows"}`
+              : `${props.matched} shown · ${props.total} total`}
           </span>
           <Show when={props.matched > 0}>
             <button type="button" class={btn} onClick={() => props.onSelect()}>
