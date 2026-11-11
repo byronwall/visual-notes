@@ -378,3 +378,33 @@ export function coerceValue(
 
 export const findOption = (options: SelectOption[] | undefined, id: string) =>
   (options ?? []).find((o) => o.id === id);
+
+const isPercentLike = (config: PropertyConfig) =>
+  config.format === "percent" || config.format === "progress";
+
+/** The text a number editor starts with: percents show as 0–100. */
+export function numberDraft(config: PropertyConfig, value: PropertyValue) {
+  if (typeof value !== "number") return String(value ?? "");
+  return String(
+    isPercentLike(config) ? Number((value * 100).toFixed(6)) : value,
+  );
+}
+
+/**
+ * Reads what was typed into a number editor. Percent and progress take
+ * whole percents ("45" is 0.45) unless the text ends in "%". Empty text
+ * clears the value.
+ */
+export function parseNumberDraft(
+  property: Pick<CollectionProperty, "kind" | "config">,
+  text: string,
+): { value: number | null } | { error: string } {
+  const parsed = parseLooseText(property, text);
+  const pct = isPercentLike(property.config);
+  if (parsed.failed)
+    return { error: pct ? "Enter a percent" : "Enter a number" };
+  const n = parsed.value as number | null;
+  return {
+    value: n !== null && pct && !text.trim().endsWith("%") ? n / 100 : n,
+  };
+}

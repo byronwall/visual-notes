@@ -20,6 +20,17 @@ const truncate = css({
   whiteSpace: "nowrap",
   minW: "0",
 });
+// Long text in a field: every line, breaking long words instead of overflowing.
+const multilineText = css({
+  display: "block",
+  w: "full",
+  py: "1.5",
+  lineHeight: "1.25rem",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  // Touch screens edit at 16px (see global-css), so the text matches it.
+  "@media (pointer: coarse)": { fontSize: "max(16px, 1em)" },
+});
 const chips = css({
   display: "flex",
   gap: "1",
@@ -101,7 +112,8 @@ const displayUrl = (text: string) =>
   text.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
 
 /**
- * Read-only rendering of a value; `wrap` lets chips and text use more lines.
+ * Read-only rendering of a value; `wrap` lets chips use more lines, and
+ * `multiline` shows plain text in full.
  * `linkOpens: "button"` keeps link text clickable for editing and opens the
  * link from a trailing icon instead.
  */
@@ -109,6 +121,7 @@ export const ValueDisplay = (props: {
   property: CollectionProperty;
   value: PropertyValue;
   wrap?: boolean;
+  multiline?: boolean;
   placeholder?: string;
   linkOpens?: "text" | "button";
 }) => {
@@ -137,6 +150,9 @@ export const ValueDisplay = (props: {
           </span>
         }
       >
+        <Match when={props.multiline && props.property.kind === "text"}>
+          <span class={multilineText}>{String(props.value)}</span>
+        </Match>
         <Match when={props.property.kind === "checkbox"}>
           <span
             class={checkboxBox}
