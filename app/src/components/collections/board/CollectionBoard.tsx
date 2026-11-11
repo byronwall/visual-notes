@@ -1,6 +1,6 @@
 import { KanbanIcon, PlusIcon } from "lucide-solid";
 import { For, Index, Show, createMemo, createSignal } from "solid-js";
-import { css } from "styled-system/css";
+import { css, cx } from "styled-system/css";
 import {
   canGroupBy,
   groupRows,
@@ -14,9 +14,10 @@ import {
 } from "~/lib/collections/query";
 import type { CollectionRow, CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
-import { startPointerDrag } from "../drag/startPointerDrag";
+import { draggable, startPointerDrag } from "../drag/startPointerDrag";
 import { OptionChip } from "../values/OptionChip";
 import { CardFields } from "./CardFields";
+import { CardMenu, NONE } from "./CardMenu";
 import { noAutofill } from "~/components/ui/no-autofill";
 
 const board = css({
@@ -47,6 +48,7 @@ const columnHead = css({
 });
 const countCls = css({ color: "fg.subtle", fontSize: "xs" });
 const card = css({
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   gap: "1.5",
@@ -57,11 +59,12 @@ const card = css({
   borderColor: "border",
   boxShadow: "xs",
   cursor: "pointer",
-  touchAction: "none",
   textAlign: "left",
   _hover: { borderColor: "border.emphasized" },
 });
 const cardTitle = css({
+  // Room for the "…" menu button in the corner.
+  pr: "6",
   fontSize: "sm",
   fontWeight: "medium",
   lineHeight: "1.35",
@@ -117,7 +120,6 @@ const primaryBtn = css({
   cursor: "pointer",
 });
 
-const NONE = "__none__";
 /** Cards rendered per column before "Show more" (large collections stay fast). */
 const COLUMN_PAGE = 50;
 
@@ -133,6 +135,7 @@ export const CollectionBoard = (props: {
   );
   const [draggingId, setDraggingId] = createSignal<string | null>(null);
   const [addingTo, setAddingTo] = createSignal<string | null>(null);
+  const [menuFor, setMenuFor] = createSignal<string | null>(null);
   const [limits, setLimits] = createSignal<Record<string, number>>({});
   const limitFor = (key: string) => limits()[key] ?? COLUMN_PAGE;
 
@@ -220,6 +223,34 @@ export const CollectionBoard = (props: {
     void store.moveRow(row.id, after, before, patch);
   };
 
+  const columnOf = (key: string) =>
+    groups().find((g) => (g.key ?? NONE) === key)?.rows ?? [];
+
+  /** Menu "Move to": the card lands at the top of the target column. */
+  const moveTo = (row: CollectionRow, key: string) => {
+    const property = groupProperty();
+    if (!property) return;
+    const value = key === NONE ? null : key;
+    if ((row.properties[property.id] ?? null) === value) return;
+    const patch = { [property.id]: value };
+    if (hasActiveSort(props.view.config)) {
+      void store.setValues([row.id], patch);
+      return;
+    }
+    const { after, before } = rankForDrop(columnOf(key), 0);
+    void store.moveRow(row.id, after, before, patch);
+  };
+
+  /** Menu "Move up/down" within the card's column. */
+  const shift = (row: CollectionRow, key: string, delta: -1 | 1) => {
+    const col = columnOf(key);
+    const index = col.findIndex((r) => r.id === row.id) + delta;
+    const rest = col.filter((r) => r.id !== row.id);
+    if (index < 0 || index > rest.length) return;
+    const { after, before } = rankForDrop(rest, index);
+    void store.moveRow(row.id, after, before);
+  };
+
   const createIn = async (group: BoardGroup, title: string) => {
     const property = groupProperty();
     const last = group.rows[group.rows.length - 1];
@@ -295,7 +326,7 @@ export const CollectionBoard = (props: {
                         <div class={marker} />
                       </Show>
                       <div
-                        class={card}
+                        class={cx(card, draggable)}
                         data-card-id={row.id}
                         role="button"
                         tabIndex={0}
@@ -310,6 +341,7 @@ export const CollectionBoard = (props: {
                               setDrop(null);
                               setDraggingId(null);
                             },
+                            onLongPress: () => setMenuFor(row.id),
                           })
                         }
                         onClick={() => openRow(row.id)}
@@ -319,6 +351,21 @@ export const CollectionBoard = (props: {
                         }
                       >
                         <span class={cardTitle}>{row.title || "Untitled"}</span>
+                        <CardMenu
+                          open={menuFor() === row.id}
+                          onOpenChange={(open) =>
+                            setMenuFor(open ? row.id : null)
+                          }
+                          groups={groups()}
+                          property={groupProperty()!}
+                          currentKey={key()}
+                          canReorder={!hasActiveSort(props.view.config)}
+                          isFirst={i() === 0}
+                          isLast={i() === group().rows.length - 1}
+                          onOpenRow={() => openRow(row.id)}
+                          onMoveTo={(k) => moveTo(row, k)}
+                          onShift={(d) => shift(row, key(), d)}
+                        />
                         <CardFields
                           row={row}
                           properties={cardProperties()}
