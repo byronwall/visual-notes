@@ -1,7 +1,6 @@
 import { PlusIcon } from "lucide-solid";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import { applyView } from "~/lib/collections/query";
 import type { CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
 import { EmptyRows } from "../table/EmptyRows";
@@ -56,14 +55,7 @@ export const CollectionList = (props: {
   const [selecting, setSelecting] = createSignal(false);
   let bodyStart: HTMLDivElement | undefined;
 
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const shown = createMemo(() => rows().slice(0, limit()));
   const fields = createMemo(() =>
     listFields(store.state.properties, props.view.config),
@@ -150,11 +142,7 @@ export const CollectionList = (props: {
       <Show when={store.state.rows.length === 0}>
         <div class={emptyAll}>
           No rows yet
-          <button
-            type="button"
-            class={actionRow}
-            onClick={() => void addRow()}
-          >
+          <button type="button" class={actionRow} onClick={() => void addRow()}>
             <PlusIcon size={14} /> New
           </button>
         </div>

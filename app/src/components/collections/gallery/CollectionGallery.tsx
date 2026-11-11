@@ -1,7 +1,7 @@
 import { PlusIcon } from "lucide-solid";
 import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import { applyView, orderedProperties } from "~/lib/collections/query";
+import { orderedProperties } from "~/lib/collections/query";
 import type { CollectionRow, CollectionView } from "~/lib/collections/types";
 import { fetchNoteSummaries } from "~/services/collections/collections.queries";
 import { CardFields } from "../board/CardFields";
@@ -110,14 +110,7 @@ export const CollectionGallery = (props: { view: CollectionView }) => {
     });
     return chosen ? all.filter((p) => chosen.includes(p.id)) : all.slice(0, 2);
   });
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
 
   const coverFor = (row: CollectionRow): string | null => {
     if (coverSource() === "none") return null;

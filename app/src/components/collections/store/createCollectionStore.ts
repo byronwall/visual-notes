@@ -1,7 +1,18 @@
 import { useAction } from "@solidjs/router";
-import { batch, createEffect, createSignal, on, onCleanup } from "solid-js";
+import {
+  type Accessor,
+  batch,
+  createEffect,
+  createMemo,
+  createSignal,
+  getOwner,
+  on,
+  onCleanup,
+  runWithOwner,
+} from "solid-js";
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import { type Cell, createWriteLog } from "~/lib/collections/optimistic";
+import { applyView, searchTexts } from "~/lib/collections/query";
 import { rankBetween } from "~/lib/collections/rank";
 import { useToasts } from "~/components/Toast";
 import type {
@@ -117,7 +128,7 @@ export function createCollectionStore(
     const names = fields.map((f) =>
       f === TITLE_PROPERTY_ID
         ? "Name"
-        : (state.properties.find((p) => p.id === f)?.name ?? "the change"),
+        : state.properties.find((p) => p.id === f)?.name ?? "the change",
     );
     return names.length > 2
       ? `${names.length} properties`
@@ -167,9 +178,9 @@ export function createCollectionStore(
     );
 
   const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  const [viewSaves, setViewSaves] = createSignal<
-    Record<string, ViewSaveState>
-  >({});
+  const [viewSaves, setViewSaves] = createSignal<Record<string, ViewSaveState>>(
+    {},
+  );
   const setViewSave = (viewId: string, value: ViewSaveState) =>
     setViewSaves((prev) => ({ ...prev, [viewId]: value }));
   // Only the newest save of a view may set its state.
@@ -208,6 +219,27 @@ export function createCollectionStore(
   // Bumped when a row's note body may have changed (e.g. the peek closed), so
   // card covers and previews refetch.
   const [contentVersion, setContentVersion] = createSignal(0);
+
+  // While any view is searched, each row's searchable text is formatted once
+  // and reused by every keystroke. An edit rebuilds it.
+  const searching = createMemo(() => Object.values(searches()).some(Boolean));
+  const texts = createMemo(() =>
+    searching()
+      ? new Map(
+          state.rows.map((r) => [r, searchTexts(r, state.properties)] as const),
+        )
+      : null,
+  );
+  const textsOf = (row: CollectionRow, properties: CollectionProperty[]) =>
+    texts()?.get(row) ?? searchTexts(row, properties);
+
+  // One filtered, searched, sorted list per view, shared by the page count,
+  // the view body, and the record panel's Previous/Next.
+  const owner = getOwner();
+  const viewRowsCache = new WeakMap<
+    CollectionView,
+    Accessor<CollectionRow[]>
+  >();
 
   const api = {
     state,
@@ -525,6 +557,27 @@ export function createCollectionStore(
 
     setSearch(viewId: string, value: string) {
       setSearches((prev) => ({ ...prev, [viewId]: value }));
+    },
+
+    /** The view's rows after its filter, search, and sort. */
+    viewRows(view: CollectionView): CollectionRow[] {
+      let rows = viewRowsCache.get(view);
+      if (!rows) {
+        rows = runWithOwner(owner, () => {
+          const memo = createMemo(() =>
+            applyView(
+              state.rows,
+              state.properties,
+              api.effectiveConfig(view),
+              state.today,
+              textsOf,
+            ),
+          );
+          return memo;
+        })!;
+        viewRowsCache.set(view, rows);
+      }
+      return rows();
     },
 
     /** The view's saved config plus its transient search. */

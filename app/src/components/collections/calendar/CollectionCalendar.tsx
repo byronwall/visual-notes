@@ -6,7 +6,6 @@ import {
 import { Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { monthGrid, moveDate, shiftMonth } from "~/lib/collections/group";
-import { applyView } from "~/lib/collections/query";
 import type {
   CollectionProperty,
   CollectionRow,
@@ -147,14 +146,7 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
   });
   const editable = () =>
     Boolean(property() && !isComputedKind(property()!.kind));
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const undated = createMemo(() => {
     const p = property();
     return p ? rows().filter((r) => !isDateValue(readValue(r, p))) : [];

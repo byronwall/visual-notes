@@ -6,7 +6,6 @@ import {
   createSignal,
   onMount,
 } from "solid-js";
-import { applyView } from "~/lib/collections/query";
 import { rememberTimeZone } from "~/lib/collections/timezone";
 import { css } from "styled-system/css";
 import type { CollectionBundle } from "~/lib/collections/types";
@@ -63,12 +62,7 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
   const shownIds = createMemo(() => {
     const view = activeView();
     if (!view) return store.state.rows.map((r) => r.id);
-    return applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(store.view(view.id) ?? view),
-      store.state.today,
-    ).map((r) => r.id);
+    return store.viewRows(store.view(view.id) ?? view).map((r) => r.id);
   });
   const shownCount = () => shownIds().length;
   // The open record lives in `?row=` so a link or reload reopens it. Opening

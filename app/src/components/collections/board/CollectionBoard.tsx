@@ -7,11 +7,7 @@ import {
   rankForDrop,
   type BoardGroup,
 } from "~/lib/collections/group";
-import {
-  applyView,
-  hasActiveSort,
-  orderedProperties,
-} from "~/lib/collections/query";
+import { hasActiveSort, orderedProperties } from "~/lib/collections/query";
 import type { CollectionRow, CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
 import { draggable, startPointerDrag } from "../drag/startPointerDrag";
@@ -164,14 +160,7 @@ export const CollectionBoard = (props: {
     if (chosen) return all.filter((p) => chosen.includes(p.id));
     return all.filter((p) => p.id !== groupProperty()?.id).slice(0, 3);
   });
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const groups = createMemo<BoardGroup[]>(() => {
     const property = groupProperty();
     if (!property) return [];

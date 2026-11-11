@@ -1,6 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
-import { applyView } from "~/lib/collections/query";
 import type { CollectionView } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
 import { BulkBar } from "./BulkBar";
@@ -108,14 +107,7 @@ export const CollectionTable = (props: {
     view: () => props.view,
     scrollerWidth: fit.width,
   });
-  const rows = createMemo(() =>
-    applyView(
-      store.state.rows,
-      store.state.properties,
-      store.effectiveConfig(props.view),
-      store.state.today,
-    ),
-  );
+  const rows = createMemo(() => store.viewRows(props.view));
   const selection = useRowSelection(() => rows());
   const limitedRows = createMemo(() => {
     const all = rows();

@@ -351,31 +351,44 @@ export function sortRows(
   });
 }
 
+/** Lowercased text a search matches: the title, then each value as shown. */
+export type SearchTexts = (
+  row: CollectionRow,
+  properties: CollectionProperty[],
+) => string[];
+
+export const searchTexts: SearchTexts = (row, properties) => [
+  row.title.toLowerCase(),
+  ...properties.map((p) => formatValueText(p, readValue(row, p)).toLowerCase()),
+];
+
 export function matchesSearch(
   row: CollectionRow,
   search: string | undefined,
   properties: CollectionProperty[],
+  texts: SearchTexts = searchTexts,
 ) {
   const needle = search?.trim().toLowerCase();
   if (!needle) return true;
-  if (row.title.toLowerCase().includes(needle)) return true;
-  return properties.some((p) =>
-    formatValueText(p, readValue(row, p)).toLowerCase().includes(needle),
-  );
+  return texts(row, properties).some((t) => t.includes(needle));
 }
 
-/** Filters, searches, and sorts rows for a view. Pure; runs on server and client. */
+/**
+ * Filters, searches, and sorts rows for a view. Pure; runs on server and
+ * client. `texts` lets the client reuse row text it already formatted.
+ */
 export function applyView(
   rows: CollectionRow[],
   properties: CollectionProperty[],
   config: ViewConfig,
   today: string,
+  texts?: SearchTexts,
 ): CollectionRow[] {
   const propsById = new Map(withTitle(properties).map((p) => [p.id, p]));
   const filtered = rows.filter(
     (row) =>
       matchesFilter(row, config.filter, propsById, today) &&
-      matchesSearch(row, config.search, properties),
+      matchesSearch(row, config.search, properties, texts),
   );
   return sortRows(filtered, config.sorts, propsById);
 }

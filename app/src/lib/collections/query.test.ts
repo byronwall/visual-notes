@@ -5,6 +5,7 @@ import {
   matchesFilter,
   operatorsFor,
   orderedProperties,
+  searchTexts,
   sortRows,
   withTitle,
 } from "./query";
@@ -207,6 +208,23 @@ describe("applyView", () => {
     expect(
       applyView(rows, props, { search: "alpha" }, TODAY).map((r) => r.id),
     ).toEqual(["r1", "r2"]);
+  });
+
+  it("searches the same with text the caller cached", () => {
+    expect(searchTexts(rows[1]!, props)).toEqual([
+      "emma",
+      "reading",
+      "400",
+      "alpha, beta",
+      expect.stringContaining("oct 25"),
+      "",
+      "austen",
+    ]);
+    const cache = new Map(rows.map((r) => [r, searchTexts(r, props)]));
+    for (const search of ["austen", "alpha", "600", "nothing"])
+      expect(
+        applyView(rows, props, { search }, TODAY, (r) => cache.get(r)!),
+      ).toEqual(applyView(rows, props, { search }, TODAY));
   });
 
   it("orders and hides properties per view", () => {
