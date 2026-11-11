@@ -18,6 +18,7 @@ import {
   menuSeparator,
 } from "../menu/MenuList";
 import { fitContent } from "../popover-styles";
+import { isCoarsePointer } from "../touch";
 import { VIEW_ICONS, VIEW_LABELS } from "./view-meta";
 
 export const optionsBtn = css({
@@ -124,11 +125,15 @@ export const ViewOptionsButton = (props: {
 }) => {
   const { store } = useCollection();
   const [open, setOpen] = createSignal(false);
+  let panel: HTMLDivElement | undefined;
   return (
     <SimplePopover
       class={fitContent}
       open={open()}
       onClose={() => setOpen(false)}
+      // The menu starts with the name field; on touch, focusing it would open
+      // the keyboard just to change the layout. Focus the panel instead.
+      initialFocusEl={() => (isCoarsePointer() ? panel ?? null : null)}
       anchor={
         <button
           type="button"
@@ -143,14 +148,16 @@ export const ViewOptionsButton = (props: {
         </button>
       }
     >
-      <ViewMenu
-        view={props.view}
-        close={() => setOpen(false)}
-        onDeleted={() =>
-          store.state.views[0] && props.onSelect(store.state.views[0].id)
-        }
-        onDuplicated={props.onSelect}
-      />
+      <div ref={panel} tabIndex={-1} style={{ outline: "none" }}>
+        <ViewMenu
+          view={props.view}
+          close={() => setOpen(false)}
+          onDeleted={() =>
+            store.state.views[0] && props.onSelect(store.state.views[0].id)
+          }
+          onDuplicated={props.onSelect}
+        />
+      </div>
     </SimplePopover>
   );
 };

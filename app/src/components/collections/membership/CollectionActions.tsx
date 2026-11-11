@@ -4,6 +4,7 @@ import {
   EllipsisIcon,
   FilePlusIcon,
   HistoryIcon,
+  PencilIcon,
   Trash2Icon,
 } from "lucide-solid";
 import { Show, createSignal } from "solid-js";
@@ -48,7 +49,7 @@ const btn = css({
  * Page-level collection actions: add existing notes, always list rows in
  * Recent and on the notes index, delete the collection.
  */
-export const CollectionActions = () => {
+export const CollectionActions = (props: { onRename: () => void }) => {
   const { store } = useCollection();
   const navigate = useNavigate();
   const runDelete = useAction(deleteCollection);
@@ -87,6 +88,15 @@ export const CollectionActions = () => {
         }
       >
         <div class={menuPanel}>
+          <MenuItem
+            icon={<PencilIcon size={14} />}
+            onClick={() => {
+              setMenu(false);
+              props.onRename();
+            }}
+          >
+            Rename collection
+          </MenuItem>
           <MenuItem
             icon={<HistoryIcon size={14} />}
             aria-pressed={store.state.collection.showRowsInRecent}

@@ -7,6 +7,7 @@ import { useToasts } from "~/components/Toast";
 import { createCollection } from "~/services/collections/collections.actions";
 import type { CollectionListItem } from "~/services/collections/collections.queries";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { isCoarsePointer } from "./touch";
 
 // Wraps on phones: the create form drops under the heading at full width.
 const header = css({
@@ -114,7 +115,11 @@ export const CollectionsIndex = (props: { items: CollectionListItem[] }) => {
         placeholder="Collection name, e.g. Reading"
         aria-label="New collection name"
         value={name()}
-        ref={(el) => queueMicrotask(() => el.focus())}
+        // Only after "New collection", never on load, and never on touch,
+        // where focus opens the keyboard.
+        ref={(el) =>
+          creating() && !isCoarsePointer() && queueMicrotask(() => el.focus())
+        }
         onInput={(e) => setName(e.currentTarget.value)}
         onKeyDown={(e) => e.key === "Escape" && setCreating(false)}
       />

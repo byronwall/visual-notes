@@ -23,6 +23,7 @@ import { OptionPicker } from "../values/OptionPicker";
 import { RatingStars } from "../values/RatingStars";
 import { fitContent } from "../popover-styles";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { isCoarsePointer } from "../touch";
 
 const NARROW = "@container colbulk (max-width: 35rem)";
 
@@ -113,7 +114,7 @@ const BulkValueEditor = (props: {
             style={{ width: "calc(100% - 1rem)" }}
             placeholder={`New ${props.property.name.toLowerCase()} (blank clears)`}
             value={draft()}
-            ref={(el) => queueMicrotask(() => el.focus())}
+            ref={(el) => !isCoarsePointer() && queueMicrotask(() => el.focus())}
             onInput={(e) => setDraft(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {

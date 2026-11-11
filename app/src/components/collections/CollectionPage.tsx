@@ -46,6 +46,7 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
   const store = createCollectionStore(() => props.bundle);
   const [params, setParams] = useSearchParams();
   const [peekRowId, setPeekRowId] = createSignal<string | null>(null);
+  const [renaming, setRenaming] = createSignal(false);
   onMount(rememberTimeZone);
 
   const activeView = createMemo(() => {
@@ -80,11 +81,13 @@ export const CollectionPage = (props: { bundle: CollectionBundle }) => {
             name={store.state.collection.name}
             icon={store.state.collection.icon}
             onRename={(name) => void store.renameCollection(name)}
+            editing={renaming()}
+            setEditing={setRenaming}
           />
           <span class={count} data-row-count>
             {countLabel()}
           </span>
-          <CollectionActions />
+          <CollectionActions onRename={() => setRenaming(true)} />
         </div>
         <ViewTabs
           activeViewId={activeView()?.id}

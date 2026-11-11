@@ -1,6 +1,7 @@
-import { Show, createSignal } from "solid-js";
+import { Show } from "solid-js";
 import { css } from "styled-system/css";
 import { noAutofill } from "~/components/ui/no-autofill";
+import { isCoarsePointer } from "./touch";
 
 const narrow = "@container colpage (max-width: 35rem)";
 const heading = css({
@@ -33,13 +34,20 @@ const input = css({
   [narrow]: { fontSize: "2xl" },
 });
 
-/** Collection name; click to rename. Renders the same heading on server and client. */
+/**
+ * Collection name; click to rename. On touch a tap does not rename, so a
+ * scroll or a stray tap never opens the keyboard; "…" has Rename instead.
+ * Renders the same heading on server and client.
+ */
 export const CollectionTitle = (props: {
   name: string;
   icon?: string | null;
   onRename: (name: string) => void;
+  editing: boolean;
+  setEditing: (editing: boolean) => void;
 }) => {
-  const [editing, setEditing] = createSignal(false);
+  const editing = () => props.editing;
+  const setEditing = (value: boolean) => props.setEditing(value);
   const commit = (value: string) => {
     setEditing(false);
     if (value.trim() && value.trim() !== props.name)
@@ -53,7 +61,7 @@ export const CollectionTitle = (props: {
           class={heading}
           tabIndex={0}
           title={props.name || undefined}
-          onClick={() => setEditing(true)}
+          onClick={() => !isCoarsePointer() && setEditing(true)}
           onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
         >
           <Show when={props.icon}>
