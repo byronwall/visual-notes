@@ -9,7 +9,7 @@ import {
   onCleanup,
 } from "solid-js";
 import { css, cx } from "styled-system/css";
-import { SimplePopover } from "~/components/ui/simple-popover";
+import { LazyPopover } from "../LazyPopover";
 import type {
   CollectionProperty,
   CollectionRow,
@@ -288,7 +288,7 @@ export const ValueCell = (props: {
         when={isPopoverKind(props.property)}
         fallback={<Show when={!(editing() && multiline())}>{display()}</Show>}
       >
-        <SimplePopover
+        <LazyPopover
           open={editing()}
           onClose={() => finish("blur")}
           placement="bottom-start"
@@ -334,7 +334,7 @@ export const ValueCell = (props: {
               onDone={() => finish("commit")}
             />
           </Show>
-        </SimplePopover>
+        </LazyPopover>
       </Show>
       <Show when={editing() && isInlineKind(props.property)}>
         <InlineEditor

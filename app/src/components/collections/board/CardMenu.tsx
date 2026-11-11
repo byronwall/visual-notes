@@ -7,7 +7,7 @@ import {
 } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
-import { SimplePopover } from "~/components/ui/simple-popover";
+import { LazyPopover } from "../LazyPopover";
 import type { BoardGroup } from "~/lib/collections/group";
 import type { CollectionProperty } from "~/lib/collections/types";
 import {
@@ -60,7 +60,7 @@ export const CardMenu = (props: {
   onShift: (delta: -1 | 1) => void;
 }) => {
   return (
-    <SimplePopover
+    <LazyPopover
       class={fitContent}
       open={props.open}
       onClose={() => props.onOpenChange(false)}
@@ -150,6 +150,6 @@ export const CardMenu = (props: {
           }}
         </For>
       </div>
-    </SimplePopover>
+    </LazyPopover>
   );
 };
