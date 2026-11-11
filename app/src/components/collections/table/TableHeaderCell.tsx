@@ -42,20 +42,45 @@ const label = css({
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 });
+// A 12px hit area just inside the column's right edge. Each header sits in
+// its own sticky layer, so a handle that crossed the edge would lose its
+// outer half under the next header. The visible line is the ::after bar at
+// the edge, which shows on hover, drag and keyboard focus.
 const resizer = css({
   position: "absolute",
   top: "0",
-  right: "-3px",
+  right: "0",
   bottom: "0",
-  w: "6px",
+  w: "12px",
   cursor: "col-resize",
   zIndex: "4",
-  _hover: { bg: "border.accent" },
-  "&[data-active]": { bg: "border.accent" },
+  touchAction: "none",
+  outline: "none",
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    top: "0",
+    bottom: "0",
+    right: "0",
+    w: "4px",
+    borderRadius: "full",
+  },
+  "&:hover::after, &[data-active]::after, &:focus-visible::after": {
+    bg: "border.accent",
+  },
+  "&:focus-visible::after": {
+    outline: "2px solid",
+    outlineColor: "border.accent",
+    outlineOffset: "1px",
+  },
 });
 
 const MIN_WIDTH = 80;
 const MAX_WIDTH = 720;
+const STEP = 16;
+const BIG_STEP = 64;
+const clampWidth = (w: number) =>
+  Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w)));
 
 /** Column header: opens the property menu, resizes from its edge, drags to reorder. */
 export const TableHeaderCell = (props: {
@@ -79,10 +104,7 @@ export const TableHeaderCell = (props: {
     handle.dataset.active = "";
     const startX = e.clientX;
     const startWidth = props.width;
-    const widthAt = (x: number) =>
-      Math.round(
-        Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + x - startX)),
-      );
+    const widthAt = (x: number) => clampWidth(startWidth + x - startX);
     const move = (ev: PointerEvent) =>
       props.onResize(widthAt(ev.clientX), false);
     const up = (ev: PointerEvent) => {
@@ -90,10 +112,35 @@ export const TableHeaderCell = (props: {
       delete handle.dataset.active;
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
       props.onResize(widthAt(ev.clientX), true);
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
+  };
+
+  const defaultWidth = () =>
+    props.property.id === TITLE_PROPERTY_ID ? 280 : 180;
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    const step = e.shiftKey ? BIG_STEP : STEP;
+    const next =
+      e.key === "ArrowLeft"
+        ? props.width - step
+        : e.key === "ArrowRight"
+          ? props.width + step
+          : e.key === "Home"
+            ? MIN_WIDTH
+            : e.key === "End"
+              ? MAX_WIDTH
+              : e.key === "Enter"
+                ? defaultWidth()
+                : null;
+    if (next === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    props.onResize(clampWidth(next), true);
   };
 
   return (
@@ -141,14 +188,16 @@ export const TableHeaderCell = (props: {
         class={resizer}
         role="separator"
         aria-orientation="vertical"
-        aria-label={`Resize ${props.property.name}`}
+        aria-label={`Resize ${props.property.name} column`}
+        aria-valuenow={Math.round(props.width)}
+        aria-valuemin={MIN_WIDTH}
+        aria-valuemax={MAX_WIDTH}
+        aria-valuetext={`${Math.round(props.width)} pixels`}
+        title="Drag or use arrow keys to resize. Enter or double-click resets."
+        tabIndex={0}
         onPointerDown={startResize}
-        onDblClick={() =>
-          props.onResize(
-            props.property.id === TITLE_PROPERTY_ID ? 280 : 180,
-            true,
-          )
-        }
+        onKeyDown={onKeyDown}
+        onDblClick={() => props.onResize(defaultWidth(), true)}
       />
     </div>
   );
