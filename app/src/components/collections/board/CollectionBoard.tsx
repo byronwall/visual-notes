@@ -20,6 +20,9 @@ import { CardFields } from "./CardFields";
 import { CardMenu, NONE } from "./CardMenu";
 import { noAutofill } from "~/components/ui/no-autofill";
 
+/** Below this container width a column fills most of it and snaps. */
+const NARROW = "@container (max-width: 639px)";
+const boardWrap = css({ containerType: "inline-size" });
 const board = css({
   display: "flex",
   gap: "3",
@@ -27,9 +30,12 @@ const board = css({
   pb: "3",
   alignItems: "flex-start",
   minH: "40",
+  [NARROW]: { scrollSnapType: "x mandatory", gap: "2" },
 });
 const column = css({
   flex: "0 0 17rem",
+  // On a phone the next column peeks in at the right edge.
+  [NARROW]: { flexBasis: "85cqi", scrollSnapAlign: "start" },
   display: "flex",
   flexDirection: "column",
   gap: "1.5",
@@ -284,163 +290,169 @@ export const CollectionBoard = (props: {
         </div>
       }
     >
-      <div class={board} data-board={props.view.id}>
-        <Index each={groups()}>
-          {(groupAt) => {
-            const group = () => groupAt();
-            const key = () => groupAt().key ?? NONE;
-            return (
-              <div
-                class={column}
-                data-board-column={key()}
-                data-over={drop()?.key === key() ? "" : undefined}
-              >
-                <div class={columnHead}>
-                  <Show
-                    when={group().option}
-                    fallback={
-                      <span class={countCls}>
-                        No {groupProperty()!.name.toLowerCase()}
-                      </span>
-                    }
-                  >
-                    {(option) => (
-                      <OptionChip
-                        option={option()}
-                        showDot={groupProperty()!.kind === "status"}
-                      />
-                    )}
-                  </Show>
-                  <span class={countCls}>{group().rows.length}</span>
-                </div>
-                <For each={group().rows.slice(0, limitFor(key()))}>
-                  {(row, i) => (
-                    <>
-                      <Show
-                        when={
-                          drop()?.key === key() &&
-                          drop()?.index === i() &&
-                          draggingId() !== row.id
-                        }
-                      >
-                        <div class={marker} />
-                      </Show>
-                      <div
-                        class={cx(card, draggable)}
-                        data-card-id={row.id}
-                        role="button"
-                        tabIndex={0}
-                        onPointerDown={(e) =>
-                          startPointerDrag(e, e.currentTarget, {
-                            onStart: () => {
-                              setDraggingId(row.id);
-                            },
-                            onMove: (x, y) => setDrop(locate(x, y)),
-                            onDrop: (x, y) => finishDrop(row, x, y),
-                            onCancel: () => {
-                              setDrop(null);
-                              setDraggingId(null);
-                            },
-                            onLongPress: () => setMenuFor(row.id),
-                          })
-                        }
-                        onClick={() => openRow(row.id)}
-                        onKeyDown={(e) =>
-                          (e.key === "Enter" || e.key === " ") &&
-                          (e.preventDefault(), openRow(row.id))
-                        }
-                      >
-                        <span class={cardTitle}>{row.title || "Untitled"}</span>
-                        <CardMenu
-                          open={menuFor() === row.id}
-                          onOpenChange={(open) =>
-                            setMenuFor(open ? row.id : null)
-                          }
-                          groups={groups()}
-                          property={groupProperty()!}
-                          currentKey={key()}
-                          canReorder={!hasActiveSort(props.view.config)}
-                          isFirst={i() === 0}
-                          isLast={i() === group().rows.length - 1}
-                          onOpenRow={() => openRow(row.id)}
-                          onMoveTo={(k) => moveTo(row, k)}
-                          onShift={(d) => shift(row, key(), d)}
-                        />
-                        <CardFields
-                          row={row}
-                          properties={cardProperties()}
-                          showEmpty={Boolean(props.view.config.cardProperties)}
-                        />
-                      </div>
-                    </>
-                  )}
-                </For>
-                <Show
-                  when={
-                    drop()?.key === key() &&
-                    drop()!.index >=
-                      group()
-                        .rows.slice(0, limitFor(key()))
-                        .filter((r) => r.id !== draggingId()).length
-                  }
+      <div class={boardWrap}>
+        <div class={board} data-board={props.view.id}>
+          <Index each={groups()}>
+            {(groupAt) => {
+              const group = () => groupAt();
+              const key = () => groupAt().key ?? NONE;
+              return (
+                <div
+                  class={column}
+                  data-board-column={key()}
+                  data-over={drop()?.key === key() ? "" : undefined}
                 >
-                  <div class={marker} />
-                </Show>
-                <Show when={group().rows.length > limitFor(key())}>
-                  <button
-                    type="button"
-                    class={addBtn}
-                    onClick={() =>
-                      setLimits((l) => ({
-                        ...l,
-                        [key()]: limitFor(key()) + COLUMN_PAGE,
-                      }))
+                  <div class={columnHead}>
+                    <Show
+                      when={group().option}
+                      fallback={
+                        <span class={countCls}>
+                          No {groupProperty()!.name.toLowerCase()}
+                        </span>
+                      }
+                    >
+                      {(option) => (
+                        <OptionChip
+                          option={option()}
+                          showDot={groupProperty()!.kind === "status"}
+                        />
+                      )}
+                    </Show>
+                    <span class={countCls}>{group().rows.length}</span>
+                  </div>
+                  <For each={group().rows.slice(0, limitFor(key()))}>
+                    {(row, i) => (
+                      <>
+                        <Show
+                          when={
+                            drop()?.key === key() &&
+                            drop()?.index === i() &&
+                            draggingId() !== row.id
+                          }
+                        >
+                          <div class={marker} />
+                        </Show>
+                        <div
+                          class={cx(card, draggable)}
+                          data-card-id={row.id}
+                          role="button"
+                          tabIndex={0}
+                          onPointerDown={(e) =>
+                            startPointerDrag(e, e.currentTarget, {
+                              onStart: () => {
+                                setDraggingId(row.id);
+                              },
+                              onMove: (x, y) => setDrop(locate(x, y)),
+                              onDrop: (x, y) => finishDrop(row, x, y),
+                              onCancel: () => {
+                                setDrop(null);
+                                setDraggingId(null);
+                              },
+                              onLongPress: () => setMenuFor(row.id),
+                            })
+                          }
+                          onClick={() => openRow(row.id)}
+                          onKeyDown={(e) =>
+                            (e.key === "Enter" || e.key === " ") &&
+                            (e.preventDefault(), openRow(row.id))
+                          }
+                        >
+                          <span class={cardTitle}>
+                            {row.title || "Untitled"}
+                          </span>
+                          <CardMenu
+                            open={menuFor() === row.id}
+                            onOpenChange={(open) =>
+                              setMenuFor(open ? row.id : null)
+                            }
+                            groups={groups()}
+                            property={groupProperty()!}
+                            currentKey={key()}
+                            canReorder={!hasActiveSort(props.view.config)}
+                            isFirst={i() === 0}
+                            isLast={i() === group().rows.length - 1}
+                            onOpenRow={() => openRow(row.id)}
+                            onMoveTo={(k) => moveTo(row, k)}
+                            onShift={(d) => shift(row, key(), d)}
+                          />
+                          <CardFields
+                            row={row}
+                            properties={cardProperties()}
+                            showEmpty={Boolean(
+                              props.view.config.cardProperties,
+                            )}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </For>
+                  <Show
+                    when={
+                      drop()?.key === key() &&
+                      drop()!.index >=
+                        group()
+                          .rows.slice(0, limitFor(key()))
+                          .filter((r) => r.id !== draggingId()).length
                     }
                   >
-                    Show{" "}
-                    {Math.min(
-                      COLUMN_PAGE,
-                      group().rows.length - limitFor(key()),
-                    )}{" "}
-                    more
-                  </button>
-                </Show>
-                <Show
-                  when={addingTo() === key()}
-                  fallback={
+                    <div class={marker} />
+                  </Show>
+                  <Show when={group().rows.length > limitFor(key())}>
                     <button
                       type="button"
                       class={addBtn}
-                      onClick={() => setAddingTo(key())}
+                      onClick={() =>
+                        setLimits((l) => ({
+                          ...l,
+                          [key()]: limitFor(key()) + COLUMN_PAGE,
+                        }))
+                      }
                     >
-                      <PlusIcon size={14} /> New
+                      Show{" "}
+                      {Math.min(
+                        COLUMN_PAGE,
+                        group().rows.length - limitFor(key()),
+                      )}{" "}
+                      more
                     </button>
-                  }
-                >
-                  <input
-                    {...noAutofill}
-                    class={newInput}
-                    placeholder="Name, then Enter"
-                    aria-label="New card name"
-                    ref={(el) => queueMicrotask(() => el.focus())}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                  </Show>
+                  <Show
+                    when={addingTo() === key()}
+                    fallback={
+                      <button
+                        type="button"
+                        class={addBtn}
+                        onClick={() => setAddingTo(key())}
+                      >
+                        <PlusIcon size={14} /> New
+                      </button>
+                    }
+                  >
+                    <input
+                      {...noAutofill}
+                      class={newInput}
+                      placeholder="Name, then Enter"
+                      aria-label="New card name"
+                      ref={(el) => queueMicrotask(() => el.focus())}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const title = e.currentTarget.value.trim();
+                          e.currentTarget.value = "";
+                          if (title) void createIn(group(), title);
+                        } else if (e.key === "Escape") setAddingTo(null);
+                      }}
+                      onBlur={(e) => {
                         const title = e.currentTarget.value.trim();
-                        e.currentTarget.value = "";
                         if (title) void createIn(group(), title);
-                      } else if (e.key === "Escape") setAddingTo(null);
-                    }}
-                    onBlur={(e) => {
-                      const title = e.currentTarget.value.trim();
-                      if (title) void createIn(group(), title);
-                      setAddingTo(null);
-                    }}
-                  />
-                </Show>
-              </div>
-            );
-          }}
-        </Index>
+                        setAddingTo(null);
+                      }}
+                    />
+                  </Show>
+                </div>
+              );
+            }}
+          </Index>
+        </div>
       </div>
     </Show>
   );
