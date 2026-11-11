@@ -12,6 +12,7 @@ import { useColumns } from "./useColumns";
 import { useGridKeys } from "./useGridKeys";
 import { useRowSelection } from "./useRowSelection";
 import { useScrollerFit } from "./useScrollerFit";
+import { useTouchTaps } from "./useTouchTaps";
 import {
   ROW_HEIGHT,
   WINDOW_THRESHOLD,
@@ -39,6 +40,8 @@ const pageScroller = css({
   overflow: "auto",
   maxH: "calc(100dvh - 12rem)",
   overscrollBehavior: "contain",
+  // Momentum scrolling on iOS; vertical and sideways pans both stay inside.
+  WebkitOverflowScrolling: "touch",
   // Windowing swaps rows and spacers itself; browser scroll anchoring would
   // fight it and jump the scroll position.
   overflowAnchor: "none",
@@ -64,6 +67,13 @@ const grid = css({
   fontSize: "sm",
   position: "relative",
   "--title-col": "var(--title-saved)",
+  // A finger drag scrolls the table; it should not start a text selection
+  // or flash a tap highlight on the cells it crosses.
+  "@media (hover: none)": {
+    userSelect: "none",
+    WebkitTouchCallout: "none",
+    WebkitTapHighlightColor: "transparent",
+  },
   // Keep in step with useColumns.widthOf: a narrow table gives the name
   // column at most 40% of its width so the data stays readable.
   "@container (max-width: 639.98px)": {
@@ -134,6 +144,7 @@ export const CollectionTable = (props: {
     const { start, end } = windowed.bounds();
     return limitedRows().slice(start, end);
   });
+  const touch = useTouchTaps(openRow, () => gridEl);
   const keys = useGridKeys({
     viewId: () => props.view.id,
     rowCount: () => limitedRows().length,
@@ -153,7 +164,12 @@ export const CollectionTable = (props: {
     );
     // A filter or search can hide the new row, and a window change remounts
     // rows and ends the edit. In both cases the name opens in the panel.
-    if (index < 0 || limitedRows().length > WINDOW_THRESHOLD) {
+    // On touch, inline rename would raise the software keyboard over the table.
+    if (
+      index < 0 ||
+      limitedRows().length > WINDOW_THRESHOLD ||
+      touch.isTouch()
+    ) {
       openRow(created.id);
       return;
     }

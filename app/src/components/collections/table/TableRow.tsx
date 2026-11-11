@@ -28,7 +28,8 @@ const row = css({
     // Literal so Panda can extract it; must equal ROW_HEIGHT.
     height: "33px",
   },
-  "&:hover > *": { bg: "bg.subtle" },
+  // Hover only where a mouse hovers; on touch :hover sticks to the tapped row.
+  "@media (hover: hover)": { "&:hover > *": { bg: "bg.subtle" } },
   "&[data-selected] > *, &[data-selected]:hover > *": { bg: "bg.selected" },
   "& [data-select-box]": { opacity: "0" },
   "&:hover [data-select-box], &:focus-within [data-select-box], &[data-selected] [data-select-box]":

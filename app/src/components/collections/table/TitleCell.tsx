@@ -18,8 +18,9 @@ const root = css({
   cursor: "default",
   "& [data-rename]": { opacity: "0" },
   "&:hover [data-rename], &:focus-within [data-rename]": { opacity: "1" },
-  // Touch screens have no hover, so the rename button always shows there.
-  "@media (hover: none)": { "& [data-rename]": { opacity: "1" } },
+  // Touch screens view and navigate; a tap opens the record, so renaming
+  // happens in the peek panel and the pencil is hidden.
+  "@media (hover: none)": { "& [data-rename]": { display: "none" } },
 });
 // The name is the row's link: it opens the record in the peek panel.
 const title = css({
@@ -31,9 +32,11 @@ const title = css({
   whiteSpace: "nowrap",
   cursor: "pointer",
   transition: "color 140ms",
-  _hover: { color: "fg.link" },
+  "@media (hover: hover)": {
+    _hover: { color: "fg.link" },
+    "&[data-untitled]:hover": { color: "fg.link" },
+  },
   "&[data-untitled]": { color: "fg.subtle", fontWeight: "normal" },
-  "&[data-untitled]:hover": { color: "fg.link" },
 });
 const renameBtn = css({
   display: "inline-flex",
