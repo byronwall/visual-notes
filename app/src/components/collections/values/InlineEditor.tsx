@@ -16,7 +16,6 @@ const overlay = css({
   outline: "none",
   boxShadow: "inset 0 0 0 2px token(colors.border.accent)",
   borderRadius: "l1",
-  zIndex: "1",
   "&[aria-invalid=true]": {
     boxShadow: "inset 0 0 0 2px token(colors.red.a8)",
   },

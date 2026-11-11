@@ -83,6 +83,9 @@ const fieldVariant = css({
   },
   "&[data-invalid]": { bg: "red.a2", borderColor: "red.a7" },
   "&:focus-visible [data-chevron]": { opacity: "1" },
+  // Touch screens edit at 16px (see global-css), so values show at 16px too
+  // and nothing reflows when editing starts.
+  "@media (pointer: coarse)": { fontSize: "md" },
 });
 // Spans the field's padding so pickers line up with its outer edge.
 const fieldAnchor = css({

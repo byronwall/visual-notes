@@ -28,8 +28,6 @@ const multilineText = css({
   lineHeight: "1.25rem",
   whiteSpace: "pre-wrap",
   overflowWrap: "anywhere",
-  // Touch screens edit at 16px (see global-css), so the text matches it.
-  "@media (pointer: coarse)": { fontSize: "max(16px, 1em)" },
 });
 const chips = css({
   display: "flex",
