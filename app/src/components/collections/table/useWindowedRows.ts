@@ -38,7 +38,10 @@ export function useWindowedRows(opts: {
   scroller: () => HTMLElement | undefined;
   /** Heights of the sticky header and footer that cover the scroller. */
   insets: () => { top: number; bottom: number };
+  /** Fixed height of every row; the table's ROW_HEIGHT by default. */
+  rowHeight?: () => number;
 }) {
+  const rowH = () => opts.rowHeight?.() ?? ROW_HEIGHT;
   const [range, setRange] = createSignal({ start: 0, end: INITIAL_WINDOW });
 
   const measure = () => {
@@ -48,8 +51,8 @@ export function useWindowedRows(opts: {
     if (!el || n <= WINDOW_THRESHOLD) return;
     const band = viewBand(opts.scroller());
     const bodyTop = el.getBoundingClientRect().top;
-    const first = Math.floor(Math.max(0, band.top - bodyTop) / ROW_HEIGHT);
-    const shown = Math.ceil(Math.max(0, band.bottom - band.top) / ROW_HEIGHT);
+    const first = Math.floor(Math.max(0, band.top - bodyTop) / rowH());
+    const shown = Math.ceil(Math.max(0, band.bottom - band.top) / rowH());
     const start = Math.max(0, Math.min(n, first) - OVERSCAN);
     const end = Math.min(n, first + shown + OVERSCAN);
     const prev = range();
@@ -96,8 +99,8 @@ export function useWindowedRows(opts: {
     const el = opts.body();
     if (!el) return;
     const scroller = opts.scroller();
-    const rowTop = el.getBoundingClientRect().top + index * ROW_HEIGHT;
-    const rowBottom = rowTop + ROW_HEIGHT;
+    const rowTop = el.getBoundingClientRect().top + index * rowH();
+    const rowBottom = rowTop + rowH();
     if (scroller) {
       const band = viewBand(scroller);
       const { top, bottom } = opts.insets();
