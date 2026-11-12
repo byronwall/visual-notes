@@ -21,6 +21,7 @@ import { saveErrorText } from "./capture-state";
 const form = css({
   display: "flex",
   flexDirection: "column",
+  w: "full",
   gap: "3",
   py: "1",
 });
