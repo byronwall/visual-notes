@@ -17,7 +17,11 @@ import { PeopleInputError, withRequestKey } from "./errors";
 
 const ORG_INCLUDE = {
   affiliations: {
-    select: { endOn: true, person: { select: { archivedAt: true } } },
+    select: {
+      personId: true,
+      endOn: true,
+      person: { select: { archivedAt: true } },
+    },
   },
 } satisfies Prisma.OrganizationInclude;
 type OrgRow = Prisma.OrganizationGetPayload<{ include: typeof ORG_INCLUDE }>;
@@ -27,18 +31,25 @@ const blankToNull = (v: string | null | undefined) =>
 
 const toSummary = (o: OrgRow): OrganizationSummary => {
   const today = todayLocal();
+  // Count people, not roles: two current roles are one current member, and
+  // someone with a current role is not also a past member.
   const active = o.affiliations.filter((a) => !a.person.archivedAt);
-  const current = active.filter(
-    (a) => !a.endOn || (dbToDayOrNull(a.endOn) ?? "") >= today,
-  ).length;
+  const currentIds = new Set(
+    active
+      .filter((a) => !a.endOn || (dbToDayOrNull(a.endOn) ?? "") >= today)
+      .map((a) => a.personId),
+  );
+  const pastIds = new Set(
+    active.map((a) => a.personId).filter((id) => !currentIds.has(id)),
+  );
   return {
     id: o.id,
     name: o.name,
     kind: o.kind,
     summary: o.summary,
     url: o.url,
-    currentMembers: current,
-    pastMembers: active.length - current,
+    currentMembers: currentIds.size,
+    pastMembers: pastIds.size,
     archivedAt: o.archivedAt?.toISOString() ?? null,
   };
 };

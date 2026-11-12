@@ -102,6 +102,20 @@ describe.skipIf(!enabled)("people profiles (database)", () => {
     expect(detail!.currentMembers).toBe(1);
     expect(detail!.pastMembers).toBe(1);
 
+    // Counts are people, not roles: a second current role and an old role
+    // for Kendall still make one current member and no new past member.
+    await profile.addAffiliation(b.id, {
+      organizationId: acme.id,
+      role: "Lead",
+    });
+    await profile.addAffiliation(b.id, {
+      organizationId: acme.id,
+      role: "Intern",
+      endOn: addDays(today, -400),
+    });
+    const recount = await orgs.getOrganization(acme.id);
+    expect([recount!.currentMembers, recount!.pastMembers]).toEqual([1, 1]);
+
     // The organization filter lists both; nothing links the two people.
     const { people: members } = await people.listPeople({
       organizationId: acme.id,

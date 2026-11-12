@@ -50,6 +50,8 @@ export function OrganizationDialog(props: {
   const create = useAction(createOrganizationAction);
   const update = useAction(updateOrganizationAction);
 
+  // A retry after a lost response returns the organization already created.
+  const requestKey = crypto.randomUUID();
   const submit = async (e?: Event) => {
     e?.preventDefault();
     if (!values.name.trim()) return setMessage("Enter a name.");
@@ -57,7 +59,7 @@ export function OrganizationDialog(props: {
     try {
       const saved = o
         ? await update({ id: o.id, patch: { ...values } })
-        : await create({ ...values });
+        : await create({ ...values, requestKey });
       props.onSaved(saved);
       props.onClose();
     } catch (err) {

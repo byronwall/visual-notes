@@ -69,7 +69,11 @@ export function SearchPicker(props: {
     options().some(
       (o) => o.label.toLowerCase() === text().trim().toLowerCase(),
     );
-  const showCreate = () => !!props.onCreate && !!text().trim() && !exact();
+  // Until the search for the typed text returns, "no exact match" may only
+  // mean "not loaded yet", so Create waits for it.
+  const settled = () => text().trim() === term().trim() && !items.loading;
+  const showCreate = () =>
+    !!props.onCreate && !!text().trim() && settled() && !exact();
   const count = () => options().length + (showCreate() ? 1 : 0);
 
   const choose = (i: number) => {
@@ -105,6 +109,11 @@ export function SearchPicker(props: {
             setActive((i) => (i - 1 + count()) % count());
           } else if (e.key === "Enter" && text().trim()) {
             e.preventDefault();
+            if (!settled()) {
+              clearTimeout(timer);
+              setTerm(text());
+              return;
+            }
             choose(active());
           }
         }}

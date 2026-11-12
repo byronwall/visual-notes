@@ -59,11 +59,15 @@ function AffiliationForm(props: {
   const [message, setMessage] = createSignal("");
   const createOrg = useAction(createOrganizationAction);
 
+  // One retry key per typed name, so a retry cannot create a second copy.
+  const createKeys = new Map<string, string>();
   const createAndPick = async (name: string) => {
+    const requestKey = createKeys.get(name) ?? crypto.randomUUID();
+    createKeys.set(name, requestKey);
     // Save stays busy until the new organization exists.
     setBusy(true);
     try {
-      const org = await createOrg({ name });
+      const org = await createOrg({ name, requestKey });
       setD("organization", { id: org.id, name: org.name });
     } catch (err) {
       console.warn("[people] organization create failed", err);
