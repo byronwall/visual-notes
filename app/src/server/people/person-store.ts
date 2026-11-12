@@ -9,6 +9,8 @@ import {
   personUpdateSchema,
   type PersonUpdate,
   type PeopleListInput,
+  type AffiliationInput,
+  type ContactInput,
   type PersonInput,
   type PersonPatch,
 } from "~/lib/people/schemas";
@@ -90,25 +92,43 @@ export async function requirePerson(
   return row;
 }
 
+/**
+ * Creates a person, and any contacts, roles, and note links with it, in one
+ * transaction: a bad nested record leaves no half-made person behind.
+ */
 export async function createPerson(
   input: PersonInput,
+  parts: {
+    contacts?: ContactInput[];
+    affiliations?: AffiliationInput[];
+    noteIds?: string[];
+  } = {},
 ): Promise<{ person: PersonSummary; existing: boolean }> {
   const parsed = personInputSchema.parse(input);
   const { record, existing } = await withRequestKey(
     parsed.requestKey,
     (requestKey) => prisma.person.findUnique({ where: { requestKey } }),
     () =>
-      prisma.person.create({
-        data: {
-          displayName: parsed.displayName,
-          aliases: uniqueTags(parsed.aliases) ?? [],
-          summary: blankToNull(parsed.summary),
-          location: blankToNull(parsed.location),
-          howKnown: blankToNull(parsed.howKnown),
-          contexts: uniqueTags(parsed.contexts) ?? [],
-          customFields: parsed.customFields ?? {},
-          requestKey: parsed.requestKey,
-        },
+      prisma.$transaction(async (tx) => {
+        const row = await tx.person.create({
+          data: {
+            displayName: parsed.displayName,
+            aliases: uniqueTags(parsed.aliases) ?? [],
+            summary: blankToNull(parsed.summary),
+            location: blankToNull(parsed.location),
+            howKnown: blankToNull(parsed.howKnown),
+            contexts: uniqueTags(parsed.contexts) ?? [],
+            customFields: parsed.customFields ?? {},
+            requestKey: parsed.requestKey,
+          },
+        });
+        for (const c of parts.contacts ?? []) await addContact(row.id, c, tx);
+        for (const a of parts.affiliations ?? []) {
+          await addAffiliation(row.id, a, tx);
+        }
+        for (const docId of parts.noteIds ?? [])
+          await linkNote(row.id, docId, tx);
+        return row;
       }),
   );
   console.info(`[people] ${existing ? "reused" : "created"} person`, record.id);

@@ -280,6 +280,35 @@ describe.skipIf(!enabled)("people tools (database)", () => {
     expect(page2.json.hasMore).toBe(false);
   });
 
+  it("creates a person and its nested records together or not at all", async () => {
+    const client = await connect();
+    const name = `Atomic ${tag}`;
+    const key = `atomic-${tag}`;
+    const bad = await call(client, "people_create", {
+      displayName: name,
+      affiliations: [{ organizationId: "missing-org" }],
+      requestKey: key,
+    });
+    expect(bad.error).toBe(true);
+    expect(await prisma().person.count({ where: { displayName: name } })).toBe(
+      0,
+    );
+
+    const org = await call(client, "people_create_organization", {
+      name: `Atomic Org ${tag}`,
+    });
+    orgIds.push(org.json.id);
+    const ok = await call(client, "people_create", {
+      displayName: name,
+      affiliations: [{ organizationId: org.json.id, role: "Analyst" }],
+      requestKey: key,
+    });
+    expect(ok.json.created).toBe(true);
+    personIds.push(ok.json.id);
+    const got = await call(client, "people_get", { id: ok.json.id });
+    expect(got.json.person.currentRole).toBe(`Analyst, Atomic Org ${tag}`);
+  });
+
   it("refuses every write family for a read-only caller", async () => {
     const client = await connect({ ...full, scopes: ["notes:read"] });
     const writes: [string, Json][] = [

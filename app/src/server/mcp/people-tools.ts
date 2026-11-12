@@ -318,19 +318,12 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
           };
         }
       }
-      const { person, existing } = await createPerson({ ...input, requestKey });
-      if (
-        !existing &&
-        (contacts?.length || affiliations?.length || noteIds?.length)
-      ) {
-        await updatePersonProfile(person.id, {
-          contacts: contacts?.length ? { add: contacts } : undefined,
-          affiliations: affiliations?.length
-            ? { add: affiliations }
-            : undefined,
-          notes: noteIds?.length ? { link: noteIds } : undefined,
-        });
-      }
+      // One transaction: a bad organization or note id leaves no person
+      // behind, so a retry with the same requestKey starts clean.
+      const { person, existing } = await createPerson(
+        { ...input, requestKey },
+        { contacts, affiliations, noteIds },
+      );
       return {
         created: !existing,
         id: person.id,
