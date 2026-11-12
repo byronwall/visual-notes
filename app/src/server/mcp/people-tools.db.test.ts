@@ -101,12 +101,14 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_query_facts",
       "people_query_interactions",
       "people_query_organizations",
+      "people_query_relationships",
       "people_search",
       "people_update",
       "people_update_fact",
       "people_update_followup",
       "people_update_interaction",
       "people_update_organization",
+      "people_update_relationship",
     ]);
     for (const t of people) {
       const reads = /_(search|get|query|find|list)/.test(t.name);

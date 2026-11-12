@@ -37,6 +37,14 @@ import {
 import { listPersonInteractions } from "~/server/people/memory-store";
 import { prisma } from "~/server/db";
 import { findDuplicates } from "~/server/people/merge-store";
+import { RELATIONSHIP_KINDS } from "~/lib/people/relationships";
+import {
+  addRelationship,
+  findIntroductionPaths,
+  getSelf,
+  listRelationships,
+  updateRelationship,
+} from "~/server/people/relationship-store";
 import {
   addFollowup,
   followupDigest,
@@ -367,6 +375,86 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
       },
     },
     async (args) => updateFollowup(args),
+  );
+
+  tools.read(
+    "people_query_relationships",
+    {
+      title: "Query relationships",
+      description:
+        "A person's explicit relationships (type, label from their side, source, dates), and optionally introduction paths to pathTo: shortest chains of recorded relationships starting at pathFrom (default: the profile marked as the user). Shared organizations come back only as leads, never as path steps. No path means no recorded path, not that an introduction is impossible.",
+      input: {
+        personId: z
+          .string()
+          .optional()
+          .describe("List this person's relationships"),
+        includeArchived: z.boolean().optional(),
+        pathFrom: z.string().optional(),
+        pathTo: z.string().optional(),
+      },
+    },
+    async ({ personId, includeArchived, pathFrom, pathTo }) => {
+      const out: Record<string, unknown> = {};
+      if (personId) {
+        out.relationships = (
+          await listRelationships(personId, includeArchived)
+        ).map((r) => ({
+          ...r,
+          other: { ...r.other, appUrl: `${ctx.origin}/people/${r.other.id}` },
+        }));
+      }
+      if (pathTo) {
+        const from = pathFrom ?? (await getSelf())?.id;
+        if (!from) {
+          throw new ConnectorError(
+            "invalid",
+            'Pass pathFrom, or mark the user\'s own profile as "This is me" in the app',
+          );
+        }
+        out.introductions = await findIntroductionPaths(from, pathTo);
+      }
+      if (!personId && !pathTo)
+        throw new ConnectorError("invalid", "Pass personId and/or pathTo");
+      return out;
+    },
+  );
+
+  tools.write(
+    "people_update_relationship",
+    {
+      title: "Add or correct a relationship",
+      description: `Without id: record an explicit relationship. fromPersonId is the subject of directed types (${RELATIONSHIP_KINDS.join(", ")}; parent, mentor, manager, and introduced read "from is <type> of to"). Record only relationships the source states; never infer one from a shared organization. With id: correct source or dates, or archive (true) / restore (false).`,
+      input: {
+        id: z.string().optional(),
+        fromPersonId: z.string().optional(),
+        toPersonId: z.string().optional(),
+        type: z.enum(RELATIONSHIP_KINDS as [string, ...string[]]).optional(),
+        source: z.string().max(500).nullable().optional(),
+        startOn: dayArg.nullable().optional(),
+        endOn: dayArg.nullable().optional(),
+        archived: z.boolean().optional(),
+      },
+    },
+    async ({ id, fromPersonId, toPersonId, type, archived, ...rest }) => {
+      if (id)
+        return {
+          relationship: await updateRelationship(id, { ...rest, archived }),
+        };
+      if (!fromPersonId || !toPersonId || !type) {
+        throw new ConnectorError(
+          "invalid",
+          "Pass id to correct one, or fromPersonId, toPersonId, and type to add one",
+        );
+      }
+      const relationship = await addRelationship({
+        fromPersonId,
+        toPersonId,
+        type,
+        ...rest,
+        source: rest.source ?? agentSourceLabel(ctx),
+      });
+      return { relationship };
+    },
   );
 
   tools.write(

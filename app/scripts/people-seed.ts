@@ -24,6 +24,7 @@ import {
   addFollowup,
   setReconnectCadence,
 } from "~/server/people/reconnect-store";
+import { addRelationship } from "~/server/people/relationship-store";
 import { seededRandom } from "~/server/notes/imported-markdown-corpus";
 
 const { values } = parseArgs({
@@ -242,6 +243,26 @@ for (let i = 0; i < Math.round(count * 1.5); i++) {
     summary: pick(ENCOUNTERS),
     participants: group.map((personId) => ({ personId })),
   });
+}
+// A sparse web of explicit relationships, so the network has paths.
+const TYPES = [
+  "friend",
+  "colleague",
+  "mentor",
+  "neighbor",
+  "sibling",
+  "introduced",
+];
+for (let i = 1; i < ids.length; i++) {
+  if (random() < 0.7) {
+    const other = ids[Math.floor(random() * i)];
+    await addRelationship({
+      fromPersonId: ids[i],
+      toPersonId: other,
+      type: pick(TYPES),
+      source: "seed",
+    });
+  }
 }
 // Opt a few people in to reconnect suggestions, and add explicit reasons.
 for (const id of ids.filter(() => random() < 0.2)) {

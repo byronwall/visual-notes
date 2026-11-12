@@ -32,6 +32,11 @@ import {
 } from "~/server/people/import-store";
 import { mergePeople, type MergeField } from "~/server/people/merge-store";
 import {
+  addRelationship,
+  setSelf,
+  updateRelationship,
+} from "~/server/people/relationship-store";
+import {
   addFollowup,
   setReconnectCadence,
   updateFollowup,
@@ -50,6 +55,10 @@ import {
   updateContact,
 } from "~/server/people/profile-store";
 import {
+  fetchIntroductionPaths,
+  fetchNetwork,
+  fetchRelationships,
+  fetchSelf,
   fetchFollowupDigest,
   fetchFollowups,
   fetchDuplicateGroups,
@@ -80,6 +89,10 @@ const PEOPLE_KEYS = [
   fetchImports.key,
   fetchFollowups.key,
   fetchFollowupDigest.key,
+  fetchRelationships.key,
+  fetchNetwork.key,
+  fetchIntroductionPaths.key,
+  fetchSelf.key,
 ];
 
 export const createPersonAction = action(async (input: PersonInput) => {
@@ -300,3 +313,38 @@ export const setCadenceAction = action(
   },
   "people-set-cadence",
 );
+
+export const addRelationshipAction = action(
+  async (input: {
+    fromPersonId: string;
+    toPersonId: string;
+    type: string;
+    source?: string;
+  }) => {
+    "use server";
+    return json(await addRelationship(input), { revalidate: PEOPLE_KEYS });
+  },
+  "people-add-relationship",
+);
+
+export const updateRelationshipAction = action(
+  async (input: {
+    id: string;
+    viewerId?: string;
+    archived?: boolean;
+    source?: string | null;
+  }) => {
+    "use server";
+    const { id: rid, viewerId, ...patch } = input;
+    return json(await updateRelationship(id.parse(rid), patch, viewerId), {
+      revalidate: PEOPLE_KEYS,
+    });
+  },
+  "people-update-relationship",
+);
+
+export const setSelfAction = action(async (personId: string | null) => {
+  "use server";
+  await setSelf(personId);
+  return json({ ok: true }, { revalidate: PEOPLE_KEYS });
+}, "people-set-self");

@@ -5,6 +5,7 @@ import { css } from "styled-system/css";
 export const PEOPLE_TABS = [
   { label: "People", href: "/people" },
   { label: "Reconnect", href: "/people/reconnect" },
+  { label: "Network", href: "/people/network" },
   { label: "Organizations", href: "/people/organizations" },
   { label: "Import", href: "/people/import" },
   { label: "Duplicates", href: "/people/duplicates" },

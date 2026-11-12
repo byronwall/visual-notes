@@ -13,6 +13,7 @@ import { FactItem } from "./FactItem";
 import { DuplicatesSection } from "./DuplicatesSection";
 import { LinkedNotesSection } from "./LinkedNotesSection";
 import { ReconnectSection } from "./ReconnectSection";
+import { RelationshipsSection } from "./RelationshipsSection";
 import { ProfileDialog } from "./ProfileDialog";
 import { ProfileHistory } from "./ProfileHistory";
 
@@ -205,6 +206,7 @@ export function PersonProfileView(props: { person: PersonProfile }) {
             />
           </Show>
           <ContactsSection personId={p().id} contacts={p().contacts} />
+          <RelationshipsSection personId={p().id} name={p().displayName} />
           <AffiliationsSection
             personId={p().id}
             affiliations={p().affiliations}

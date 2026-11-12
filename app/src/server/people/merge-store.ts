@@ -2,6 +2,10 @@
 // name, same email, ...) and are never merged automatically. A merge moves
 // everything to the surviving profile in one transaction and archives the
 // other one with a pointer to the survivor.
+import {
+  normalizeEdge,
+  type RelationshipKind,
+} from "~/lib/people/relationships";
 import { prisma } from "~/server/db";
 import { PeopleInputError } from "./errors";
 
@@ -252,6 +256,37 @@ export async function mergePeople(input: {
       where: { personId: b.id },
       data: { personId: a.id },
     });
+    // Relationships move to the survivor; an edge between the two people
+    // disappears, and a repeat of an existing edge is dropped.
+    const edges = await tx.personRelationship.findMany({
+      where: { OR: [{ fromPersonId: b.id }, { toPersonId: b.id }] },
+    });
+    for (const e of edges) {
+      const from = e.fromPersonId === b.id ? a.id : e.fromPersonId;
+      const to = e.toPersonId === b.id ? a.id : e.toPersonId;
+      if (from === to) {
+        await tx.personRelationship.delete({ where: { id: e.id } });
+        continue;
+      }
+      const edge = normalizeEdge(e.type as RelationshipKind, from, to);
+      const clash = await tx.personRelationship.findUnique({
+        where: {
+          fromPersonId_toPersonId_type: {
+            fromPersonId: edge.from,
+            toPersonId: edge.to,
+            type: e.type,
+          },
+        },
+      });
+      if (clash && clash.id !== e.id)
+        await tx.personRelationship.delete({ where: { id: e.id } });
+      else {
+        await tx.personRelationship.update({
+          where: { id: e.id },
+          data: { fromPersonId: edge.from, toPersonId: edge.to },
+        });
+      }
+    }
     // Reconnect prompts follow the person. Elapsed-time states are keyed by
     // person, so re-key them to the survivor (a collision keeps the
     // survivor's own state); then a dismissed suggestion stays dismissed.

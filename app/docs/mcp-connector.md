@@ -211,6 +211,8 @@ People is a private relationship memory, separate from notes: profiles, remember
 | `people_list_followups`      | read  | The reconnect queue with sources and stable keys, plus a plain-text `digest`                                                                                          |
 | `people_add_followup`        | write | An explicit reason to reconnect with one person                                                                                                                       |
 | `people_update_followup`     | write | Snooze, dismiss, resolve, or reopen one item by key; never counts as contact                                                                                          |
+| `people_query_relationships` | read  | Explicit relationships from one person's side, and introduction paths (explicit edges only; shared organizations as leads)                                            |
+| `people_update_relationship` | write | Add a typed relationship, or correct / archive one by id                                                                                                              |
 | `people_find_duplicates`     | read  | Possible duplicates of one person with evidence; merging stays in the app                                                                                             |
 | `people_create`              | write | Profile with optional contacts, roles, and linked notes. Same-name people come back as `candidates` unless `allowDuplicate`.                                          |
 | `people_update`              | write | Field patch plus exact nested `{add, update, remove}` for contacts and roles and `{link, unlink}` for notes, in one transaction; archive/restore                      |

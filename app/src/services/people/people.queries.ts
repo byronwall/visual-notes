@@ -2,6 +2,12 @@ import { query } from "@solidjs/router";
 import { getRequestEvent } from "solid-js/web";
 import { prisma } from "~/server/db";
 import {
+  findIntroductionPaths,
+  getNetwork,
+  getSelf,
+  listRelationships,
+} from "~/server/people/relationship-store";
+import {
   followupDigest,
   listFollowups,
   type FollowupStatus,
@@ -116,3 +122,29 @@ export const fetchFollowupDigest = query(async () => {
     .origin;
   return followupDigest(await listFollowups(), origin);
 }, "people-followup-digest");
+
+export const fetchRelationships = query(async (personId: string) => {
+  "use server";
+  return listRelationships(personId);
+}, "people-relationships");
+
+export const fetchNetwork = query(
+  async (input: { personId: string; hops?: 1 | 2 }) => {
+    "use server";
+    return getNetwork(input.personId, input.hops ?? 2);
+  },
+  "people-network",
+);
+
+export const fetchIntroductionPaths = query(
+  async (input: { fromId: string; toId: string }) => {
+    "use server";
+    return findIntroductionPaths(input.fromId, input.toId);
+  },
+  "people-paths",
+);
+
+export const fetchSelf = query(async () => {
+  "use server";
+  return getSelf();
+}, "people-self");

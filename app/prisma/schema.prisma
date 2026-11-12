@@ -1530,6 +1530,8 @@ model Person {
   archivedAt   DateTime?
   /// Set when this profile was merged into another; it stays archived.
   mergedIntoId String?
+  /// The user's own profile; introduction paths start here by default.
+  isSelf             Boolean   @default(false)
   /// Opt-in: suggest reconnecting this many days after the last contact.
   reconnectEveryDays Int?
   /// The day the cadence was set; counts as the start when there is no contact.
@@ -1544,6 +1546,8 @@ model Person {
   docLinks       PersonDocLink[]
   identities     PersonExternalIdentity[]
   reconnects     PeopleReconnect[]
+  relationsFrom  PersonRelationship[] @relation("RelationshipFrom")
+  relationsTo    PersonRelationship[] @relation("RelationshipTo")
 
   @@index([displayName])
   @@index([archivedAt])
@@ -1784,4 +1788,28 @@ model PeopleReconnect {
 
   @@index([personId])
   @@index([status, suggestedOn])
+}
+
+/// An explicit, typed connection between two people. Directed types (mentor,
+/// parent, manager, introduced) read from -> to; symmetric types store the
+/// lower id first so one pair has one edge per type. Shared organizations
+/// are never relationships.
+model PersonRelationship {
+  id           String    @id @default(cuid())
+  fromPersonId String
+  toPersonId   String
+  type         String
+  /// Where this came from: "they told me", a note title, an agent.
+  source       String?
+  startOn      DateTime? @db.Date
+  endOn        DateTime? @db.Date
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  from Person @relation("RelationshipFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  to   Person @relation("RelationshipTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([fromPersonId, toPersonId, type])
+  @@index([toPersonId])
 }
