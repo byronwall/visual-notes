@@ -1,4 +1,4 @@
-import { useAction } from "@solidjs/router";
+import { A, useAction } from "@solidjs/router";
 import { For, Show, createSignal, type JSX } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
@@ -10,6 +10,7 @@ import { AffiliationsSection } from "./AffiliationsSection";
 import { ContactsSection } from "./ContactsSection";
 import { CustomFieldsSection } from "./CustomFieldsSection";
 import { FactItem } from "./FactItem";
+import { DuplicatesSection } from "./DuplicatesSection";
 import { LinkedNotesSection } from "./LinkedNotesSection";
 import { ProfileDialog } from "./ProfileDialog";
 import { ProfileHistory } from "./ProfileHistory";
@@ -91,7 +92,15 @@ export function PersonProfileView(props: { person: PersonProfile }) {
 
   return (
     <>
-      <Show when={p().archivedAt}>
+      <Show when={p().mergedInto}>
+        {(m) => (
+          <div class={banner}>
+            Merged into <A href={`/people/${m().id}`}>{m().displayName}</A>. Its
+            history now lives there.
+          </div>
+        )}
+      </Show>
+      <Show when={p().archivedAt && !p().mergedInto}>
         <div class={banner}>
           Archived. History is kept; this person is hidden from the directory.
           <Button
@@ -195,6 +204,9 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           />
           <CustomFieldsSection personId={p().id} fields={p().customFields} />
           <LinkedNotesSection personId={p().id} notes={p().notes} />
+          <Show when={!p().archivedAt}>
+            <DuplicatesSection person={p()} />
+          </Show>
           <div style={{ display: "flex", gap: "0.5rem", "flex-wrap": "wrap" }}>
             <Button
               size="xs"

@@ -237,9 +237,16 @@ export async function getPersonProfile(
     listPersonInteractions(id, { limit: opts.interactionLimit ?? 100 }),
     readProfileParts(id),
   ]);
+  const mergedInto = row.mergedIntoId
+    ? await prisma.person.findUnique({
+        where: { id: row.mergedIntoId },
+        select: { id: true, displayName: true },
+      })
+    : null;
   return {
     ...summary,
     ...parts,
+    mergedInto,
     howKnown: row.howKnown,
     customFields: customFieldsOf(row.customFields),
     createdAt: row.createdAt.toISOString(),

@@ -24,6 +24,14 @@ import {
   createOrganization,
   updateOrganization,
 } from "~/server/people/organization-store";
+import {
+  applyImport,
+  previewImport,
+  setImportMapping,
+  type ImportChoices,
+} from "~/server/people/import-store";
+import { mergePeople, type MergeField } from "~/server/people/merge-store";
+import type { ImportMapping } from "~/lib/people/import-mapping";
 import { createPerson, updatePerson } from "~/server/people/person-store";
 import {
   addAffiliation,
@@ -36,6 +44,10 @@ import {
   updateContact,
 } from "~/server/people/profile-store";
 import {
+  fetchDuplicateGroups,
+  fetchDuplicates,
+  fetchImportPlan,
+  fetchImports,
   fetchOrganization,
   fetchOrganizations,
   fetchPeople,
@@ -54,6 +66,10 @@ const PEOPLE_KEYS = [
   fetchPersonCandidates.key,
   fetchOrganizations.key,
   fetchOrganization.key,
+  fetchDuplicates.key,
+  fetchDuplicateGroups.key,
+  fetchImportPlan.key,
+  fetchImports.key,
 ];
 
 export const createPersonAction = action(async (input: PersonInput) => {
@@ -196,4 +212,42 @@ export const updateOrganizationAction = action(
     return json(organization, { revalidate: PEOPLE_KEYS });
   },
   "people-update-organization",
+);
+
+export const previewImportAction = action(
+  async (input: { source: string; fileName: string; content: string }) => {
+    "use server";
+    if (input.content.length > 5_000_000) throw new Error("Files up to 5 MB can be imported");
+    const plan = await previewImport(input);
+    return json(plan, { revalidate: [fetchImports.key] });
+  },
+  "people-preview-import",
+);
+
+export const setImportMappingAction = action(
+  async (input: { id: string; mapping: ImportMapping }) => {
+    "use server";
+    return json(await setImportMapping(id.parse(input.id), input.mapping), {
+      revalidate: [],
+    });
+  },
+  "people-import-mapping",
+);
+
+export const applyImportAction = action(
+  async (input: { id: string; choices: ImportChoices }) => {
+    "use server";
+    const result = await applyImport(id.parse(input.id), input.choices ?? {});
+    return json(result, { revalidate: PEOPLE_KEYS });
+  },
+  "people-apply-import",
+);
+
+export const mergePeopleAction = action(
+  async (input: { survivorId: string; duplicateId: string; take?: MergeField[] }) => {
+    "use server";
+    const result = await mergePeople(input);
+    return json(result, { revalidate: PEOPLE_KEYS });
+  },
+  "people-merge",
 );

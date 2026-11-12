@@ -98,6 +98,8 @@ export type LinkedNote = { id: string; title: string; path: string | null };
 export type PersonProfile = PersonSummary & {
   howKnown: string | null;
   customFields: Record<string, string>;
+  /** Set when this profile was merged into another one. */
+  mergedInto: PersonRef | null;
   contacts: Contact[];
   affiliations: Affiliation[];
   notes: LinkedNote[];

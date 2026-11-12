@@ -208,6 +208,7 @@ People is a private relationship memory, separate from notes: profiles, remember
 | `people_query_interactions`  | read  | Encounters across people by person, text, kind, day range, archived; cursor paging                                                                                    |
 | `people_query_organizations` | read  | Organizations with current and past member counts                                                                                                                     |
 | `people_get_organization`    | read  | Members with role, dates, and `affiliationId`, plus the linked note                                                                                                   |
+| `people_find_duplicates`     | read  | Possible duplicates of one person with evidence; merging stays in the app                                                                                             |
 | `people_create`              | write | Profile with optional contacts, roles, and linked notes. Same-name people come back as `candidates` unless `allowDuplicate`.                                          |
 | `people_update`              | write | Field patch plus exact nested `{add, update, remove}` for contacts and roles and `{link, unlink}` for notes, in one transaction; archive/restore                      |
 | `people_add_fact`            | write | One short sourced detail                                                                                                                                              |

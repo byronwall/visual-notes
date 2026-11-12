@@ -92,6 +92,7 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_add_fact",
       "people_create",
       "people_create_organization",
+      "people_find_duplicates",
       "people_get",
       "people_get_organization",
       "people_log_interaction",
@@ -105,7 +106,7 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_update_organization",
     ]);
     for (const t of people) {
-      const reads = /_(search|get|query)/.test(t.name);
+      const reads = /_(search|get|query|find)/.test(t.name);
       expect(Boolean(t.annotations?.readOnlyHint), t.name).toBe(reads);
       expect(t.description?.length, t.name).toBeGreaterThan(40);
     }

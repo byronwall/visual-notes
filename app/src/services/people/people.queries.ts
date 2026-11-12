@@ -1,5 +1,7 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
+import { getImportPlan, listImports, type ImportChoices } from "~/server/people/import-store";
+import { findDuplicates, listDuplicateGroups } from "~/server/people/merge-store";
 import {
   getOrganization,
   listOrganizations,
@@ -58,3 +60,26 @@ export const fetchNoteCandidates = query(async (q: string) => {
     take: 8,
   });
 }, "people-note-candidates");
+
+export const fetchImportPlan = query(
+  async (input: { id: string; choices?: ImportChoices }) => {
+    "use server";
+    return getImportPlan(input.id, input.choices ?? {});
+  },
+  "people-import-plan",
+);
+
+export const fetchImports = query(async () => {
+  "use server";
+  return listImports();
+}, "people-imports");
+
+export const fetchDuplicates = query(async (personId: string) => {
+  "use server";
+  return findDuplicates(personId);
+}, "people-duplicates");
+
+export const fetchDuplicateGroups = query(async () => {
+  "use server";
+  return listDuplicateGroups();
+}, "people-duplicate-groups");

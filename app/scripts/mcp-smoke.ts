@@ -64,7 +64,7 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 94;
+const EXPECTED_TOOL_COUNT = 95;
 const FAMILIES = [
   "notes_",
   "research_",

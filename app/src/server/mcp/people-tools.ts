@@ -36,6 +36,7 @@ import {
 } from "~/server/people/person-store";
 import { listPersonInteractions } from "~/server/people/memory-store";
 import { prisma } from "~/server/db";
+import { findDuplicates } from "~/server/people/merge-store";
 import {
   agentSourceLabel,
   cursorArg,
@@ -270,6 +271,22 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
         },
       };
     },
+  );
+
+  tools.read(
+    "people_find_duplicates",
+    {
+      title: "Find possible duplicates",
+      description:
+        "People who might be the same as this one, with evidence (same name, name matches an alias, same email/phone/url). Evidence is a hint, not proof: families share phones and names repeat. Merging stays with the user in the app.",
+      input: { personId: personIdArg },
+    },
+    async ({ personId }) => ({
+      candidates: (await findDuplicates(personId)).map((d) => ({
+        ...d,
+        appUrl: `${ctx.origin}/people/${d.id}`,
+      })),
+    }),
   );
 
   tools.write(

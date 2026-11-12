@@ -1528,6 +1528,8 @@ model Person {
   /// Agent retry key; repeating a create with it returns the first record.
   requestKey   String?   @unique
   archivedAt   DateTime?
+  /// Set when this profile was merged into another; it stays archived.
+  mergedIntoId String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -1536,6 +1538,7 @@ model Person {
   contacts       PersonContact[]
   affiliations   PersonAffiliation[]
   docLinks       PersonDocLink[]
+  identities     PersonExternalIdentity[]
 
   @@index([displayName])
   @@index([archivedAt])
@@ -1691,4 +1694,56 @@ model PersonDocLink {
 
   @@unique([personId, docId])
   @@index([docId])
+}
+
+/// A stable key from an import source (a CSV id column, or a derived
+/// email/profile-URL key). Repeat imports match on it before anything else.
+model PersonExternalIdentity {
+  id             String   @id @default(cuid())
+  personId       String
+  /// The source namespace, e.g. "linkedin-csv" or "google-contacts".
+  source         String
+  externalKey    String
+  lastImportedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalKey])
+  @@index([personId])
+}
+
+/// One uploaded CSV: kept with its mapping so apply re-reads the file and
+/// re-checks every row against current data.
+model PeopleImport {
+  id        String    @id @default(cuid())
+  source    String
+  fileName  String
+  fileHash  String
+  content   String
+  /// Column name for each People field.
+  mapping   Json
+  appliedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  rows PeopleImportRow[]
+}
+
+/// Persisted per-row result, so a partial apply can resume.
+model PeopleImportRow {
+  id        String       @id @default(cuid())
+  importId  String
+  rowIndex  Int
+  /// pending, applied, failed, skipped
+  status    String       @default("pending")
+  /// create, update, unchanged, conflict, candidates, invalid
+  outcome   String?
+  personId  String?
+  message   String?
+  updatedAt DateTime     @updatedAt
+
+  import PeopleImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, rowIndex])
 }
