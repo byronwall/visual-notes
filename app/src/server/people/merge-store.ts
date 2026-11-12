@@ -278,9 +278,17 @@ export async function mergePeople(input: {
           },
         },
       });
-      if (clash && clash.id !== e.id)
+      if (clash && clash.id !== e.id) {
+        // Keep one edge; if the survivor's copy was archived but this one
+        // is active, the connection is still current, so restore it.
+        if (clash.archivedAt && !e.archivedAt) {
+          await tx.personRelationship.update({
+            where: { id: clash.id },
+            data: { archivedAt: null },
+          });
+        }
         await tx.personRelationship.delete({ where: { id: e.id } });
-      else {
+      } else {
         await tx.personRelationship.update({
           where: { id: e.id },
           data: { fromPersonId: edge.from, toPersonId: edge.to },
@@ -319,6 +327,8 @@ export async function mergePeople(input: {
         aliases,
         contexts,
         customFields: fields,
+        // "This is me" moves with the merge, so paths still start there.
+        ...(b.isSelf ? { isSelf: true } : {}),
         // The survivor keeps its own cadence; it takes the other one's if
         // it had none.
         ...(a.reconnectEveryDays == null && b.reconnectEveryDays != null
@@ -331,7 +341,11 @@ export async function mergePeople(input: {
     });
     await tx.person.update({
       where: { id: b.id },
-      data: { archivedAt: b.archivedAt ?? new Date(), mergedIntoId: a.id },
+      data: {
+        archivedAt: b.archivedAt ?? new Date(),
+        mergedIntoId: a.id,
+        isSelf: false,
+      },
     });
     return {
       facts: facts.count,

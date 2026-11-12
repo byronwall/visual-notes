@@ -164,6 +164,32 @@ describe.skipIf(!enabled)("people network (database)", () => {
     expect(await rel.listRelationships(a)).toHaveLength(2);
   });
 
+  it("keeps an active edge and the self mark through a merge", async () => {
+    const keep = await person("Survivor");
+    const dup = await person("Duplicate");
+    const c = await person("Common");
+    const old = await rel.addRelationship({
+      fromPersonId: keep,
+      toPersonId: c,
+      type: "friend",
+    });
+    await rel.updateRelationship(old.id, { archived: true });
+    await rel.addRelationship({
+      fromPersonId: dup,
+      toPersonId: c,
+      type: "friend",
+    });
+    await rel.setSelf(dup);
+
+    await merge.mergePeople({ survivorId: keep, duplicateId: dup });
+    const edges = await rel.listRelationships(keep);
+    expect(edges.map((e) => [e.label, e.other.id, e.archived])).toEqual([
+      ["Friend", c, false],
+    ]);
+    expect((await rel.getSelf())?.id).toBe(keep);
+    await rel.setSelf(null);
+  });
+
   it("moves edges on merge and drops the edge between the merged pair", async () => {
     const keep = await person("Keep");
     const drop = await person("Drop");
