@@ -82,6 +82,7 @@ export function ReconnectSection(props: {
         size="sm"
         skipPortal={false}
         items={CADENCES}
+        placeholder="Off"
         value={props.everyDays ? String(props.everyDays) : ""}
         onChange={(v) =>
           void setCadence({
