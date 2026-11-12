@@ -1,9 +1,9 @@
 import { A } from "@solidjs/router";
-import { For, Show, createResource, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { Button } from "~/components/ui/button";
 import type { PersonProfile } from "~/lib/people/types";
 import { fetchDuplicates } from "~/services/people/people.queries";
-import { onDemand } from "~/utils/kept-async";
+import { createKeptAsync, onDemand } from "~/utils/kept-async";
 import { MergeDialog } from "./MergeDialog";
 import {
   ProfileSection,
@@ -15,9 +15,8 @@ import {
 
 /** Possible duplicates of this person, with evidence and a merge review. */
 export function DuplicatesSection(props: { person: PersonProfile }) {
-  const [dupes] = createResource(
-    () => props.person.id,
-    (id) => fetchDuplicates(id),
+  const dupes = createKeptAsync(
+    () => fetchDuplicates(props.person.id),
     onDemand,
   );
   const [merging, setMerging] = createSignal<string | null>(null);

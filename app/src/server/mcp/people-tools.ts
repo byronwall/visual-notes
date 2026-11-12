@@ -38,6 +38,13 @@ import { listPersonInteractions } from "~/server/people/memory-store";
 import { prisma } from "~/server/db";
 import { findDuplicates } from "~/server/people/merge-store";
 import {
+  addFollowup,
+  followupDigest,
+  listFollowups,
+  setReconnectCadence,
+  updateFollowup,
+} from "~/server/people/reconnect-store";
+import {
   agentSourceLabel,
   cursorArg,
   dayFilterArg,
@@ -289,6 +296,79 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     }),
   );
 
+  tools.read(
+    "people_list_followups",
+    {
+      title: "List reasons to reconnect",
+      description:
+        "The reconnect queue: due suggestions from people the user opted in (a cadence after last contact) and explicit reasons, each with its source and a stable key. upcomingDays adds what is coming up; include picks states. digest is the same list as plain text with links. No recorded contact is unknown history, not overdue.",
+      input: {
+        upcomingDays: z.number().int().min(0).max(365).optional(),
+        include: z
+          .array(z.enum(["pending", "snoozed", "dismissed", "resolved"]))
+          .optional(),
+        personId: z.string().optional(),
+      },
+    },
+    async (args) => {
+      const items = await listFollowups(args);
+      return {
+        followups: items.map((i) => ({
+          ...i,
+          person: {
+            ...i.person,
+            appUrl: `${ctx.origin}/people/${i.person.id}`,
+          },
+        })),
+        digest: followupDigest(items, ctx.origin),
+      };
+    },
+  );
+
+  tools.write(
+    "people_add_followup",
+    {
+      title: "Add a reason to reconnect",
+      description:
+        'Create an explicit reconnect prompt for one person, such as "Ask how the new job is going", optionally tied to the fact or encounter it came from. Never send a message yourself.',
+      input: {
+        personId: personIdArg,
+        reason: z.string().min(1).max(500),
+        suggestedOn: dayArg
+          .optional()
+          .describe("The day to surface it; defaults to today"),
+        sourceFactId: z.string().optional(),
+        sourceInteractionId: z.string().optional(),
+        requestKey: requestKeyArg,
+      },
+    },
+    async (args) => {
+      const r = await addFollowup(args);
+      return { created: !r.existing, id: r.id, key: r.key };
+    },
+  );
+
+  tools.write(
+    "people_update_followup",
+    {
+      title: "Update a reason to reconnect",
+      description:
+        "Act on one queue item by its key: snooze (with snoozedUntil), dismiss (never show this one again), resolve (done), or reopen. None of these count as contact; log an encounter for that.",
+      input: {
+        key: z.string().min(1),
+        action: z.enum(["snooze", "dismiss", "resolve", "reopen"]),
+        snoozedUntil: dayArg.optional(),
+        reason: z
+          .string()
+          .max(500)
+          .optional()
+          .describe("Correct a prompt's text"),
+        suggestedOn: dayArg.optional(),
+      },
+    },
+    async (args) => updateFollowup(args),
+  );
+
   tools.write(
     "people_create",
     {
@@ -358,10 +438,26 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
       title: "Update person",
       description:
         'Patch a profile. Omitted fields stay; null or "" clears a text field. customFields replaces all custom fields; setCustomFields / removeCustomFields merge. contacts and affiliations take {add, update:[{id,...}], remove:[id]} using ids from people_get; to record that a role ended, update its endOn instead of removing it. notes takes {link, unlink} note ids. archived true/false archives or restores; history is kept. All changes apply together or not at all.',
-      input: { id: personIdArg, ...personUpdateSchema.shape },
+      input: {
+        id: personIdArg,
+        ...personUpdateSchema.shape,
+        reconnectEveryDays: z
+          .number()
+          .int()
+          .min(7)
+          .max(3650)
+          .nullable()
+          .optional()
+          .describe(
+            "Opt in to reconnect suggestions this many days after last contact; null turns them off",
+          ),
+      },
     },
-    async ({ id, ...input }) => {
+    async ({ id, reconnectEveryDays, ...input }) => {
+      if (reconnectEveryDays !== undefined)
+        await setReconnectCadence(id, reconnectEveryDays);
       const { person, changed } = await updatePersonProfile(id, input);
+      if (reconnectEveryDays !== undefined) changed.push("reconnectEveryDays");
       return {
         id: person.id,
         changed,

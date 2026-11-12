@@ -1,7 +1,20 @@
 import { query } from "@solidjs/router";
+import { getRequestEvent } from "solid-js/web";
 import { prisma } from "~/server/db";
-import { getImportPlan, listImports, type ImportChoices } from "~/server/people/import-store";
-import { findDuplicates, listDuplicateGroups } from "~/server/people/merge-store";
+import {
+  followupDigest,
+  listFollowups,
+  type FollowupStatus,
+} from "~/server/people/reconnect-store";
+import {
+  getImportPlan,
+  listImports,
+  type ImportChoices,
+} from "~/server/people/import-store";
+import {
+  findDuplicates,
+  listDuplicateGroups,
+} from "~/server/people/merge-store";
 import {
   getOrganization,
   listOrganizations,
@@ -83,3 +96,23 @@ export const fetchDuplicateGroups = query(async () => {
   "use server";
   return listDuplicateGroups();
 }, "people-duplicate-groups");
+
+export const fetchFollowups = query(
+  async (input: {
+    upcomingDays?: number;
+    include?: FollowupStatus[];
+    personId?: string;
+  }) => {
+    "use server";
+    return listFollowups(input ?? {});
+  },
+  "people-followups",
+);
+
+/** The due queue as plain text with links, for copying elsewhere. */
+export const fetchFollowupDigest = query(async () => {
+  "use server";
+  const origin = new URL(getRequestEvent()?.request.url ?? "http://localhost")
+    .origin;
+  return followupDigest(await listFollowups(), origin);
+}, "people-followup-digest");

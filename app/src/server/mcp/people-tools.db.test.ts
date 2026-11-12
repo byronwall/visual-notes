@@ -90,11 +90,13 @@ describe.skipIf(!enabled)("people tools (database)", () => {
     const people = tools.filter((t) => t.name.startsWith("people_"));
     expect(people.map((t) => t.name).sort()).toEqual([
       "people_add_fact",
+      "people_add_followup",
       "people_create",
       "people_create_organization",
       "people_find_duplicates",
       "people_get",
       "people_get_organization",
+      "people_list_followups",
       "people_log_interaction",
       "people_query_facts",
       "people_query_interactions",
@@ -102,11 +104,12 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_search",
       "people_update",
       "people_update_fact",
+      "people_update_followup",
       "people_update_interaction",
       "people_update_organization",
     ]);
     for (const t of people) {
-      const reads = /_(search|get|query|find)/.test(t.name);
+      const reads = /_(search|get|query|find|list)/.test(t.name);
       expect(Boolean(t.annotations?.readOnlyHint), t.name).toBe(reads);
       expect(t.description?.length, t.name).toBeGreaterThan(40);
     }

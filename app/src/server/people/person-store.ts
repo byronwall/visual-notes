@@ -247,6 +247,7 @@ export async function getPersonProfile(
     ...summary,
     ...parts,
     mergedInto,
+    reconnectEveryDays: row.reconnectEveryDays,
     howKnown: row.howKnown,
     customFields: customFieldsOf(row.customFields),
     createdAt: row.createdAt.toISOString(),

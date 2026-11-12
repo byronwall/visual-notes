@@ -100,6 +100,8 @@ export type PersonProfile = PersonSummary & {
   customFields: Record<string, string>;
   /** Set when this profile was merged into another one. */
   mergedInto: PersonRef | null;
+  /** Opt-in reconnect cadence in days, or null when off. */
+  reconnectEveryDays: number | null;
   contacts: Contact[];
   affiliations: Affiliation[];
   notes: LinkedNote[];

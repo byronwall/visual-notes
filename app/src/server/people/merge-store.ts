@@ -252,6 +252,11 @@ export async function mergePeople(input: {
       where: { personId: b.id },
       data: { personId: a.id },
     });
+    // Reconnect prompts follow the person; the survivor keeps its own cadence.
+    await tx.peopleReconnect.updateMany({
+      where: { personId: b.id },
+      data: { personId: a.id },
+    });
 
     await tx.person.update({
       where: { id: a.id },

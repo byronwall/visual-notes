@@ -20,6 +20,10 @@ import { createPerson } from "~/server/people/person-store";
 import { addFact, logInteraction } from "~/server/people/memory-store";
 import { createOrganization } from "~/server/people/organization-store";
 import { addAffiliation, addContact } from "~/server/people/profile-store";
+import {
+  addFollowup,
+  setReconnectCadence,
+} from "~/server/people/reconnect-store";
 import { seededRandom } from "~/server/notes/imported-markdown-corpus";
 
 const { values } = parseArgs({
@@ -237,6 +241,27 @@ for (let i = 0; i < Math.round(count * 1.5); i++) {
     kind: pick(INTERACTION_KINDS.slice(0, 6)),
     summary: pick(ENCOUNTERS),
     participants: group.map((personId) => ({ personId })),
+  });
+}
+// Opt a few people in to reconnect suggestions, and add explicit reasons.
+for (const id of ids.filter(() => random() < 0.2)) {
+  await setReconnectCadence(
+    id,
+    pick([30, 90, 182]),
+    addDays(today, -Math.floor(random() * 300)),
+  );
+}
+const REASONS = [
+  "Ask how the new job is going",
+  "Send the book you mentioned",
+  "Congratulate them on the race",
+  "Check in after the move",
+];
+for (const id of ids.filter(() => random() < 0.08)) {
+  await addFollowup({
+    personId: id,
+    reason: pick(REASONS),
+    suggestedOn: addDays(today, Math.floor(random() * 40) - 20),
   });
 }
 console.info(

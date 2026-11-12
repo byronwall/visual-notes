@@ -31,6 +31,12 @@ import {
   type ImportChoices,
 } from "~/server/people/import-store";
 import { mergePeople, type MergeField } from "~/server/people/merge-store";
+import {
+  addFollowup,
+  setReconnectCadence,
+  updateFollowup,
+  type FollowupAction,
+} from "~/server/people/reconnect-store";
 import type { ImportMapping } from "~/lib/people/import-mapping";
 import { createPerson, updatePerson } from "~/server/people/person-store";
 import {
@@ -44,6 +50,8 @@ import {
   updateContact,
 } from "~/server/people/profile-store";
 import {
+  fetchFollowupDigest,
+  fetchFollowups,
   fetchDuplicateGroups,
   fetchDuplicates,
   fetchImportPlan,
@@ -70,6 +78,8 @@ const PEOPLE_KEYS = [
   fetchDuplicateGroups.key,
   fetchImportPlan.key,
   fetchImports.key,
+  fetchFollowups.key,
+  fetchFollowupDigest.key,
 ];
 
 export const createPersonAction = action(async (input: PersonInput) => {
@@ -217,7 +227,8 @@ export const updateOrganizationAction = action(
 export const previewImportAction = action(
   async (input: { source: string; fileName: string; content: string }) => {
     "use server";
-    if (input.content.length > 5_000_000) throw new Error("Files up to 5 MB can be imported");
+    if (input.content.length > 5_000_000)
+      throw new Error("Files up to 5 MB can be imported");
     const plan = await previewImport(input);
     return json(plan, { revalidate: [fetchImports.key] });
   },
@@ -244,10 +255,43 @@ export const applyImportAction = action(
 );
 
 export const mergePeopleAction = action(
-  async (input: { survivorId: string; duplicateId: string; take?: MergeField[] }) => {
+  async (input: {
+    survivorId: string;
+    duplicateId: string;
+    take?: MergeField[];
+  }) => {
     "use server";
     const result = await mergePeople(input);
     return json(result, { revalidate: PEOPLE_KEYS });
   },
   "people-merge",
+);
+
+export const updateFollowupAction = action(
+  async (input: {
+    key: string;
+    action: FollowupAction;
+    snoozedUntil?: string;
+  }) => {
+    "use server";
+    return json(await updateFollowup(input), { revalidate: PEOPLE_KEYS });
+  },
+  "people-update-followup",
+);
+
+export const addFollowupAction = action(
+  async (input: { personId: string; reason: string; suggestedOn?: string }) => {
+    "use server";
+    return json(await addFollowup(input), { revalidate: PEOPLE_KEYS });
+  },
+  "people-add-followup",
+);
+
+export const setCadenceAction = action(
+  async (input: { personId: string; days: number | null }) => {
+    "use server";
+    await setReconnectCadence(id.parse(input.personId), input.days);
+    return json({ ok: true }, { revalidate: PEOPLE_KEYS });
+  },
+  "people-set-cadence",
 );

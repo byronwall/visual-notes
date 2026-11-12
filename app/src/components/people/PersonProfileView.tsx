@@ -12,6 +12,7 @@ import { CustomFieldsSection } from "./CustomFieldsSection";
 import { FactItem } from "./FactItem";
 import { DuplicatesSection } from "./DuplicatesSection";
 import { LinkedNotesSection } from "./LinkedNotesSection";
+import { ReconnectSection } from "./ReconnectSection";
 import { ProfileDialog } from "./ProfileDialog";
 import { ProfileHistory } from "./ProfileHistory";
 
@@ -196,6 +197,12 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           </Show>
           <Show when={p().howKnown}>
             <Detail label="How you know them">{p().howKnown}</Detail>
+          </Show>
+          <Show when={!p().archivedAt}>
+            <ReconnectSection
+              personId={p().id}
+              everyDays={p().reconnectEveryDays}
+            />
           </Show>
           <ContactsSection personId={p().id} contacts={p().contacts} />
           <AffiliationsSection

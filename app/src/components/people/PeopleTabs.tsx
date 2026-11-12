@@ -4,6 +4,7 @@ import { css } from "styled-system/css";
 
 export const PEOPLE_TABS = [
   { label: "People", href: "/people" },
+  { label: "Reconnect", href: "/people/reconnect" },
   { label: "Organizations", href: "/people/organizations" },
   { label: "Import", href: "/people/import" },
   { label: "Duplicates", href: "/people/duplicates" },
@@ -12,6 +13,8 @@ export const PEOPLE_TABS = [
 const bar = css({
   display: "flex",
   gap: "1",
+  overflowX: "auto",
+  scrollbarWidth: "none",
   mb: "4",
   borderBottomWidth: "1px",
   borderColor: "border",
@@ -25,6 +28,8 @@ const tab = css({
   borderBottomWidth: "2px",
   borderColor: "transparent",
   mb: "-1px",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
   _hover: { color: "fg.default" },
   "&[aria-current=page]": {
     color: "fg.default",

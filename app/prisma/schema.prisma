@@ -1530,6 +1530,10 @@ model Person {
   archivedAt   DateTime?
   /// Set when this profile was merged into another; it stays archived.
   mergedIntoId String?
+  /// Opt-in: suggest reconnecting this many days after the last contact.
+  reconnectEveryDays Int?
+  /// The day the cadence was set; counts as the start when there is no contact.
+  reconnectSince     DateTime? @db.Date
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -1539,6 +1543,7 @@ model Person {
   affiliations   PersonAffiliation[]
   docLinks       PersonDocLink[]
   identities     PersonExternalIdentity[]
+  reconnects     PeopleReconnect[]
 
   @@index([displayName])
   @@index([archivedAt])
@@ -1746,4 +1751,37 @@ model PeopleImportRow {
   import PeopleImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 
   @@unique([importId, rowIndex])
+}
+
+enum ReconnectStatus {
+  pending
+  snoozed
+  dismissed
+  resolved
+}
+
+/// A reason to reconnect with someone. Elapsed-time suggestions are computed
+/// on read and stored only once acted on; contextual prompts (from the user
+/// or an agent) are stored when made. None of these states imply contact.
+model PeopleReconnect {
+  id                  String          @id @default(cuid())
+  personId            String
+  /// elapsed:<personId>:<due day> for cadence suggestions; ctx:<id> otherwise.
+  key                 String          @unique
+  /// "elapsed" or "contextual"
+  kind                String
+  reason              String
+  suggestedOn         DateTime        @db.Date
+  status              ReconnectStatus @default(pending)
+  snoozedUntil        DateTime?       @db.Date
+  sourceFactId        String?
+  sourceInteractionId String?
+  resolvedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([status, suggestedOn])
 }
