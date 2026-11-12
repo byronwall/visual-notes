@@ -31,6 +31,7 @@ import { PersonPicker, type PickedPerson } from "./PersonPicker";
 const form = css({
   display: "flex",
   flexDirection: "column",
+  w: "full",
   gap: "3",
   py: "1",
 });
