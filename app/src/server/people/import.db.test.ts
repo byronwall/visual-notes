@@ -21,6 +21,8 @@ vi.mock("~/server/db", () => ({
 const imports = await import("./import-store");
 const merge = await import("./merge-store");
 const people = await import("./person-store");
+const profile = await import("./profile-store");
+const orgs = await import("./organization-store");
 const memory = await import("./memory-store");
 
 const header =
@@ -241,6 +243,21 @@ describe.skipIf(!enabled)("people import and merge (database)", () => {
     const dupes = await merge.findDuplicates(a.id);
     expect(dupes.map((d) => d.id)).not.toContain(b.id); // different names, no shared contact
 
+    // Same organization and role, different dates: two roles, both kept.
+    const acme = (await orgs.createOrganization({ name: `Acme ${tag}` }))
+      .organization;
+    await profile.addAffiliation(a.id, {
+      organizationId: acme.id,
+      role: "Engineer",
+      startOn: "2020-01-01",
+      endOn: "2022-01-01",
+    });
+    await profile.addAffiliation(b.id, {
+      organizationId: acme.id,
+      role: "Engineer",
+      startOn: "2025-01-01",
+    });
+
     await merge.mergePeople({ survivorId: a.id, duplicateId: b.id });
     const survivor = await people.getPersonProfile(a.id);
     expect(survivor).toMatchObject({
@@ -250,6 +267,10 @@ describe.skipIf(!enabled)("people import and merge (database)", () => {
       lastContactOn: today,
     });
     expect(survivor!.aliases).toContain(`Joanna ${tag}`);
+    expect(survivor!.affiliations.map((r) => [r.startOn, r.endOn])).toEqual([
+      ["2025-01-01", null],
+      ["2020-01-01", "2022-01-01"],
+    ]);
     expect(survivor!.facts.map((f) => f.text)).toEqual(["Plays cello"]);
     expect(
       survivor!.interactions[0].participants.map((p) => p.id).sort(),

@@ -341,8 +341,15 @@ async function findOrCreateOrganization(db: Db, name: string) {
   return found ?? db.organization.create({ data: { name } });
 }
 
-/** Writes one planned row in its own transaction. */
-async function applyRow(source: string, plan: RowPlan): Promise<string> {
+/**
+ * Writes one planned row and its "applied" record in one transaction, so a
+ * crash between the two cannot make a retry create the person again.
+ */
+async function applyRow(
+  importId: string,
+  source: string,
+  plan: RowPlan,
+): Promise<string> {
   const r = plan.record;
   return prisma.$transaction(async (tx) => {
     let personId = plan.person?.id;
@@ -410,6 +417,15 @@ async function applyRow(source: string, plan: RowPlan): Promise<string> {
         update: { lastImportedAt: new Date() },
       });
     }
+    await saveRow(
+      importId,
+      { ...plan, person: { id: personId, displayName: r.displayName } },
+      "applied",
+      plan.conflicts.length
+        ? `Kept ${plan.conflicts.length} curated value(s)`
+        : null,
+      tx,
+    );
     return personId;
   });
 }
@@ -444,17 +460,9 @@ export async function applyImport(
       continue;
     }
     try {
-      const personId = await applyRow(plan.source, row);
+      const personId = await applyRow(importId, plan.source, row);
       row.person = { id: personId, displayName: row.record.displayName };
       applied++;
-      await saveRow(
-        importId,
-        row,
-        "applied",
-        row.conflicts.length
-          ? `Kept ${row.conflicts.length} curated value(s)`
-          : null,
-      );
     } catch (err) {
       failed++;
       console.warn(`[people] import row failed`, importId, row.rowIndex);
@@ -488,8 +496,9 @@ async function saveRow(
   row: RowPlan,
   status: string,
   message: string | null,
+  db: Db = prisma,
 ) {
-  await prisma.peopleImportRow.upsert({
+  await db.peopleImportRow.upsert({
     where: { importId_rowIndex: { importId, rowIndex: row.rowIndex } },
     create: {
       importId,

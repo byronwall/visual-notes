@@ -73,6 +73,9 @@ export function PeopleImportView() {
   createEffect(
     on(importId, (id) => {
       if (!id || plan()?.id === id) return;
+      // Choices and results belong to one import; never carry them over.
+      setChoices({});
+      setDone(null);
       void fetchImportPlan({ id })
         .then(setPlan)
         .catch(() => setMessage("That import was not found."));
