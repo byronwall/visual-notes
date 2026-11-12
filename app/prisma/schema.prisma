@@ -256,6 +256,10 @@ model Doc {
   event Event?
   place Place?
 
+  // People: notes cited as the source of a remembered fact or encounter.
+  sourcedPersonFacts   PersonFact[]
+  sourcedInteractions  Interaction[]
+
   @@unique([originalSource, originalContentId])
   @@index([path])
   @@index([collectionId])
@@ -1497,4 +1501,103 @@ model PathwayTaskLink {
 
   @@unique([pathwayId, taskId])
   @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// People: a private relationship memory. A person is not a note; facts are
+// short sourced assertions about one person; an interaction is one real-world
+// encounter shared by its participants. Only participants with
+// countsAsContact advance "last recorded contact" (computed on read).
+// Calendar days are stored as `date`, never as fabricated midnight instants.
+
+model Person {
+  id           String    @id @default(cuid())
+  displayName  String
+  aliases      String[]  @default([])
+  summary      String?
+  location     String?
+  /// How Byron knows this person, in their own words.
+  howKnown     String?
+  /// Life settings: work, school, family, church, neighborhood, ...
+  contexts     String[]  @default([])
+  /// User-named scalar attributes ({"Birthday": "May 4"}).
+  customFields Json      @default("{}")
+  /// Agent retry key; repeating a create with it returns the first record.
+  requestKey   String?   @unique
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  facts          PersonFact[]
+  participations InteractionParticipant[]
+
+  @@index([displayName])
+  @@index([archivedAt])
+}
+
+model PersonFact {
+  id          String    @id @default(cuid())
+  personId    String
+  text        String
+  category    String?
+  /// The day the detail was learned, when known.
+  learnedOn   DateTime? @db.Date
+  sourceLabel String?
+  sourceUrl   String?
+  sourceDocId String?
+  requestKey  String?   @unique
+  /// Obsolete facts stay in history instead of being deleted.
+  retiredAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  person    Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  sourceDoc Doc?   @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+
+  @@index([personId])
+}
+
+enum InteractionKind {
+  in_person
+  call
+  video
+  message
+  email
+  event
+  introduction
+  referral
+  recommendation
+  other
+}
+
+model Interaction {
+  id          String          @id @default(cuid())
+  occurredOn  DateTime        @db.Date
+  kind        InteractionKind @default(in_person)
+  summary     String
+  sourceLabel String?
+  sourceUrl   String?
+  sourceDocId String?
+  requestKey  String?         @unique
+  archivedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  participants InteractionParticipant[]
+  sourceDoc    Doc?                     @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+
+  @@index([occurredOn])
+}
+
+model InteractionParticipant {
+  interactionId   String
+  personId        String
+  /// False for someone only discussed (a referral's subject).
+  countsAsContact Boolean @default(true)
+
+  interaction Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  person      Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([interactionId, personId])
+  @@index([personId])
 }
