@@ -50,7 +50,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Search",
       description:
-        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; semantic says whether meaning-based matches were used (loading: retry shortly for them), and truncated says more notes matched than limit. Use notes_get for full content. include adds research cards, tasks, decision maps (pathways, also matched by id), and/or archived pages matched by the same words, each under its own key.",
+        "Search notes by keywords and, when embeddings are configured, by meaning. Each note says how it matched; semantic says whether meaning-based matches were used (loading: retry shortly for them), and truncated says more notes matched than limit. Use notes_get for full content. include adds research cards, tasks, decision maps (pathways, also matched by id), archived pages, and/or people (names, contacts, remembered facts, encounters, roles; read one with people_get) matched by the same words, each under its own key.",
       input: {
         query: z.string().min(1).describe("Keywords to look for"),
         path: z
@@ -61,7 +61,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
           .array(z.enum(SEARCH_KINDS))
           .optional()
           .describe(
-            "Also search research cards, tasks, decision maps (pathways), and/or archived pages",
+            "Also search research cards, tasks, decision maps (pathways), archived pages, and/or people",
           ),
         limit: limitArg(25, 10).describe(
           "Per kind; at most 25, defaults to 10",

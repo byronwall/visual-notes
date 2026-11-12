@@ -24,7 +24,7 @@ Every family registers through `tools.read` / `tools.write` in `server/mcp/tool-
 
 Agents get the same answer shapes from every family:
 
-- **Names** are `<area>_<verb>[_<object>]`: `notes_`, `research_`, `tasks_`, `pathways_`, `collections_`, `time_blocks_`, `events_`, `places_`, `archive_`, `activity_`. `search` is the one cross-area tool.
+- **Names** are `<area>_<verb>[_<object>]`: `notes_`, `research_`, `tasks_`, `pathways_`, `collections_`, `time_blocks_`, `events_`, `places_`, `people_`, `archive_`, `activity_`. `search` is the one cross-area tool.
 - **Verbs**: `list` enumerates a small set (lists, paths, tags, topics, places). `query` finds a family's items with filters. `get` reads by id. `create`, `update`, and `set` write. `add` and `remove` change membership. `upload` stores a file and says where it lives.
 - **Ids**: a tool's own records are `id` / `ids`. Records in other areas are `noteId`, `listId`, `showId`, `pageId`, `parentTaskId`. An event is addressed by its note's `noteId`.
 - **Links**: `appUrl` always opens the record in Visual Notes. `url` is always a web address: a research source, an event's ticket page, an archived page.
@@ -195,6 +195,29 @@ An event is a note with dated shows, a place, and decisions. Tools address the e
 | `places_upsert`          | write | Find by normalized name + city or create; `update` patches a match, `geocode` asks OpenStreetMap                                                   |
 
 Writes log `event.*` events (Events in the activity filter) and publish the `events` live area. Deleting events, shows, and places stays with the user.
+
+### People
+
+People is a private relationship memory, separate from notes: profiles, remembered facts, shared encounters, and organizations. A fact never changes last contact; an encounter is one record shared by its participants, and only participants with `countsAsContact` update last contact. Days are `YYYY-MM-DD` in `America/Indiana/Indianapolis`; encounters cannot be in the future. Writes take an optional `requestKey`, stored with the record, so a retry returns the first result. Agent facts and encounters default their source to `Agent: <client name>`.
+
+| Tool                         | Kind  | Notes                                                                                                                                                                 |
+| ---------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `people_search`              | read  | Names, aliases, contacts (phones by digits), facts, encounters, roles; `matchedIn` says why; filter by context, organization, contact window, archived; cursor paging |
+| `people_get`                 | read  | The profile with nested ids, every fact, and a page of encounters (`historyCursor`)                                                                                   |
+| `people_query_facts`         | read  | Facts across people by person, text, category, learned day range, current/retired                                                                                     |
+| `people_query_interactions`  | read  | Encounters across people by person, text, kind, day range, archived; cursor paging                                                                                    |
+| `people_query_organizations` | read  | Organizations with current and past member counts                                                                                                                     |
+| `people_get_organization`    | read  | Members with role, dates, and `affiliationId`, plus the linked note                                                                                                   |
+| `people_create`              | write | Profile with optional contacts, roles, and linked notes. Same-name people come back as `candidates` unless `allowDuplicate`.                                          |
+| `people_update`              | write | Field patch plus exact nested `{add, update, remove}` for contacts and roles and `{link, unlink}` for notes, in one transaction; archive/restore                      |
+| `people_add_fact`            | write | One short sourced detail                                                                                                                                              |
+| `people_update_fact`         | write | Correct one fact, or `retired: true` to move it to history                                                                                                            |
+| `people_log_interaction`     | write | One encounter with every participant; `countsAsContact: false` for someone only discussed                                                                             |
+| `people_update_interaction`  | write | Correct day, kind, summary, source, or the whole participant list; archive/restore                                                                                    |
+| `people_create_organization` | write | Same-name organizations come back as `candidates` unless `allowDuplicate`                                                                                             |
+| `people_update_organization` | write | Fields, linked note, archive/restore                                                                                                                                  |
+
+`search` takes `include: ["people"]` for a People group that leads to `people_get`. Agents never delete People records. People use the same `notes:read` / `notes:write` scopes as every other area, so any connected client with those scopes can read and write People. Public note shares never include People data.
 
 ### Web archive
 

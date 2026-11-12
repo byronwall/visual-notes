@@ -47,6 +47,21 @@ Keep this file current when adding an action or a tool. A new action is either c
 | `fetchTags`, `fetchTagNames`, `fetchTagBlocks` | `notes_list_tags`            |                                           |
 | `fetchOpenNoteTasks`                           | `tasks_query` with `inNotes` |                                           |
 
+## People
+
+| Action / query                                                                                                                                                                         | MCP                                                        | Notes                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------- |
+| `fetchPeople`, `fetchPersonCandidates`, `fetchPeopleContexts`                                                                                                                          | `people_search`                                            | Contexts come back on each person  |
+| `fetchPerson`                                                                                                                                                                          | `people_get`                                               |                                    |
+| `fetchOrganizations`, `fetchOrganization`                                                                                                                                              | `people_query_organizations`, `people_get_organization`    |                                    |
+| `createPersonAction`                                                                                                                                                                   | `people_create`                                            | Same-name check first              |
+| `updatePersonAction`, `addContactAction`, `updateContactAction`, `removeContactAction`, `addAffiliationAction`, `updateAffiliationAction`, `removeAffiliationAction`, `linkNoteAction` | `people_update`                                            | One transaction for nested changes |
+| `addFactAction`, `updateFactAction`                                                                                                                                                    | `people_add_fact`, `people_update_fact`                    |                                    |
+| `logInteractionAction`, `updateInteractionAction`                                                                                                                                      | `people_log_interaction`, `people_update_interaction`      |                                    |
+| `createOrganizationAction`, `updateOrganizationAction`                                                                                                                                 | `people_create_organization`, `people_update_organization` |                                    |
+| (agent-only)                                                                                                                                                                           | `people_query_facts`, `people_query_interactions`          | Cross-person memory queries        |
+| `fetchNoteCandidates`                                                                                                                                                                  | `search`                                                   | Note picker for linking            |
+
 ## Shares
 
 | Action / query                          | MCP        | Notes                              |

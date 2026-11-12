@@ -318,3 +318,95 @@ export async function updateInteraction(
   console.info(`[people] updated interaction`, id);
   return toInteraction(row);
 }
+
+// --------------------------------------------------------------- queries
+
+export type FactQuery = {
+  personId?: string;
+  text?: string;
+  category?: string;
+  state?: "current" | "retired" | "all";
+  learnedFrom?: string;
+  learnedTo?: string;
+  limit?: number;
+  offset?: number;
+};
+
+/** Facts across people, newest first, with the person they belong to. */
+export async function queryFacts(q: FactQuery) {
+  const limit = q.limit ?? 25;
+  const rows = await prisma.personFact.findMany({
+    where: {
+      ...(q.personId ? { personId: q.personId } : {}),
+      ...(q.text ? { text: { contains: q.text, mode: "insensitive" } } : {}),
+      ...(q.category
+        ? { category: { equals: q.category, mode: "insensitive" } }
+        : {}),
+      ...(q.state === "retired"
+        ? { retiredAt: { not: null } }
+        : q.state === "all"
+          ? {}
+          : { retiredAt: null }),
+      ...(q.learnedFrom || q.learnedTo
+        ? {
+            learnedOn: {
+              ...(q.learnedFrom ? { gte: dayToDb(q.learnedFrom) } : {}),
+              ...(q.learnedTo ? { lte: dayToDb(q.learnedTo) } : {}),
+            },
+          }
+        : {}),
+    },
+    include: { person: { select: { id: true, displayName: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    skip: q.offset ?? 0,
+    take: limit + 1,
+  });
+  return {
+    facts: rows
+      .slice(0, limit)
+      .map((r) => ({ ...toFact(r), person: r.person })),
+    hasMore: rows.length > limit,
+  };
+}
+
+export type InteractionQuery = {
+  personId?: string;
+  text?: string;
+  kind?: InteractionKind;
+  from?: string;
+  to?: string;
+  includeArchived?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+/** Encounters across people, newest day first. */
+export async function queryInteractions(q: InteractionQuery) {
+  const limit = q.limit ?? 25;
+  const rows = await prisma.interaction.findMany({
+    where: {
+      ...(q.personId
+        ? { participants: { some: { personId: q.personId } } }
+        : {}),
+      ...(q.text ? { summary: { contains: q.text, mode: "insensitive" } } : {}),
+      ...(q.kind ? { kind: q.kind } : {}),
+      ...(q.includeArchived ? {} : { archivedAt: null }),
+      ...(q.from || q.to
+        ? {
+            occurredOn: {
+              ...(q.from ? { gte: dayToDb(q.from) } : {}),
+              ...(q.to ? { lte: dayToDb(q.to) } : {}),
+            },
+          }
+        : {}),
+    },
+    include: INTERACTION_INCLUDE,
+    orderBy: [{ occurredOn: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+    skip: q.offset ?? 0,
+    take: limit + 1,
+  });
+  return {
+    interactions: rows.slice(0, limit).map(toInteraction),
+    hasMore: rows.length > limit,
+  };
+}

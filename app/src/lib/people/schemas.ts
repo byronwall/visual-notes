@@ -144,3 +144,37 @@ export const organizationPatchSchema = organizationInputSchema
   .partial()
   .extend({ archived: z.boolean().optional() });
 export type OrganizationPatch = z.infer<typeof organizationPatchSchema>;
+
+const nested = <A extends z.ZodTypeAny, U extends z.ZodTypeAny>(
+  add: A,
+  update: U,
+) =>
+  z
+    .object({
+      add: z.array(add).max(50).optional(),
+      update: z.array(update).max(50).optional(),
+      /** Ids of records to delete; use an end date to record a past role. */
+      remove: z.array(id).max(50).optional(),
+    })
+    .optional();
+
+/** A person patch plus exact nested changes, applied in one transaction. */
+export const personUpdateSchema = personPatchSchema.extend({
+  /** Merged into custom fields; other keys stay. */
+  setCustomFields: z
+    .record(z.string().trim().min(1).max(80), z.string().max(500))
+    .optional(),
+  removeCustomFields: z.array(z.string().max(80)).max(50).optional(),
+  contacts: nested(contactInputSchema, contactPatchSchema.extend({ id })),
+  affiliations: nested(
+    affiliationInputSchema,
+    affiliationPatchSchema.extend({ id }),
+  ),
+  notes: z
+    .object({
+      link: z.array(id).max(50).optional(),
+      unlink: z.array(id).max(50).optional(),
+    })
+    .optional(),
+});
+export type PersonUpdate = z.infer<typeof personUpdateSchema>;

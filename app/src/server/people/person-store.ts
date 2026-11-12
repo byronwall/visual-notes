@@ -6,6 +6,8 @@ import {
   peopleListSchema,
   personInputSchema,
   personPatchSchema,
+  personUpdateSchema,
+  type PersonUpdate,
   type PeopleListInput,
   type PersonInput,
   type PersonPatch,
@@ -19,7 +21,19 @@ import { prisma } from "~/server/db";
 import { addDays, todayLocal } from "~/lib/people/dates";
 import { PeopleInputError, withRequestKey } from "./errors";
 import { listPersonFacts, listPersonInteractions } from "./memory-store";
-import { currentRoles, readProfileParts } from "./profile-store";
+import {
+  addAffiliation,
+  addContact,
+  currentRoles,
+  linkNote,
+  readProfileParts,
+  removeAffiliation,
+  removeContact,
+  unlinkNote,
+  updateAffiliation,
+  updateContact,
+  type Db,
+} from "./profile-store";
 import { lastContactByPerson } from "./recency";
 
 type PersonRow = Prisma.PersonGetPayload<object>;
@@ -67,8 +81,11 @@ export async function summarize(rows: PersonRow[]): Promise<PersonSummary[]> {
   );
 }
 
-export async function requirePerson(id: string): Promise<PersonRow> {
-  const row = await prisma.person.findUnique({ where: { id } });
+export async function requirePerson(
+  id: string,
+  db: Db = prisma,
+): Promise<PersonRow> {
+  const row = await db.person.findUnique({ where: { id } });
   if (!row) throw new PeopleInputError(`Person not found: ${id}`, "not_found");
   return row;
 }
@@ -105,7 +122,66 @@ export async function updatePerson(
   patch: PersonPatch,
 ): Promise<{ person: PersonSummary; changed: string[] }> {
   const parsed = personPatchSchema.parse(patch);
-  const current = await requirePerson(id);
+  const { row, changed } = await patchPersonRow(prisma, id, parsed);
+  console.info(`[people] updated person`, id, changed.join(","));
+  const [person] = await summarize([row]);
+  return { person, changed };
+}
+
+/**
+ * The agent's profile update: identity fields, custom-field merges, and
+ * exact nested contact, role, and note-link changes, all or nothing.
+ */
+export async function updatePersonProfile(
+  id: string,
+  input: PersonUpdate,
+): Promise<{ person: PersonSummary; changed: string[] }> {
+  const parsed = personUpdateSchema.parse(input);
+  const {
+    setCustomFields,
+    removeCustomFields,
+    contacts,
+    affiliations,
+    notes,
+    ...patch
+  } = parsed;
+  const changed: string[] = [];
+  const row = await prisma.$transaction(async (tx) => {
+    const current = await requirePerson(id, tx);
+    if (setCustomFields || removeCustomFields) {
+      const fields = {
+        ...customFieldsOf(current.customFields),
+        ...(patch.customFields ?? {}),
+        ...setCustomFields,
+      };
+      for (const key of removeCustomFields ?? []) delete fields[key];
+      patch.customFields = fields;
+    }
+    for (const c of contacts?.add ?? []) await addContact(id, c, tx);
+    for (const { id: cid, ...c } of contacts?.update ?? [])
+      await updateContact(cid, c, tx, id);
+    for (const cid of contacts?.remove ?? []) await removeContact(cid, tx, id);
+    if (contacts) changed.push("contacts");
+    for (const a of affiliations?.add ?? []) await addAffiliation(id, a, tx);
+    for (const { id: aid, ...a } of affiliations?.update ?? [])
+      await updateAffiliation(aid, a, tx, id);
+    for (const aid of affiliations?.remove ?? [])
+      await removeAffiliation(aid, tx, id);
+    if (affiliations) changed.push("affiliations");
+    for (const docId of notes?.link ?? []) await linkNote(id, docId, tx);
+    for (const docId of notes?.unlink ?? []) await unlinkNote(id, docId, tx);
+    if (notes) changed.push("notes");
+    const result = await patchPersonRow(tx, id, patch);
+    changed.unshift(...result.changed.filter((k) => k !== "updatedAt"));
+    return result.row;
+  });
+  console.info(`[people] updated profile`, id, changed.join(","));
+  const [person] = await summarize([row]);
+  return { person, changed };
+}
+
+async function patchPersonRow(db: Db, id: string, parsed: PersonPatch) {
+  const current = await requirePerson(id, db);
   const data: Prisma.PersonUpdateInput = {
     displayName: parsed.displayName,
     aliases: uniqueTags(parsed.aliases),
@@ -121,10 +197,12 @@ export async function updatePerson(
   const changed = Object.entries(data)
     .filter(([, v]) => v !== undefined)
     .map(([k]) => (k === "archivedAt" ? "archived" : k));
-  const row = await prisma.person.update({ where: { id }, data });
-  console.info(`[people] updated person`, id, changed.join(","));
-  const [person] = await summarize([row]);
-  return { person, changed };
+  // Touch updatedAt even when only nested records changed.
+  const row = await db.person.update({
+    where: { id },
+    data: { ...data, updatedAt: new Date() },
+  });
+  return { row, changed };
 }
 
 export async function getPersonProfile(

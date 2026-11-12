@@ -64,15 +64,17 @@ function check(condition: unknown, message: string): void {
   }
 }
 
-const EXPECTED_TOOL_COUNT = 73;
+const EXPECTED_TOOL_COUNT = 94;
 const FAMILIES = [
   "notes_",
   "research_",
   "tasks_",
+  "pathways_",
   "collections_",
   "time_blocks_",
   "events_",
   "places_",
+  "people_",
   "archive_",
   "activity_",
   "inbox_",
@@ -433,6 +435,43 @@ const cancelledShow = await call("events_update_show", {
 check(!cancelledShow.isError, "events_update_show cancels the show");
 const places = await call("places_list", { limit: 1 });
 check(!places.isError, "places_list reads");
+
+// People: create, remember, log, find by the detail, and read back.
+const person = await call("people_create", {
+  displayName: `mcp-smoke ${runId}`,
+  requestKey: `mcp-smoke-person-${runId}`,
+});
+const personId = person.structuredContent?.id as string;
+check(!person.isError && Boolean(personId), "people_create");
+const smokeFact = await call("people_add_fact", {
+  personId,
+  text: `mcp-smoke detail ${runId}`,
+});
+check(!smokeFact.isError, "people_add_fact");
+const smokeLog = await call("people_log_interaction", {
+  // Today in the People time zone, as YYYY-MM-DD.
+  occurredOn: new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Indiana/Indianapolis",
+  }).format(new Date()),
+  summary: `mcp-smoke call ${runId}`,
+  kind: "call",
+  participants: [{ personId }],
+});
+check(!smokeLog.isError, "people_log_interaction");
+const personHits = await call("people_search", {
+  query: `mcp-smoke detail ${runId}`,
+});
+check(
+  (personHits.structuredContent?.people as { id: string }[] | undefined)?.[0]
+    ?.id === personId,
+  "people_search finds the person by a remembered detail",
+);
+const readBack = await call("people_get", { id: personId });
+check(
+  (readBack.structuredContent?.person as { lastContactOn?: string } | undefined)
+    ?.lastContactOn != null,
+  "people_get shows last contact from the logged call",
+);
 
 // Web archive: an unsaved url reads as not archived; a note only on request.
 const unsaved = await call("archive_get", {
