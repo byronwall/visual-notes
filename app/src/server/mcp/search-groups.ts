@@ -1,6 +1,7 @@
 import { prisma } from "~/server/db";
 import { searchArchivedPages } from "~/server/archive/archive-store";
 import { queryTasks } from "~/server/tasks/task-store";
+import { listPeople } from "~/server/people/person-store";
 import { archivePageUrl } from "./archive-tools";
 import { appLink, noteRef, type ConnectorContext } from "./shared";
 
@@ -12,6 +13,7 @@ export const SEARCH_KINDS = [
   "tasks",
   "pathways",
   "archive",
+  "people",
 ] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
 
@@ -109,6 +111,23 @@ async function searchArchive(
   }));
 }
 
+/** People by name, alias, contact, fact, encounter, or role; read one with people_get. */
+async function searchPeople(
+  ctx: ConnectorContext,
+  text: string,
+  limit: number,
+) {
+  const { people } = await listPeople({ search: text, limit });
+  return people.map((p) => ({
+    id: p.id,
+    displayName: p.displayName,
+    currentRole: p.currentRole,
+    lastContactOn: p.lastContactOn,
+    matchedIn: p.matchedIn,
+    appUrl: appLink(ctx, `/people/${p.id}`),
+  }));
+}
+
 /** One group per requested kind, keyed by kind. */
 export async function searchOtherKinds(
   ctx: ConnectorContext,
@@ -120,6 +139,7 @@ export async function searchOtherKinds(
     tasks: () => searchTasks(ctx, text, input.limit),
     pathways: () => searchPathways(ctx, text, input.limit),
     archive: () => searchArchive(ctx, text, input.limit),
+    people: () => searchPeople(ctx, text, input.limit),
   };
   const kinds = Array.from(new Set(input.include));
   const groups = await Promise.all(kinds.map((kind) => run[kind]()));

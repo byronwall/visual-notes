@@ -256,6 +256,13 @@ model Doc {
   event Event?
   place Place?
 
+  // People: notes cited as the source of a remembered fact or encounter.
+  sourcedPersonFacts   PersonFact[]
+  sourcedInteractions  Interaction[]
+  // A note can be an organization's write-up or linked from profiles.
+  organizations        Organization[]
+  personLinks          PersonDocLink[]
+
   @@unique([originalSource, originalContentId])
   @@index([path])
   @@index([collectionId])
@@ -1497,4 +1504,312 @@ model PathwayTaskLink {
 
   @@unique([pathwayId, taskId])
   @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// People: a private relationship memory. A person is not a note; facts are
+// short sourced assertions about one person; an interaction is one real-world
+// encounter shared by its participants. Only participants with
+// countsAsContact advance "last recorded contact" (computed on read).
+// Calendar days are stored as `date`, never as fabricated midnight instants.
+
+model Person {
+  id           String    @id @default(cuid())
+  displayName  String
+  aliases      String[]  @default([])
+  summary      String?
+  location     String?
+  /// How Byron knows this person, in their own words.
+  howKnown     String?
+  /// Life settings: work, school, family, church, neighborhood, ...
+  contexts     String[]  @default([])
+  /// User-named scalar attributes ({"Birthday": "May 4"}).
+  customFields Json      @default("{}")
+  /// Agent retry key; repeating a create with it returns the first record.
+  requestKey   String?   @unique
+  archivedAt   DateTime?
+  /// Set when this profile was merged into another; it stays archived.
+  mergedIntoId String?
+  /// The user's own profile; introduction paths start here by default.
+  isSelf             Boolean   @default(false)
+  /// Opt-in: suggest reconnecting this many days after the last contact.
+  reconnectEveryDays Int?
+  /// The day the cadence was set; counts as the start when there is no contact.
+  reconnectSince     DateTime? @db.Date
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  facts          PersonFact[]
+  participations InteractionParticipant[]
+  contacts       PersonContact[]
+  affiliations   PersonAffiliation[]
+  docLinks       PersonDocLink[]
+  identities     PersonExternalIdentity[]
+  reconnects     PeopleReconnect[]
+  relationsFrom  PersonRelationship[] @relation("RelationshipFrom")
+  relationsTo    PersonRelationship[] @relation("RelationshipTo")
+
+  @@index([displayName])
+  @@index([archivedAt])
+}
+
+model PersonFact {
+  id          String    @id @default(cuid())
+  personId    String
+  text        String
+  category    String?
+  /// The day the detail was learned, when known.
+  learnedOn   DateTime? @db.Date
+  sourceLabel String?
+  sourceUrl   String?
+  sourceDocId String?
+  requestKey  String?   @unique
+  /// Obsolete facts stay in history instead of being deleted.
+  retiredAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  person    Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  sourceDoc Doc?   @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+
+  @@index([personId])
+}
+
+enum InteractionKind {
+  in_person
+  call
+  video
+  message
+  email
+  event
+  introduction
+  referral
+  recommendation
+  other
+}
+
+model Interaction {
+  id          String          @id @default(cuid())
+  occurredOn  DateTime        @db.Date
+  kind        InteractionKind @default(in_person)
+  summary     String
+  sourceLabel String?
+  sourceUrl   String?
+  sourceDocId String?
+  requestKey  String?         @unique
+  archivedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  participants InteractionParticipant[]
+  sourceDoc    Doc?                     @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
+
+  @@index([occurredOn])
+}
+
+model InteractionParticipant {
+  interactionId   String
+  personId        String
+  /// False for someone only discussed (a referral's subject).
+  countsAsContact Boolean @default(true)
+
+  interaction Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  person      Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([interactionId, personId])
+  @@index([personId])
+}
+
+enum PersonContactKind {
+  email
+  phone
+  url
+  social
+  address
+  other
+}
+
+/// A way to reach someone. One value can belong to several people (a shared
+/// family phone); matchValue only finds candidates, never merges.
+model PersonContact {
+  id         String            @id @default(cuid())
+  personId   String
+  kind       PersonContactKind
+  label      String?
+  /// Exactly as entered or imported.
+  value      String
+  /// Conservative normalized form for duplicate candidates.
+  matchValue String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([kind, matchValue])
+}
+
+/// A company, school, church, team, or other group. Membership is context,
+/// not evidence that two members know each other.
+model Organization {
+  id         String    @id @default(cuid())
+  name       String
+  /// Free text: company, school, church, team, ...
+  kind       String?
+  summary    String?
+  url        String?
+  /// Optional long-form note about the organization.
+  docId      String?
+  requestKey String?   @unique
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  doc          Doc?                @relation(fields: [docId], references: [id], onDelete: SetNull)
+  affiliations PersonAffiliation[]
+
+  @@index([name])
+}
+
+/// One role at one organization. A person can hold several, past and current.
+model PersonAffiliation {
+  id             String    @id @default(cuid())
+  personId       String
+  organizationId String
+  role           String?
+  startOn        DateTime? @db.Date
+  /// Set when the role ended; null means current.
+  endOn          DateTime? @db.Date
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([organizationId])
+}
+
+/// A note deliberately linked to a profile for context. Public note output
+/// never follows these links.
+model PersonDocLink {
+  id        String   @id @default(cuid())
+  personId  String
+  docId     String
+  createdAt DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  doc    Doc    @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, docId])
+  @@index([docId])
+}
+
+/// A stable key from an import source (a CSV id column, or a derived
+/// email/profile-URL key). Repeat imports match on it before anything else.
+model PersonExternalIdentity {
+  id             String   @id @default(cuid())
+  personId       String
+  /// The source namespace, e.g. "linkedin-csv" or "google-contacts".
+  source         String
+  externalKey    String
+  lastImportedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalKey])
+  @@index([personId])
+}
+
+/// One uploaded CSV: kept with its mapping so apply re-reads the file and
+/// re-checks every row against current data.
+model PeopleImport {
+  id        String    @id @default(cuid())
+  source    String
+  fileName  String
+  fileHash  String
+  content   String
+  /// Column name for each People field.
+  mapping   Json
+  appliedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  rows PeopleImportRow[]
+}
+
+/// Persisted per-row result, so a partial apply can resume.
+model PeopleImportRow {
+  id        String       @id @default(cuid())
+  importId  String
+  rowIndex  Int
+  /// pending, applied, failed, skipped
+  status    String       @default("pending")
+  /// create, update, unchanged, conflict, candidates, invalid
+  outcome   String?
+  personId  String?
+  message   String?
+  updatedAt DateTime     @updatedAt
+
+  import PeopleImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, rowIndex])
+}
+
+enum ReconnectStatus {
+  pending
+  snoozed
+  dismissed
+  resolved
+}
+
+/// A reason to reconnect with someone. Elapsed-time suggestions are computed
+/// on read and stored only once acted on; contextual prompts (from the user
+/// or an agent) are stored when made. None of these states imply contact.
+model PeopleReconnect {
+  id                  String          @id @default(cuid())
+  personId            String
+  /// elapsed:<personId>:<due day> for cadence suggestions; ctx:<id> otherwise.
+  key                 String          @unique
+  /// "elapsed" or "contextual"
+  kind                String
+  reason              String
+  suggestedOn         DateTime        @db.Date
+  status              ReconnectStatus @default(pending)
+  snoozedUntil        DateTime?       @db.Date
+  sourceFactId        String?
+  sourceInteractionId String?
+  resolvedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([status, suggestedOn])
+}
+
+/// An explicit, typed connection between two people. Directed types (mentor,
+/// parent, manager, introduced) read from -> to; symmetric types store the
+/// lower id first so one pair has one edge per type. Shared organizations
+/// are never relationships.
+model PersonRelationship {
+  id           String    @id @default(cuid())
+  fromPersonId String
+  toPersonId   String
+  type         String
+  /// Where this came from: "they told me", a note title, an agent.
+  source       String?
+  startOn      DateTime? @db.Date
+  endOn        DateTime? @db.Date
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  from Person @relation("RelationshipFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  to   Person @relation("RelationshipTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([fromPersonId, toPersonId, type])
+  @@index([toPersonId])
 }

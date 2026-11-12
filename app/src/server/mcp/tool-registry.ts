@@ -10,6 +10,7 @@ import { ResearchIngestError } from "~/services/research/research.ingest";
 import { runInEventScope } from "~/server/events/event-scope";
 import { AnnotationError } from "~/server/annotations/errors";
 import { TimeBlockInputError } from "~/server/time-blocks/time-block-store";
+import { PeopleInputError } from "~/server/people/errors";
 import {
   type McpCallOutcome,
   type McpCallRecord,
@@ -87,6 +88,9 @@ export function toRefusal(error: unknown): ConnectorError | null {
   }
   if (error instanceof AnnotationError) {
     return new ConnectorError("invalid", error.message);
+  }
+  if (error instanceof PeopleInputError) {
+    return new ConnectorError(error.code, error.message);
   }
   if (error instanceof TimeBlockInputError) {
     return new ConnectorError("invalid", error.message);

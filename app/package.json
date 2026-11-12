@@ -25,6 +25,8 @@
     "audit:seed-scale": "vite-node --config vitest.config.ts scripts/audit-seed-scale.ts --",
     "audit:seed-cleanup": "vite-node --config vitest.config.ts scripts/audit-seed-cleanup.ts --",
     "research:seed": "node scripts/research-seed.mjs",
+    "people:seed": "vite-node --config vitest.config.ts scripts/people-seed.ts --",
+    "test:people": "vitest run src/lib/people src/server/people src/server/mcp/people-tools.db.test.ts",
     "pgm:report": "node --experimental-strip-types scripts/pgm-report.ts",
     "mcp:playwright": "pnpm dlx @playwright/mcp@latest --isolated",
     "umap:setup:local": "node scripts/setup-umap-local.mjs",

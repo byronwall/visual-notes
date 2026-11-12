@@ -1,0 +1,114 @@
+import { z } from "zod";
+import { isRealDay } from "~/lib/people/dates";
+import type {
+  Fact,
+  InteractionView,
+  OrganizationSummary,
+  PersonMatch,
+  PersonProfile,
+} from "~/lib/people/types";
+import { appLink, type ConnectorContext } from "./shared";
+
+// How People records look to agents: stable ids, appUrl links, and named,
+// paged lists. Kept apart from the tool registrations for size.
+
+export const cursorArg = z
+  .string()
+  .regex(/^\d+$/, "use the nextCursor from the previous page")
+  .optional()
+  .describe("nextCursor from the previous page");
+
+export const dayFilterArg = z
+  .string()
+  .refine(isRealDay, "use YYYY-MM-DD")
+  .optional();
+
+/** Paging fields: hasMore, and nextCursor when there is a next page. */
+export const pageOf = (offset: number, limit: number, hasMore: boolean) => ({
+  hasMore,
+  ...(hasMore ? { nextCursor: String(offset + limit) } : {}),
+});
+
+/** The default source on agent-written facts and encounters. */
+export const agentSourceLabel = (ctx: ConnectorContext) =>
+  `Agent${ctx.clientName ? `: ${ctx.clientName}` : ""}`;
+
+export const personOut = (ctx: ConnectorContext, p: PersonMatch) => ({
+  id: p.id,
+  displayName: p.displayName,
+  aliases: p.aliases,
+  contexts: p.contexts,
+  currentRole: p.currentRole,
+  location: p.location,
+  lastContactOn: p.lastContactOn,
+  archived: !!p.archivedAt,
+  matchedIn: p.matchedIn,
+  appUrl: appLink(ctx, `/people/${p.id}`),
+});
+
+export const factOut = (f: Fact) => ({
+  id: f.id,
+  text: f.text,
+  category: f.category,
+  learnedOn: f.learnedOn,
+  recordedAt: f.createdAt,
+  retired: !!f.retiredAt,
+  source: {
+    label: f.sourceLabel,
+    url: f.sourceUrl,
+    noteId: f.sourceDocId,
+  },
+});
+
+export const interactionOut = (ctx: ConnectorContext, i: InteractionView) => ({
+  id: i.id,
+  occurredOn: i.occurredOn,
+  kind: i.kind,
+  summary: i.summary,
+  archived: !!i.archivedAt,
+  participants: i.participants.map((p) => ({
+    id: p.id,
+    displayName: p.displayName,
+    countsAsContact: p.countsAsContact,
+    appUrl: appLink(ctx, `/people/${p.id}`),
+  })),
+  source: { label: i.sourceLabel, url: i.sourceUrl, noteId: i.sourceDocId },
+});
+
+export const profileOut = (ctx: ConnectorContext, p: PersonProfile) => ({
+  ...personOut(ctx, { ...p, matchedIn: null }),
+  summary: p.summary,
+  howKnown: p.howKnown,
+  customFields: p.customFields,
+  contacts: p.contacts,
+  affiliations: p.affiliations.map((a) => ({
+    id: a.id,
+    organization: {
+      ...a.organization,
+      appUrl: appLink(ctx, `/people/organizations/${a.organization.id}`),
+    },
+    role: a.role,
+    startOn: a.startOn,
+    endOn: a.endOn,
+  })),
+  notes: p.notes.map((n) => ({ ...n, appUrl: appLink(ctx, `/docs/${n.id}`) })),
+  facts: p.facts.map(factOut),
+  interactions: p.interactions.map((i) => interactionOut(ctx, i)),
+  createdAt: p.createdAt,
+  updatedAt: p.updatedAt,
+});
+
+export const organizationOut = (
+  ctx: ConnectorContext,
+  o: OrganizationSummary,
+) => ({
+  id: o.id,
+  name: o.name,
+  kind: o.kind,
+  summary: o.summary,
+  url: o.url,
+  currentMembers: o.currentMembers,
+  pastMembers: o.pastMembers,
+  archived: !!o.archivedAt,
+  appUrl: appLink(ctx, `/people/organizations/${o.id}`),
+});

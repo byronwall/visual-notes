@@ -17,6 +17,7 @@ import {
   SignpostIcon,
   SparklesIcon,
   TelescopeIcon,
+  UsersIcon,
   WaypointsIcon,
 } from "lucide-solid";
 import type { JSX } from "solid-js";
@@ -114,6 +115,13 @@ export const PRIMARY_DESTINATIONS: AppDestination[] = [
     icon: CalendarHeartIcon,
     keywords: "date nights shows places map ical feeds subscribe",
     isActive: (pathname) => isSectionActive("/events", pathname),
+  },
+  {
+    label: "People",
+    href: "/people",
+    icon: UsersIcon,
+    keywords: "contacts friends relationships organizations companies remember",
+    isActive: (pathname) => isSectionActive("/people", pathname),
   },
   {
     label: "Tasks",
