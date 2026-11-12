@@ -313,6 +313,30 @@ describe.skipIf(!enabled)("people tools (database)", () => {
     expect(got.json.person.currentRole).toBe(`Analyst, Atomic Org ${tag}`);
   });
 
+  it("rolls back a cadence change when the rest of the update fails", async () => {
+    const client = await connect();
+    const a = await call(client, "people_create", {
+      displayName: `Cadence A ${tag}`,
+    });
+    const b = await call(client, "people_create", {
+      displayName: `Cadence B ${tag}`,
+      contacts: [{ kind: "email", value: `b.${tag}@example.com` }],
+    });
+    personIds.push(a.json.id, b.json.id);
+    const bContact = (await call(client, "people_get", { id: b.json.id })).json
+      .person.contacts[0];
+    const bad = await call(client, "people_update", {
+      id: a.json.id,
+      reconnectEveryDays: 30,
+      contacts: { update: [{ id: bContact.id, value: "x@example.com" }] },
+    });
+    expect(bad.error).toBe(true);
+    const row = await prisma().person.findUniqueOrThrow({
+      where: { id: a.json.id },
+    });
+    expect(row.reconnectEveryDays).toBeNull();
+  });
+
   it("refuses every write family for a read-only caller", async () => {
     const client = await connect({ ...full, scopes: ["notes:read"] });
     const writes: [string, Json][] = [

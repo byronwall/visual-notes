@@ -54,21 +54,31 @@ export function ReconnectSection(props: {
   const [day, setDay] = createSignal(todayLocal());
   const [message, setMessage] = createSignal("");
 
+  // One retry key per open form: a double click or a retry after a lost
+  // response returns the same prompt instead of adding a second one.
+  let requestKey = crypto.randomUUID();
+  const [saving, setSaving] = createSignal(false);
   const save = async (e: Event) => {
     e.preventDefault();
+    if (saving()) return;
     if (!reason().trim()) return setMessage("Write a reason.");
+    setSaving(true);
     try {
       await add({
         personId: props.personId,
         reason: reason(),
         suggestedOn: day(),
+        requestKey,
       });
       setAdding(false);
       setReason("");
       setMessage("");
+      requestKey = crypto.randomUUID();
     } catch (err) {
       console.warn("[people] add reconnect failed", err);
       setMessage(saveErrorText(err, "Could not save. Try again."));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,7 +142,7 @@ export function ReconnectSection(props: {
             </span>
           </Show>
           <HStack gap="2">
-            <Button size="xs" type="submit">
+            <Button size="xs" type="submit" loading={saving()}>
               Save
             </Button>
             <Button size="xs" variant="plain" onClick={() => setAdding(false)}>

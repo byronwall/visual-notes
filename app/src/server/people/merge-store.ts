@@ -252,11 +252,27 @@ export async function mergePeople(input: {
       where: { personId: b.id },
       data: { personId: a.id },
     });
-    // Reconnect prompts follow the person; the survivor keeps its own cadence.
-    await tx.peopleReconnect.updateMany({
+    // Reconnect prompts follow the person. Elapsed-time states are keyed by
+    // person, so re-key them to the survivor (a collision keeps the
+    // survivor's own state); then a dismissed suggestion stays dismissed.
+    const prompts = await tx.peopleReconnect.findMany({
       where: { personId: b.id },
-      data: { personId: a.id },
     });
+    for (const r of prompts) {
+      const key = r.key.startsWith(`elapsed:${b.id}:`)
+        ? `elapsed:${a.id}:${r.key.slice(`elapsed:${b.id}:`.length)}`
+        : r.key;
+      const clash =
+        key !== r.key &&
+        (await tx.peopleReconnect.findUnique({ where: { key } }));
+      if (clash) await tx.peopleReconnect.delete({ where: { id: r.id } });
+      else {
+        await tx.peopleReconnect.update({
+          where: { id: r.id },
+          data: { personId: a.id, key },
+        });
+      }
+    }
 
     await tx.person.update({
       where: { id: a.id },
@@ -268,6 +284,14 @@ export async function mergePeople(input: {
         aliases,
         contexts,
         customFields: fields,
+        // The survivor keeps its own cadence; it takes the other one's if
+        // it had none.
+        ...(a.reconnectEveryDays == null && b.reconnectEveryDays != null
+          ? {
+              reconnectEveryDays: b.reconnectEveryDays,
+              reconnectSince: b.reconnectSince,
+            }
+          : {}),
       },
     });
     await tx.person.update({

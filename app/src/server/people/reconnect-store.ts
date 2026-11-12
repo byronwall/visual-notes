@@ -12,6 +12,7 @@ import {
 } from "~/lib/people/dates";
 import { prisma } from "~/server/db";
 import { PeopleInputError, withRequestKey } from "./errors";
+import type { Db } from "./profile-store";
 import { lastContactByPerson } from "./recency";
 
 export type FollowupStatus = "pending" | "snoozed" | "dismissed" | "resolved";
@@ -308,11 +309,12 @@ export async function setReconnectCadence(
   personId: string,
   days: number | null,
   today = todayLocal(),
+  db: Db = prisma,
 ) {
   if (days != null && (!Number.isInteger(days) || days < 7 || days > 3650)) {
     throw new PeopleInputError("Use a cadence between 7 and 3650 days");
   }
-  await prisma.person.update({
+  await db.person.update({
     where: { id: personId },
     data: {
       reconnectEveryDays: days,

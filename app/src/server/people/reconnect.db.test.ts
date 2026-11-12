@@ -167,6 +167,28 @@ describe.skipIf(!enabled)("people reconnect (database)", () => {
     expect(await due(gone.id, "2026-06-01")).toEqual([]);
   });
 
+  it("keeps a dismissed suggestion dismissed and takes the cadence on merge", async () => {
+    const keep = (await person("Keeper")).id;
+    const drop = (await person("Dropper")).id;
+    await reconnect.setReconnectCadence(drop, 30, "2026-01-01");
+    await reconnect.updateFollowup({
+      key: reconnect.elapsedKey(drop, "2026-01-31"),
+      action: "dismiss",
+      today: "2026-02-01",
+    });
+    await merge.mergePeople({ survivorId: keep, duplicateId: drop });
+    const survivor = await db.current!.person.findUniqueOrThrow({
+      where: { id: keep },
+    });
+    expect(survivor.reconnectEveryDays).toBe(30);
+    expect(await due(keep, "2026-02-01")).toEqual([]);
+    expect(
+      await db.current!.peopleReconnect.findUnique({
+        where: { key: reconnect.elapsedKey(keep, "2026-01-31") },
+      }),
+    ).toMatchObject({ status: "dismissed" });
+  });
+
   it("moves prompts to the survivor on merge", async () => {
     const a = await person("Keep");
     const b = await person("Drop");

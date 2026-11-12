@@ -280,7 +280,12 @@ export const updateFollowupAction = action(
 );
 
 export const addFollowupAction = action(
-  async (input: { personId: string; reason: string; suggestedOn?: string }) => {
+  async (input: {
+    personId: string;
+    reason: string;
+    suggestedOn?: string;
+    requestKey?: string;
+  }) => {
     "use server";
     return json(await addFollowup(input), { revalidate: PEOPLE_KEYS });
   },

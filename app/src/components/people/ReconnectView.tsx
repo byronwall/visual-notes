@@ -35,7 +35,8 @@ export function ReconnectView() {
   const today = todayLocal();
   const queue = createKeptAsync(() => fetchFollowups({ upcomingDays: 30 }));
   const snoozed = createKeptAsync(() =>
-    fetchFollowups({ include: ["snoozed"] }),
+    // Snoozed items can be due later; look far ahead so none go missing.
+    fetchFollowups({ include: ["snoozed"], upcomingDays: 3650 }),
   );
   const [showDigest, setShowDigest] = createSignal(false);
   const digest = createKeptAsync(() =>

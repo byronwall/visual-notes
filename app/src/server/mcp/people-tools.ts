@@ -454,9 +454,14 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
       },
     },
     async ({ id, reconnectEveryDays, ...input }) => {
-      if (reconnectEveryDays !== undefined)
-        await setReconnectCadence(id, reconnectEveryDays);
-      const { person, changed } = await updatePersonProfile(id, input);
+      // The cadence commits with the rest of the update, or not at all.
+      const { person, changed } = await updatePersonProfile(
+        id,
+        input,
+        reconnectEveryDays === undefined
+          ? undefined
+          : (tx) => setReconnectCadence(id, reconnectEveryDays, undefined, tx),
+      );
       if (reconnectEveryDays !== undefined) changed.push("reconnectEveryDays");
       return {
         id: person.id,

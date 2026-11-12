@@ -155,6 +155,8 @@ export async function updatePerson(
 export async function updatePersonProfile(
   id: string,
   input: PersonUpdate,
+  /** More writes that must commit or fail with this update. */
+  alsoInTx?: (tx: Db) => Promise<void>,
 ): Promise<{ person: PersonSummary; changed: string[] }> {
   const parsed = personUpdateSchema.parse(input);
   const {
@@ -191,6 +193,7 @@ export async function updatePersonProfile(
     for (const docId of notes?.link ?? []) await linkNote(id, docId, tx);
     for (const docId of notes?.unlink ?? []) await unlinkNote(id, docId, tx);
     if (notes) changed.push("notes");
+    if (alsoInTx) await alsoInTx(tx);
     const result = await patchPersonRow(tx, id, patch);
     changed.unshift(...result.changed.filter((k) => k !== "updatedAt"));
     return result.row;
