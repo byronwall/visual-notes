@@ -259,6 +259,9 @@ model Doc {
   // People: notes cited as the source of a remembered fact or encounter.
   sourcedPersonFacts   PersonFact[]
   sourcedInteractions  Interaction[]
+  // A note can be an organization's write-up or linked from profiles.
+  organizations        Organization[]
+  personLinks          PersonDocLink[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
@@ -1530,6 +1533,9 @@ model Person {
 
   facts          PersonFact[]
   participations InteractionParticipant[]
+  contacts       PersonContact[]
+  affiliations   PersonAffiliation[]
+  docLinks       PersonDocLink[]
 
   @@index([displayName])
   @@index([archivedAt])
@@ -1600,4 +1606,89 @@ model InteractionParticipant {
 
   @@id([interactionId, personId])
   @@index([personId])
+}
+
+enum PersonContactKind {
+  email
+  phone
+  url
+  social
+  address
+  other
+}
+
+/// A way to reach someone. One value can belong to several people (a shared
+/// family phone); matchValue only finds candidates, never merges.
+model PersonContact {
+  id         String            @id @default(cuid())
+  personId   String
+  kind       PersonContactKind
+  label      String?
+  /// Exactly as entered or imported.
+  value      String
+  /// Conservative normalized form for duplicate candidates.
+  matchValue String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([kind, matchValue])
+}
+
+/// A company, school, church, team, or other group. Membership is context,
+/// not evidence that two members know each other.
+model Organization {
+  id         String    @id @default(cuid())
+  name       String
+  /// Free text: company, school, church, team, ...
+  kind       String?
+  summary    String?
+  url        String?
+  /// Optional long-form note about the organization.
+  docId      String?
+  requestKey String?   @unique
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  doc          Doc?                @relation(fields: [docId], references: [id], onDelete: SetNull)
+  affiliations PersonAffiliation[]
+
+  @@index([name])
+}
+
+/// One role at one organization. A person can hold several, past and current.
+model PersonAffiliation {
+  id             String    @id @default(cuid())
+  personId       String
+  organizationId String
+  role           String?
+  startOn        DateTime? @db.Date
+  /// Set when the role ended; null means current.
+  endOn          DateTime? @db.Date
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([organizationId])
+}
+
+/// A note deliberately linked to a profile for context. Public note output
+/// never follows these links.
+model PersonDocLink {
+  id        String   @id @default(cuid())
+  personId  String
+  docId     String
+  createdAt DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  doc    Doc    @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, docId])
+  @@index([docId])
 }

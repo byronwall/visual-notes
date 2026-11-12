@@ -18,6 +18,8 @@ import { INTERACTION_KINDS } from "~/lib/people/types";
 import { prisma } from "~/server/db";
 import { createPerson } from "~/server/people/person-store";
 import { addFact, logInteraction } from "~/server/people/memory-store";
+import { createOrganization } from "~/server/people/organization-store";
+import { addAffiliation, addContact } from "~/server/people/profile-store";
 import { seededRandom } from "~/server/notes/imported-markdown-corpus";
 
 const { values } = parseArgs({
@@ -134,9 +136,33 @@ const ENCOUNTERS = [
   "Swapped book recommendations after church",
 ];
 
+const ORGS = [
+  ["Lumen Robotics", "company"],
+  ["Northside Elementary", "school"],
+  ["Grace Fellowship", "church"],
+  ["Riverbend Climbing", "gym"],
+  ["Copperline Analytics", "company"],
+  ["Indy Data Meetup", "community"],
+] as const;
+const ROLES = [
+  "Engineer",
+  "Designer",
+  "Teacher",
+  "Volunteer",
+  "Director",
+  "Member",
+  "Product manager",
+  null,
+];
+
 const today = todayLocal();
 const started = Date.now();
 const ids: string[] = [];
+const orgIds: string[] = [];
+for (const [name, kind] of ORGS) {
+  const { organization } = await createOrganization({ name: `${name}`, kind });
+  orgIds.push(organization.id);
+}
 for (let i = 0; i < count; i++) {
   const first = FIRST[i % FIRST.length];
   const last = LAST[Math.floor(i / FIRST.length) % LAST.length];
@@ -158,6 +184,33 @@ for (let i = 0; i < count; i++) {
     summary: random() < 0.4 ? `Met through ${contexts[0]}.` : null,
   });
   ids.push(person.id);
+  if (random() < 0.6) {
+    await addContact(person.id, {
+      kind: "email",
+      value: `${first}.${last}${suffix.trim()}@example.com`.toLowerCase(),
+      label: random() < 0.5 ? "personal" : "work",
+    });
+  }
+  if (random() < 0.3) {
+    // Shared household numbers are allowed; matching only flags candidates.
+    await addContact(person.id, {
+      kind: "phone",
+      value: `(317) 555-01${String(i % 40).padStart(2, "0")}`,
+    });
+  }
+  const roleCount = Math.floor(random() * 3);
+  for (let r = 0; r < roleCount; r++) {
+    const ended = random() < 0.3;
+    await addAffiliation(person.id, {
+      organizationId: pick(orgIds),
+      role: pick(ROLES),
+      startOn:
+        random() < 0.6
+          ? addDays(today, -400 - Math.floor(random() * 2000))
+          : null,
+      endOn: ended ? addDays(today, -Math.floor(random() * 300) - 1) : null,
+    });
+  }
   const factCount = Math.floor(random() * 3);
   for (let f = 0; f < factCount; f++) {
     const [category, text] = pick(FACTS);

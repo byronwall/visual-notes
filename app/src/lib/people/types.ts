@@ -1,3 +1,5 @@
+import type { ContactKind } from "./contacts";
+
 // Shared People types and labels, used by the store, server functions, UI,
 // and MCP tools alike.
 
@@ -43,6 +45,8 @@ export type PersonSummary = PersonRef & {
   contexts: string[];
   /** Latest day of an active encounter where this person was direct contact. */
   lastContactOn: string | null;
+  /** First current affiliation, e.g. "Engineer, Acme". */
+  currentRole: string | null;
   archivedAt: string | null;
 };
 
@@ -74,9 +78,29 @@ export type InteractionView = {
   createdAt: string;
 };
 
+export type Contact = {
+  id: string;
+  kind: ContactKind;
+  label: string | null;
+  value: string;
+};
+
+export type Affiliation = {
+  id: string;
+  organization: { id: string; name: string; kind: string | null };
+  role: string | null;
+  startOn: string | null;
+  endOn: string | null;
+};
+
+export type LinkedNote = { id: string; title: string; path: string | null };
+
 export type PersonProfile = PersonSummary & {
   howKnown: string | null;
   customFields: Record<string, string>;
+  contacts: Contact[];
+  affiliations: Affiliation[];
+  notes: LinkedNote[];
   createdAt: string;
   updatedAt: string;
   facts: Fact[];
@@ -85,3 +109,38 @@ export type PersonProfile = PersonSummary & {
 
 /** A search hit and the text that made it match. */
 export type PersonMatch = PersonSummary & { matchedIn: string | null };
+
+export type OrganizationSummary = {
+  id: string;
+  name: string;
+  kind: string | null;
+  summary: string | null;
+  url: string | null;
+  currentMembers: number;
+  pastMembers: number;
+  archivedAt: string | null;
+};
+
+export type OrganizationMember = PersonRef & {
+  affiliationId: string;
+  role: string | null;
+  startOn: string | null;
+  endOn: string | null;
+  archived: boolean;
+};
+
+export type OrganizationDetail = OrganizationSummary & {
+  note: LinkedNote | null;
+  members: OrganizationMember[];
+};
+
+/** Directory filter on last recorded contact. */
+export const CONTACT_WINDOWS = ["30", "90", "365", "over365", "none"] as const;
+export type ContactWindow = (typeof CONTACT_WINDOWS)[number];
+export const CONTACT_WINDOW_LABELS: Record<ContactWindow, string> = {
+  "30": "Contact in last 30 days",
+  "90": "Contact in last 90 days",
+  "365": "Contact in last year",
+  over365: "No contact in over a year",
+  none: "No recorded contact",
+};

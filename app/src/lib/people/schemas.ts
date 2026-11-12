@@ -2,7 +2,8 @@
 // every write through these, so the UI and agents follow one set of rules.
 import { z } from "zod";
 import { isRealDay } from "./dates";
-import { INTERACTION_KINDS } from "./types";
+import { CONTACT_KINDS } from "./contacts";
+import { CONTACT_WINDOWS, INTERACTION_KINDS } from "./types";
 
 const day = z
   .string()
@@ -97,8 +98,49 @@ export type InteractionPatch = z.infer<typeof interactionPatchSchema>;
 export const peopleListSchema = z.object({
   search: z.string().max(200).optional(),
   context: z.string().max(80).optional(),
+  organizationId: id.optional(),
+  contact: z.enum(CONTACT_WINDOWS).optional(),
   archived: z.boolean().optional(),
   limit: z.number().int().min(1).max(200).optional(),
   offset: z.number().int().min(0).optional(),
 });
 export type PeopleListInput = z.infer<typeof peopleListSchema>;
+
+export const contactKindSchema = z.enum(CONTACT_KINDS);
+
+export const contactInputSchema = z.object({
+  kind: contactKindSchema,
+  value: text(500),
+  label: optionalText(80),
+});
+export type ContactInput = z.infer<typeof contactInputSchema>;
+export const contactPatchSchema = contactInputSchema.partial();
+export type ContactPatch = z.infer<typeof contactPatchSchema>;
+
+export const affiliationInputSchema = z.object({
+  organizationId: id,
+  role: optionalText(200),
+  startOn: day.nullable().optional(),
+  /** Set to record that the role ended; null means current. */
+  endOn: day.nullable().optional(),
+});
+export type AffiliationInput = z.infer<typeof affiliationInputSchema>;
+export const affiliationPatchSchema = affiliationInputSchema
+  .omit({ organizationId: true })
+  .partial();
+export type AffiliationPatch = z.infer<typeof affiliationPatchSchema>;
+
+export const organizationInputSchema = z.object({
+  name: text(200),
+  kind: optionalText(80),
+  summary: optionalText(4000),
+  url: optionalText(2000),
+  docId: id.nullable().optional(),
+  requestKey,
+});
+export type OrganizationInput = z.infer<typeof organizationInputSchema>;
+export const organizationPatchSchema = organizationInputSchema
+  .omit({ requestKey: true })
+  .partial()
+  .extend({ archived: z.boolean().optional() });
+export type OrganizationPatch = z.infer<typeof organizationPatchSchema>;

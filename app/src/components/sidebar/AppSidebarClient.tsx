@@ -23,6 +23,8 @@ import { AppSidebarMobile } from "./AppSidebarMobile";
 import { Box } from "styled-system/jsx";
 import {
   BotMessageSquareIcon,
+  HandshakeIcon,
+  NotebookPenIcon,
   PanelLeftIcon,
   SunMoonIcon,
   TerminalIcon,
@@ -33,6 +35,7 @@ import { cycleThemePreference, syncThemePreference } from "~/lib/theme-mode";
 import { trackVisualViewport } from "~/lib/visual-viewport";
 import { RecordingIndicator } from "~/components/doc-audio/RecordingIndicator";
 import { RouteProgressBar } from "./RouteProgressBar";
+import { captureRequest, openCapture } from "~/components/people/capture-state";
 import { MobileAppBarContext } from "./mobile-app-bar";
 import {
   readSidebarCollapsed,
@@ -42,6 +45,12 @@ import {
 // Chat and New note pull in the whole editor (about 1 MB). Load them on first
 // use, so routes that do not edit notes do not pay for it.
 const LLMSidebarHost = lazy(() => import("~/components/ai/LLMSidebarHost"));
+// People capture opens from the palette on any page; load it on first use.
+const PeopleCaptureHost = lazy(() =>
+  import("~/components/people/PeopleCaptureHost").then((mod) => ({
+    default: mod.PeopleCaptureHost,
+  })),
+);
 const NewNoteModal = lazy(() =>
   import("~/components/NewNoteModal").then((mod) => ({
     default: mod.NewNoteModal,
@@ -93,6 +102,10 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
   const [newNoteInitialTitle, setNewNoteInitialTitle] = createSignal<
     string | undefined
   >(undefined);
+  const peopleCaptureUsed = createMemo<boolean>(
+    (used) => used || captureRequest() != null,
+    false,
+  );
   const [mobileOpen, setMobileOpen] = createSignal(false);
   const [mobileBarTitle, setMobileBarTitle] = createSignal<string>();
   const [mobileBarSlot, setMobileBarSlot] = createSignal<HTMLElement>();
@@ -173,6 +186,20 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
       run: () => {
         cycleThemePreference();
       },
+    },
+    {
+      key: "people-remember",
+      label: "Remember a detail about someone",
+      keywords: "people person fact note contact",
+      icon: NotebookPenIcon,
+      run: () => openCapture("fact"),
+    },
+    {
+      key: "people-log",
+      label: "Log interaction with someone",
+      keywords: "people person met spoke call coffee encounter",
+      icon: HandshakeIcon,
+      run: () => openCapture("interaction"),
     },
     {
       key: "logs",
@@ -279,6 +306,11 @@ export const AppSidebarClient = (props: AppSidebarClientProps) => {
         actions={paletteActions}
       />
       <ConsoleLogsPanel open={logsOpen()} onClose={() => setLogsOpen(false)} />
+      <Show when={peopleCaptureUsed()}>
+        <OnDemand name="People capture">
+          <PeopleCaptureHost />
+        </OnDemand>
+      </Show>
       <Show when={newNoteUsed()}>
         <OnDemand name="New note">
           <NewNoteModal

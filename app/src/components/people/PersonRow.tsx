@@ -31,6 +31,13 @@ const name = css({
   truncate: true,
   _hover: { textDecoration: "underline" },
 });
+const nameCell = css({ display: "flex", flexDirection: "column", minW: "0" });
+const narrowDetail = css({
+  display: { base: "block", md: "none" },
+  fontSize: "xs",
+  color: "fg.muted",
+  truncate: true,
+});
 const muted = css({ fontSize: "sm", color: "fg.muted", truncate: true });
 const matched = css({
   gridColumn: "1 / -1",
@@ -68,9 +75,14 @@ export function PersonRow(props: {
         props.onSelect?.();
       }}
     >
-      <A href={`/people/${p().id}`} class={name}>
-        {p().displayName}
-      </A>
+      <span class={nameCell}>
+        <A href={`/people/${p().id}`} class={name}>
+          {p().displayName}
+        </A>
+        <Show when={props.detail}>
+          <span class={narrowDetail}>{props.detail}</span>
+        </Show>
+      </span>
       <span class={`${muted} ${hideNarrow}`}>
         {props.detail ?? p().summary ?? <span class={empty}>—</span>}
       </span>

@@ -16,8 +16,10 @@ import type {
   PersonSummary,
 } from "~/lib/people/types";
 import { prisma } from "~/server/db";
+import { addDays, todayLocal } from "~/lib/people/dates";
 import { PeopleInputError, withRequestKey } from "./errors";
 import { listPersonFacts, listPersonInteractions } from "./memory-store";
+import { currentRoles, readProfileParts } from "./profile-store";
 import { lastContactByPerson } from "./recency";
 
 type PersonRow = Prisma.PersonGetPayload<object>;
@@ -40,6 +42,7 @@ export const customFieldsOf = (value: Prisma.JsonValue) =>
 export const toPersonSummary = (
   p: PersonRow,
   lastContactOn: string | null,
+  currentRole: string | null = null,
 ): PersonSummary => ({
   id: p.id,
   displayName: p.displayName,
@@ -48,8 +51,21 @@ export const toPersonSummary = (
   location: p.location,
   contexts: p.contexts,
   lastContactOn,
+  currentRole,
   archivedAt: p.archivedAt?.toISOString() ?? null,
 });
+
+/** Summaries with last contact and current role filled in. */
+export async function summarize(rows: PersonRow[]): Promise<PersonSummary[]> {
+  const ids = rows.map((r) => r.id);
+  const [last, roles] = await Promise.all([
+    lastContactByPerson(ids),
+    currentRoles(ids),
+  ]);
+  return rows.map((r) =>
+    toPersonSummary(r, last.get(r.id) ?? null, roles.get(r.id) ?? null),
+  );
+}
 
 export async function requirePerson(id: string): Promise<PersonRow> {
   const row = await prisma.person.findUnique({ where: { id } });
@@ -79,11 +95,8 @@ export async function createPerson(
       }),
   );
   console.info(`[people] ${existing ? "reused" : "created"} person`, record.id);
-  const last = existing ? await lastContactByPerson([record.id]) : new Map();
-  return {
-    person: toPersonSummary(record, last.get(record.id) ?? null),
-    existing,
-  };
+  const [person] = await summarize([record]);
+  return { person, existing };
 }
 
 /** Patches only the fields present; null or "" clears an optional field. */
@@ -110,8 +123,8 @@ export async function updatePerson(
     .map(([k]) => (k === "archivedAt" ? "archived" : k));
   const row = await prisma.person.update({ where: { id }, data });
   console.info(`[people] updated person`, id, changed.join(","));
-  const last = await lastContactByPerson([id]);
-  return { person: toPersonSummary(row, last.get(id) ?? null), changed };
+  const [person] = await summarize([row]);
+  return { person, changed };
 }
 
 export async function getPersonProfile(
@@ -120,13 +133,15 @@ export async function getPersonProfile(
 ): Promise<PersonProfile | null> {
   const row = await prisma.person.findUnique({ where: { id } });
   if (!row) return null;
-  const [last, facts, history] = await Promise.all([
-    lastContactByPerson([id]),
+  const [[summary], facts, history, parts] = await Promise.all([
+    summarize([row]),
     listPersonFacts(id),
     listPersonInteractions(id, { limit: opts.interactionLimit ?? 100 }),
+    readProfileParts(id),
   ]);
   return {
-    ...toPersonSummary(row, last.get(id) ?? null),
+    ...summary,
+    ...parts,
     howKnown: row.howKnown,
     customFields: customFieldsOf(row.customFields),
     createdAt: row.createdAt.toISOString(),
@@ -148,38 +163,63 @@ async function searchPersonIds(q: string): Promise<Map<string, string | null>> {
     if (!hits.has(id)) hits.set(id, matched);
   };
   const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-  const [names, aliases, profile, facts, encounters] = await Promise.all([
-    prisma.person.findMany({
-      where: { displayName: contains(q) },
-      select: { id: true },
-      take: 1000,
-    }),
-    prisma.$queryRaw<{ id: string; alias: string }[]>`
+  const digits = q.replace(/\D/g, "");
+
+  const [names, aliases, profile, facts, encounters, contacts, orgs] =
+    await Promise.all([
+      prisma.person.findMany({
+        where: { displayName: contains(q) },
+        select: { id: true },
+        take: 1000,
+      }),
+      prisma.$queryRaw<{ id: string; alias: string }[]>`
       SELECT p.id, a AS alias FROM "Person" p, unnest(p.aliases) a
       WHERE a ILIKE ${like} LIMIT 1000`,
-    prisma.person.findMany({
-      where: {
-        OR: [
-          { summary: contains(q) },
-          { location: contains(q) },
-          { howKnown: contains(q) },
-        ],
-      },
-      select: { id: true, summary: true, location: true, howKnown: true },
-      take: 1000,
-    }),
-    prisma.personFact.findMany({
-      where: { text: contains(q) },
-      select: { personId: true, text: true, retiredAt: true },
-      orderBy: { retiredAt: { sort: "desc", nulls: "first" } },
-      take: 1000,
-    }),
-    prisma.interactionParticipant.findMany({
-      where: { interaction: { summary: contains(q), archivedAt: null } },
-      select: { personId: true, interaction: { select: { summary: true } } },
-      take: 1000,
-    }),
-  ]);
+      prisma.person.findMany({
+        where: {
+          OR: [
+            { summary: contains(q) },
+            { location: contains(q) },
+            { howKnown: contains(q) },
+          ],
+        },
+        select: { id: true, summary: true, location: true, howKnown: true },
+        take: 1000,
+      }),
+      prisma.personFact.findMany({
+        where: { text: contains(q) },
+        select: { personId: true, text: true, retiredAt: true },
+        orderBy: { retiredAt: { sort: "desc", nulls: "first" } },
+        take: 1000,
+      }),
+      prisma.interactionParticipant.findMany({
+        where: { interaction: { summary: contains(q), archivedAt: null } },
+        select: { personId: true, interaction: { select: { summary: true } } },
+        take: 1000,
+      }),
+      prisma.personContact.findMany({
+        where: {
+          OR: [
+            { value: contains(q) },
+            // Phone numbers match by digits, however they were typed.
+            ...(digits.length >= 4
+              ? [{ kind: "phone" as const, matchValue: { contains: digits } }]
+              : []),
+          ],
+        },
+        select: { personId: true, value: true },
+        take: 1000,
+      }),
+      prisma.personAffiliation.findMany({
+        where: { organization: { name: contains(q) } },
+        select: {
+          personId: true,
+          role: true,
+          organization: { select: { name: true } },
+        },
+        take: 1000,
+      }),
+    ]);
   for (const p of names) add(p.id, null);
   for (const a of aliases) add(a.id, `Also known as ${a.alias}`);
   const lower = q.toLowerCase();
@@ -188,6 +228,13 @@ async function searchPersonIds(q: string): Promise<Map<string, string | null>> {
       v?.toLowerCase().includes(lower),
     );
     add(p.id, field ?? null);
+  }
+  for (const c of contacts) add(c.personId, c.value);
+  for (const a of orgs) {
+    add(
+      a.personId,
+      a.role ? `${a.role}, ${a.organization.name}` : a.organization.name,
+    );
   }
   for (const f of facts) add(f.personId, f.text);
   for (const e of encounters) add(e.personId, e.interaction.summary);
@@ -203,6 +250,8 @@ export async function listPeople(input: PeopleListInput = {}): Promise<{
   const {
     search,
     context,
+    organizationId,
+    contact,
     archived,
     limit = 50,
     offset = 0,
@@ -211,13 +260,15 @@ export async function listPeople(input: PeopleListInput = {}): Promise<{
   const where: Prisma.PersonWhereInput = {
     archivedAt: archived ? { not: null } : null,
     ...(context ? { contexts: { has: context } } : {}),
+    ...(organizationId ? { affiliations: { some: { organizationId } } } : {}),
+    ...(contact ? { id: await contactWindowFilter(contact) } : {}),
   };
   let ordered: { row: PersonRow; matchedIn: string | null }[];
   let total: number;
   if (q) {
     const hits = await searchPersonIds(q);
     const rows = await prisma.person.findMany({
-      where: { ...where, id: { in: [...hits.keys()] } },
+      where: { AND: [where, { id: { in: [...hits.keys()] } }] },
     });
     const rank = (r: PersonRow) => (hits.get(r.id) == null ? 0 : 1);
     rows.sort(
@@ -240,15 +291,32 @@ export async function listPeople(input: PeopleListInput = {}): Promise<{
     total = count;
     ordered = rows.map((row) => ({ row, matchedIn: null }));
   }
-  const last = await lastContactByPerson(ordered.map((o) => o.row.id));
+  const summaries = await summarize(ordered.map((o) => o.row));
   return {
-    people: ordered.map(({ row, matchedIn }) => ({
-      ...toPersonSummary(row, last.get(row.id) ?? null),
-      matchedIn,
+    people: summaries.map((summary, i) => ({
+      ...summary,
+      matchedIn: ordered[i].matchedIn,
     })),
     total,
     hasMore: offset + ordered.length < total,
   };
+}
+
+/** The person-id condition for a last-contact window. */
+async function contactWindowFilter(
+  window: NonNullable<PeopleListInput["contact"]>,
+): Promise<Prisma.StringFilter> {
+  const last = await lastContactByPerson();
+  if (window === "none") return { notIn: [...last.keys()] };
+  const today = todayLocal();
+  const ids = [...last]
+    .filter(([, day]) =>
+      window === "over365"
+        ? day < addDays(today, -365)
+        : day >= addDays(today, -Number(window)),
+    )
+    .map(([id]) => id);
+  return { in: ids };
 }
 
 /** Every context in use, most common first, for filters and suggestions. */

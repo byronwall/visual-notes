@@ -14,6 +14,7 @@ export default function PeopleRoute() {
   return (
     <PeopleShell
       title="People"
+      tabs
       actions={
         <>
           <Button

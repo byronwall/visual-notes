@@ -6,7 +6,11 @@ import { daysAgoLabel, formatDay, todayLocal } from "~/lib/people/dates";
 import type { PersonProfile } from "~/lib/people/types";
 import { updatePersonAction } from "~/services/people/people.actions";
 import { openCapture } from "./capture-state";
+import { AffiliationsSection } from "./AffiliationsSection";
+import { ContactsSection } from "./ContactsSection";
+import { CustomFieldsSection } from "./CustomFieldsSection";
 import { FactItem } from "./FactItem";
+import { LinkedNotesSection } from "./LinkedNotesSection";
 import { ProfileDialog } from "./ProfileDialog";
 import { ProfileHistory } from "./ProfileHistory";
 
@@ -33,7 +37,6 @@ const aside = css({
   flexDirection: "column",
   gap: "4",
   fontSize: "sm",
-  order: { base: -1, lg: 0 },
 });
 const detail = css({ display: "flex", flexDirection: "column", gap: "0.5" });
 const label = css({ fontSize: "xs", color: "fg.subtle" });
@@ -58,6 +61,12 @@ const banner = css({
   display: "flex",
   alignItems: "center",
   gap: "3",
+});
+const subtitle = css({
+  fontSize: "sm",
+  color: "fg.muted",
+  mt: "-3",
+  mb: "5",
 });
 const empty = css({ fontSize: "sm", color: "fg.muted", px: "2", py: "2" });
 
@@ -96,6 +105,16 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           </Button>
         </div>
       </Show>
+      <p class={subtitle} data-profile-subtitle>
+        {[
+          p().currentRole,
+          p().lastContactOn
+            ? `Last contact ${daysAgoLabel(p().lastContactOn!, today)}`
+            : "No recorded contact",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
       <div class={layout}>
         <div class={section}>
           <section class={section} aria-labelledby="remember-heading">
@@ -169,6 +188,13 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           <Show when={p().howKnown}>
             <Detail label="How you know them">{p().howKnown}</Detail>
           </Show>
+          <ContactsSection personId={p().id} contacts={p().contacts} />
+          <AffiliationsSection
+            personId={p().id}
+            affiliations={p().affiliations}
+          />
+          <CustomFieldsSection personId={p().id} fields={p().customFields} />
+          <LinkedNotesSection personId={p().id} notes={p().notes} />
           <div style={{ display: "flex", gap: "0.5rem", "flex-wrap": "wrap" }}>
             <Button
               size="xs"
