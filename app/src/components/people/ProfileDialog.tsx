@@ -58,6 +58,8 @@ export function ProfileDialog(props: {
   const create = useAction(createPersonAction);
   const update = useAction(updatePersonAction);
 
+  // A retry after a lost response returns the person already created.
+  const requestKey = crypto.randomUUID();
   const submit = async (e?: Event) => {
     e?.preventDefault();
     if (!values.displayName.trim()) return setMessage("Enter a name.");
@@ -73,7 +75,7 @@ export function ProfileDialog(props: {
     try {
       const saved = p
         ? await update({ id: p.id, patch: input })
-        : await create(input);
+        : await create({ ...input, requestKey });
       props.onSaved(saved);
       props.onClose();
     } catch (err) {

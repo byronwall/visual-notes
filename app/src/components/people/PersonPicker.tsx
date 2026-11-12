@@ -95,7 +95,10 @@ export function PersonPicker(props: {
     options().some(
       (p) => p.displayName.toLowerCase() === text().trim().toLowerCase(),
     );
-  const showCreate = () => text().trim().length > 0 && !exact();
+  // Results match what is typed only once the debounce and fetch finish;
+  // before that, "no exact match" could just mean "not loaded yet".
+  const settled = () => text().trim() === term().trim() && !candidates.loading;
+  const showCreate = () => text().trim().length > 0 && settled() && !exact();
   const count = () => options().length + (showCreate() ? 1 : 0);
 
   const onInput = (value: string) => {
@@ -112,12 +115,17 @@ export function PersonPicker(props: {
     setTerm("");
   };
 
+  // One retry key per typed name, so a retry after a lost response returns
+  // the person the first attempt created instead of a second one.
+  const createKeys = new Map<string, string>();
   const createMissing = async () => {
     const name = text().trim();
     if (!name || creating()) return;
+    const requestKey = createKeys.get(name) ?? crypto.randomUUID();
+    createKeys.set(name, requestKey);
     setCreating(true);
     try {
-      add(await create({ displayName: name }));
+      add(await create({ displayName: name, requestKey }));
     } catch (err) {
       console.warn("[people] inline create failed", err);
       props.onError(`Could not create ${name}. Try again.`);
@@ -141,6 +149,12 @@ export function PersonPicker(props: {
       setActive((i) => (i - 1 + count()) % count());
     } else if (e.key === "Enter" && text().trim()) {
       e.preventDefault();
+      if (!settled()) {
+        // Search now instead of acting on stale results; Enter again picks.
+        clearTimeout(timer);
+        setTerm(text());
+        return;
+      }
       choose(active());
     } else if (e.key === "Backspace" && !text() && props.value.length) {
       props.onChange(props.value.slice(0, -1));

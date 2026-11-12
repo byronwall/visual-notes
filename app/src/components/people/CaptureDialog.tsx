@@ -107,12 +107,36 @@ export function CaptureDialog(props: {
   const pickedForMode = () =>
     mode() === "fact" ? people().slice(0, 1) : people();
 
+  // People a mention kind marked as discussed, so another kind can undo it.
+  let autoDiscussed = new Set<string>();
   const setKind = (kind: InteractionKind) => {
     setDraft("kind", kind);
-    // A referral is usually about the later people, not with them.
     if (MENTION_KINDS.has(kind) && people().length > 1) {
-      setPeople(people().map((p, i) => ({ ...p, countsAsContact: i === 0 })));
+      // A referral is usually about the later people, not with them.
+      const later = people()
+        .slice(1)
+        .filter((p) => p.countsAsContact);
+      autoDiscussed = new Set(later.map((p) => p.id));
+      setPeople(
+        people().map((p, i) => ({
+          ...p,
+          countsAsContact: i === 0 ? p.countsAsContact : false,
+        })),
+      );
+    } else if (!MENTION_KINDS.has(kind) && autoDiscussed.size) {
+      setPeople(
+        people().map((p) =>
+          autoDiscussed.has(p.id) ? { ...p, countsAsContact: true } : p,
+        ),
+      );
+      autoDiscussed = new Set();
     }
+  };
+  // One retry key per mode for this dialog: a retry after a lost response
+  // returns the record the first attempt saved instead of a second one.
+  const requestKeys = {
+    fact: crypto.randomUUID(),
+    interaction: crypto.randomUUID(),
   };
 
   const submit = async (e?: Event) => {
@@ -131,6 +155,7 @@ export function CaptureDialog(props: {
           category: draft.category || null,
           learnedOn: draft.learnedOn || null,
           sourceLabel: draft.source || null,
+          requestKey: requestKeys.fact,
         });
       } else {
         if (!draft.occurredOn) throw new Error("Pick the day it happened.");
@@ -143,6 +168,7 @@ export function CaptureDialog(props: {
             countsAsContact: p.countsAsContact,
           })),
           sourceLabel: draft.source || null,
+          requestKey: requestKeys.interaction,
         });
       }
       props.onSaved?.(mode());
