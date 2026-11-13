@@ -66,6 +66,12 @@ import {
   roleOut,
 } from "./people-format";
 import { findColleagues } from "~/server/people/affiliation-store";
+import {
+  applyCareerImport,
+  previewCareerImport,
+} from "~/server/people/career-import-store";
+import { formatPeriod } from "~/lib/people/career-periods";
+import { resolveCollection } from "./collections-agent";
 import { ConnectorError, limitArg } from "./shared";
 import type { ToolRegistrar } from "./tool-registry";
 
@@ -732,6 +738,41 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
         created: !existing,
         id: organization.id,
         organization: organizationOut(ctx, organization),
+      };
+    },
+  );
+
+  tools.write(
+    "people_import_career",
+    {
+      title: "Import career history",
+      description:
+        "Reviewed import of a career-history collection (columns Person URL, Company, Role, Start month, End month, Employment, Location, Source URL, Checked) into native People roles. Without apply it only previews: each row is create, adopt (fills an existing undated role with the same title), unchanged, conflict (curated edit, duplicate company name, or a LinkedIn profile owned by someone else), or invalid. With apply it writes create and adopt rows one at a time; repeating or resuming never duplicates, because each role keeps its row as sourceKey. Months stay months, Present means current as of Checked, and no notes, encounters, or contact dates change. Use limit to apply a few rows first.",
+      input: {
+        collection: z.string().min(1).describe("Collection id or exact name"),
+        apply: z.boolean().optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+      },
+    },
+    async ({ collection, apply, limit }) => {
+      const found = await resolveCollection(collection);
+      const result = apply
+        ? await applyCareerImport(found.id, { limit })
+        : { written: 0, ...(await previewCareerImport(found.id)) };
+      return {
+        applied: !!apply,
+        written: result.written,
+        counts: result.counts,
+        rows: result.rows.map((r) => ({
+          rowId: r.rowId,
+          outcome: r.outcome,
+          person: r.person,
+          company: r.record?.company ?? null,
+          role: r.record?.role ?? null,
+          period: r.record ? formatPeriod({ ...r.record, startApprox: false, endApprox: false }) : null,
+          affiliationId: r.affiliationId,
+          message: r.message,
+        })),
       };
     },
   );
