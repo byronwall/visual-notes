@@ -39,6 +39,8 @@ The profile leads with Experience: jobs newest start first, grouped by employer,
 
 `people_import_career` imports a career collection (Person URL, Company, Role, Start month, End month, Employment, Location, Source URL, Checked). Preview first. Apply writes one row per transaction, keyed `career-collection:<rowId>`, so a repeat or resumed run adds nothing. It completes an undated role with the same title instead of adding a copy. It reports a curated edit, two organizations with the company's name, or a LinkedIn profile owned by another person as a conflict. It writes no notes, so Recent and contact dates do not change.
 
+Organizations carry a short `summary` and a `url`. `/api/org-icons/<id>` fetches the icon from that site once through `fetchPublicFile` (public addresses only, raster images only), stores it on the row, and retries a miss after a week. A changed url clears it. Without an icon the mark is a tinted monogram. Company pages put everyone on one year axis (`CompanyTimeline`); `?focus=<personId>` shades that person's tenure, which is where the profile's overlap pills link.
+
 The seed adds a fixed fixture, "Dana Whitfield", with a promotion, a return, an ended role without an end day, an undated listing, university work beside a school membership, and two colleagues.
 
 ## Code
