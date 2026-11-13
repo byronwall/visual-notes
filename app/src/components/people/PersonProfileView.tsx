@@ -11,6 +11,7 @@ import { ContactsSection } from "./ContactsSection";
 import { CustomFieldsSection } from "./CustomFieldsSection";
 import { FactItem } from "./FactItem";
 import { DuplicatesSection } from "./DuplicatesSection";
+import { ExperienceSection } from "./ExperienceSection";
 import { LinkedNotesSection } from "./LinkedNotesSection";
 import { ReconnectSection } from "./ReconnectSection";
 import { RelationshipsSection } from "./RelationshipsSection";
@@ -91,6 +92,16 @@ export function PersonProfileView(props: { person: PersonProfile }) {
   const retired = () => p().facts.filter((f) => f.retiredAt);
   const ref = () => [{ id: p().id, displayName: p().displayName }];
   const today = todayLocal();
+  const jobs = () => p().affiliations.filter((a) => a.kind === "employment");
+  const memberships = () =>
+    p().affiliations.filter((a) => a.kind === "membership");
+  const experience = () => (
+    <ExperienceSection
+      personId={p().id}
+      roles={jobs()}
+      colleagues={p().colleagues}
+    />
+  );
 
   return (
     <>
@@ -128,6 +139,10 @@ export function PersonProfileView(props: { person: PersonProfile }) {
       </p>
       <div class={layout}>
         <div class={section}>
+          {/* Work history leads when there is some; an empty one waits below. */}
+          <Show when={jobs().length}>
+            <div style={{ "margin-bottom": "1.5rem" }}>{experience()}</div>
+          </Show>
           <section class={section} aria-labelledby="remember-heading">
             <div class={sectionHead}>
               <h2 id="remember-heading" class={sectionTitle}>
@@ -156,7 +171,7 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           >
             <div class={sectionHead}>
               <h2 id="history-heading" class={sectionTitle}>
-                History
+                Interaction history
               </h2>
               <Button
                 size="xs"
@@ -172,6 +187,9 @@ export function PersonProfileView(props: { person: PersonProfile }) {
               retiredFacts={retired()}
             />
           </section>
+          <Show when={!jobs().length}>
+            <div style={{ "margin-top": "1.5rem" }}>{experience()}</div>
+          </Show>
         </div>
 
         <aside class={aside} aria-label="Profile details">
@@ -209,7 +227,7 @@ export function PersonProfileView(props: { person: PersonProfile }) {
           <RelationshipsSection personId={p().id} name={p().displayName} />
           <AffiliationsSection
             personId={p().id}
-            affiliations={p().affiliations}
+            affiliations={memberships()}
           />
           <CustomFieldsSection personId={p().id} fields={p().customFields} />
           <LinkedNotesSection personId={p().id} notes={p().notes} />

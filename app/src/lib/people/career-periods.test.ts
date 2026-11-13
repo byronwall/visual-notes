@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareRoles,
+  durationLabel,
   formatPartial,
   formatPeriod,
   isPartialDate,
@@ -42,6 +43,14 @@ describe("partial dates", () => {
     expect(formatPeriod(role({ status: "current", startOn: "2020" }))).toBe(
       "2020 – present",
     );
+  });
+
+  it("states a length only when both months are known", () => {
+    expect(durationLabel(role({ startOn: "2017-06", endOn: "2019-07" }))).toBe(
+      "2 yrs 2 mos",
+    );
+    expect(durationLabel(role({ startOn: "2017", endOn: "2019-07" }))).toBeNull();
+    expect(durationLabel(role({ startOn: "2017-06" }))).toBeNull();
   });
 
   it("rejects an end before the start and an end on a current role", () => {

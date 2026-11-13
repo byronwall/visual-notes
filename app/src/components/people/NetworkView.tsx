@@ -1,3 +1,4 @@
+import { formatPeriod } from "~/lib/people/career-periods";
 import { A, useAction, useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { css } from "styled-system/css";
@@ -259,10 +260,25 @@ export function NetworkView() {
               </Show>
               <Show when={r().leads.length}>
                 <div class={label} style={{ "margin-top": "0.5rem" }}>
-                  Possible leads (shared organizations, not known connections)
+                  Possible leads (shared employers, not known connections)
                 </div>
                 <For each={r().leads}>
-                  {(l) => <p class={muted}>{l.note}</p>}
+                  {(l) => (
+                    <p class={muted} data-lead={l.overlap.kind}>
+                      <A href={`/people/${l.person.id}`}>
+                        {l.person.displayName}
+                      </A>{" "}
+                      ({[l.personRole.role, formatPeriod(l.personRole)]
+                        .filter(Boolean)
+                        .join(", ")}
+                      ) and the target (
+                      {[l.targetRole.role, formatPeriod(l.targetRole)]
+                        .filter(Boolean)
+                        .join(", ")}
+                      ) at {l.organization.name}. {l.overlap.note} A lead, not a
+                      known connection.
+                    </p>
+                  )}
                 </For>
               </Show>
             </div>

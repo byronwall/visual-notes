@@ -84,18 +84,24 @@ describe.skipIf(!enabled)("people profiles (database)", () => {
     });
     await profile.addAffiliation(a.id, {
       organizationId: school.id,
+      kind: "membership",
+      status: "current",
       role: "Parent",
     });
     await profile.addAffiliation(b.id, {
       organizationId: acme.id,
       role: "Designer",
+      status: "current",
     });
 
     const pa = await people.getPersonProfile(a.id);
+    // Newest start first; the undated membership sorts last.
     expect(pa!.affiliations.map((x) => x.organization.name)).toEqual([
-      `Northside ${tag}`,
       `Acme ${tag}`,
+      `Northside ${tag}`,
     ]);
+    // An end day makes the role ended without a stated status.
+    expect(pa!.affiliations[0].status).toBe("ended");
     expect(pa!.currentRole).toBe(`Parent, Northside ${tag}`);
 
     const detail = await orgs.getOrganization(acme.id);
@@ -107,6 +113,7 @@ describe.skipIf(!enabled)("people profiles (database)", () => {
     await profile.addAffiliation(b.id, {
       organizationId: acme.id,
       role: "Lead",
+      status: "current",
     });
     await profile.addAffiliation(b.id, {
       organizationId: acme.id,
@@ -116,11 +123,33 @@ describe.skipIf(!enabled)("people profiles (database)", () => {
     const recount = await orgs.getOrganization(acme.id);
     expect([recount!.currentMembers, recount!.pastMembers]).toEqual([1, 1]);
 
+    // An undated export listing is neither current nor past work.
+    const c = await person(`Listed ${tag}`);
+    await profile.addAffiliation(c.id, { organizationId: acme.id, role: "PM" });
+    const listed = await people.getPersonProfile(c.id);
+    expect(listed!.affiliations[0].status).toBe("unknown");
+    expect(listed!.currentRole).toBeNull();
+    const withListing = await orgs.getOrganization(acme.id);
+    expect(withListing!.currentMembers).toBe(1);
+    expect(withListing!.unknownMembers).toBe(1);
+
+    // Ending a role keeps it, with no invented end day, and leaves contact alone.
+    const ended = await profile.updateAffiliation(listed!.affiliations[0].id, {
+      status: "ended",
+      startOn: "2019-03",
+    });
+    expect([ended.status, ended.startOn, ended.endOn]).toEqual([
+      "ended",
+      "2019-03",
+      null,
+    ]);
+    expect((await people.getPersonProfile(c.id))!.lastContactOn).toBeNull();
+
     // The organization filter lists both; nothing links the two people.
     const { people: members } = await people.listPeople({
       organizationId: acme.id,
     });
-    expect(members.map((m) => m.id).sort()).toEqual([a.id, b.id].sort());
+    expect(members.map((m) => m.id).sort()).toEqual([a.id, b.id, c.id].sort());
     expect(
       await db.current!.interactionParticipant.count({
         where: { personId: { in: [a.id, b.id] } },

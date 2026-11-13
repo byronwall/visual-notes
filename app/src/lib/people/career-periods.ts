@@ -121,6 +121,45 @@ export function formatPeriod(p: RolePeriod): string {
   return `${from} – ${to ?? "?"}`;
 }
 
+/**
+ * "2 yrs 2 mos" between a stated start and end month, counted inclusively as
+ * LinkedIn does. Null when either end is missing, approximate, or only a
+ * year: a guessed length would read as fact.
+ */
+export function durationLabel(p: RolePeriod): string | null {
+  if (!p.startOn || !p.endOn || p.startApprox || p.endApprox) return null;
+  if (precisionOf(p.startOn) === "year" || precisionOf(p.endOn) === "year")
+    return null;
+  const [sy, sm] = p.startOn.split("-").map(Number);
+  const [ey, em] = p.endOn.split("-").map(Number);
+  const months = (ey - sy) * 12 + (em - sm) + 1;
+  if (months < 1) return null;
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  const part = (n: number, unit: string) =>
+    n ? `${n} ${unit}${n === 1 ? "" : "s"}` : "";
+  return [part(y, "yr"), part(m, "mo")].filter(Boolean).join(" ");
+}
+
+/**
+ * One span for several roles at one employer: earliest stated start to the
+ * latest stated end, or "present" when one is current. Null when any role is
+ * missing the date the span needs.
+ */
+export function groupSpan(list: RolePeriod[]): string | null {
+  if (list.some((p) => !p.startOn)) return null;
+  const first = [...list].sort((a, b) =>
+    firstDay(a.startOn!).localeCompare(firstDay(b.startOn!)),
+  )[0];
+  const from = formatPartial(first.startOn!, first.startApprox);
+  if (list.some((p) => p.status === "current")) return `${from} – present`;
+  if (list.some((p) => !p.endOn)) return null;
+  const last = [...list].sort((a, b) =>
+    lastDay(b.endOn!).localeCompare(lastDay(a.endOn!)),
+  )[0];
+  return `${from} – ${formatPartial(last.endOn!, last.endApprox)}`;
+}
+
 /** A short status note when the dates alone could mislead. */
 export function statusNote(p: RolePeriod): string | null {
   if (p.status === "unknown") return "Status unknown";
