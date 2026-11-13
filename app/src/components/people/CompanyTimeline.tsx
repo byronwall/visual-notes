@@ -5,7 +5,6 @@ import {
   createMemo,
   createSignal,
   onCleanup,
-  onMount,
 } from "solid-js";
 import { css } from "styled-system/css";
 import { todayLocal } from "~/lib/people/dates";
@@ -125,13 +124,12 @@ export function CompanyTimeline(props: {
 
   // Label spacing follows the real track width; the server guesses 600px.
   const [trackPx, setTrackPx] = createSignal(600);
-  let axisEl: HTMLDivElement | undefined;
-  onMount(() => {
-    if (!axisEl) return;
+  // Observed whenever the axis mounts, including after dates are added.
+  const watchAxis = (el: HTMLDivElement) => {
     const ro = new ResizeObserver(([e]) => setTrackPx(e.contentRect.width));
-    ro.observe(axisEl);
+    ro.observe(el);
     onCleanup(() => ro.disconnect());
-  });
+  };
   const ticks = createMemo(() => {
     const a = axis();
     return a ? yearTicks(a, trackPx()) : [];
@@ -178,7 +176,7 @@ export function CompanyTimeline(props: {
         {(a) => (
           <div class={grid}>
             <span />
-            <div class={axisRow} ref={axisEl}>
+            <div class={axisRow} ref={watchAxis}>
               <For each={ticks()}>
                 {(y) => {
                   // Centered in its year, but never past either end.
