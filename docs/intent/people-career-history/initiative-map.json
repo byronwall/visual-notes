@@ -1,0 +1,806 @@
+{
+  "schema_version": "0.5.0",
+  "initiative": {
+    "title": "People: structured history and company overlap",
+    "slug": "people-career-history",
+    "scale": "capability",
+    "current_phase": "plan",
+    "last_updated": "2026-11-11",
+    "summary": "Recover readable career history and useful historical context from structured records, then explain dated company overlap.",
+    "status": "active",
+    "next_action": "Review the documentation PR, then execute milestone1 when implementation is requested."
+  },
+  "artifacts": {
+    "intent_brief": {
+      "path": "intent-brief.md",
+      "status": "current",
+      "updated_at": "2026-11-11"
+    },
+    "brainstorm": {
+      "path": "brainstorm.md",
+      "status": "not-requested",
+      "updated_at": null
+    },
+    "shape_brief": {
+      "path": "shape-brief.md",
+      "status": "current",
+      "updated_at": "2026-11-11"
+    },
+    "implementation_plan": {
+      "path": "implementation-plan.md",
+      "status": "current",
+      "updated_at": "2026-11-11"
+    }
+  },
+  "sources": [
+    {
+      "id": "U1",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "“see past roles, past companies” and “same company at the same time (they are likely connected)”",
+      "authority": "user"
+    },
+    {
+      "id": "U2",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Run software-design-sleuth against Visual Notes and store results there.",
+      "authority": "user"
+    },
+    {
+      "id": "U3",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Import 20 more people; use MCP this time.",
+      "authority": "user"
+    },
+    {
+      "id": "R1",
+      "type": "repo",
+      "location": "origin/main:app/src/lib/people/types.ts",
+      "anchor": "Affiliation; PersonProfile.affiliations; OrganizationMember at 1a352210c1a1d0f7c8d9583743016d5e4a8555ef",
+      "authority": "repo"
+    },
+    {
+      "id": "R2",
+      "type": "repo",
+      "location": "origin/main:app/src/server/people/relationship-store.ts",
+      "anchor": "possibleLeads matches organizationId without startOn/endOn comparisons",
+      "authority": "repo"
+    },
+    {
+      "id": "R3",
+      "type": "repo",
+      "location": "origin/main:app/src/lib/people/import-mapping.ts",
+      "anchor": "IMPORT_FIELDS and ImportRecord include one organization and role; no employment dates",
+      "authority": "repo"
+    },
+    {
+      "id": "R4",
+      "type": "repo",
+      "location": "app/src/components/people/AffiliationsSection.tsx (origin/main and inspected people-feature checkout)",
+      "anchor": "isPast requires endOn; span uses now for missing endOn; empty date label falls back to Current",
+      "authority": "repo"
+    },
+    {
+      "id": "D1",
+      "type": "doc",
+      "location": "docs/intent/people/shape-brief.md",
+      "anchor": "Multiple affiliations; private People; membership does not prove acquaintance; MCP parity",
+      "authority": "repo"
+    },
+    {
+      "id": "D2",
+      "type": "doc",
+      "location": "/Users/byronwall/Projects/linkedin-data/README.md",
+      "anchor": "First-installment contents; Important observations for product planning",
+      "authority": "repo"
+    },
+    {
+      "id": "R5",
+      "type": "repo",
+      "location": "/Users/byronwall/Projects/people-viewer/scripts/build_data.rb",
+      "anchor": "connections.map builds company/position snapshots and message metadata",
+      "authority": "repo"
+    },
+    {
+      "id": "D3",
+      "type": "doc",
+      "location": "/Users/byronwall/Projects/linkedin-data/extracted/2026-07-25/part-1/Positions.csv",
+      "anchor": "Header and first rows describe Byron's RelationalAI and Allison roles",
+      "authority": "repo"
+    },
+    {
+      "id": "U4",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Screenshot of Carrie summary; “tons of historical context is being flattened and dumped into a single field”",
+      "authority": "user"
+    },
+    {
+      "id": "R6",
+      "type": "repo",
+      "location": "origin/main:app/prisma/schema.prisma",
+      "anchor": "PersonFact and Interaction have source fields; PersonAffiliation has exact optional date fields and no source fields; PersonExternalIdentity and PeopleImport retain identity/import data",
+      "authority": "repo"
+    },
+    {
+      "id": "L1",
+      "type": "doc",
+      "location": "https://notes.apps.byroni.us/people/cmwczvnt400tlqp21h8qogsd0",
+      "anchor": "MCP people_get read-only: summary holds six message excerpts, NREL postdoc evidence, and a reference to a completed call; one undated affiliation, one interaction, zero facts",
+      "authority": "repo"
+    },
+    {
+      "id": "U5",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Evaluate needed fields and ingestion; determine improvements possible for the current 40 before code is required.",
+      "authority": "user"
+    },
+    {
+      "id": "E1",
+      "type": "doc",
+      "location": "docs/intent/people-career-history/ingest-evaluation.md",
+      "anchor": "Read-only MCP audit of all40, original source join, seven actual-schema cases,40 profile payloads and17fact payloads; no live writes.",
+      "authority": "repo"
+    },
+    {
+      "id": "U6",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Apply the obvious improvements now, then record meaningful code gaps. Also record that source notes have ruined the sidebar.",
+      "authority": "user"
+    },
+    {
+      "id": "E2",
+      "type": "doc",
+      "location": "docs/intent/people-career-history/cleanup-and-code-gaps.md",
+      "anchor": "Live MCP readback of40 profiles;36 facts;62 interactions;46 source notes;sidebar regression corrected with existing collection visibility flag.",
+      "authority": "repo"
+    },
+    {
+      "id": "U7",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Use Chrome and LinkedIn to get information for five people and get it into Visual Notes.",
+      "authority": "user"
+    },
+    {
+      "id": "E3",
+      "type": "doc",
+      "location": "docs/intent/people-career-history/linkedin-five-proof.md",
+      "anchor": "Five live LinkedIn histories read in Chrome;41 structured role rows,5 filtered history notes and current-role facts;MCP readback and browser proof.",
+      "authority": "repo"
+    },
+    {
+      "id": "U8",
+      "type": "transcript",
+      "location": "codex://threads/01a1cddc-3e24-7fe2-af13-2b013017049c",
+      "anchor": "Complete scope, intent capture and shaping; create a PR with the initiative ready.",
+      "authority": "user"
+    },
+    {
+      "id": "R7",
+      "type": "repo",
+      "location": "origin/main@1a352210:app/src/components/people/PersonProfileView.tsx",
+      "anchor": "Main column renders memory then encounter history; AffiliationsSection is in the side column. People stores and exact-day schemas were checked at the same revision.",
+      "authority": "repo"
+    }
+  ],
+  "intent": {
+    "claims": [
+      {
+        "id": "C1",
+        "statement": "Show previous professional roles and companies for each person.",
+        "kind": "outcome",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C2",
+        "statement": "Compare employment periods at the same company to find likely personal connections.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C3",
+        "statement": "Present a readable LinkedIn-like experience history; exact page layout is not selected.",
+        "kind": "desired experience",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C4",
+        "statement": "Explain overlap through both people's roles and employment periods.",
+        "kind": "derived implication",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C5",
+        "statement": "Keep suggested connections separate from confirmed relationships; do not create edges solely from membership.",
+        "kind": "constraint",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U1",
+          "D1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C6",
+        "statement": "Expose career history and overlap through existing agent access as well as UI.",
+        "kind": "derived implication",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U3",
+          "D1"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C7",
+        "statement": "Preserve date uncertainty and source information; export and connection dates are not employment dates.",
+        "kind": "derived implication",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "D2",
+          "R3",
+          "R4"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "id": "C8",
+        "statement": "Existing affiliations already support multiple roles, companies, and optional exact dates.",
+        "kind": "current repository reality",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "R1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C9",
+        "statement": "Current import and lead logic do not establish dated career overlap.",
+        "kind": "current repository reality",
+        "commitment": "explicit",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "R2",
+          "R3"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C10",
+        "statement": "A full-profile source for connections' career histories has not been established.",
+        "kind": "current repository reality",
+        "commitment": "derived",
+        "importance": "core",
+        "status": "resolved",
+        "time_horizon": "first release",
+        "sources": [
+          "D2",
+          "R5",
+          "D3"
+        ],
+        "confidence": "medium",
+        "notes": "Live LinkedIn profile reading proved a richer source for five contacts. The local export still lacks complete career histories."
+      },
+      {
+        "id": "C11",
+        "statement": "The current request authorizes planning stored in the Visual Notes repo.",
+        "kind": "constraint",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U2"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C12",
+        "statement": "Historical context should not be flattened into one profile summary; distinguish structured history from source material.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U4"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C13",
+        "statement": "Reuse existing facts, interactions, affiliations, and source links; assess missing provenance/date precision separately from import underuse.",
+        "kind": "implementation hypothesis",
+        "commitment": "derived",
+        "importance": "supporting",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "R6",
+          "L1"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C14",
+        "statement": "Evaluate existing fields and ingestion against all40 current profiles before selecting necessary code changes.",
+        "kind": "sequence",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "proof",
+        "sources": [
+          "U5"
+        ],
+        "confidence": "high"
+      },
+      {
+        "id": "C15",
+        "statement": "Imported People evidence must remain accessible without crowding the ordinary notes sidebar.",
+        "kind": "required behavior",
+        "commitment": "explicit",
+        "importance": "core",
+        "status": "active",
+        "time_horizon": "first release",
+        "sources": [
+          "U6"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "themes": [
+      "Readable professional history",
+      "Dated company overlap",
+      "Source completeness and uncertainty"
+    ],
+    "conflicts": [
+      {
+        "id": "snapshot-vs-current",
+        "statement": "An export snapshot does not establish current employment, but the existing UI treats a missing end date as current.",
+        "sources": [
+          "D2",
+          "R4"
+        ],
+        "status": "unresolved",
+        "resolution": "Address during shaping; do not silently turn snapshot dates into employment dates."
+      }
+    ],
+    "human_questions": []
+  },
+  "brainstorm": {
+    "status": "not-requested",
+    "requested_count": 7,
+    "options": [],
+    "selected_option": null
+  },
+  "shape": {
+    "status": "plan-ready",
+    "appetite": "One native Experience/overlap extension and a reviewed transfer of the five-profile sample; no new external service.",
+    "problem": "People profiles lack native dated career history; undated snapshots and shared-company lists cannot explain employment overlap.",
+    "recommended_shape": "Extend native affiliations with explicit employment meaning, partial periods, independent status and sources; render a main-column Experience timeline; compare role periods through shared UI/MCP semantics; import existing structured rows with review and stable keys.",
+    "simpler_counterproposal": {
+      "proposal": "Keep filtered collection tables as the permanent career interface.",
+      "evidence": "Five histories and41 rows already render and query correctly.",
+      "rejected_as_final": "User explicitly rejected a profile without a native timeline. Keep the tables as retained evidence instead."
+    },
+    "success_moves": [
+      {
+        "move": "Prove the actual Experience component and comparison rules with synthetic data before changing persistence.",
+        "risk_reduced": "Avoids coupling layout decisions to database conversion and private data.",
+        "proof": "Real component fixture plus partial-date semantic cases."
+      },
+      {
+        "move": "Reuse affiliations and organizations, distinguishing employment independently of organization type.",
+        "risk_reduced": "Avoids a parallel career system and misclassifying university employment as education.",
+        "proof": "One fictional university employer and a separate membership render in different sections."
+      },
+      {
+        "move": "Store source precision and independent status; derive bounds only for comparison.",
+        "risk_reduced": "Prevents invented exact dates and false current roles.",
+        "proof": "Month-only, unknown-ended, and uncertain shared-boundary examples."
+      },
+      {
+        "move": "Use the captured collection as a bounded reviewed source, then one native authority.",
+        "risk_reduced": "Avoids new scraping infrastructure and dual-write drift.",
+        "proof": "Import fixture twice and resume after partial apply with zero duplicates."
+      },
+      {
+        "move": "Set and verify source archive visibility before evidence writes.",
+        "risk_reduced": "Prevents the observed bulk-import sidebar regression.",
+        "proof": "Recent retains ordinary notes while source links remain readable."
+      }
+    ],
+    "first_proof": {
+      "question": "Can the native profile show honest career periods and an explained shared-company lead without relying on the collection bridge?",
+      "artifact": "Real Experience component rendered with two synthetic profiles, a shared pure period comparator, screenshots, and focused semantic tests.",
+      "decision_rule": "Proceed to persistence only when current, ended, unknown, partial-date, returning-stint and boundary-month cases read correctly with no invented days. Otherwise revise period rules before schema work."
+    },
+    "rabbit_holes": [
+      "Automated LinkedIn provider or scraping integration",
+      "A new career graph or probability score",
+      "Company entity-resolution framework",
+      "Dual writes and version coexistence"
+    ],
+    "open_decisions": []
+  },
+  "implementation": {
+    "status": "ready",
+    "repository_snapshot": {
+      "root": "/Users/byronwall/Projects/visual-notes",
+      "revision": "1a352210c1a1d0f7c8d9583743016d5e4a8555ef",
+      "worktree_status": "Inspected current origin/main; existing checkout remains on codex/audit-note-experience with unrelated edits. PR snapshot will use a temporary Git index, without changing branches or creating a worktree.",
+      "subsystems": [
+        "Native affiliations and organizations",
+        "People profile composition",
+        "Shared-company lead query",
+        "CSV/source identities and MCP writes",
+        "Collection source visibility"
+      ],
+      "test_commands": [
+        "pnpm exec vitest run src/lib/people/career-periods.test.ts (planned m1 file)",
+        "pnpm test:people (database target required for persistence proof)",
+        "pnpm lint",
+        "pnpm type-check"
+      ],
+      "deployment_surfaces": [
+        "Existing single SolidStart app; no deployment in docs PR"
+      ]
+    },
+    "dependencies": [
+      {
+        "id": "postgres",
+        "name": "Existing PostgreSQL persistence",
+        "material": true,
+        "application_seam": "People affiliation/profile/import stores; Prisma schemas and generated migrations.",
+        "first_proof_role": {
+          "mode": "absent",
+          "rationale": "A synthetic UI fixture and pure period comparisons prove core semantics before data conversion."
+        },
+        "failure_modes": [
+          "Misclassified legacy undated roles",
+          "Partial import interruption",
+          "Duplicate source role keys",
+          "Data conversion loses date precision"
+        ],
+        "proof_rungs": [
+          "Synthetic component and semantic tests",
+          "Dedicated real local Postgres audit database",
+          "Local authenticated UI/MCP smoke",
+          "Separately authorized deployed reconciliation"
+        ],
+        "local_proof": "Provision visual_notes_audit_people_career with existing guarded audit:db flow; verify target before migrations and seeding. No audit target was provisioned during this planning run.",
+        "live_proof": "Deferred until local proof passes and live import/migration is authorized; reconcile41 captured roles and unchanged contact dates.",
+        "rollout": "One native authority after reviewed conversion; retain source collections and manifest for recovery. No mixed-version support or dual writes."
+      }
+    ],
+    "fast_local_loop": {
+      "command": "cd app && pnpm exec vitest run src/lib/people/career-periods.test.ts",
+      "availability": "Test file to be added in milestone1; not executed during planning.",
+      "browser": "Isolated Solid/Vite fixture using real Experience component; no DB imports or live credentials.",
+      "failure_injection": [
+        "Invalid partial date and reversed bounds in focused tests",
+        "Unknown-ended and shared-boundary fixtures",
+        "Interrupted apply and curated-value conflicts on the isolated audit DB"
+      ]
+    },
+    "milestones": [
+      {
+        "id": "m1",
+        "title": "A native Experience view explains dates and overlap",
+        "outcome": "Two synthetic People profiles show the actual Experience component and a sourced overlap explanation with honest date uncertainty.",
+        "dependencies_introduced": [],
+        "proof": "Focused career-periods tests and browser fixture show current/unknown/ended roles, promotion, return, concurrent roles, and possible boundary-month overlap.",
+        "valid_intermediate_state": "Existing application behavior remains intact; the actual component and core comparison run in a local fixture without database configuration.",
+        "rollback": "Remove the isolated fixture and unwired component; no data migration has run.",
+        "status": "planned",
+        "evidence": [],
+        "modules": [
+          "app/src/lib/people/",
+          "app/src/components/people/ExperienceSection.tsx (new)",
+          "app/scripts/people-career-proof/ (new)"
+        ]
+      },
+      {
+        "id": "m2",
+        "title": "Native roles persist and UI/MCP agree",
+        "outcome": "Native employment saves, reloads, edits and source inspection work in People and MCP without changing contact recency.",
+        "dependencies_introduced": [
+          "postgres"
+        ],
+        "proof": "Guarded audit database migration and persistence tests; real UI/MCP roundtrip; lint,type-check and test:people with database suite enabled.",
+        "valid_intermediate_state": "Native role records own edits and reads. Existing source collections remain retained evidence. Uncertain legacy records are reported for review.",
+        "rollback": "Keep source evidence and existing records; use a verified pre-conversion backup if migration conversion fails. No production conversion in this PR.",
+        "status": "planned",
+        "evidence": [],
+        "modules": [
+          "app/prisma/schema.prisma",
+          "app/prisma/migrations/",
+          "app/src/lib/people/{schemas,types}.ts",
+          "app/src/server/people/{profile-store,person-store,organization-store}.ts",
+          "app/src/components/people/",
+          "app/src/services/people/",
+          "app/src/server/mcp/people-tools.ts",
+          "app/src/server/mcp/people-format.ts"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "People can inspect overlaps and import history without duplicates",
+        "outcome": "Company/profile leads explain periods; reviewed career row imports can repeat and resume without duplicates or Recent pollution.",
+        "dependencies_introduced": [],
+        "proof": "Synthetic collection import,replay and injected interruption; resolved-company overlap cases; browser Recent/source navigation; later authorized41-row reconciliation.",
+        "valid_intermediate_state": "Native histories and overlap queries agree with retained source rows; no ongoing dual editing authority exists.",
+        "rollback": "Stop apply and retain reconciliation IDs plus source evidence; resume via stable keys or restore verified pre-import data. Never delete source collection as rollback.",
+        "status": "planned",
+        "evidence": [],
+        "modules": [
+          "app/src/server/people/relationship-store.ts",
+          "app/src/server/people/import-store.ts",
+          "app/src/lib/people/import-mapping.ts",
+          "app/src/server/mcp/people-tools.ts",
+          "app/src/components/people/OrganizationView.tsx",
+          "app/src/components/people/NetworkView.tsx",
+          "app/src/services/recents/recents.queries.ts (regression proof; existing filtering reused)"
+        ]
+      }
+    ],
+    "cut_line": [
+      "Automatic LinkedIn sync and scheduled scraping",
+      "General company identity resolution",
+      "Relationship scores and new graphs",
+      "Public People sharing",
+      "Generic ingestion framework and dual writes",
+      "Production migration without local proof and separate authorization"
+    ],
+    "open_decisions": [],
+    "work_in_flight": {
+      "checkedOn": "2026-11-11",
+      "openPRs": [
+        328,
+        327,
+        298,
+        212
+      ],
+      "overlappingCoreModules": [],
+      "note": "PR328 contains a Collections audit and fixtures; other open PRs contain research docs. No People core-module overlap or required base identified."
+    }
+  },
+  "history": [
+    {
+      "date": "2026-11-11",
+      "change": "Created a planned initiative from explicit career-history and overlap goals. Completed intent recovery only. Shape and plan remain not created; no implementation or production mutation."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "Absorbed user correction about flattened summaries. Expanded intent to structured historical context and inspected Carrie via read-only MCP. No shape or implementation plan existed to invalidate."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "Completed evaluation of all40 via read-only MCP and local sources. Wrote ingestion report and private proposed changes. Local schema validation identified role/date/source/identity boundaries. No application implementation or live cleanup started."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "Applied authorized MCP cleanup. Preserved196 message records; shortened40 summaries; added18 facts net and22 interactions. User reported sidebar regression from source notes; corrected via existing collection visibility setting. Recorded remaining code gaps. Overall initiative remains active because career and overlap changes are not implemented."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "User authorized five-profile Chrome acquisition. Read41 LinkedIn roles; saved separate collection rows and five filtered histories linked from People. Verified month values, no recency changes, sidebar isolation, and browser rendering. Captured one overlap lead. Native People timeline remains unimplemented."
+    },
+    {
+      "date": "2026-11-11",
+      "change": "Completed intent reconciliation, canonical shape, and three-milestone proof-first plan. Compared simpler collection-only option. Checked open PRs and isolated documentation PR scope from unrelated checkout edits. Native implementation remains planned."
+    }
+  ],
+  "closure": null,
+  "related_initiatives": [
+    {
+      "slug": "people",
+      "relationship": "Focused extension; preserve original initiative artifacts and lifecycle."
+    }
+  ],
+  "evaluation": {
+    "status": "complete",
+    "report": "ingest-evaluation.md",
+    "mode": "read-only live audit and local dry run",
+    "baseline": {
+      "profiles": 40,
+      "facts": 18,
+      "interactions": 40,
+      "affiliations": 39,
+      "affiliationsWithDates": 0,
+      "linkedNotes": 0,
+      "profilesWithoutFacts": 22,
+      "profilesWithoutHowKnown": 20,
+      "uniqueMessageRows": 196,
+      "uniqueNonemptyMessageRows": 193,
+      "sourceConversations": 46,
+      "recencyReviewCases": 2
+    },
+    "proposals": {
+      "profiles": 40,
+      "newFacts": 17,
+      "peopleWithNewFacts": 15,
+      "sourceNotes": 46,
+      "noteLinks": 48
+    },
+    "proof": {
+      "schemaHash": "e9ba14e3d6e870dd8ad7a26777315e4e9f60ab6f",
+      "schemaCases": 7,
+      "profilePayloads": 40,
+      "factPayloads": 17,
+      "liveWrites": false,
+      "databaseProof": false,
+      "browserProof": false
+    },
+    "firstCodeBoundary": [
+      "Employment status independent of unknown end date",
+      "Partial and approximate date support",
+      "Role-level source and observed date",
+      "Dated overlap retrieval"
+    ],
+    "privateArtifactsLocation": "Current chat outputs; raw snapshots and sources retained in work/, not committed to Git."
+  },
+  "execution": {
+    "cleanup": {
+      "status": "completed",
+      "report": "cleanup-and-code-gaps.md",
+      "authorizedBy": "U6",
+      "after": {
+        "people": 40,
+        "facts": 36,
+        "interactionsUnique": 62,
+        "interactionProfileLinks": 64,
+        "notesUnique": 46,
+        "noteLinks": 48,
+        "missingHowKnown": 0,
+        "summaryChars": 3313,
+        "contactDatesUnchanged": true,
+        "contactsAndAffiliationsUnchanged": true
+      },
+      "sourceValidation": {
+        "notes": 46,
+        "records": 196,
+        "mismatches": []
+      },
+      "retryProof": {
+        "notes": true,
+        "facts": true,
+        "interactions": true
+      },
+      "archive": {
+        "id": "cmwd18duf048jqp21og1s84wk",
+        "url": "https://notes.apps.byroni.us/collections/cmwd18duf048jqp21og1s84wk",
+        "rows": 46,
+        "showRowsInRecent": false
+      },
+      "verification": "All40 profiles reread; facts/interactions linked to sources; contact dates, contact methods, affiliations unchanged. Retry tests reused records. Source archive membership and visibility confirmed by MCP. Browser not visually rechecked.",
+      "remainingCodeGaps": [
+        "Employment status independent of unknown end date",
+        "Partial/approximate employment dates and role sources",
+        "Readable career history and dated overlap retrieval",
+        "Registered external identities and role reconciliation through MCP",
+        "Automatic source archive preflight in future ingestion"
+      ]
+    },
+    "linkedin_pilot": {
+      "status": "completed",
+      "report": "linkedin-five-proof.md",
+      "people": 5,
+      "roles": 41,
+      "roleCounts": [
+        9,
+        6,
+        12,
+        8,
+        6
+      ],
+      "datePrecision": "month",
+      "collection": {
+        "id": "cmwd1irgz04p7qp215dja9c69",
+        "name": "People Career History",
+        "appUrl": "https://notes.apps.byroni.us/collections/cmwd1irgz04p7qp215dja9c69"
+      },
+      "historyNotes": [
+        {
+          "id": "cmwd1jcu104vvqp21fub0rqkz",
+          "url": "https://notes.apps.byroni.us/docs/cmwd1jcu104vvqp21fub0rqkz"
+        },
+        {
+          "id": "cmwd1jcv104w0qp21to5x1o2b",
+          "url": "https://notes.apps.byroni.us/docs/cmwd1jcv104w0qp21to5x1o2b"
+        },
+        {
+          "id": "cmwd1jcw804w5qp21sj7fmgm6",
+          "url": "https://notes.apps.byroni.us/docs/cmwd1jcw804w5qp21sj7fmgm6"
+        },
+        {
+          "id": "cmwd1jcxc04waqp216a9c1v1h",
+          "url": "https://notes.apps.byroni.us/docs/cmwd1jcxc04waqp216a9c1v1h"
+        },
+        {
+          "id": "cmwd1jcyi04wfqp21vpxj2f7j",
+          "url": "https://notes.apps.byroni.us/docs/cmwd1jcyi04wfqp21vpxj2f7j"
+        }
+      ],
+      "proof": {
+        "people": 5,
+        "roles": 41,
+        "monthRangesVerified": true,
+        "profileLinksVerified": true,
+        "contactDatesUnchanged": true,
+        "rowsHiddenFromRecent": true,
+        "browserVerified": "Brian Rhode's nine-row table; sidebar excludes individual source rows",
+        "overlapLeads": [
+          {
+            "company": "Allison Transmission",
+            "startMonth": "2017-06",
+            "endMonth": "2019-07",
+            "people": [
+              "Eleanore (Ellie) Leppert",
+              "Anthony Krause"
+            ],
+            "evidence": "Listed role periods overlap at month precision; personal acquaintance not verified."
+          }
+        ]
+      },
+      "nativeAffiliationsChanged": false,
+      "temporaryBridge": true
+    }
+  },
+  "quality_gate": {
+    "intent": "shape-ready",
+    "shape": "plan-ready",
+    "plan": "ready for implementation review",
+    "validator": "Passed with zero warnings",
+    "audit": "Heuristic audit reviewed; first focused test command is planned, not already implemented. No persistence or new UI proof claimed.",
+    "openHumanDecisions": [],
+    "scope": "Docs only; no implementation or live migration in PR."
+  }
+}
