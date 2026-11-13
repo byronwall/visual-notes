@@ -96,6 +96,7 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_find_duplicates",
       "people_get",
       "people_get_organization",
+      "people_import_career",
       "people_list_followups",
       "people_log_interaction",
       "people_query_facts",
@@ -159,7 +160,9 @@ describe.skipIf(!enabled)("people tools (database)", () => {
     const updated = await call(client, "people_update", {
       id: sarah.json.id,
       affiliations: {
-        add: [{ organizationId: org.json.id, role: "Engineer" }],
+        add: [
+          { organizationId: org.json.id, role: "Engineer", status: "current" },
+        ],
       },
       setCustomFields: { Birthday: "May 4" },
     });
@@ -306,13 +309,161 @@ describe.skipIf(!enabled)("people tools (database)", () => {
     orgIds.push(org.json.id);
     const ok = await call(client, "people_create", {
       displayName: name,
-      affiliations: [{ organizationId: org.json.id, role: "Analyst" }],
+      affiliations: [
+        { organizationId: org.json.id, role: "Analyst", status: "current" },
+      ],
       requestKey: key,
     });
     expect(ok.json.created).toBe(true);
     personIds.push(ok.json.id);
     const got = await call(client, "people_get", { id: ok.json.id });
     expect(got.json.person.currentRole).toBe(`Analyst, Atomic Org ${tag}`);
+  });
+
+  it("imports career rows with preview, resume, repeat, and kept edits", async () => {
+    const client = await connect();
+    const mk = async (displayName: string) => {
+      const r = await call(client, "people_create", { displayName });
+      personIds.push(r.json.id);
+      return r.json.id as string;
+    };
+    const ana = await mk(`Ana Career ${tag}`);
+    const ben = await mk(`Ben Career ${tag}`);
+    const org = async (name: string) => {
+      const r = await call(client, "people_create_organization", { name });
+      orgIds.push(r.json.id);
+      return r.json.id as string;
+    };
+    const allison = await org(`Allison ${tag}`);
+    // Two organizations with one name: the import must not pick one.
+    for (let i = 0; i < 2; i++) {
+      const twin = await prisma().organization.create({
+        data: { name: `Twin ${tag}` },
+      });
+      orgIds.push(twin.id);
+    }
+    // The export-style listing the import should complete, not duplicate.
+    await call(client, "people_update", {
+      id: ana,
+      affiliations: { add: [{ organizationId: allison, role: "Engineer" }] },
+    });
+
+    const coll = await call(client, "collections_create", {
+      name: `Career ${tag}`,
+      properties: [
+        { name: "Person URL", kind: "text" },
+        { name: "Company", kind: "text" },
+        { name: "Role", kind: "text" },
+        { name: "Start month", kind: "text" },
+        { name: "End month", kind: "text" },
+        { name: "Employment", kind: "select", options: ["Current", "Past"] },
+        { name: "Source URL", kind: "text" },
+        { name: "Checked", kind: "date" },
+      ],
+    });
+    const row = (who: string, values: Json) => ({
+      title: String(values.Role ?? "Row"),
+      values: {
+        "Person URL": `https://notes.test/people/${who}`,
+        "Source URL": "https://www.linkedin.com/in/ana-example/details/experience/",
+        Checked: "2026-11-11",
+        ...values,
+      },
+    });
+    const anaLi = (v: Json) => row(ana, v);
+    const benRow = (v: Json) => ({
+      ...row(ben, v),
+      values: {
+        ...row(ben, v).values,
+        "Source URL": "https://www.linkedin.com/in/ben-example/",
+      },
+    });
+    await call(client, "collections_add_rows", {
+      collection: coll.json.id,
+      rows: [
+        anaLi({ Company: `Allison ${tag}`, Role: "Engineer", "Start month": "2017-06", "End month": "2019-07", Employment: "Past" }),
+        anaLi({ Company: `Allison ${tag}`, Role: "Senior Engineer", "Start month": "2019-08", "End month": "Present", Employment: "Current" }),
+        benRow({ Company: `Allison ${tag}`, Role: "Analyst", "Start month": "2018-01", "End month": "2020-12", Employment: "Past" }),
+        benRow({ Company: `Twin ${tag}`, Role: "Lead", "Start month": "2021" }),
+        row("missing-person", { Company: "Nowhere", Role: "Ghost" }),
+      ],
+    });
+    const roles = () =>
+      prisma().personAffiliation.count({
+        where: { personId: { in: [ana, ben] } },
+      });
+
+    const preview = await call(client, "people_import_career", {
+      collection: coll.json.id,
+    });
+    expect(preview.json.counts).toEqual({
+      create: 2,
+      adopt: 1,
+      unchanged: 0,
+      conflict: 1,
+      invalid: 1,
+    });
+    expect(await roles()).toBe(1);
+
+    // A run stopped after one row resumes without repeating it.
+    const first = await call(client, "people_import_career", {
+      collection: coll.json.id,
+      apply: true,
+      limit: 1,
+    });
+    expect(first.json.written).toBe(1);
+    const rest = await call(client, "people_import_career", {
+      collection: coll.json.id,
+      apply: true,
+    });
+    expect(rest.json.written).toBe(2);
+    const again = await call(client, "people_import_career", {
+      collection: coll.json.id,
+      apply: true,
+    });
+    expect(again.json.written).toBe(0);
+    expect(again.json.counts.unchanged).toBe(3);
+    expect(await roles()).toBe(3);
+
+    const got = (await call(client, "people_get", { id: ana })).json.person;
+    expect(
+      got.affiliations.map((a: Json) => [a.role, a.startOn, a.endOn, a.status]),
+    ).toEqual([
+      ["Senior Engineer", "2019-08", null, "current"],
+      ["Engineer", "2017-06", "2019-07", "ended"],
+    ]);
+    expect(got.currentRole).toBe(`Senior Engineer, Allison ${tag}`);
+    expect(got.lastContactOn).toBeNull();
+    // Ben's 2018–2020 overlaps both of Ana's roles; the best one is shown.
+    expect(got.colleagues).toEqual([
+      expect.objectContaining({
+        person: expect.objectContaining({ id: ben }),
+        overlap: expect.objectContaining({ kind: "overlap" }),
+      }),
+    ]);
+    expect(
+      await prisma().personExternalIdentity.count({
+        where: { personId: ana, source: "linkedin" },
+      }),
+    ).toBe(1);
+
+    // A curated correction wins over the row and comes back as a conflict.
+    const senior = got.affiliations[0];
+    await call(client, "people_update", {
+      id: ana,
+      affiliations: { update: [{ id: senior.id, role: "Staff Engineer" }] },
+    });
+    const after = await call(client, "people_import_career", {
+      collection: coll.json.id,
+      apply: true,
+    });
+    expect(after.json.written).toBe(0);
+    expect(
+      after.json.rows.find((r: Json) => r.affiliationId === senior.id),
+    ).toMatchObject({ outcome: "conflict" });
+
+    await prisma().doc.deleteMany({ where: { collectionId: coll.json.id } });
+    await prisma().collection.delete({ where: { id: coll.json.id } });
   });
 
   it("rolls back a cadence change when the rest of the update fails", async () => {

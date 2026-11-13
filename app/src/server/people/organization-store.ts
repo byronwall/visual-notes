@@ -1,7 +1,6 @@
 // Organizations: companies, schools, churches, teams. Shared membership is
 // context only; nothing here treats two members as acquainted.
 import type { Prisma } from "@prisma/client";
-import { dbToDayOrNull, todayLocal } from "~/lib/people/dates";
 import {
   organizationInputSchema,
   organizationPatchSchema,
@@ -13,13 +12,18 @@ import type {
   OrganizationSummary,
 } from "~/lib/people/types";
 import { prisma } from "~/server/db";
+import {
+  AFFILIATION_INCLUDE,
+  sortAffiliations,
+  toAffiliation,
+} from "./affiliation-store";
 import { PeopleInputError, withRequestKey } from "./errors";
 
 const ORG_INCLUDE = {
   affiliations: {
     select: {
       personId: true,
-      endOn: true,
+      status: true,
       person: { select: { archivedAt: true } },
     },
   },
@@ -30,17 +34,18 @@ const blankToNull = (v: string | null | undefined) =>
   v === undefined ? undefined : v?.trim() || null;
 
 const toSummary = (o: OrgRow): OrganizationSummary => {
-  const today = todayLocal();
   // Count people, not roles: two current roles are one current member, and
-  // someone with a current role is not also a past member.
+  // someone with a current role is not also a past member. A listing with
+  // unknown status is neither: it was never confirmed current.
   const active = o.affiliations.filter((a) => !a.person.archivedAt);
-  const currentIds = new Set(
-    active
-      .filter((a) => !a.endOn || (dbToDayOrNull(a.endOn) ?? "") >= today)
-      .map((a) => a.personId),
-  );
+  const ids = (status: string) =>
+    new Set(active.filter((a) => a.status === status).map((a) => a.personId));
+  const currentIds = ids("current");
   const pastIds = new Set(
-    active.map((a) => a.personId).filter((id) => !currentIds.has(id)),
+    [...ids("ended")].filter((id) => !currentIds.has(id)),
+  );
+  const unknownIds = new Set(
+    [...ids("unknown")].filter((id) => !currentIds.has(id) && !pastIds.has(id)),
   );
   return {
     id: o.id,
@@ -50,6 +55,7 @@ const toSummary = (o: OrgRow): OrganizationSummary => {
     url: o.url,
     currentMembers: currentIds.size,
     pastMembers: pastIds.size,
+    unknownMembers: unknownIds.size,
     archivedAt: o.archivedAt?.toISOString() ?? null,
   };
 };
@@ -93,26 +99,22 @@ export async function getOrganization(
   const members = await prisma.personAffiliation.findMany({
     where: { organizationId: id },
     include: {
+      ...AFFILIATION_INCLUDE,
       person: { select: { id: true, displayName: true, archivedAt: true } },
     },
   });
-  const today = todayLocal();
-  const list = members
-    .map((m) => ({
-      id: m.person.id,
-      displayName: m.person.displayName,
-      affiliationId: m.id,
-      role: m.role,
-      startOn: dbToDayOrNull(m.startOn),
-      endOn: dbToDayOrNull(m.endOn),
-      archived: !!m.person.archivedAt,
-    }))
-    .sort((a, b) => {
-      const aPast = a.endOn != null && a.endOn < today;
-      const bPast = b.endOn != null && b.endOn < today;
-      if (aPast !== bPast) return aPast ? 1 : -1;
-      return a.displayName.localeCompare(b.displayName);
-    });
+  const byId = new Map(members.map((m) => [m.id, m.person]));
+  // Newest start first, as on a profile, so people from one era sit together.
+  const list = sortAffiliations(members.map(toAffiliation)).map((a) => {
+    const person = byId.get(a.id)!;
+    return {
+      id: person.id,
+      displayName: person.displayName,
+      affiliationId: a.id,
+      affiliation: a,
+      archived: !!person.archivedAt,
+    };
+  });
   return { ...toSummary(row), note: row.doc, members: list };
 }
 

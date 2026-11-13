@@ -133,6 +133,9 @@ export function OrganizationsList() {
                   <span class={right}>
                     {o.currentMembers} current
                     {o.pastMembers ? ` · ${o.pastMembers} past` : ""}
+                    {o.unknownMembers
+                      ? ` · ${o.unknownMembers} status unknown`
+                      : ""}
                   </span>
                 </div>
               )}
