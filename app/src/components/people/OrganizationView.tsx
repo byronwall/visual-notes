@@ -74,7 +74,10 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
       </div>
       <span class={small} style={{ "text-align": "right" }}>
         {formatPeriod(m.affiliation)}
-        <Show when={statusNote(m.affiliation)}>
+        {/* The group heading already names an unknown status. */}
+        <Show
+          when={m.affiliation.status === "current" && statusNote(m.affiliation)}
+        >
           {(n) => <div>{n()}</div>}
         </Show>
       </span>

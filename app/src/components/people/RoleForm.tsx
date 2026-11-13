@@ -90,7 +90,7 @@ const KIND_ITEMS = [
 
 const dateRow = css({
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gridTemplateColumns: "2.5rem minmax(0, 1fr) auto",
   alignItems: "center",
   gap: "2",
 });
@@ -119,10 +119,11 @@ function DateField(props: {
 }) {
   return (
     <div class={dateRow}>
+      <span class={approx}>{props.label}</span>
       <Input
         size="sm"
         aria-label={props.label}
-        placeholder={`${props.label}: 2017, 2017-06, or 2017-06-12`}
+        placeholder="2017, 2017-06, or 2017-06-12"
         value={props.value}
         onInput={(e) => props.onValue(e.currentTarget.value)}
       />
