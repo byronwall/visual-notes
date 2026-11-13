@@ -2,6 +2,7 @@ import { A, useSearchParams } from "@solidjs/router";
 import { SearchIcon } from "lucide-solid";
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { css } from "styled-system/css";
+import { OrgMark } from "./OrgMark";
 import { HStack } from "styled-system/jsx";
 import { Input } from "~/components/ui/input";
 import { fetchOrganizations } from "~/services/people/people.queries";
@@ -33,6 +34,10 @@ const head = css({
   borderColor: "border",
 });
 const name = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "2",
+  minW: "0",
   fontWeight: "medium",
   textDecoration: "none",
   truncate: true,
@@ -124,7 +129,8 @@ export function OrganizationsList() {
               {(o) => (
                 <div class={`${grid} ${row}`} data-organization-row={o.name}>
                   <A href={`/people/organizations/${o.id}`} class={name}>
-                    {o.name}
+                    <OrgMark org={o} size={24} />
+                    <span class={css({ truncate: true })}>{o.name}</span>
                   </A>
                   <span class={`${muted} ${hideNarrow}`}>{o.kind ?? "—"}</span>
                   <span class={`${muted} ${hideNarrow}`}>

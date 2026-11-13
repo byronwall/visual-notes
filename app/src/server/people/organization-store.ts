@@ -28,7 +28,11 @@ const ORG_INCLUDE = {
     },
   },
 } satisfies Prisma.OrganizationInclude;
-type OrgRow = Prisma.OrganizationGetPayload<{ include: typeof ORG_INCLUDE }>;
+// Icon bytes are served by /api/org-icons, never loaded with a page.
+type OrgRow = Prisma.OrganizationGetPayload<{
+  include: typeof ORG_INCLUDE;
+  omit: { iconData: true };
+}>;
 
 const blankToNull = (v: string | null | undefined) =>
   v === undefined ? undefined : v?.trim() || null;
@@ -79,6 +83,7 @@ export async function listOrganizations(
       ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
     },
     include: ORG_INCLUDE,
+        omit: { iconData: true },
     orderBy: { name: "asc" },
     take: Math.min(input.limit ?? 200, 500),
   });
@@ -94,6 +99,7 @@ export async function getOrganization(
       ...ORG_INCLUDE,
       doc: { select: { id: true, title: true, path: true } },
     },
+    omit: { iconData: true },
   });
   if (!row) return null;
   const members = await prisma.personAffiliation.findMany({
@@ -128,6 +134,7 @@ export async function createOrganization(
       prisma.organization.findUnique({
         where: { requestKey },
         include: ORG_INCLUDE,
+        omit: { iconData: true },
       }),
     async () => {
       await requireDoc(parsed.docId);
@@ -141,6 +148,7 @@ export async function createOrganization(
           requestKey: parsed.requestKey,
         },
         include: ORG_INCLUDE,
+        omit: { iconData: true },
       });
     },
   );
@@ -161,7 +169,11 @@ export async function updateOrganization(
     throw new PeopleInputError(`Organization not found: ${id}`, "not_found");
   }
   await requireDoc(parsed.docId);
+  // A new website gets its icon looked up again.
+  const newSite =
+    parsed.url !== undefined && (parsed.url?.trim() || null) !== current.url;
   const data: Prisma.OrganizationUpdateInput = {
+    ...(newSite ? { iconData: null, iconType: null, iconCheckedAt: null } : {}),
     name: parsed.name,
     kind: blankToNull(parsed.kind),
     summary: blankToNull(parsed.summary),
@@ -180,7 +192,7 @@ export async function updateOrganization(
           : null,
   };
   const changed = Object.entries(data)
-    .filter(([, v]) => v !== undefined)
+    .filter(([k, v]) => v !== undefined && !k.startsWith("icon"))
     .map(([k]) =>
       k === "archivedAt" ? "archived" : k === "doc" ? "docId" : k,
     );
@@ -188,6 +200,7 @@ export async function updateOrganization(
     where: { id },
     data,
     include: ORG_INCLUDE,
+        omit: { iconData: true },
   });
   console.info(`[people] updated organization`, id, changed.join(","));
   return { organization: toSummary(row), changed };

@@ -29,7 +29,9 @@ const dayOrNull = (v: string | null | undefined) =>
   v === undefined ? undefined : v ? dayToDb(v) : null;
 
 export const AFFILIATION_INCLUDE = {
-  organization: { select: { id: true, name: true, kind: true } },
+  organization: {
+    select: { id: true, name: true, kind: true, url: true, summary: true },
+  },
   sourceDoc: { select: { id: true, title: true, path: true } },
 } satisfies Prisma.PersonAffiliationInclude;
 

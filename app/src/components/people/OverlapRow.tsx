@@ -16,7 +16,7 @@ const row = css({
   borderColor: "border",
   fontSize: "xs",
   color: "fg.muted",
-  "& a": { color: "fg.default", fontWeight: "medium" },
+  "& > span > a": { color: "fg.default", fontWeight: "medium" },
 });
 const icon = css({ alignSelf: "center", color: "fg.subtle" });
 const badge = css({
@@ -28,6 +28,9 @@ const badge = css({
   borderWidth: "1px",
   borderColor: "border",
   color: "fg.muted",
+  textDecoration: "none",
+  transition: "filter 140ms",
+  _hover: { filter: "brightness(0.95)" },
   "&[data-kind=overlap]": {
     bg: "blue.3",
     color: "blue.11",
@@ -48,24 +51,34 @@ export const OVERLAP_LABELS: Record<OverlapKind, string> = {
 };
 
 /** "Also here: Sam Ortiz, Engineer, Jan 2016 – Mar 2020 [Overlapped Jun 2017 – Jul 2019]" */
-export function OverlapRow(props: { colleague: Colleague }) {
+export function OverlapRow(props: {
+  colleague: Colleague;
+  /** The profile's person, focused on the company timeline. */
+  personId: string;
+}) {
   const c = () => props.colleague;
   const span = () =>
     c().overlap.from || c().overlap.to
       ? `${c().overlap.from ?? "?"} – ${c().overlap.to ?? "?"}`
       : null;
   return (
-    <div class={row} data-overlap={c().overlap.kind} title={c().overlap.note}>
+    <div class={row} data-overlap={c().overlap.kind}>
       <span>Also here:</span>
       <UsersIcon class={icon} size={13} aria-hidden="true" />
       <span>
         <A href={`/people/${c().person.id}`}>{c().person.displayName}</A>
         {`, ${[c().other.role, formatPeriod(c().other)].filter(Boolean).join(", ")}`}
       </span>
-      <span class={badge} data-kind={c().overlap.kind}>
+      {/* The pill opens the company timeline with both periods side by side. */}
+      <A
+        class={badge}
+        data-kind={c().overlap.kind}
+        aria-label={`${c().overlap.note} Compare on the company timeline.`}
+        href={`/people/organizations/${c().other.organization.id}?focus=${props.personId}`}
+      >
         {OVERLAP_LABELS[c().overlap.kind]}
         {c().overlap.kind === "overlap" && span() ? ` ${span()}` : ""}
-      </span>
+      </A>
     </div>
   );
 }

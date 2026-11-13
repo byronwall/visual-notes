@@ -1,11 +1,12 @@
-import { A, useAction } from "@solidjs/router";
-import { For, Show, createSignal } from "solid-js";
+import { A, useAction, useSearchParams } from "@solidjs/router";
+import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
-import { formatPeriod, statusNote } from "~/lib/people/career-periods";
 import type { OrganizationDetail } from "~/lib/people/types";
 import { updateOrganizationAction } from "~/services/people/people.actions";
+import { CompanyTimeline } from "./CompanyTimeline";
 import { searchNotes } from "./LinkedNotesSection";
+import { siteLabel } from "./OrgHoverLink";
 import { OrganizationDialog } from "./OrganizationDialog";
 import { SearchPicker } from "./SearchPicker";
 
@@ -15,26 +16,8 @@ const layout = css({
   gridTemplateColumns: { base: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 18rem" },
   alignItems: "start",
 });
-const sectionHead = css({
-  fontSize: "sm",
-  fontWeight: "semibold",
-  px: "2",
-  pb: "1",
-  mb: "1",
-  borderBottomWidth: "1px",
-  borderColor: "border",
-});
-const member = css({
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) auto",
-  gap: "3",
-  px: "2",
-  py: "2",
-  borderRadius: "l2",
-  fontSize: "sm",
-  _hover: { bg: "bg.subtle" },
-});
-const muted = css({ color: "fg.muted" });
+const muted = css({ color: "fg.muted", fontSize: "sm" });
+const lede = css({ fontSize: "md", lineHeight: "1.55", maxW: "65ch", mb: "1" });
 const small = css({ fontSize: "xs", color: "fg.subtle" });
 const aside = css({
   display: "flex",
@@ -44,70 +27,52 @@ const aside = css({
 });
 const note = css({ fontSize: "xs", color: "fg.subtle", lineHeight: "relaxed" });
 
-/** One organization: members by role, then its linked note and details. */
+/** One organization: what it is, then everyone you know there on one timeline. */
 export function OrganizationView(props: { organization: OrganizationDetail }) {
   const o = () => props.organization;
   const [editing, setEditing] = createSignal(false);
   const [linking, setLinking] = createSignal(false);
   const save = useAction(updateOrganizationAction);
-  const byStatus = (s: string) =>
-    o().members.filter((m) => m.affiliation.status === s);
-  const groups = () => [
-    { title: "Current people", list: byStatus("current") },
-    { title: "Past people", list: byStatus("ended") },
-    { title: "Status unknown", list: byStatus("unknown") },
-  ];
-
-  const memberRow = (m: OrganizationDetail["members"][number]) => (
-    <div class={member} data-member={m.displayName}>
-      <div>
-        <A href={`/people/${m.id}`}>{m.displayName}</A>
-        <Show when={m.archived}>
-          <span class={small}> (archived)</span>
-        </Show>
-        <div class={muted}>
-          {m.affiliation.role ?? "No role recorded"}
-          <Show when={m.affiliation.kind === "membership"}>
-            <span class={small}> · membership</span>
-          </Show>
-        </div>
-      </div>
-      <span class={small} style={{ "text-align": "right" }}>
-        {formatPeriod(m.affiliation)}
-        {/* The group heading already names an unknown status. */}
-        <Show
-          when={m.affiliation.status === "current" && statusNote(m.affiliation)}
-        >
-          {(n) => <div>{n()}</div>}
-        </Show>
-      </span>
-    </div>
-  );
+  const [params] = useSearchParams();
+  const focusId = () => (typeof params.focus === "string" ? params.focus : null);
+  const people = () => new Set(o().members.map((m) => m.id)).size;
+  const facts = () =>
+    [
+      `${people()} ${people() === 1 ? "person" : "people"} you know`,
+      o().currentMembers ? `${o().currentMembers} current` : null,
+      o().pastMembers ? `${o().pastMembers} past` : null,
+      o().unknownMembers ? `${o().unknownMembers} status unknown` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   return (
     <div class={layout}>
       <div>
-        <Show when={!o().members.length}>
-          <p class={muted}>No one recorded here yet.</p>
+        <Show
+          when={o().summary}
+          fallback={
+            <p class={muted}>
+              No description yet.{" "}
+              <Button size="xs" variant="plain" onClick={() => setEditing(true)}>
+                Add one
+              </Button>
+            </p>
+          }
+        >
+          <p class={lede}>{o().summary}</p>
         </Show>
-        <For each={groups().filter((g) => g.list.length)}>
-          {(g, i) => (
-            <>
-              <h2
-                class={sectionHead}
-                style={{ "margin-top": i() ? "1.5rem" : undefined }}
-              >
-                {g.title} ({g.list.length})
-              </h2>
-              <For each={g.list}>{memberRow}</For>
-            </>
-          )}
-        </For>
+        <p class={small} style={{ "margin-bottom": "1rem" }}>
+          {facts()}
+        </p>
+        <Show
+          when={o().members.length}
+          fallback={<p class={muted}>No one recorded here yet.</p>}
+        >
+          <CompanyTimeline members={o().members} focusId={focusId()} />
+        </Show>
       </div>
       <aside class={aside}>
-        <Show when={o().summary}>
-          <div>{o().summary}</div>
-        </Show>
         <Show when={o().kind}>
           <div>
             <div class={small}>Kind</div>
@@ -119,7 +84,7 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
             <div>
               <div class={small}>Website</div>
               <a href={url()} target="_blank" rel="noreferrer">
-                {url()}
+                {siteLabel(url())}
               </a>
             </div>
           )}

@@ -84,6 +84,7 @@ export const PEOPLE_INSTRUCTIONS = [
   'People (people_*) is the user\'s private relationship memory: profiles, remembered facts, shared encounters, and organizations. Find someone with people_search (names, aliases, contacts, facts, encounters, roles) or search with include ["people"] before writing; never write when several people could match — show the candidates and ask.',
   "Record a short detail with people_add_fact and an encounter with people_log_interaction (a day, a kind, one sentence, every participant; countsAsContact: false for someone only discussed). Facts never change last contact. Correct with people_update_fact / people_update_interaction; archive instead of deleting. Pass requestKey on writes so a retry cannot duplicate them.",
   "Only record what the source states. Two people sharing an organization does not mean they know each other. Never send outreach.",
+  "When you add someone's job, record it as a role (people_update affiliations) with dates as precise as the source, and give its organization a short sourced summary and website.",
 ].join("\n");
 
 const personIdArg = z.string().min(1).describe("Person id from people_search");
@@ -700,12 +701,20 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Create organization",
       description:
-        "Create a company, school, church, team, or other group. Refuses when organizations with the same name exist and returns them; pass allowDuplicate only for a truly different one.",
+        "Create a company, school, church, team, or other group. Refuses when organizations with the same name exist and returns them; pass allowDuplicate only for a truly different one. Give each organization a summary: one or two plain sentences on what it does and where, from its own site or a source the user gave (\"Indianapolis maker of lubricant additives for engines and fuels\"), and its website url, which the app uses to show the organization's icon. Never guess either.",
       input: {
         name: z.string().min(1).max(200),
         kind: z.string().max(80).optional(),
-        summary: z.string().max(4000).optional(),
-        url: z.string().max(2000).optional(),
+        summary: z
+          .string()
+          .max(4000)
+          .optional()
+          .describe("One or two sentences on what it does, from a source"),
+        url: z
+          .string()
+          .max(2000)
+          .optional()
+          .describe("Its own website, e.g. https://acme.com; shows its icon"),
         noteId: z.string().optional().describe("A note about the organization"),
         allowDuplicate: z.boolean().optional(),
         requestKey: requestKeyArg,
@@ -782,7 +791,7 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Update organization",
       description:
-        "Patch an organization's name, kind, summary, url, or linked note (noteId; null unlinks). archived true/false archives or restores it. People's roles are changed with people_update.",
+        "Patch an organization's name, kind, summary, url, or linked note (noteId; null unlinks). Fill a missing summary or url when a source states them; a new url refreshes the icon. archived true/false archives or restores it. People's roles are changed with people_update.",
       input: {
         id: z.string().min(1),
         ...organizationPatchSchema.omit({ docId: true }).shape,
