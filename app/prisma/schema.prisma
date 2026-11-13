@@ -1653,18 +1653,23 @@ model PersonContact {
 /// A company, school, church, team, or other group. Membership is context,
 /// not evidence that two members know each other.
 model Organization {
-  id         String    @id @default(cuid())
-  name       String
+  id            String    @id @default(cuid())
+  name          String
   /// Free text: company, school, church, team, ...
-  kind       String?
-  summary    String?
-  url        String?
+  kind          String?
+  summary       String?
+  url           String?
   /// Optional long-form note about the organization.
-  docId      String?
-  requestKey String?   @unique
-  archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  docId         String?
+  /// Small logo fetched from the website, cached so pages never wait on it.
+  iconData      Bytes?
+  iconType      String?
+  /// When the icon was last looked for; a miss is not retried for a week.
+  iconCheckedAt DateTime?
+  requestKey    String?   @unique
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   doc          Doc?                @relation(fields: [docId], references: [id], onDelete: SetNull)
   affiliations PersonAffiliation[]

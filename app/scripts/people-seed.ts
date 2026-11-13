@@ -236,13 +236,39 @@ for (let i = 0; i < count; i++) {
 // an ended role with no end date, an undated listing, university employment
 // beside a school membership, and colleagues whose periods overlap or not.
 {
-  const org = async (name: string, kind: string) =>
-    (await createOrganization({ name, kind, requestKey: `seed-career-${name}` }))
-      .organization.id;
-  const northwind = await org("Northwind Labs", "company");
-  const cedar = await org("Cedar & Finch", "company");
-  const maple = await org("Maple Street Studio", "company");
-  const purdue = await org("Riverbend University", "university");
+  const org = async (name: string, kind: string, summary: string, url?: string) =>
+    (
+      await createOrganization({
+        name,
+        kind,
+        summary,
+        url,
+        requestKey: `seed-career-${name}`,
+      })
+    ).organization.id;
+  const northwind = await org(
+    "Northwind Labs",
+    "company",
+    "Chicago software company that builds partner and channel tools for mid-size manufacturers.",
+  );
+  const cedar = await org(
+    "Cedar & Finch",
+    "company",
+    "Indianapolis marketing agency focused on regional retail and healthcare clients.",
+  );
+  const maple = await org("Maple Street Studio", "company", "Small design studio.");
+  const purdue = await org(
+    "Riverbend University",
+    "university",
+    "Public research university with a business school and a large continuing-education program.",
+  );
+  // A real company, so the icon fetched from its website shows locally.
+  const lilly = await org(
+    "Eli Lilly and Company",
+    "company",
+    "Indianapolis pharmaceutical company that makes medicines for diabetes, obesity, cancer, and immunology.",
+    "https://www.lilly.com",
+  );
   const src = "https://www.linkedin.com/in/example/details/experience/";
   const dana = (
     await createPerson({
@@ -263,6 +289,9 @@ for (let i = 0; i < count; i++) {
     [dana, { organizationId: northwind, status: "ended", role: "Partnerships manager", startOn: "2017-06", endOn: "2019-07", location: "Chicago, Illinois", responsibilities: "Built the partner program and managed key accounts.", sourceLabel: "LinkedIn", sourceUrl: src }],
     [dana, { organizationId: northwind, status: "ended", role: "Partnerships associate", startOn: "2015-03", endOn: "2017-05", location: "Chicago, Illinois", sourceLabel: "LinkedIn", sourceUrl: src }],
     [dana, { organizationId: maple, status: "unknown", role: "Community lead" }],
+    [dana, { organizationId: lilly, status: "ended", role: "Sales associate", startOn: "2011-07", endOn: "2015-02", location: "Indianapolis, Indiana", sourceLabel: "LinkedIn", sourceUrl: src }],
+    [lee, { organizationId: lilly, status: "ended", role: "Market analyst", startOn: "2013", endOn: "2016" }],
+    [sam, { organizationId: lilly, status: "ended", role: "Engineer", startOn: "2009-01", endOn: "2010-12" }],
     [dana, { organizationId: purdue, kind: "membership", status: "ended", role: "Alumna", startOn: "2009", endOn: "2013" }],
     [sam, { organizationId: northwind, status: "ended", role: "Engineer", startOn: "2016-01", endOn: "2020-03", sourceLabel: "LinkedIn", sourceUrl: src }],
     [lee, { organizationId: cedar, status: "ended", role: "Analyst", startOn: "2019", endOn: "2021" }],

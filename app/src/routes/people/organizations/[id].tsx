@@ -1,6 +1,7 @@
 import { useParams } from "@solidjs/router";
 import { Show, Suspense } from "solid-js";
 import { OrganizationView } from "~/components/people/OrganizationView";
+import { OrgMark } from "~/components/people/OrgMark";
 import { PeopleShell } from "~/components/people/PeopleShell";
 import { Skeleton } from "~/components/ui/skeleton";
 import { fetchOrganization } from "~/services/people/people.queries";
@@ -27,7 +28,14 @@ export default function OrganizationRoute() {
         {(o) => (
           <PeopleShell
             title={`${o().name} • Organizations`}
-            heading={o().name}
+            heading={
+              <span
+                style={{ display: "inline-flex", gap: "0.75rem", "align-items": "center" }}
+              >
+                <OrgMark org={o()} size={40} />
+                {o().name}
+              </span>
+            }
             backHref="/people/organizations"
             backLabel="Organizations"
           >

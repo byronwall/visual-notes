@@ -1,4 +1,4 @@
-import { A, useAction } from "@solidjs/router";
+import { useAction } from "@solidjs/router";
 import { For, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
@@ -10,29 +10,20 @@ import {
 } from "~/services/people/people.actions";
 import { groupSpan } from "~/lib/people/career-periods";
 import { ExperienceRole } from "./ExperienceRole";
+import { OrgHoverLink } from "./OrgHoverLink";
+import { OrgMark } from "./OrgMark";
 import { OverlapRow } from "./OverlapRow";
 import { RoleForm } from "./RoleForm";
 import { draftOf, emptyDraft, patchOf, type RoleDraft } from "./role-draft";
 
 const group = css({
   display: "grid",
-  gridTemplateColumns: { base: "2.25rem minmax(0, 1fr)", md: "3rem minmax(0, 1fr)" },
+  gridTemplateColumns: "2.75rem minmax(0, 1fr)",
   columnGap: "3",
   py: "3",
   borderBottomWidth: "1px",
   borderColor: "border",
   _last: { borderBottomWidth: "0" },
-});
-const tile = css({
-  w: { base: "9", md: "12" },
-  h: { base: "9", md: "12" },
-  borderRadius: "l3",
-  bg: "bg.muted",
-  color: "fg.muted",
-  display: "grid",
-  placeItems: "center",
-  fontWeight: "semibold",
-  fontSize: "lg",
 });
 const company = css({
   fontSize: "md",
@@ -87,6 +78,14 @@ export function ExperienceSection(props: {
       id: a.id,
       patch: { status: "ended" },
     });
+  const knownNote = (orgId: string) => {
+    const n = new Set(
+      props.colleagues
+        .filter((c) => c.other.organization.id === orgId)
+        .map((c) => c.person.id),
+    ).size;
+    return n ? `${n} other ${n === 1 ? "person" : "people"} you know worked here` : null;
+  };
   const colleaguesOf = (ids: string[]) =>
     props.colleagues.filter((c) => ids.includes(c.affiliationId));
 
@@ -132,12 +131,12 @@ export function ExperienceSection(props: {
           const many = g.roles.length > 1;
           return (
             <div class={group} data-experience-group={org.name}>
-              <div class={tile} aria-hidden="true">
-                {org.name.trim()[0]?.toUpperCase() ?? "?"}
-              </div>
+              <OrgMark org={org} size={44} />
               <div>
                 <div class={company}>
-                  <A href={`/people/organizations/${org.id}`}>{org.name}</A>
+                  <OrgHoverLink org={org} note={knownNote(org.id)}>
+                    {org.name}
+                  </OrgHoverLink>
                   <Show when={many && groupSpan(g.roles)}>
                     {(text) => <span class={span}>{text()}</span>}
                   </Show>
@@ -173,7 +172,7 @@ export function ExperienceSection(props: {
                   </For>
                 </div>
                 <For each={colleaguesOf(g.roles.map((r) => r.id))}>
-                  {(c) => <OverlapRow colleague={c} />}
+                  {(c) => <OverlapRow colleague={c} personId={props.personId} />}
                 </For>
               </div>
             </div>

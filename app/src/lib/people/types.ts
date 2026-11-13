@@ -90,9 +90,18 @@ export type Contact = {
   value: string;
 };
 
+/** Enough of an organization to show its mark, link, and hover card. */
+export type OrgRef = {
+  id: string;
+  name: string;
+  kind: string | null;
+  url: string | null;
+  summary: string | null;
+};
+
 export type Affiliation = {
   id: string;
-  organization: { id: string; name: string; kind: string | null };
+  organization: OrgRef;
   kind: AffiliationKind;
   status: RoleStatus;
   role: string | null;
