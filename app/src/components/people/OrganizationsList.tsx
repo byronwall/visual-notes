@@ -12,7 +12,7 @@ const grid = css({
   display: "grid",
   gridTemplateColumns: {
     base: "minmax(0, 1fr) auto",
-    md: "minmax(10rem, 1.2fr) 8rem minmax(0, 1.6fr) 9rem",
+    md: "minmax(10rem, 1.2fr) 8rem minmax(0, 1.6fr) 11rem",
   },
   columnGap: "4",
   alignItems: "center",
@@ -51,6 +51,17 @@ const right = css({
   textAlign: "right",
   whiteSpace: "nowrap",
 });
+/** "4 people · 2 current", or "No one yet". Details are on the page. */
+const peopleCount = (o: {
+  currentMembers: number;
+  pastMembers: number;
+  unknownMembers: number;
+}) => {
+  const total = o.currentMembers + o.pastMembers + o.unknownMembers;
+  if (!total) return "No one yet";
+  const people = `${total} ${total === 1 ? "person" : "people"}`;
+  return o.currentMembers ? `${people} · ${o.currentMembers} current` : people;
+};
 const empty = css({
   p: "4",
   borderRadius: "l3",
@@ -132,17 +143,9 @@ export function OrganizationsList() {
                     <OrgMark org={o} size={24} />
                     <span class={css({ truncate: true })}>{o.name}</span>
                   </A>
-                  <span class={`${muted} ${hideNarrow}`}>{o.kind ?? "—"}</span>
-                  <span class={`${muted} ${hideNarrow}`}>
-                    {o.summary ?? "—"}
-                  </span>
-                  <span class={right}>
-                    {o.currentMembers} current
-                    {o.pastMembers ? ` · ${o.pastMembers} past` : ""}
-                    {o.unknownMembers
-                      ? ` · ${o.unknownMembers} status unknown`
-                      : ""}
-                  </span>
+                  <span class={`${muted} ${hideNarrow}`}>{o.kind}</span>
+                  <span class={`${muted} ${hideNarrow}`}>{o.summary}</span>
+                  <span class={right}>{peopleCount(o)}</span>
                 </div>
               )}
             </For>

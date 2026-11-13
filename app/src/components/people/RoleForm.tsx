@@ -242,8 +242,8 @@ export function RoleForm(props: {
         />
       </HStack>
       <span class={rowMeta}>
-        Dates are optional. Enter only what you know: a year or month is fine.
-        Use Ended with no end date when you know it ended but not when.
+        Enter only what you know. A year or month is fine, and Ended needs no
+        end date.
       </span>
       <Show when={message()}>
         <span class={errorText} role="alert">

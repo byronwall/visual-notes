@@ -81,7 +81,8 @@ const actions = css({
     bg: "bg.default",
   },
 });
-const muted = css({ "& > *:not([data-row-actions])": { opacity: 0.75 } });
+// An unverified listing reads quieter; its source and actions stay full.
+const muted = css({ "& > :is(div:first-child, div:nth-child(2))": { opacity: 0.75 } });
 
 /** One role: title, honest period, place, what they did, and its source. */
 export function ExperienceRole(props: {
