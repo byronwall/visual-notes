@@ -372,6 +372,8 @@ async function possibleLeads(fromId: string, toId: string) {
     target.map(toAffiliation),
     toId,
     near,
+    // Shared schools and churches are leads too, not only employers.
+    ["employment", "membership"],
   );
   return colleagues.map((c) => {
     const targetRole = target.find((t) => t.id === c.affiliationId)!;

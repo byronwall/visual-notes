@@ -260,7 +260,7 @@ export function NetworkView() {
               </Show>
               <Show when={r().leads.length}>
                 <div class={label} style={{ "margin-top": "0.5rem" }}>
-                  Possible leads (shared employers, not known connections)
+                  Possible leads (shared organizations, not known connections)
                 </div>
                 <For each={r().leads}>
                   {(l) => (

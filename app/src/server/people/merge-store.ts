@@ -181,7 +181,7 @@ export async function mergePeople(input: {
     for (const r of b.affiliations) {
       // The same role only when the dates match too: "Engineer, Acme"
       // 2020–2022 and "Engineer, Acme" since 2025 are two roles.
-      const same = a.affiliations.some(
+      const same = a.affiliations.find(
         (x) =>
           x.organizationId === r.organizationId &&
           x.kind === r.kind &&
@@ -189,8 +189,16 @@ export async function mergePeople(input: {
           (x.startOn ?? "") === (r.startOn ?? "") &&
           (x.endOn ?? "") === (r.endOn ?? ""),
       );
-      if (same) await tx.personAffiliation.delete({ where: { id: r.id } });
-      else {
+      if (same) {
+        await tx.personAffiliation.delete({ where: { id: r.id } });
+        // Keep the import key so a repeat import finds the kept role.
+        if (r.sourceKey && !same.sourceKey) {
+          await tx.personAffiliation.update({
+            where: { id: same.id },
+            data: { sourceKey: r.sourceKey },
+          });
+        }
+      } else {
         await tx.personAffiliation.update({
           where: { id: r.id },
           data: { personId: a.id },

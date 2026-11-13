@@ -7,6 +7,7 @@ import {
   compareRoles,
   periodProblem,
   startKey,
+  type AffiliationKind,
   type OverlapKind,
   type RoleStatus,
 } from "~/lib/people/career-periods";
@@ -47,7 +48,7 @@ export const toAffiliation = (a: AffiliationRow): Affiliation => ({
   endOn: a.endOn,
   endApprox: a.endApprox,
   observedOn: dbToDayOrNull(a.observedOn),
-  recordedOn: dbToDay(a.updatedAt),
+  recordedOn: dbToDay(a.createdAt),
   responsibilities: a.responsibilities,
   location: a.location,
   sourceLabel: a.sourceLabel,
@@ -167,10 +168,8 @@ export async function updateAffiliation(
     throw new PeopleInputError(`Affiliation not found: ${id}`, "not_found");
   }
   const endOn = parsed.endOn === undefined ? current.endOn : parsed.endOn;
-  // Adding an end day to a current role ends it unless a status is given.
-  const status =
-    parsed.status ??
-    (parsed.endOn && current.status === "current" ? "ended" : current.status);
+  // Adding an end day ends the role unless a status is given, as on add.
+  const status = parsed.status ?? (parsed.endOn ? "ended" : current.status);
   check({
     status,
     startOn: parsed.startOn === undefined ? current.startOn : parsed.startOn,
@@ -229,12 +228,13 @@ export async function currentRoles(
     },
     include: AFFILIATION_INCLUDE,
   });
+  const owner = new Map(rows.map((r) => [r.id, r.personId]));
   const ordered = sortAffiliations(rows.map(toAffiliation)).sort(
     (a, b) => Number(a.kind !== "employment") - Number(b.kind !== "employment"),
   );
   for (const a of ordered) {
-    const row = rows.find((r) => r.id === a.id)!;
-    if (!out.has(row.personId)) out.set(row.personId, roleLabel(a));
+    const personId = owner.get(a.id)!;
+    if (!out.has(personId)) out.set(personId, roleLabel(a));
   }
   return out;
 }
@@ -256,13 +256,15 @@ export async function findColleagues(
   excludePersonId: string,
   /** Limit the comparison to these people. */
   onlyPersonIds?: string[],
+  /** Role kinds to compare; jobs by default. */
+  kinds: AffiliationKind[] = ["employment"],
 ): Promise<Colleague[]> {
-  const jobs = roles.filter((r) => r.kind === "employment");
+  const jobs = roles.filter((r) => kinds.includes(r.kind));
   if (onlyPersonIds && !onlyPersonIds.length) return [];
   if (!jobs.length) return [];
   const others = await prisma.personAffiliation.findMany({
     where: {
-      kind: "employment",
+      kind: { in: kinds },
       organizationId: { in: [...new Set(jobs.map((j) => j.organization.id))] },
       personId: onlyPersonIds
         ? { in: onlyPersonIds.filter((id) => id !== excludePersonId) }

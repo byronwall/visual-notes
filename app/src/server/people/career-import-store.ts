@@ -199,11 +199,18 @@ async function writeRow(tx: Db, plan: CareerPlan): Promise<string> {
   let organizationId = plan.organizationId;
   if (!organizationId) {
     const requestKey = `career-org:${lower(r.company)}`;
+    // An archived copy keeps its key; the new one is made without it.
+    const prior = await tx.organization.findUnique({ where: { requestKey } });
     const org =
-      (await tx.organization.findUnique({ where: { requestKey } })) ??
-      (await tx.organization.create({
-        data: { name: r.company, kind: "company", requestKey },
-      }));
+      prior && !prior.archivedAt
+        ? prior
+        : await tx.organization.create({
+            data: {
+              name: r.company,
+              kind: "company",
+              requestKey: prior ? null : requestKey,
+            },
+          });
     organizationId = org.id;
   }
   const fields = {

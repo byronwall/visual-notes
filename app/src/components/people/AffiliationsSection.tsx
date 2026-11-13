@@ -16,13 +16,8 @@ import {
   rowMeta,
   sectionRow,
 } from "./profile-section";
-import {
-  RoleForm,
-  draftOf,
-  emptyDraft,
-  patchOf,
-  type RoleDraft,
-} from "./RoleForm";
+import { RoleForm } from "./RoleForm";
+import { draftOf, emptyDraft, patchOf, type RoleDraft } from "./role-draft";
 
 const statusText = (a: Affiliation) =>
   a.status === "current"

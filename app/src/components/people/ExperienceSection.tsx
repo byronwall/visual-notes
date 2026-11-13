@@ -11,13 +11,8 @@ import {
 import { groupSpan } from "~/lib/people/career-periods";
 import { ExperienceRole } from "./ExperienceRole";
 import { OverlapRow } from "./OverlapRow";
-import {
-  RoleForm,
-  draftOf,
-  emptyDraft,
-  patchOf,
-  type RoleDraft,
-} from "./RoleForm";
+import { RoleForm } from "./RoleForm";
+import { draftOf, emptyDraft, patchOf, type RoleDraft } from "./role-draft";
 
 const group = css({
   display: "grid",
