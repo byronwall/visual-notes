@@ -1,4 +1,4 @@
-import { A, useAction, useSearchParams } from "@solidjs/router";
+import { A, useAction } from "@solidjs/router";
 import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
@@ -25,6 +25,8 @@ const aside = css({
   gap: "4",
   fontSize: "sm",
 });
+// Plain buttons in the details column line up with the labels above them.
+const flush = css({ ml: "-2" });
 const note = css({ fontSize: "xs", color: "fg.subtle", lineHeight: "relaxed" });
 
 /** One organization: what it is, then everyone you know there on one timeline. */
@@ -33,18 +35,18 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
   const [editing, setEditing] = createSignal(false);
   const [linking, setLinking] = createSignal(false);
   const save = useAction(updateOrganizationAction);
-  const [params] = useSearchParams();
-  const focusId = () => (typeof params.focus === "string" ? params.focus : null);
   const people = () => new Set(o().members.map((m) => m.id)).size;
   const facts = () =>
-    [
+    !people()
+      ? "No one you know is recorded here yet."
+      : [
       `${people()} ${people() === 1 ? "person" : "people"} you know`,
       o().currentMembers ? `${o().currentMembers} current` : null,
       o().pastMembers ? `${o().pastMembers} past` : null,
-      o().unknownMembers ? `${o().unknownMembers} status unknown` : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+          o().unknownMembers ? `${o().unknownMembers} status unknown` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
   return (
     <div class={layout}>
@@ -69,7 +71,7 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
           when={o().members.length}
           fallback={<p class={muted}>No one recorded here yet.</p>}
         >
-          <CompanyTimeline members={o().members} focusId={focusId()} />
+          <CompanyTimeline members={o().members} />
         </Show>
       </div>
       <aside class={aside}>
@@ -79,16 +81,29 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
             {o().kind}
           </div>
         </Show>
-        <Show when={o().url}>
-          {(url) => (
-            <div>
-              <div class={small}>Website</div>
+        <div>
+          <div class={small}>Website</div>
+          <Show
+            when={o().url}
+            fallback={
+              <Button
+                size="xs"
+                variant="plain"
+                class={flush}
+                title="A website also shows the organization's icon"
+                onClick={() => setEditing(true)}
+              >
+                Add website
+              </Button>
+            }
+          >
+            {(url) => (
               <a href={url()} target="_blank" rel="noreferrer">
                 {siteLabel(url())}
               </a>
-            </div>
-          )}
-        </Show>
+            )}
+          </Show>
+        </div>
         <div>
           <div class={small}>Note</div>
           <Show
@@ -100,6 +115,7 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
                   <Button
                     size="xs"
                     variant="plain"
+                    class={flush}
                     onClick={() => setLinking(true)}
                   >
                     Link a note
