@@ -1,0 +1,18 @@
+[
+  {
+    "title": "People: personal relationship memory",
+    "slug": "people",
+    "outcome": "completed",
+    "retired_at": "2026-11-12",
+    "summary": "Private relationship memory at /people: profiles, facts, shared encounters, organizations, 20 people_* MCP tools, CSV import with repeat identity and merge, opt-in reconnect queue with on-demand digest, and explicit relationships with a focused network and introduction paths. Inspected at origin/main 1a352210; no uncommitted changes.",
+    "reason": "All five milestones merged in stack #330, #339, #341-#345 on 2026-11-12.",
+    "documentation": ["app/docs/people.md", "app/docs/mcp-connector.md"],
+    "revision": "1a352210",
+    "follow_ups": [
+      "Review real reconnect suggestions before any bulk or default cadence.",
+      "Scheduled digest delivery is not built.",
+      "Agent writes do not refresh open People pages.",
+      "No live OAuth round trip against People tools yet."
+    ]
+  }
+]
