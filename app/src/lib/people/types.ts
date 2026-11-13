@@ -1,4 +1,9 @@
 import type { ContactKind } from "./contacts";
+import type {
+  AffiliationKind,
+  Overlap,
+  RoleStatus,
+} from "./career-periods";
 
 // Shared People types and labels, used by the store, server functions, UI,
 // and MCP tools alike.
@@ -88,9 +93,32 @@ export type Contact = {
 export type Affiliation = {
   id: string;
   organization: { id: string; name: string; kind: string | null };
+  kind: AffiliationKind;
+  status: RoleStatus;
   role: string | null;
+  /** Partial ISO dates: YYYY, YYYY-MM, or YYYY-MM-DD. */
   startOn: string | null;
+  startApprox: boolean;
   endOn: string | null;
+  endApprox: boolean;
+  observedOn: string | null;
+  /** Day the record was last written; bounds a current claim with no observedOn. */
+  recordedOn: string;
+  responsibilities: string | null;
+  location: string | null;
+  sourceLabel: string | null;
+  sourceUrl: string | null;
+  source: LinkedNote | null;
+  sourceKey: string | null;
+};
+
+/** Someone else with a role at the same organization, compared by dates. */
+export type Colleague = {
+  /** This person's role the comparison used. */
+  affiliationId: string;
+  person: PersonRef;
+  other: Affiliation;
+  overlap: Overlap;
 };
 
 export type LinkedNote = { id: string; title: string; path: string | null };
@@ -104,6 +132,8 @@ export type PersonProfile = PersonSummary & {
   reconnectEveryDays: number | null;
   contacts: Contact[];
   affiliations: Affiliation[];
+  /** Shared employers with dated comparisons; never a relationship. */
+  colleagues: Colleague[];
   notes: LinkedNote[];
   createdAt: string;
   updatedAt: string;
@@ -122,14 +152,14 @@ export type OrganizationSummary = {
   url: string | null;
   currentMembers: number;
   pastMembers: number;
+  /** People whose only roles here have unknown status. */
+  unknownMembers: number;
   archivedAt: string | null;
 };
 
 export type OrganizationMember = PersonRef & {
   affiliationId: string;
-  role: string | null;
-  startOn: string | null;
-  endOn: string | null;
+  affiliation: Affiliation;
   archived: boolean;
 };
 

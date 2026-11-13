@@ -149,6 +149,29 @@ export async function updatePerson(
 }
 
 /**
+ * Records a stable import key for this person. A key already held by someone
+ * else is refused: two profiles from one source key need a merge, not a guess.
+ */
+async function registerIdentity(
+  personId: string,
+  key: { source: string; externalKey: string },
+  db: Db,
+) {
+  const where = { source_externalKey: key };
+  const prior = await db.personExternalIdentity.findUnique({ where });
+  if (prior && prior.personId !== personId) {
+    throw new PeopleInputError(
+      `${key.source} key ${key.externalKey} already belongs to another person (${prior.personId})`,
+    );
+  }
+  await db.personExternalIdentity.upsert({
+    where,
+    create: { personId, ...key },
+    update: { lastImportedAt: new Date() },
+  });
+}
+
+/**
  * The agent's profile update: identity fields, custom-field merges, and
  * exact nested contact, role, and note-link changes, all or nothing.
  */
@@ -164,6 +187,7 @@ export async function updatePersonProfile(
     removeCustomFields,
     contacts,
     affiliations,
+    identities,
     notes,
     ...patch
   } = parsed;
@@ -190,6 +214,8 @@ export async function updatePersonProfile(
     for (const aid of affiliations?.remove ?? [])
       await removeAffiliation(aid, tx, id);
     if (affiliations) changed.push("affiliations");
+    for (const key of identities ?? []) await registerIdentity(id, key, tx);
+    if (identities) changed.push("identities");
     for (const docId of notes?.link ?? []) await linkNote(id, docId, tx);
     for (const docId of notes?.unlink ?? []) await unlinkNote(id, docId, tx);
     if (notes) changed.push("notes");

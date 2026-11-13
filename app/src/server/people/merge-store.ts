@@ -181,13 +181,13 @@ export async function mergePeople(input: {
     for (const r of b.affiliations) {
       // The same role only when the dates match too: "Engineer, Acme"
       // 2020–2022 and "Engineer, Acme" since 2025 are two roles.
-      const day = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
       const same = a.affiliations.some(
         (x) =>
           x.organizationId === r.organizationId &&
+          x.kind === r.kind &&
           (x.role ?? "") === (r.role ?? "") &&
-          day(x.startOn) === day(r.startOn) &&
-          day(x.endOn) === day(r.endOn),
+          (x.startOn ?? "") === (r.startOn ?? "") &&
+          (x.endOn ?? "") === (r.endOn ?? ""),
       );
       if (same) await tx.personAffiliation.delete({ where: { id: r.id } });
       else {

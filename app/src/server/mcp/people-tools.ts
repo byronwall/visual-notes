@@ -62,7 +62,10 @@ import {
   profileOut,
   interactionOut,
   factOut,
+  colleagueOut,
+  roleOut,
 } from "./people-format";
+import { findColleagues } from "~/server/people/affiliation-store";
 import { ConnectorError, limitArg } from "./shared";
 import type { ToolRegistrar } from "./tool-registry";
 
@@ -267,12 +270,22 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Get organization",
       description:
-        "One organization: details, linked note, and every member with role, dates, and affiliationId. Shared membership is context, not evidence that members know each other.",
-      input: { id: z.string().min(1) },
+        "One organization: details, linked note, and every member role with kind (employment or membership), status (current, ended, unknown), partial dates, period text, and source. Pass personId to compare that person's employment here with everyone else's: overlap (the stated dates put both there on a shared day), possible (dates too coarse), or unknown (undated). Shared employment is a lead, not evidence that people know each other.",
+      input: {
+        id: z.string().min(1),
+        personId: z
+          .string()
+          .optional()
+          .describe("Compare this person's roles here with the other members'"),
+      },
     },
-    async ({ id }) => {
+    async ({ id, personId }) => {
       const org = await getOrganization(id);
       if (!org) throw new ConnectorError("not_found", `No organization ${id}`);
+      const mine = personId
+        ? org.members.filter((m) => m.id === personId).map((m) => m.affiliation)
+        : [];
+      const overlaps = personId ? await findColleagues(mine, personId) : null;
       return {
         organization: {
           ...organizationOut(ctx, org),
@@ -280,9 +293,15 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
             ? { ...org.note, appUrl: `${ctx.origin}/docs/${org.note.id}` }
             : null,
           members: org.members.map((m) => ({
-            ...m,
+            id: m.id,
+            displayName: m.displayName,
+            archived: m.archived,
             appUrl: `${ctx.origin}/people/${m.id}`,
+            role: roleOut(ctx, m.affiliation),
           })),
+          ...(overlaps
+            ? { overlaps: overlaps.map((c) => colleagueOut(ctx, c)) }
+            : {}),
         },
       };
     },
@@ -382,7 +401,7 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Query relationships",
       description:
-        "A person's explicit relationships (type, label from their side, source, dates), and optionally introduction paths to pathTo: shortest chains of recorded relationships starting at pathFrom (default: the profile marked as the user). Shared organizations come back only as leads, never as path steps. No path means no recorded path, not that an introduction is impossible.",
+        "A person's explicit relationships (type, label from their side, source, dates), and optionally introduction paths to pathTo: shortest chains of recorded relationships starting at pathFrom (default: the profile marked as the user). Shared employers come back only as leads, never as path steps; each lead carries both roles and a dated overlap (overlap, possible, or unknown) with a note explaining it. No path means no recorded path, not that an introduction is impossible.",
       input: {
         personId: z
           .string()
@@ -411,7 +430,15 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
             'Pass pathFrom, or mark the user\'s own profile as "This is me" in the app',
           );
         }
-        out.introductions = await findIntroductionPaths(from, pathTo);
+        const found = await findIntroductionPaths(from, pathTo);
+        out.introductions = {
+          ...found,
+          leads: found.leads.map((l) => ({
+            ...l,
+            personRole: roleOut(ctx, l.personRole),
+            targetRole: roleOut(ctx, l.targetRole),
+          })),
+        };
       }
       if (!personId && !pathTo)
         throw new ConnectorError("invalid", "Pass personId and/or pathTo");
@@ -525,7 +552,7 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Update person",
       description:
-        'Patch a profile. Omitted fields stay; null or "" clears a text field. customFields replaces all custom fields; setCustomFields / removeCustomFields merge. contacts and affiliations take {add, update:[{id,...}], remove:[id]} using ids from people_get; to record that a role ended, update its endOn instead of removing it. notes takes {link, unlink} note ids. archived true/false archives or restores; history is kept. All changes apply together or not at all.',
+        'Patch a profile. Omitted fields stay; null or "" clears a text field. customFields replaces all custom fields; setCustomFields / removeCustomFields merge. contacts and affiliations take {add, update:[{id,...}], remove:[id]} using ids from people_get. A role has kind (employment or membership), status (current, ended, unknown; independent of dates), and startOn/endOn as precise as the source: YYYY, YYYY-MM, or YYYY-MM-DD, with startApprox/endApprox for \"about\". Never pad a month to a day, never mark an undated listing current, and never turn an observation day into a hire or end day: put it in observedOn. Give each role its source (sourceLabel, sourceUrl, sourceDocId) and, for imports, a stable sourceKey: repeating an add with the same sourceKey returns the existing role. To record that a role ended, set status ended (with endOn when known) instead of removing it. identities registers stable import keys [{source, externalKey}] for this person. notes takes {link, unlink} note ids. archived true/false archives or restores; history is kept. All changes apply together or not at all.',
       input: {
         id: personIdArg,
         ...personUpdateSchema.shape,

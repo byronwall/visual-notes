@@ -257,11 +257,12 @@ model Doc {
   place Place?
 
   // People: notes cited as the source of a remembered fact or encounter.
-  sourcedPersonFacts   PersonFact[]
-  sourcedInteractions  Interaction[]
+  sourcedPersonFacts  PersonFact[]
+  sourcedAffiliations PersonAffiliation[]
+  sourcedInteractions Interaction[]
   // A note can be an organization's write-up or linked from profiles.
-  organizations        Organization[]
-  personLinks          PersonDocLink[]
+  organizations       Organization[]
+  personLinks         PersonDocLink[]
 
   @@unique([originalSource, originalContentId])
   @@index([path])
@@ -1514,30 +1515,30 @@ model PathwayTaskLink {
 // Calendar days are stored as `date`, never as fabricated midnight instants.
 
 model Person {
-  id           String    @id @default(cuid())
-  displayName  String
-  aliases      String[]  @default([])
-  summary      String?
-  location     String?
+  id                 String    @id @default(cuid())
+  displayName        String
+  aliases            String[]  @default([])
+  summary            String?
+  location           String?
   /// How Byron knows this person, in their own words.
-  howKnown     String?
+  howKnown           String?
   /// Life settings: work, school, family, church, neighborhood, ...
-  contexts     String[]  @default([])
+  contexts           String[]  @default([])
   /// User-named scalar attributes ({"Birthday": "May 4"}).
-  customFields Json      @default("{}")
+  customFields       Json      @default("{}")
   /// Agent retry key; repeating a create with it returns the first record.
-  requestKey   String?   @unique
-  archivedAt   DateTime?
+  requestKey         String?   @unique
+  archivedAt         DateTime?
   /// Set when this profile was merged into another; it stays archived.
-  mergedIntoId String?
+  mergedIntoId       String?
   /// The user's own profile; introduction paths start here by default.
   isSelf             Boolean   @default(false)
   /// Opt-in: suggest reconnecting this many days after the last contact.
   reconnectEveryDays Int?
   /// The day the cadence was set; counts as the start when there is no contact.
   reconnectSince     DateTime? @db.Date
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   facts          PersonFact[]
   participations InteractionParticipant[]
@@ -1546,8 +1547,8 @@ model Person {
   docLinks       PersonDocLink[]
   identities     PersonExternalIdentity[]
   reconnects     PeopleReconnect[]
-  relationsFrom  PersonRelationship[] @relation("RelationshipFrom")
-  relationsTo    PersonRelationship[] @relation("RelationshipTo")
+  relationsFrom  PersonRelationship[]     @relation("RelationshipFrom")
+  relationsTo    PersonRelationship[]     @relation("RelationshipTo")
 
   @@index([displayName])
   @@index([archivedAt])
@@ -1671,20 +1672,48 @@ model Organization {
   @@index([name])
 }
 
+enum AffiliationKind {
+  employment
+  membership
+}
+
+enum AffiliationStatus {
+  current
+  ended
+  unknown
+}
+
 /// One role at one organization. A person can hold several, past and current.
+/// Employment is a kind, not an organization type: a university can employ
+/// someone and also count them as a member.
 model PersonAffiliation {
-  id             String    @id @default(cuid())
-  personId       String
-  organizationId String
-  role           String?
-  startOn        DateTime? @db.Date
-  /// Set when the role ended; null means current.
-  endOn          DateTime? @db.Date
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String            @id @default(cuid())
+  personId         String
+  organizationId   String
+  kind             AffiliationKind   @default(employment)
+  /// Independent of endOn: an ended role can have an unknown end date.
+  status           AffiliationStatus @default(unknown)
+  role             String?
+  /// Partial ISO date: YYYY, YYYY-MM, or YYYY-MM-DD. Never padded.
+  startOn          String?
+  startApprox      Boolean           @default(false)
+  endOn            String?
+  endApprox        Boolean           @default(false)
+  /// The day a source last showed this role; a current claim holds that far.
+  observedOn       DateTime?         @db.Date
+  responsibilities String?
+  location         String?
+  sourceLabel      String?
+  sourceUrl        String?
+  sourceDocId      String?
+  /// Stable key from an import source, e.g. "career-collection:<rowId>".
+  sourceKey        String?           @unique
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceDoc    Doc?         @relation(fields: [sourceDocId], references: [id], onDelete: SetNull)
 
   @@index([personId])
   @@index([organizationId])
@@ -1741,16 +1770,16 @@ model PeopleImport {
 
 /// Persisted per-row result, so a partial apply can resume.
 model PeopleImportRow {
-  id        String       @id @default(cuid())
+  id        String   @id @default(cuid())
   importId  String
   rowIndex  Int
   /// pending, applied, failed, skipped
-  status    String       @default("pending")
+  status    String   @default("pending")
   /// create, update, unchanged, conflict, candidates, invalid
   outcome   String?
   personId  String?
   message   String?
-  updatedAt DateTime     @updatedAt
+  updatedAt DateTime @updatedAt
 
   import PeopleImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 

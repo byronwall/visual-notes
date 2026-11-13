@@ -10,6 +10,11 @@ import {
   type RelationshipKind,
 } from "~/lib/people/relationships";
 import { prisma } from "~/server/db";
+import {
+  AFFILIATION_INCLUDE,
+  findColleagues,
+  toAffiliation,
+} from "./affiliation-store";
 import { PeopleInputError } from "./errors";
 
 export type RelationshipView = {
@@ -347,7 +352,11 @@ export async function findIntroductionPaths(
   };
 }
 
-/** Organizations the target shares with the start or with its direct connections. */
+/**
+ * Employers the target shares with the start or its direct connections, with
+ * the dated comparison of their best pair of roles. Periods that are apart
+ * are dropped. Each lead is context for an introduction, not a connection.
+ */
 async function possibleLeads(fromId: string, toId: string) {
   const adj = await loadGraph();
   const near = [
@@ -356,24 +365,25 @@ async function possibleLeads(fromId: string, toId: string) {
   ].filter((id) => id !== toId);
   const target = await prisma.personAffiliation.findMany({
     where: { personId: toId },
-    select: { organizationId: true, organization: { select: { name: true } } },
+    include: AFFILIATION_INCLUDE,
   });
   if (!target.length) return [];
-  const shared = await prisma.personAffiliation.findMany({
-    where: {
-      personId: { in: near },
-      organizationId: { in: target.map((t) => t.organizationId) },
-    },
-    include: {
-      person: { select: { id: true, displayName: true } },
-      organization: { select: { id: true, name: true } },
-    },
+  const colleagues = await findColleagues(
+    target.map(toAffiliation),
+    toId,
+    near,
+  );
+  return colleagues.map((c) => {
+    const targetRole = target.find((t) => t.id === c.affiliationId)!;
+    return {
+      person: c.person,
+      organization: { id: c.other.organization.id, name: c.other.organization.name },
+      personRole: c.other,
+      targetRole: toAffiliation(targetRole),
+      overlap: c.overlap,
+      note: `${c.person.displayName} and the target share ${c.other.organization.name}. ${c.overlap.note} This is a lead, not a known connection.`,
+    };
   });
-  return shared.map((s) => ({
-    person: s.person,
-    organization: s.organization,
-    note: `${s.person.displayName} and the target share ${s.organization.name}. This is a lead, not a known connection.`,
-  }));
 }
 
 /** Marks one profile as "me"; only one profile holds it. */

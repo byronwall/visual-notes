@@ -2,12 +2,20 @@
 // every write through these, so the UI and agents follow one set of rules.
 import { z } from "zod";
 import { isRealDay } from "./dates";
+import {
+  AFFILIATION_KINDS,
+  ROLE_STATUSES,
+  isPartialDate,
+} from "./career-periods";
 import { CONTACT_KINDS } from "./contacts";
 import { CONTACT_WINDOWS, INTERACTION_KINDS } from "./types";
 
 const day = z
   .string()
   .refine(isRealDay, "Use a real calendar day as YYYY-MM-DD");
+const partialDate = z
+  .string()
+  .refine(isPartialDate, "Use YYYY, YYYY-MM, or YYYY-MM-DD");
 const text = (max: number) => z.string().trim().min(1).max(max);
 /** Omit to leave a field alone; null or "" clears it. */
 const optionalText = (max: number) => z.string().max(max).nullable().optional();
@@ -119,10 +127,23 @@ export type ContactPatch = z.infer<typeof contactPatchSchema>;
 
 export const affiliationInputSchema = z.object({
   organizationId: id,
+  /** employment (a job) or membership (school, church, team). Default employment. */
+  kind: z.enum(AFFILIATION_KINDS).optional(),
+  /** current, ended, or unknown; independent of endOn. Default unknown. */
+  status: z.enum(ROLE_STATUSES).optional(),
   role: optionalText(200),
-  startOn: day.nullable().optional(),
-  /** Set to record that the role ended; null means current. */
-  endOn: day.nullable().optional(),
+  /** As precise as the source: YYYY, YYYY-MM, or YYYY-MM-DD. */
+  startOn: partialDate.nullable().optional(),
+  startApprox: z.boolean().optional(),
+  endOn: partialDate.nullable().optional(),
+  endApprox: z.boolean().optional(),
+  /** The day the source last showed this role; not a hire or departure day. */
+  observedOn: day.nullable().optional(),
+  responsibilities: optionalText(2000),
+  location: optionalText(200),
+  ...sourceSchema,
+  /** Stable source key (e.g. "linkedin:<profile>:<n>"); a repeat returns the same role. */
+  sourceKey: z.string().trim().min(1).max(300).nullable().optional(),
 });
 export type AffiliationInput = z.infer<typeof affiliationInputSchema>;
 export const affiliationPatchSchema = affiliationInputSchema
@@ -170,6 +191,16 @@ export const personUpdateSchema = personPatchSchema.extend({
     affiliationInputSchema,
     affiliationPatchSchema.extend({ id }),
   ),
+  /** Registers stable import keys (source namespace + key) for this person. */
+  identities: z
+    .array(
+      z.object({
+        source: z.string().trim().min(1).max(80),
+        externalKey: z.string().trim().min(1).max(500),
+      }),
+    )
+    .max(20)
+    .optional(),
   notes: z
     .object({
       link: z.array(id).max(50).optional(),

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { isRealDay } from "~/lib/people/dates";
+import { formatPeriod } from "~/lib/people/career-periods";
 import type {
+  Affiliation,
+  Colleague,
   Fact,
   InteractionView,
   OrganizationSummary,
@@ -81,16 +84,8 @@ export const profileOut = (ctx: ConnectorContext, p: PersonProfile) => ({
   howKnown: p.howKnown,
   customFields: p.customFields,
   contacts: p.contacts,
-  affiliations: p.affiliations.map((a) => ({
-    id: a.id,
-    organization: {
-      ...a.organization,
-      appUrl: appLink(ctx, `/people/organizations/${a.organization.id}`),
-    },
-    role: a.role,
-    startOn: a.startOn,
-    endOn: a.endOn,
-  })),
+  affiliations: p.affiliations.map((a) => roleOut(ctx, a)),
+  colleagues: p.colleagues.map((c) => colleagueOut(ctx, c)),
   notes: p.notes.map((n) => ({ ...n, appUrl: appLink(ctx, `/docs/${n.id}`) })),
   facts: p.facts.map(factOut),
   interactions: p.interactions.map((i) => interactionOut(ctx, i)),
@@ -109,6 +104,42 @@ export const organizationOut = (
   url: o.url,
   currentMembers: o.currentMembers,
   pastMembers: o.pastMembers,
+  unknownMembers: o.unknownMembers,
   archived: !!o.archivedAt,
   appUrl: appLink(ctx, `/people/organizations/${o.id}`),
+});
+
+/** One role with its stated period, status, and source. */
+export const roleOut = (ctx: ConnectorContext, a: Affiliation) => ({
+  id: a.id,
+  organization: {
+    ...a.organization,
+    appUrl: appLink(ctx, `/people/organizations/${a.organization.id}`),
+  },
+  kind: a.kind,
+  status: a.status,
+  role: a.role,
+  startOn: a.startOn,
+  startApprox: a.startApprox,
+  endOn: a.endOn,
+  endApprox: a.endApprox,
+  /** Readable period, e.g. "Jul 2011 – end unknown"; same text the app shows. */
+  period: formatPeriod(a),
+  observedOn: a.observedOn,
+  responsibilities: a.responsibilities,
+  location: a.location,
+  source: {
+    label: a.sourceLabel,
+    url: a.sourceUrl,
+    noteId: a.source?.id ?? null,
+    key: a.sourceKey,
+  },
+});
+
+/** A shared employer and how the two periods compare; never a relationship. */
+export const colleagueOut = (ctx: ConnectorContext, c: Colleague) => ({
+  person: { ...c.person, appUrl: appLink(ctx, `/people/${c.person.id}`) },
+  affiliationId: c.affiliationId,
+  theirRole: roleOut(ctx, c.other),
+  overlap: c.overlap,
 });

@@ -2,7 +2,7 @@ import { A, useAction } from "@solidjs/router";
 import { For, Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
-import { formatDay, todayLocal } from "~/lib/people/dates";
+import { formatPeriod, statusNote } from "~/lib/people/career-periods";
 import type { OrganizationDetail } from "~/lib/people/types";
 import { updateOrganizationAction } from "~/services/people/people.actions";
 import { searchNotes } from "./LinkedNotesSection";
@@ -50,9 +50,13 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
   const [editing, setEditing] = createSignal(false);
   const [linking, setLinking] = createSignal(false);
   const save = useAction(updateOrganizationAction);
-  const today = todayLocal();
-  const current = () => o().members.filter((m) => !m.endOn || m.endOn >= today);
-  const past = () => o().members.filter((m) => m.endOn && m.endOn < today);
+  const byStatus = (s: string) =>
+    o().members.filter((m) => m.affiliation.status === s);
+  const groups = () => [
+    { title: "Current people", list: byStatus("current") },
+    { title: "Past people", list: byStatus("ended") },
+    { title: "Status unknown", list: byStatus("unknown") },
+  ];
 
   const memberRow = (m: OrganizationDetail["members"][number]) => (
     <div class={member} data-member={m.displayName}>
@@ -61,12 +65,18 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
         <Show when={m.archived}>
           <span class={small}> (archived)</span>
         </Show>
-        <div class={muted}>{m.role ?? "No role recorded"}</div>
+        <div class={muted}>
+          {m.affiliation.role ?? "No role recorded"}
+          <Show when={m.affiliation.kind === "membership"}>
+            <span class={small}> · membership</span>
+          </Show>
+        </div>
       </div>
-      <span class={small}>
-        {[m.startOn && formatDay(m.startOn), m.endOn && formatDay(m.endOn)]
-          .filter(Boolean)
-          .join(" – ")}
+      <span class={small} style={{ "text-align": "right" }}>
+        {formatPeriod(m.affiliation)}
+        <Show when={statusNote(m.affiliation)}>
+          {(n) => <div>{n()}</div>}
+        </Show>
       </span>
     </div>
   );
@@ -74,19 +84,22 @@ export function OrganizationView(props: { organization: OrganizationDetail }) {
   return (
     <div class={layout}>
       <div>
-        <h2 class={sectionHead}>Current people ({current().length})</h2>
-        <Show
-          when={current().length}
-          fallback={<p class={muted}>No current members.</p>}
-        >
-          <For each={current()}>{memberRow}</For>
+        <Show when={!o().members.length}>
+          <p class={muted}>No one recorded here yet.</p>
         </Show>
-        <Show when={past().length}>
-          <h2 class={sectionHead} style={{ "margin-top": "1.5rem" }}>
-            Past people ({past().length})
-          </h2>
-          <For each={past()}>{memberRow}</For>
-        </Show>
+        <For each={groups().filter((g) => g.list.length)}>
+          {(g, i) => (
+            <>
+              <h2
+                class={sectionHead}
+                style={{ "margin-top": i() ? "1.5rem" : undefined }}
+              >
+                {g.title} ({g.list.length})
+              </h2>
+              <For each={g.list}>{memberRow}</For>
+            </>
+          )}
+        </For>
       </div>
       <aside class={aside}>
         <Show when={o().summary}>
