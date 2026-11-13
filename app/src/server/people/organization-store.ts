@@ -60,6 +60,7 @@ const toSummary = (o: OrgRow): OrganizationSummary => {
     currentMembers: currentIds.size,
     pastMembers: pastIds.size,
     unknownMembers: unknownIds.size,
+    icon: o.iconType ? "found" : o.iconCheckedAt ? "none" : "unchecked",
     archivedAt: o.archivedAt?.toISOString() ?? null,
   };
 };
@@ -73,14 +74,27 @@ async function requireDoc(id: string | null | undefined) {
   if (!doc) throw new PeopleInputError(`Note not found: ${id}`, "not_found");
 }
 
+export const ORG_GAPS = ["url", "summary", "icon"] as const;
+export type OrgGap = (typeof ORG_GAPS)[number];
+
 export async function listOrganizations(
-  input: { search?: string; archived?: boolean; limit?: number } = {},
+  input: {
+    search?: string;
+    archived?: boolean;
+    limit?: number;
+    /** Only organizations missing all of these, e.g. ["url"] to fill websites. */
+    missing?: OrgGap[];
+  } = {},
 ): Promise<OrganizationSummary[]> {
   const q = input.search?.trim();
+  const gaps = new Set(input.missing ?? []);
   const rows = await prisma.organization.findMany({
     where: {
       archivedAt: input.archived ? { not: null } : null,
       ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+      ...(gaps.has("url") ? { url: null } : {}),
+      ...(gaps.has("summary") ? { summary: null } : {}),
+      ...(gaps.has("icon") ? { iconType: null } : {}),
     },
     include: ORG_INCLUDE,
         omit: { iconData: true },

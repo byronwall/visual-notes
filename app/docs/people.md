@@ -41,6 +41,8 @@ The profile leads with Experience: jobs newest start first, grouped by employer,
 
 Organizations carry a short `summary` and a `url`. `/api/org-icons/<id>` fetches the icon from that site once through `fetchPublicFile` (public addresses only, raster images only), stores it on the row, and retries a miss after a week. A changed url clears it. Without an icon the mark is a tinted monogram. Company pages put everyone on one year axis (`CompanyTimeline`); `?focus=<personId>` shades that person's tenure, which is where the profile's overlap pills link.
 
+To fill icons in bulk, ask an agent: "Find People organizations without a website, look up each one's official site and a one-sentence description, and fill them in." It calls `people_query_organizations` with `missing: ["url"]`, then `people_update_organizations` in batches of up to 50. Each new url fetches the icon at once and reports `icon: found` or `none`. For a `none`, the agent can pass `iconUrl` with a direct image. `missing: ["icon"]` lists what is still without one.
+
 The seed adds a fixed fixture, "Dana Whitfield", with a promotion, a return, an ended role without an end day, an undated listing, university work beside a school membership, and two colleagues.
 
 ## Code

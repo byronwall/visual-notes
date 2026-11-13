@@ -22,6 +22,7 @@ import {
   updateInteraction,
 } from "~/server/people/memory-store";
 import {
+  ORG_GAPS,
   createOrganization,
   getOrganization,
   listOrganizations,
@@ -66,6 +67,7 @@ import {
   roleOut,
 } from "./people-format";
 import { findColleagues } from "~/server/people/affiliation-store";
+import { refreshOrganizationIcon } from "~/server/people/org-icon";
 import {
   applyCareerImport,
   previewCareerImport,
@@ -88,6 +90,12 @@ export const PEOPLE_INSTRUCTIONS = [
 ].join("\n");
 
 const personIdArg = z.string().min(1).describe("Person id from people_search");
+const iconUrlArg = z
+  .string()
+  .url()
+  .max(2000)
+  .optional()
+  .describe("A direct image url to use as the icon instead of the site's own");
 const requestKeyArg = z
   .string()
   .min(1)
@@ -258,10 +266,15 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Query organizations",
       description:
-        "Companies, schools, churches, and other groups with current and past member counts.",
+        "Companies, schools, churches, and other groups with current and past member counts, website, summary, and icon (found, none, or unchecked). missing [\"url\"] lists the ones without a website, the usual first step before people_update_organizations.",
       input: {
         search: z.string().max(200).optional().describe("Text in the name"),
         archived: z.boolean().optional(),
+        missing: z
+          .array(z.enum(ORG_GAPS))
+          .max(3)
+          .optional()
+          .describe("Only organizations missing all of these"),
         limit: limitArg(200, 50),
       },
     },
@@ -791,19 +804,78 @@ export function registerPeopleTools(tools: ToolRegistrar): void {
     {
       title: "Update organization",
       description:
-        "Patch an organization's name, kind, summary, url, or linked note (noteId; null unlinks). Fill a missing summary or url when a source states them; a new url refreshes the icon. archived true/false archives or restores it. People's roles are changed with people_update.",
+        "Patch an organization's name, kind, summary, url, or linked note (noteId; null unlinks). Fill a missing summary or url when a source states them; a new url (or iconUrl) looks the icon up now and returns icon found or none. archived true/false archives or restores it. People's roles are changed with people_update. For many organizations at once use people_update_organizations.",
       input: {
         id: z.string().min(1),
         ...organizationPatchSchema.omit({ docId: true }).shape,
         noteId: z.string().nullable().optional(),
+        iconUrl: iconUrlArg,
       },
     },
-    async ({ id, noteId, ...patch }) => {
+    async ({ id, noteId, iconUrl, ...patch }) => {
       const { organization, changed } = await updateOrganization(id, {
         ...patch,
         docId: noteId,
       });
-      return { id, changed, organization: organizationOut(ctx, organization) };
+      const icon =
+        iconUrl || changed.includes("url")
+          ? await refreshOrganizationIcon(id, iconUrl)
+          : organization.icon;
+      return {
+        id,
+        changed,
+        icon,
+        organization: { ...organizationOut(ctx, organization), icon },
+      };
+    },
+  );
+
+  tools.write(
+    "people_update_organizations",
+    {
+      title: "Update many organizations",
+      description:
+        "Fill websites, summaries, and kinds for up to 50 organizations at once, e.g. after people_query_organizations with missing [\"url\"]. Each item is applied on its own: one bad id or url does not stop the rest. A new url looks up the organization's icon from that site right away; pass iconUrl (a direct PNG/JPEG/ICO image url) when the site's own icon is missing or wrong. Use each organization's own official site, and write a summary only from a source; never guess. Returns per item what changed and whether an icon was found.",
+      input: {
+        items: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              url: z.string().max(2000).nullable().optional(),
+              summary: z.string().max(4000).nullable().optional(),
+              kind: z.string().max(80).nullable().optional(),
+              iconUrl: iconUrlArg,
+            }),
+          )
+          .min(1)
+          .max(50),
+      },
+    },
+    async ({ items }) => {
+      const results = [];
+      for (const { id, iconUrl, ...patch } of items) {
+        try {
+          const { organization, changed } = await updateOrganization(id, patch);
+          const icon =
+            iconUrl || changed.includes("url")
+              ? await refreshOrganizationIcon(id, iconUrl)
+              : organization.icon;
+          results.push({ id, name: organization.name, ok: true, changed, icon });
+        } catch (err) {
+          results.push({
+            id,
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      const found = results.filter((r) => r.ok && r.icon === "found").length;
+      return {
+        updated: results.filter((r) => r.ok).length,
+        failed: results.filter((r) => !r.ok).length,
+        iconsFound: found,
+        results,
+      };
     },
   );
 }

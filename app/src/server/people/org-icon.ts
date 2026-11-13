@@ -47,24 +47,60 @@ async function findIcon(
   }
   candidates.push(new URL("/favicon.ico", base).toString());
   for (const url of candidates.slice(0, 4)) {
-    try {
-      const file = await fetchPublicFile(url, {
-        maxBytes: MAX_ICON_BYTES,
-        timeoutMs: 5_000,
-      });
-      const type = file.contentType.split(";")[0].trim().toLowerCase();
-      // Raster only: an SVG from another site could carry script.
-      if (
-        type.startsWith("image/") &&
-        type !== "image/svg+xml" &&
-        file.buffer.length > 0
-      )
-        return { data: file.buffer, type };
-    } catch {
-      // Try the next candidate.
-    }
+    const icon = await fetchImage(url);
+    if (icon) return icon;
   }
   return null;
+}
+
+/** One raster image from a public url, or null. SVG is refused: it could carry script. */
+async function fetchImage(
+  url: string,
+): Promise<{ data: Buffer; type: string } | null> {
+  try {
+    const file = await fetchPublicFile(url, {
+      maxBytes: MAX_ICON_BYTES,
+      timeoutMs: 5_000,
+    });
+    const type = file.contentType.split(";")[0].trim().toLowerCase();
+    if (
+      type.startsWith("image/") &&
+      type !== "image/svg+xml" &&
+      file.buffer.length > 0
+    )
+      return { data: file.buffer, type };
+  } catch (err) {
+    console.debug("[people] icon fetch failed", String(err));
+  }
+  return null;
+}
+
+/**
+ * Looks the icon up again now: from `iconUrl` when given (a direct image,
+ * for sites whose own icon is missing or poor), else from the website.
+ * Returns whether an icon is stored afterwards.
+ */
+export async function refreshOrganizationIcon(
+  id: string,
+  iconUrl?: string | null,
+): Promise<"found" | "none"> {
+  if (iconUrl) {
+    const icon = await fetchImage(iconUrl);
+    await prisma.organization.update({
+      where: { id },
+      data: {
+        iconData: icon ? new Uint8Array(icon.data) : null,
+        iconType: icon?.type ?? null,
+        iconCheckedAt: new Date(),
+      },
+    });
+    return icon ? "found" : "none";
+  }
+  await prisma.organization.update({
+    where: { id },
+    data: { iconData: null, iconType: null, iconCheckedAt: null },
+  });
+  return (await organizationIcon(id)) ? "found" : "none";
 }
 
 // One lookup per organization at a time; parallel first requests share it.

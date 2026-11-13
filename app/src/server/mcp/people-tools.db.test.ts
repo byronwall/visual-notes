@@ -30,6 +30,27 @@ vi.mock("./semantic", () => ({
   semanticSearch: vi.fn(async () => ({ status: "off", hits: [] })),
 }));
 vi.mock("@solidjs/router", () => ({ query: (fn: unknown) => fn }));
+// Organization icons: acme.test serves a page naming a PNG icon; every other
+// site fails, so no test reaches the network.
+vi.mock("~/server/lib/public-fetch", () => ({
+  fetchPublicFile: vi.fn(async (url: string) => {
+    if (url === "https://acme.test/")
+      return {
+        buffer: Buffer.from('<link rel="icon" sizes="64x64" href="/logo.png">'),
+        contentType: "text/html",
+        contentDisposition: "",
+        finalUrl: url,
+      };
+    if (url === "https://acme.test/logo.png" || url === "https://cdn.test/mark.png")
+      return {
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        contentType: "image/png",
+        contentDisposition: "",
+        finalUrl: url,
+      };
+    throw new Error(`offline: ${url}`);
+  }),
+}));
 
 const { createNotesMcpServer } = await import("./tools");
 const { createNote } = await import("./notes-write");
@@ -109,6 +130,7 @@ describe.skipIf(!enabled)("people tools (database)", () => {
       "people_update_followup",
       "people_update_interaction",
       "people_update_organization",
+      "people_update_organizations",
       "people_update_relationship",
     ]);
     for (const t of people) {
@@ -464,6 +486,48 @@ describe.skipIf(!enabled)("people tools (database)", () => {
 
     await prisma().doc.deleteMany({ where: { collectionId: coll.json.id } });
     await prisma().collection.delete({ where: { id: coll.json.id } });
+  });
+
+  it("fills websites and icons for many organizations at once", async () => {
+    const client = await connect();
+    const mk = async (name: string) => {
+      const r = await call(client, "people_create_organization", { name });
+      orgIds.push(r.json.id);
+      return r.json.id as string;
+    };
+    const acme = await mk(`Icon Acme ${tag}`);
+    const beta = await mk(`Icon Beta ${tag}`);
+    const gamma = await mk(`Icon Gamma ${tag}`);
+
+    const missing = await call(client, "people_query_organizations", {
+      search: `Icon `,
+      missing: ["url"],
+    });
+    expect(missing.json.organizations.map((o: Json) => o.id).sort()).toEqual(
+      [acme, beta, gamma].sort(),
+    );
+
+    const bulk = await call(client, "people_update_organizations", {
+      items: [
+        { id: acme, url: "https://acme.test", summary: "Makes anvils." },
+        { id: beta, url: "https://beta.test", iconUrl: "https://cdn.test/mark.png" },
+        { id: gamma, url: "https://gamma.test" },
+        { id: "missing-org", url: "https://x.test" },
+      ],
+    });
+    expect(bulk.json).toMatchObject({ updated: 3, failed: 1, iconsFound: 2 });
+    const byId = Object.fromEntries(bulk.json.results.map((r: Json) => [r.id, r]));
+    expect(byId[acme]).toMatchObject({ ok: true, icon: "found" });
+    expect(byId[beta]).toMatchObject({ ok: true, icon: "found" });
+    expect(byId[gamma]).toMatchObject({ ok: true, icon: "none" });
+    expect(byId["missing-org"].ok).toBe(false);
+
+    // Only the site without an icon is still missing one.
+    const noIcon = await call(client, "people_query_organizations", {
+      search: `Icon `,
+      missing: ["icon"],
+    });
+    expect(noIcon.json.organizations.map((o: Json) => o.id)).toEqual([gamma]);
   });
 
   it("rolls back a cadence change when the rest of the update fails", async () => {
