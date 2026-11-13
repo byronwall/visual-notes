@@ -105,6 +105,7 @@ export const organizationOut = (
   currentMembers: o.currentMembers,
   pastMembers: o.pastMembers,
   unknownMembers: o.unknownMembers,
+  icon: o.icon,
   archived: !!o.archivedAt,
   appUrl: appLink(ctx, `/people/organizations/${o.id}`),
 });

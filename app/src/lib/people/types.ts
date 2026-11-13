@@ -163,6 +163,8 @@ export type OrganizationSummary = {
   pastMembers: number;
   /** People whose only roles here have unknown status. */
   unknownMembers: number;
+  /** found: an icon is stored; none: the website was tried and had none; unchecked: not tried yet (or no website). */
+  icon: "found" | "none" | "unchecked";
   archivedAt: string | null;
 };
 
