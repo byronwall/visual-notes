@@ -67,8 +67,19 @@ async function findIcon(
   return null;
 }
 
+// One lookup per organization at a time; parallel first requests share it.
+const inflight = new Map<string, ReturnType<typeof loadIcon>>();
+
 /** The stored icon, fetching it first when the site was never (or long ago) tried. */
-export async function organizationIcon(
+export function organizationIcon(id: string) {
+  const running = inflight.get(id);
+  if (running) return running;
+  const next = loadIcon(id).finally(() => inflight.delete(id));
+  inflight.set(id, next);
+  return next;
+}
+
+async function loadIcon(
   id: string,
 ): Promise<{ data: Uint8Array; type: string } | null> {
   const org = await prisma.organization.findUnique({

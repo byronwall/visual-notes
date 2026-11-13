@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router";
-import { For, Show } from "solid-js";
+import { For, Show, createMemo } from "solid-js";
 import { css } from "styled-system/css";
 import {
   compareRoles,
@@ -152,7 +152,8 @@ export function CompanyTimeline(props: {
   focusId?: string | null;
 }) {
   const today = todayLocal();
-  const rows = (): Row[] => {
+  // One pass per change: grouping and every overlap comparison are memoized.
+  const rows = createMemo((): Row[] => {
     const byPerson = new Map<string, Row>();
     for (const m of props.members) {
       const r = byPerson.get(m.id) ?? {
@@ -192,18 +193,23 @@ export function CompanyTimeline(props: {
         latest(b).localeCompare(latest(a)) ||
         a.name.localeCompare(b.name),
     );
-  };
+  });
 
-  const range = () => {
+  const range = createMemo(() => {
     const starts = props.members
       .map((m) => m.affiliation.startOn)
       .filter((s): s is string => !!s)
       .map(firstDay);
     if (!starts.length) return null;
     const first = yearOf(starts.sort()[0]);
-    const last = yearOf(today);
+    // A stated end can be later than this year (a contract's last month).
+    const ends = props.members
+      .map((m) => m.affiliation.endOn)
+      .filter((s): s is string => !!s)
+      .map((e) => yearOf(lastDay(e)));
+    const last = Math.max(yearOf(today), ...ends);
     return { from: `${first}-01-01`, to: `${last}-12-31`, first, last };
-  };
+  });
   const pct = (day: string) => {
     const r = range()!;
     const total = dayNumber(r.to) - dayNumber(r.from);
