@@ -9,7 +9,6 @@ import {
   appLink,
   ConnectorError,
   dayArg,
-  isAgentNote,
   limitArg,
   noteAppUrl,
   nothingWritten,
@@ -19,10 +18,9 @@ import {
 import type { ToolRegistrar } from "./tool-registry";
 
 // Task lists and tasks over the connector, through the same store the Tasks
-// page uses. Agents can create, update, and move any task. A task written as
-// a line in a note the user wrote keeps its text there, so only its status,
-// dates, tags, and place can change. Deleting stays with the user; agents
-// mark work cancelled instead.
+// page uses. Agents can create, update, and move any task, including the
+// text of a task line in a note the user wrote. Deleting stays with the
+// user; agents mark work cancelled instead.
 
 export const TASK_INSTRUCTIONS =
   "Tasks live in lists; Inbox also holds the task lines written in notes. tasks_query finds work (open tasks by default; inNotes for note task lines), tasks_create adds it, tasks_update changes status, dates, and tags (cancel instead of deleting), and tasks_move re-parents or files a task in another list. dueDate is a day with no time and no reminder: tell the user 'due October 23', never a time of day.";
@@ -54,8 +52,6 @@ const taskView = (ctx: ConnectorContext, task: store.TaskRow) => ({
         appUrl: noteAppUrl(ctx, task.sourceDocId),
       }
     : null,
-  /** False when the text lives in a note the user wrote. */
-  textEditable: !task.sourceDoc || isAgentNote(task.sourceDoc),
 });
 
 async function resolveList(
@@ -185,7 +181,7 @@ export function registerTaskTools(tools: ToolRegistrar): void {
     {
       title: "Update tasks",
       description:
-        "Change status, description, due date, duration, tags, or meta on up to 50 tasks. Fields you leave out stay as they are; pass null to clear dueDate, durationMinutes, or meta. The description of a task that lives in a note the user wrote can't be changed.",
+        "Change status, description, due date, duration, tags, or meta on up to 50 tasks. Fields you leave out stay as they are; pass null to clear dueDate, durationMinutes, or meta.",
       input: {
         updates: z
           .array(
@@ -216,11 +212,6 @@ export function registerTaskTools(tools: ToolRegistrar): void {
       for (const update of updates) {
         const row = rows.get(update.id);
         if (!row) problems.push(`no task "${update.id}"`);
-        else if (update.description !== undefined && !view(row).textEditable) {
-          problems.push(
-            `task "${update.id}" is a line in "${row.sourceDoc?.title}", which the user wrote; its text can't change`,
-          );
-        }
       }
       if (problems.length)
         throw new ConnectorError("invalid", nothingWritten(problems));

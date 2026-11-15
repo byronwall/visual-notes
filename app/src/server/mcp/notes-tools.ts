@@ -128,7 +128,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     "notes_get",
     {
       title: "Get notes",
-      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id, with a ^id tag on each block for notes_edit_blocks, plus meta, collection values, and embeds. 'editable' says whether you may change the body, title, or path. recordings lists the note's audio with each transcript's title, summary, tasks, and cleaned text by timestamped section. Ids that don't exist come back under missing.`,
+      description: `Full markdown for up to ${MAX_NOTES_PER_GET} notes by id, with a ^id tag on each block for notes_edit_blocks, plus meta, collection values, and embeds. recordings lists the note's audio with each transcript's title, summary, tasks, and cleaned text by timestamped section. Ids that don't exist come back under missing.`,
       input: {
         ids: z.array(z.string().min(1)).min(1).max(MAX_NOTES_PER_GET),
       },
@@ -214,7 +214,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Update note",
       description:
-        "Replace the title, path, and/or full markdown of a note you created. The previous version is kept (notes_list_revisions).",
+        "Replace the title, path, and/or full markdown of a note. On a note the user wrote, prefer notes_edit_blocks. The previous version is kept (notes_list_revisions).",
       input: {
         id: noteIdArg,
         title: z.string().min(1).max(200).optional(),
@@ -231,7 +231,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Append to note",
       description:
-        "Add markdown to the end of a note you created, e.g. a running log. The previous version is kept (notes_list_revisions).",
+        "Add markdown to the end of a note, e.g. a running log. The previous version is kept (notes_list_revisions).",
       input: { id: noteIdArg, markdown: markdownArg },
     },
     (args) => appendToNote(ctx, args),
@@ -242,7 +242,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Edit note blocks",
       description:
-        "Change specific blocks of a note you created, by the block ids from notes_get. replace and insert_after take markdown; delete takes only the blockId. Other blocks are left exactly as they are. The previous version is kept (notes_list_revisions).",
+        "Change specific blocks of a note, by the block ids from notes_get. replace and insert_after take markdown; delete takes only the blockId. Other blocks are left exactly as they are. The previous version is kept (notes_list_revisions).",
       input: {
         id: noteIdArg,
         edits: z

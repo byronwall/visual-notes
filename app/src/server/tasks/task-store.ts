@@ -596,7 +596,7 @@ const taskSelect = {
   createdAt: true,
   updatedAt: true,
   list: { select: { name: true } },
-  sourceDoc: { select: { title: true, originalSource: true } },
+  sourceDoc: { select: { title: true } },
 } as const;
 
 export type TaskRow = Prisma.TaskItemGetPayload<{ select: typeof taskSelect }>;
