@@ -14,5 +14,18 @@
       "Agent writes do not refresh open People pages.",
       "No live OAuth round trip against People tools yet."
     ]
+  },
+  {
+    "title": "Collections (Notion-style databases)",
+    "slug": "collections",
+    "outcome": "completed",
+    "retired_at": "2026-11-15",
+    "summary": "Typed collections whose rows are notes, with table, board, gallery and calendar views on /collections/:id and as editable /collection embeds in notes. Values live on Doc.properties; existing notes come in with meta mapping; collections_* MCP tools. Rows stay out of Recent unless a collection opts in. Inspected at origin/main 2afc9bf6; no uncommitted changes.",
+    "reason": "All eight milestones merged in stack #110, #116, #117, #122, #123, #126, #128, #139 and #140 by 2026-10-20.",
+    "documentation": ["app/docs/collections.md", "README.md"],
+    "revision": "2afc9bf6",
+    "follow_ups": [
+      "Relations, rollups, formulas, file properties and charts stay deferred."
+    ]
   }
 ]
