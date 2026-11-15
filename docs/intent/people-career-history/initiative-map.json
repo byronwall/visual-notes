@@ -5,10 +5,10 @@
     "slug": "people-career-history",
     "scale": "capability",
     "current_phase": "plan",
-    "last_updated": "2026-11-11",
+    "last_updated": "2026-11-14",
     "summary": "Recover readable career history and useful historical context from structured records, then explain dated company overlap.",
     "status": "active",
-    "next_action": "Review the documentation PR, then execute milestone1 when implementation is requested."
+    "next_action": "Confirm milestones 2 and 3 against byronwall/visual-notes#348, which shipped more of the plan, then retire this plan."
   },
   "artifacts": {
     "intent_brief": {
@@ -539,8 +539,10 @@
         "proof": "Focused career-periods tests and browser fixture show current/unknown/ended roles, promotion, return, concurrent roles, and possible boundary-month overlap.",
         "valid_intermediate_state": "Existing application behavior remains intact; the actual component and core comparison run in a local fixture without database configuration.",
         "rollback": "Remove the isolated fixture and unwired component; no data migration has run.",
-        "status": "planned",
-        "evidence": [],
+        "status": "complete",
+        "evidence": [
+          "https://github.com/byronwall/visual-notes/pull/348 (merged 2026-11-13): Experience section, career-periods tests, fixture and 390/1440px screenshots"
+        ],
         "modules": [
           "app/src/lib/people/",
           "app/src/components/people/ExperienceSection.tsx (new)",
@@ -636,6 +638,10 @@
     {
       "date": "2026-11-11",
       "change": "Completed intent reconciliation, canonical shape, and three-milestone proof-first plan. Compared simpler collection-only option. Checked open PRs and isolated documentation PR scope from unrelated checkout edits. Native implementation remains planned."
+    },
+    {
+      "date": "2026-11-14",
+      "change": "Marked milestone 1 complete. byronwall/visual-notes#348 shipped the Experience view, and its body also claims the persistence, overlap, and import work of milestones 2 and 3. Those milestones stay planned until reviewed."
     }
   ],
   "closure": null,
