@@ -6,7 +6,7 @@ The server is built per request in `server/mcp/tools.ts`, which makes one regist
 
 ## Rules
 
-- **Ownership.** A note belongs to the agent when `Doc.originalSource = "chatgpt"`; user edits don't change that. Agents change the body, title, or path only of their own notes. For a note the user wrote, they create a new note that links to it. `notes_get` reports `editable`. Three exceptions: `notes_attach_file` may add attachment blocks to any note, because it only adds blocks and keeps a revision like every agent edit. `notes_propose_edits` and `notes_annotate` work on any note because they never change its body: the user accepts each proposed edit in the editor, and an annotation is drawn over the text (see [Inbox](#inbox) and [agent-inbox.md](agent-inbox.md)).
+- **Agents can edit any note.** `Doc.originalSource = "chatgpt"` marks a note an agent created, and tools report it as `createdBy: "agent" | "user"`. It does not limit edits. Agents can change the body, title, or path of any note, restore its versions, embed a collection view in it, and change the text of its task lines. The server instructions tell agents to edit a note the user wrote only when the user asked or the edit plainly serves the request, to prefer `notes_edit_blocks`, and to keep the user's wording. Every edit snapshots a `DocRevision` first, so the user can restore the earlier version from the note page. `notes_propose_edits` is for changes the user wants to review first: the user accepts each one in the editor (see [Inbox](#inbox) and [agent-inbox.md](agent-inbox.md)).
 - **Metadata is open.** Task status, dates, and tags, collection values, event decisions, and note `meta` can change on any record, including the user's.
 - **Deleting stays with the user**, and so do leaving research comments (agents resolve them) and layout choices (column widths, manual order, calendar settings). Agents cancel a task or a show, hide research cards (undoably), or remove a note from a collection instead.
 - **Every write is visible.** It logs an `ActionEvent` with `actorType = "chatgpt"` (shown "via <client name>" in the activity timeline), and publishes a live update so open tabs refresh (see [Live updates](#live-updates)).
@@ -30,8 +30,8 @@ Agents get the same answer shapes from every family:
 - **Links**: `appUrl` always opens the record in Visual Notes. `url` is always a web address: a research source, an event's ticket page, an archived page.
 - **Results** are JSON objects. Lists sit under a named key (`{ notes }`, `{ tasks }`, `{ rows }`), never bare. `truncated` says a limit cut the list.
 - **Linked notes** read `{ id, title, appUrl }` wherever they appear (tasks, time blocks, search groups).
-- **Who wrote a note** is `createdBy: "agent" | "user"`; `editable` on `notes_get` says whether the agent may change the body.
-- **Refusals** are `code: message`, with codes `not_found`, `not_owner`, `invalid`, and `duplicate`. A batch refusal starts with `Nothing was written. Fix these and retry:` and lists every problem.
+- **Who wrote a note** is `createdBy: "agent" | "user"`.
+- **Refusals** are `code: message`, with codes `not_found`, `invalid`, and `duplicate`. A batch refusal starts with `Nothing was written. Fix these and retry:` and lists every problem.
 
 ### Notes
 
@@ -40,11 +40,11 @@ Agents get the same answer shapes from every family:
 | `search`            | read  | Keyword search (the app's `searchDocs`) fused with meaning-based matches; each note says `match: keyword`, `semantic`, or `both`. Always returns `{ notes }`; `include: ["research", "tasks", "archive"]` (any subset) adds one group per kind matched by the words (`search-groups.ts`). |
 | `notes_query`       | read  | Newest first; filter by `since`, `path`, `createdBy: "agent" \| "user"`                                                                                                                                                                                                                   |
 | `notes_list_paths`  | read  | Dot-path tree with direct and total counts                                                                                                                                                                                                                                                |
-| `notes_get`         | read  | Up to 10 notes as markdown with block ids, `meta`, `editable`, collection values, and `embeds`; unknown ids under `missing`                                                                                                                                                               |
+| `notes_get`         | read  | Up to 10 notes as markdown with block ids, `meta`, collection values, and `embeds`; unknown ids under `missing`                                                                                                                                                                           |
 | `notes_create`      | write | Any path, new or existing; `idempotencyKey` makes retries safe                                                                                                                                                                                                                            |
-| `notes_update`      | write | Replace title, path, and/or markdown. Agent notes only.                                                                                                                                                                                                                                   |
-| `notes_append`      | write | Add markdown at the end. Agent notes only.                                                                                                                                                                                                                                                |
-| `notes_edit_blocks` | write | `replace`, `insert_after`, or `delete` blocks by id; other blocks stay byte-identical. Agent notes only.                                                                                                                                                                                  |
+| `notes_update`      | write | Replace title, path, and/or markdown.                                                                                                                                                                                                                                                     |
+| `notes_append`      | write | Add markdown at the end.                                                                                                                                                                                                                                                                  |
+| `notes_edit_blocks` | write | `replace`, `insert_after`, or `delete` blocks by id; other blocks stay byte-identical.                                                                                                                                                                                                    |
 
 | `notes_upload_image` | write | Store an image from `file` (a ChatGPT file), `data` (base64 or a data URL), or `url` (downloaded by the server); returns `{ url, src, markdown, mime, bytes, width, height }` to embed with a note write. Changes no note. |
 | `notes_attach_file` | write | Store any file from `files` (ChatGPT files), `data` + `name`, or `url`, and with `noteId` add it to that note (any note) as an attachment card, at the end or after `afterBlockId`. Returns `attached` (`name`, `display`, `mime`, `bytes`, `src`, `url`, `markdown`, `blockId`) and `note`. |
@@ -55,7 +55,7 @@ Each note write snapshots a `DocRevision` first and logs `doc.create` or `doc.up
 
 Agent images are stored like the app's own: content-addressed files in `DOC_IMAGE_STORAGE_DIR`, served from `/api/doc-images/<sha256>.<ext>` (`server/mcp/note-images.ts`, which reuses `persistImageBuffer` from `server/lib/inline-image-migration.ts`).
 
-- **`notes_upload_image`** is the way in. It stores the bytes and returns markdown (`![alt](/api/doc-images/…)`) for `notes_create`, `notes_append`, or `notes_edit_blocks`, so ownership stays with those tools. The same bytes always give the same `src`. It logs no activity event of its own; the note write that embeds the image does.
+- **`notes_upload_image`** is the way in. It stores the bytes and returns markdown (`![alt](/api/doc-images/…)`) for `notes_create`, `notes_append`, or `notes_edit_blocks`, so the note write stays with those tools. The same bytes always give the same `src`. It logs no activity event of its own; the note write that embeds the image does.
 - **Accepted**: PNG, JPEG, GIF, WebP, AVIF, HEIC (also stored as JPEG), and BMP, up to 10 MB, sniffed from the bytes. SVG is refused, because a file served from the app's origin can run script.
 - **Whole files only.** `checkImageIntegrity` (`server/lib/image-integrity.ts`) walks each format's structure: PNG chunks to `IEND`, JPEG segments to the end-of-image marker, RIFF and BMP sizes, ISO-BMFF boxes, the GIF trailer. Bytes cut off part way, such as base64 an agent stopped copying early, are refused with `invalid: … is cut off`, so a broken upload never replaces a good image. The editor's upload route shares the check. Results include `width` and `height` from the header.
 - **`url` uploads** go through `fetchPublicFile` (`server/lib/public-fetch.ts`): http(s) only, at most 3 redirects, 15 s, and every address is checked when the socket connects, so loopback, private, link-local, and metadata addresses are refused even after a redirect or a DNS change.
@@ -94,7 +94,7 @@ What surrounds a note, read from the same views the note page and Tags page use 
 | `notes_get_backlinks`    | read  | Notes linking to a note or its blocks, with the linking text                         |
 | `notes_list_tags`        | read  | Every tag with counts, or with `tag`, the blocks carrying it grouped by note         |
 | `notes_list_revisions`   | read  | Saved versions, newest first, with the reason each was kept                          |
-| `notes_restore_revision` | write | Agent notes only. Snapshots the current version first, like the note page's restore. |
+| `notes_restore_revision` | write | Any note. Snapshots the current version first, like the note page's restore.         |
 | `notes_list_meta_keys`   | read  | Meta field names in use with counts, or with `key`, the values it holds              |
 | `notes_set_meta`         | write | Set or remove flat `meta` fields on up to 50 notes, any owner. Content is untouched. |
 
@@ -130,7 +130,7 @@ Writes log `research.*` events. Leaving comments stays with the user; the board'
 | `tasks_move`                              | write | To another list (with its subtasks), or to a new parent and position                                             |
 | `tasks_create_list` / `tasks_rename_list` | write |                                                                                                                  |
 
-A task that is a line in a note the user wrote (`textEditable: false`) keeps its text; its status, dates, tags, and place can still change. Agents set `cancelled` instead of deleting. A list named by a name several lists share is refused with their ids. Writes log `task.*` and `task_list.*` events. The Tasks page's own edits are not logged.
+Agents can change any task, including the text of a task line in a note the user wrote. Agents set `cancelled` instead of deleting. A list named by a name several lists share is refused with their ids. Writes log `task.*` and `task_list.*` events. The Tasks page's own edits are not logged.
 
 ### Pathways
 
@@ -162,7 +162,7 @@ Rows are notes, so a new row is a note the agent owns. Agents name properties an
 | `collections_add_rows`                                     | write | Up to 50 new rows in one call. All values are checked first; a row whose body is refused is listed under `failed` with its `index`. Rows whose first paragraph repeats get a `notice`. |
 | `collections_set_values`                                   | write | Up to 200 rows, each with its own values; validated before anything is written                                                                                                         |
 | `collections_add_notes` / `collections_remove_notes`       | write | Membership. Moving carries values by name; removing keeps them stored.                                                                                                                 |
-| `collections_create_view`                                  | write | Table, board, gallery, or calendar with filters and sorts. With `hostNoteId` (an agent note), it returns the `{{collection-view:id}}` line to put in that note.                        |
+| `collections_create_view`                                  | write | Table, board, gallery, or calendar with filters and sorts. With `hostNoteId`, it returns the `{{collection-view:id}}` line to put in that note.                                        |
 
 Changing a view, property kinds, and manual order stays with the user. Writes log `collection.*` events. `notes_get` reports a row's `collectionId` next to its values.
 
@@ -255,7 +255,7 @@ The user leaves requests for agents on notes, passages, and tasks, and agents an
 | `inbox_claim`         | write | Takes an open request. One claim wins (a conditional update); a claim lapses after 24 hours with no reply. Refused for a request that is ready or closed                                                                                                                                                                       |
 | `inbox_reply`         | write | Adds a reply to the thread; `ready: true` hands it back for review. Refused once the user closes it                                                                                                                                                                                                                            |
 | `notes_annotate`      | write | A **From AI** annotation on any note: a passage (`blockId` + exact `quote`) or the whole note. `requestId` ties it to a request                                                                                                                                                                                                |
-| `notes_propose_edits` | write | Block edits on any note (same ops as `notes_edit_blocks`), held until the user accepts or rejects each one in the editor. `requestId` ties them to a request                                                                                                                                                                   |
+| `notes_propose_edits` | write | Block edits on any note (same ops as `notes_edit_blocks`) for the user to review, held until the user accepts or rejects each one in the editor. `requestId` ties them to a request                                                                                                                                            |
 
 Writes log `annotation.*` events (shown under Notes in the activity filter) and publish the `inbox` live area.
 
