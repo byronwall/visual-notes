@@ -16,7 +16,10 @@ import {
   revisionSnapshot,
 } from "~/server/notes/note-store";
 import { writeNoteContent } from "~/server/notes/note-write";
-import { materializeTaskRefs } from "~/server/notes/inline-tasks";
+import {
+  materializeTaskRefs,
+  resolveTaskRefs,
+} from "~/server/notes/inline-tasks";
 import {
   collectionViewIds,
   noteLinkTargets,
@@ -269,7 +272,10 @@ async function applyNoteEdit(
         select: { id: true, title: true, path: true },
       });
     }
-    const current = readNoteContent(locked);
+    // Task lines store their text as of the last note save; a rename in
+    // Tasks lives only on the TaskItem. Start from the current text so this
+    // edit does not copy the old text back over the rename.
+    const current = await resolveTaskRefs(readNoteContent(locked));
     const proposed = changes.content(current);
     await assertReferencesExist(proposed.content ?? [], current.content ?? []);
     await describeFileAttachments(
@@ -316,7 +322,9 @@ async function applyNoteEdit(
     ...updated,
     appUrl: noteAppUrl(ctx, doc.id),
     version: await countVersions(doc.id),
-    ...(taskDocs ? await reportNoteTasks(taskDocs.previous, taskDocs.next) : {}),
+    ...(taskDocs
+      ? await reportNoteTasks(taskDocs.previous, taskDocs.next)
+      : {}),
   };
 }
 
