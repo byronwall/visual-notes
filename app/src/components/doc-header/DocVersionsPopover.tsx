@@ -131,7 +131,7 @@ export const DocVersionsPopover: VoidComponent<Props> = (props) => {
             </Text>
             <Show when={info.latest?.savedByChatGpt}>
               <Text fontSize="xs" color="fg.muted">
-                Saved by ChatGPT. ChatGPT can keep editing this note.
+                Saved by ChatGPT.
               </Text>
             </Show>
           </Stack>

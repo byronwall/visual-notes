@@ -52,7 +52,7 @@ The same socket carries `app:changed` events for areas that are not notes: `rese
     node --experimental-strip-types scripts/note-live-smoke.ts
   ```
 
-  Set `NOTE_APPEND_ID=<chatgpt note id>` to append to a note you have open instead of creating one.
+  Set `NOTE_APPEND_ID=<note id>` to append to a note you have open instead of creating one.
 
 - Browser: `tests/e2e/live-note-updates.spec.ts` runs against a production build from the [audit harness](audit-harness.md).
 - In the browser, `<html data-note-live="open">` shows the socket state, and console logs use the `[note-live]` prefix.

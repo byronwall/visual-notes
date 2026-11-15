@@ -87,7 +87,7 @@ await client.connect(
     requestInit: { headers: { Authorization: `Bearer ${bearer}` } },
   }),
 );
-// NOTE_APPEND_ID appends to an existing ChatGPT note instead of creating one,
+// NOTE_APPEND_ID appends to an existing note instead of creating one,
 // which is handy with that note open in a browser tab.
 const appendId = process.env.NOTE_APPEND_ID;
 const result = (await client.callTool(

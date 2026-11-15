@@ -214,7 +214,7 @@ export function registerNoteTools(tools: ToolRegistrar): void {
     {
       title: "Update note",
       description:
-        "Replace the title, path, and/or full markdown of a note. On a note the user wrote, prefer notes_edit_blocks. The previous version is kept (notes_list_revisions).",
+        "Replace the title, path, and/or full markdown of a note. A markdown replace gives every block a new id, which breaks links to its blocks and highlights on it; on a note the user wrote, use notes_edit_blocks instead. The previous version is kept (notes_list_revisions).",
       input: {
         id: noteIdArg,
         title: z.string().min(1).max(200).optional(),
