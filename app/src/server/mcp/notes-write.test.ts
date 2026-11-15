@@ -165,15 +165,18 @@ describe("createNote", () => {
 });
 
 describe("updateNote", () => {
-  it("refuses notes the user wrote", async () => {
+  it("edits notes the user wrote and keeps a revision", async () => {
     db.doc.findUnique.mockResolvedValue({
       ...chatgptNote,
       originalSource: null,
     });
-    await expect(
-      updateNote(ctx, { id: "n1", title: "x" }),
-    ).rejects.toMatchObject({ code: "not_owner" });
-    expect(db.$transaction).not.toHaveBeenCalled();
+    await updateNote(ctx, { id: "n1", title: "x" });
+    expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
+      "chatgpt.update",
+    );
+    expect(db.doc.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { title: "x" } }),
+    );
   });
 
   it("refuses missing notes and empty updates", async () => {
@@ -245,6 +248,34 @@ describe("editNote", () => {
       ],
     },
   };
+
+  it("keeps a task renamed in Tasks when it edits another block", async () => {
+    const taskNote = {
+      ...blockNote,
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "taskRef",
+            attrs: { id: "task0001", taskId: "tk1", status: "open" },
+            content: [{ type: "text", text: "Call the vet" }],
+          },
+          blockNote.content.content[1],
+        ],
+      },
+    };
+    db.doc.findUnique.mockResolvedValue(taskNote);
+    db.$queryRaw.mockResolvedValue([{ ...taskNote, contentVersion: 3 }]);
+    db.taskItem.findMany.mockResolvedValue([
+      { id: "tk1", status: "open", description: "Call the dentist" },
+    ] as never);
+    await editNote(ctx, {
+      id: "n1",
+      edits: [{ op: "replace", blockId: "edit0001", markdown: "new" }],
+    });
+    const blocks = db.doc.update.mock.calls[0][0].data.content.content;
+    expect(blocks[0].content[0].text).toBe("Call the dentist");
+  });
 
   it("replaces one block and leaves the others identical", async () => {
     db.doc.findUnique.mockResolvedValue(blockNote);

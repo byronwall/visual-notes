@@ -39,7 +39,6 @@ import {
 import {
   agentContext,
   ConnectorError,
-  isAgentNote,
   limitArg,
   requireNotes,
 } from "./shared";
@@ -52,7 +51,7 @@ import { createNote } from "./notes-write";
 // as do column widths, row order, and other layout.
 
 export const COLLECTION_INSTRUCTIONS =
-  'Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_add_rows / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note you created, call collections_create_view with hostNoteId and put the returned embed line in the note. Each row body is about that row; shared context goes in one note the rows link to.';
+  'Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_add_rows / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note, call collections_create_view with hostNoteId and put the returned embed line in the note. Each row body is about that row; shared context goes in one note the rows link to.';
 
 const collectionArg = z.string().min(1).describe("Collection id or exact name");
 const valuesArg = z
@@ -660,7 +659,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     {
       title: "Create collection view",
       description:
-        "A saved table, board, gallery, or calendar view with filters and sorts. With hostNoteId (a note you created) it becomes that note's embed: add the returned embed line to the note with notes_edit_blocks or notes_append.",
+        "A saved table, board, gallery, or calendar view with filters and sorts. With hostNoteId it becomes that note's embed: add the returned embed line to the note with notes_edit_blocks or notes_append.",
       input: {
         collection: collectionArg,
         name: z.string().trim().min(1).max(120),
@@ -686,19 +685,13 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
       if (args.hostNoteId) {
         const host = await prisma.doc.findUnique({
           where: { id: args.hostNoteId },
-          select: { originalSource: true },
+          select: { id: true },
         });
         if (!host)
           throw new ConnectorError(
             "not_found",
             `No note "${args.hostNoteId}".`,
           );
-        if (!isAgentNote(host)) {
-          throw new ConnectorError(
-            "not_owner",
-            "You can only embed views in notes you created.",
-          );
-        }
       }
       const config: ViewConfig = {
         ...(args.where?.length

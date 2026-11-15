@@ -16,7 +16,10 @@ import {
   revisionSnapshot,
 } from "~/server/notes/note-store";
 import { writeNoteContent } from "~/server/notes/note-write";
-import { materializeTaskRefs } from "~/server/notes/inline-tasks";
+import {
+  materializeTaskRefs,
+  resolveTaskRefs,
+} from "~/server/notes/inline-tasks";
 import {
   collectionViewIds,
   noteLinkTargets,
@@ -29,7 +32,6 @@ import {
   agentContext,
   CHATGPT_SOURCE,
   ConnectorError,
-  isAgentNote,
   noteAppUrl,
   nothingWritten,
   type ConnectorContext,
@@ -197,7 +199,7 @@ export async function createNote(
   };
 }
 
-const ownedDocSelect = {
+const noteSelect = {
   id: true,
   title: true,
   path: true,
@@ -210,29 +212,18 @@ const ownedDocSelect = {
 async function loadNote(id: string) {
   const doc = await prisma.doc.findUnique({
     where: { id },
-    select: ownedDocSelect,
+    select: noteSelect,
   });
   if (!doc) throw new ConnectorError("not_found", `No note with id ${id}`);
   return doc;
 }
 
-async function loadOwnedNote(id: string) {
-  const doc = await loadNote(id);
-  if (!isAgentNote(doc)) {
-    throw new ConnectorError(
-      "not_owner",
-      "This note was written by the user, so it is read-only for agents. Create a new note that links to it instead.",
-    );
-  }
-  return doc;
-}
-
-type OwnedNote = Awaited<ReturnType<typeof loadNote>>;
+type LoadedNote = Awaited<ReturnType<typeof loadNote>>;
 
 /** Snapshots the current note, then applies the change, in one transaction. */
-async function applyOwnedEdit(
+async function applyNoteEdit(
   ctx: ConnectorContext,
-  doc: OwnedNote,
+  doc: LoadedNote,
   reason:
     | "chatgpt.update"
     | "chatgpt.append"
@@ -281,7 +272,10 @@ async function applyOwnedEdit(
         select: { id: true, title: true, path: true },
       });
     }
-    const current = readNoteContent(locked);
+    // Task lines store their text as of the last note save; a rename in
+    // Tasks lives only on the TaskItem. Start from the current text so this
+    // edit does not copy the old text back over the rename.
+    const current = await resolveTaskRefs(readNoteContent(locked));
     const proposed = changes.content(current);
     await assertReferencesExist(proposed.content ?? [], current.content ?? []);
     await describeFileAttachments(
@@ -328,7 +322,9 @@ async function applyOwnedEdit(
     ...updated,
     appUrl: noteAppUrl(ctx, doc.id),
     version: await countVersions(doc.id),
-    ...(taskDocs ? await reportNoteTasks(taskDocs.previous, taskDocs.next) : {}),
+    ...(taskDocs
+      ? await reportNoteTasks(taskDocs.previous, taskDocs.next)
+      : {}),
   };
 }
 
@@ -352,12 +348,12 @@ export async function updateNote(
       "Nothing to update: pass title, path, or markdown",
     );
   }
-  const doc = await loadOwnedNote(input.id);
+  const doc = await loadNote(input.id);
   const markdown =
     input.markdown === undefined
       ? undefined
       : await storeInlineImages(input.markdown);
-  return applyOwnedEdit(ctx, doc, "chatgpt.update", {
+  return applyNoteEdit(ctx, doc, "chatgpt.update", {
     title,
     path: input.path === undefined ? undefined : normalizeNotePath(input.path),
     content:
@@ -371,9 +367,9 @@ export async function appendToNote(
 ): Promise<WriteResult> {
   if (!input.markdown.trim())
     throw new ConnectorError("invalid", "markdown is required");
-  const doc = await loadOwnedNote(input.id);
+  const doc = await loadNote(input.id);
   const markdown = await storeInlineImages(input.markdown);
-  return applyOwnedEdit(ctx, doc, "chatgpt.append", {
+  return applyNoteEdit(ctx, doc, "chatgpt.append", {
     content: (current) => appendBlocks(current, markdown),
   });
 }
@@ -402,7 +398,7 @@ export async function editNote(
       );
     }
   }
-  const doc = await loadOwnedNote(input.id);
+  const doc = await loadNote(input.id);
   const ops: BlockOp[] = [];
   for (const edit of input.edits) {
     if (edit.op === "delete") {
@@ -416,7 +412,7 @@ export async function editNote(
       blocks: contentFromMarkdown(markdown).content ?? [],
     });
   }
-  return applyOwnedEdit(ctx, doc, "chatgpt.edit", {
+  return applyNoteEdit(ctx, doc, "chatgpt.edit", {
     content: (current) => {
       try {
         return applyBlockOps(current, ops);
@@ -444,9 +440,9 @@ export type AttachResult = WriteResult & {
 const srcOf = (node: NoteNode) => String(node.attrs?.src ?? "");
 
 /**
- * Adds attachment blocks to any note, the user's included: it only adds
- * blocks, never changes what is there, and keeps a revision like every
- * agent edit. A file already in the note is not added twice.
+ * Adds attachment blocks to a note. It only adds blocks, never changes what
+ * is there, and keeps a revision like every agent edit. A file already in
+ * the note is not added twice.
  */
 export async function attachToNote(
   ctx: ConnectorContext,
@@ -458,7 +454,7 @@ export async function attachToNote(
   );
   const blockIds: string[] = [];
   const alreadyAttached: string[] = [];
-  const result = await applyOwnedEdit(ctx, doc, "chatgpt.attach", {
+  const result = await applyNoteEdit(ctx, doc, "chatgpt.attach", {
     content: (current) => {
       const existing = new Map<string, string>();
       for (const node of current.content ?? []) {

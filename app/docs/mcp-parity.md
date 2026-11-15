@@ -4,7 +4,7 @@ Every user-facing server action and query (`= action(` / `= query(` under `src/s
 
 The rules that decide human-only:
 
-- **Ownership.** Agents change the body, title, or path only of notes they created (`originalSource = "chatgpt"`).
+- **Notes are open.** Agents can change the body, title, or path of any note. Every edit keeps a revision the user can restore.
 - **Metadata is open.** Task status and dates, collection values, event decisions, and note `meta` can change on any record.
 - **Deleting stays with the user**, everywhere. Agents cancel (tasks, shows), hide (undoably), or remove from a collection instead.
 - **Comments and layout stay with the user**: leaving research comments, column widths, manual ordering, and calendar settings. Agents resolve comments with `research_resolve_comments`.
@@ -14,29 +14,29 @@ Keep this file current when adding an action or a tool. A new action is either c
 
 ## Notes
 
-| Action / query                                                                                                 | MCP                                                                 | Notes                                                            |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `createDoc`                                                                                                    | `notes_create`                                                      | Any path; `idempotencyKey`                                       |
-| `saveDocContent`                                                                                               | `notes_update`, `notes_append`, `notes_edit_blocks`                 | Agent notes only                                                 |
-| Pasting or dropping an image in the editor                                                                     | `notes_upload_image`, then a note write                             | Stored as a file rather than inline base64                       |
-| Dropping, pasting, or picking (`/file`) any other file in the editor                                           | `notes_attach_file`                                                 | Any note, add-only; ChatGPT passes its files by reference        |
-| Renaming an attachment card                                                                                    | `notes_edit_blocks` (agent notes)                                   | Rewrite the `[name](src)` line                                   |
-| `updateDoc`                                                                                                    | `notes_update` (title, path), `notes_set_meta` (meta)               | Title and path need ownership; meta doesn't                      |
-| `deleteDoc`, `bulkDeleteDocs`, `deleteAllDocs`, `deleteBySource`                                               | human-only                                                          | Deletes                                                          |
-| `bulkUpdateMeta`                                                                                               | `notes_set_meta`                                                    | Up to 50 notes per call                                          |
-| `fetchMetaKeys`, `fetchMetaValues`                                                                             | `notes_list_meta_keys`                                              | Added in layer 6                                                 |
-| `bulkSetSource`                                                                                                | human-only                                                          | Rewrites `originalSource`, which is what ownership is decided by |
-| `processPathRound`, `cleanupTitles`, `cleanupTitlesDryRun`, `scanRelativeImages`                               | human-only                                                          | Bulk maintenance across notes the user wrote                     |
-| `fetchDoc`, `fetchDocPreviews`, `fetchDocs` (both)                                                             | `notes_get`, `notes_query`                                          |                                                                  |
-| `searchDocs`                                                                                                   | `search`                                                            | Same keyword search, fused with meaning-based matches            |
-| `fetchPathStats`, `fetchPathPageData`, `fetchPathSuggestions`, `fetchPathDiscovery`, `fetchRelatedNotesByPath` | `notes_list_paths`, `notes_query` with `path`, `search` with `path` |                                                                  |
-| `fetchSources`                                                                                                 | `notes_query` with `createdBy`                                      | Only the agent/user split matters to agents                      |
-| `fetchDocContentVersion`, `fetchDocsServerNow`                                                                 | n/a                                                                 | Editor and index plumbing for live updates                       |
-| `fetchDocRevisions`                                                                                            | `notes_list_revisions`                                              |                                                                  |
-| `restoreDocRevision`                                                                                           | `notes_restore_revision`                                            | Agent notes only                                                 |
-| `fetchRecentItems`                                                                                             | `notes_query`                                                       |                                                                  |
-| `logRecentView`                                                                                                | human-only                                                          | The user's own viewing history                                   |
-| `fetchJobStatus`                                                                                               | n/a                                                                 | Background job polling for the UI                                |
+| Action / query                                                                                                 | MCP                                                                 | Notes                                                          |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `createDoc`                                                                                                    | `notes_create`                                                      | Any path; `idempotencyKey`                                     |
+| `saveDocContent`                                                                                               | `notes_update`, `notes_append`, `notes_edit_blocks`                 | Any note                                                       |
+| Pasting or dropping an image in the editor                                                                     | `notes_upload_image`, then a note write                             | Stored as a file rather than inline base64                     |
+| Dropping, pasting, or picking (`/file`) any other file in the editor                                           | `notes_attach_file`                                                 | Any note, add-only; ChatGPT passes its files by reference      |
+| Renaming an attachment card                                                                                    | `notes_edit_blocks`                                                 | Rewrite the `[name](src)` line                                 |
+| `updateDoc`                                                                                                    | `notes_update` (title, path), `notes_set_meta` (meta)               | Any note                                                       |
+| `deleteDoc`, `bulkDeleteDocs`, `deleteAllDocs`, `deleteBySource`                                               | human-only                                                          | Deletes                                                        |
+| `bulkUpdateMeta`                                                                                               | `notes_set_meta`                                                    | Up to 50 notes per call                                        |
+| `fetchMetaKeys`, `fetchMetaValues`                                                                             | `notes_list_meta_keys`                                              | Added in layer 6                                               |
+| `bulkSetSource`                                                                                                | human-only                                                          | Rewrites `originalSource`, which records who created each note |
+| `processPathRound`, `cleanupTitles`, `cleanupTitlesDryRun`, `scanRelativeImages`                               | human-only                                                          | Bulk maintenance across notes the user wrote                   |
+| `fetchDoc`, `fetchDocPreviews`, `fetchDocs` (both)                                                             | `notes_get`, `notes_query`                                          |                                                                |
+| `searchDocs`                                                                                                   | `search`                                                            | Same keyword search, fused with meaning-based matches          |
+| `fetchPathStats`, `fetchPathPageData`, `fetchPathSuggestions`, `fetchPathDiscovery`, `fetchRelatedNotesByPath` | `notes_list_paths`, `notes_query` with `path`, `search` with `path` |                                                                |
+| `fetchSources`                                                                                                 | `notes_query` with `createdBy`                                      | Only the agent/user split matters to agents                    |
+| `fetchDocContentVersion`, `fetchDocsServerNow`                                                                 | n/a                                                                 | Editor and index plumbing for live updates                     |
+| `fetchDocRevisions`                                                                                            | `notes_list_revisions`                                              |                                                                |
+| `restoreDocRevision`                                                                                           | `notes_restore_revision`                                            | Any note                                                       |
+| `fetchRecentItems`                                                                                             | `notes_query`                                                       |                                                                |
+| `logRecentView`                                                                                                | human-only                                                          | The user's own viewing history                                 |
+| `fetchJobStatus`                                                                                               | n/a                                                                 | Background job polling for the UI                              |
 
 ## Tags, links, and note tasks
 
@@ -136,24 +136,24 @@ Keep this file current when adding an action or a tool. A new action is either c
 
 ## Collections
 
-| Action / query                                                    | MCP                                                       | Notes                                             |
-| ----------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------- |
-| `fetchCollections`                                                | `collections_list`                                        |                                                   |
-| `fetchCollectionBundle`                                           | `collections_get`, `collections_query`                    |                                                   |
-| `fetchCollectionViewBundle`                                       | `collections_query` with `view`                           |                                                   |
-| `fetchDocCollection`                                              | `notes_get`                                               | Reports `collectionId` and values                 |
-| `fetchNoteSummaries`, `searchNotesForCollection`                  | `search`, `collections_query`                             |                                                   |
-| `createCollection`, `updateCollection`                            | `collections_create`, `collections_update`                | Includes `showRowsInRecent`                       |
-| `createProperty`, `updateProperty`, `createSelectOption`          | `collections_add_property`, `collections_update_property` | Missing options are also created on write         |
-| `createRow`                                                       | `collections_add_row`, `collections_add_rows` (batch)     | A new note the agent owns                         |
-| `setRowProperties`                                                | `collections_set_values`                                  |                                                   |
-| `setRowTitle`                                                     | `notes_update`                                            | Row title is the note title, so ownership applies |
-| `addNotesToCollection`, `moveNoteToCollection`, `previewMoveNote` | `collections_add_notes`                                   | Moving carries values by name                     |
-| `removeNoteFromCollection`, `removeRowsFromCollection`            | `collections_remove_notes`                                | Values are kept                                   |
-| `createView`                                                      | `collections_create_view`                                 | Can host it in an agent note                      |
-| `updateView`, `reorderViews`, `reorderProperties`, `moveRow`      | human-only                                                | Layout; agents create a new view instead          |
-| `changePropertyKind`                                              | human-only                                                | Can drop values that don't convert                |
-| `deleteCollection`, `deleteProperty`, `deleteRows`, `deleteView`  | human-only                                                | Deletes                                           |
+| Action / query                                                    | MCP                                                       | Notes                                     |
+| ----------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------- |
+| `fetchCollections`                                                | `collections_list`                                        |                                           |
+| `fetchCollectionBundle`                                           | `collections_get`, `collections_query`                    |                                           |
+| `fetchCollectionViewBundle`                                       | `collections_query` with `view`                           |                                           |
+| `fetchDocCollection`                                              | `notes_get`                                               | Reports `collectionId` and values         |
+| `fetchNoteSummaries`, `searchNotesForCollection`                  | `search`, `collections_query`                             |                                           |
+| `createCollection`, `updateCollection`                            | `collections_create`, `collections_update`                | Includes `showRowsInRecent`               |
+| `createProperty`, `updateProperty`, `createSelectOption`          | `collections_add_property`, `collections_update_property` | Missing options are also created on write |
+| `createRow`                                                       | `collections_add_row`, `collections_add_rows` (batch)     | A new note the agent owns                 |
+| `setRowProperties`                                                | `collections_set_values`                                  |                                           |
+| `setRowTitle`                                                     | `notes_update`                                            | Row title is the note title               |
+| `addNotesToCollection`, `moveNoteToCollection`, `previewMoveNote` | `collections_add_notes`                                   | Moving carries values by name             |
+| `removeNoteFromCollection`, `removeRowsFromCollection`            | `collections_remove_notes`                                | Values are kept                           |
+| `createView`                                                      | `collections_create_view`                                 | Can host it in any note                   |
+| `updateView`, `reorderViews`, `reorderProperties`, `moveRow`      | human-only                                                | Layout; agents create a new view instead  |
+| `changePropertyKind`                                              | human-only                                                | Can drop values that don't convert        |
+| `deleteCollection`, `deleteProperty`, `deleteRows`, `deleteView`  | human-only                                                | Deletes                                   |
 
 ## Time blocks
 

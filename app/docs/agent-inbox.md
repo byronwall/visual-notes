@@ -48,6 +48,8 @@ A passage is stored as its start block and offset (`blockId`, `quoteStart`), its
 
 ## Suggested edits
 
+Agents propose edits when a request asks for suggestions or a review. Otherwise they change the note directly with `notes_edit_blocks`, which keeps a revision.
+
 `notes_propose_edits` stores ops with the target block's hash (`blockHash`, normalized through the note schema). In the editor, `proposalPlugin.ts` draws each pending op.
 
 - A replace or delete whose block changed shows **Note changed** and cannot be accepted.
@@ -93,6 +95,6 @@ Do this once after deploying, on one test note:
 
 1. Deploy with `AGENT_INBOX` unset or `true`, and with the MCP connector connected in ChatGPT (see [mcp-connector.md](mcp-connector.md#deploying-and-connecting-chatgpt-or-claude)).
 2. Make a test note, and add a **Note to AI** such as "Find two current sources for this".
-3. In ChatGPT, create a scheduled task that runs every few hours: "Check my Visual Notes inbox with inbox_get. Claim each open request, do the work, and reply with what you did (ready: true). Propose edits only when a request asks for a change to a note."
+3. In ChatGPT, create a scheduled task that runs every few hours: "Check my Visual Notes inbox with inbox_get. Claim each open request, do the work, and reply with what you did (ready: true). Make a requested change with notes_edit_blocks; propose edits only when a request asks for suggestions or a review."
 4. After the first run, open the Activity page's **MCP** tab. Look for `inbox_get`, `inbox_claim`, and `inbox_reply` from the ChatGPT client, and check that the request shows **Ready for review** in `/inbox`.
 5. If the run read the inbox but did not write, unattended write approval is the likely cause, or the plan does not allow write tools in scheduled tasks. Record what happened. Any other MCP client that polls on a schedule, such as Claude routines, uses the same tools.

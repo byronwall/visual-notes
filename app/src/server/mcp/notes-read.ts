@@ -12,7 +12,6 @@ import {
 import {
   appLink,
   CHATGPT_SOURCE,
-  isAgentNote,
   parseSince,
   summarySelect,
   toSummary,
@@ -141,7 +140,6 @@ export async function listNotePaths(input: {
 export type FullNote = NoteSummary & {
   markdown: string;
   createdAt: string;
-  editable: boolean;
   /** Free-form fields on the note (notes_set_meta changes them). */
   meta: Record<string, unknown>;
   /** Set when the note is a row in a collection: its typed properties as text. */
@@ -258,7 +256,6 @@ export async function getNotes(
         withIds: true,
       }),
       createdAt: row.createdAt.toISOString(),
-      editable: isAgentNote(row),
       meta: readMeta(row.meta),
       ...(collectionText[id] ? { collection: collectionText[id] } : {}),
       ...embedsField(viewIdsById.get(id) ?? [], views),

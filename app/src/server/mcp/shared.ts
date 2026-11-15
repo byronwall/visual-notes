@@ -29,7 +29,6 @@ export type ConnectorContext = {
 
 export type ConnectorErrorCode =
   | "not_found"
-  | "not_owner"
   | "invalid"
   | "duplicate";
 

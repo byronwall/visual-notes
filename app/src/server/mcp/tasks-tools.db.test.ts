@@ -97,7 +97,6 @@ describe.skipIf(!enabled)("task tools (database)", () => {
     expect(parent.json).toMatchObject({
       list: `Work ${suffix}`,
       dueDate: "2026-10-30",
-      textEditable: true,
     });
     const child = await call(client, "tasks_create", {
       list: work.json.id,
@@ -140,7 +139,7 @@ describe.skipIf(!enabled)("task tools (database)", () => {
     ).toMatchObject({ openCount: 2, totalCount: 2 });
   });
 
-  it("updates status on any task but leaves text in the user's notes alone", async () => {
+  it("updates status and text on a task line in a user note", async () => {
     const client = await connect();
     const userDoc = await prisma().doc.create({
       data: {
@@ -164,18 +163,14 @@ describe.skipIf(!enabled)("task tools (database)", () => {
       select: { id: true },
     });
 
-    const refused = await call(client, "tasks_update", {
-      updates: [{ id: userTask.id, description: "Call the dentist" }],
-    });
-    expect(refused.error).toBe(true);
-    expect(refused.text).toContain("which the user wrote");
-
     const done = await call(client, "tasks_update", {
-      updates: [{ id: userTask.id, status: "complete" }],
+      updates: [
+        { id: userTask.id, status: "complete", description: "Call the dentist" },
+      ],
     });
     expect(done.json.tasks[0]).toMatchObject({
       status: "complete",
-      textEditable: false,
+      description: "Call the dentist",
       note: { id: userDoc.id },
     });
   });
@@ -192,7 +187,6 @@ describe.skipIf(!enabled)("task tools (database)", () => {
       expect.objectContaining({
         description: "Agent line task",
         list: "Inbox",
-        textEditable: true,
       }),
     ]);
     const renamed = await call(client, "tasks_update", {

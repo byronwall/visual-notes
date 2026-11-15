@@ -26,11 +26,11 @@ import {
 import type { ToolRegistrar } from "./tool-registry";
 
 // Annotations, requests, and proposed edits: the agent side of the user's
-// inbox. These tools work on the user's notes because they never change the
-// note body; the user accepts or rejects what they propose.
+// inbox. These tools never change the note body; the user accepts or rejects
+// what they propose.
 
 export const ANNOTATION_INSTRUCTIONS = [
-  "Inbox: the user leaves requests for agents on notes, passages, and tasks. When asked to check the inbox, call inbox_get (pass the last pollSince as since), then for each request: inbox_claim it (skip it if another agent holds it), do the work, and inbox_reply with what you did and ready: true. Answer a question in the reply; put longer output in a note you create and link it. To change a note the user wrote, call notes_propose_edits with the requestId; the user accepts each edit inline. Use notes_annotate to point at a passage. Annotate or propose edits only when the user asked for it. Open research comments come back too; resolve them with research_resolve_comments.",
+  "Inbox: the user leaves requests for agents on notes, passages, and tasks. When asked to check the inbox, call inbox_get (pass the last pollSince as since), then for each request: inbox_claim it (skip it if another agent holds it), do the work, and inbox_reply with what you did and ready: true. Answer a question in the reply; put longer output in a note you create and link it. Make the change the request asks for with notes_edit_blocks. When the request asks for suggestions or a review, call notes_propose_edits with the requestId instead; the user accepts each edit inline. Use notes_annotate to point at a passage. Annotate or propose edits only when the user asked for it. Open research comments come back too; resolve them with research_resolve_comments.",
 ].join(" ");
 
 export function registerAnnotationTools(tools: ToolRegistrar): void {
@@ -141,7 +141,7 @@ export function registerAnnotationTools(tools: ToolRegistrar): void {
     {
       title: "Propose note edits",
       description:
-        "Suggest block edits to any note, the user's included, by the block ids from notes_get. Nothing changes until the user accepts: each edit shows inline in the note with Accept and Reject. replace and insert_after take markdown; delete takes only the blockId. Use this only when the user asked for the change (for example a request to expand or fix a passage). For notes you created, notes_edit_blocks changes them directly.",
+        "Suggest block edits to any note, the user's included, by the block ids from notes_get. Nothing changes until the user accepts: each edit shows inline in the note with Accept and Reject. replace and insert_after take markdown; delete takes only the blockId. Use this when the user asked for suggestions or wants to review a change before it lands. To make a change directly, use notes_edit_blocks.",
       input: {
         id: noteIdArg,
         summary: z

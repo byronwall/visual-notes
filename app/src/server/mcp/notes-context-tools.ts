@@ -19,7 +19,6 @@ import {
   agentContext,
   CHATGPT_SOURCE,
   ConnectorError,
-  isAgentNote,
   noteAppUrl,
   noteIdArg,
   requireNotes,
@@ -33,7 +32,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // tasks_query with inNotes.
 
 export const NOTE_CONTEXT_INSTRUCTIONS =
-  "Around a note: notes_get_backlinks, notes_list_tags, notes_list_revisions / notes_restore_revision (your notes only), and notes_list_meta_keys / notes_set_meta for `meta` fields on any note.";
+  "Around a note: notes_get_backlinks, notes_list_tags, notes_list_revisions / notes_restore_revision, and notes_list_meta_keys / notes_set_meta for `meta` fields on any note.";
 
 const metaValue = z.union([
   z.string().max(4000),
@@ -113,10 +112,9 @@ export function registerNoteContextTools(tools: ToolRegistrar): void {
       input: { id: noteIdArg },
     },
     async ({ id }) => {
-      const doc = await requireNote(id);
+      await requireNote(id);
       return {
         id,
-        editable: isAgentNote(doc),
         revisions: await listNoteRevisions(id),
       };
     },
@@ -127,17 +125,11 @@ export function registerNoteContextTools(tools: ToolRegistrar): void {
     {
       title: "Restore note version",
       description:
-        "Put an earlier version (from notes_list_revisions) back as the title, path, and content of a note you created. The current version is kept first, so a restore can be undone.",
+        "Put an earlier version (from notes_list_revisions) back as the title, path, and content of a note. The current version is kept first, so a restore can be undone.",
       input: { id: noteIdArg, revisionId: z.string().min(1) },
     },
     async ({ id, revisionId }) => {
-      const doc = await requireNote(id);
-      if (!isAgentNote(doc)) {
-        throw new ConnectorError(
-          "not_owner",
-          "This note was written by the user; only they can restore its versions.",
-        );
-      }
+      await requireNote(id);
       const revision = await prisma.docRevision.findUnique({
         where: { id: revisionId },
         select: { docId: true },

@@ -276,14 +276,6 @@ check(
 );
 
 if (humanNoteId) {
-  const refused = await call("notes_update", {
-    id: humanNoteId,
-    title: "hijacked",
-  });
-  check(
-    refused.isError && refused.content[0]?.text?.startsWith("not_owner"),
-    "update of a user note is refused",
-  );
   const attachedToUser = await call("notes_attach_file", {
     data: Buffer.from(`${fixture} attachment\n`).toString("base64"),
     name: `${fixture}.txt`,
