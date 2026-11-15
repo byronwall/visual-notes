@@ -223,7 +223,7 @@ describe.skipIf(!enabled)("collection tools (database)", () => {
     expect(tags.options.map((o: Json) => o.name ?? o)).toEqual(["fresh", "newer"]);
   });
 
-  it("moves notes in and out, and embeds a view in a note it owns", async () => {
+  it("moves notes in and out, and embeds a view in any note", async () => {
     const client = await connect();
     const userNote = await prisma().doc.create({
       data: {
@@ -244,12 +244,12 @@ describe.skipIf(!enabled)("collection tools (database)", () => {
     });
     expect(removed.json).toMatchObject({ removed: 1 });
 
-    const refused = await call(client, "collections_create_view", {
+    const onUserNote = await call(client, "collections_create_view", {
       collection: name,
       name: "Mine",
       hostNoteId: userNote.id,
     });
-    expect(refused.error).toBe(true);
+    expect(onUserNote.error).toBe(false);
 
     const host = await call(client, "notes_create", {
       title: "Reading log",

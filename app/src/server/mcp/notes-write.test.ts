@@ -165,15 +165,18 @@ describe("createNote", () => {
 });
 
 describe("updateNote", () => {
-  it("refuses notes the user wrote", async () => {
+  it("edits notes the user wrote and keeps a revision", async () => {
     db.doc.findUnique.mockResolvedValue({
       ...chatgptNote,
       originalSource: null,
     });
-    await expect(
-      updateNote(ctx, { id: "n1", title: "x" }),
-    ).rejects.toMatchObject({ code: "not_owner" });
-    expect(db.$transaction).not.toHaveBeenCalled();
+    await updateNote(ctx, { id: "n1", title: "x" });
+    expect(db.docRevision.create.mock.calls[0][0].data.reason).toBe(
+      "chatgpt.update",
+    );
+    expect(db.doc.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { title: "x" } }),
+    );
   });
 
   it("refuses missing notes and empty updates", async () => {

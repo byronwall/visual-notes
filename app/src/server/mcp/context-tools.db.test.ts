@@ -150,7 +150,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     ]);
   });
 
-  it("restores versions of agent notes only and sets meta on any note", async () => {
+  it("restores versions and sets meta on any note", async () => {
     const client = await connect();
     const note = await createNote(ctx, {
       title: `Versioned ${suffix}`,
@@ -167,7 +167,6 @@ describe.skipIf(!enabled)("context tools (database)", () => {
       id: note.id,
     });
     expect(versions.json).toMatchObject({
-      editable: true,
       revisions: [{ reason: "chatgpt.update", title: `Versioned ${suffix}` }],
     });
     const restored = await call(client, "notes_restore_revision", {
@@ -197,12 +196,11 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     const userRevision = (
       await call(client, "notes_list_revisions", { id: mine })
     ).json.revisions[0];
-    const refused = await call(client, "notes_restore_revision", {
+    const restoredMine = await call(client, "notes_restore_revision", {
       id: mine,
       revisionId: userRevision.id,
     });
-    expect(refused).toMatchObject({ error: true });
-    expect(refused.text).toContain("not_owner");
+    expect(restoredMine.json).toMatchObject({ title: "old" });
     const crossed = await call(client, "notes_restore_revision", {
       id: note.id,
       revisionId: userRevision.id,
@@ -216,7 +214,7 @@ describe.skipIf(!enabled)("context tools (database)", () => {
     expect(meta.json.notes).toEqual([
       {
         id: mine,
-        title: `Mine ${suffix}`,
+        title: "old",
         meta: { status: "draft", score: 3 },
         appUrl: `https://notes.test/docs/${mine}`,
       },
