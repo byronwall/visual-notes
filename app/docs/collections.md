@@ -46,7 +46,7 @@ Logs use the `[collections]` prefix.
 
 ```sh
 cd app
-pnpm vitest run src/lib/collections src/services/collections
+pnpm test src/lib/collections src/services/collections
 node --experimental-strip-types --env-file=.env scripts/seed-collections.ts   # audit databases only
 pnpm migrate:blocks --apply                                                  # give seeded rows block bodies
 ```
