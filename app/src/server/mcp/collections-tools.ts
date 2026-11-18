@@ -36,13 +36,9 @@ import {
   rowView,
   setRowValues,
 } from "./collections-agent";
-import {
-  agentContext,
-  ConnectorError,
-  limitArg,
-  requireNotes,
-} from "./shared";
+import { agentContext, ConnectorError, limitArg, requireNotes } from "./shared";
 import type { ToolRegistrar } from "./tool-registry";
+import { withEventColumns } from "~/server/calendar/event-columns";
 import { createNote } from "./notes-write";
 
 // Collections over the connector. Rows are notes, so a new row is a note the
@@ -51,7 +47,7 @@ import { createNote } from "./notes-write";
 // as do column widths, row order, and other layout.
 
 export const COLLECTION_INSTRUCTIONS =
-  'Collections are typed tables whose rows are notes. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_add_rows / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note, call collections_create_view with hostNoteId and put the returned embed line in the note. Each row body is about that row; shared context goes in one note the rows link to.';
+  'Collections are typed tables whose rows are notes. A row that happens on a date is an event: create it with events_create (collection, values, shows), never collections_add_row. collections_get shows the schema, collections_query finds rows, and collections_add_row / collections_add_rows / collections_set_values write values as plain text by property and option name ("In progress", "2026-11-01", ["a", "b"]). To show a table in a note, call collections_create_view with hostNoteId and put the returned embed line in the note. Each row body is about that row; shared context goes in one note the rows link to.';
 
 const collectionArg = z.string().min(1).describe("Collection id or exact name");
 const valuesArg = z
@@ -84,6 +80,17 @@ const newRowArg = z.object({
   values: valuesArg.optional(),
   idempotencyKey: z.string().max(200).optional(),
 });
+
+/** How many rows of the collection have an event. */
+const countEventRows = (collectionId: string) =>
+  prisma.event.count({ where: { doc: { collectionId } } });
+
+/** Warns when plain rows land in a collection of events. */
+export function plainRowNotice(eventRows: number, noteIds: string[]) {
+  if (!eventRows || !noteIds.length) return null;
+  const one = noteIds.length === 1;
+  return `${eventRows} rows in this collection are events, but the new ${one ? "row is a plain note" : "rows are plain notes"} with no shows. If ${one ? "it happens" : "they happen"} on a date, call events_add_shows (and events_update for the url, place, and decision) with noteId ${noteIds.join(", ")}, then check with events_get.`;
+}
 
 /** Rows whose bodies open with the same text, as when shared context is pasted into each. */
 const OPENING_CHARS = 160;
@@ -256,12 +263,19 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         }),
         prisma.doc.count({ where: { collectionId: found.id } }),
       ]);
+      const eventRows = await countEventRows(found.id);
       return {
         id: found.id,
         name: found.name,
         description: found.description,
         showRowsInRecent: found.showRowsInRecent,
         rowCount,
+        ...(eventRows
+          ? {
+              eventRows,
+              eventNote: `${eventRows} of ${rowCount} rows are events. Add a new one with events_create (collection, values, shows), not collections_add_row. collections_query shows each row's event; event: null is a plain note.`,
+            }
+          : {}),
         properties: properties.map(describeProperty),
         views: views.map(mapView).map((v) => ({
           id: v.id,
@@ -321,25 +335,31 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
           orderBy: [{ collectionRank: "asc" }, { createdAt: "asc" }],
         })
       ).map(mapRow);
+      // Event columns join the schema here, so agents can filter and sort
+      // by "Next show" or "Decision" and see which rows are events.
+      const columns = [
+        ...properties,
+        ...(await withEventColumns(rows, properties)),
+      ];
       // The view's filter first, then the agent's on top; the agent's sort
       // replaces the view's.
       const today = localToday();
       const inView = applyView(
         rows,
-        properties,
+        columns,
         { filter: viewConfig.filter, search: viewConfig.search },
         today,
       );
       const matched = applyView(
         inView,
-        properties,
+        columns,
         {
           filter: args.where?.length
-            ? buildFilter(properties, args.where)
+            ? buildFilter(columns, args.where)
             : undefined,
           search: args.search,
           sorts: args.sort?.length
-            ? buildSorts(properties, args.sort)
+            ? buildSorts(columns, args.sort)
             : viewConfig.sorts,
         },
         today,
@@ -348,9 +368,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
       return {
         collection: found.name,
         total: matched.length,
-        rows: matched
-          .slice(0, limit)
-          .map((row) => rowView(ctx, row, properties)),
+        rows: matched.slice(0, limit).map((row) => rowView(ctx, row, columns)),
         truncated: matched.length > limit,
       };
     },
@@ -495,7 +513,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     {
       title: "Add collection row",
       description:
-        "Add a row: a new note you own (so you can edit its body later), placed in the collection with these values. Missing option names are created.",
+        "Add a row: a new note you own (so you can edit its body later), placed in the collection with these values. Missing option names are created. The row is a plain note: for anything that happens on a date (meetup, show, class, appointment), use events_create with collection and values instead. A date in the body or in a value does not make it an event.",
       input: { collection: collectionArg, ...newRowArg.shape },
     },
     async ({ collection, ...row }) => {
@@ -506,7 +524,8 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
       const { noteId, placed } = await placeRow(found, row, schema);
       if (placed) changed(found.id);
       const [view] = await rowViews([noteId], schema.properties);
-      return view!;
+      const notice = plainRowNotice(await countEventRows(found.id), [noteId]);
+      return { ...view!, ...(notice ? { notice } : {}) };
     },
   );
 
@@ -514,7 +533,7 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     "collections_add_rows",
     {
       title: "Add collection rows",
-      description: `Add up to ${MAX_NEW_ROWS} rows in one call, each a new note you own with its own title, body, and values. Every row's values are checked before anything is written; a row whose body is refused (say, a link to a missing note) is listed under failed while the others are added. Give each row a body about that row only, and put shared context in one note the rows link to.`,
+      description: `Add up to ${MAX_NEW_ROWS} rows in one call, each a new note you own with its own title, body, and values. Rows are plain notes: for dated items, call events_create with collection and values for each one instead. Every row's values are checked before anything is written; a row whose body is refused (say, a link to a missing note) is listed under failed while the others are added. Give each row a body about that row only, and put shared context in one note the rows link to.`,
       input: {
         collection: collectionArg,
         rows: z.array(newRowArg).min(1).max(MAX_NEW_ROWS),
@@ -550,7 +569,15 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
         added.map((row) => row.noteId),
         schema.properties,
       );
-      const notice = sharedOpeningNotice(rows);
+      const notice = [
+        sharedOpeningNotice(rows),
+        plainRowNotice(
+          await countEventRows(found.id),
+          added.map((row) => row.noteId),
+        ),
+      ]
+        .filter(Boolean)
+        .join(" ");
       return {
         rows: added.map(({ index }, i) => ({ index, ...views[i]! })),
         failed,

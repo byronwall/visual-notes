@@ -38,13 +38,15 @@ const SERVER_INSTRUCTIONS = [
   NOTE_INSTRUCTIONS,
   "Rules: you may edit any note. On a note the user wrote (createdBy: user), edit when the user asked or the edit plainly serves the request; prefer notes_edit_blocks, keep the user's wording and structure, and never empty the note. Every edit keeps a version the user can restore. Metadata (note meta, task status and dates, collection values, event decisions) can change on any record. Deleting is the user's: cancel tasks and shows, hide research cards, or remove notes from a collection instead.",
   "Saving well: before you report a save, check it against what the user asked for. Keep product, source, and buying links, evidence dates, and what is still unverified. Name the one record that holds the current decision; label other copies 'snapshot as of <date>' with a link to it, and when the user changes a premise, update or relabel the records you made. Record confirmed inputs and channel preferences (such as 'online forms, not email') where later turns will read them. Say exactly what happened: request submitted, price shown, quote saved, verified, or waiting on the user.",
+  // Events and collections come early: some clients cut long instructions
+  // short, and agents saved dated items as plain collection rows.
+  EVENT_INSTRUCTIONS,
+  COLLECTION_INSTRUCTIONS,
   NOTE_CONTEXT_INSTRUCTIONS,
   RESEARCH_INSTRUCTIONS,
   TASK_INSTRUCTIONS,
   PATHWAY_INSTRUCTIONS,
-  COLLECTION_INSTRUCTIONS,
   TIME_BLOCK_INSTRUCTIONS,
-  EVENT_INSTRUCTIONS,
   PEOPLE_INSTRUCTIONS,
   ARCHIVE_INSTRUCTIONS,
   ACTIVITY_INSTRUCTIONS,

@@ -16,6 +16,7 @@ import type {
   PropertyValue,
   SortRule,
 } from "~/lib/collections/types";
+import { isEventProperty } from "~/lib/collections/types";
 import {
   formatValueText,
   isComputedKind,
@@ -264,16 +265,25 @@ export const rowView = (
   properties: CollectionProperty[],
 ) => {
   const values: Record<string, string> = {};
+  // Event columns (see loadEventColumns) go under `event`, so a plain note
+  // among event rows shows as `event: null`.
+  const event: Record<string, string> = {};
+  let hasEventColumns = false;
   for (const property of properties) {
     if (property.id === TITLE_PROPERTY.id) continue;
+    const fromEvent = isEventProperty(property.id);
+    hasEventColumns ||= fromEvent;
     const text = formatValueText(property, readValue(row, property));
-    if (text) values[property.name] = text;
+    if (text) (fromEvent ? event : values)[property.name] = text;
   }
   return {
     id: row.id,
     title: row.title,
     appUrl: appLink(ctx, `/docs/${row.id}`),
     properties: values,
+    ...(hasEventColumns
+      ? { event: Object.keys(event).length ? event : null }
+      : {}),
     updatedAt: row.updatedAt,
   };
 };

@@ -33,6 +33,7 @@ import type { ToolRegistrar } from "./tool-registry";
 // a show that was called off gets status cancelled.
 
 export const EVENT_INSTRUCTIONS = [
+  "To save anything that happens on a date (meetup, show, class, appointment), call events_create; pass collection and values to make it a collection row too. collections_add_row and notes_create make plain notes: a date in their text never reaches events_query, the Events pages, or calendar feeds. After saving, confirm with events_get. Events are Visual Notes records: creating or changing one never touches the user's own calendar app or sends an RSVP.",
   "Events are notes with dated shows, a place, and decisions (unreviewed, interested, tentative, booked, skipped, rejected) on the event and on each show separately; a show's effective decision is its own unless unreviewed. Set them with events_update (event) or events_update_show (one show).",
   "Before events_create, call events_find_duplicates with the title, official url, and show dates; if a candidate matches, events_get it and use events_add_shows or events_update instead. Never pass allowDuplicate just to get past a match.",
   `Reuse places: places_list or places_upsert (dedupes by name + city) before inventing one. Event dates and times are ${DEFAULT_TIME_ZONE} local unless you pass timeZone. When the start time is unknown, omit time or set timeConfirmed: false; never invent midnight.`,
@@ -125,7 +126,7 @@ export function registerEventTools(tools: ToolRegistrar): void {
     {
       title: "Create event",
       description:
-        "Create an event note with details, place, shows and/or a repeat, optionally as a row of a collection with values by property name (missing option names are created). Refuses likely duplicates unless allowDuplicate is true.",
+        "The way to save a dated item. Create an event note with details, place, shows and/or a repeat, optionally as a row of a collection with values by property name (missing option names are created). Refuses likely duplicates unless allowDuplicate is true.",
       input: {
         title: z.string().min(1).max(200),
         markdown: z
