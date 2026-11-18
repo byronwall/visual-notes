@@ -61,6 +61,13 @@ export const resolveCollection = (ref: string) =>
 export const collectionAppUrl = (ctx: ConnectorContext, id: string) =>
   appLink(ctx, `/collections/${id}`);
 
+const EVENT_COLUMN_NAMES = new Set(
+  ["next show", "place", "decision", "shows", "event link"].flatMap((n) => [
+    n,
+    `event ${n}`,
+  ]),
+);
+
 export function propertyByName(
   properties: CollectionProperty[],
   name: string,
@@ -74,9 +81,13 @@ export function propertyByName(
   );
   if (!match) {
     const names = pool.map((p) => p.name).join(", ");
+    // Event columns show in collections_query but are not properties.
+    const eventHint = EVENT_COLUMN_NAMES.has(key)
+      ? ` "${name}" comes from the row's event: change it with events_update or events_update_show.`
+      : "";
     throw new ConnectorError(
       "invalid",
-      `No property "${name}". Properties: ${names || "(none)"}.`,
+      `No property "${name}". Properties: ${names || "(none)"}.${eventHint}`,
     );
   }
   return match;

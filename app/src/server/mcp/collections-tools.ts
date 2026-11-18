@@ -255,15 +255,15 @@ export function registerCollectionTools(tools: ToolRegistrar): void {
     },
     async ({ collection }) => {
       const found = await resolveCollection(collection);
-      const [properties, views, rowCount] = await Promise.all([
+      const [properties, views, rowCount, eventRows] = await Promise.all([
         loadLiveProperties(found.id),
         prisma.collectionView.findMany({
           where: { collectionId: found.id },
           orderBy: { position: "asc" },
         }),
         prisma.doc.count({ where: { collectionId: found.id } }),
+        countEventRows(found.id),
       ]);
-      const eventRows = await countEventRows(found.id);
       return {
         id: found.id,
         name: found.name,

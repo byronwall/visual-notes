@@ -114,6 +114,8 @@ const identifiers = (node, out = []) => {
     "left",
     "right",
     "arguments",
+    "consequent",
+    "alternate",
   ]) {
     const child = node[key];
     if (Array.isArray(child)) child.forEach((c) => identifiers(c, out));

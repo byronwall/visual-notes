@@ -28,14 +28,21 @@ import {
   fetchPlace,
   fetchPlaces,
 } from "./events.queries";
+import {
+  fetchCollectionBundle,
+  fetchCollectionViewBundle,
+} from "~/services/collections/collections.queries";
 
 const id = z.string().min(1);
 
 // Event edits refresh every event read; they are few and cheap.
+// Collection bundles carry event columns (next show, place, decision).
 const EVENT_KEYS = [
   fetchNoteEvent.key,
   fetchOccurrences.key,
   fetchEventList.key,
+  fetchCollectionBundle.key,
+  fetchCollectionViewBundle.key,
 ];
 const PLACE_KEYS = [fetchPlaces.key, fetchPlace.key, ...EVENT_KEYS];
 

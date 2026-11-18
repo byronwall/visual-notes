@@ -61,37 +61,57 @@ export async function loadEventColumns(
 }> {
   const values = new Map<string, Record<string, PropertyValue>>();
   if (!docIds.length) return { properties: [], values };
+  const showSelect = {
+    id: true,
+    eventId: true,
+    startsAt: true,
+    endsAt: true,
+    allDay: true,
+    timeConfirmed: true,
+    timeZone: true,
+    decision: true,
+    place: { select: { name: true } },
+  } as const;
+  const live = { status: { not: "cancelled" as const } };
+  // One show per event, not every show: the next one, else the latest.
   const events = await prisma.event.findMany({
     where: { docId: { in: docIds } },
     select: {
+      id: true,
       docId: true,
       url: true,
       decision: true,
       place: { select: { name: true } },
       occurrences: {
-        where: { status: { not: "cancelled" } },
-        orderBy: { startsAt: "asc" },
-        select: {
-          startsAt: true,
-          endsAt: true,
-          allDay: true,
-          timeConfirmed: true,
-          timeZone: true,
-          decision: true,
-          place: { select: { name: true } },
+        where: {
+          ...live,
+          OR: [{ startsAt: { gte: now } }, { endsAt: { gte: now } }],
         },
+        orderBy: { startsAt: "asc" },
+        take: 1,
+        select: showSelect,
       },
+      _count: { select: { occurrences: { where: live } } },
     },
   });
   if (!events.length) return { properties: [], values };
+  const pastOnly = events.filter((e) => !e.occurrences.length);
+  const latest = pastOnly.length
+    ? await prisma.eventOccurrence.findMany({
+        where: { ...live, eventId: { in: pastOnly.map((e) => e.id) } },
+        orderBy: { startsAt: "desc" },
+        distinct: ["eventId"],
+        select: showSelect,
+      })
+    : [];
+  const latestByEvent = new Map(latest.map((o) => [o.eventId, o]));
 
   let multi = false;
   let links = false;
   for (const e of events) {
-    const shows = e.occurrences;
-    const show =
-      shows.find((s) => (s.endsAt ?? s.startsAt) >= now) ?? shows.at(-1);
-    multi ||= shows.length > 1;
+    const show = e.occurrences[0] ?? latestByEvent.get(e.id);
+    const count = e._count.occurrences;
+    multi ||= count > 1;
     links ||= Boolean(e.url);
     values.set(e.docId, {
       [EVENT_COLUMN_IDS.next]: show ? showDate(show) : null,
@@ -99,19 +119,22 @@ export async function loadEventColumns(
       [EVENT_COLUMN_IDS.decision]: show
         ? effectiveDecision(show.decision, e.decision)
         : e.decision,
-      [EVENT_COLUMN_IDS.shows]: shows.length,
+      [EVENT_COLUMN_IDS.shows]: count,
       [EVENT_COLUMN_IDS.link]: e.url ?? null,
     });
   }
 
   const base = Math.max(0, ...after.map((p) => p.position)) + 1;
+  // Names must not clash with the collection's own properties, which agents
+  // and filters resolve by name.
+  const taken = new Set(after.map((p) => p.name.toLowerCase()));
   const column = (
     key: keyof typeof EVENT_COLUMN_IDS,
     name: string,
     rest: Pick<CollectionProperty, "kind" | "config">,
   ): CollectionProperty => ({
     id: EVENT_COLUMN_IDS[key],
-    name,
+    name: taken.has(name.toLowerCase()) ? `Event ${name.toLowerCase()}` : name,
     position: base + Object.keys(EVENT_COLUMN_IDS).indexOf(key),
     ...rest,
   });
