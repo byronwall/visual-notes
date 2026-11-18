@@ -13,7 +13,7 @@ import type {
   DateValue,
 } from "~/lib/collections/types";
 import {
-  isComputedKind,
+  isReadOnlyProperty,
   isDateValue,
   readValue,
 } from "~/lib/collections/values";
@@ -145,7 +145,7 @@ export const CollectionCalendar = (props: { view: CollectionView }) => {
     );
   });
   const editable = () =>
-    Boolean(property() && !isComputedKind(property()!.kind));
+    Boolean(property() && !isReadOnlyProperty(property()!));
   const rows = createMemo(() => store.viewRows(props.view));
   const undated = createMemo(() => {
     const p = property();

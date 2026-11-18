@@ -101,6 +101,14 @@ export type CollectionRow = {
 /** Pseudo property id for the note title, always the first column. */
 export const TITLE_PROPERTY_ID = "title";
 
+/**
+ * Columns read from a row's event (next show, place, decision). The server
+ * adds them to a bundle when any row is an event; they are never stored.
+ */
+export const EVENT_PROPERTY_PREFIX = "event:";
+export const isEventProperty = (id: string) =>
+  id.startsWith(EVENT_PROPERTY_PREFIX);
+
 export const VIEW_TYPES = ["table", "board", "gallery", "calendar"] as const;
 export type ViewType = (typeof VIEW_TYPES)[number];
 

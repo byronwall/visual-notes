@@ -7,10 +7,14 @@ describe("createWriteLog rollback", () => {
     const values: Record<string, number | undefined> = { rating: 1 };
     const current = (_row: string, field: string) => values[field];
 
-    const a: Cell<number>[] = [{ rowId: "r", field: "rating", prev: 1, next: 3 }];
+    const a: Cell<number>[] = [
+      { rowId: "r", field: "rating", prev: 1, next: 3 },
+    ];
     const seqA = log.begin(a);
     values.rating = 3;
-    const b: Cell<number>[] = [{ rowId: "r", field: "rating", prev: 3, next: 5 }];
+    const b: Cell<number>[] = [
+      { rowId: "r", field: "rating", prev: 3, next: 5 },
+    ];
     log.begin(b);
     values.rating = 5;
 
@@ -42,7 +46,9 @@ describe("createWriteLog rollback", () => {
   it("skips a cell whose value changed outside the log", () => {
     const log = createWriteLog();
     let value: string | undefined = "x";
-    const a: Cell<string>[] = [{ rowId: "r", field: "f", prev: undefined, next: "x" }];
+    const a: Cell<string>[] = [
+      { rowId: "r", field: "f", prev: undefined, next: "x" },
+    ];
     const seq = log.begin(a);
     value = "from-server";
     expect(log.rollback(seq, a, () => value)).toEqual([]);

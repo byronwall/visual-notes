@@ -12,6 +12,7 @@ import {
   mapRow,
   mapView,
 } from "./collections.server";
+import { withEventColumns } from "~/server/calendar/event-columns";
 import { summarizeCollectionNotes, type NoteSummary } from "./note-summary";
 
 export type { NoteSummary } from "./note-summary";
@@ -55,17 +56,21 @@ async function loadBundle(
     select: ROW_SELECT,
     orderBy: [{ collectionRank: "asc" }, { createdAt: "asc" }],
   });
+  const properties = collection.properties.map(mapProperty);
+  const mapped = rows.map(mapRow);
+  const eventColumns = await withEventColumns(mapped, properties);
   console.debug(
-    "[collections] bundle %s rows:%d %dms",
+    "[collections] bundle %s rows:%d events:%s %dms",
     collectionId,
     rows.length,
+    eventColumns.length > 0,
     Date.now() - startedAt,
   );
   return {
     collection: mapCollection(collection),
-    properties: collection.properties.map(mapProperty),
+    properties: [...properties, ...eventColumns],
     views: collection.views.map(mapView),
-    rows: rows.map(mapRow),
+    rows: mapped,
     today: localToday(),
   };
 }
