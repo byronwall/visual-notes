@@ -48,7 +48,7 @@ export const docRowListClass = css({
   "& > li": {
     position: "relative",
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) auto",
+    gridTemplateColumns: "minmax(0, 1fr) 3.5rem",
     gridTemplateAreas: `"title title" "path time" "snippet snippet"`,
     columnGap: "3",
     rowGap: "0.5",
@@ -73,13 +73,16 @@ export const docRowListClass = css({
     },
     lg: { gridTemplateColumns: "minmax(0, 1fr) 12rem 3.5rem" },
     xl: {
-      gridTemplateColumns: "minmax(12rem, 1fr) auto 14rem 3.5rem",
+      // Meta gets a fixed track: sized to content, it pushed each row's
+      // path column to a different x.
+      gridTemplateColumns: "minmax(12rem, 1fr) 10rem 14rem 3.5rem",
       gridTemplateAreas: `"title meta path time" "snippet snippet . ."`,
     },
+    "2xl": { gridTemplateColumns: "minmax(12rem, 1fr) 16rem 14rem 3.5rem" },
   },
   "& > li[data-selection-mode]": {
     smDown: {
-      gridTemplateColumns: "1.5rem minmax(0, 1fr) auto",
+      gridTemplateColumns: "1.5rem minmax(0, 1fr) 3.5rem",
       gridTemplateAreas: `"check title title" ". path time" ". snippet snippet"`,
     },
     smToMd: {

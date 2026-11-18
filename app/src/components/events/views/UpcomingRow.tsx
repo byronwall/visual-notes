@@ -2,44 +2,35 @@ import { A } from "@solidjs/router";
 import { MapPinIcon } from "lucide-solid";
 import { Show } from "solid-js";
 import { css } from "styled-system/css";
+import { RowListRow } from "~/components/ui/row-list";
 import { formatShowTime } from "~/lib/events/format";
 import type { OccurrenceListItem } from "~/lib/events/types";
 import { DecisionChip } from "./DecisionChip";
 import { ShowStatusBadge } from "./ShowStatusBadge";
 
+// Columns come from UpcomingList. On phones a row is two lines plus a place
+// line: time and decision on top, then the title, then the place.
 const row = css({
-  display: "grid",
-  gridTemplateColumns: {
-    base: "minmax(0, 1fr) auto",
-    md: "8.5rem minmax(0, 1fr) minmax(0, 13rem) auto",
-  },
-  gridTemplateAreas: {
-    base: `"time chip" "title title" "place place"`,
-    md: `"time title place chip"`,
-  },
-  alignItems: "center",
-  columnGap: "3",
-  rowGap: "0.5",
-  px: "2",
   py: { base: "2", md: "1.5" },
-  borderRadius: "l2",
+  rowGap: "0.5",
+  md: { gridColumn: "2 / -1" },
   _hover: { bg: "bg.subtle" },
   "&[data-cancelled] [data-title]": {
     textDecoration: "line-through",
     color: "fg.muted",
   },
+  "&[data-past]": { color: "fg.muted" },
 });
 const time = css({
-  gridArea: "time",
+  gridColumn: { base: "1", md: "auto" },
+  gridRow: { base: "1", md: "auto" },
   fontSize: "sm",
   color: "fg.muted",
   fontVariantNumeric: "tabular-nums",
   whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
 });
 const titleCell = css({
-  gridArea: "title",
+  gridColumn: { base: "1 / -1", md: "auto" },
   display: "flex",
   alignItems: "center",
   gap: "2",
@@ -48,7 +39,7 @@ const titleCell = css({
 const titleLink = css({
   fontSize: "sm",
   fontWeight: "medium",
-  color: "fg.default",
+  color: "inherit",
   textDecoration: "none",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -66,10 +57,10 @@ const label = css({
   minW: "0",
 });
 const place = css({
-  gridArea: "place",
+  gridColumn: { base: "1 / -1", md: "auto" },
   display: "flex",
   alignItems: "center",
-  gap: "1",
+  gap: "1.5",
   minW: "0",
   fontSize: "sm",
   color: "fg.muted",
@@ -81,21 +72,25 @@ const place = css({
   "& svg": { flexShrink: "0", color: "fg.subtle" },
 });
 const chipCell = css({
-  gridArea: "chip",
+  gridColumn: { base: "2", md: "auto" },
+  gridRow: { base: "1", md: "auto" },
   display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  gap: "2",
+  // Every chip takes the column's width, so the labels start in one line.
+  "& > button": { w: "full", justifyContent: "space-between" },
 });
 
-/** One show: time, note title, label, place, status, and decision. */
-export function UpcomingRow(props: { show: OccurrenceListItem }) {
+/** One show: time, title with label and status, place, and decision. */
+export function UpcomingRow(props: {
+  show: OccurrenceListItem;
+  past?: boolean;
+}) {
   const s = () => props.show;
   return (
-    <div
+    <RowListRow
       class={row}
       data-show-row={s().id}
       data-cancelled={s().status === "cancelled" ? "" : undefined}
+      data-past={props.past ? "" : undefined}
     >
       <span class={time}>{formatShowTime(s())}</span>
       <div class={titleCell}>
@@ -107,6 +102,7 @@ export function UpcomingRow(props: { show: OccurrenceListItem }) {
         >
           {s().title || "Untitled"}
         </A>
+        <ShowStatusBadge status={s().status} />
         <Show when={s().label}>
           {(text) => (
             <span class={label} title={text()}>
@@ -119,16 +115,15 @@ export function UpcomingRow(props: { show: OccurrenceListItem }) {
         <Show when={s().effectivePlace}>
           {(p) => (
             <>
-              <MapPinIcon size={12} />
+              <MapPinIcon size={13} />
               <span>{p().name}</span>
             </>
           )}
         </Show>
       </div>
       <div class={chipCell}>
-        <ShowStatusBadge status={s().status} />
         <DecisionChip show={s()} />
       </div>
-    </div>
+    </RowListRow>
   );
 }

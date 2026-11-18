@@ -1,6 +1,7 @@
 import { A, useAction } from "@solidjs/router";
 import { For, Show, createSignal } from "solid-js";
-import { css } from "styled-system/css";
+import { css, cx } from "styled-system/css";
+import { rowListClass } from "~/components/ui/row-list";
 import { Button } from "~/components/ui/button";
 import { formatDay, todayLocal } from "~/lib/people/dates";
 import {
@@ -18,15 +19,13 @@ type Entry =
   | { type: "interaction"; day: string; item: InteractionView }
   | { type: "fact"; day: string; item: Fact };
 
-const list = css({ display: "flex", flexDirection: "column" });
-const entry = css({
-  display: "grid",
+const list = css({
   gridTemplateColumns: { base: "1fr", sm: "7.5rem minmax(0, 1fr) auto" },
-  columnGap: "3",
+});
+const entry = css({
+  alignItems: "start",
   rowGap: "0.5",
-  px: "2",
   py: "2",
-  borderRadius: "l2",
   _hover: { bg: "bg.subtle" },
   "&:hover [data-entry-actions]": { opacity: 1 },
   "&:focus-within [data-entry-actions]": { opacity: 1 },
@@ -88,11 +87,14 @@ export function ProfileHistory(props: {
           </div>
         }
       >
-        <div class={list}>
+        <div class={cx(rowListClass.list, list)}>
           <For each={entries()}>
             {(e) =>
               e.type === "interaction" ? (
-                <div class={entry} data-interaction={e.item.summary}>
+                <div
+                  class={cx(rowListClass.row, entry)}
+                  data-interaction={e.item.summary}
+                >
                   <div class={when}>
                     {formatDay(e.day)}
                     <span class={kindLabel}>
@@ -142,7 +144,10 @@ export function ProfileHistory(props: {
                   </div>
                 </div>
               ) : (
-                <div class={entry} data-retired-fact={e.item.text}>
+                <div
+                  class={cx(rowListClass.row, entry)}
+                  data-retired-fact={e.item.text}
+                >
                   <div class={when}>
                     {formatDay(e.day)}
                     <span class={kindLabel}>

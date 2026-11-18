@@ -120,6 +120,9 @@ const contentClass = css({
   flex: "1",
   minW: "0",
   display: { base: "grid", md: "flex" },
+  // Phones only: one trailing control, pinned right. Nested tasks indent, so
+  // a shared list grid would not line them up anyway.
+  // oxlint-disable-next-line vn/row-columns
   gridTemplateColumns: "minmax(0, 1fr) auto",
   flexWrap: "wrap",
   alignItems: "flex-start",

@@ -12,34 +12,17 @@ import { Portal } from "solid-js/web";
 import { css } from "styled-system/css";
 import { HStack } from "styled-system/jsx";
 import { IconButton } from "~/components/ui/icon-button";
+import { RowListRow } from "~/components/ui/row-list";
 import * as Menu from "~/components/ui/menu";
 import { PLACE_KIND_LABELS } from "~/lib/events/types";
 import type { PlaceWithCounts } from "~/lib/events/view-types";
 import { optionColorVars } from "~/lib/collections/colors";
 import { KIND_COLORS } from "../map/mapPoints";
 
-export const placeGrid = css({
-  gridTemplateColumns: "minmax(0, 1.4fr) 6.5rem minmax(0, 2fr) 5rem 4.5rem",
-  columnGap: "3",
-  alignItems: "center",
-});
-
+// Columns come from PlacesView. Phones: name over meta, actions at right.
 const row = css({
-  display: "grid",
-  gridTemplateColumns: {
-    base: "minmax(0, 1fr) auto",
-    md: "minmax(0, 1.4fr) 6.5rem minmax(0, 2fr) 5rem 4.5rem",
-  },
-  gridTemplateAreas: {
-    base: `"name actions" "meta actions"`,
-    md: `"name kind address count actions"`,
-  },
-  columnGap: "3",
   rowGap: "0.5",
-  alignItems: "center",
-  px: "2",
   py: { base: "2", md: "1.5" },
-  borderRadius: "l2",
   fontSize: "sm",
   _hover: { bg: "bg.subtle" },
 });
@@ -50,7 +33,8 @@ const truncate = {
   minW: "0",
 } as const;
 const nameCell = css({
-  gridArea: "name",
+  gridColumn: { base: "1", md: "auto" },
+  gridRow: { base: "1", md: "auto" },
   display: "flex",
   alignItems: "center",
   gap: "1.5",
@@ -59,7 +43,6 @@ const nameCell = css({
   "& svg": { flexShrink: "0", color: "fg.subtle" },
 });
 const kindChip = css({
-  gridArea: { base: "auto", md: "kind" },
   display: { base: "none", md: "inline-flex" },
   alignSelf: "center",
   justifySelf: "start",
@@ -73,26 +56,26 @@ const kindChip = css({
   _dark: { bg: "var(--chip-bg-dark)", color: "var(--chip-fg-dark)" },
 });
 const address = css({
-  gridArea: "address",
   display: { base: "none", md: "block" },
   color: "fg.muted",
   ...truncate,
 });
 const count = css({
-  gridArea: "count",
   display: { base: "none", md: "block" },
   color: "fg.muted",
   fontVariantNumeric: "tabular-nums",
 });
 const meta = css({
-  gridArea: "meta",
+  gridColumn: "1",
+  gridRow: "2",
   display: { base: "block", md: "none" },
   fontSize: "xs",
   color: "fg.muted",
   ...truncate,
 });
 const actions = css({
-  gridArea: "actions",
+  gridColumn: { base: "2", md: "auto" },
+  gridRow: { base: "1 / span 2", md: "auto" },
   display: "flex",
   justifyContent: "flex-end",
   gap: "0.5",
@@ -126,7 +109,7 @@ export function PlaceRow(props: {
       .filter(Boolean)
       .join(" · ");
   return (
-    <div class={row} data-place-row={p().id}>
+    <RowListRow class={row} data-place-row={p().id}>
       <div class={nameCell}>
         <span title={p().name}>{p().name}</span>
         <Show when={noCoords()}>
@@ -208,6 +191,6 @@ export function PlaceRow(props: {
           </Portal>
         </Menu.Root>
       </div>
-    </div>
+    </RowListRow>
   );
 }

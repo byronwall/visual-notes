@@ -2,6 +2,7 @@ import { A, useAction } from "@solidjs/router";
 import { Show, createSignal } from "solid-js";
 import { css } from "styled-system/css";
 import { Button } from "~/components/ui/button";
+import { RowListRow } from "~/components/ui/row-list";
 import {
   addDays,
   daysAgoLabel,
@@ -13,14 +14,8 @@ import { updateFollowupAction } from "~/services/people/people.actions";
 import { openCapture, saveErrorText } from "./capture-state";
 
 const row = css({
-  display: "grid",
-  gridTemplateColumns: {
-    base: "minmax(0, 1fr)",
-    md: "minmax(10rem, 14rem) minmax(0, 1fr) auto",
-  },
-  gap: { base: "1", md: "4" },
+  rowGap: "1",
   alignItems: "start",
-  px: "2",
   py: "2.5",
   borderBottomWidth: "1px",
   borderColor: "border",
@@ -65,7 +60,7 @@ export function FollowupRow(props: { item: Followup; showPerson?: boolean }) {
     });
 
   return (
-    <div class={row} data-followup={i().person.displayName}>
+    <RowListRow class={row} data-followup={i().person.displayName}>
       <Show
         when={props.showPerson !== false}
         fallback={<span class={muted}>{formatDay(i().suggestedOn)}</span>}
@@ -151,6 +146,6 @@ export function FollowupRow(props: { item: Followup; showPerson?: boolean }) {
           </span>
         </Show>
       </div>
-    </div>
+    </RowListRow>
   );
 }

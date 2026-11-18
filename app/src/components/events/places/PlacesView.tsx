@@ -17,7 +17,8 @@ import type { PlaceWithCounts } from "~/lib/events/view-types";
 import { removePlace } from "~/services/events/events.actions";
 import { fetchPlacesWithCounts } from "~/services/events/events-views.queries";
 import { PlaceDialog } from "./PlaceDialog";
-import { PlaceRow, placeGrid } from "./PlaceRow";
+import { RowList, RowListRow } from "~/components/ui/row-list";
+import { PlaceRow } from "./PlaceRow";
 
 const KIND_ITEMS = [
   { label: "All kinds", value: "" },
@@ -38,9 +39,14 @@ const searchWrap = css({
     pointerEvents: "none",
   },
 });
+const cols = css({
+  gridTemplateColumns: {
+    base: "minmax(0, 1fr) auto",
+    md: "minmax(0, 1.4fr) max-content minmax(0, 2fr) max-content auto",
+  },
+});
 const head = css({
   display: { base: "none", md: "grid" },
-  px: "2",
   pb: "1",
   fontSize: "xs",
   color: "fg.subtle",
@@ -143,22 +149,24 @@ export function PlacesView() {
               </div>
             }
           >
-            <div class={`${placeGrid} ${head}`}>
-              <span>Name</span>
-              <span>Kind</span>
-              <span>Address</span>
-              <span>Upcoming</span>
-              <span />
-            </div>
-            <For each={list()}>
-              {(place) => (
-                <PlaceRow
-                  place={place}
-                  onEdit={() => setEditing({ place })}
-                  onDelete={() => setDeleting(place)}
-                />
-              )}
-            </For>
+            <RowList class={cols}>
+              <RowListRow class={head}>
+                <span>Name</span>
+                <span>Kind</span>
+                <span>Address</span>
+                <span>Upcoming</span>
+                <span />
+              </RowListRow>
+              <For each={list()}>
+                {(place) => (
+                  <PlaceRow
+                    place={place}
+                    onEdit={() => setEditing({ place })}
+                    onDelete={() => setDeleting(place)}
+                  />
+                )}
+              </For>
+            </RowList>
           </Show>
         )}
       </Show>

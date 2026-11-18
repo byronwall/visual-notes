@@ -149,7 +149,7 @@ export default defineConfig({
           red: red,
           green: green,
           blue: blue,
-          amber: amber
+          amber: amber,
         },
 
         shadows: shadows,
@@ -166,6 +166,12 @@ export default defineConfig({
           l3: {
             value: "{radii.md}",
           },
+        },
+        spacing: {
+          // Inner padding of a hoverable row or tab. Its container pulls out by
+          // the same amount (`mx: "-bleed"`), so the row's text sits on the
+          // page's content edge and only the hover fill reaches past it.
+          bleed: { value: "{spacing.2}" },
         },
       },
     },

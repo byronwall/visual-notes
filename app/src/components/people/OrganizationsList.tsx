@@ -6,26 +6,22 @@ import { OrgMark } from "./OrgMark";
 import { HStack } from "styled-system/jsx";
 import { Input } from "~/components/ui/input";
 import { fetchOrganizations } from "~/services/people/people.queries";
+import { RowList, RowListRow } from "~/components/ui/row-list";
 import { createKeptAsync } from "~/utils/kept-async";
 
-const grid = css({
-  display: "grid",
+const cols = css({
   gridTemplateColumns: {
     base: "minmax(0, 1fr) auto",
     md: "minmax(10rem, 1.2fr) 8rem minmax(0, 1.6fr) 11rem",
   },
   columnGap: "4",
-  alignItems: "center",
 });
 const row = css({
-  px: "2",
   py: "2",
-  borderRadius: "l2",
   _hover: { bg: "bg.subtle" },
 });
 const head = css({
   display: { base: "none", md: "grid" },
-  px: "2",
   pb: "1",
   mb: "1",
   fontSize: "xs",
@@ -130,25 +126,27 @@ export function OrganizationsList() {
               </div>
             }
           >
-            <div class={`${grid} ${head}`}>
-              <span>Name</span>
-              <span>Kind</span>
-              <span>Summary</span>
-              <span style={{ "text-align": "right" }}>People</span>
-            </div>
-            <For each={list()}>
-              {(o) => (
-                <div class={`${grid} ${row}`} data-organization-row={o.name}>
-                  <A href={`/people/organizations/${o.id}`} class={name}>
-                    <OrgMark org={o} size={24} />
-                    <span class={css({ truncate: true })}>{o.name}</span>
-                  </A>
-                  <span class={`${muted} ${hideNarrow}`}>{o.kind}</span>
-                  <span class={`${muted} ${hideNarrow}`}>{o.summary}</span>
-                  <span class={right}>{peopleCount(o)}</span>
-                </div>
-              )}
-            </For>
+            <RowList class={cols}>
+              <RowListRow class={head}>
+                <span>Name</span>
+                <span>Kind</span>
+                <span>Summary</span>
+                <span style={{ "text-align": "right" }}>People</span>
+              </RowListRow>
+              <For each={list()}>
+                {(o) => (
+                  <RowListRow class={row} data-organization-row={o.name}>
+                    <A href={`/people/organizations/${o.id}`} class={name}>
+                      <OrgMark org={o} size={24} />
+                      <span class={css({ truncate: true })}>{o.name}</span>
+                    </A>
+                    <span class={`${muted} ${hideNarrow}`}>{o.kind}</span>
+                    <span class={`${muted} ${hideNarrow}`}>{o.summary}</span>
+                    <span class={right}>{peopleCount(o)}</span>
+                  </RowListRow>
+                )}
+              </For>
+            </RowList>
           </Show>
         )}
       </Show>
