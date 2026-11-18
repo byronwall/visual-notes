@@ -13,7 +13,8 @@ const list = css({
 });
 const item = css({
   display: "grid",
-  gridTemplateColumns: "auto minmax(0, 1fr)",
+  // The first track holds only the 10px kind dot.
+  gridTemplateColumns: "0.625rem minmax(0, 1fr)",
   columnGap: "2",
   alignItems: "baseline",
   w: "full",

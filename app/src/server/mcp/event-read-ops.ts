@@ -218,7 +218,7 @@ export async function findEventDuplicates(
     exists: candidates.length > 0,
     recommendation: candidates.length
       ? "Review the candidates with events_get; add missing shows (events_add_shows) or patch the match (events_update) instead of creating another event."
-      : "No likely match; events_create is reasonable.",
+      : "No likely match: create it with events_create (pass collection and values to add it as a collection row), then confirm with events_get.",
     candidates,
   };
 }

@@ -1,7 +1,7 @@
 import type { CollectionProperty, PropertyValue, RowProperties } from "./types";
 import {
   coerceValue,
-  isComputedKind,
+  isReadOnlyProperty,
   optionByName,
   parseLooseText,
 } from "./values";
@@ -34,7 +34,7 @@ export function mapMetaToProperties(
   if (!meta) return out;
   const byName = new Map(
     properties
-      .filter((p) => !isComputedKind(p.kind))
+      .filter((p) => !isReadOnlyProperty(p))
       .map((p) => [norm(p.name), p]),
   );
   for (const [key, raw] of Object.entries(meta)) {
@@ -70,7 +70,7 @@ export function mapBetweenCollections(
 ): MappedValues {
   const out = empty();
   const targets = new Map(
-    to.filter((p) => !isComputedKind(p.kind)).map((p) => [norm(p.name), p]),
+    to.filter((p) => !isReadOnlyProperty(p)).map((p) => [norm(p.name), p]),
   );
   for (const source of from) {
     const value = values[source.id];

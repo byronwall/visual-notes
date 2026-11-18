@@ -9,8 +9,17 @@ import { fetchPeople } from "~/services/people/people.queries";
 import { createKeptAsync } from "~/utils/kept-async";
 import { PeopleFilters, usePeopleFilters } from "./PeopleFilters";
 import { PersonPreview } from "./PersonPreview";
-import { PersonRow, personGrid } from "./PersonRow";
+import { RowList, RowListRow } from "~/components/ui/row-list";
+import { PersonRow } from "./PersonRow";
 
+/** Columns for PersonRow. */
+const personColumns = css({
+  gridTemplateColumns: {
+    base: "minmax(0, 1fr) auto",
+    md: "minmax(10rem, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) max-content",
+  },
+  columnGap: "4",
+});
 const PAGE_SIZE = 50;
 
 const layout = css({
@@ -40,7 +49,6 @@ const searchWrap = css({
 });
 const head = css({
   display: { base: "none", md: "grid" },
-  px: "2",
   pb: "1",
   mb: "1",
   fontSize: "xs",
@@ -170,23 +178,25 @@ export function PeopleDirectory(props: { onCreate: (name: string) => void }) {
                   </div>
                 }
               >
-                <div class={`${personGrid} ${head}`}>
-                  <span>Name</span>
-                  <span>Role</span>
-                  <span>Contexts</span>
-                  <span style={{ "text-align": "right" }}>Last contact</span>
-                </div>
-                <For each={r().people}>
-                  {(person) => (
-                    <PersonRow
-                      person={person}
-                      today={today}
-                      detail={person.currentRole}
-                      selected={f.selected() === person.id}
-                      onSelect={() => f.select(person.id)}
-                    />
-                  )}
-                </For>
+                <RowList class={personColumns}>
+                  <RowListRow class={head}>
+                    <span>Name</span>
+                    <span>Role</span>
+                    <span>Contexts</span>
+                    <span style={{ "text-align": "right" }}>Last contact</span>
+                  </RowListRow>
+                  <For each={r().people}>
+                    {(person) => (
+                      <PersonRow
+                        person={person}
+                        today={today}
+                        detail={person.currentRole}
+                        selected={f.selected() === person.id}
+                        onSelect={() => f.select(person.id)}
+                      />
+                    )}
+                  </For>
+                </RowList>
                 <Show when={f.page() > 0 || r().hasMore}>
                   <HStack justify="flex-end" gap="2" mt="3">
                     <Button

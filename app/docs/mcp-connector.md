@@ -152,6 +152,8 @@ Exporting Next steps to real tasks stays with the person on the page. Writes log
 
 Rows are notes, so a new row is a note the agent owns. Agents name properties and options and send plain text (`"In progress"`, `"2026-11-01"`, `["a", "b"]`); `collections-agent.ts` maps those to ids, the same way paste does on the collection page. Missing option names are created. `events_create` writes its `values` through the same path.
 
+A dated row must be an event. When any row in a collection has an event, `collections_get` returns `eventRows` and a note that points to `events_create`. `collections_query` returns each row's `event` (next show, place, decision, shows, link) and can filter and sort by those names; `event: null` marks a plain note among events. `collections_add_row` and `collections_add_rows` return a `notice` when they add a plain note to such a collection. The event columns come from `server/calendar/event-columns.ts`, which the collection page also uses.
+
 | Tool                                                       | Kind  | Notes                                                                                                                                                                                  |
 | ---------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `collections_list` / `collections_get`                     | read  | Collections with counts; schema with kinds, options, and views                                                                                                                         |

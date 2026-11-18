@@ -5,15 +5,20 @@ import { Button } from "~/components/ui/button";
 import { formatRelativeShort } from "~/components/doc-header/relative-time";
 import { useAppChanges } from "~/features/live-sync/NoteLiveSyncProvider";
 import { createResearchTopic } from "~/services/research/research.actions";
+import { RowList, RowListRow } from "~/components/ui/row-list";
 import { fetchResearchTopics } from "~/services/research/research.queries";
 
-const rowClass = css({
-  display: "grid",
+const cols = css({
   gridTemplateColumns: "minmax(0, 1fr) auto",
-  rowGap: "1",
   columnGap: "4",
-  px: "2",
+  borderTopWidth: "1px",
+  borderColor: "border",
+});
+const rowClass = css({
+  alignItems: "baseline",
+  rowGap: "1",
   py: "2",
+  borderRadius: "0",
   borderBottomWidth: "1px",
   borderColor: "border",
   transitionProperty: "background-color",
@@ -70,9 +75,27 @@ export const ResearchTopicIndex = () => {
 
   return (
     <main class={css({ maxW: "5xl", mx: "auto", w: "full", px: "4", py: "3" })}>
-      <div class={css({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "3", mb: "3" })}>
-        <h1 class={css({ fontSize: "lg", fontWeight: "semibold", flex: "1" })}>Research</h1>
-        <form onSubmit={create} class={css({ display: "flex", gap: "2", minW: 0, flex: { base: "1 1 100%", sm: "0 0 auto" } })}>
+      <div
+        class={css({
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "3",
+          mb: "3",
+        })}
+      >
+        <h1 class={css({ fontSize: "lg", fontWeight: "semibold", flex: "1" })}>
+          Research
+        </h1>
+        <form
+          onSubmit={create}
+          class={css({
+            display: "flex",
+            gap: "2",
+            minW: 0,
+            flex: { base: "1 1 100%", sm: "0 0 auto" },
+          })}
+        >
           <input
             aria-label="New topic title"
             placeholder="New topic…"
@@ -88,14 +111,32 @@ export const ResearchTopicIndex = () => {
               borderColor: "border",
               borderRadius: "l2",
               bg: "bg.default",
-              _focusVisible: { outline: "2px solid token(colors.border.focus)", outlineOffset: "-1px" },
+              _focusVisible: {
+                outline: "2px solid token(colors.border.focus)",
+                outlineOffset: "-1px",
+              },
             })}
           />
-          <Button type="submit" size="sm" variant="outline" disabled={!title().trim()} loading={creating()}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!title().trim()}
+            loading={creating()}
+          >
             Create
           </Button>
         </form>
-        <label class={css({ display: "inline-flex", alignItems: "center", gap: "1.5", fontSize: "sm", color: "fg.muted", cursor: "pointer" })}>
+        <label
+          class={css({
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "1.5",
+            fontSize: "sm",
+            color: "fg.muted",
+            cursor: "pointer",
+          })}
+        >
           <input
             type="checkbox"
             checked={showArchived()}
@@ -109,28 +150,48 @@ export const ResearchTopicIndex = () => {
         when={topics().length > 0}
         fallback={
           <Show when={data.latest}>
-            <p class={css({ color: "fg.muted", fontSize: "sm", px: "2", py: "6" })}>
-              No topics yet. Create one here, or have an agent call <code>research_create_topic</code> over MCP.
+            <p
+              class={css({
+                color: "fg.muted",
+                fontSize: "sm",
+                px: "2",
+                py: "6",
+              })}
+            >
+              No topics yet. Create one here, or have an agent call{" "}
+              <code>research_create_topic</code> over MCP.
             </p>
           </Show>
         }
       >
-        <div class={css({ borderTopWidth: "1px", borderColor: "border" })}>
+        <RowList class={cols}>
           <For each={topics()}>
             {(topic) => (
-              <div class={rowClass} data-testid="research-topic-row">
+              <RowListRow class={rowClass} data-testid="research-topic-row">
                 <A href={`/research/${topic.slug}`} class={titleLinkClass}>
                   {topic.title}
                   <Show when={topic.archivedAt}>
-                    <span class={css({ ml: "1.5", fontSize: "xs", color: "fg.muted", fontWeight: "normal" })}>archived</span>
+                    <span
+                      class={css({
+                        ml: "1.5",
+                        fontSize: "xs",
+                        color: "fg.muted",
+                        fontWeight: "normal",
+                      })}
+                    >
+                      archived
+                    </span>
                   </Show>
                 </A>
                 <span class={metaClass}>
                   <Show when={topic.openCount > 0}>
-                    <span class={css({ color: "amber.11" })}>{topic.openCount} open</span>
+                    <span class={css({ color: "amber.11" })}>
+                      {topic.openCount} open
+                    </span>
                     {" · "}
                   </Show>
-                  {topic.cardCount} cards · {formatRelativeShort(nowMs(), topic.lastActivityAt)}
+                  {topic.cardCount} cards ·{" "}
+                  {formatRelativeShort(nowMs(), topic.lastActivityAt)}
                 </span>
                 <p
                   class={css({
@@ -142,10 +203,10 @@ export const ResearchTopicIndex = () => {
                 >
                   {topic.topSummary ?? "No accepted summary yet."}
                 </p>
-              </div>
+              </RowListRow>
             )}
           </For>
-        </div>
+        </RowList>
       </Show>
     </main>
   );

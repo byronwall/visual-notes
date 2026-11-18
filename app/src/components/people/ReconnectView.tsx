@@ -9,12 +9,20 @@ import {
   fetchFollowups,
 } from "~/services/people/people.queries";
 import { createKeptAsync } from "~/utils/kept-async";
+import { RowList, RowListSpan } from "~/components/ui/row-list";
 import { FollowupRow } from "./FollowupRow";
 
+/** Columns for FollowupRow. */
+const followupColumns = css({
+  gridTemplateColumns: {
+    base: "minmax(0, 1fr)",
+    md: "minmax(10rem, 14rem) minmax(0, 1fr) max-content",
+  },
+  columnGap: "4",
+});
 const heading = css({
   fontSize: "sm",
   fontWeight: "semibold",
-  px: "2",
   pb: "1",
   mt: "6",
   borderBottomWidth: "1px",
@@ -73,21 +81,32 @@ export function ReconnectView() {
           fontSize="xs"
         />
       </Show>
-      <h2 class={heading}>Due now ({due().length})</h2>
-      <Show
-        when={due().length}
-        fallback={<div class={empty}>Nothing due. Nice.</div>}
-      >
-        <For each={due()}>{(item) => <FollowupRow item={item} />}</For>
-      </Show>
-      <Show when={upcoming().length}>
-        <h2 class={heading}>Next 30 days ({upcoming().length})</h2>
-        <For each={upcoming()}>{(item) => <FollowupRow item={item} />}</For>
-      </Show>
-      <Show when={snoozed.latest?.length}>
-        <h2 class={heading}>Snoozed ({snoozed.latest!.length})</h2>
-        <For each={snoozed.latest}>{(item) => <FollowupRow item={item} />}</For>
-      </Show>
+      {/* One list for every section, so their columns line up. */}
+      <RowList class={followupColumns}>
+        <RowListSpan as="h2" class={heading}>
+          Due now ({due().length})
+        </RowListSpan>
+        <Show
+          when={due().length}
+          fallback={<RowListSpan class={empty}>Nothing due. Nice.</RowListSpan>}
+        >
+          <For each={due()}>{(item) => <FollowupRow item={item} />}</For>
+        </Show>
+        <Show when={upcoming().length}>
+          <RowListSpan as="h2" class={heading}>
+            Next 30 days ({upcoming().length})
+          </RowListSpan>
+          <For each={upcoming()}>{(item) => <FollowupRow item={item} />}</For>
+        </Show>
+        <Show when={snoozed.latest?.length}>
+          <RowListSpan as="h2" class={heading}>
+            Snoozed ({snoozed.latest!.length})
+          </RowListSpan>
+          <For each={snoozed.latest}>
+            {(item) => <FollowupRow item={item} />}
+          </For>
+        </Show>
+      </RowList>
     </>
   );
 }

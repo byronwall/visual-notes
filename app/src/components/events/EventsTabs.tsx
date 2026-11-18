@@ -12,7 +12,7 @@ export const EVENTS_TABS = [
 ] as const;
 
 const tabClass = css({
-  px: { base: "2", md: "3" },
+  px: "bleed",
   py: "1.5",
   flexShrink: 0,
   whiteSpace: "nowrap",
@@ -38,6 +38,8 @@ export function EventsTabs(props: { actions?: JSX.Element }) {
         as="nav"
         gap="0.5"
         aria-label="Events sections"
+        // Tab text sits on the content edge; only the fill reaches past it.
+        mx="-bleed"
         minW="0"
         maxW="full"
         overflowX="auto"

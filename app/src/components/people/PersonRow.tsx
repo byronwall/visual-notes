@@ -2,21 +2,11 @@ import { A } from "@solidjs/router";
 import { Show } from "solid-js";
 import { css } from "styled-system/css";
 import { daysAgoLabel, formatDay } from "~/lib/people/dates";
+import { RowListRow } from "~/components/ui/row-list";
 import type { PersonMatch } from "~/lib/people/types";
 
-export const personGrid = css({
-  display: "grid",
-  gridTemplateColumns: {
-    base: "minmax(0, 1fr) auto",
-    md: "minmax(10rem, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) 9rem",
-  },
-  columnGap: "4",
-  alignItems: "center",
-});
 const row = css({
-  px: "2",
   py: "2",
-  borderRadius: "l2",
   cursor: "pointer",
   _hover: { bg: "bg.subtle" },
   "&[data-selected]": {
@@ -66,8 +56,8 @@ export function PersonRow(props: {
 }) {
   const p = () => props.person;
   return (
-    <div
-      class={`${personGrid} ${row}`}
+    <RowListRow
+      class={row}
       data-person-row={p().displayName}
       data-selected={props.selected ? "" : undefined}
       onClick={(e) => {
@@ -100,6 +90,6 @@ export function PersonRow(props: {
       <Show when={p().matchedIn}>
         <span class={matched}>Matched: {p().matchedIn}</span>
       </Show>
-    </div>
+    </RowListRow>
   );
 }

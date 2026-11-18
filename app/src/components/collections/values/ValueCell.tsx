@@ -17,7 +17,7 @@ import type {
   PropertyValue,
 } from "~/lib/collections/types";
 import {
-  isComputedKind,
+  isReadOnlyProperty,
   isDateValue,
   numberDraft,
   parseNumberDraft,
@@ -133,7 +133,7 @@ export const ValueCell = (props: {
   onCleanup(() => clearTimeout(flashTimer));
 
   const value = () => readValue(props.row, props.property);
-  const readOnly = () => isComputedKind(props.property.kind);
+  const readOnly = () => isReadOnlyProperty(props.property);
   const isField = () => props.variant === "field";
   const multiline = () =>
     isField() && Boolean(props.wrap) && isPlainText(props.property);

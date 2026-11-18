@@ -68,10 +68,106 @@ const resourceReadLatest = {
   },
 };
 
+// A row that sets its own columns sizes them from its own cells, so an
+// `auto` column (a chip, a date) drifts from row to row. Rows are subgrids of
+// a RowList, which owns the one template. Flags content-sized column
+// templates in *Row.tsx files and inside <For>/<Index> callbacks.
+const ROW_FILE = /Row\.tsx$/;
+const insideLoop = (node) => {
+  for (let n = node.parent; n; n = n.parent) {
+    if (
+      n.type === "JSXElement" &&
+      /^(For|Index)$/.test(n.openingElement.name.name ?? "")
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+// Content-sized tracks are the ones that differ per row. `auto-fill` and
+// `auto-fit` card grids and fixed or `fr` tracks line up on their own.
+const CONTENT_TRACK = /\b(?:auto(?!-f)|max-content|min-content|fit-content)\b/;
+const strings = (node) => {
+  if (!node) return [];
+  if (node.type === "Literal" && typeof node.value === "string") {
+    return [node.value];
+  }
+  if (node.type === "TemplateLiteral") {
+    return node.quasis.map((q) => q.value.cooked ?? "");
+  }
+  if (node.type === "JSXExpressionContainer") return strings(node.expression);
+  if (node.type === "ObjectExpression") {
+    return node.properties.flatMap((p) => strings(p.value));
+  }
+  return [];
+};
+const contentSized = (value) =>
+  strings(value).some((v) => CONTENT_TRACK.test(v));
+const MESSAGE =
+  "A row must not size its own columns to content (auto, max-content, fit-content): each row measures only its own cells, so columns drift between rows. Put the template on a RowList (~/components/ui/row-list) and render the row as a RowListRow subgrid.";
+const identifiers = (node, out = []) => {
+  if (!node || typeof node !== "object") return out;
+  if (node.type === "Identifier") out.push(node.name);
+  for (const key of [
+    "expression",
+    "expressions",
+    "left",
+    "right",
+    "arguments",
+    "consequent",
+    "alternate",
+  ]) {
+    const child = node[key];
+    if (Array.isArray(child)) child.forEach((c) => identifiers(c, out));
+    else if (child) identifiers(child, out);
+  }
+  return out;
+};
+const rowColumns = {
+  create(context) {
+    const rowFile = ROW_FILE.test(context.filename ?? "");
+    // Module styles with a content-sized template, and class names used in loops.
+    const styles = new Map();
+    const loopClasses = new Set();
+    const check = (node, value) => {
+      if (!contentSized(value)) return;
+      if (rowFile || insideLoop(node)) {
+        context.report({ node, message: MESSAGE });
+        return;
+      }
+      const decl = node.parent?.parent;
+      if (
+        decl?.type === "CallExpression" &&
+        decl.parent?.type === "VariableDeclarator"
+      ) {
+        styles.set(decl.parent.id.name, node);
+      }
+    };
+    return {
+      "Property[key.name='gridTemplateColumns']"(node) {
+        check(node, node.value);
+      },
+      "JSXAttribute[name.name='gridTemplateColumns']"(node) {
+        check(node, node.value);
+      },
+      "JSXAttribute[name.name=/^(class|className)$/]"(node) {
+        if (!insideLoop(node)) return;
+        for (const name of identifiers(node.value)) loopClasses.add(name);
+      },
+      "Program:exit"() {
+        for (const [name, node] of styles) {
+          if (loopClasses.has(name)) context.report({ node, message: MESSAGE });
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: "vn" },
   rules: {
     "resource-read-latest": resourceReadLatest,
+    "row-columns": rowColumns,
     "note-body-writes": selectorRule(
       "CallExpression[callee.object.property.name='doc'][callee.property.name=/^(create|createMany|update|updateMany|upsert)$/] Property[key.name=/^(data|create|update)$/] > ObjectExpression > Property[key.name=/^(content|html|markdown)$/]",
       "Write note bodies only through server/notes/note-write.ts or note-store.ts (contentColumns), so validation, dual-write, search text, and the block index stay in step.",

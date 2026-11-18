@@ -79,7 +79,8 @@
     "vn/no-nested-select-spread": "error",
     "vn/color-tokens": "error",
     "vn/known-color-steps": "error",
-    "vn/resource-read-latest": "error"
+    "vn/resource-read-latest": "error",
+    "vn/row-columns": "error"
   },
   "overrides": [
     {

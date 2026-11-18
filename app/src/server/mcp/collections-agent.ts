@@ -16,6 +16,7 @@ import type {
   PropertyValue,
   SortRule,
 } from "~/lib/collections/types";
+import { isEventProperty } from "~/lib/collections/types";
 import {
   formatValueText,
   isComputedKind,
@@ -60,6 +61,13 @@ export const resolveCollection = (ref: string) =>
 export const collectionAppUrl = (ctx: ConnectorContext, id: string) =>
   appLink(ctx, `/collections/${id}`);
 
+const EVENT_COLUMN_NAMES = new Set(
+  ["next show", "place", "decision", "shows", "event link"].flatMap((n) => [
+    n,
+    `event ${n}`,
+  ]),
+);
+
 export function propertyByName(
   properties: CollectionProperty[],
   name: string,
@@ -73,9 +81,13 @@ export function propertyByName(
   );
   if (!match) {
     const names = pool.map((p) => p.name).join(", ");
+    // Event columns show in collections_query but are not properties.
+    const eventHint = EVENT_COLUMN_NAMES.has(key)
+      ? ` "${name}" comes from the row's event: change it with events_update or events_update_show.`
+      : "";
     throw new ConnectorError(
       "invalid",
-      `No property "${name}". Properties: ${names || "(none)"}.`,
+      `No property "${name}". Properties: ${names || "(none)"}.${eventHint}`,
     );
   }
   return match;
@@ -264,16 +276,25 @@ export const rowView = (
   properties: CollectionProperty[],
 ) => {
   const values: Record<string, string> = {};
+  // Event columns (see loadEventColumns) go under `event`, so a plain note
+  // among event rows shows as `event: null`.
+  const event: Record<string, string> = {};
+  let hasEventColumns = false;
   for (const property of properties) {
     if (property.id === TITLE_PROPERTY.id) continue;
+    const fromEvent = isEventProperty(property.id);
+    hasEventColumns ||= fromEvent;
     const text = formatValueText(property, readValue(row, property));
-    if (text) values[property.name] = text;
+    if (text) (fromEvent ? event : values)[property.name] = text;
   }
   return {
     id: row.id,
     title: row.title,
     appUrl: appLink(ctx, `/docs/${row.id}`),
     properties: values,
+    ...(hasEventColumns
+      ? { event: Object.keys(event).length ? event : null }
+      : {}),
     updatedAt: row.updatedAt,
   };
 };

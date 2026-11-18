@@ -14,7 +14,7 @@ import type {
   DateValue,
   PropertyValue,
 } from "~/lib/collections/types";
-import { isComputedKind, parseLooseText } from "~/lib/collections/values";
+import { isReadOnlyProperty, parseLooseText } from "~/lib/collections/values";
 import { useCollection } from "../CollectionContext";
 import { PropertyKindIcon } from "../PropertyKindIcon";
 import { MenuItem, menuInput, menuPanel, menuSection } from "../menu/MenuList";
@@ -209,7 +209,7 @@ export const BulkBar = (props: { selected: string[]; onClear: () => void }) => {
   const [property, setProperty] = createSignal<CollectionProperty | null>(null);
   const [confirm, setConfirm] = createSignal<"delete" | "remove" | null>(null);
   const editable = () =>
-    store.state.properties.filter((p) => !isComputedKind(p.kind));
+    store.state.properties.filter((p) => !isReadOnlyProperty(p));
   const close = () => {
     setOpen(false);
     setProperty(null);

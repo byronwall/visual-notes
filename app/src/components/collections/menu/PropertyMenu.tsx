@@ -14,7 +14,7 @@ import type {
   NumberFormat,
   TextFormat,
 } from "~/lib/collections/types";
-import { TITLE_PROPERTY_ID } from "~/lib/collections/types";
+import { TITLE_PROPERTY_ID, isEventProperty } from "~/lib/collections/types";
 import { useCollection } from "../CollectionContext";
 import { KIND_LABELS } from "../PropertyKindIcon";
 import { ChangeKindMenu } from "./ChangeKindMenu";
@@ -45,6 +45,9 @@ export const PropertyMenu = (props: {
   const [open, setOpen] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
   const isTitle = () => props.property.id === TITLE_PROPERTY_ID;
+  // Title and event columns have a fixed schema: sort and hide only.
+  const fromEvent = () => isEventProperty(props.property.id);
+  const fixed = () => isTitle() || fromEvent();
   const view = () => store.view(props.viewId);
 
   const rename = (name: string) => {
@@ -98,8 +101,14 @@ export const PropertyMenu = (props: {
           }}
         >
           <Show
-            when={!isTitle()}
-            fallback={<div class={menuSection}>Name (the note title)</div>}
+            when={!fixed()}
+            fallback={
+              <div class={menuSection}>
+                {fromEvent()
+                  ? `${props.property.name} (from the note's event)`
+                  : "Name (the note title)"}
+              </div>
+            }
           >
             <input
               {...noAutofill}
@@ -120,7 +129,7 @@ export const PropertyMenu = (props: {
             />
           </Show>
 
-          <Show when={props.property.kind === "text" && !isTitle()}>
+          <Show when={props.property.kind === "text" && !fixed()}>
             <div class={menuSection}>Format</div>
             <For
               each={
@@ -145,7 +154,7 @@ export const PropertyMenu = (props: {
             </For>
           </Show>
 
-          <Show when={props.property.kind === "number"}>
+          <Show when={props.property.kind === "number" && !fixed()}>
             <div class={menuSection}>Format</div>
             <For
               each={
@@ -174,7 +183,7 @@ export const PropertyMenu = (props: {
             </For>
           </Show>
 
-          <Show when={props.property.kind === "date"}>
+          <Show when={props.property.kind === "date" && !fixed()}>
             <MenuItem
               trailing={
                 props.property.config.includeTime ? (
@@ -190,9 +199,10 @@ export const PropertyMenu = (props: {
           </Show>
 
           <Show
-            when={["select", "status", "multi_select"].includes(
-              props.property.kind,
-            )}
+            when={
+              !fixed() &&
+              ["select", "status", "multi_select"].includes(props.property.kind)
+            }
           >
             <OptionsEditor property={props.property} />
           </Show>
@@ -217,7 +227,7 @@ export const PropertyMenu = (props: {
               </MenuItem>
             </Show>
           </Show>
-          <Show when={!isTitle()}>
+          <Show when={!fixed()}>
             <div class={menuSeparator} />
             <MenuItem
               danger

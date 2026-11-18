@@ -7,13 +7,18 @@ import type {
   PropertyValue,
   SelectOption,
 } from "./types";
-import { TITLE_PROPERTY_ID } from "./types";
+import { TITLE_PROPERTY_ID, isEventProperty } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 export const isComputedKind = (kind: PropertyKind) =>
   kind === "created_time" || kind === "updated_time";
+
+/** Values the user cannot set: computed times and event columns. */
+export const isReadOnlyProperty = (
+  property: Pick<CollectionProperty, "id" | "kind">,
+) => isComputedKind(property.kind) || isEventProperty(property.id);
 
 export const isDateString = (value: unknown): boolean =>
   typeof value === "string" &&

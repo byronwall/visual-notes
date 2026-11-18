@@ -1,5 +1,7 @@
 import { For, Show } from "solid-js";
-import { Box, HStack, Stack } from "styled-system/jsx";
+import { css } from "styled-system/css";
+import { HStack } from "styled-system/jsx";
+import { RowList, RowListRow } from "~/components/ui/row-list";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { formatRelativeTime } from "~/features/docs-index/utils/time";
@@ -12,31 +14,32 @@ export function formatBytes(bytes: number | null | undefined) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const CAPTURE_MODE_LABEL: Record<ArchivedPageSnapshotItem["captureMode"], string> = {
+const CAPTURE_MODE_LABEL: Record<
+  ArchivedPageSnapshotItem["captureMode"],
+  string
+> = {
   bulk: "Full page",
   targeted: "Selection",
 };
+
+const cols = css({ gridTemplateColumns: "minmax(0, 1fr) max-content" });
+const row = css({
+  rowGap: "0.5",
+  py: "2",
+  alignItems: "start",
+  transitionProperty: "background-color",
+  transitionDuration: "fast",
+  _hover: { bg: "gray.a2" },
+});
 
 export const ArchiveSnapshotList = (props: {
   snapshots: ArchivedPageSnapshotItem[];
   pageTitle: string;
 }) => (
-  <Stack gap="0">
+  <RowList class={cols}>
     <For each={props.snapshots}>
       {(snapshot) => (
-        <Box
-          display="grid"
-          gridTemplateColumns="minmax(0, 1fr) auto"
-          columnGap="3"
-          rowGap="0.5"
-          py="2"
-          px="2"
-          mx="-2"
-          borderRadius="l2"
-          transitionProperty="background-color"
-          transitionDuration="fast"
-          _hover={{ bg: "gray.a2" }}
-        >
+        <RowListRow class={row}>
           <HStack gap="2" minW="0" fontSize="sm">
             <Text as="span" fontWeight="medium" whiteSpace="nowrap">
               {CAPTURE_MODE_LABEL[snapshot.captureMode]}
@@ -46,7 +49,12 @@ export const ArchiveSnapshotList = (props: {
             </Text>
             <Show when={formatBytes(snapshot.htmlSizeBytes)}>
               {(size) => (
-                <Text as="span" color="fg.subtle" fontSize="xs" whiteSpace="nowrap">
+                <Text
+                  as="span"
+                  color="fg.subtle"
+                  fontSize="xs"
+                  whiteSpace="nowrap"
+                >
                   {size()}
                 </Text>
               )}
@@ -58,24 +66,35 @@ export const ArchiveSnapshotList = (props: {
             </Show>
           </HStack>
           <HStack gap="3" fontSize="xs">
-            <Link href={`/admin/archive/snapshots/${snapshot.id}`} fontSize="xs">
+            <Link
+              href={`/admin/archive/snapshots/${snapshot.id}`}
+              fontSize="xs"
+            >
               Review
             </Link>
             <Show when={snapshot.htmlPath}>
-              <Link href={`/api/archive/snapshots/${snapshot.id}/html?download=1`} fontSize="xs">
+              <Link
+                href={`/api/archive/snapshots/${snapshot.id}/html?download=1`}
+                fontSize="xs"
+              >
                 HTML
               </Link>
             </Show>
           </HStack>
           <Show when={snapshot.textSnippet}>
             {(snippet) => (
-              <Text gridColumn="1 / -1" fontSize="xs" color="fg.muted" lineClamp="2">
+              <Text
+                gridColumn="1 / -1"
+                fontSize="xs"
+                color="fg.muted"
+                lineClamp="2"
+              >
                 {snippet()}
               </Text>
             )}
           </Show>
-        </Box>
+        </RowListRow>
       )}
     </For>
-  </Stack>
+  </RowList>
 );
