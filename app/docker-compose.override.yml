@@ -1,0 +1,10 @@
+# Local development only. `docker compose up` loads this file on its own.
+# Coolify deploys with an explicit -f docker-compose.yml, so it ignores this file
+# and no port is published on the server. Ports bind to 127.0.0.1 only.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
+  app:
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
