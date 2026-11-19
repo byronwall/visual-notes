@@ -8,8 +8,6 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-visual_notes}
-    ports:
-      - "${DB_PORT_EXPOSED:-5432}"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -67,8 +65,9 @@ services:
       # Migrations and the search-text backfill run before the server listens;
       # failed checks in this window do not count against the container.
       start_period: 10m
-    ports:
-      - "${APP_PORT:-3000}"
+    # Traefik reaches the app on the internal network. No host port in production.
+    expose:
+      - "3000"
     volumes:
       - app-data:/app/data
 

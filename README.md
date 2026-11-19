@@ -119,13 +119,13 @@ In case you need to override ports or database settings:
 
 ```bash
 # App port mapping (host:container)
-APP_PORT=3000 \
+APP_HOST_PORT=3000 \
 
 # DB settings used by Compose and to construct DATABASE_URL
 DB_USER=postgres \
 DB_PASSWORD=postgres \
 DB_NAME=visual_notes \
-DB_PORT_EXPOSED=5432 \
+DB_HOST_PORT=5432 \
 docker compose up --build
 ```
 
