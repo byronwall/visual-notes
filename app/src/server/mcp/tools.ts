@@ -12,6 +12,7 @@ import {
   registerCollectionTools,
 } from "./collections-tools";
 import { EVENT_INSTRUCTIONS, registerEventTools } from "./event-tools";
+import { FEEDBACK_INSTRUCTIONS, registerFeedbackTools } from "./feedback-tools";
 import {
   NOTE_CONTEXT_INSTRUCTIONS,
   registerNoteContextTools,
@@ -34,7 +35,7 @@ import { createToolRegistrar } from "./tool-registry";
 
 const SERVER_INSTRUCTIONS = [
   "Visual Notes is the user's knowledge base: markdown notes filed by dot path (`work.visual-notes.canvas`), plus research topics, task lists, decision maps (pathways), collections, a time-blocks calendar, events, a private People memory, and a web archive.",
-  "Tools are named <area>_<verb>: notes_, research_, tasks_, pathways_, collections_, time_blocks_, events_, places_, people_, archive_, activity_, inbox_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
+  "Tools are named <area>_<verb>: notes_, research_, tasks_, pathways_, collections_, time_blocks_, events_, places_, people_, archive_, activity_, inbox_, feedback_. `search` looks across areas. In every result, appUrl opens the record in Visual Notes and url is a web address; ids you pass back are id/ids for the tool's own records and noteId, listId, showId, … for others.",
   NOTE_INSTRUCTIONS,
   "Rules: you may edit any note. On a note the user wrote (createdBy: user), edit when the user asked or the edit plainly serves the request; prefer notes_edit_blocks, keep the user's wording and structure, and never empty the note. Every edit keeps a version the user can restore. Metadata (note meta, task status and dates, collection values, event decisions) can change on any record. Deleting is the user's: cancel tasks and shows, hide research cards, or remove notes from a collection instead.",
   "Saving well: before you report a save, check it against what the user asked for. Keep product, source, and buying links, evidence dates, and what is still unverified. Name the one record that holds the current decision; label other copies 'snapshot as of <date>' with a link to it, and when the user changes a premise, update or relabel the records you made. Record confirmed inputs and channel preferences (such as 'online forms, not email') where later turns will read them. Say exactly what happened: request submitted, price shown, quote saved, verified, or waiting on the user.",
@@ -50,6 +51,7 @@ const SERVER_INSTRUCTIONS = [
   PEOPLE_INSTRUCTIONS,
   ARCHIVE_INSTRUCTIONS,
   ACTIVITY_INSTRUCTIONS,
+  FEEDBACK_INSTRUCTIONS,
 ];
 
 const serverInstructions = () =>
@@ -76,6 +78,7 @@ export function createNotesMcpServer(ctx: ConnectorContext): McpServer {
   registerPeopleTools(tools);
   registerArchiveTools(tools);
   registerActivityTools(tools);
+  registerFeedbackTools(tools);
   if (agentInboxEnabled()) registerAnnotationTools(tools);
   return server;
 }
