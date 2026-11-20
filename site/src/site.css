@@ -1,0 +1,532 @@
+/* The public landing page. Paper and ink from the app icon; blue from the app's link color. */
+
+:root {
+  color-scheme: light;
+  --paper: #f6f1e8;
+  --paper-deep: #efe7d9;
+  --surface: #fffdf9;
+  --line: #e2d9c9;
+  --line-strong: #cfc3ae;
+  --ink: #17181d;
+  --muted: #5d5a54;
+  --accent: #0d63c4;
+  --accent-hover: #0a4f9e;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --page: 1200px;
+  --gutter: 32px;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px / 1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+:where(a, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+section[id] {
+  scroll-margin-top: 72px;
+}
+
+/* Nav */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 14px var(--gutter);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.logo {
+  width: 28px;
+  height: 28px;
+}
+
+.nav nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav nav a {
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.nav nav a:hover {
+  color: var(--ink);
+  background: var(--paper-deep);
+}
+
+.nav nav a.nav-gh {
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  margin-left: 6px;
+}
+
+main {
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* Buttons */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.button:hover {
+  border-color: var(--ink);
+}
+
+.button.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.button.primary:hover {
+  background: #33353d;
+}
+
+/* Hero */
+
+.hero {
+  display: grid;
+  gap: 48px;
+  padding: 64px 0 56px;
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.eyebrow,
+.kicker {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin-top: 14px;
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 750;
+}
+
+.lede {
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.fine {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Screenshot frame */
+
+.frame {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow:
+    0 1px 2px rgb(40 30 10 / 6%),
+    0 18px 40px -18px rgb(40 30 10 / 28%);
+}
+
+.frame-bar {
+  display: flex;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-deep);
+}
+
+.frame-bar span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Section strip */
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 20px 0 8px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.strip a {
+  display: inline-block;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.strip a:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+/* Features */
+
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: center;
+  padding: 72px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.feature.flip {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+}
+
+.feature.flip .feature-copy {
+  order: 2;
+}
+
+.feature h2 {
+  margin: 10px 0 16px;
+  font-size: clamp(26px, 2.8vw, 34px);
+  font-weight: 700;
+}
+
+.feature-copy p + p {
+  margin-top: 12px;
+}
+
+.feature-copy p:not(.kicker) {
+  color: var(--muted);
+}
+
+/* Also in the app */
+
+.more {
+  padding: 64px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.more h2 {
+  font-size: 26px;
+}
+
+.more ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.more li {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.more h3 {
+  font-size: 16px;
+}
+
+.more p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Agents */
+
+.agents {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 56px;
+  align-items: start;
+  padding: 72px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.agents h2,
+.how h2 {
+  margin: 10px 0 16px;
+  font-size: clamp(26px, 2.8vw, 34px);
+}
+
+.agents-copy > p + p {
+  margin-top: 12px;
+}
+
+.agents-copy > p:not(.kicker),
+.how p:not(.kicker) {
+  color: var(--muted);
+}
+
+.rules {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rules li {
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.rules strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.tools {
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #1b1c22;
+  color: #e9e6df;
+  font: 500 14px / 1.5 var(--mono);
+}
+
+.tools-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #33353d;
+  color: #9a978f;
+  font-size: 12px;
+}
+
+.tools ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  padding: 16px;
+  list-style: none;
+}
+
+.tools li::before {
+  content: "› ";
+  color: #6ea8ff;
+}
+
+.tools li.tools-more {
+  grid-column: 1 / -1;
+  color: #9a978f;
+}
+
+.tools li.tools-more::before {
+  content: "";
+}
+
+/* How it works */
+
+.how {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 56px;
+  padding: 72px 0;
+}
+
+.how p + p {
+  margin-top: 12px;
+}
+
+.how .button {
+  margin-top: 24px;
+}
+
+.stack {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.stack div {
+  padding: 14px 18px;
+}
+
+.stack div + div {
+  border-top: 1px solid var(--line);
+}
+
+.stack dt {
+  font-weight: 650;
+}
+
+.stack dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Footer */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: calc(var(--page) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 28px var(--gutter) 40px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.footer a {
+  color: var(--ink);
+}
+
+/* Narrow screens */
+
+@media (max-width: 900px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  .feature,
+  .feature.flip,
+  .agents,
+  .how {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .feature.flip .feature-copy {
+    order: 0;
+  }
+
+  .hero {
+    padding-top: 28px;
+  }
+
+  .feature,
+  .agents,
+  .how {
+    padding: 48px 0;
+  }
+
+  .more ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .nav nav a:not(.nav-gh) {
+    display: none;
+  }
+
+  .more ul,
+  .tools ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
