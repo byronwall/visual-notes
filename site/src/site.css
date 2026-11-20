@@ -105,6 +105,18 @@ section[id] {
   position: sticky;
   top: 0;
   z-index: 20;
+  border-bottom: 1px solid transparent;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  transition: border-color var(--fast) var(--ease-out);
+}
+
+.nav.stuck {
+  border-bottom-color: var(--line);
+}
+
+.nav-row,
+.footer-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -112,8 +124,6 @@ section[id] {
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
   padding: 10px var(--gutter);
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  backdrop-filter: saturate(1.2) blur(10px);
 }
 
 .brand {
@@ -203,15 +213,18 @@ main {
 .tour-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 20px;
+  gap: 2px 12px;
+  margin: 0 -4px;
+  padding: 0 4px;
   border-bottom: 1px solid var(--line);
 }
 
 .tour-tabs button {
   position: relative;
   height: 40px;
-  padding: 0;
+  padding: 0 4px;
   border: 0;
+  border-radius: 6px 6px 0 0;
   background: none;
   color: var(--muted);
   font: 500 15px var(--font);
@@ -311,8 +324,15 @@ main {
 }
 
 .hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 8px;
   font-size: 13px;
+}
+
+.hint kbd {
+  line-height: 16px;
 }
 
 .shot {
@@ -393,14 +413,25 @@ main {
   z-index: 50;
   display: grid;
   grid-template-rows: auto 1fr;
-  background: rgb(23 24 29 / 88%);
+  background: rgb(23 24 29 / 94%);
+  backdrop-filter: blur(6px);
 }
 
 .lightbox-bar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
   padding: 12px 16px;
+}
+
+.lightbox-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(255 255 255 / 85%);
+  font: 500 17px var(--display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lightbox-bar button {
@@ -433,7 +464,7 @@ main {
 
 .lightbox-scroll img {
   max-width: 100%;
-  max-height: 100%;
+  max-height: calc(100vh - 72px);
   border-radius: 6px;
   background: #fff;
   cursor: zoom-in;
@@ -444,7 +475,7 @@ main {
 }
 
 .lightbox-scroll.actual img {
-  width: 1184px;
+  width: 1776px;
   max-width: none;
   max-height: none;
   cursor: zoom-out;
@@ -455,6 +486,7 @@ main {
 .more {
   display: grid;
   grid-template-columns: 220px 1fr;
+  align-items: baseline;
   gap: 40px;
   margin-top: 56px;
   padding: 28px 0;
@@ -464,6 +496,7 @@ main {
 
 .more h2 {
   font-size: 22px;
+  line-height: 1.2;
 }
 
 .more dl {
@@ -503,8 +536,13 @@ main {
 
 .agents-copy > p,
 .built-copy > p {
+  max-width: 68ch;
   margin-top: 16px;
   color: var(--muted);
+}
+
+.rules {
+  max-width: 68ch;
 }
 
 .rules {
@@ -545,20 +583,31 @@ main {
   letter-spacing: 0.02em;
 }
 
-.exchange .user p {
+.exchange .user p,
+.exchange .agent p {
   display: inline-block;
   padding: 8px 12px;
   border-radius: 10px 10px 10px 3px;
   background: var(--paper-deep);
 }
 
+.exchange .agent p {
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.exchange .calls {
+  display: grid;
+  gap: 12px;
+  margin-left: 12px;
+  padding: 4px 0 4px 14px;
+  border-left: 1px solid var(--line-strong);
+}
+
 .exchange .call {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 2px 10px;
-  margin-left: 12px;
-  padding: 6px 0 6px 14px;
-  border-left: 1px solid var(--line-strong);
   font-size: 14px;
 }
 
@@ -569,7 +618,10 @@ main {
 
 .exchange .args {
   color: var(--muted);
-  overflow-wrap: anywhere;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .exchange .result {
@@ -622,6 +674,14 @@ main {
   font-size: 17px;
 }
 
+.posts time {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .posts p {
   margin-top: 2px;
   color: var(--muted);
@@ -631,21 +691,39 @@ main {
 /* Footer */
 
 .footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px;
-  max-width: calc(var(--page) + 2 * var(--gutter));
-  margin: 0 auto;
-  padding: 24px var(--gutter) 40px;
-  border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 14px;
 }
 
+.footer-row {
+  flex-wrap: wrap;
+  padding-top: 0;
+  padding-bottom: 40px;
+}
+
+.footer-row::before {
+  content: "";
+  flex: 0 0 100%;
+  height: 1px;
+  margin-bottom: 14px;
+  background: var(--line);
+}
+
 .footer-links {
   display: flex;
-  gap: 20px;
+  gap: 4px;
+}
+
+.footer a {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+
+.footer-row > span:first-of-type a {
+  padding: 0 2px;
 }
 
 /* Controls: one state model for every link and button on the page. */
@@ -756,6 +834,7 @@ main {
 
 .tour-tabs button:focus-visible {
   outline-offset: -2px;
+  border-radius: 6px;
 }
 
 @media (hover: none) {
@@ -860,9 +939,31 @@ main {
   }
 
   .marker {
-    width: 18px;
-    height: 18px;
-    font-size: 11px;
+    display: none;
+  }
+
+  .callouts li {
+    grid-template-columns: 6px 1fr;
+    gap: 12px;
+  }
+
+  .num {
+    width: 6px;
+    height: 6px;
+    margin-top: 9px;
+    font-size: 0;
+  }
+
+  .tour-tabs {
+    border-bottom: 0;
+  }
+
+  .exchange .call {
+    grid-template-columns: 1fr;
+  }
+
+  .exchange .result {
+    grid-column: 1;
   }
 
   .demo-note {

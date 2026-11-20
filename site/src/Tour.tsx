@@ -5,7 +5,13 @@ const shot = (name: string) => `${import.meta.env.BASE_URL}shots/${name}.webp`;
 
 /** Tabs across the top, the screenshot with numbered markers, and the notes beside it. */
 export function Tour() {
-  const [index, setIndex] = createSignal(0);
+  // A link such as #tour/research opens that stop.
+  const fromHash = () =>
+    Math.max(
+      0,
+      TOUR.findIndex((s) => location.hash === `#tour/${s.id}`),
+    );
+  const [index, setIndex] = createSignal(fromHash());
   const [hot, setHot] = createSignal<number | null>(null);
   const [zoomed, setZoomed] = createSignal(false);
   const stop = () => TOUR[index()];
@@ -15,6 +21,7 @@ export function Tour() {
     const next = (i + TOUR.length) % TOUR.length;
     setIndex(next);
     setHot(null);
+    history.replaceState(null, "", `#tour/${TOUR[next].id}`);
     if (focus) tabs[next]?.focus();
   };
 
@@ -30,6 +37,7 @@ export function Tour() {
 
   // Load every screenshot once the page is idle, so switching tabs never waits.
   onMount(() => {
+    if (location.hash.startsWith("#tour/")) document.getElementById("tour")?.scrollIntoView();
     const load = () => TOUR.forEach((s) => (new Image().src = shot(s.image)));
     if ("requestIdleCallback" in window) requestIdleCallback(load);
     else setTimeout(load, 800);
@@ -94,13 +102,19 @@ export function Tour() {
               <Arrow dir="right" />
             </button>
             <span class="hint">
-              or <kbd>←</kbd> <kbd>→</kbd> on the tabs
+              or <kbd>←</kbd>
+              <kbd>→</kbd> on the tabs
             </span>
           </div>
         </div>
 
         <figure class="shot">
-          <button type="button" class="shot-open" onClick={() => setZoomed(true)} aria-label="Enlarge screenshot">
+          <button
+            type="button"
+            class="shot-open"
+            onClick={() => setZoomed(true)}
+            aria-label="Enlarge screenshot"
+          >
             <For each={TOUR}>
               {(s, i) => (
                 <img
@@ -138,18 +152,33 @@ export function Tour() {
       </div>
 
       <Show when={zoomed()}>
-        <Lightbox src={shot(stop().image)} alt={stop().alt} onClose={() => setZoomed(false)} />
+        <Lightbox
+          src={shot(stop().image)}
+          alt={stop().alt}
+          title={stop().title}
+          onClose={() => setZoomed(false)}
+        />
       </Show>
     </section>
   );
 }
 
 /** The screenshot at full size. Fits the window first; a click shows it at 1:1 for reading. */
-function Lightbox(props: { src: string; alt: string; onClose: () => void }) {
+function Lightbox(props: { src: string; alt: string; title: string; onClose: () => void }) {
   const [actual, setActual] = createSignal(false);
   let close!: HTMLButtonElement;
+  let bar!: HTMLDivElement;
   const opener = document.activeElement as HTMLElement | null;
-  const onKey = (e: KeyboardEvent) => e.key === "Escape" && props.onClose();
+  // Esc closes; Tab stays on the dialog's own buttons.
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") return props.onClose();
+    if (e.key !== "Tab") return;
+    const items = [...bar.querySelectorAll("button")];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = (at + (e.shiftKey ? -1 : 1) + items.length) % items.length;
+    items[next].focus();
+    e.preventDefault();
+  };
 
   onMount(() => {
     close.focus();
@@ -164,9 +193,10 @@ function Lightbox(props: { src: string; alt: string; onClose: () => void }) {
 
   return (
     <div class="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot" onClick={props.onClose}>
-      <div class="lightbox-bar" onClick={(e) => e.stopPropagation()}>
+      <div class="lightbox-bar" ref={bar} onClick={(e) => e.stopPropagation()}>
+        <span class="lightbox-title">{props.title}</span>
         <button type="button" onClick={() => setActual(!actual())}>
-          {actual() ? "Fit to window" : "Actual size"}
+          {actual() ? "Fit" : "Zoom in"}
         </button>
         <button type="button" ref={close} onClick={props.onClose}>
           Close <kbd>Esc</kbd>

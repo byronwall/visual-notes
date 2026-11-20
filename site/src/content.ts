@@ -27,7 +27,11 @@ export const TOUR: Stop[] = [
     callouts: [
       { x: 16.5, y: 18, text: "The recording stays on the note it belongs to" },
       { x: 16.5, y: 34, text: "Tasks come out with the time you said them" },
-      { x: 16.5, y: 48, text: "The transcript is split into titled, timed sections, and all of it is searchable" },
+      {
+        x: 16.5,
+        y: 48,
+        text: "The transcript is split into titled, timed sections, and all of it is searchable",
+      },
     ],
   },
   {
@@ -110,32 +114,33 @@ export const TOUR: Stop[] = [
 ];
 
 export const MORE: [string, string][] = [
-  ["Cleanup", "a daily card stack for revisiting old notes and archiving the done ones"],
-  ["Events", "shows and appointments with decisions, places, and calendar feeds"],
-  ["Time blocks", "a week calendar for where the hours go"],
-  ["Web archive", "a browser extension saves pages into searchable notes"],
+  ["Cleanup", "A daily card stack for revisiting old notes and archiving the done ones."],
+  ["Events", "Shows and appointments with decisions, places, and calendar feeds."],
+  ["Time blocks", "A week calendar for where the hours go."],
+  ["Web archive", "A browser extension saves pages into searchable notes."],
 ];
 
-export type Step =
-  | { kind: "user"; text: string }
-  | { kind: "call"; tool: string; args: string; result: string }
-  | { kind: "agent"; text: string };
+export type Call = { tool: string; args: string; result: string };
+export type Step = { kind: "user" | "agent"; text: string } | { kind: "calls"; calls: Call[] };
 
 // Written against the demo database with the real tool names and arguments.
 export const EXCHANGE: Step[] = [
   { kind: "user", text: "Put the follow-ups from my walk memo on Friday." },
   {
-    kind: "call",
-    tool: "search",
-    args: '{ query: "walk memo research board" }',
-    result: "1 note: Voice memo: walk thoughts on the research board",
-  },
-  { kind: "call", tool: "tasks_query", args: '{ noteId: "cmwoejwqz…" }', result: "3 open tasks" },
-  {
-    kind: "call",
-    tool: "tasks_update",
-    args: '{ updates: [{ id, dueDate: "2026-11-21" } ×3] }',
-    result: "3 tasks updated",
+    kind: "calls",
+    calls: [
+      {
+        tool: "search",
+        args: '{ query: "walk memo research board" }',
+        result: "1 note: Voice memo: walk thoughts on the research board",
+      },
+      { tool: "tasks_query", args: '{ noteId: "cmwoejwqz…" }', result: "3 open tasks" },
+      {
+        tool: "tasks_update",
+        args: '{ updates: [{ id, dueDate: "2026-11-21" } ×3] }',
+        result: "3 tasks updated",
+      },
+    ],
   },
   {
     kind: "agent",
@@ -154,21 +159,25 @@ export const POSTS = [
   {
     href: `${BYRON}/blog/voice-memos-to-searchable-notes`,
     title: "Voice memos that turn into searchable notes",
+    date: "2026-11-02",
     note: "Transcripts with summaries, timed sections, and tasks, for about $0.04 an hour.",
   },
   {
     href: `${BYRON}/blog/things-i-consider-when-building-an-mcp-server`,
     title: "Things I consider when building an MCP server",
+    date: "2026-11-19",
     note: "Fixable errors, one way to register tools, and reading the call log.",
   },
   {
     href: `${BYRON}/blog/cleaning-up-notes-with-decision-models`,
     title: "Cleaning up 6,300 notes",
+    date: "2026-10-25",
     note: "From decision models to a review queue that works in production.",
   },
   {
     href: `${BYRON}/blog/moving-visual-notes-to-solidstart-2`,
     title: "Moving Visual Notes to SolidStart 2",
+    date: "2026-10-26",
     note: "The build went from 292s to 49s. The breakage was at the boundaries.",
   },
 ];
@@ -176,7 +185,7 @@ export const POSTS = [
 export const STACK: [string, string][] = [
   ["App", "SolidStart, TypeScript"],
   ["Data", "PostgreSQL, Prisma"],
-  ["Search", "full text plus OpenAI embeddings"],
+  ["Search", "Full text plus OpenAI embeddings"],
   ["Canvas", "UMAP"],
   ["Voice", "Groq Whisper"],
   ["Agents", "MCP over HTTP, with OAuth"],

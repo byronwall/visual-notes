@@ -1,24 +1,35 @@
-import { For } from "solid-js";
+import { createSignal, For, onCleanup, onMount } from "solid-js";
 import { BYRON, EXCHANGE, GITHUB, MORE, POSTS, RULES, STACK } from "./content";
 import { Tour } from "./Tour";
 
 export function Landing() {
+  // The bar gets its bottom rule only once content scrolls under it.
+  const [stuck, setStuck] = createSignal(false);
+  const onScroll = () => setStuck(scrollY > 4);
+  onMount(() => {
+    onScroll();
+    addEventListener("scroll", onScroll, { passive: true });
+  });
+  onCleanup(() => removeEventListener("scroll", onScroll));
+
   return (
     <>
-      <header class="nav">
-        <a class="brand" href="#top">
-          <Logo />
-          Visual Notes
-        </a>
-        <nav aria-label="Sections">
-          <a href="#tour">Tour</a>
-          <a href="#agents">Agents</a>
-          <a href="#built">How it's built</a>
-          <a class="nav-gh" href={GITHUB}>
-            <GitHubIcon />
-            GitHub
+      <header class="nav" classList={{ stuck: stuck() }}>
+        <div class="nav-row">
+          <a class="brand" href="#top">
+            <Logo />
+            Visual Notes
           </a>
-        </nav>
+          <nav aria-label="Sections">
+            <a href="#tour">Tour</a>
+            <a href="#agents">Agents</a>
+            <a href="#built">How it's built</a>
+            <a class="nav-gh" href={GITHUB}>
+              <GitHubIcon />
+              GitHub
+            </a>
+          </nav>
+        </div>
       </header>
 
       <main id="top">
@@ -28,8 +39,8 @@ export function Landing() {
           </h1>
           <div class="hero-side">
             <p class="lede">
-              Visual Notes holds my notes, recordings, tasks, research, and people. I built it and use it every
-              day. Agents connect over MCP and read and edit the same notes I do.
+              Visual Notes holds my notes, recordings, tasks, research, and people. I built it and use it
+              every day. Agents connect over MCP and read and edit the same notes I do.
             </p>
             <div class="cta">
               <a class="button primary" href="#tour">
@@ -44,7 +55,9 @@ export function Landing() {
         </section>
 
         <Tour />
-        <p class="demo-note">Every screenshot uses a demo database with invented notes. Click one to see it full size.</p>
+        <p class="demo-note">
+          Every screenshot uses a demo database with invented notes. Click one to see it full size.
+        </p>
 
         <section class="more" aria-labelledby="more-title">
           <h2 id="more-title">Also in the app</h2>
@@ -64,8 +77,8 @@ export function Landing() {
           <div class="agents-copy">
             <h2>Agents work in the same notes</h2>
             <p>
-              The app serves an MCP endpoint, so ChatGPT or Claude can do nearly everything I can do in the UI:
-              more than 60 tools across notes, tasks, collections, research, pathways, people, events, the
+              The app serves an MCP endpoint, so ChatGPT or Claude can do nearly everything I can do in the
+              UI: more than 60 tools across notes, tasks, collections, research, pathways, people, events, the
               archive, and search. A few rules keep that safe enough to leave on.
             </p>
             <ul class="rules">
@@ -82,25 +95,31 @@ export function Landing() {
           <figure class="exchange">
             <ol>
               <For each={EXCHANGE}>
-                {(step) => {
-                  if (step.kind === "call")
-                    return (
-                      <li class="call">
-                        <code class="tool">{step.tool}</code>
-                        <code class="args">{step.args}</code>
-                        <span class="result">{step.result}</span>
-                      </li>
-                    );
-                  return (
-                    <li class={step.kind}>
-                      <span class="who">{step.kind === "user" ? "Me" : "Agent"}</span>
-                      <p>{step.text}</p>
-                    </li>
-                  );
-                }}
+                {(step) => (
+                  <li class={step.kind}>
+                    {step.kind === "calls" ? (
+                      <For each={step.calls}>
+                        {(c) => (
+                          <div class="call">
+                            <code class="tool">{c.tool}</code>
+                            <code class="args">{args(c.args)}</code>
+                            <span class="result">{c.result}</span>
+                          </div>
+                        )}
+                      </For>
+                    ) : (
+                      <>
+                        <span class="who">{step.kind === "user" ? "Me" : "Agent"}</span>
+                        <p>{step.text}</p>
+                      </>
+                    )}
+                  </li>
+                )}
               </For>
             </ol>
-            <figcaption>An example exchange against the demo data, with the real tool names and arguments.</figcaption>
+            <figcaption>
+              An example exchange against the demo data, with the real tool names and arguments.
+            </figcaption>
           </figure>
         </section>
 
@@ -108,9 +127,9 @@ export function Landing() {
           <div class="built-copy">
             <h2>How it's built</h2>
             <p>
-              One SolidStart app and one Postgres database on my own server. Notes are markdown stored as blocks
-              with IDs. Tasks, collection rows, and events are notes or point back to one, so search and the
-              agent connector reach all of it through the same records.
+              One SolidStart app and one Postgres database on my own server. Notes are markdown stored as
+              blocks with IDs. Tasks, collection rows, and events are notes or point back to one, so search
+              and the agent connector reach all of it through the same records.
             </p>
             <p>
               My own copy holds about 6,300 notes. The repo has about 1,100 commits since October 2025, 766 of
@@ -134,6 +153,7 @@ export function Landing() {
                 {(p) => (
                   <li>
                     <a href={p.href}>{p.title}</a>
+                    <time dateTime={p.date}>{formatDate(p.date)}</time>
                     <p>{p.note}</p>
                   </li>
                 )}
@@ -144,21 +164,40 @@ export function Landing() {
       </main>
 
       <footer class="footer">
-        <span>
-          Built by <a href={BYRON}>Byron Wall</a>
-        </span>
-        <span class="footer-links">
-          <a href={`${BYRON}/projects/visual-notes`}>Project page</a>
-          <a href={GITHUB}>GitHub</a>
-        </span>
+        <div class="footer-row">
+          <span>
+            Built by <a href={BYRON}>Byron Wall</a>
+          </span>
+          <span class="footer-links">
+            <a href={`${BYRON}/projects/visual-notes`}>Project page</a>
+            <a href={GITHUB}>GitHub</a>
+          </span>
+        </div>
       </footer>
     </>
   );
 }
 
+/** Quoted values never break across lines, so a date or ID stays whole when the args wrap. */
+const args = (text: string) =>
+  text.split(/("[^"]*")/).map((part) => (part.startsWith('"') ? <span class="nowrap">{part}</span> : part));
+
+const formatDate = (iso: string) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
 function Logo() {
   return (
-    <img class="logo" src={`${import.meta.env.BASE_URL}android-chrome-192x192.png`} alt="" width="28" height="28" />
+    <img
+      class="logo"
+      src={`${import.meta.env.BASE_URL}android-chrome-192x192.png`}
+      alt=""
+      width="28"
+      height="28"
+    />
   );
 }
 
