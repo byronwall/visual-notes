@@ -37,7 +37,14 @@ The profile leads with Experience: jobs newest start first, grouped by employer,
 - `compareRoles` returns `overlap` (the stated dates put both people there on one day), `possible` (the dates are too coarse), `none`, or `unknown` (a role has no dates). A current role counts only through `observedOn` (or its last write).
 - The profile's "Also here" rows, introduction leads, and `people_get_organization` with `personId` all use `findColleagues`. A result is a lead, never a relationship.
 
-`people_import_career` imports a career collection (Person URL, Company, Role, Start month, End month, Employment, Location, Source URL, Checked). Preview first. Apply writes one row per transaction, keyed `career-collection:<rowId>`, so a repeat or resumed run adds nothing. It completes an undated role with the same title instead of adding a copy. It reports a curated edit, two organizations with the company's name, or a LinkedIn profile owned by another person as a conflict. It writes no notes, so Recent and contact dates do not change.
+`people_import_career` imports a career collection (Person URL, Company, Role, Start month, End month, Employment, Location, Source URL, Checked). Preview first. Apply writes one row per transaction, keyed `career-collection:<rowId>`, so a repeat or resumed run adds nothing. It completes an undated role with the same title instead of adding a copy. It reports a curated edit, two organizations with the company's name, or a LinkedIn profile owned by another person as a conflict. It writes no notes, so Recent and contact dates do not change. Companies match by exact name (case-insensitive) only; a renamed company or a related brand stays separate until you merge it by hand. Import has no app screen.
+
+Rules for career and source ingestion:
+
+- Native affiliations are the one place to edit roles. A career collection is source evidence; keep it as it is, and do not delete or rewrite it as a rollback.
+- Keep a fuzzy statement ("started about a month ago") as a sourced fact. Do not turn an observation date into a start or end date.
+- Before an agent writes source notes in bulk (message exports, captured profiles), put them in a collection with `showRowsInRecent: false` and read the setting back. A dot path alone does not keep a note out of Recent. If the archive is not ready, stop before the first write.
+- Private captures and raw message exports stay out of Git. Tests use synthetic rows, such as the seed fixture.
 
 Organizations carry a short `summary` and a `url`. `/api/org-icons/<id>` fetches the icon from that site once through `fetchPublicFile` (public addresses only, raster images only), stores it on the row, and retries a miss after a week. A changed url clears it. Without an icon the mark is a tinted monogram. Company pages put everyone on one year axis (`CompanyTimeline`); `?focus=<personId>` shades that person's tenure, which is where the profile's overlap pills link.
 
@@ -72,4 +79,6 @@ The seed refuses any database that is not a loopback `visual_notes_audit_*` one.
 - The reconnect cadence choices (1, 2, 3, 6, 12 months) are a first guess. Review real suggestions before adding any bulk or default cadence.
 - Scheduled digest delivery is not built.
 - An agent write does not refresh People pages that are already open. They update on reload.
+- The live career import was not run in the PR that added it (#348). Preview `people_import_career` on People Career History, then apply; it should reconcile the 41 captured roles.
+- The source export does not hold full work histories for the original 40 people. A better schema cannot supply roles nobody recorded.
 - People uses the existing `notes:read` and `notes:write` MCP scopes. No live OAuth round trip has been run against the People tools.

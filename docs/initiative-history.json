@@ -27,5 +27,24 @@
     "follow_ups": [
       "Relations, rollups, formulas, file properties and charts stay deferred."
     ]
+  },
+  {
+    "title": "People: structured history and company overlap",
+    "slug": "people-career-history",
+    "outcome": "completed",
+    "retired_at": "2026-11-20",
+    "summary": "Native Experience section on People profiles; affiliations with employment/membership kind, explicit current/ended/unknown status, partial dates, observedOn and sources; compareRoles/findColleagues overlap leads in profile, company, network and MCP reads; repeat-safe people_import_career with preview, resume and conflict reporting. Inspected at origin/main 0a324a06; no uncommitted changes.",
+    "reason": "All three milestones merged in #348 on 2026-11-13 (plan PR #346).",
+    "documentation": [
+      "app/docs/people.md",
+      "app/docs/mcp-connector.md",
+      "app/docs/mcp-parity.md"
+    ],
+    "revision": "0a324a06",
+    "follow_ups": [
+      "Run the live people_import_career preview and apply on People Career History (41 roles).",
+      "Companies match by exact name only; renamed companies and related brands need a manual merge.",
+      "Career import has no app screen."
+    ]
   }
 ]
