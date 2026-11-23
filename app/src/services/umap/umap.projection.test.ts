@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   },
   embeddingFindMany: vi.fn(),
   transform: vi.fn(),
+  retrain: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({
   prisma: {
@@ -25,6 +26,11 @@ vi.mock("~/server/db", () => ({
 }));
 vi.mock("~/server/lib/umap/python-umap", () => ({
   transformWithUmapModel: mocks.transform,
+  isUmapModelLoadError: (error: Error) =>
+    error.message.includes("UMAP_MODEL_LOAD_FAILED"),
+}));
+vi.mock("~/services/umap/umap.retrain", () => ({
+  maybeRetrainUmapRun: mocks.retrain,
 }));
 vi.mock("~/services/umap/umap.regions", () => ({
   regenerateUmapRegions: async () => ({}),
@@ -44,9 +50,15 @@ beforeEach(() => {
 
 it("pauses after a failed transform until the model changes", async () => {
   mocks.transform.mockRejectedValue(
-    new Error("'NNDescent' object has no attribute"),
+    new Error(
+      "[umap-python] UMAP_MODEL_LOAD_FAILED AttributeError: 'NNDescent' object has no attribute",
+    ),
   );
   await expect(project()).rejects.toThrow("NNDescent");
+  // A model that cannot load retrains the map instead of waiting.
+  await vi.waitFor(() =>
+    expect(mocks.retrain).toHaveBeenCalledWith("map", { force: true }),
+  );
 
   // The retry fails fast, before loading any vectors.
   await expect(project()).rejects.toThrow("paused run=map");

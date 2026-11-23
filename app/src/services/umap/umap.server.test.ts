@@ -29,7 +29,9 @@ vi.mock("~/services/umap/umap.regions", () => ({
 import { createUmapRun } from "./umap.server";
 
 it("creates the first map without an HTTP request or router context", async () => {
-  await expect(createUmapRun({ embeddingRunId: "run", dims: 2 })).resolves.toEqual({
+  await expect(
+    createUmapRun({ embeddingRunId: "run", dims: 2 }),
+  ).resolves.toEqual({
     jobId: "job",
     runId: "map",
     count: 1,

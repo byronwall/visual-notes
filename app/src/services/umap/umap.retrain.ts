@@ -33,9 +33,13 @@ type RetrainGlobal = typeof globalThis & { [RETRAIN_KEY]?: Promise<void> };
 
 /**
  * Called by the embedding sweep for the canvas map. Retrains in the
- * background when the map has drifted; never throws.
+ * background when the map has drifted, or always with `force` (a model that
+ * no longer loads); never throws.
  */
-export function maybeRetrainUmapRun(runId: string): Promise<void> {
+export function maybeRetrainUmapRun(
+  runId: string,
+  options?: { force?: boolean },
+): Promise<void> {
   const store = globalThis as RetrainGlobal;
   if (store[RETRAIN_KEY]) return store[RETRAIN_KEY];
   const task = (async () => {
@@ -59,8 +63,11 @@ export function maybeRetrainUmapRun(runId: string): Promise<void> {
         },
         new Date(),
       );
-      if (!decision.retrain) return;
-      console.info(`${LOG_PREFIX} retraining run=${run.id}`, decision);
+      if (!decision.retrain && !options?.force) return;
+      console.info(`${LOG_PREFIX} retraining run=${run.id}`, {
+        ...decision,
+        force: Boolean(options?.force),
+      });
       await retrainUmapRun(run.id);
     } catch (error) {
       console.error(

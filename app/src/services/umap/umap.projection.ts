@@ -1,5 +1,8 @@
 import { prisma } from "~/server/db";
-import { transformWithUmapModel } from "~/server/lib/umap/python-umap";
+import {
+  isUmapModelLoadError,
+  transformWithUmapModel,
+} from "~/server/lib/umap/python-umap";
 import {
   applyAlignment,
   parseUmapAlignment,
@@ -155,6 +158,16 @@ export async function projectVectorsIntoUmapRun(params: {
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     projectionFailures().set(run.id, { artifactPath, at: Date.now(), message });
+    // The model can't load under this UMAP stack: retrain the map, warm-started
+    // from the stored points, so the pause ends with a model that loads.
+    if (isUmapModelLoadError(error)) {
+      console.warn(
+        `[umap.projection] model cannot load run=${run.id}; retraining`,
+      );
+      void import("~/services/umap/umap.retrain").then((retrain) =>
+        retrain.maybeRetrainUmapRun(run.id, { force: true }),
+      );
+    }
     throw error;
   });
   projectionFailures().delete(run.id);

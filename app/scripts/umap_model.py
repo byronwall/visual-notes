@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -20,6 +21,15 @@ import umap
 from sklearn.decomposition import PCA
 
 DEFAULT_RANDOM_STATE = 42
+# Node reads this marker on stderr and retrains the map instead of retrying.
+MODEL_LOAD_FAILED = "UMAP_MODEL_LOAD_FAILED"
+
+
+def _versions() -> dict[str, str]:
+  from importlib.metadata import version
+
+  names = ("umap-learn", "pynndescent", "scikit-learn", "numpy", "numba")
+  return {name: version(name) for name in names}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -127,6 +137,7 @@ def _train(args: argparse.Namespace) -> None:
       "params": params,
       "random_state": random_state,
       "trained_at_unix": time.time(),
+      "versions": _versions(),
     },
   }
 
@@ -150,7 +161,12 @@ def _transform(args: argparse.Namespace) -> None:
   payload = _load_json(Path(args.input))
   matrix = _matrix_from_payload(payload)
 
-  artifact = joblib.load(Path(args.artifact))
+  try:
+    artifact = joblib.load(Path(args.artifact))
+  except Exception as error:
+    # Usually a model pickled by an older UMAP stack.
+    sys.stderr.write(f"{MODEL_LOAD_FAILED} {type(error).__name__}: {error}\n")
+    sys.exit(3)
   reducer = artifact.get("reducer")
   pca = artifact.get("pca")
   meta = artifact.get("meta") or {}
@@ -192,6 +208,7 @@ def _check(args: argparse.Namespace) -> None:
     "ok": True,
     "numpy": np.__version__,
     "umap": getattr(umap, "__version__", "unknown"),
+    "versions": _versions(),
   }
   _write_json(Path(args.output), payload)
 
