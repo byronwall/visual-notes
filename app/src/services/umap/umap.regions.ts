@@ -39,7 +39,7 @@ type LabelPayload = {
 };
 
 export async function regenerateUmapRegions(
-  runId: string,
+  runId: string
 ): Promise<UmapRegionsSnapshot | null> {
   const startedAt = Date.now();
   console.info(`[umap.regions] start run=${runId}`);
@@ -68,7 +68,7 @@ export async function regenerateUmapRegions(
   const snapshot = await buildUmapRegionsSnapshot(
     rows,
     runId,
-    parseUmapRegionsSnapshot(run?.regionsJson),
+    parseUmapRegionsSnapshot(run?.regionsJson)
   );
 
   await prisma.umapRun.update({
@@ -82,14 +82,14 @@ export async function regenerateUmapRegions(
   console.info(
     `[umap.regions] complete run=${runId} groups=${snapshot.regions.length} islands=${snapshot.islands.length} points=${snapshot.totalPoints} ms=${
       Date.now() - startedAt
-    }`,
+    }`
   );
 
   return snapshot;
 }
 
 export async function loadRegionPoints(
-  runId: string,
+  runId: string
 ): Promise<RegionPointRow[]> {
   const rows = await prisma.umapPoint.findMany({
     where: { runId },
@@ -122,7 +122,7 @@ export async function loadRegionPoints(
 export async function buildUmapRegionsSnapshot(
   points: RegionPointRow[],
   seed: string,
-  previous: UmapRegionsSnapshot | null,
+  previous: UmapRegionsSnapshot | null
 ): Promise<UmapRegionsSnapshot> {
   const clusterCount = chooseClusterCount(points.length);
   const mapDiagonal = computeBoundsDiagonal(computeBounds(points));
@@ -130,8 +130,8 @@ export async function buildUmapRegionsSnapshot(
   const maxRadius = chooseMaxRadius(mapDiagonal);
   console.info(
     `[umap.regions] clustering run=${seed} points=${points.length} targetGroups=${clusterCount} maxDocs=${maxDocsPerRegion} maxRadius=${maxRadius.toFixed(
-      2,
-    )}`,
+      2
+    )}`
   );
   const clusters = buildClusters(points, clusterCount, seed, {
     maxGroups: MAX_GROUPS,
@@ -142,21 +142,21 @@ export async function buildUmapRegionsSnapshot(
     previous,
     clusters
       .filter((cluster) => cluster.rows.length > 0)
-      .map((cluster, index) => buildRegion(cluster, index)),
+      .map((cluster, index) => buildRegion(cluster, index))
   );
   const unlabeledRegions = matched.regions;
   console.info(
-    `[umap.regions] clustered run=${seed} groups=${unlabeledRegions.length} keptTitles=${matched.keptTitleIds.size} redirects=${Object.keys(matched.redirects).length}`,
+    `[umap.regions] clustered run=${seed} groups=${unlabeledRegions.length} keptTitles=${matched.keptTitleIds.size} redirects=${Object.keys(matched.redirects).length}`
   );
 
   const regionLabels = await labelRegions(
-    unlabeledRegions.filter((region) => !matched.keptTitleIds.has(region.id)),
+    unlabeledRegions.filter((region) => !matched.keptTitleIds.has(region.id))
   ).catch((error) => {
     console.warn(`[umap.regions] region labeling failed run=${seed}`, error);
     return new Map<string, LabelPayload>();
   });
   console.info(
-    `[umap.regions] region labels run=${seed} labeled=${regionLabels.size}/${unlabeledRegions.length}`,
+    `[umap.regions] region labels run=${seed} labeled=${regionLabels.size}/${unlabeledRegions.length}`
   );
 
   const labeledRegions = unlabeledRegions.map((region) => {
@@ -174,22 +174,22 @@ export async function buildUmapRegionsSnapshot(
   const regions = labeledRegions
     .sort(
       (a, b) =>
-        (b.confidence ?? 0) - (a.confidence ?? 0) || b.docCount - a.docCount,
+        (b.confidence ?? 0) - (a.confidence ?? 0) || b.docCount - a.docCount
     )
     .slice(0, MAX_GROUPS);
 
   const unlabeledIslands = buildIslands(regions);
   console.info(
-    `[umap.regions] islands built run=${seed} islands=${unlabeledIslands.length}`,
+    `[umap.regions] islands built run=${seed} islands=${unlabeledIslands.length}`
   );
   const islandLabels = await labelIslands(unlabeledIslands, regions).catch(
     (error) => {
       console.warn(`[umap.regions] island labeling failed run=${seed}`, error);
       return new Map<string, LabelPayload>();
-    },
+    }
   );
   console.info(
-    `[umap.regions] island labels run=${seed} labeled=${islandLabels.size}/${unlabeledIslands.length}`,
+    `[umap.regions] island labels run=${seed} labeled=${islandLabels.size}/${unlabeledIslands.length}`
   );
 
   const islands = unlabeledIslands.map((island) => {
@@ -226,7 +226,7 @@ export async function buildUmapRegionsSnapshot(
 }
 
 export function parseUmapRegionsSnapshot(
-  value: unknown,
+  value: unknown
 ): UmapRegionsSnapshot | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Partial<UmapRegionsSnapshot>;
@@ -270,7 +270,7 @@ function buildClusters(
     maxGroups: number;
     maxDocsPerRegion: number;
     maxRadius: number;
-  },
+  }
 ): ClusterAssignment[] {
   const initial = runKMeans(rows, clusterCount, seedInput);
   return splitLooseClusters(initial, `${seedInput}:split`, opts);
@@ -279,7 +279,7 @@ function buildClusters(
 function runKMeans(
   rows: RegionPointRow[],
   clusterCount: number,
-  seedInput: string,
+  seedInput: string
 ): ClusterAssignment[] {
   if (clusterCount <= 1 || rows.length <= 1) {
     return [
@@ -298,7 +298,7 @@ function runKMeans(
     assignments = rows.map((row) => findClosestCentroid(row, centroids));
     const nextCentroids: Point2D[] = centroids.map((_centroid, index) => {
       const clusterRows = rows.filter(
-        (_row, rowIndex) => assignments[rowIndex] === index,
+        (_row, rowIndex) => assignments[rowIndex] === index
       );
       if (!clusterRows.length) {
         return rows[Math.floor(rng() * rows.length)] ?? centroids[index]!;
@@ -328,7 +328,7 @@ function splitLooseClusters(
     maxGroups: number;
     maxDocsPerRegion: number;
     maxRadius: number;
-  },
+  }
 ) {
   const queue = clusters.slice().sort((a, b) => b.rows.length - a.rows.length);
   const finalized: ClusterAssignment[] = [];
@@ -349,17 +349,12 @@ function splitLooseClusters(
     }
 
     const splitInto = Math.min(
-      cluster.rows.length > opts.maxDocsPerRegion * 1.5 ||
-        radius > opts.maxRadius * 1.45
+      cluster.rows.length > opts.maxDocsPerRegion * 1.5 || radius > opts.maxRadius * 1.45
         ? 3
         : 2,
-      remainingCapacity + 1,
+      remainingCapacity + 1
     );
-    const pieces = runKMeans(
-      cluster.rows,
-      splitInto,
-      `${seedInput}:${splitIndex}`,
-    );
+    const pieces = runKMeans(cluster.rows, splitInto, `${seedInput}:${splitIndex}`);
     if (pieces.length <= 1) {
       finalized.push(cluster);
       continue;
@@ -367,8 +362,8 @@ function splitLooseClusters(
 
     console.info(
       `[umap.regions] split cluster rows=${cluster.rows.length} radius=${radius.toFixed(
-        2,
-      )} into=${pieces.length}`,
+        2
+      )} into=${pieces.length}`
     );
     splitIndex += 1;
     queue.unshift(...pieces.sort((a, b) => b.rows.length - a.rows.length));
@@ -379,7 +374,7 @@ function splitLooseClusters(
 
 function buildRegion(
   cluster: ClusterAssignment,
-  index: number,
+  index: number
 ): UmapRegionItem {
   const bounds = computeBounds(cluster.rows);
   const radius = computeRadius(cluster.centroid, cluster.rows);
@@ -443,7 +438,7 @@ function buildIslands(regions: UmapRegionItem[]): UmapIslandItem[] {
 
 async function labelRegions(regions: UmapRegionItem[]) {
   const targets = regions.filter(
-    (region) => region.sampleDocs.length >= MIN_REGION_LABEL_SAMPLES,
+    (region) => region.sampleDocs.length >= MIN_REGION_LABEL_SAMPLES
   );
   if (!targets.length) {
     console.info("[umap.regions] skip region labels reason=no-sample-targets");
@@ -454,7 +449,7 @@ async function labelRegions(regions: UmapRegionItem[]) {
     return new Map<string, LabelPayload>();
   }
   console.info(
-    `[umap.regions] request region labels groups=${targets.length} model=${LLM_MODEL}`,
+    `[umap.regions] request region labels groups=${targets.length} model=${LLM_MODEL}`
   );
 
   const payload = targets.map((region) => ({
@@ -487,7 +482,7 @@ async function labelRegions(regions: UmapRegionItem[]) {
 
 async function labelIslands(
   islands: UmapIslandItem[],
-  regions: UmapRegionItem[],
+  regions: UmapRegionItem[]
 ) {
   if (!islands.length) {
     console.info("[umap.regions] skip island labels reason=no-islands");
@@ -498,7 +493,7 @@ async function labelIslands(
     return new Map<string, LabelPayload>();
   }
   console.info(
-    `[umap.regions] request island labels islands=${islands.length} model=${LLM_MODEL}`,
+    `[umap.regions] request island labels islands=${islands.length} model=${LLM_MODEL}`
   );
 
   const payload = islands.map((island) => {
@@ -556,7 +551,7 @@ function parseLabels(output: string | undefined) {
 
 function buildSampleDocs(
   rows: RegionPointRow[],
-  centroid: Point2D,
+  centroid: Point2D
 ): UmapRegionSample[] {
   // Use a random shuffle instead of sorting purely by centroid distance to get a wider semantic representation.
   return rows
@@ -583,8 +578,8 @@ function buildFallbackRegionTitle(rows: RegionPointRow[]) {
       (row) =>
         String(row.path || "")
           .split(".")
-          .filter(Boolean)[0] || "",
-    ),
+          .filter(Boolean)[0] || ""
+    )
   );
   if (pathPrefix) return pathPrefix.replace(/[-_]/g, " ");
   return rows
@@ -655,7 +650,7 @@ function combineBounds(boundsList: UmapRegionBounds[]) {
       minY: Number.POSITIVE_INFINITY,
       maxX: Number.NEGATIVE_INFINITY,
       maxY: Number.NEGATIVE_INFINITY,
-    },
+    }
   );
 }
 
@@ -663,7 +658,7 @@ function computeCentroid(rows: Array<Point2D>) {
   if (!rows.length) return { x: 0, y: 0 };
   const total = rows.reduce(
     (sum, row) => ({ x: sum.x + row.x, y: sum.y + row.y }),
-    { x: 0, y: 0 },
+    { x: 0, y: 0 }
   );
   return { x: total.x / rows.length, y: total.y / rows.length };
 }
@@ -675,7 +670,7 @@ function computeWeightedCentroid(regions: UmapRegionItem[]) {
       y: sum.y + region.centroid.y * region.docCount,
       weight: sum.weight + region.docCount,
     }),
-    { x: 0, y: 0, weight: 0 },
+    { x: 0, y: 0, weight: 0 }
   );
   if (total.weight === 0) return { x: 0, y: 0 };
   return { x: total.x / total.weight, y: total.y / total.weight };
@@ -724,7 +719,7 @@ function findClosestCentroid(point: Point2D, centroids: Point2D[]) {
 function initKMeansPlusPlus(
   rows: RegionPointRow[],
   clusterCount: number,
-  rng: () => number,
+  rng: () => number
 ) {
   const centroids: Point2D[] = [];
   centroids.push(rows[Math.floor(rng() * rows.length)] ?? rows[0]!);

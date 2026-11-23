@@ -12,15 +12,10 @@ export type PreparedUmapVectorRows = {
 };
 
 function isFiniteNumberArray(value: unknown): value is number[] {
-  return (
-    Array.isArray(value) &&
-    value.every((item) => typeof item === "number" && Number.isFinite(item))
-  );
+  return Array.isArray(value) && value.every((item) => typeof item === "number" && Number.isFinite(item));
 }
 
-export function prepareUmapVectorRows(
-  rows: UmapVectorRow[],
-): PreparedUmapVectorRows {
+export function prepareUmapVectorRows(rows: UmapVectorRow[]): PreparedUmapVectorRows {
   const dimCounts = new Map<number, number>();
   const validRows: UmapVectorRow[] = [];
   let droppedInvalid = 0;
@@ -32,10 +27,7 @@ export function prepareUmapVectorRows(
     }
 
     validRows.push(row);
-    dimCounts.set(
-      row.vector.length,
-      (dimCounts.get(row.vector.length) ?? 0) + 1,
-    );
+    dimCounts.set(row.vector.length, (dimCounts.get(row.vector.length) ?? 0) + 1);
   }
 
   const sortedDimCounts = Array.from(dimCounts.entries())
@@ -43,9 +35,7 @@ export function prepareUmapVectorRows(
     .sort((a, b) => b.count - a.count || b.dims - a.dims);
 
   const targetDims = sortedDimCounts[0]?.dims ?? 0;
-  const rowsWithTargetDims = validRows.filter(
-    (row) => row.vector.length === targetDims,
-  );
+  const rowsWithTargetDims = validRows.filter((row) => row.vector.length === targetDims);
   const droppedMismatched = validRows.length - rowsWithTargetDims.length;
 
   return {
