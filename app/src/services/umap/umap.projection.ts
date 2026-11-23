@@ -1,15 +1,53 @@
 import { prisma } from "~/server/db";
-import { transformWithUmapModel } from "~/server/lib/umap/python-umap";
+import {
+  isUmapModelLoadError,
+  transformWithUmapModel,
+} from "~/server/lib/umap/python-umap";
 import {
   applyAlignment,
   parseUmapAlignment,
 } from "~/services/umap/umap.alignment";
 import { regenerateUmapRegions } from "~/services/umap/umap.regions";
-import { prepareUmapVectorRows, type UmapVectorRow } from "~/services/umap/umap.vectors";
+import {
+  prepareUmapVectorRows,
+  type UmapVectorRow,
+} from "~/services/umap/umap.vectors";
 
 export type UmapProjectionMode = "missing" | "all";
 
 export type VectorRow = UmapVectorRow;
+
+/**
+ * A failed transform (for example a model the Python stack can no longer
+ * load) pauses projection into that model, so the sweep and new embeddings
+ * stop reloading vectors and retrying. A retrain gives the run a new
+ * artifact, which lifts the pause at once.
+ */
+export const PROJECTION_RETRY_MS = 6 * 60 * 60_000;
+const FAILURES_KEY = Symbol.for("visual-notes.umap-projection-failures");
+type ProjectionFailure = { artifactPath: string; at: number; message: string };
+type FailureGlobal = typeof globalThis & {
+  [FAILURES_KEY]?: Map<string, ProjectionFailure>;
+};
+
+function projectionFailures(): Map<string, ProjectionFailure> {
+  const store = globalThis as FailureGlobal;
+  return (store[FAILURES_KEY] ??= new Map());
+}
+
+/** Throws while a recent failure pauses projection into this model. */
+export function assertProjectionNotPaused(
+  run: { id: string; artifactPath: string | null },
+  now = Date.now(),
+) {
+  const failure = projectionFailures().get(run.id);
+  if (!failure || failure.artifactPath !== run.artifactPath) return;
+  const retryAt = failure.at + PROJECTION_RETRY_MS;
+  if (now >= retryAt) return;
+  throw new Error(
+    `[umap.projection] paused run=${run.id} until ${new Date(retryAt).toISOString()} after: ${failure.message.slice(0, 300)}`,
+  );
+}
 
 function normalizeVectorRows(rows: VectorRow[]): VectorRow[] {
   const seen = new Set<string>();
@@ -25,7 +63,7 @@ function normalizeVectorRows(rows: VectorRow[]): VectorRow[] {
 
 async function filterExistingDocIds(
   runId: string,
-  rows: VectorRow[]
+  rows: VectorRow[],
 ): Promise<{ remaining: VectorRow[]; skippedExisting: number }> {
   if (!rows.length) return { remaining: rows, skippedExisting: 0 };
   const existing = await prisma.umapPoint.findMany({
@@ -53,7 +91,7 @@ export async function projectVectorsIntoUmapRun(params: {
 }> {
   const mode = params.mode ?? "missing";
   console.info(
-    `[umap.projection] start run=${params.umapRunId} mode=${mode} requestedRows=${params.rows.length}`
+    `[umap.projection] start run=${params.umapRunId} mode=${mode} requestedRows=${params.rows.length}`,
   );
   const run = await prisma.umapRun.findUnique({
     where: { id: params.umapRunId },
@@ -64,9 +102,11 @@ export async function projectVectorsIntoUmapRun(params: {
   const alignment = parseUmapAlignment(run.alignment);
   if (!run.artifactPath) {
     throw new Error(
-      "UMAP run has no persisted model artifact. Re-train this run first."
+      "UMAP run has no persisted model artifact. Re-train this run first.",
     );
   }
+
+  assertProjectionNotPaused(run);
 
   const requestedRows = normalizeVectorRows(params.rows);
   if (!requestedRows.length) {
@@ -81,7 +121,7 @@ export async function projectVectorsIntoUmapRun(params: {
 
   if (!filtered.remaining.length) {
     console.info(
-      `[umap.projection] skip run=${run.id} reason=no-remaining skippedExisting=${filtered.skippedExisting}`
+      `[umap.projection] skip run=${run.id} reason=no-remaining skippedExisting=${filtered.skippedExisting}`,
     );
     return {
       runId: run.id,
@@ -107,14 +147,35 @@ export async function projectVectorsIntoUmapRun(params: {
     });
   }
   console.info(
-    `[umap.projection] prepared run=${run.id} transformRows=${preparedRows.rows.length} skippedExisting=${filtered.skippedExisting} droppedInvalid=${preparedRows.droppedInvalid} droppedMismatched=${preparedRows.droppedMismatched}`
+    `[umap.projection] prepared run=${run.id} transformRows=${preparedRows.rows.length} skippedExisting=${filtered.skippedExisting} droppedInvalid=${preparedRows.droppedInvalid} droppedMismatched=${preparedRows.droppedMismatched}`,
   );
 
+  const artifactPath = run.artifactPath;
   const transformed = await transformWithUmapModel({
-    artifactPath: run.artifactPath,
+    artifactPath,
     matrix: preparedRows.rows.map((row) => row.vector),
     dims: run.dims === 3 ? 3 : 2,
+  }).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    projectionFailures().set(run.id, { artifactPath, at: Date.now(), message });
+    // The model can't load under this UMAP stack: retrain the map, warm-started
+    // from the stored points, so the pause ends with a model that loads.
+    if (isUmapModelLoadError(error)) {
+      console.warn(
+        `[umap.projection] model cannot load run=${run.id}; retraining`,
+      );
+      void import("~/services/umap/umap.retrain")
+        .then((retrain) => retrain.maybeRetrainUmapRun(run.id, { force: true }))
+        .catch((importError: unknown) =>
+          console.warn(
+            `[umap.projection] could not start retrain`,
+            importError,
+          ),
+        );
+    }
+    throw error;
   });
+  projectionFailures().delete(run.id);
 
   if (transformed.points.length !== preparedRows.rows.length) {
     throw new Error("UMAP transform returned unexpected number of points");
@@ -129,7 +190,7 @@ export async function projectVectorsIntoUmapRun(params: {
       docId: row.docId,
       x: point.x,
       y: point.y,
-      z: run.dims === 3 ? (coords[2] ?? 0) : null,
+      z: run.dims === 3 ? coords[2] ?? 0 : null,
     };
   });
 
@@ -152,7 +213,7 @@ export async function projectVectorsIntoUmapRun(params: {
   });
 
   console.info(
-    `[umap.projection] complete run=${run.id} projected=${projectedRows.length} requested=${requestedRows.length} skippedExisting=${filtered.skippedExisting}`
+    `[umap.projection] complete run=${run.id} projected=${projectedRows.length} requested=${requestedRows.length} skippedExisting=${filtered.skippedExisting}`,
   );
 
   return {
@@ -177,9 +238,10 @@ export async function projectDocEmbeddingsIntoUmapRun(params: {
 }> {
   const run = await prisma.umapRun.findUnique({
     where: { id: params.umapRunId },
-    select: { id: true, embeddingRunId: true },
+    select: { id: true, embeddingRunId: true, artifactPath: true },
   });
   if (!run) throw new Error("UMAP run not found");
+  assertProjectionNotPaused(run);
 
   const sourceEmbeddingRunId = params.embeddingRunId ?? run.embeddingRunId;
   const ids = params.docIds?.map((id) => String(id).trim()).filter(Boolean);
@@ -188,6 +250,10 @@ export async function projectDocEmbeddingsIntoUmapRun(params: {
     where: {
       runId: sourceEmbeddingRunId,
       ...(ids && ids.length ? { docId: { in: ids } } : {}),
+      // Load only unplaced notes' vectors, not the whole run.
+      ...(params.mode !== "all"
+        ? { doc: { umapPoints: { none: { runId: run.id } } } }
+        : {}),
     },
     select: { docId: true, vector: true },
     orderBy: { createdAt: "asc" },

@@ -9,6 +9,11 @@ import { serverEnv } from "~/env/server";
 const execFileAsync = promisify(execFile);
 const PYTHON_DEP_CHECK = "import joblib, numpy, umap, sklearn";
 
+/** True when Python could not unpickle a saved model (see umap_model.py). */
+export function isUmapModelLoadError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("UMAP_MODEL_LOAD_FAILED");
+}
+
 export type UmapPythonParams = {
   pcaVarsToKeep?: number;
   nNeighbors?: number;
