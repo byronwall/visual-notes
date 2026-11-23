@@ -164,9 +164,14 @@ export async function projectVectorsIntoUmapRun(params: {
       console.warn(
         `[umap.projection] model cannot load run=${run.id}; retraining`,
       );
-      void import("~/services/umap/umap.retrain").then((retrain) =>
-        retrain.maybeRetrainUmapRun(run.id, { force: true }),
-      );
+      void import("~/services/umap/umap.retrain")
+        .then((retrain) => retrain.maybeRetrainUmapRun(run.id, { force: true }))
+        .catch((importError: unknown) =>
+          console.warn(
+            `[umap.projection] could not start retrain`,
+            importError,
+          ),
+        );
     }
     throw error;
   });
