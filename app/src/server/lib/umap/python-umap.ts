@@ -11,9 +11,7 @@ const PYTHON_DEP_CHECK = "import joblib, numpy, umap, sklearn";
 
 /** True when Python could not unpickle a saved model (see umap_model.py). */
 export function isUmapModelLoadError(error: unknown): boolean {
-  return (
-    error instanceof Error && error.message.includes("UMAP_MODEL_LOAD_FAILED")
-  );
+  return error instanceof Error && error.message.includes("UMAP_MODEL_LOAD_FAILED");
 }
 
 export type UmapPythonParams = {
@@ -76,14 +74,9 @@ function getPythonCandidates(): PythonCandidate[] {
   return candidates;
 }
 
-async function probePythonCandidate(
-  candidate: PythonCandidate,
-): Promise<boolean> {
+async function probePythonCandidate(candidate: PythonCandidate): Promise<boolean> {
   try {
-    if (
-      candidate.command.includes(path.sep) &&
-      !existsSync(candidate.command)
-    ) {
+    if (candidate.command.includes(path.sep) && !existsSync(candidate.command)) {
       return false;
     }
 
@@ -108,9 +101,7 @@ async function resolvePythonBin(): Promise<string> {
     failures.push(`${candidate.label}: ${candidate.command}`);
   }
 
-  throw new Error(
-    `No usable Python interpreter found. Checked ${failures.join(", ")}`,
-  );
+  throw new Error(`No usable Python interpreter found. Checked ${failures.join(", ")}`);
 }
 
 function resolveUmapScriptPath(): string {
@@ -146,7 +137,7 @@ export function toStoredUmapArtifactPath(absolutePath: string): string {
 async function runPythonCommand(
   command: "train" | "transform" | "check",
   payload: Record<string, unknown> | null,
-  artifactPath: string | null,
+  artifactPath: string | null
 ): Promise<Record<string, unknown>> {
   assertUmapScriptExists();
   const tempDir = await mkdtemp(path.join(tmpdir(), "vn-umap-"));
@@ -165,12 +156,11 @@ async function runPythonCommand(
       args.push("--artifact", artifactPath);
     }
 
-    const pythonBin = (resolvedPythonBinPromise ??= resolvePythonBin().catch(
-      (error: unknown) => {
+    const pythonBin =
+      resolvedPythonBinPromise ??= resolvePythonBin().catch((error: unknown) => {
         resolvedPythonBinPromise = null;
         throw error;
-      },
-    ));
+      });
     await execFileAsync(await pythonBin, args, { maxBuffer: 8 * 1024 * 1024 });
 
     const raw = await readFile(outputPath, "utf8");
@@ -186,9 +176,7 @@ async function runPythonCommand(
   }
 }
 
-export async function runUmapPythonHealthCheck(): Promise<
-  Record<string, unknown>
-> {
+export async function runUmapPythonHealthCheck(): Promise<Record<string, unknown>> {
   return runPythonCommand("check", null, null);
 }
 
@@ -217,7 +205,7 @@ export async function trainUmapModel(params: {
       params: params.umapParams ?? {},
       ...(params.initPoints ? { initPoints: params.initPoints } : {}),
     },
-    artifactAbsolutePath,
+    artifactAbsolutePath
   )) as TrainOutput;
 
   if (!Array.isArray(result.points)) {
@@ -229,9 +217,7 @@ export async function trainUmapModel(params: {
     artifactPath: toStoredUmapArtifactPath(artifactAbsolutePath),
     fitMs: typeof result.fitMs === "number" ? result.fitMs : undefined,
     pcaComponents:
-      typeof result.pcaComponents === "number"
-        ? result.pcaComponents
-        : undefined,
+      typeof result.pcaComponents === "number" ? result.pcaComponents : undefined,
   };
 }
 
@@ -247,7 +233,7 @@ export async function transformWithUmapModel(params: {
       matrix: params.matrix,
       dims: params.dims,
     },
-    artifactAbsolutePath,
+    artifactAbsolutePath
   )) as TransformOutput;
 
   if (!Array.isArray(result.points)) {
@@ -256,14 +242,11 @@ export async function transformWithUmapModel(params: {
 
   return {
     points: result.points,
-    transformMs:
-      typeof result.transformMs === "number" ? result.transformMs : undefined,
+    transformMs: typeof result.transformMs === "number" ? result.transformMs : undefined,
   };
 }
 
-export async function removeUmapArtifact(
-  storedPath: string | null | undefined,
-) {
+export async function removeUmapArtifact(storedPath: string | null | undefined) {
   if (!storedPath) return;
   const artifactAbsolutePath = resolveUmapArtifactPath(storedPath);
   await rm(artifactAbsolutePath, { force: true });
