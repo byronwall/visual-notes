@@ -135,11 +135,17 @@ async function projectUnplaced(deps: Deps, umapRun: UmapTarget) {
   const { projectDocEmbeddingsIntoUmapRun } = await import(
     "~/services/umap/umap.projection"
   );
-  const result = await projectDocEmbeddingsIntoUmapRun({
-    umapRunId: umapRun.id,
-    mode: "missing",
-  });
-  console.info(`${LOG_PREFIX} projected unplaced notes`, result);
+  // A failed projection pauses itself; the retrain check still runs after.
+  try {
+    const result = await projectDocEmbeddingsIntoUmapRun({
+      umapRunId: umapRun.id,
+      mode: "missing",
+    });
+    console.info(`${LOG_PREFIX} projected unplaced notes`, result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`${LOG_PREFIX} projecting unplaced notes failed: ${message}`);
+  }
 }
 
 type UmapTarget = { id: string; embeddingRunId: string };
