@@ -230,10 +230,10 @@ Keep this file current when adding an action or a tool. A new action is either c
 
 ## Embeddings and UMAP
 
-| Action / query                                                                                                                                                                                                                                        | MCP        | Notes                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
-| `createEmbeddingRun`, `processEmbeddingRun`, `updateEmbeddingRun`, `deleteEmbeddingRun`, `fetchEmbeddingRun`, `fetchEmbeddingRuns`, `fetchDocSections`                                                                                                | human-only | Admin; `search` uses the newest run, and agent writes refresh it |
-| `createUmapRun`, `projectUmapRun`, `updateUmapRun`, `deleteUmapRun`, `regenerateUmapRegionsAction`, `fetchUmapRun`, `fetchUmapRuns`, `fetchUmapPointsForRun`, `fetchUmapRegionDetail`, `fetchLatestUmapRun`, `fetchUmapPoints`, `fetchNearbyUmapDocs` | human-only | The map view; `search` covers "notes like this"                  |
+| Action / query                                                                                                                                                                                                               | MCP        | Notes                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
+| `createEmbeddingRun`, `processEmbeddingRun`, `updateEmbeddingRun`, `deleteEmbeddingRun`, `fetchEmbeddingRun`, `fetchEmbeddingRuns`, `fetchDocSections`                                                                       | human-only | Admin; `search` uses the newest run, and agent writes refresh it |
+| `createUmapRun`, `projectUmapRun`, `updateUmapRun`, `deleteUmapRun`, `regenerateUmapRegionsAction`, `fetchUmapRun`, `fetchUmapRuns`, `fetchUmapRegionDetail`, `fetchLatestUmapRun`, `fetchUmapPoints`, `fetchNearbyUmapDocs` | human-only | The map view; `search` covers "notes like this"                  |
 
 ## Admin and auth
 

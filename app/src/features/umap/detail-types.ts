@@ -5,6 +5,5 @@ import type {
 
 export type UmapDetailData = {
   meta: UmapRunDetail;
-  dims: number;
   points: UmapPoint[];
 };
