@@ -5,7 +5,7 @@ import {
   fetchLatestUmapRun,
   fetchUmapPoints,
 } from "~/services/umap.service";
-import type { UmapPoint } from "~/types/notes";
+import type { UmapPoint } from "~/services/umap/umap.queries";
 import { createKeptAsync } from "~/utils/kept-async";
 
 export function useDocsResource() {

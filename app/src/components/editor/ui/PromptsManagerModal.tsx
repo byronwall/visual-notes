@@ -9,22 +9,12 @@ import { Textarea } from "~/components/ui/textarea";
 import { Text } from "~/components/ui/text";
 import { Box, Grid, HStack, Stack } from "styled-system/jsx";
 import { SimpleDialog } from "~/components/ui/simple-dialog";
-import { fetchPrompts } from "~/services/prompts/prompts.queries";
+import {
+  fetchPrompts,
+  type Prompt,
+} from "~/services/prompts/prompts.queries";
 import { createPromptVersion, createPrompt, revisePrompt } from "~/services/prompts/prompts.actions";
 
-type Prompt = {
-  id: string;
-  task: string;
-  description?: string | null;
-  defaultModel: string;
-  defaultTemp: number;
-  defaultTopP?: number | null;
-  activeVersion?: {
-    id: string;
-    template: string;
-    system?: string | null;
-  } | null;
-};
 export function usePromptsManagerModal() {
   const [open, setOpen] = createSignal(false);
   const prompts = createKeptAsync(() => fetchPrompts());

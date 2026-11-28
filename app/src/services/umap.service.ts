@@ -1,6 +1,7 @@
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
-import type { UmapPoint, UmapRun } from "~/types/notes";
+import type { UmapRun } from "~/types/notes";
+import type { UmapPoint } from "~/services/umap/umap.queries";
 import { parseUmapRegionsSnapshot } from "~/services/umap/umap.regions";
 
 export type NearbyUmapDoc = {

@@ -1,5 +1,6 @@
 import { createMemo, createSignal, type Accessor } from "solid-js";
-import type { DocItem, UmapPoint, UmapRun } from "~/types/notes";
+import type { DocItem, UmapRun } from "~/types/notes";
+import type { UmapPoint } from "~/services/umap/umap.queries";
 import { normalizeUmap } from "~/layout/umap-normalize";
 import { seededPositionFor } from "~/layout/seeded";
 import { placeApproximate } from "~/layout/approximate-placement";

@@ -18,11 +18,7 @@ import {
   regenerateUmapRegionsAction,
 } from "~/services/umap/umap.actions";
 import { getParamEntries } from "~/features/umap/format";
-import {
-  type UmapDetailData,
-  type UmapRunMeta,
-  type UmapRunPointsData,
-} from "~/features/umap/detail-types";
+import { type UmapDetailData } from "~/features/umap/detail-types";
 import { useUmapCanvas } from "~/features/umap/useUmapCanvas";
 import { UmapRunCanvasCard } from "~/features/umap/UmapRunCanvasCard";
 import { UmapRunMetadataCard } from "~/features/umap/UmapRunMetadataCard";
@@ -40,12 +36,10 @@ const UmapDetail: VoidComponent = () => {
   const detail = createAsync(async (): Promise<UmapDetailData | null> => {
     if (!params.id) return null;
 
-    const run = (await fetchUmapRun(params.id)) as UmapRunMeta | null;
+    const run = await fetchUmapRun(params.id);
     if (!run) return null;
 
-    const pointsData = (await fetchUmapPointsForRun(params.id).catch(
-      () => null,
-    )) as UmapRunPointsData | null;
+    const pointsData = await fetchUmapPointsForRun(params.id).catch(() => null);
 
     return {
       meta: run,
