@@ -112,36 +112,6 @@ export const fetchUmapRun = query(
   "umap-run",
 );
 
-export const fetchUmapPointsForRun = query(
-  async (
-    runId: string,
-  ): Promise<{ runId: string; dims: number; points: UmapPoint[] }> => {
-    "use server";
-    if (!runId) throw new Error("Missing runId");
-    const run = await prisma.umapRun.findUnique({
-      where: { id: runId },
-      select: { id: true, dims: true },
-    });
-    if (!run) throw new Error("Run not found");
-
-    const pts = await prisma.umapPoint.findMany({
-      where: { runId, doc: { archivedAt: null } },
-      select: { docId: true, x: true, y: true, z: true },
-    });
-    return {
-      runId,
-      dims: run.dims,
-      points: pts.map((p) => ({
-        docId: p.docId,
-        x: p.x,
-        y: p.y,
-        z: p.z,
-      })),
-    };
-  },
-  "umap-points",
-);
-
 export const fetchUmapRegionDetail = query(
   async (input: {
     runId: string;

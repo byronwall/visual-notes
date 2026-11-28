@@ -35,7 +35,7 @@ export function useUmapCanvas(props: UseUmapCanvasProps) {
   createEffect(() => {
     const detail = props.detail();
     const points = detail?.points ?? [];
-    const dims = detail?.dims ?? 2;
+    const dims = detail?.meta.dims ?? 2;
     const regions = detail?.meta.regions ?? null;
     const width = canvasWidth();
     const height = canvasHeight();

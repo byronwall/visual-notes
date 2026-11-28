@@ -9,10 +9,8 @@ import {
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { Box, Container, Grid, Stack } from "styled-system/jsx";
-import {
-  fetchUmapPointsForRun,
-  fetchUmapRun,
-} from "~/services/umap/umap.queries";
+import { fetchUmapPoints } from "~/services/umap.service";
+import { fetchUmapRun } from "~/services/umap/umap.queries";
 import {
   deleteUmapRun,
   regenerateUmapRegionsAction,
@@ -39,20 +37,16 @@ const UmapDetail: VoidComponent = () => {
     const run = await fetchUmapRun(params.id);
     if (!run) return null;
 
-    const pointsData = await fetchUmapPointsForRun(params.id).catch(() => null);
+    const points = await fetchUmapPoints(params.id).catch(() => []);
 
-    return {
-      meta: run,
-      dims: pointsData?.dims ?? run.dims,
-      points: pointsData?.points ?? [],
-    };
+    return { meta: run, points };
   });
 
   const { setCanvasContainerEl, setCanvasEl } = useUmapCanvas({ detail });
 
   const refreshPoints = () => {
     if (!params.id) return;
-    void revalidate(fetchUmapPointsForRun.keyFor(params.id));
+    void revalidate(fetchUmapPoints.keyFor(params.id));
   };
 
   const handleDelete = async () => {
@@ -78,7 +72,7 @@ const UmapDetail: VoidComponent = () => {
       await runRegenerateRegions({ id: params.id });
       await Promise.all([
         revalidate(fetchUmapRun.keyFor(params.id)),
-        revalidate(fetchUmapPointsForRun.keyFor(params.id)),
+        revalidate(fetchUmapPoints.keyFor(params.id)),
       ]);
     } catch (error) {
       console.error(error);
@@ -131,7 +125,7 @@ const UmapDetail: VoidComponent = () => {
                     alignItems="start"
                   >
                     <UmapRunCanvasCard
-                      dims={result().dims}
+                      dims={meta.dims}
                       pointsCount={result().points.length}
                       busy={busy()}
                       onRefresh={refreshPoints}
