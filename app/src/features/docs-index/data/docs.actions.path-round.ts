@@ -95,7 +95,7 @@ export const processPathRound = action(async () => {
     try {
       console.log("[docs.path-round] no updates; considered=%d", considered);
     } catch {}
-    return { ok: true, updated: 0, failed: 0, considered };
+    return { ok: true, updated: 0, failed: 0 };
   }
 
   const chunkSize = 100;
@@ -146,7 +146,6 @@ export const processPathRound = action(async () => {
     ok: true,
     updated,
     failed,
-    considered,
     init: initCandidates,
     extend: extendCandidates,
   };

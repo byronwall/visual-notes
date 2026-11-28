@@ -1,7 +1,8 @@
+import type { $Enums } from "@prisma/client";
 import { query } from "@solidjs/router";
 import { prisma } from "~/server/db";
 
-export type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
+export type RunStatus = $Enums.RunStatus;
 
 export type PromptRunItem = {
   id: string;
@@ -83,7 +84,7 @@ export const fetchPromptRuns = query(
     );
     return runs.map((r) => ({
       id: r.id,
-      status: r.status as RunStatus,
+      status: r.status,
       model: r.model,
       createdAt: r.createdAt.toISOString(),
       error: r.error,
@@ -120,7 +121,7 @@ export const fetchPromptRun = query(
     console.log(`[services] fetchPromptRun id=${id}`);
     return {
       id: run.id,
-      status: run.status as RunStatus,
+      status: run.status,
       model: run.model,
       createdAt: run.createdAt.toISOString(),
       error: run.error,

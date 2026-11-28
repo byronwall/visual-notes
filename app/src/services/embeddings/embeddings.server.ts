@@ -303,9 +303,21 @@ export async function deleteEmbeddingRun(
   return { ok: true, id: deleted.id };
 }
 
+type ProcessEmbeddingRunResult = {
+  addedDocs: number;
+  addedSections: number;
+  remaining: number;
+  /** Set when new document vectors were projected into trained UMAP runs. */
+  umapProjection?: {
+    runsUpdated: number;
+    pointsProjected: number;
+    failedRuns: number;
+  };
+};
+
 export async function processEmbeddingRun(
   payload: z.infer<typeof processSchema>,
-) {
+): Promise<ProcessEmbeddingRunResult> {
   if (!serverEnv.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not configured");
   }
@@ -649,9 +661,7 @@ export async function processEmbeddingRun(
     );
   }
 
-  let umapProjectionSummary:
-    | { runsUpdated: number; pointsProjected: number; failedRuns: number }
-    | undefined;
+  let umapProjectionSummary: ProcessEmbeddingRunResult["umapProjection"];
   if (docRows.length) {
     const trainedRuns = await prisma.umapRun.findMany({
       where: {

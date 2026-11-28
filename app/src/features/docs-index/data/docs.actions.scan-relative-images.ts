@@ -67,26 +67,11 @@ export const scanRelativeImages = action(
         matches,
         readFailures
       );
-      return {
-        ok: true,
-        total,
-        considered,
-        matches,
-        dryRun: true,
-        readFailures,
-      };
+      return { ok: true, total, matches, dryRun: true };
     }
 
     if (candidates.length === 0) {
-      return {
-        ok: true,
-        total,
-        considered,
-        matches,
-        updated: 0,
-        failed: 0,
-        readFailures,
-      };
+      return { ok: true, total, matches, updated: 0, failed: 0 };
     }
 
     const chunkSize = 100;
@@ -150,15 +135,7 @@ export const scanRelativeImages = action(
       readFailures
     );
 
-    return {
-      ok: true,
-      total,
-      considered,
-      matches,
-      updated,
-      failed,
-      readFailures,
-    };
+    return { ok: true, total, matches, updated, failed };
   },
   "docs-scan-relative-images"
 );

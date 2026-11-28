@@ -72,14 +72,6 @@ type UmapRunSummary = {
   createdAt: string;
 };
 
-type ProcessEmbeddingResult = {
-  umapProjection?: {
-    runsUpdated: number;
-    pointsProjected: number;
-    failedRuns: number;
-  };
-};
-
 function formatParamValue(value: unknown): string {
   if (value == null) return "null";
   if (typeof value === "string") return value;
@@ -242,10 +234,10 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      const result = (await runProcessEmbedding({
+      const result = await runProcessEmbedding({
         id: params.id,
         limit: state.batchSize,
-      })) as ProcessEmbeddingResult;
+      });
       setState("lastProjectionSummary", result.umapProjection ?? null);
       await revalidate(
         fetchEmbeddingRun.keyFor({
@@ -271,11 +263,11 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      const result = (await runProcessEmbedding({
+      const result = await runProcessEmbedding({
         id: params.id,
         limit: state.batchSize,
         mode: "changed",
-      })) as ProcessEmbeddingResult;
+      });
       setState("lastProjectionSummary", result.umapProjection ?? null);
       await revalidate(
         fetchEmbeddingRun.keyFor({

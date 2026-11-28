@@ -90,18 +90,16 @@ function tryParseOpenAIError(err: unknown): OpenAIEmbeddingError | null {
 }
 
 function getContextLimitExceeded(err: unknown): {
-  requestedTokens: number;
   maxTokens: number;
 } | null {
   const parsed = tryParseOpenAIError(err);
   const message = parsed?.error?.message || (err instanceof Error ? err.message : "");
   const match = message.match(
-    /maximum context length is\s+(\d+)\s+tokens.*?requested\s+(\d+)\s+tokens/i
+    /maximum context length is\s+(\d+)\s+tokens.*?requested\s+\d+\s+tokens/i
   );
   if (!match) return null;
   return {
     maxTokens: Number(match[1]),
-    requestedTokens: Number(match[2]),
   };
 }
 
