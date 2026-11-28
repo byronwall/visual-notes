@@ -1,5 +1,5 @@
 import type { UmapRegionsSnapshot } from "~/features/umap/region-types";
-import type { UmapPoint } from "~/types/notes";
+import type { UmapPoint } from "~/services/umap/umap.queries";
 
 type UmapNormalization = {
   centerX: number;

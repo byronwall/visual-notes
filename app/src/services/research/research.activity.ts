@@ -12,7 +12,7 @@ export type ResearchEventType =
   | "research.batch_undone"
   | "research.batch_redone";
 
-type Topic = { id: string; slug: string; title: string };
+export type Topic = { id: string; slug: string; title: string };
 
 export const logResearchEvent = (
   eventType: ResearchEventType,

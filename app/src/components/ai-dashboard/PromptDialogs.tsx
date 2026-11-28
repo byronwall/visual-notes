@@ -9,10 +9,10 @@ import { Text } from "~/components/ui/text";
 import { Textarea } from "~/components/ui/textarea";
 import { deletePrompt, updatePrompt } from "~/services/prompts/prompts.actions";
 import { fetchPrompts } from "~/services/prompts/prompts.queries";
-import type { DashboardPrompt } from "./ai-dashboard-model";
+import type { Prompt } from "~/services/prompts/prompts.queries";
 
 type PromptDialogProps = {
-  prompt: DashboardPrompt | null;
+  prompt: Prompt | null;
   onClose: () => void;
 };
 

@@ -26,6 +26,7 @@ import { Box, Container, Flex, Grid, HStack, Stack } from "styled-system/jsx";
 import {
   fetchDocSections,
   fetchEmbeddingRun,
+  type DocSectionItem,
 } from "~/services/embeddings/embeddings.queries";
 import {
   deleteEmbeddingRun,
@@ -36,41 +37,7 @@ import { fetchUmapRuns } from "~/services/umap/umap.queries";
 import { fetchJobStatus, type JobStatus } from "~/services/jobs/jobs.queries";
 import { createKeptAsync } from "~/utils/kept-async";
 
-type EmbeddingRun = {
-  id: string;
-  model: string;
-  dims: number;
-  params: Record<string, unknown> | null;
-  createdAt: string;
-  count: number;
-  sectionCount?: number;
-  remaining?: number;
-  changedEligible?: number;
-  docs?: {
-    items: { id: string; title: string; embeddedAt: string }[];
-    limit: number;
-    offset: number;
-    total: number;
-  };
-};
-
 const DOCS_LIMIT = 10;
-
-type SectionItem = {
-  id: string;
-  headingPath: string[];
-  orderIndex: number;
-  charCount: number;
-  preview: string;
-  embedded?: boolean;
-};
-
-type UmapRunSummary = {
-  id: string;
-  dims: number;
-  hasArtifact: boolean;
-  createdAt: string;
-};
 
 type ProcessEmbeddingResult = {
   umapProjection?: {
@@ -105,20 +72,20 @@ const EmbeddingDetail: VoidComponent = () => {
   const [docsOffset, setDocsOffset] = createSignal(0);
   const [titleQuery, setTitleQuery] = createSignal("");
   const run = createAsync(() => {
-    if (!params.id) return Promise.resolve<EmbeddingRun | null>(null);
+    if (!params.id) return Promise.resolve(null);
     return fetchEmbeddingRun({
       id: params.id,
       includeDocs: true,
       limit: DOCS_LIMIT,
       offset: docsOffset(),
       titleQuery: titleQuery(),
-    }) as Promise<EmbeddingRun | null>;
+    });
   });
   const [state, setState] = createStore({
     dims: 2 as 2 | 3,
     batchSize: 200,
     selectedDocId: null as string | null,
-    sections: [] as SectionItem[],
+    sections: [] as DocSectionItem[],
     sectionsLoading: false,
     activeJobId: "",
     lastProjectionSummary: null as null | {
@@ -127,11 +94,9 @@ const EmbeddingDetail: VoidComponent = () => {
       failedRuns: number;
     },
   });
-  const umapRunsForEmbedding = createAsync((): Promise<UmapRunSummary[]> => {
+  const umapRunsForEmbedding = createAsync(() => {
     if (!params.id) return Promise.resolve([]);
-    return fetchUmapRuns({ embeddingRunId: params.id, limit: 200 }) as Promise<
-      UmapRunSummary[]
-    >;
+    return fetchUmapRuns({ embeddingRunId: params.id, limit: 200 });
   });
   const activeJob = createKeptAsync((): Promise<JobStatus | null> => {
     if (!state.activeJobId) return Promise.resolve(null);
