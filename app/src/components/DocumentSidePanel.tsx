@@ -19,27 +19,9 @@ import { useLiveNoteResource } from "~/features/live-sync/useLiveNoteResource";
 import { fetchDoc, fetchDocLatest } from "~/services/docs.service";
 import { DocPanelActions } from "./doc-header/DocPanelActions";
 import type { DocumentEditorApi } from "./DocumentEditor";
+import type { DocDetail } from "~/services/docs.queries";
 
-import type { NoteDoc } from "~/lib/note-content/types";
 
-type DocDetail = {
-  id: string;
-  title: string;
-  content: NoteDoc;
-  path?: string | null;
-  meta?: Record<string, unknown> | null;
-  createdAt?: string;
-  updatedAt?: string;
-  share?: {
-    id: string;
-    slug: string;
-    shareUrl: string;
-    createdAt: string;
-    updatedAt: string;
-  } | null;
-};
-
-const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 
 const PanelSkeleton: VoidComponent = () => (
   <Stack gap="4" pt="3" aria-busy="true" aria-label="Loading note">
@@ -114,12 +96,12 @@ export const DocumentSidePanel: VoidComponent<{
 }> = (props) => {
   const [doc, { mutate }] = createResource(
     () => props.docId,
-    (id) => fetchDocDetail(id),
+    (id) => fetchDoc(id),
   );
   useLiveNoteResource({
     docId: () => props.docId,
     current: () => doc.latest,
-    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    load: fetchDocLatest,
     mutate: (next) => mutate(next),
   });
 
