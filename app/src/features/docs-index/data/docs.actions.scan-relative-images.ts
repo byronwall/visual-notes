@@ -70,10 +70,8 @@ export const scanRelativeImages = action(
       return {
         ok: true,
         total,
-        considered,
         matches,
         dryRun: true,
-        readFailures,
       };
     }
 
@@ -81,11 +79,9 @@ export const scanRelativeImages = action(
       return {
         ok: true,
         total,
-        considered,
         matches,
         updated: 0,
         failed: 0,
-        readFailures,
       };
     }
 
@@ -153,11 +149,9 @@ export const scanRelativeImages = action(
     return {
       ok: true,
       total,
-      considered,
       matches,
       updated,
       failed,
-      readFailures,
     };
   },
   "docs-scan-relative-images"

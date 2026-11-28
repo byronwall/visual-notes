@@ -1,10 +1,10 @@
 import { query } from "@solidjs/router";
+import type { ChatMessageRole, ChatThreadStatus } from "@prisma/client";
 import { prisma } from "~/server/db";
 import { getMagicUserIdFromEvent } from "~/services/ai/ai-auth";
 
-export type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
-
-export type ChatMessageRole = "user" | "assistant";
+// The status and role enums come from the Prisma schema, the one source for them.
+export type { ChatMessageRole, ChatThreadStatus };
 
 export type ChatThreadPreview = {
   id: string;
@@ -63,7 +63,7 @@ export const fetchChatThreads = query(
     return threads.map((t) => ({
       id: t.id,
       title: t.title,
-      status: t.status as ChatThreadStatus,
+      status: t.status,
       hasUnread: t.hasUnread,
       noteId: t.noteId,
       lastMessageAt: t.lastMessageAt.toISOString(),
@@ -71,7 +71,7 @@ export const fetchChatThreads = query(
       preview: t.messages?.[0]
         ? {
             id: t.messages[0].id,
-            role: t.messages[0].role as ChatMessageRole,
+            role: t.messages[0].role,
             contentHtml: t.messages[0].contentHtml,
             createdAt: t.messages[0].createdAt.toISOString(),
           }
@@ -106,7 +106,7 @@ export const fetchChatThread = query(
     return {
       id: thread.id,
       title: thread.title,
-      status: thread.status as ChatThreadStatus,
+      status: thread.status,
       hasUnread: thread.hasUnread,
       noteId: thread.noteId,
       lastMessageAt: thread.lastMessageAt.toISOString(),
@@ -114,7 +114,7 @@ export const fetchChatThread = query(
       updatedAt: thread.updatedAt.toISOString(),
       messages: thread.messages.map((m) => ({
         id: m.id,
-        role: m.role as ChatMessageRole,
+        role: m.role,
         contentHtml: m.contentHtml,
         isEdited: m.isEdited,
         createdAt: m.createdAt.toISOString(),

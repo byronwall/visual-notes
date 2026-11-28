@@ -32,20 +32,13 @@ import {
   deleteEmbeddingRun,
   processEmbeddingRun,
 } from "~/services/embeddings/embeddings.actions";
+import type { UmapProjectionSummary } from "~/services/embeddings/embeddings.server";
 import { createUmapRun } from "~/services/umap/umap.actions";
 import { fetchUmapRuns } from "~/services/umap/umap.queries";
 import { fetchJobStatus, type JobStatus } from "~/services/jobs/jobs.queries";
 import { createKeptAsync } from "~/utils/kept-async";
 
 const DOCS_LIMIT = 10;
-
-type ProcessEmbeddingResult = {
-  umapProjection?: {
-    runsUpdated: number;
-    pointsProjected: number;
-    failedRuns: number;
-  };
-};
 
 function formatParamValue(value: unknown): string {
   if (value == null) return "null";
@@ -88,11 +81,7 @@ const EmbeddingDetail: VoidComponent = () => {
     sections: [] as DocSectionItem[],
     sectionsLoading: false,
     activeJobId: "",
-    lastProjectionSummary: null as null | {
-      runsUpdated: number;
-      pointsProjected: number;
-      failedRuns: number;
-    },
+    lastProjectionSummary: null as null | UmapProjectionSummary,
   });
   const umapRunsForEmbedding = createAsync(() => {
     if (!params.id) return Promise.resolve([]);
@@ -207,10 +196,10 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      const result = (await runProcessEmbedding({
+      const result = await runProcessEmbedding({
         id: params.id,
         limit: state.batchSize,
-      })) as ProcessEmbeddingResult;
+      });
       setState("lastProjectionSummary", result.umapProjection ?? null);
       await revalidate(
         fetchEmbeddingRun.keyFor({
@@ -236,11 +225,11 @@ const EmbeddingDetail: VoidComponent = () => {
         id: params.id,
         limit: state.batchSize,
       });
-      const result = (await runProcessEmbedding({
+      const result = await runProcessEmbedding({
         id: params.id,
         limit: state.batchSize,
         mode: "changed",
-      })) as ProcessEmbeddingResult;
+      });
       setState("lastProjectionSummary", result.umapProjection ?? null);
       await revalidate(
         fetchEmbeddingRun.keyFor({

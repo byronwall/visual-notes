@@ -303,9 +303,24 @@ export async function deleteEmbeddingRun(
   return { ok: true, id: deleted.id };
 }
 
+export type UmapProjectionSummary = {
+  runsUpdated: number;
+  pointsProjected: number;
+  failedRuns: number;
+};
+
+// Declared, not inferred: the early returns carry no projection, and the
+// inferred union dropped `umapProjection` from every branch.
+export type ProcessEmbeddingResult = {
+  addedDocs: number;
+  addedSections: number;
+  remaining: number;
+  umapProjection?: UmapProjectionSummary;
+};
+
 export async function processEmbeddingRun(
   payload: z.infer<typeof processSchema>,
-) {
+): Promise<ProcessEmbeddingResult> {
   if (!serverEnv.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not configured");
   }
@@ -649,9 +664,7 @@ export async function processEmbeddingRun(
     );
   }
 
-  let umapProjectionSummary:
-    | { runsUpdated: number; pointsProjected: number; failedRuns: number }
-    | undefined;
+  let umapProjectionSummary: UmapProjectionSummary | undefined;
   if (docRows.length) {
     const trainedRuns = await prisma.umapRun.findMany({
       where: {
