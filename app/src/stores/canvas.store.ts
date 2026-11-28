@@ -101,21 +101,6 @@ export function createCanvasStore() {
     motionFrame = requestAnimationFrame(tick);
   }
 
-  function fitToSpread(spread = 1000) {
-    if (!isBrowser) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const availH = Math.max(100, vh - navHeight());
-    const s = (0.9 * Math.min(vw, availH)) / (2 * spread);
-    const screenCx = vw / 2;
-    const screenCy = availH / 2;
-    setView({
-      scale: Math.max(0.2, Math.min(2, s)),
-      offset: { x: screenCx, y: screenCy },
-    });
-    scheduleTransform();
-  }
-
   function animateToView(target: {
     scale: number;
     offset: Point;
@@ -219,7 +204,6 @@ export function createCanvasStore() {
     panBy,
     startInertia,
     cancelMotion,
-    fitToSpread,
     animateToView,
     animateZoomAt,
   } as const;

@@ -93,7 +93,6 @@ export function createPositionsStore(deps: {
 
   return {
     // memos/signals
-    umapIndex,
     basePositions,
     positions,
     kdTree,

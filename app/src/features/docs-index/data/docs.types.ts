@@ -83,12 +83,10 @@ export type SourcesResponse = {
 export type ScanRelativeImagesResult = {
   ok: boolean;
   total: number;
-  considered: number;
   matches: number;
   updated?: number;
   failed?: number;
   dryRun?: boolean;
-  readFailures?: number;
 };
 
 export type BulkMetaAction =
