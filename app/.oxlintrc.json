@@ -81,7 +81,8 @@
     "vn/known-color-steps": "error",
     "vn/resource-read-latest": "error",
     "vn/row-columns": "error",
-    "vn/no-query-result-cast": "error"
+    "vn/no-query-result-cast": "error",
+    "vn/no-query-type-redeclare": "error"
   },
   "overrides": [
     {
@@ -99,19 +100,6 @@
     {
       "files": ["**/*.test.ts"],
       "rules": { "vn/no-router-actions-in-server": "off" }
-    },
-    {
-      // Casts left to clean up. Remove a file once its local copy of the
-      // query's type is gone.
-      "files": [
-        "src/components/ai/LLMSidebar.tsx",
-        "src/routes/embeddings/[[]id].tsx",
-        "src/routes/umap/[[]id]/index.tsx",
-        "src/routes/ai/prompts/[[]id].tsx",
-        "src/routes/ai/index.tsx",
-        "src/routes/ai/runs/[[]id].tsx"
-      ],
-      "rules": { "vn/no-query-result-cast": "off" }
     },
     {
       "files": ["src/lib/collections/colors.ts"],

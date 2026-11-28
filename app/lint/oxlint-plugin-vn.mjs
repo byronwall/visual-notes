@@ -1,5 +1,8 @@
 // Repo-specific guard rules for oxlint, loaded through `jsPlugins` in
 // .oxlintrc.json. Each rule reports every node that matches its selector.
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 const selectorRule = (selector, message) => ({
   create(context) {
     return {
@@ -163,6 +166,46 @@ const rowColumns = {
   },
 };
 
+// Type names that a `*.queries.ts` module exports, with that module's path.
+// Read once per lint run.
+const queryTypes = () => {
+  const src = path.join(import.meta.dirname, "../src");
+  const names = new Map();
+  for (const file of readdirSync(src, { recursive: true })) {
+    if (!file.endsWith(".queries.ts")) continue;
+    const text = readFileSync(path.join(src, file), "utf8");
+    for (const [, name] of text.matchAll(
+      /^export (?:type|interface) (\w+)/gm,
+    )) {
+      names.set(name, `~/${file.slice(0, -3)}`);
+    }
+  }
+  return names;
+};
+
+let queryTypeNames;
+
+// A second declaration of a query's type compiles for as long as its fields
+// stay assignable, so it drifts without an error.
+const noQueryTypeRedeclare = {
+  create(context) {
+    if (context.filename.endsWith(".queries.ts")) return {};
+    queryTypeNames ??= queryTypes();
+    const check = ({ id }) => {
+      const from = queryTypeNames.get(id.name);
+      if (!from) return;
+      context.report({
+        node: id,
+        message: `\`${id.name}\` is a query module's type. Import it from ${from}, or give a different type a different name (derive it with Pick or Omit).`,
+      });
+    };
+    return {
+      TSTypeAliasDeclaration: check,
+      TSInterfaceDeclaration: check,
+    };
+  },
+};
+
 export default {
   meta: { name: "vn" },
   rules: {
@@ -184,6 +227,7 @@ export default {
       ":matches(Property[key.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/], JSXAttribute[name.name=/^(color|bg|background|backgroundColor|borderColor|outlineColor|fill|stroke|stopColor)$/]) > Literal[value=/^#[0-9a-fA-F]{3,8}$/]",
       "Use a color token (fg.*, bg.*, border.*, or a palette step) instead of a raw hex color, so light and dark mode and the palette stay in step.",
     ),
+    "no-query-type-redeclare": noQueryTypeRedeclare,
     "no-query-result-cast": selectorRule(
       "TSAsExpression:matches([expression.callee.name=/^fetch[A-Z]/], [expression.argument.callee.name=/^fetch[A-Z]/])",
       "Do not cast a fetch* query's result. Its return type is the contract: import the type from the query module, or derive it with Awaited<ReturnType<typeof fetchX>>, instead of copying it here.",
