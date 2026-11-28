@@ -1,29 +1,19 @@
-export type RunStatus = "SUCCESS" | "ERROR" | "PARTIAL";
+import type {
+  PromptRunItem,
+  RunStatus,
+} from "~/services/ai/ai-runs.queries";
 
-export type DashboardPrompt = {
-  id: string;
-  task: string;
-  description?: string | null;
-  defaultModel: string;
-  defaultTemp: number;
-  defaultTopP?: number | null;
-  activeVersion?: {
-    id: string;
-    template: string;
-    system?: string | null;
-  } | null;
-};
-
-export type DashboardRun = {
-  id: string;
-  status: RunStatus;
-  model: string;
-  createdAt: string;
-  error?: string | null;
-  outputHtml?: string | null;
-  promptId?: string | null;
-  promptTask?: string | null;
-};
+export type DashboardRun = Pick<
+  PromptRunItem,
+  | "id"
+  | "status"
+  | "model"
+  | "createdAt"
+  | "error"
+  | "outputHtml"
+  | "promptId"
+  | "promptTask"
+>;
 
 export type PromptRunStats = {
   count: number;

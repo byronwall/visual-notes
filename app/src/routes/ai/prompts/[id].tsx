@@ -33,27 +33,6 @@ import {
   updatePrompt,
 } from "~/services/prompts/prompts.actions";
 
-type PromptVersion = {
-  id: string;
-  template: string;
-  system?: string | null;
-  modelOverride?: string | null;
-  tempOverride?: number | null;
-  topPOverride?: number | null;
-  createdAt?: string;
-};
-
-type PromptFull = {
-  id: string;
-  task: string;
-  description?: string | null;
-  defaultModel: string;
-  defaultTemp: number;
-  defaultTopP?: number | null;
-  activeVersion?: PromptVersion | null;
-  versions: PromptVersion[];
-};
-
 const formatOverrides = (version: {
   modelOverride?: string | null;
   tempOverride?: number | null;
@@ -85,8 +64,8 @@ export const PromptDetailPage: VoidComponent = () => {
   const params = useParams();
   const navigate = useNavigate();
   const prompt = createAsync(() => {
-    if (!params.id) return Promise.resolve<PromptFull | null>(null);
-    return fetchPrompt(params.id) as Promise<PromptFull | null>;
+    if (!params.id) return Promise.resolve(null);
+    return fetchPrompt(params.id);
   });
   const runs = createAsync(() => {
     if (!params.id) return Promise.resolve([] as PromptRunItem[]);

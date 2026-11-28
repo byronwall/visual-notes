@@ -6,8 +6,6 @@ import { PaidCallsTable } from "~/components/ai-dashboard/PaidCallsTable";
 import { PromptsTable } from "~/components/ai-dashboard/PromptsTable";
 import { RunsTable } from "~/components/ai-dashboard/RunsTable";
 import {
-  type DashboardPrompt,
-  type DashboardRun,
   RUN_STATUS_FILTERS,
   parseRunStatusFilter,
   runMatchesQuery,
@@ -20,16 +18,16 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { fetchPromptRuns } from "~/services/ai/ai-runs.queries";
-import { fetchPrompts } from "~/services/prompts/prompts.queries";
+import { fetchPrompts, type Prompt } from "~/services/prompts/prompts.queries";
 
 const RUN_LIMIT = 100;
 
 const AiDashboard: VoidComponent = () => {
-  const prompts = createAsync(() => fetchPrompts() as Promise<DashboardPrompt[]>);
-  const runs = createAsync(() => fetchPromptRuns({ limit: RUN_LIMIT }) as Promise<DashboardRun[]>);
+  const prompts = createAsync(() => fetchPrompts());
+  const runs = createAsync(() => fetchPromptRuns({ limit: RUN_LIMIT }));
   const [params, setParams] = useSearchParams();
-  const [editing, setEditing] = createSignal<DashboardPrompt | null>(null);
-  const [deleting, setDeleting] = createSignal<DashboardPrompt | null>(null);
+  const [editing, setEditing] = createSignal<Prompt | null>(null);
+  const [deleting, setDeleting] = createSignal<Prompt | null>(null);
 
   const status = () => parseRunStatusFilter(typeof params.status === "string" ? params.status : undefined);
   const query = () => (typeof params.q === "string" ? params.q : "");

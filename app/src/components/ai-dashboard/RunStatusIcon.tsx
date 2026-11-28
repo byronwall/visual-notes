@@ -1,7 +1,7 @@
 import { AlertTriangleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-solid";
 import { Match, Switch } from "solid-js";
 import { Box } from "styled-system/jsx";
-import type { RunStatus } from "./ai-dashboard-model";
+import type { RunStatus } from "~/services/ai/ai-runs.queries";
 
 const labels: Record<RunStatus, string> = {
   SUCCESS: "Succeeded",

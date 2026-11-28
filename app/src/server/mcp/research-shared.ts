@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   batchPayload,
   logResearchEvent,
+  type Topic,
 } from "~/services/research/research.activity";
 import { prisma } from "~/server/db";
 import type { IngestResult } from "~/services/research/research.ingest";
@@ -19,8 +20,6 @@ import {
 
 // What the research tool files share: argument shapes, topic lookup, and the
 // one path every card write takes into an undoable, logged batch.
-
-export type Topic = { id: string; slug: string; title: string };
 
 export const topicArg = z
   .string()

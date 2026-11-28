@@ -3,11 +3,11 @@ import { Heading } from "~/components/ui/heading";
 import { Link } from "~/components/ui/link";
 import { Text } from "~/components/ui/text";
 import { formatRelativeTimestamp } from "~/features/umap/format";
-import type { UmapRunMeta } from "~/features/umap/detail-types";
+import type { UmapRunDetail } from "~/services/umap/umap.queries";
 import { Box, Grid, Stack } from "styled-system/jsx";
 
 type UmapRunMetadataCardProps = {
-  meta: UmapRunMeta;
+  meta: UmapRunDetail;
 };
 
 export function UmapRunMetadataCard(props: UmapRunMetadataCardProps) {

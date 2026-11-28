@@ -6,13 +6,14 @@ import { IconButton } from "~/components/ui/icon-button";
 import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
 import { formatRelativeTimestamp } from "~/features/umap/format";
-import type { DashboardPrompt, PromptRunStats } from "./ai-dashboard-model";
+import type { Prompt } from "~/services/prompts/prompts.queries";
+import type { PromptRunStats } from "./ai-dashboard-model";
 
 type PromptsTableProps = {
-  prompts: DashboardPrompt[];
+  prompts: Prompt[];
   stats: Map<string, PromptRunStats>;
-  onEdit: (prompt: DashboardPrompt) => void;
-  onDelete: (prompt: DashboardPrompt) => void;
+  onEdit: (prompt: Prompt) => void;
+  onDelete: (prompt: Prompt) => void;
 };
 
 const stop = (event: MouseEvent) => event.stopPropagation();

@@ -30,6 +30,7 @@ import {
   fetchChatThreads,
   type ChatThreadDetail,
   type ChatThreadPreview,
+  type ChatThreadStatus,
 } from "~/services/ai/ai-chat.queries";
 import {
   createChatThread,
@@ -39,12 +40,6 @@ import {
   updateChatThread,
 } from "~/services/ai/ai-chat.actions";
 import { createKeptAsync, onDemand } from "~/utils/kept-async";
-
-type ChatThreadStatus = "ACTIVE" | "LOADING" | "DONE";
-
-type ThreadPreview = ChatThreadPreview;
-
-type ThreadDetail = ChatThreadDetail;
 
 const TRANSIENT_SERVER_FUNCTION_ERROR_FRAGMENT =
   "Malformed server function stream";
@@ -93,18 +88,18 @@ export function useLLMSidebar() {
     setInitialized(true);
   };
   const threads = createKeptAsync(() => {
-    if (!initialized()) return Promise.resolve<ThreadPreview[]>([]);
+    if (!initialized()) return Promise.resolve<ChatThreadPreview[]>([]);
     return recoverServerFunctionCall(
       () => fetchChatThreads(),
       "fetchChatThreads"
     );
   }, onDemand);
   const thread = createKeptAsync(() => {
-    if (!initialized()) return Promise.resolve<ThreadDetail | null>(null);
+    if (!initialized()) return Promise.resolve<ChatThreadDetail | null>(null);
     const id = selectedId();
-    if (!id) return Promise.resolve<ThreadDetail | null>(null);
+    if (!id) return Promise.resolve<ChatThreadDetail | null>(null);
     return recoverServerFunctionCall(
-      () => fetchChatThread(id) as Promise<ThreadDetail | null>,
+      () => fetchChatThread(id),
       "fetchChatThread"
     );
   }, onDemand);
@@ -358,10 +353,10 @@ export function useLLMSidebar() {
 function LLMSidebarView(props: {
   open: Accessor<boolean>;
   onClose: () => void;
-  threads: Accessor<ThreadPreview[]>;
+  threads: Accessor<ChatThreadPreview[]>;
   selectedId: Accessor<string | undefined>;
   onSelect: (id: string) => void;
-  thread: Accessor<ThreadDetail | undefined>;
+  thread: Accessor<ChatThreadDetail | undefined>;
   onRefresh: () => void;
   onCreateThread: (noteId: string, title?: string) => Promise<void>;
   onSend: (text: string) => Promise<void>;

@@ -2,7 +2,6 @@ import { createAsync, useParams } from "@solidjs/router";
 import { type VoidComponent, For, Show, Suspense } from "solid-js";
 import { Box, Grid, HStack, Stack, styled } from "styled-system/jsx";
 import { RunStatusIcon } from "~/components/ai-dashboard/RunStatusIcon";
-import type { RunStatus } from "~/components/ai-dashboard/ai-dashboard-model";
 import { KeyValueList, PlainCodeBlock } from "~/components/secondary/DataBlocks";
 import { EmptyState } from "~/components/secondary/EmptyState";
 import { SecondaryBreadcrumb } from "~/components/secondary/SecondaryBreadcrumb";
@@ -10,31 +9,7 @@ import { SecondarySection } from "~/components/secondary/SecondarySection";
 import { Heading } from "~/components/ui/heading";
 import { Text } from "~/components/ui/text";
 import { formatRelativeTimestamp } from "~/features/umap/format";
-import { fetchPromptRun } from "~/services/ai/ai-runs.queries";
-
-type PromptRunFull = {
-  id: string;
-  status: RunStatus;
-  model: string;
-  createdAt: string;
-  error?: string | null;
-  compiledPrompt: string;
-  systemUsed?: string | null;
-  outputHtml?: string | null;
-  rawResponse?: unknown | null;
-  inputVars?: Record<string, unknown> | null;
-  promptVersion?: {
-    id: string;
-    promptId: string;
-    Prompt?: { id: string; task: string; defaultModel: string } | null;
-  } | null;
-  HumanFeedback?: Array<{
-    id: string;
-    rating?: number | null;
-    comment?: string | null;
-    createdAt: string;
-  }>;
-};
+import { fetchPromptRun, type RunStatus } from "~/services/ai/ai-runs.queries";
 
 const statusWord: Record<RunStatus, string> = {
   SUCCESS: "Succeeded",
@@ -45,8 +20,8 @@ const statusWord: Record<RunStatus, string> = {
 const RunDetailPage: VoidComponent = () => {
   const params = useParams();
   const run = createAsync(() => {
-    if (!params.id) return Promise.resolve<PromptRunFull | null>(null);
-    return fetchPromptRun(params.id) as Promise<PromptRunFull | null>;
+    if (!params.id) return Promise.resolve(null);
+    return fetchPromptRun(params.id);
   });
 
   return (
