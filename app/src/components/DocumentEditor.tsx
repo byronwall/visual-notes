@@ -36,13 +36,6 @@ import { Input } from "~/components/ui/input";
 import { Text } from "~/components/ui/text";
 import { Box, HStack, Stack } from "styled-system/jsx";
 
-type DocData = {
-  id: string;
-  title: string;
-  content: NoteDoc;
-  contentVersion: number;
-  updatedAt?: string;
-};
 
 export type DocumentEditorApi = {
   save: () => Promise<void>;
@@ -68,8 +61,6 @@ const RETRY_MAX_MS = 30_000;
 // The note just created here. Its page puts the caret at the end, so the next
 // keystroke lands in the note.
 let caretAtEndOfNote: string | undefined;
-
-const fetchDocData = (id: string) => fetchDoc(id) as Promise<DocData>;
 
 // Reads the first H1 straight from the editor state so entities and marks
 // never leak into the title the way regex-on-HTML would.
@@ -133,7 +124,10 @@ const DocumentEditor: VoidComponent<{
     isMounted = false;
   });
 
-  const [doc, { mutate }] = createResource(() => props.docId, fetchDocData);
+  const [doc, { mutate }] = createResource(
+    () => props.docId,
+    (id) => fetchDoc(id),
+  );
   const [newPath, setNewPath] = createSignal<string>("");
   const [newMeta, setNewMeta] = createSignal<MetaRecord>({});
   const [newTitle, setNewTitle] = createSignal(
@@ -244,7 +238,7 @@ const DocumentEditor: VoidComponent<{
       if (knownVersion === null || knownVersion <= base.version) return;
     }
     try {
-      const fresh = (await fetchDocLatest(d.id)) as DocData;
+      const fresh = await fetchDocLatest(d.id);
       if (fresh.id !== d.id || fresh.contentVersion <= (base?.version ?? 0))
         return;
       if (dirty() || saving() || editor() !== ed || ed.isDestroyed) return;

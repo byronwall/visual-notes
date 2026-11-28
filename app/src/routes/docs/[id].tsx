@@ -20,32 +20,10 @@ import { Box, Container, Stack } from "styled-system/jsx";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useMobileBarTitleOnScroll } from "~/components/sidebar/useMobileBarTitleOnScroll";
 
-import type { NoteDoc } from "~/lib/note-content/types";
-import type { DocArchiveInfo } from "~/services/docs.queries";
+import type { DocDetail } from "~/services/docs.queries";
 import { ArchivedNoteBanner } from "~/components/note-archive/ArchivedNoteBanner";
 import { NoteTombstoneNotice } from "~/components/note-archive/NoteTombstoneNotice";
 
-type DocDetail = {
-  id: string;
-  title: string;
-  content: NoteDoc;
-  path?: string | null;
-  meta?: Record<string, unknown> | null;
-  originalSource?: string | null;
-  originalContentId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  share?: {
-    id: string;
-    slug: string;
-    shareUrl: string;
-    createdAt: string;
-    updatedAt: string;
-  } | null;
-  archive?: DocArchiveInfo | null;
-};
-
-const fetchDocDetail = (id: string) => fetchDoc(id) as Promise<DocDetail>;
 
 const isNotFoundError = (error: unknown) => {
   if (!error) return false;
@@ -73,12 +51,12 @@ const DocView: VoidComponent = () => {
   const navigate = useNavigate();
   const [doc, { mutate }] = createResource(
     () => params.id,
-    (id) => fetchDocDetail(id!),
+    (id) => fetchDoc(id!),
   );
   useLiveNoteResource({
     docId: () => params.id,
     current: () => doc.latest,
-    load: (id) => fetchDocLatest(id) as Promise<DocDetail>,
+    load: fetchDocLatest,
     mutate: (next) => mutate(next),
   });
 
