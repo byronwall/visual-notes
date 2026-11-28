@@ -125,7 +125,7 @@ const UmapDetail: VoidComponent = () => {
                     alignItems="start"
                   >
                     <UmapRunCanvasCard
-                      dims={meta.dims}
+                      dims={result().meta.dims}
                       pointsCount={result().points.length}
                       busy={busy()}
                       onRefresh={refreshPoints}
